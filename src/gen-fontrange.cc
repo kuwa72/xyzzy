@@ -76,7 +76,7 @@ gen_fontrange (int argc, char **argv)
     print (hdc, g, "courier_new_range");
   DeleteObject (SelectObject (hdc, of));
 
-  strcpy (lf.lfFaceName, "‚l‚r ƒSƒVƒbƒN");
+  strcpy (lf.lfFaceName, "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯");
   of = SelectObject (hdc, CreateFontIndirect (&lf));
   r = GetFontUnicodeRanges (hdc, g);
   if (r)

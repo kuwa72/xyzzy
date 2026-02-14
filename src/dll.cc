@@ -424,7 +424,8 @@ funcall_dll (lisp fn, lisp arglist)
       throw;
     }
 #else
-# error "yet"
+  FEprogram_error (Edll_not_initialized, fn);
+  return Qnil;
 #endif
 }
 
@@ -630,6 +631,8 @@ init_c_callable (lisp cc)
       insn[0xc] = 0xcc;
     }
 }
+#else
+void init_c_callable (lisp cc) { /* c-callable requires x86; skip on non-x86 */ }
 #endif
 
 static lisp

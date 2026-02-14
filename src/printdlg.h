@@ -42,7 +42,7 @@ protected:
   int recommend_size ();
   void check_proportional_font () const;
   BOOL wndproc (UINT, WPARAM, LPARAM);
-  static BOOL CALLBACK wndproc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK wndproc (HWND, UINT, WPARAM, LPARAM);
   void init_history (UINT, const char *);
   int history_command (UINT, UINT, UINT, UINT);
   void move_btn_focus (UINT, UINT);

@@ -12,7 +12,7 @@ public:
   const char *remote;
 
 private:
-  static BOOL CALLBACK netpass_dlgproc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK netpass_dlgproc (HWND, UINT, WPARAM, LPARAM);
   BOOL dlgproc (UINT, WPARAM, LPARAM);
   void do_command (int, int);
   void init_dialog ();
@@ -70,19 +70,19 @@ NetPassDlg::dlgproc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 NetPassDlg::netpass_dlgproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   NetPassDlg *p;
   if (msg == WM_INITDIALOG)
     {
       p = (NetPassDlg *)lparam;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWL_USER, lparam);
       p->hwnd = hwnd;
     }
   else
     {
-      p = (NetPassDlg *)GetWindowLong (hwnd, DWL_USER);
+      p = (NetPassDlg *)GetWindowLongPtr (hwnd, DWL_USER);
       if (!p)
         return 0;
     }
@@ -189,7 +189,7 @@ askpass1 (const char *path, int noshare_ok)
   memcpy (remote, path, l);
   remote[l] = 0;
   map_sl_to_backsl (remote);
-  if (!_stricmp (WINFS::wfs_share_cache, remote))
+  if (!stricmp (WINFS::wfs_share_cache, remote))
     return 0;
   if (try_connect (remote, e))
     {

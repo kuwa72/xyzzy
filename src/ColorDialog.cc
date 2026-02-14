@@ -49,7 +49,7 @@ class SelectColor
   static int initialized;
 
   int find_match (const XCOLORREF &) const;
-  static BOOL CALLBACK select_color_dlgproc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK select_color_dlgproc (HWND, UINT, WPARAM, LPARAM);
   BOOL dlgproc (UINT, WPARAM, LPARAM);
   void do_command (int, int);
   void draw_button (int, DRAWITEMSTRUCT *);
@@ -302,7 +302,7 @@ SelectColor::dlgproc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 SelectColor::select_color_dlgproc (HWND hwnd, UINT msg,
                                    WPARAM wparam, LPARAM lparam)
 {
@@ -310,7 +310,7 @@ SelectColor::select_color_dlgproc (HWND hwnd, UINT msg,
   if (msg == WM_INITDIALOG)
     {
       p = (SelectColor *)lparam;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWL_USER, lparam);
       p->hwnd = hwnd;
     }
   else if (msg == WM_MEASUREITEM)
@@ -320,7 +320,7 @@ SelectColor::select_color_dlgproc (HWND hwnd, UINT msg,
     }
   else
     {
-      p = (SelectColor *)GetWindowLong (hwnd, DWL_USER);
+      p = (SelectColor *)GetWindowLongPtr (hwnd, DWL_USER);
       if (!p)
         return 0;
     }
@@ -353,7 +353,7 @@ ChangeColorsPageP::reset () const
   ccp_parent->ps_result = IDCANCEL;
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
                                     WPARAM wparam, LPARAM lparam)
 {
@@ -361,7 +361,7 @@ ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
   if (msg == WM_INITDIALOG)
     {
       p = (ChangeColorsPageP *)((PROPSHEETPAGE *)lparam)->lParam;
-      SetWindowLong (hwnd, DWL_USER, LPARAM (p));
+      SetWindowLongPtr (hwnd, DWL_USER, (LONG_PTR)p);
       p->ccp_hwnd = hwnd;
       if (!p->ccp_parent->ps_moved)
         {
@@ -377,7 +377,7 @@ ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
     }
   else
     {
-      p = (ChangeColorsPageP *)GetWindowLong (hwnd, DWL_USER);
+      p = (ChangeColorsPageP *)GetWindowLongPtr (hwnd, DWL_USER);
       if (!p)
         return 0;
     }
@@ -473,7 +473,7 @@ ChangeColorsPageP::do_notify (int, NMHDR *nm)
   switch (nm->code)
     {
     case PSN_KILLACTIVE:
-      SetWindowLong (ccp_hwnd, DWL_MSGRESULT, !get_result ());
+      SetWindowLongPtr (ccp_hwnd, DWL_MSGRESULT, !get_result ());
       return 1;
 
     case PSN_SETACTIVE:
@@ -498,13 +498,13 @@ ChangeColorsPageP::draw_item (int id, DRAWITEMSTRUCT *dis)
       else if (prop_fg_p (dis->itemData))
         {
           char b[32];
-          sprintf (b, "•¶Žš%d", dis->itemData - PROP_FG_OFFSET + 1);
+          sprintf (b, "Text %d", dis->itemData - PROP_FG_OFFSET + 1);
           paint_color_list (dis, b, ccp_curcc[dis->itemData]);
         }
       else if (prop_bg_p (dis->itemData))
         {
           char b[32];
-          sprintf (b, "”wŒi%d", dis->itemData - PROP_BG_OFFSET + 1);
+          sprintf (b, "Bg %d", dis->itemData - PROP_BG_OFFSET + 1);
           paint_color_list (dis, b, ccp_curcc[dis->itemData]);
         }
       else if (misc_p (dis->itemData))

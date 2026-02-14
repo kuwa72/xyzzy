@@ -222,7 +222,7 @@ class xwrite_stream;
 class xwrite_buffer;
 class save_excursion;
 class save_restriction;
-enum syntax_code;
+enum syntax_code : int;
 
 class FileTime: public _FILETIME
 {
@@ -299,7 +299,7 @@ struct insertChars
   int length;
 };
 
-enum eol_code
+enum eol_code : int
 {
   eol_lf,
   eol_crlf,
@@ -477,7 +477,7 @@ struct Buffer
   int b_hjump_columns;
 
   static int b_default_fold_mode;
-  int b_fold_columns;  // Ü‚è•Ô‚µƒJƒ‰ƒ€(-1: ‚µ‚È‚¢)
+  int b_fold_columns;  // æŠ˜ã‚Šè¿”ã—ã‚«ãƒ©ãƒ (-1: ã—ãªã„)
   enum {FOLD_DEFAULT = -2, FOLD_NONE = -1, FOLD_WINDOW = 0};
   int b_fold_mode;
 

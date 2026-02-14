@@ -814,7 +814,7 @@ gc_mark_object ()
   gc_mark (cl_vars);
   gc_mark (sys_vars);
   gc_mark (kwd_vars);
-  lisp olist = xsymbol_value (Vdll_module_list); // moduleÇÕÇ†Ç∆Ç≈Ç‚ÇÈ
+  lisp olist = xsymbol_value (Vdll_module_list); // module„ÅØ„ÅÇ„Å®„Åß„ÇÑ„Çã
   xsymbol_value (Vdll_module_list) = Qnil;
   gc_mark (unint_vars);
   xsymbol_value (Vdll_module_list) = olist;
@@ -970,9 +970,9 @@ char *ldataP::ld_upper_bound;
 char *ldataP::ld_lower_bound;
 
 #define DECLARE_LDATA(a, b) \
-  ldataP ldata <a, b>::l_ld; \
-  int ldata <a, b>::l_nuses; \
-  int ldata <a, b>::l_nfrees;
+  template<> ldataP ldata <a, b>::l_ld{}; \
+  template<> int ldata <a, b>::l_nuses{}; \
+  template<> int ldata <a, b>::l_nfrees{};
 #include "dataP.h"
 
 static void

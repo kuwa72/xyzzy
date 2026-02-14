@@ -52,13 +52,13 @@ get_ctl_style (HWND hwnd)
 inline DWORD
 get_window_style (HWND hwnd)
 {
-  return GetWindowLong (hwnd, GWL_STYLE);
+  return (DWORD)GetWindowLongPtr (hwnd, GWL_STYLE);
 }
 
 inline BOOL
 set_window_style (HWND hwnd, DWORD style)
 {
-  return SetWindowLong (hwnd, GWL_STYLE, style);
+  return (BOOL)SetWindowLongPtr (hwnd, GWL_STYLE, style);
 }
 
 typedef LONG (WINAPI *OWNERDRAWPROC)(UINT, DRAWITEMSTRUCT *);
@@ -72,7 +72,7 @@ get_owner_draw_proc (HWND hwnd)
 inline BOOL
 set_owner_draw_proc (HWND hwnd, OWNERDRAWPROC proc)
 {
-  return SetProp (hwnd, ATOM2STR (hownerdraw), proc);
+  return SetProp (hwnd, ATOM2STR (hownerdraw), (HANDLE)proc);
 }
 
 item_data *alloc_item_data (HWND, DWORD);

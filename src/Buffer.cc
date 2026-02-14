@@ -22,8 +22,8 @@ int Buffer::b_default_kinsoku_extend_limit = 3;
 int Buffer::b_default_kinsoku_shorten_limit = 10;
 u_char Buffer::b_buffer_bar_modified_any;
 
-fixed_heap ChunkHeap::a_heap (8192);
-fixed_heap textprop_heap::a_heap (4096);
+template<> fixed_heap ChunkHeap::a_heap (8192);
+template<> fixed_heap textprop_heap::a_heap (4096);
 const u_char Chunk::c_breaks_mask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 class enum_buffer
@@ -1315,7 +1315,7 @@ Buffer::refresh_title_bar () const
       char *b0 = (char *)alloca (l);
       char *b = b0;
       if (Fadmin_user_p () == Qt && sysdep.Win6p ())
-        b = stpcpy (b, "ŠÇ—Ò: ");
+        b = stpcpy (b, "Admin: ");
       if (xsymbol_value (Vtitle_bar_text_order) != Qnil)
         strcpy (stpcpy (store_title (x, b, b + l), " - "), TitleBarString);
       else
@@ -1323,7 +1323,7 @@ Buffer::refresh_title_bar () const
 
       SetWindowText (app.toplev, b0);
     }
-  b_last_title_bar_buffer = 0; // Ÿ‰ñƒ^ƒCƒgƒ‹ƒo[‚ğ‹­§“I‚ÉÄ•`‰æ‚³‚¹‚é
+  b_last_title_bar_buffer = 0; // æ¬¡å›ã‚¿ã‚¤ãƒˆãƒ«ãƒãƒ¼ã‚’å¼·åˆ¶çš„ã«å†æç”»ã•ã›ã‚‹
 }
 
 void

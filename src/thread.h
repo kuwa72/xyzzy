@@ -14,7 +14,7 @@ protected:
   worker_thread ();
   virtual ~worker_thread ();
 private:
-  static u_int __stdcall thread_entry (void *);
+  static u_int WINAPI thread_entry (void *);
 public:
   int start ();
   int wait ();

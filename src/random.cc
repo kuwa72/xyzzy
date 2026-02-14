@@ -4,7 +4,7 @@
 void
 Random::alloc_random_state ()
 {
-  dsfmt = reinterpret_cast <dsfmt_t *> (xmalloc (sizeof dsfmt_t));
+  dsfmt = reinterpret_cast <dsfmt_t *> (xmalloc (sizeof (dsfmt_t)));
 }
 
 void
@@ -17,7 +17,7 @@ Random::free_random_state ()
 void
 Random::init_random_state (const Random& random)
 {
-  memcpy (dsfmt, random.dsfmt, sizeof dsfmt_t);
+  memcpy (dsfmt, random.dsfmt, sizeof (dsfmt_t));
 }
 
 int &

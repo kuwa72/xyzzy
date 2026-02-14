@@ -38,7 +38,7 @@ EnvStrings::set (char **nb, char **&ne, char *b) const
   for (; nb < ne; nb++)
     if (!memicmp (b, *nb, l))
       {
-        *nb = b[l] ? b : "";
+        *nb = b[l] ? b : (char *)"";
         return;
       }
   if (b[l])
@@ -87,14 +87,14 @@ EnvStrings::setup (lisp lenv)
         }
     }
 
-  for (char **e = environ; *e; e++, n++)
+  for (char **e = _environ; *e; e++, n++)
     ;
 
   l = (l + sizeof (char **) - 1) / sizeof (char **) * sizeof (char **);
   e_buf = (char *)xmalloc (l + sizeof (char **) * n);
   char **nb = (char **)(e_buf + l);
   char **ne = nb;
-  for (char **e = environ; *e; e++, ne++)
+  for (char **e = _environ; *e; e++, ne++)
     *ne = *e;
 
   char *b = e_buf;
@@ -319,7 +319,7 @@ protected:
   Process (Buffer *bp, lisp pl, lisp marker);
   virtual u_int read_process () = 0;
 
-  static u_int __stdcall read_process (void *p)
+  static u_int WINAPI read_process (void *p)
     {return ((Process *)p)->read_process ();}
 
   void read_process_output ();
@@ -558,7 +558,7 @@ Process::store_output (const Char *w, int l)
       r.data = w;
       r.size = l;
       r.done = 0;
-      DWORD result;
+      DWORD_PTR result;
 
       do
         if (SendMessageTimeout (app.toplev, WM_PRIVATE_PROCESS_OUTPUT,
@@ -717,7 +717,7 @@ protected:
   virtual u_int read_process ();
 
   u_int wait_process ();
-  static u_int __stdcall wait_process (void *p)
+  static u_int WINAPI wait_process (void *p)
     {return ((NormalProcess *)p)->wait_process ();}
   void signal_nt ()
     {
@@ -875,11 +875,11 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   sa.bInheritHandle = 1;
 
   dyn_handle opipe_r, opipe_w;
-  if (!pipe (opipe_r, opipe_w, &sa))
+  if (!pipe (opipe_r, opipe_w, &sa, 0))
     file_error (GetLastError ());
 
   dyn_handle ipipe_r, ipipe_w;
-  if (!pipe (ipipe_r, ipipe_w, &sa))
+  if (!pipe (ipipe_r, ipipe_w, &sa, 0))
     file_error (GetLastError ());
 
   dyn_handle d (ipipe_w);

@@ -5,11 +5,11 @@
 
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_CALL_PROCESS, "コマンドが見つかりません"
-  IDS_NO_MEMORY, "メモリがありません"
-  IDS_CREATE_THREAD, "スレッドが作成できません"
-  IDS_CONNECT_FAILED, "xyzzyに接続できません"
-  IDS_READ_FAILED, "xyzzyとの通信でエラーが発生しました"
+  IDS_CALL_PROCESS, "繧ｳ繝槭Φ繝峨′隕九▽縺九ｊ縺ｾ縺帙ｓ"
+  IDS_NO_MEMORY, "繝｡繝｢繝ｪ縺後≠繧翫∪縺帙ｓ"
+  IDS_CREATE_THREAD, "繧ｹ繝ｬ繝�繝峨′菴懈�舌〒縺阪∪縺帙ｓ"
+  IDS_CONNECT_FAILED, "xyzzy縺ｫ謗･邯壹〒縺阪∪縺帙ｓ"
+  IDS_READ_FAILED, "xyzzy縺ｨ縺ｮ騾壻ｿ｡縺ｧ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆"
 END
 
 1 VERSIONINFO

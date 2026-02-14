@@ -28,9 +28,7 @@ struct filer_data
   char name[MAX_PATH];
 
   void *operator new (size_t, FilerView *);
-#if _MSC_VER >= 1100
   void operator delete (void *, FilerView *) {}
-#endif
 
   filer_data (const WIN32_FIND_DATA &);
   filer_data (const FILETIME &);
@@ -218,7 +216,7 @@ public:
   int modify_column_width (int, int) const;
 
 private:
-  static unsigned __stdcall thread_entry (void *);
+  static unsigned WINAPI thread_entry (void *);
   void thread_main ();
   void interrupt_thread ();
   void restart_thread ();

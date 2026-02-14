@@ -12,16 +12,16 @@ class FKWin
 {
 protected:
   HWND fk_hwnd;    //
-  SIZE fk_sz;      // ƒNƒ‰ƒCƒAƒ“ƒg—Ìˆæ‚ÌƒTƒCƒY
-  SIZE fk_btn;     // ƒ{ƒ^ƒ“ƒTƒCƒY
-  int fk_nbuttons; // ƒ{ƒ^ƒ“‚Ì”
-  int fk_height;   // FKWin‚Ì‚‚³
-  int fk_offset[MAX_Fn]; // Šeƒ{ƒ^ƒ“‚ÌŠJnˆÊ’u
+  SIZE fk_sz;      // ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆé ˜åŸŸã®ã‚µã‚¤ã‚º
+  SIZE fk_btn;     // ãƒœã‚¿ãƒ³ã‚µã‚¤ã‚º
+  int fk_nbuttons; // ãƒœã‚¿ãƒ³ã®æ•°
+  int fk_height;   // FKWinã®é«˜ã•
+  int fk_offset[MAX_Fn]; // å„ãƒœã‚¿ãƒ³ã®é–‹å§‹ä½ç½®
 
-  RECT fk_cur_rect; // ˆ—‘ÎÛ(fk_cur_btn)‚Ì‹éŒ`
-  int fk_cur_btn;   // ˆ—‘ÎÛƒ{ƒ^ƒ“(‚È‚¯‚ê‚Î-1)
-  int fk_cur_on;    // ’¾‚ñ‚Å‚¢‚éƒ{ƒ^ƒ“(•K‚¸fk_cur_btn‚Æ“¯‚¶‚©-1)
-  int fk_vkey;      // ƒVƒtƒgƒL[‚Ìó‘Ô
+  RECT fk_cur_rect; // å‡¦ç†å¯¾è±¡(fk_cur_btn)ã®çŸ©å½¢
+  int fk_cur_btn;   // å‡¦ç†å¯¾è±¡ãƒœã‚¿ãƒ³(ãªã‘ã‚Œã°-1)
+  int fk_cur_on;    // æ²ˆã‚“ã§ã„ã‚‹ãƒœã‚¿ãƒ³(å¿…ãšfk_cur_btnã¨åŒã˜ã‹-1)
+  int fk_vkey;      // ã‚·ãƒ•ãƒˆã‚­ãƒ¼ã®çŠ¶æ…‹
   enum
     {
       FVK_SHIFT = 1,

@@ -22,7 +22,7 @@
 # define M_PI 3.141592653589793
 #endif
 
-const char Application::ToplevelClassName[] = "Å@";
+const char Application::ToplevelClassName[] = "xyzzy_toplevel";
 const char Application::FrameClassName[] = "  ";
 const char Application::ClientClassName[] = "   ";
 const char Application::ModelineClassName[] = "    ";
@@ -558,7 +558,7 @@ init_command_line (int ac)
 void
 report_out_of_memory ()
 {
-  MessageBox (0, "ÉÅÉÇÉäÇ™ïsë´ÇµÇƒÇ¢Ç‹Ç∑", TitleBarString, MB_OK | MB_ICONHAND);
+  MessageBox (0, "Out of memory", TitleBarString, MB_OK | MB_ICONHAND);
 }
 
 static inline int
@@ -801,8 +801,12 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   Ctl3d::enable (hinst);
 
+#ifdef _MSC_VER
   _set_new_handler (handle_new_failure);
   _set_se_translator (se_handler);
+#else
+  std::set_new_handler ([] { FEstorage_error (); });
+#endif
 
   if (!pre_allocate_stack ())
     {
@@ -981,7 +985,9 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
 
       if (!terminate_normally)
         {
+#ifdef _MSC_VER
           _set_se_translator (0);
+#endif
           cleanup_exception ();
         }
 

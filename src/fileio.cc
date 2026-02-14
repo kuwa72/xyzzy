@@ -1039,8 +1039,8 @@ Buffer::write_region (const char *filename, point_t p1, point_t p2,
   return r;
 }
 
-/* •…‚ê95‚ÅAMoveFile ("foo.txt", "foo.txt~") ‚µ‚½‚Æ‚«‚ÉA
-   AlternateFileName ‚ª ``FOO.TXT'' ‚É‚È‚é‚Ì‚É‘Î‰ */
+/* è…ã‚Œ95ã§ã€MoveFile ("foo.txt", "foo.txt~") ã—ãŸã¨ãã«ã€
+   AlternateFileName ãŒ ``FOO.TXT'' ã«ãªã‚‹ã®ã«å¯¾å¿œ */
 
 static int
 make_backup_file (const char *filename, char *backup, int &result)

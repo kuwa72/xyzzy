@@ -1574,6 +1574,15 @@ listen_stream (lisp stream)
 #ifdef _MSC_VER
             if (xfile_stream_input (stream)->_cnt > 0)
               return 1;
+#elif defined(__MINGW32__)
+            /* MinGW: use feof/ferror check and non-blocking wait */
+            if (!feof (xfile_stream_input (stream))
+                && ferror (xfile_stream_input (stream)) == 0)
+              {
+                /* fall through to WaitForSingleObject check below */
+              }
+            else if (feof (xfile_stream_input (stream)))
+              return 0;
 #else
 # error "Not Supported"
 #endif

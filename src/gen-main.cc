@@ -1,12 +1,12 @@
 #include "gen-stdafx.h"
 
+typedef void (*GENACTION) (int argc, char **argv);
+
 typedef struct
 {
   const char *command;
-  void *action;
+  GENACTION action;
 } gensrc_action;
-
-typedef int (__cdecl *GENACTION) (int argc, char **argv);
 
 #if defined(GEN_SRC1)
 #include "gen-action1.h"
@@ -27,7 +27,10 @@ main (int argc, char **argv)
   for (int i = 0; i < numberof (actions); i++)
     {
       if (!strcmp (cmd, actions[i].command))
-        return ((GENACTION)(actions[i].action))(argc - 1, &argv[1]);
+        {
+          actions[i].action (argc - 1, &argv[1]);
+          return 0;
+        }
     }
 
   fprintf (stderr, "unknown command: %s\n", cmd);

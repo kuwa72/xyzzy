@@ -481,7 +481,9 @@ Fnconc (lisp lists)
   return Qnil;
 }
 
+#ifdef _MSC_VER
 #pragma optimize ("aw", off)
+#endif
 lisp
 Fnreconc (lisp x, lisp y)
 {
@@ -495,7 +497,9 @@ Fnreconc (lisp x, lisp y)
     }
   return y;
 }
+#ifdef _MSC_VER
 #pragma optimize ("", on)
+#endif
 
 // 15.3
 

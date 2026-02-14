@@ -7,7 +7,7 @@ static const lisp *const encoding_type_key[] =
   &Ksjis,
   &Kbig5,
   &Kiso2022,
-  &Kiso2022, // iso2022_noesc ‚Ìê‡‚Í :iso2022 ‚ğ•Ô‚·
+  &Kiso2022, // iso2022_noesc ã®å ´åˆã¯ :iso2022 ã‚’è¿”ã™
   &Kiso8859,
   &Kwindows_codepage,
   &Kutf7,
@@ -503,11 +503,11 @@ init_char_encoding ()
   lisp ce;
 
   ce = make_char_encoding (encoding_auto_detect,
-                           make_string ("auto"), make_string ("©“®”»’è"));
+                           make_string ("auto"), make_string ("Auto Detect"));
   xsymbol_value (Qencoding_auto) = ce;
   xsymbol_value (Vencoding_auto) = ce;
 
-  ce = Fmake_sjis_encoding (make_string ("sjis"), make_string ("“ú–{Œê(Shift_JIS)"));
+  ce = Fmake_sjis_encoding (make_string ("sjis"), make_string ("Japanese (Shift_JIS)"));
   xsymbol_value (Qencoding_sjis) = ce;
   xsymbol_value (Vencoding_sjis) = ce;
 

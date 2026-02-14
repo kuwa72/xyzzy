@@ -1,6 +1,8 @@
 #include "gen-stdafx.h"
 #include <time.h>
-#include <mbctype.h>
+#ifdef _MSC_VER
+# include <mbctype.h>
+#endif
 #define NOT_COMPILE_TIME
 #include "symbol.h"
 #include "function.h"
@@ -2285,7 +2287,7 @@ static symbols ed[] =
   DEFCMD3 (save-buffer, 0, 2, 0, ""),
   DEFUN3 (delete-auto-save-file, 1, 0, 0),
   DEFUN3 (do-auto-save, 0, 1, 0),
-  DEFCMD3 (write-region, 3, 3, 0, "r\nFƒtƒ@ƒCƒ‹–¼: \np"),
+  DEFCMD3 (write-region, 3, 3, 0, "r\nFï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½: \np"),
   MAKE_SYMBOL2 (to-ascii-fileio),
   MAKE_SYMBOL2 (to-kanji-fileio),
   MAKE_SYMBOL2 (to-kana-fileio),
@@ -2805,7 +2807,7 @@ print_defuns (symbols *p, int n, const char *pkg)
           }
         printf ("  {");
         print_name (p);
-        printf ("(lisp (__stdcall *)())(lisp (__stdcall *)(");
+        printf ("(lisp (LISP_CALL *)())(lisp (LISP_CALL *)(");
         print_arg (p->req, p->opt, p->flags, false);
         printf ("))");
         print_cname (p->fn);
@@ -2992,7 +2994,7 @@ putq (const char *p)
           if (*p == '\\' || *p == '"')
             putchar ('\\');
           putchar (*p);
-          if (_ismbblead (*p++ & 0xff))
+          if (IsDBCSLeadByte (*p++ & 0xff))
             putchar (*p++);
         }
     }

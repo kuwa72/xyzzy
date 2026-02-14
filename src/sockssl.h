@@ -25,11 +25,11 @@ private:
   SecBuffer sb_buf[n];
   bool sb_release;
 
-  void set (int n, ULONG type, void *buf, int len)
+  void set (int idx, ULONG type, void *buf, int len)
     {
-      sb_buf[n].BufferType = type;
-      sb_buf[n].pvBuffer = buf;
-      sb_buf[n].cbBuffer = len;
+      sb_buf[idx].BufferType = type;
+      sb_buf[idx].pvBuffer = buf;
+      sb_buf[idx].cbBuffer = len;
     }
 
 public:
@@ -53,23 +53,23 @@ public:
   SecBuffer &operator [] (unsigned int i) {return sb_buf[i];}
   SecBufferDesc *desc () {return &sb_desc;}
 
-  void free (int n)
+  void free (int idx)
     {
-      if (sb_buf[n].pvBuffer == nullptr) return;
-      FreeContextBuffer (sb_buf[n].pvBuffer);
-      sb_buf[n].pvBuffer = nullptr;
+      if (sb_buf[idx].pvBuffer == nullptr) return;
+      FreeContextBuffer (sb_buf[idx].pvBuffer);
+      sb_buf[idx].pvBuffer = nullptr;
     }
 
-  void set_token (int n, void *buf, int len)
-    { set (n, SECBUFFER_TOKEN, buf, len); }
-  void set_data (int n, void *buf, int len)
-    { set (n, SECBUFFER_DATA, buf, len); }
-  void set_stream_header (int n, void *buf, int len)
-    { set (n, SECBUFFER_STREAM_HEADER, buf, len); }
-  void set_stream_trailer (int n, void *buf, int len)
-    { set (n, SECBUFFER_STREAM_TRAILER, buf, len); }
-  void set_empty (int n)
-    { set (n, SECBUFFER_EMPTY, nullptr, 0); }
+  void set_token (int idx, void *buf, int len)
+    { set (idx, SECBUFFER_TOKEN, buf, len); }
+  void set_data (int idx, void *buf, int len)
+    { set (idx, SECBUFFER_DATA, buf, len); }
+  void set_stream_header (int idx, void *buf, int len)
+    { set (idx, SECBUFFER_STREAM_HEADER, buf, len); }
+  void set_stream_trailer (int idx, void *buf, int len)
+    { set (idx, SECBUFFER_STREAM_TRAILER, buf, len); }
+  void set_empty (int idx)
+    { set (idx, SECBUFFER_EMPTY, nullptr, 0); }
 };
 
 class sockssl: public sockinet
@@ -108,10 +108,10 @@ protected:
     {
     private:
       //  base     ptr
-      // «       «
-      // „¡„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„¢
-      // „¤„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„£
-      //          „¤„Ÿ  len  „Ÿ„£
+      // â†“       â†“
+      // â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+      // â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+      //          â””â”€  len  â”€â”˜
       char *sb_base;
       char *sb_ptr;
       int sb_len;

@@ -18,9 +18,9 @@ ole_object::QueryInterface (IUnknown *self, REFIID siid, REFIID reqiid, void **v
       self->AddRef ();
       return S_OK;
     }
-  /* ƒ}ƒjƒ…ƒAƒ‹ŠÔˆá‚Á‚Ä‚ñ‚¶‚á‚ñB’N‚¾A
+  /* ãƒãƒ‹ãƒ¥ã‚¢ãƒ«é–“é•ã£ã¦ã‚“ã˜ã‚ƒã‚“ã€‚èª°ã ã€
      S_OK if the interface is supported, S_FALSE if not.
-     ‚È‚ñ‚Ä‘‚¢‚½‚Ì‚Í? */
+     ãªã‚“ã¦æ›¸ã„ãŸã®ã¯? */
   return E_NOINTERFACE;
 }
 
@@ -301,8 +301,8 @@ drag_file_name (HWND hwnd, IShellFolder *sf,
     }
 #endif
   return (hr == DRAGDROP_S_DROP
-          && effect != DROPEFFECT_COPY     // ??? ‚È‚ñ‚ÅNT4‚¾‚ÆDROPEFFECT_MOVE‚ª
-          && effect != DROPEFFECT_LINK);   // •Ô‚Á‚Ä‚±‚È‚¢?
+          && effect != DROPEFFECT_COPY     // ??? ãªã‚“ã§NT4ã ã¨DROPEFFECT_MOVEãŒ
+          && effect != DROPEFFECT_LINK);   // è¿”ã£ã¦ã“ãªã„?
 }
 
 int

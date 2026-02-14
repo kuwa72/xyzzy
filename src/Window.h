@@ -200,7 +200,7 @@ struct Glyphs
   ~Glyphs ();
   Glyphs (const Glyphs &);
   Glyphs (glyph_rep *);
-  void operator = (Glyphs &);
+  void operator = (const Glyphs &);
 protected:
   void delete_rep ();
 };
@@ -245,7 +245,7 @@ Glyphs::~Glyphs ()
 }
 
 inline void
-Glyphs::operator = (Glyphs &src)
+Glyphs::operator = (const Glyphs &src)
 {
   delete_rep ();
   g_rep = src.g_rep;

@@ -53,7 +53,7 @@ docopy (char *d, const char *s)
   while (*s)
     {
       u_char c = u_char (*s++);
-      if (_ismbblead (c) && *s)
+      if (IsDBCSLeadByte (c) && *s)
         {
           *d++ = c;
           *d++ = *s++;
@@ -105,7 +105,7 @@ ArchiverP::sepmap (char *s, int f, int t)
   while (*s)
     {
       u_char c = u_char (*s);
-      if (_ismbblead (c) && s[1])
+      if (IsDBCSLeadByte (c) && s[1])
         s += 2;
       else if (c == f)
         *s++ = t;
@@ -248,7 +248,7 @@ ArchiverP::doit (HWND hwnd, const char *data) const
     SetFocus (hfocus);
 #endif /* NEED_EXTRACTINGINFO */
 
-  // tar32—p
+  // tar32ç”¨
   BYTE state[256];
   GetKeyboardState (state);
   for (int i = 0; i < 256; i++)
@@ -284,7 +284,7 @@ ArchiverP::extract_noresp (HWND hwnd, const char *cmd,
   if (!fp)
     return ARC_ERROR_FILE_OPEN;
   size_t size = _filelength (_fileno (fp));
-  safe_ptr <char> buf = new char [cmdl + size + 1];
+  safe_ptr <char> buf (new char [cmdl + size + 1]);
   memcpy (buf, cmd, cmdl);
   if (fread (buf + cmdl, 1, size, fp) != size)
     return ARC_ERROR_CANNOT_READ;
@@ -429,19 +429,19 @@ Tar::extract (HWND hwnd, const char *path,
         if (backsl)
           dest = backsl + 1;
         int l = strlen (dest);
-        if (l > 2 && (!_stricmp (dest + l - 2, ".Z")
-                      || !_stricmp (dest + l - 2, "_Z")))
+        if (l > 2 && (!stricmp (dest + l - 2, ".Z")
+                      || !stricmp (dest + l - 2, "_Z")))
           dest[l - 2] = 0;
-        else if (l > 3 && (!_stricmp (dest + l - 3, ".gz")
-                           || !_stricmp (dest + l - 3, "_gz")
-                           || !_stricmp (dest + l - 3, ".xz")
-                           || !_stricmp (dest + l - 3, "_xz")))
+        else if (l > 3 && (!stricmp (dest + l - 3, ".gz")
+                           || !stricmp (dest + l - 3, "_gz")
+                           || !stricmp (dest + l - 3, ".xz")
+                           || !stricmp (dest + l - 3, "_xz")))
           dest[l - 3] = 0;
-        else if (l > 4 && (!_stricmp (dest + l - 4, ".bz2")
-                           || !_stricmp (dest + l - 4, "_bz2")))
+        else if (l > 4 && (!stricmp (dest + l - 4, ".bz2")
+                           || !stricmp (dest + l - 4, "_bz2")))
           dest[l - 4] = 0;
-        else if (l > 5 && (!_stricmp (dest + l - 5, ".lzma")
-                           || !_stricmp (dest + l - 5, "_lzma")))
+        else if (l > 5 && (!stricmp (dest + l - 5, ".lzma")
+                           || !stricmp (dest + l - 5, "_lzma")))
           dest[l - 5] = 0;
         else
           strcat (dest, ".extracted");
@@ -562,7 +562,7 @@ zip_puts (FILE *fp, const char *name)
   for (const u_char *p = (const u_char *)name; *p;)
     {
       u_char c = *p++;
-      if (_ismbblead (c) && *p)
+      if (IsDBCSLeadByte (c) && *p)
         {
           putc (c, fp);
           putc (*p++, fp);

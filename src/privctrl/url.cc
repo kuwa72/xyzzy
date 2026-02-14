@@ -77,13 +77,13 @@ dopaint (HWND hwnd, HDC hdc)
 
   if (of)
     SelectObject (hdc, of);
-  SetWindowLong (hwnd, 0, range);
+  SetWindowLongPtr (hwnd, 0, range);
 }
 
 static void
 invalidate_link (HWND hwnd, RECT &r)
 {
-  LONG t = GetWindowLong (hwnd, 0);
+  LONG t = (LONG)GetWindowLongPtr (hwnd, 0);
   r.left = short (LOWORD (t));
   r.right = short (HIWORD (t));
   InvalidateRect (hwnd, &r, 0);
@@ -109,7 +109,7 @@ URLWndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         p.x = short (LOWORD (lparam));
         p.y = short (HIWORD (lparam));
         ScreenToClient (hwnd, &p);
-        LONG t = GetWindowLong (hwnd, 0);
+        LONG t = (LONG)GetWindowLongPtr (hwnd, 0);
         int left = short (LOWORD (t));
         int right = short (HIWORD (t));
         return p.x >= left && p.x < right ? HTCLIENT : HTTRANSPARENT;
@@ -150,7 +150,7 @@ URLWndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_LBUTTONUP:
       PostMessage (GetParent (hwnd), WM_COMMAND,
-                   MAKEWPARAM (GetWindowLong (hwnd, GWL_ID), URLN_CLICKED),
+                   MAKEWPARAM (GetWindowLongPtr (hwnd, GWL_ID), URLN_CLICKED),
                    LPARAM (hwnd));
       return 0;
 

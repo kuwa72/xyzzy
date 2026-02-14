@@ -7,9 +7,9 @@
 # define MIDL_INTERFACE(X) interface
 #endif
 #ifdef HAVE_DIMM_H
-/* Dimm.h �� SDK ���玝���Ă��邱�ƁBSDK �������Ă��Ȃ��ꍇ��
-   Makefile �� -DHAVE_DIMM_H ���R�����g�A�E�g����΃R���p�C��
-   �͂ł���B*/
+/* Dimm.h は SDK から持ってくること。SDK を持っていない場合は
+   Makefile の -DHAVE_DIMM_H をコメントアウトすればコンパイル
+   はできる。*/
 #include <Dimm.h>
 #endif
 
@@ -173,7 +173,7 @@ GlobalIME::ImmGetOpenStatus (HIMC himc)
 {
 #ifdef HAVE_DIMM_H
   if (gi_app)
-    return !BOOL (gi_app->GetOpenStatus (himc)); // �}�j���A���Ƌt�����{�P
+    return !BOOL (gi_app->GetOpenStatus (himc)); // マニュアルと逆じゃんボケ
 #endif /* HAVE_DIMM_H */
   return ::ImmGetOpenStatus (himc);
 }

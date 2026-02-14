@@ -17,10 +17,10 @@ text_drop_target tdropt;
 main_frame g_frame;
 mouse_wheel g_wheel;
 
-static u_int __stdcall
+static u_int WINAPI
 quit_thread_entry (void *p)
 {
-  DWORD parent = (DWORD)p;
+  DWORD parent = (DWORD)(uintptr_t)p;
 
 #define HK_BREAK 1
 #define HK_QUIT 2
@@ -618,8 +618,8 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_PAINT:
       {
-        DWORD ostyle = GetWindowLong (hwnd, GWL_STYLE);
-        SetWindowLong (hwnd, GWL_STYLE, ostyle | WS_CLIPCHILDREN);
+        DWORD ostyle = (DWORD)GetWindowLongPtr (hwnd, GWL_STYLE);
+        SetWindowLongPtr (hwnd, GWL_STYLE, ostyle | WS_CLIPCHILDREN);
 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint (hwnd, &ps);
@@ -635,7 +635,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         draw_hline (hdc, r.left, r.right, r.top - 1, sysdep.btn_shadow);
 
         EndPaint (hwnd, &ps);
-        SetWindowLong (hwnd, GWL_STYLE, ostyle);
+        SetWindowLongPtr (hwnd, GWL_STYLE, ostyle);
         return 0;
       }
 
@@ -697,9 +697,9 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
           {
             GetWindowRect (hwnd, &nr);
 #if 1
-            /* StatusWindow ‚Ì Font ‚ª•ÏX‚³‚ê‚½ê‡‚ÉAƒNƒ‰ƒCƒAƒ“ƒgƒGƒŠƒA‚ğ
-               ‚»‚ê‚È‚è‚ÌƒTƒCƒY‚É‚µ‚½‚¢‚¾‚¯‚È‚ñ‚¾‚¯‚ÇA‚à‚Á‚Æ‚Ü‚Æ‚à‚È•û–@‚ ‚é?
-               ‚Á‚ÄANT ‚Å‚µ‚©“®‚¢‚Ä‚È‚¢‚¶‚á‚ñB*/
+            /* StatusWindow ã® Font ãŒå¤‰æ›´ã•ã‚ŒãŸå ´åˆã«ã€ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã‚¨ãƒªã‚¢ã‚’
+               ãã‚Œãªã‚Šã®ã‚µã‚¤ã‚ºã«ã—ãŸã„ã ã‘ãªã‚“ã ã‘ã©ã€ã‚‚ã£ã¨ã¾ã¨ã‚‚ãªæ–¹æ³•ã‚ã‚‹?
+               ã£ã¦ã€NT ã§ã—ã‹å‹•ã„ã¦ãªã„ã˜ã‚ƒã‚“ã€‚*/
             WINDOWPOS wp;
             wp.hwnd = hwnd;
             wp.hwndInsertAfter = 0;
@@ -1147,13 +1147,13 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 static inline void
 set_window (HWND hwnd, Window *wp)
 {
-  SetWindowLong (hwnd, 0, LONG (wp));
+  SetWindowLongPtr (hwnd, 0, (LONG_PTR)wp);
 }
 
 static inline Window *
 get_window (HWND hwnd)
 {
-  return (Window *)GetWindowLong (hwnd, 0);
+  return (Window *)GetWindowLongPtr (hwnd, 0);
 }
 
 static int

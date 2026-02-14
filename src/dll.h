@@ -5,9 +5,9 @@
 class ldll_module: public lisp_object
 {
 public:
-  lisp name;        // DLL‚Ì–¼‘O
-  HMODULE handle;   // ƒ‚ƒWƒ…[ƒ‹ƒnƒ“ƒhƒ‹
-  int loaded;       // LoadLibrary‚µ‚½ê‡‚Í1, LoadModule‚Ìê‡‚Í0
+  lisp name;        // DLLã®åå‰
+  HMODULE handle;   // ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ãƒãƒ³ãƒ‰ãƒ«
+  int loaded;       // LoadLibraryã—ãŸå ´åˆã¯1, LoadModuleã®å ´åˆã¯0
 
   ~ldll_module () {if (handle && loaded) FreeLibrary (handle);}
 };
@@ -59,14 +59,14 @@ xdll_module_loaded (lisp x)
 class ldll_function: public lisp_object
 {
 public:
-  lisp module;        // DLLƒ‚ƒWƒ…[ƒ‹ƒIƒuƒWƒFƒNƒg
-  lisp name;          // DLL“à‚Ì–¼‘O
-  FARPROC proc;       // ŠÖ”‚Ìƒ|ƒCƒ“ƒ^
-  u_char *arg_types;  // ˆø”‚ÌŒ^
-  u_short arg_size;   // ˆø”‘S‘Ì‚ÌƒTƒCƒY
-  u_char nargs;       // ˆø”‚Ì”
-  u_char vaarg_p;     // ‰Â•Ï’·ˆø”‚ğæ‚é‚©‚Ç‚¤‚©
-  u_char return_type; // –ß‚è’l‚ÌŒ^
+  lisp module;        // DLLãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+  lisp name;          // DLLå†…ã®åå‰
+  FARPROC proc;       // é–¢æ•°ã®ãƒã‚¤ãƒ³ã‚¿
+  u_char *arg_types;  // å¼•æ•°ã®å‹
+  u_short arg_size;   // å¼•æ•°å…¨ä½“ã®ã‚µã‚¤ã‚º
+  u_char nargs;       // å¼•æ•°ã®æ•°
+  u_char vaarg_p;     // å¯å¤‰é•·å¼•æ•°ã‚’å–ã‚‹ã‹ã©ã†ã‹
+  u_char return_type; // æˆ»ã‚Šå€¤ã®å‹
 
   ~ldll_function () {xfree (arg_types);}
 };
@@ -140,13 +140,13 @@ xdll_function_arg_size (lisp x)
 class lc_callable: public lisp_object
 {
 public:
-  lisp function;      // ŠÖ”
-  u_char *arg_types;  // ˆø”‚ÌŒ^
-  u_short arg_size;   // ˆø”‘S‘Ì‚ÌƒTƒCƒY
-  u_char nargs;       // ˆø”‚Ì”
-  u_char return_type; // –ß‚è’l‚ÌŒ^
-  u_char convention;  // ŒÄ‚Ño‚µ‹K–ñ
-  u_char insn[INSN_SIZE]; // stubƒR[ƒh
+  lisp function;      // é–¢æ•°
+  u_char *arg_types;  // å¼•æ•°ã®å‹
+  u_short arg_size;   // å¼•æ•°å…¨ä½“ã®ã‚µã‚¤ã‚º
+  u_char nargs;       // å¼•æ•°ã®æ•°
+  u_char return_type; // æˆ»ã‚Šå€¤ã®å‹
+  u_char convention;  // å‘¼ã³å‡ºã—è¦ç´„
+  u_char insn[INSN_SIZE]; // stubã‚³ãƒ¼ãƒ‰
 
   ~lc_callable () {xfree (arg_types);}
 };

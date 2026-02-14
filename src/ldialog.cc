@@ -151,7 +151,7 @@ int
 Dialog::button_push (dlgctrl *c)
 {
   lisp kwd = c->keyword ();
-  lisp (__stdcall *fn)(lisp);
+  lisp (LISP_CALL *fn)(lisp);
   lisp args = safe_find_keyword (Kfile_name_dialog, kwd);
   if (args != Qnil)
     fn = Ffile_name_dialog;
@@ -1204,7 +1204,7 @@ Dialog::measure_item (HWND hwnd, MEASUREITEMSTRUCT *mis)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   switch (msg)
@@ -1213,7 +1213,7 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
       {
         Dialog *d = (Dialog *)lparam;
         d->d_hwnd = dlg;
-        SetWindowLong (dlg, DWL_USER, lparam);
+        SetWindowLongPtr (dlg, DWL_USER, lparam);
         set_window_icon (dlg);
         d->center_window ();
         d->init_items ();
@@ -1222,7 +1222,7 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_NOTIFY:
       {
-        Dialog *d = (Dialog *)GetWindowLong (dlg, DWL_USER);
+        Dialog *d = (Dialog *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->process_notify ((NMHDR *)lparam);
@@ -1238,7 +1238,7 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
         default:
           {
-            Dialog *d = (Dialog *)GetWindowLong (dlg, DWL_USER);
+            Dialog *d = (Dialog *)GetWindowLongPtr (dlg, DWL_USER);
             if (!d)
               return 0;
             d->process_command (LOWORD (wparam), HIWORD (wparam));
@@ -1249,7 +1249,7 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_DRAWITEM:
       {
-        Dialog *d = (Dialog *)GetWindowLong (dlg, DWL_USER);
+        Dialog *d = (Dialog *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->draw_item (wparam, (DRAWITEMSTRUCT *)lparam);
@@ -1258,7 +1258,7 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_PRIVATE_LISTBOX_CHAR:
       {
-        Dialog *d = (Dialog *)GetWindowLong (dlg, DWL_USER);
+        Dialog *d = (Dialog *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->listbox_char (wparam, lparam);
@@ -1310,14 +1310,14 @@ PropSheetFont::find_font (const DLGTEMPLATE *tmpl)
   if (!(tmpl->style & DS_SETFONT))
     return;
   const WORD *w = (const WORD *)(tmpl + 1);
-  w += *w == 0xffff ? 2 : 1 + wcslen (w);
-  w += *w == 0xffff ? 2 : 1 + wcslen (w);
-  w += 1 + wcslen (w);
+  w += *w == 0xffff ? 2 : 1 + wcslen ((const wchar_t *)w);
+  w += *w == 0xffff ? 2 : 1 + wcslen ((const wchar_t *)w);
+  w += 1 + wcslen ((const wchar_t *)w);
   point = short (*w++);
-  int l = wcslen (w);
+  int l = wcslen ((const wchar_t *)w);
   if (l < LF_FACESIZE)
     {
-      wcscpy (face, w);
+      wcscpy (face, (const wchar_t *)w);
       face_len = l;
     }
 }
@@ -1363,13 +1363,13 @@ PropSheetFont::change_font (const DLGTEMPLATE *rtmpl, DWORD size)
   WORD *w = (WORD *)(tmpl + 1);
   const WORD *r0 = (const WORD *)(rtmpl + 1);
   const WORD *r = r0;
-  r += *r == 0xffff ? 2 : 1 + wcslen (r);
-  r += *r == 0xffff ? 2 : 1 + wcslen (r);
-  r += 1 + wcslen (r);
+  r += *r == 0xffff ? 2 : 1 + wcslen ((const wchar_t *)r);
+  r += *r == 0xffff ? 2 : 1 + wcslen ((const wchar_t *)r);
+  r += 1 + wcslen ((const wchar_t *)r);
   memcpy (w, r0, sizeof (WORD) * (r - r0));
   w += r - r0;
   if (rtmpl->style & DS_SETFONT)
-    r += 2 + wcslen (r + 1);
+    r += 2 + wcslen ((const wchar_t *)(r + 1));
   *w++ = PropSheetFont::point;
   memcpy (w, PropSheetFont::face, sizeof (WCHAR) * (PropSheetFont::face_len + 1));
   w += PropSheetFont::face_len + 1;
@@ -1725,7 +1725,7 @@ Fdialog_box (lisp dialog, lisp init, lisp handlers)
   return d.d_retval;
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   switch (msg)
@@ -1740,14 +1740,14 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
             center_window (GetParent (dlg));
             set_window_icon (GetParent (dlg));
           }
-        SetWindowLong (dlg, DWL_USER, LPARAM (d));
+        SetWindowLongPtr (dlg, DWL_USER, (LONG_PTR)d);
         d->init_items ();
       }
       return 1;
 
     case WM_NOTIFY:
       {
-        PropPage *d = (PropPage *)GetWindowLong (dlg, DWL_USER);
+        PropPage *d = (PropPage *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         switch (((NMHDR *)lparam)->code)
@@ -1773,7 +1773,7 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_COMMAND:
       {
-        PropPage *d = (PropPage *)GetWindowLong (dlg, DWL_USER);
+        PropPage *d = (PropPage *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->process_command (LOWORD (wparam), HIWORD (wparam));
@@ -1782,7 +1782,7 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_DRAWITEM:
       {
-        PropPage *d = (PropPage *)GetWindowLong (dlg, DWL_USER);
+        PropPage *d = (PropPage *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->draw_item (wparam, (DRAWITEMSTRUCT *)lparam);
@@ -1791,7 +1791,7 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_PRIVATE_LISTBOX_CHAR:
       {
-        PropPage *d = (PropPage *)GetWindowLong (dlg, DWL_USER);
+        PropPage *d = (PropPage *)GetWindowLongPtr (dlg, DWL_USER);
         if (!d)
           return 0;
         d->listbox_char (wparam, lparam);
@@ -1857,7 +1857,7 @@ PropPage::get_result ()
 void
 PropPage::kill_active ()
 {
-  SetWindowLong (d_hwnd, DWL_MSGRESULT, !get_result ());
+  SetWindowLongPtr (d_hwnd, DWL_MSGRESULT, !get_result ());
 }
 
 void
@@ -1889,8 +1889,8 @@ prop_sheet_callback (HWND hwnd, UINT msg, LPARAM)
   switch (msg)
     {
     case PSCB_INITIALIZED:
-      SetWindowLong (hwnd, GWL_EXSTYLE,
-                     GetWindowLong (hwnd, GWL_EXSTYLE) & ~WS_EX_CONTEXTHELP);
+      SetWindowLongPtr (hwnd, GWL_EXSTYLE,
+                        GetWindowLongPtr (hwnd, GWL_EXSTYLE) & ~WS_EX_CONTEXTHELP);
       break;
 
     default:

@@ -120,7 +120,7 @@ Sysdep::init_wintype ()
       else if (Win6p ())
         {
           wintype = WINTYPE_WINDOWS_NT6;
-          // Ý’èƒtƒ@ƒCƒ‹‚ÌƒpƒX (user-config-path) ‚ª•Ï‚í‚é‚½‚ß wxp ‚Ì‚Ü‚Ü‚Æ‚·‚é
+          // è¨­å®šãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‘ã‚¹ (user-config-path) ãŒå¤‰ã‚ã‚‹ãŸã‚ wxp ã®ã¾ã¾ã¨ã™ã‚‹
           windows_short_name = "wxp";
           if (version () >= WIN7_VERSION)
               windows_name = "7";

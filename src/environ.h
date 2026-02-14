@@ -1,6 +1,10 @@
 #ifndef _environ_h_
 # define _environ_h_
 
+#ifdef environ
+# undef environ
+#endif
+
 class environ
 {
 public:

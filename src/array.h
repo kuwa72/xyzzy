@@ -5,16 +5,16 @@
 # define MAX_VECTOR_LENGTH (INT_MAX / sizeof (lisp))
 # define ARRAY_RANK_LIMIT (SHRT_MAX + 1)
 
-/* ”z—ñ‚ÌŠî’êƒNƒ‰ƒX
-   ‚È‚ñ‚Å”z—ñ‚ÌŠî’êƒNƒ‰ƒX‚È‚Ì‚É–¼‘O‚ªƒxƒNƒ^‚È‚Ì‚©‚Æ‚©
-   ×‚©‚¢‚±‚Æ‚Í‹C‚É‚µ‚È‚¢‚æ‚¤‚ÉBarray‚ÌÀ‘•‚ªAsubscripts‚Ì
-   ‰ğß‚ªarray‚È‚¾‚¯‚ÅAÀ‘Ô‚ÍƒxƒNƒ^‚ÌƒAƒNƒZƒX‚È‚Ì‚ÅA
-   ‚±‚ê‚Å‚¢‚¢‚Ì‚¾B*/
+/* é…åˆ—ã®åŸºåº•ã‚¯ãƒ©ã‚¹
+   ãªã‚“ã§é…åˆ—ã®åŸºåº•ã‚¯ãƒ©ã‚¹ãªã®ã«åå‰ãŒãƒ™ã‚¯ã‚¿ãªã®ã‹ã¨ã‹
+   ç´°ã‹ã„ã“ã¨ã¯æ°—ã«ã—ãªã„ã‚ˆã†ã«ã€‚arrayã®å®Ÿè£…ãŒã€subscriptsã®
+   è§£é‡ˆãŒarrayãªã ã‘ã§ã€å®Ÿæ…‹ã¯ãƒ™ã‚¯ã‚¿ã®ã‚¢ã‚¯ã‚»ã‚¹ãªã®ã§ã€
+   ã“ã‚Œã§ã„ã„ã®ã ã€‚*/
 class lbase_vector: public lisp_object
 {
 public:
-  int length;          // contents‚ÉŠÜ‚Ü‚ê‚é—v‘f‚ÌŒÂ”
-  void *contents;      // —v‘f‚Ì”z—ñ
+  int length;          // contentsã«å«ã¾ã‚Œã‚‹è¦ç´ ã®å€‹æ•°
+  void *contents;      // è¦ç´ ã®é…åˆ—
 
   ~lbase_vector ()
     {
@@ -27,26 +27,26 @@ public:
     }
 };
 
-/* ‘½ŸŒ³”z—ñ‚Æ”ñ’PƒƒxƒNƒ^‚ÌŠî’êƒNƒ‰ƒX */
+/* å¤šæ¬¡å…ƒé…åˆ—ã¨éå˜ç´”ãƒ™ã‚¯ã‚¿ã®åŸºåº•ã‚¯ãƒ©ã‚¹ */
 class lbase_array: public lbase_vector
 {
 public:
-  int *dims;               // ŸŒ³”‚Ì”z—ñ
-  lisp displaced_to;       // ‹¤—Læ‚ÌObjectB‹¤—L‚µ‚Ä‚¢‚È‚¢‚È‚çnil
-  lisp referenced_list;    // ©•ª‚ğ‹¤—L‚µ‚Ä‚¢‚éObject‚ÌƒŠƒXƒg
-  short rank;              // rank”
-  char adjustable;         // ƒTƒCƒY•ÏX‰Â”\?
-  char has_fillp;          // ƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚ğ‚Á‚Ä‚¢‚é?
+  int *dims;               // æ¬¡å…ƒæ•°ã®é…åˆ—
+  lisp displaced_to;       // å…±æœ‰å…ˆã®Objectã€‚å…±æœ‰ã—ã¦ã„ãªã„ãªã‚‰nil
+  lisp referenced_list;    // è‡ªåˆ†ã‚’å…±æœ‰ã—ã¦ã„ã‚‹Objectã®ãƒªã‚¹ãƒˆ
+  short rank;              // rankæ•°
+  char adjustable;         // ã‚µã‚¤ã‚ºå¤‰æ›´å¯èƒ½?
+  char has_fillp;          // ãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ã‚’æŒã£ã¦ã„ã‚‹?
 
   ~lbase_array ();
   void common_init ();
 };
 
-/* ”ñ’PƒƒxƒNƒ^‚ÌŠî’êƒNƒ‰ƒX */
+/* éå˜ç´”ãƒ™ã‚¯ã‚¿ã®åŸºåº•ã‚¯ãƒ©ã‚¹ */
 class lbase_complex_vector: public lbase_array
 {
 public:
-  /* ŸŒ³”BŒÅ’èƒTƒCƒY‚ğ‚¢‚¿‚¢‚¿allocate‚·‚é‚Ì‚àƒiƒj‚È‚Ì‚Å‚±‚±‚É‚Á‚Ä‚¢‚é */
+  /* æ¬¡å…ƒæ•°ã€‚å›ºå®šã‚µã‚¤ã‚ºã‚’ã„ã¡ã„ã¡allocateã™ã‚‹ã®ã‚‚ãƒŠãƒ‹ãªã®ã§ã“ã“ã«æŒã£ã¦ã„ã‚‹ */
   int dimension;
 
   void common_init ()
@@ -61,23 +61,23 @@ public:
     }
 };
 
-/* ˆê”Ê”z—ñ‚Æ•¶š”z—ñ‚Íì‚è‚Æ‚µ‚Ä‚Í‚Ü‚Á‚½‚­“¯‚¶‚Å‚ ‚éB
-  ƒAƒNƒZƒXŠÖ”‚ª‚¿‚å‚Á‚ÆH•v‚µ‚Ä(‰˜‚¢‚±‚Æ‚ğ‚µ‚Ä)—¼Ò‚ğ‹æ•Ê‚µ‚Ä‚¢‚éB
-  ‚í‚´‚í‚´•ÊƒNƒ‰ƒX‚É‚µ‚½‚Ì‚Í’P‚ÉÀ‘•ã‚Ì“s‡‚¾‚¯‚Å‚ ‚é(Memory allocation
-  ‚ğl‚¦‚ê‚Î•ª‚©‚é)B*/
+/* ä¸€èˆ¬é…åˆ—ã¨æ–‡å­—é…åˆ—ã¯ä½œã‚Šã¨ã—ã¦ã¯ã¾ã£ãŸãåŒã˜ã§ã‚ã‚‹ã€‚
+  ã‚¢ã‚¯ã‚»ã‚¹é–¢æ•°ãŒã¡ã‚‡ã£ã¨å·¥å¤«ã—ã¦(æ±šã„ã“ã¨ã‚’ã—ã¦)ä¸¡è€…ã‚’åŒºåˆ¥ã—ã¦ã„ã‚‹ã€‚
+  ã‚ã–ã‚ã–åˆ¥ã‚¯ãƒ©ã‚¹ã«ã—ãŸã®ã¯å˜ã«å®Ÿè£…ä¸Šã®éƒ½åˆã ã‘ã§ã‚ã‚‹(Memory allocation
+  ã‚’è€ƒãˆã‚Œã°åˆ†ã‹ã‚‹)ã€‚*/
 
-/* ˆê”Ê”z—ñ */
+/* ä¸€èˆ¬é…åˆ— */
 class lgeneral_array: public lbase_array
 {
 };
 
-/* •¶š”z—ñ */
+/* æ–‡å­—é…åˆ— */
 class lstring_array: public lbase_array
 {
 };
 
-/* ƒ^ƒCƒvƒ`ƒFƒbƒN‚Ìƒ}ƒNƒ
-   ‚±‚±‚ç•Ó‚Í–¼‘O‚ª‚®‚¿‚á‚®‚¿‚á‚µ‚Ä‚¢‚Ä”ñí‚É•ª‚©‚è‚É‚­‚¢‚©‚à */
+/* ã‚¿ã‚¤ãƒ—ãƒã‚§ãƒƒã‚¯ã®ãƒã‚¯ãƒ­
+   ã“ã“ã‚‰è¾ºã¯åå‰ãŒãã¡ã‚ƒãã¡ã‚ƒã—ã¦ã„ã¦éå¸¸ã«åˆ†ã‹ã‚Šã«ãã„ã‹ã‚‚ */
 
 # define base_array_p(X) \
   object_type_mask_p ((X), TAarray | TAsimple, TAarray)
@@ -97,7 +97,7 @@ class lstring_array: public lbase_array
 
 # define common_array_p(X) object_type_bit_p ((X), TAarray)
 
-/* ƒxƒNƒ^‚Ì—v‘f”BƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚ğ‚Âê‡‚ÍƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚Ì’l */
+/* ãƒ™ã‚¯ã‚¿ã®è¦ç´ æ•°ã€‚ãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ã‚’æŒã¤å ´åˆã¯ãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ã®å€¤ */
 inline int &
 xvector_length (lisp x)
 {
@@ -105,7 +105,7 @@ xvector_length (lisp x)
   return ((lbase_vector *)x)->length;
 }
 
-/* ƒxƒNƒ^‚Ì—v‘f‚Ì”z—ñ */
+/* ãƒ™ã‚¯ã‚¿ã®è¦ç´ ã®é…åˆ— */
 inline void *&
 xbase_vector_contents (lisp x)
 {
@@ -113,7 +113,7 @@ xbase_vector_contents (lisp x)
   return ((lbase_vector *)x)->contents;
 }
 
-/* ƒxƒNƒ^‚ÌŸŒ³B‚·‚È‚í‚¿AƒxƒNƒ^‚ÌÀÛ‚Ì’·‚³B*/
+/* ãƒ™ã‚¯ã‚¿ã®æ¬¡å…ƒã€‚ã™ãªã‚ã¡ã€ãƒ™ã‚¯ã‚¿ã®å®Ÿéš›ã®é•·ã•ã€‚*/
 inline int &
 xvector_dimension (lisp x)
 {
@@ -121,7 +121,7 @@ xvector_dimension (lisp x)
   return ((lbase_complex_vector *)x)->dimension;
 }
 
-/* ”z—ñ‘S‘Ì‚Ì—v‘f” */
+/* é…åˆ—å…¨ä½“ã®è¦ç´ æ•° */
 inline int &
 xarray_total_size (lisp x)
 {
@@ -129,7 +129,7 @@ xarray_total_size (lisp x)
   return ((lbase_array *)x)->length;
 }
 
-/* ”z—ñ‚ÌŸŒ³‚Ì”z—ñ */
+/* é…åˆ—ã®æ¬¡å…ƒã®é…åˆ— */
 inline int *&
 xarray_dims (lisp x)
 {
@@ -137,7 +137,7 @@ xarray_dims (lisp x)
   return ((lbase_array *)x)->dims;
 }
 
-/* ”z—ñ‚Ì‹¤—Læ‚ÌObjectB‹¤—L‚µ‚Ä‚¢‚È‚¢‚È‚çnil */
+/* é…åˆ—ã®å…±æœ‰å…ˆã®Objectã€‚å…±æœ‰ã—ã¦ã„ãªã„ãªã‚‰nil */
 inline lisp &
 xarray_displaced_to (lisp x)
 {
@@ -145,7 +145,7 @@ xarray_displaced_to (lisp x)
   return ((lbase_array *)x)->displaced_to;
 }
 
-/* x‚ğ‹¤—L‚µ‚Ä‚¢‚éObject‚ÌƒŠƒXƒg */
+/* xã‚’å…±æœ‰ã—ã¦ã„ã‚‹Objectã®ãƒªã‚¹ãƒˆ */
 inline lisp &
 xarray_referenced_list (lisp x)
 {
@@ -153,7 +153,7 @@ xarray_referenced_list (lisp x)
   return ((lbase_array *)x)->referenced_list;
 }
 
-/* ”z—ñ‚Ìrank */
+/* é…åˆ—ã®rank */
 inline short &
 xarray_rank (lisp x)
 {
@@ -161,7 +161,7 @@ xarray_rank (lisp x)
   return ((lbase_array *)x)->rank;
 }
 
-/* ”z—ñ‚ªƒTƒCƒY•ÏX‰Â”\? */
+/* é…åˆ—ãŒã‚µã‚¤ã‚ºå¤‰æ›´å¯èƒ½? */
 inline char &
 xarray_adjustable (lisp x)
 {
@@ -169,7 +169,7 @@ xarray_adjustable (lisp x)
   return ((lbase_array *)x)->adjustable;
 }
 
-/* ”z—ñ‚ªƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚ğ‚Á‚Ä‚¢‚é? */
+/* é…åˆ—ãŒãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ã‚’æŒã£ã¦ã„ã‚‹? */
 inline char &
 xarray_has_fillp (lisp x)
 {
@@ -177,7 +177,7 @@ xarray_has_fillp (lisp x)
   return ((lbase_complex_vector *)x)->has_fillp;
 }
 
-/* ˆê”Ê”z—ñ‚Ì—v‘f‚Ì”z—ñ */
+/* ä¸€èˆ¬é…åˆ—ã®è¦ç´ ã®é…åˆ— */
 inline lisp *&
 xgeneral_array_contents (lisp x)
 {
@@ -185,7 +185,7 @@ xgeneral_array_contents (lisp x)
   return (lisp *&)xbase_vector_contents (x);
 }
 
-/* •¶š”z—ñ‚Ì—v‘f‚Ì”z—ñ */
+/* æ–‡å­—é…åˆ—ã®è¦ç´ ã®é…åˆ— */
 inline Char *&
 xstring_array_contents (lisp x)
 {

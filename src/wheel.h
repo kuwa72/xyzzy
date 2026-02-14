@@ -21,6 +21,6 @@ public:
 };
 
 int begin_auto_scroll (HWND, const POINT &,
-                       void (__stdcall *)(int, void *), void *);
+                       void (CALLBACK *)(int, void *), void *);
 
 #endif /* _WHEEL_H_ */

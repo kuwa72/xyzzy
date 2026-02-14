@@ -528,7 +528,7 @@ send_keydown (HWND hwnd, int vkey)
     {
       LV_KEYDOWN lv;
       lv.hdr.hwndFrom = hwnd;
-      lv.hdr.idFrom = GetWindowLong (hwnd, GWL_ID);
+      lv.hdr.idFrom = GetWindowLongPtr (hwnd, GWL_ID);
       lv.hdr.code = LVN_KEYDOWN;
       lv.wVKey = WORD (vkey);
       lv.flags = 0;
@@ -689,7 +689,7 @@ send_process_key (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam,
     return 0;
   LV_PROCESSKEY lv;
   lv.hdr.hwndFrom = hwnd;
-  lv.hdr.idFrom = GetWindowLong (hwnd, GWL_ID);
+  lv.hdr.idFrom = GetWindowLongPtr (hwnd, GWL_ID);
   lv.hdr.code = LVN_PROCESSKEY;
   lv.message = msg;
   lv.wparam = wparam;

@@ -2,7 +2,9 @@
 #ifndef _cdecl_h_
 # define _cdecl_h_
 
+#ifdef _MSC_VER
 # pragma warning (disable: 4201)
+#endif
 
 # include <stdio.h>
 # include <stdint.h>
@@ -13,19 +15,25 @@
 # include <stdlib.h>
 # include <stddef.h>
 # include <string.h>
+#ifdef _MSC_VER
 # include <mbstring.h>
+#endif
 # include <malloc.h>
 
+#ifdef _MSC_VER
 # pragma warning (default: 4201)
 
 # pragma warning (disable: 4510)
 # pragma warning (disable: 4514)
 # pragma warning (disable: 4610)
+#endif
 
+#ifdef _MSC_VER
 # define alloca _alloca
 # define memicmp _memicmp
 # define strdup _strdup
 # define stricmp _stricmp
+#endif
 
 # define BITS_PER_SHORT (sizeof (short) * CHAR_BIT)
 # define BITS_PER_INT (sizeof (int) * CHAR_BIT)
@@ -43,7 +51,7 @@ typedef u_char u_int8_t;
 typedef u_short u_int16_t;
 typedef u_long u_int32_t;
 
-typedef u_long pointer_t;
+typedef uintptr_t pointer_t;
 
 typedef u_int16_t Char;
 # define CHAR_LIMIT 0x10000
@@ -170,6 +178,12 @@ int assert_failed (const char *, int);
 # define __TOWSTR(X) L##X
 # define _TOWSTR(X) __TOWSTR (X)
 
-# define THREADLOCAL __declspec (thread)
+#ifdef _MSC_VER
+# define THREADLOCAL __declspec(thread)
+# define LISP_CALL __stdcall
+#else
+# define THREADLOCAL __thread
+# define LISP_CALL
+#endif
 
 #endif

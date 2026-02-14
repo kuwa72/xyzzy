@@ -348,7 +348,7 @@ eval_matcher (const DdeItemList *il, HSZ hsz)
   char b[6];
   if (!DdeQueryString (Dde::instance (), hsz, b, sizeof b, CP_WINANSI))
     return 0;
-  return !_stricmp ("eval:", b);
+  return !stricmp ("eval:", b);
 }
 
 static HDDEDATA

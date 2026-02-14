@@ -14,7 +14,7 @@ Frun_winhelp (lisp file, lisp topic)
   check_string (topic);
   char *b = (char *)alloca (xstring_length (topic) * 2 + 1);
   w2s (b, topic);
-  return boole (WinHelp (app.toplev, path, HELP_PARTIALKEY, DWORD (b)));
+  return boole (WinHelp (app.toplev, path, HELP_PARTIALKEY, (DWORD_PTR)b));
 }
 
 lisp
@@ -287,7 +287,7 @@ iset::load (lisp filename)
   is_files = f;
 }
 
-static BOOL CALLBACK
+static INT_PTR CALLBACK
 select_dialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   switch (msg)
@@ -295,7 +295,7 @@ select_dialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_INITDIALOG:
       {
         iset *is = (iset *)lparam;
-        SetWindowLong (dlg, DWL_USER, LONG (is));
+        SetWindowLongPtr (dlg, DWL_USER, (LONG_PTR)is);
         center_window (dlg);
         set_window_icon (dlg);
         is->init_files (dlg);
@@ -316,7 +316,7 @@ select_dialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 
         case IDOK:
           {
-            iset *is = (iset *)GetWindowLong (dlg, DWL_USER);
+            iset *is = (iset *)GetWindowLongPtr (dlg, DWL_USER);
             char buf[256];
             GetDlgItemText (dlg, IDC_TOPIC, buf, sizeof buf);
             if (strcmp (buf, is->is_topic))
@@ -441,11 +441,11 @@ Fhtml_help (lisp lfile, lisp lkeyword)
   link.pszKeywords = keyword;
   link.fIndexOnFail = 1;
 
-  if (HtmlHelp (GetDesktopWindow (), file, HH_KEYWORD_LOOKUP, (DWORD)&link))
+  if (HtmlHelp (GetDesktopWindow (), file, HH_KEYWORD_LOOKUP, (DWORD_PTR)&link))
     return Qt;
 
   HH_LAST_ERROR err = {sizeof err};
-  if (HtmlHelp (0, 0, HH_GET_LAST_ERROR, (DWORD)&err)
+  if (HtmlHelp (0, 0, HH_GET_LAST_ERROR, (DWORD_PTR)&err)
       && FAILED (err.hr))
     {
       if (err.description)

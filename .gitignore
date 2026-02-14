@@ -48,6 +48,10 @@ misc/words.jis.txt
 misc/words.sjis.txt
 misc/words.utf8.txt
 
+# MSYS2/CMake build
+build/
+xyzzy_debug.log
+
 ## Ignore Makefile temporary files, build results.
 char-width.h
 fns-decl.h

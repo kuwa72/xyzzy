@@ -1065,7 +1065,7 @@ Ffloat_radix (lisp flonum)
   else
     {
       check_double_float (flonum);
-      return make_fixnum (_DBL_RADIX);
+      return make_fixnum (FLT_RADIX);
     }
 }
 

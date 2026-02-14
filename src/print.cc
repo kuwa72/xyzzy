@@ -797,8 +797,8 @@ struct PaintCtx
   int column;
 };
 
-/* ‚ß‚Á‚¿‚á‚Ä‚¯‚Æ[‚ÈÀ‘•‚¾‚ªAƒvƒŠƒ“ƒ^‘Šè‚¾‚©‚ç
-   ‚±‚ñ‚È‚à‚ñ‚ÅŠ¨•Ù‚µ‚Æ‚¢‚½‚éB*/
+/* ã‚ã£ã¡ã‚ƒã¦ã‘ã¨ãƒ¼ãªå®Ÿè£…ã ãŒã€ãƒ—ãƒªãƒ³ã‚¿ç›¸æ‰‹ã ã‹ã‚‰
+   ã“ã‚“ãªã‚‚ã‚“ã§å‹˜å¼ã—ã¨ã„ãŸã‚‹ã€‚*/
 
 void
 print_engine::paint_ascii (PaintCtx &ctx, Char cc) const
@@ -867,7 +867,7 @@ print_engine::paint_jisx0212 (PaintCtx &ctx, Char cc) const
       int o = l == 2 ? pe_offset2x[FONT_JP] : pe_offset[FONT_JP].x;
       SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
       ExtTextOutW (ctx.hdc, ctx.x + o, ctx.y + pe_offset[FONT_JP].y,
-                   0, 0, &wc, 1, 0);
+                   0, 0, (LPCWSTR)&wc, 1, 0);
     }
   else
     {
@@ -888,7 +888,7 @@ print_engine::paint_full_width (PaintCtx &ctx, Char cc, int f) const
     {
       SelectObject (ctx.hdc, pe_hfonts[f]);
       ExtTextOutW (ctx.hdc, ctx.x + pe_offset[f].x, ctx.y + pe_offset[f].y,
-                   0, 0, &wc, 1, 0);
+                   0, 0, (LPCWSTR)&wc, 1, 0);
     }
   else
     {
@@ -909,7 +909,7 @@ print_engine::paint_latin (PaintCtx &ctx, Char cc, int f) const
     {
       SelectObject (ctx.hdc, pe_hfonts[f]);
       ExtTextOutW (ctx.hdc, ctx.x + pe_offset[f].x, ctx.y + pe_offset[f].y,
-                   0, 0, &wc, 1, 0);
+                   0, 0, (LPCWSTR)&wc, 1, 0);
     }
   else
     {
@@ -940,7 +940,7 @@ print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
           const lucida_spacing *p = &lucida_spacing_table[wc - UNICODE_SMLCDM_MIN];
           o = p->a >= 0 ? 0 : -p->a * pe_cell.cy / LUCIDA_BASE_HEIGHT;
         }
-      ExtTextOutW (ctx.hdc, ctx.x + o, ctx.y, 0, 0, &wc, 1, 0);
+      ExtTextOutW (ctx.hdc, ctx.x + o, ctx.y, 0, 0, (LPCWSTR)&wc, 1, 0);
       DeleteObject (SelectObject (ctx.hdc, of));
     }
   else
@@ -1486,7 +1486,7 @@ print_engine::fmt_week (char *b, char *be, int star, int colon)
   static const char *const day_full_names[] =
     { "Sunday","Monday", "Tuesday", "Wednesday",
       "Thursday", "Friday", "Saturday",};
-  static const char day_japanese_names[] = "“úŒ‰Î…–Ø‹à“y";
+  static const char day_japanese_names[] = "SuMoTuWeThFrSa";
   int w = current_time ().wDayOfWeek;
   if (w < 0 || w > 6)
     return b;
@@ -1529,37 +1529,37 @@ print_engine::fmt_second (char *b, char *be, int zero)
 }
 
 /*
-%f   ƒtƒ@ƒCƒ‹–¼
-%F   ƒtƒ@ƒCƒ‹–¼(ƒfƒBƒŒƒNƒgƒŠ•t‚«)
-%b   ƒoƒbƒtƒ@–¼
-%p   ƒy[ƒW”Ô†
-%P   ‘ƒy[ƒW”
+%f   ãƒ•ã‚¡ã‚¤ãƒ«å
+%F   ãƒ•ã‚¡ã‚¤ãƒ«å(ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªä»˜ã)
+%b   ãƒãƒƒãƒ•ã‚¡å
+%p   ãƒšãƒ¼ã‚¸ç•ªå·
+%P   ç·ãƒšãƒ¼ã‚¸æ•°
 
-%Y   ¼—ï(YYYY)
-%y   ¼—ï(YY)
-%m   Œ  (1`12)
-%0m  Œ  (01`12)
-%*m  Œ  (January`December)
-%:m  Œ  (Jan`Dec)
-%d   “ú  (1`31)
-%0d  “ú  (01`31)
-%*w  —j“ú (Sunday`Saturday)
-%:w  —j“ú (Sun`Sat)
-%w   —j“ú (“ú`“y)
-%h     (0`23)
-%0h    (00`23)
-%H     (0`11)
-%0H    (00`11)
-%:H    (1`12)
-%0:H   (01`12)
+%Y   è¥¿æš¦(YYYY)
+%y   è¥¿æš¦(YY)
+%m   æœˆ  (1ï½12)
+%0m  æœˆ  (01ï½12)
+%*m  æœˆ  (Januaryï½December)
+%:m  æœˆ  (Janï½Dec)
+%d   æ—¥  (1ï½31)
+%0d  æ—¥  (01ï½31)
+%*w  æ›œæ—¥ (Sundayï½Saturday)
+%:w  æ›œæ—¥ (Sunï½Sat)
+%w   æ›œæ—¥ (æ—¥ï½åœŸ)
+%h   æ™‚  (0ï½23)
+%0h  æ™‚  (00ï½23)
+%H   æ™‚  (0ï½11)
+%0H  æ™‚  (00ï½11)
+%:H   æ™‚ (1ï½12)
+%0:H  æ™‚ (01ï½12)
 %*H      (AM/PM)
 %*:H     (am/pm)
-%M   •ª  (0`59)
-%0M  •ª  (00`59)
-%s   •b  (0`59)
-%0s  •b  (00`59)
+%M   åˆ†  (0ï½59)
+%0M  åˆ†  (00ï½59)
+%s   ç§’  (0ï½59)
+%0s  ç§’  (00ï½59)
 
-%-   ‰¡ü
+%-   æ¨ªç·š
  */
 
 int
@@ -1814,7 +1814,7 @@ print_engine::doprint1 (HWND hwnd)
 
   user_abort = 0;
   HWND printing = CreateDialog (app.hinst, MAKEINTRESOURCE (IDD_PRINTING),
-                                app.toplev, printing_dlgproc);
+                                app.toplev, (DLGPROC)printing_dlgproc);
   SetDlgItemText (printing, IDC_DOCNAME, docname);
   ShowWindow (printing, SW_SHOW);
   UpdateWindow (printing);
@@ -2139,7 +2139,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
         if (wc != ucs2_t (-1))
           {
             SelectObject (gw.hdc, gw.hfonts[f]);
-            GetTextExtentPoint32W (gw.hdc, &wc, 1, &sz);
+            GetTextExtentPoint32W (gw.hdc, (LPCWSTR)&wc, 1, &sz);
           }
         else
           {

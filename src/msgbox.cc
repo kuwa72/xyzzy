@@ -223,8 +223,8 @@ XMessageBox::init_dialog ()
   create_label (msg, tr, edit_style);
   create_buttons (br);
 
-  AdjustWindowRectEx (&r, GetWindowLong (hwnd, GWL_STYLE), 0,
-                      GetWindowLong (hwnd, GWL_EXSTYLE));
+  AdjustWindowRectEx (&r, (DWORD)GetWindowLongPtr (hwnd, GWL_STYLE), 0,
+                      (DWORD)GetWindowLongPtr (hwnd, GWL_EXSTYLE));
 
   SIZE sz;
   sz.cx = r.right - r.left;
@@ -274,20 +274,20 @@ XMessageBox::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
   return 0;
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 XMessageBox::WndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   XMessageBox *p;
   if (msg == WM_INITDIALOG)
     {
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWL_USER, lparam);
       p = (XMessageBox *)lparam;
       p->hwnd = hwnd;
       p->WndProc (msg, wparam, lparam);
     }
   else
     {
-      p = (XMessageBox *)GetWindowLong (hwnd, DWL_USER);
+      p = (XMessageBox *)GetWindowLongPtr (hwnd, DWL_USER);
       if (p)
         p->WndProc (msg, wparam, lparam);
     }
@@ -312,7 +312,7 @@ MsgBoxEx (HWND hwnd, const char *msg, const char *title,
           int type, int defbtn, int icon, int beep,
           const char **captions, int ncaptions, int crlf, int no_wrap)
 {
-  XMessageBox mb (app.hinst, msg ? msg : "", title ? title : "エラー", crlf, no_wrap);
+  XMessageBox mb (app.hinst, msg ? msg : "", title ? title : "Error", crlf, no_wrap);
   if (!captions)
     ncaptions = 0;
 
@@ -328,31 +328,31 @@ MsgBoxEx (HWND hwnd, const char *msg, const char *title,
 
     case MB_OKCANCEL:
       mb.add_button (IDOK, "OK");
-      mb.add_button (IDCANCEL, "キャンセル");
+      mb.add_button (IDCANCEL, "Cancel");
       mb.set_close (IDCANCEL);
       break;
 
     case MB_ABORTRETRYIGNORE:
-      mb.add_button (IDABORT, "中止(&A)");
-      mb.add_button (IDRETRY, "再試行(&R)");
-      mb.add_button (IDIGNORE, "無視(&I)");
+      mb.add_button (IDABORT, "&Abort");
+      mb.add_button (IDRETRY, "&Retry");
+      mb.add_button (IDIGNORE, "&Ignore");
       break;
 
     case MB_YESNOCANCEL:
-      mb.add_button (IDYES, "はい(&Y)");
-      mb.add_button (IDNO, "いいえ(&N)");
-      mb.add_button (IDCANCEL, "キャンセル");
+      mb.add_button (IDYES, "&Yes");
+      mb.add_button (IDNO, "&No");
+      mb.add_button (IDCANCEL, "Cancel");
       mb.set_close (IDCANCEL);
       break;
 
     case MB_YESNO:
-      mb.add_button (IDYES, "はい(&Y)");
-      mb.add_button (IDNO, "いいえ(&N)");
+      mb.add_button (IDYES, "&Yes");
+      mb.add_button (IDNO, "&No");
       break;
 
     case MB_RETRYCANCEL:
-      mb.add_button (IDRETRY, "再試行(&R)");
-      mb.add_button (IDCANCEL, "キャンセル");
+      mb.add_button (IDRETRY, "&Retry");
+      mb.add_button (IDCANCEL, "Cancel");
       mb.set_close (IDCANCEL);
       break;
     }

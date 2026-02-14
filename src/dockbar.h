@@ -125,8 +125,8 @@ public:
                                x, y, cx, cy, hwnd_parent, hmenu, hinst, param);
       return b_hwnd && subclass ();
     }
-  long style () const {return GetWindowLong (b_hwnd, GWL_STYLE);}
-  void set_style (long x) const {SetWindowLong (b_hwnd, GWL_STYLE, x);}
+  long style () const {return (long)GetWindowLongPtr (b_hwnd, GWL_STYLE);}
+  void set_style (long x) const {SetWindowLongPtr (b_hwnd, GWL_STYLE, x);}
   void modify_style (long remove, long add) const
     {set_style ((style () & ~remove) | add);}
   static int vert_edge_p (int edge)
@@ -138,8 +138,8 @@ public:
   int dockable () const {return b_dockable;}
   int status () const {return b_status;}
   static void set_tooltip_no_prefix (HWND hwnd_tt)
-    {SetWindowLong (hwnd_tt, GWL_STYLE,
-                    GetWindowLong (hwnd_tt, GWL_STYLE) | TTS_NOPREFIX);}
+    {SetWindowLongPtr (hwnd_tt, GWL_STYLE,
+                       GetWindowLongPtr (hwnd_tt, GWL_STYLE) | TTS_NOPREFIX);}
   virtual void calc_window_size (SIZE &, int) const;
   virtual void calc_client_size (SIZE &, int) const = 0;
   virtual void reload_settings () {}

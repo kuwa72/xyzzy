@@ -884,7 +884,7 @@ Buffer::skip_single_char_comment (Point &point, int dir, syntax_code match) cons
     }
 }
 
-/* POINT.P_POINT ‚Íg—p‚µ‚È‚¢ */
+/* POINT.P_POINT ã¯ä½¿ç”¨ã—ãªã„ */
 int
 Buffer::column_comment_p (const syntax_table *tab, const Point &point) const
 {

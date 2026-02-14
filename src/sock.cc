@@ -141,7 +141,7 @@ sock::init_winsock (HINSTANCE hinst)
     return 0;
 
 #ifdef __XYZZY__
-  WS_CALL (WSASetBlockingHook)(blocking_hook);
+  WS_CALL (WSASetBlockingHook)((FARPROC)blocking_hook);
 #endif
 
   if (!s_resolver.initialize (hinst)

@@ -22,9 +22,9 @@ struct DdeCallbackInfo
 struct DdeItemList
 {
   HSZ hsz_item;
-  HDDEDATA (__stdcall *callback)(DdeCallbackInfo *);
+  HDDEDATA (CALLBACK *callback)(DdeCallbackInfo *);
   const char *item;
-  int (__stdcall *matcher)(const DdeItemList *, HSZ);
+  int (CALLBACK *matcher)(const DdeItemList *, HSZ);
 };
 
 struct DdeTopicList

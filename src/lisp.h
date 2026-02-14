@@ -8,7 +8,7 @@
 # define QUITP (xsymbol_value (Vquit_flag) != Qnil \
                 && xsymbol_value (Vinhibit_quit) == Qnil)
 
-class lisp_object
+class alignas(sizeof(void*)) lisp_object
 {
   lisp_object ();
 public:
@@ -38,7 +38,7 @@ IMMEDIATE:
 POINTER:
                       PPPPPPPP PPPPPPPP PPPPPPPP PPPPPP00
 
-   ƒ|ƒCƒ“ƒ^’l‚ÌÅ‰ºˆÊƒrƒbƒg‚ğŒ©‚ê‚Î‘¦’l‚©‚Ç‚¤‚©‚ª‚í‚©‚éB
+   ãƒã‚¤ãƒ³ã‚¿å€¤ã®æœ€ä¸‹ä½ãƒ“ãƒƒãƒˆã‚’è¦‹ã‚Œã°å³å€¤ã‹ã©ã†ã‹ãŒã‚ã‹ã‚‹ã€‚
  */
 
 # define IMMEDIATE_BIT 1
@@ -50,85 +50,85 @@ POINTER:
 # define Lchar ((1 << LSHORT_INT_SHIFT) | SHORT_INT_TEST_BITS)
 # define Lmessage ((2 << LSHORT_INT_SHIFT) | SHORT_INT_TEST_BITS)
 
-enum message_code;
+enum message_code : int;
 
 enum lisp_object_type_bits
 {
-  // ”z—ñ—p
-  TAarray     = 0x80000000,  // ”z—ñ
-  TAvector    = 0x40000000,  // ƒxƒNƒ^
-  TAsimple    = 0x20000000,  // ’Pƒ”z—ñ
-  TAtype_mask = 0x1f000000,  // ”z—ñ‚ÌŒ^‚Ìƒ}ƒXƒN
-    TAgeneral = 0x10000000,  // ˆê”Ê”z—ñ
-    TAstring  = 0x08000000,  // •¶š”z—ñ
-    TAfixnum  = 0x04000000,  // fixnum”z—ñ(‚Å‚«‚Ä‚È‚¢)
-    TAbit     = 0x02000000,  // bit”z—ñ(‚Å‚«‚Ä‚È‚¢)
+  // é…åˆ—ç”¨
+  TAarray     = 0x80000000,  // é…åˆ—
+  TAvector    = 0x40000000,  // ãƒ™ã‚¯ã‚¿
+  TAsimple    = 0x20000000,  // å˜ç´”é…åˆ—
+  TAtype_mask = 0x1f000000,  // é…åˆ—ã®å‹ã®ãƒã‚¹ã‚¯
+    TAgeneral = 0x10000000,  // ä¸€èˆ¬é…åˆ—
+    TAstring  = 0x08000000,  // æ–‡å­—é…åˆ—
+    TAfixnum  = 0x04000000,  // fixnumé…åˆ—(ã§ãã¦ãªã„)
+    TAbit     = 0x02000000,  // bité…åˆ—(ã§ãã¦ãªã„)
 
-  // ”’l—p
+  // æ•°å€¤ç”¨
   TNfixnum    = 0x00800000,  // fixnum
   TNbignum    = 0x00400000,  // bignum
-  TNinteger   = 0x00200000,  // integer (fixnum|bignum‚Æ‚¿‚á‚¤‚ñ‚©‚¢?)
-  TNrational  = 0x00100000,  // —L—”
-  TNfloat     = 0x00080000,  // •‚“®¬”“_
-  TNreal      = 0x00040000,  // À”
-  TNnumber    = 0x00020000   // ”
+  TNinteger   = 0x00200000,  // integer (fixnum|bignumã¨ã¡ã‚ƒã†ã‚“ã‹ã„?)
+  TNrational  = 0x00100000,  // æœ‰ç†æ•°
+  TNfloat     = 0x00080000,  // æµ®å‹•å°æ•°ç‚¹
+  TNreal      = 0x00040000,  // å®Ÿæ•°
+  TNnumber    = 0x00020000   // æ•°
 };
 
 enum lisp_object_type
 {
-  Tarray                 = TAarray | TAgeneral,     // ˆê”Ê”z—ñ
-  Tstring_array          = TAarray | TAstring,      // •¶š”z—ñ
-  Tfixnum_array          = TAarray | TAfixnum,      // fixnum”z—ñ(‚Ü‚¾‚Å‚«‚Ä‚È‚¢)
-  Tbit_array             = TAarray | TAbit,         // bit”z—ñ(‚Ü‚¾‚Å‚«‚Ä‚È‚¢)
+  Tarray                 = TAarray | TAgeneral,     // ä¸€èˆ¬é…åˆ—
+  Tstring_array          = TAarray | TAstring,      // æ–‡å­—é…åˆ—
+  Tfixnum_array          = TAarray | TAfixnum,      // fixnumé…åˆ—(ã¾ã ã§ãã¦ãªã„)
+  Tbit_array             = TAarray | TAbit,         // bité…åˆ—(ã¾ã ã§ãã¦ãªã„)
 
-  Tcomplex_vector        = TAarray | TAvector | TAgeneral,             // ˆê”ÊƒxƒNƒ^
-  Tsimple_vector         = TAarray | TAvector | TAgeneral | TAsimple,  // ˆê”Ê’PƒƒxƒNƒ^
-  Tcomplex_string        = TAarray | TAvector | TAstring,              // •¶š—ñ
-  Tsimple_string         = TAarray | TAvector | TAstring  | TAsimple,  // ’Pƒ•¶š—ñ
-  Tcomplex_fixnum_vector = TAarray | TAvector | TAfixnum,              // fixnumƒxƒNƒ^
-  Tsimple_fixnum_vector  = TAarray | TAvector | TAfixnum  | TAsimple,  // ’PƒfixnumƒxƒNƒ^
-  Tcomplex_bit_vector    = TAarray | TAvector | TAbit,                 // bitƒxƒNƒ^
-  Tsimple_bit_vector     = TAarray | TAvector | TAbit     | TAsimple,  // ’PƒbitƒxƒNƒ^
+  Tcomplex_vector        = TAarray | TAvector | TAgeneral,             // ä¸€èˆ¬ãƒ™ã‚¯ã‚¿
+  Tsimple_vector         = TAarray | TAvector | TAgeneral | TAsimple,  // ä¸€èˆ¬å˜ç´”ãƒ™ã‚¯ã‚¿
+  Tcomplex_string        = TAarray | TAvector | TAstring,              // æ–‡å­—åˆ—
+  Tsimple_string         = TAarray | TAvector | TAstring  | TAsimple,  // å˜ç´”æ–‡å­—åˆ—
+  Tcomplex_fixnum_vector = TAarray | TAvector | TAfixnum,              // fixnumãƒ™ã‚¯ã‚¿
+  Tsimple_fixnum_vector  = TAarray | TAvector | TAfixnum  | TAsimple,  // å˜ç´”fixnumãƒ™ã‚¯ã‚¿
+  Tcomplex_bit_vector    = TAarray | TAvector | TAbit,                 // bitãƒ™ã‚¯ã‚¿
+  Tsimple_bit_vector     = TAarray | TAvector | TAbit     | TAsimple,  // å˜ç´”bitãƒ™ã‚¯ã‚¿
 
-  // ‘¦’l‚È®”BÀÛ‚É‚±‚Ìƒ^ƒO‚ğ‚ÂƒIƒuƒWƒFƒNƒg‚Í‘¶İ‚µ‚È‚¢B
+  // å³å€¤ãªæ•´æ•°ã€‚å®Ÿéš›ã«ã“ã®ã‚¿ã‚°ã‚’æŒã¤ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã¯å­˜åœ¨ã—ãªã„ã€‚
   Tshort_intP   = TNnumber | TNreal | TNrational | TNinteger | TNfixnum | 0,
-  // ‘¦’l‚Å‚È‚¢®”B30bit‚Æ32bit‚É‚Ç‚ê‚¾‚¯ˆá‚¢‚ª‚ ‚é‚Æ‚©“Ë‚Á‚Ü‚È‚¢‚æ‚¤‚ÉB
-  // Ì‚Í‘¦’l‚È®”‚Í‚È‚©‚Á‚½‚Ì‚¾B
+  // å³å€¤ã§ãªã„æ•´æ•°ã€‚30bitã¨32bitã«ã©ã‚Œã ã‘é•ã„ãŒã‚ã‚‹ã¨ã‹çªã£è¾¼ã¾ãªã„ã‚ˆã†ã«ã€‚
+  // æ˜”ã¯å³å€¤ãªæ•´æ•°ã¯ãªã‹ã£ãŸã®ã ã€‚
   Tlong_int     = TNnumber | TNreal | TNrational | TNinteger | TNfixnum | 1,
   Tbignum       = TNnumber | TNreal | TNrational | TNinteger | TNbignum, // bignum
-  Tfraction     = TNnumber | TNreal | TNrational,      // •ª”
-  Tsingle_float = TNnumber | TNreal | TNfloat | 1,     // ’P¸“x•‚“®¬”“_
-  Tdouble_float = TNnumber | TNreal | TNfloat | 2,     // ”{¸“x•‚“®¬”“_
-  Tcomplex      = TNnumber,                            // •¡‘f”
+  Tfraction     = TNnumber | TNreal | TNrational,      // åˆ†æ•°
+  Tsingle_float = TNnumber | TNreal | TNfloat | 1,     // å˜ç²¾åº¦æµ®å‹•å°æ•°ç‚¹
+  Tdouble_float = TNnumber | TNreal | TNfloat | 2,     // å€ç²¾åº¦æµ®å‹•å°æ•°ç‚¹
+  Tcomplex      = TNnumber,                            // è¤‡ç´ æ•°
 
-  TnilP = 0,             // ƒ_ƒ~[
-  TanyP,                 // ƒ_ƒ~[(‚È‚ñ‚Å‚±‚ñ‚È‚ñ‚ª‚ ‚é‚ñ‚¾?)
-  TimmediateP,           // ‘¦’l‚ğ‚ ‚ç‚í‚·‹^—ƒ^ƒO
-  TcharP,                // •¶šƒIƒuƒWƒFƒNƒg‚Ì‹^—ƒ^ƒO
-  TmessageP,             // ƒƒbƒZ[ƒWƒIƒuƒWƒFƒNƒg‚Ì‹^—ƒ^ƒO
-  Tcons,                 // ƒRƒ“ƒX
-  Tsymbol,               // ƒVƒ“ƒ{ƒ‹
-  Tclosure,              // ƒŒƒLƒVƒJƒ‹ƒNƒ[ƒWƒƒ
-  Tfunction,             // ƒlƒCƒeƒBƒuŠÖ”
-  Thash_table,           // ƒnƒbƒVƒ…ƒe[ƒuƒ‹
-  Tstream,               // ƒXƒgƒŠ[ƒ€
-  Tpackage,              // ƒpƒbƒP[ƒW
-  Trandom_state,         // ƒ‰ƒ“ƒ_ƒ€ƒXƒe[ƒg
-  Tstruct_def,           // \‘¢‘Ì‚ÌŒ^
-  Tstruct_data,          // \‘¢‘Ì‚ÌƒCƒ“ƒXƒ^ƒ“ƒX
-  Tchunk,                // ”Ä—pƒoƒbƒtƒ@—Ìˆæ
+  TnilP = 0,             // ãƒ€ãƒŸãƒ¼
+  TanyP,                 // ãƒ€ãƒŸãƒ¼(ãªã‚“ã§ã“ã‚“ãªã‚“ãŒã‚ã‚‹ã‚“ã ?)
+  TimmediateP,           // å³å€¤ã‚’ã‚ã‚‰ã‚ã™ç–‘ä¼¼ã‚¿ã‚°
+  TcharP,                // æ–‡å­—ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ç–‘ä¼¼ã‚¿ã‚°
+  TmessageP,             // ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ç–‘ä¼¼ã‚¿ã‚°
+  Tcons,                 // ã‚³ãƒ³ã‚¹
+  Tsymbol,               // ã‚·ãƒ³ãƒœãƒ«
+  Tclosure,              // ãƒ¬ã‚­ã‚·ã‚«ãƒ«ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ£
+  Tfunction,             // ãƒã‚¤ãƒ†ã‚£ãƒ–é–¢æ•°
+  Thash_table,           // ãƒãƒƒã‚·ãƒ¥ãƒ†ãƒ¼ãƒ–ãƒ«
+  Tstream,               // ã‚¹ãƒˆãƒªãƒ¼ãƒ 
+  Tpackage,              // ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸
+  Trandom_state,         // ãƒ©ãƒ³ãƒ€ãƒ ã‚¹ãƒ†ãƒ¼ãƒˆ
+  Tstruct_def,           // æ§‹é€ ä½“ã®å‹
+  Tstruct_data,          // æ§‹é€ ä½“ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹
+  Tchunk,                // æ±ç”¨ãƒãƒƒãƒ•ã‚¡é ˜åŸŸ
   Tdll_module,           // DLL
-  Tdll_function,         // DLL“à‚ÌŠÖ”
-  Tc_callable,           // C‚©‚çŒÄ‚×‚éŠÖ”
-  Twindow,               // ƒEƒBƒ“ƒhƒE
-  Tbuffer,               // ƒoƒbƒtƒ@
-  Tmarker,               // ƒ}[ƒJ
-  Tsyntax_table,         // ƒVƒ“ƒ^ƒbƒNƒXƒe[ƒuƒ‹
-  Tprocess,              // ƒvƒƒZƒX
-  Tregexp,               // ƒRƒ“ƒpƒCƒ‹‚µ‚½³‹K•\Œ»
-  Twin32_menu,           // ƒƒjƒ…[
+  Tdll_function,         // DLLå†…ã®é–¢æ•°
+  Tc_callable,           // Cã‹ã‚‰å‘¼ã¹ã‚‹é–¢æ•°
+  Twindow,               // ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦
+  Tbuffer,               // ãƒãƒƒãƒ•ã‚¡
+  Tmarker,               // ãƒãƒ¼ã‚«
+  Tsyntax_table,         // ã‚·ãƒ³ã‚¿ãƒƒã‚¯ã‚¹ãƒ†ãƒ¼ãƒ–ãƒ«
+  Tprocess,              // ãƒ—ãƒ­ã‚»ã‚¹
+  Tregexp,               // ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ãŸæ­£è¦è¡¨ç¾
+  Twin32_menu,           // ãƒ¡ãƒ‹ãƒ¥ãƒ¼
   Twin32_dde_handle,     // DDE
-  Terror,                // ƒGƒ‰[ƒIƒuƒWƒFƒNƒg
+  Terror,                // ã‚¨ãƒ©ãƒ¼ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
   Toledata,              // IDispatch
   Treadtable,            // readtable
   Twait_object,          // wait-object
@@ -141,11 +141,25 @@ class lsymbol;
 
 class lex_env;
 
+#ifdef _MSC_VER
 typedef lisp (__stdcall *lfunction_proc)();
 typedef lisp (__stdcall *lfunction_proc_0)();
 typedef lisp (__stdcall *lfunction_proc_1)(lisp);
 typedef lisp (__stdcall *lfunction_proc_2)(lisp, lisp);
 typedef lisp (__stdcall *lfunction_proc_3)(lisp, lisp, lisp);
+#else
+typedef lisp (*lfunction_proc)();
+typedef lisp (*lfunction_proc_0)();
+typedef lisp (*lfunction_proc_1)(lisp);
+typedef lisp (*lfunction_proc_2)(lisp, lisp);
+typedef lisp (*lfunction_proc_3)(lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_4)(lisp, lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_5)(lisp, lisp, lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_6)(lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_7)(lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_8)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (*lfunction_proc_9)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+#endif
 
 # include "fns.h"
 # ifndef EXTERN
@@ -192,15 +206,15 @@ pointerp (lisp x)
   return !immediatep (x);
 }
 
-/* Lisp Object‚Ìƒ^ƒO‚ğæ“¾‚·‚éB‚ ‚ç‚©‚¶‚ßƒ|ƒCƒ“ƒ^‚Å‚ ‚é‚±‚Æ‚ğŠm”F‚·‚é‚±‚ÆB
-  ‘¦’l‚ğ“n‚·‚ÆŠÔˆá‚¢‚È‚­€‚ÊB */
+/* Lisp Objectã®ã‚¿ã‚°ã‚’å–å¾—ã™ã‚‹ã€‚ã‚ã‚‰ã‹ã˜ã‚ãƒã‚¤ãƒ³ã‚¿ã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèªã™ã‚‹ã“ã¨ã€‚
+  å³å€¤ã‚’æ¸¡ã™ã¨é–“é•ã„ãªãæ­»ã¬ã€‚ */
 inline int
 object_typeof (lisp x)
 {
   assert (x);
   assert (pointerp (x));
   assert (bitisset (used_place (x), bit_index (x)));
-  /* ldata_rep‚ÍLDATA_PAGE_SIZE‹«ŠE‚É‚ ‚é‚©‚ç‚±‚ê‚Åƒ^ƒO‚ªæ‚ê‚é */
+  /* ldata_repã¯LDATA_PAGE_SIZEå¢ƒç•Œã«ã‚ã‚‹ã‹ã‚‰ã“ã‚Œã§ã‚¿ã‚°ãŒå–ã‚Œã‚‹ */
   return ((ldata_rep *)(pointer_t (x) & ~LDATA_PAGE_MASK))->dr_type;
 }
 
@@ -210,18 +224,18 @@ typep (int x, lisp_object_type type)
   return x == type;
 }
 
-/* x‚ÌObjectƒ^ƒCƒv‚ªƒ^ƒO‚Æˆê’v‚·‚é‚©‚Ç‚¤‚©?
-   ‚¢‚¿‚¢‚¿pointerp()‚ğŒÄ‚ñ‚Å‚¢‚é‚Ì‚ÅA•¡”‚ÌƒIƒuƒWƒFƒNƒgƒ^ƒCƒv‚Æˆê’v‚·‚é‚©
-   ‚ğƒ`ƒFƒbƒN‚·‚éê‡‚ÍA‚ ‚ç‚©‚¶‚ßƒ^ƒO‚ğæ‚èo‚µ‚Ä‚¨‚¢‚½•û‚ª‘¬‚¢BGCC‚È‚ç
-   ‚¢‚´‚µ‚ç‚¸AVC‚ÌƒIƒvƒeƒBƒ}ƒCƒU‚ª‚»‚±‚Ü‚Å“ª‚¢‚¢‚Æ‚Ív‚¦‚ñB*/
+/* xã®Objectã‚¿ã‚¤ãƒ—ãŒã‚¿ã‚°ã¨ä¸€è‡´ã™ã‚‹ã‹ã©ã†ã‹?
+   ã„ã¡ã„ã¡pointerp()ã‚’å‘¼ã‚“ã§ã„ã‚‹ã®ã§ã€è¤‡æ•°ã®ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚¿ã‚¤ãƒ—ã¨ä¸€è‡´ã™ã‚‹ã‹
+   ã‚’ãƒã‚§ãƒƒã‚¯ã™ã‚‹å ´åˆã¯ã€ã‚ã‚‰ã‹ã˜ã‚ã‚¿ã‚°ã‚’å–ã‚Šå‡ºã—ã¦ãŠã„ãŸæ–¹ãŒé€Ÿã„ã€‚GCCãªã‚‰
+   ã„ã–ã—ã‚‰ãšã€VCã®ã‚ªãƒ—ãƒ†ã‚£ãƒã‚¤ã‚¶ãŒãã“ã¾ã§é ­ã„ã„ã¨ã¯æ€ãˆã‚“ã€‚*/
 inline int
 typep (lisp x, lisp_object_type type)
 {
   return pointerp (x) && typep (object_typeof (x), type);
 }
 
-/* x‚ÌObjectƒ^ƒCƒv‚ªtype‚Å‚È‚¯‚ê‚Îtype-error‚ğo‚·B
-   expected‚ÍŠú‘Ò‚·‚éŒ^–¼B */
+/* xã®Objectã‚¿ã‚¤ãƒ—ãŒtypeã§ãªã‘ã‚Œã°type-errorã‚’å‡ºã™ã€‚
+   expectedã¯æœŸå¾…ã™ã‚‹å‹åã€‚ */
 inline void
 check_type (lisp x, lisp_object_type type, lisp expected)
 {
@@ -253,8 +267,8 @@ object_type_mask_p (lisp x, int mask, int test)
   return pointerp (x) && object_type_mask_p (object_typeof (x), mask, test);
 }
 
-/* x‚ÌƒTƒuƒ^ƒCƒv‚ªbit‚Å‚È‚¯‚ê‚Îtype-error‚ğ“f‚­B
-   expected‚ÍŠú‘Ò‚·‚éŒ^–¼B */
+/* xã®ã‚µãƒ–ã‚¿ã‚¤ãƒ—ãŒbitã§ãªã‘ã‚Œã°type-errorã‚’åãã€‚
+   expectedã¯æœŸå¾…ã™ã‚‹å‹åã€‚ */
 inline void
 check_object_type_bit (lisp x, lisp_object_type_bits bit, lisp expected)
 {
@@ -274,9 +288,9 @@ boole (void *x)
   return x ? Qt : Qnil;
 }
 
-/* src‚©‚çdst‚ÖsizeŒÂ‚ÌLisp Object‚ğƒRƒs[‚·‚éB
-   memcpy‚Æ‚Ísrc‚Ædst‚ª‹t‚È‚Ì‚Å’ˆÓB
-   BSD‚Ìbcopy‚Æ‚à‚¿‚å‚Æˆá‚¤BChar*—p‚Ìbcopy‚à‚ ‚éB*/
+/* srcã‹ã‚‰dstã¸sizeå€‹ã®Lisp Objectã‚’ã‚³ãƒ”ãƒ¼ã™ã‚‹ã€‚
+   memcpyã¨ã¯srcã¨dstãŒé€†ãªã®ã§æ³¨æ„ã€‚
+   BSDã®bcopyã¨ã‚‚ã¡ã‚‡ã¨é•ã†ã€‚Char*ç”¨ã®bcopyã‚‚ã‚ã‚‹ã€‚*/
 inline void
 bcopy (lisp *src, lisp *dst, size_t size)
 {
@@ -395,7 +409,7 @@ public:
   friend void gc_mark_object ();
 };
 
-/* special bind‚İ‚½‚¢‚È */
+/* special bindã¿ãŸã„ãª */
 class dynamic_bind
 {
   lisp old;
@@ -426,8 +440,8 @@ dynamic_bind::~dynamic_bind ()
     assert (xsymbol_flags (var) & SFdynamic_bind);
 }
 
-/* ”ñ‹ÇŠGOTO
-   ‚±‚¢‚Â‚Í‘S‘RƒZƒ“ƒX‚ª‚È‚¢B*/
+/* éå±€æ‰€GOTO
+   ã“ã„ã¤ã¯å…¨ç„¶ã‚»ãƒ³ã‚¹ãŒãªã„ã€‚*/
 struct nonlocal_data
 {              // RETURN-FROM     GO      THROW    ERROR
   lisp type;   //   Qblock     Qtagbody   Qcatch   Qtoplevel   Qexit_this_level
@@ -452,7 +466,7 @@ nonlocal_jump::data ()
   return d;
 }
 
-/* ”ò‚Ñæ‚ğˆê‘Ò”ğ‚·‚é(unwind-protect‚Ìprotected-form—p) */
+/* é£›ã³å…ˆã‚’ä¸€æ™‚å¾…é¿ã™ã‚‹(unwind-protectã®protected-formç”¨) */
 class save_nonlocal_jump
 {
   protect_gc pgc;
@@ -477,9 +491,9 @@ save_nonlocal_jump::~save_nonlocal_jump ()
   nonlocal_jump::d = last;
 }
 
-/* ‘½’l‚Ìƒoƒbƒtƒ@
-   ˆê”Ê‚É‘½’l‚ğ•Ô‚·ŠÖ”‚Ívalues[0]‚É’l‚ğ“ü‚ê‚¸‚É–ß‚è’l‚Å•Ô‚·‚Ì‚ÅA
-  ƒoƒbƒtƒ@‚Ì’†g‚ğg‚¤ê‡‚Í’ˆÓB*/
+/* å¤šå€¤ã®ãƒãƒƒãƒ•ã‚¡
+   ä¸€èˆ¬ã«å¤šå€¤ã‚’è¿”ã™é–¢æ•°ã¯values[0]ã«å€¤ã‚’å…¥ã‚Œãšã«æˆ»ã‚Šå€¤ã§è¿”ã™ã®ã§ã€
+  ãƒãƒƒãƒ•ã‚¡ã®ä¸­èº«ã‚’ä½¿ã†å ´åˆã¯æ³¨æ„ã€‚*/
 
 # define MULTIPLE_VALUES_LIMIT 32
 
@@ -559,9 +573,9 @@ save_multiple_value::~save_multiple_value ()
   multiple_value::d = last;
 }
 
-/* ˆê“I‚Ég‚¦‚é•¶š—ñB‚±‚¢‚Â‚Ì‘¶İŠúŠÔ’†‚É•Ê‚Ì‚Æ‚±‚ë‚Å
-   temporary_string‚ğ¶¬‚µ‚È‚¢‚æ‚¤‚É‹C‚ğ‚Â‚¯‚Äg‚í‚È‚«‚á
-   ‚È‚ç‚ñ‚Ì‚ÅA‚ ‚Ü‚èg‚¦‚éêŠ‚ª‚È‚¢B*/
+/* ä¸€æ™‚çš„ã«ä½¿ãˆã‚‹æ–‡å­—åˆ—ã€‚ã“ã„ã¤ã®å­˜åœ¨æœŸé–“ä¸­ã«åˆ¥ã®ã¨ã“ã‚ã§
+   temporary_stringã‚’ç”Ÿæˆã—ãªã„ã‚ˆã†ã«æ°—ã‚’ã¤ã‘ã¦ä½¿ã‚ãªãã‚ƒ
+   ãªã‚‰ã‚“ã®ã§ã€ã‚ã¾ã‚Šä½¿ãˆã‚‹å ´æ‰€ãŒãªã„ã€‚*/
 class temporary_string
 {
   Char *save;

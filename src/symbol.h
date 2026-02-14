@@ -2,12 +2,12 @@
 #ifndef _symbol_h_
 # define _symbol_h_
 
-# define SFconstant          (1 << 0)      // ’è”
-# define SFspecial           (1 << 1)      // ƒOƒ[ƒoƒ‹‚ÈƒXƒyƒVƒƒƒ‹•Ï”
-# define SFlambda_key        (1 << 2)      // lambda-listƒL[ƒ[ƒh
-# define SFbuffer_local      (1 << 3)      // ƒoƒbƒtƒ@ƒ[ƒJƒ‹
-# define SFmake_buffer_local (1 << 4)      // ’l‚ªƒZƒbƒg‚³‚ê‚½‚çƒoƒbƒtƒ@ƒ[ƒJƒ‹
-# define SFdynamic_bind      (1 << 5)      // “®“I‚ÉƒoƒCƒ“ƒh‚³‚ê‚Ä‚¢‚é
+# define SFconstant          (1 << 0)      // å®šæ•°
+# define SFspecial           (1 << 1)      // ã‚°ãƒ­ãƒ¼ãƒãƒ«ãªã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°
+# define SFlambda_key        (1 << 2)      // lambda-listã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰
+# define SFbuffer_local      (1 << 3)      // ãƒãƒƒãƒ•ã‚¡ãƒ­ãƒ¼ã‚«ãƒ«
+# define SFmake_buffer_local (1 << 4)      // å€¤ãŒã‚»ãƒƒãƒˆã•ã‚ŒãŸã‚‰ãƒãƒƒãƒ•ã‚¡ãƒ­ãƒ¼ã‚«ãƒ«
+# define SFdynamic_bind      (1 << 5)      // å‹•çš„ã«ãƒã‚¤ãƒ³ãƒ‰ã•ã‚Œã¦ã„ã‚‹
 
 # ifndef NOT_COMPILE_TIME
 

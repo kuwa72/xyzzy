@@ -3,7 +3,7 @@
 
 # define PROGRAM_NAME "xyzzy"
 # define PROGRAM_APP_USER_MODEL_ID PROGRAM_NAME
-// ƒtƒ@ƒCƒ‹ƒo[ƒWƒ‡ƒ“‚É‚Í•¡”‘‚¯‚È‚¢
+// ãƒ•ã‚¡ã‚¤ãƒ«ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã«ã¯è¤‡æ•°æ›¸ã‘ãªã„
 // # define PROGRAM_COPYRIGHT "Copyright (C) 1996-2005 T.Kamei"
 # define PROGRAM_COPYRIGHT "Copyright (C) 2012-2013 xyzzy Project"
 

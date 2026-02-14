@@ -43,8 +43,8 @@ const char *const FontSet::fs_regent[] =
 
 const FontSet::fontface FontSet::fs_default_face[] =
 {
-  {"FixedSys", "ÇlÇr ÉSÉVÉbÉN", SHIFTJIS_CHARSET},
-  {"FixedSys", "ÇlÇr ÉSÉVÉbÉN", SHIFTJIS_CHARSET},
+  {"FixedSys", "MS Gothic", SHIFTJIS_CHARSET},
+  {"FixedSys", "MS Gothic", SHIFTJIS_CHARSET},
   {"Courier New"},
   {"Courier New"},
   {"Courier New"},
@@ -99,7 +99,7 @@ FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
   fo_size.cy = tm.tmAscent + tm.tmDescent;
   fo_ascent = tm.tmAscent;
   GetTextExtentPoint32 (hdc, "A", 1, &ex1);
-  GetTextExtentPoint32 (hdc, "Ç†", 2, &ex2);
+  GetTextExtentPoint32 (hdc, "\x82\xa0", 2, &ex2);
   SelectObject (hdc, of);
 }
 
@@ -583,7 +583,7 @@ font_exist_p (const HDC hdc, const char *face, BYTE charset)
   bool exists = false;
 
   LOGFONT font;
-  memset (&font, 0, sizeof LOGFONT);
+  memset (&font, 0, sizeof (LOGFONT));
   font.lfCharSet = charset;
   strcpy (font.lfFaceName, face);
 

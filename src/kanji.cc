@@ -570,14 +570,14 @@ detect_char_encoding_libguess (lisp string)
   if (xlist_length (r) == 1)
     return encoding (xcar (r));
 
-  // B–†‚Èê‡‚Íˆê”Ô‚‚¢ƒXƒRƒA‚ÌƒGƒ“ƒR[ƒfƒBƒ“ƒO‚ğ•Ô‚·B
-  // ˆê”Ô‚‚¢ƒXƒRƒA‚ª•¡”‚ ‚éê‡‚Í nil ‚ğ•Ô‚·B
+  // æ›–æ˜§ãªå ´åˆã¯ä¸€ç•ªé«˜ã„ã‚¹ã‚³ã‚¢ã®ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°ã‚’è¿”ã™ã€‚
+  // ä¸€ç•ªé«˜ã„ã‚¹ã‚³ã‚¢ãŒè¤‡æ•°ã‚ã‚‹å ´åˆã¯ nil ã‚’è¿”ã™ã€‚
   lisp top = Qnil;
   for (; consp (r); r = xcdr (r))
     {
       lisp x = xcar (r);
-      // sjis ‚Ì”¼ŠpƒJƒi‚¾‚¯‚¾‚Æ big5 ‚ÌƒXƒRƒA‚ª‚‚­‚È‚é‚Ì‚Å
-      // B–†‚Èê‡‚Í big5 ‚Í–³‹‚µ‚Ä”»’è‚·‚éB
+      // sjis ã®åŠè§’ã‚«ãƒŠã ã‘ã ã¨ big5 ã®ã‚¹ã‚³ã‚¢ãŒé«˜ããªã‚‹ã®ã§
+      // æ›–æ˜§ãªå ´åˆã¯ big5 ã¯ç„¡è¦–ã—ã¦åˆ¤å®šã™ã‚‹ã€‚
       if (xchar_encoding_type (encoding (x)) == encoding_big5)
           continue;
 
@@ -593,9 +593,9 @@ detect_char_encoding_libguess (lisp string)
 
   if (len == 2)
     {
-      // sjis ‚ğ utf-8 ‚ÆŒë”F‚·‚é‚±‚Æ‚Í‚ ‚Ü‚è‚È‚¢‚ªA
-      // utf-8 ‚ğ sjis ‚ÆŒë”F‚·‚é‚±‚Æ‚ª‘½‚¢‚Ì‚ÅA
-      // sjis ‚Æ utf-8 ‚ª“¯ƒXƒRƒA‚Ìê‡‚Í utf-8 ‚ğ—Dæ‚·‚éB
+      // sjis ã‚’ utf-8 ã¨èª¤èªã™ã‚‹ã“ã¨ã¯ã‚ã¾ã‚Šãªã„ãŒã€
+      // utf-8 ã‚’ sjis ã¨èª¤èªã™ã‚‹ã“ã¨ãŒå¤šã„ã®ã§ã€
+      // sjis ã¨ utf-8 ãŒåŒã‚¹ã‚³ã‚¢ã®å ´åˆã¯ utf-8 ã‚’å„ªå…ˆã™ã‚‹ã€‚
       lisp a = xcar (top);
       lisp b = Fcadr (top);
       if (xchar_encoding_type (encoding (a)) == encoding_sjis &&
@@ -820,7 +820,7 @@ Fmap_to_half_width_region (lisp from, lisp to, lisp keys)
                   c = ssh[i].b[c - ssh[i].min];
                   if (c)
                     {
-                      //                                 J             K
+                      //                                 ã‚›             ã‚œ
                       point.ch () = c & 0x80 ? u_char (0xde) : u_char (0xdf);
                       c |= 0x80;
                       if (!bp->insert_chars_internal (point, &c, 1, 1))

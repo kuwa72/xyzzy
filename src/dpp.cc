@@ -1,6 +1,11 @@
 #include "gen-stdafx.h"
 #include <stdarg.h>
-#include <io.h>
+#ifdef _MSC_VER
+# include <io.h>
+#else
+# include <unistd.h>
+# define _unlink unlink
+#endif
 
 static FILE *fi, *fo;
 #define MAXARGS 2

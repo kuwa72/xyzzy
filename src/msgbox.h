@@ -41,7 +41,7 @@ protected:
   void create_label (const char *, const RECT &, int) const;
   void create_icon (const RECT &) const;
   void create_buttons (const RECT br[MAX_BUTTONS]) const;
-  static BOOL CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
 public:
   XMessageBox (HINSTANCE hinst_, const char *msg_, const char *title_,
                int crlf, int no_wrap)

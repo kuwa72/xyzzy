@@ -182,7 +182,7 @@ FARPROC UnzipInterface::unzip_emulate_fns[MAX_METHOD];
 
 #define UNZIP_GOOD_VERSION 97
 
-static int __stdcall fake_MessageBeep (UINT) {return 1;}
+static int WINAPI fake_MessageBeep (UINT) {return 1;}
 
 #define P(PTR, OFFSET) ((char *)(PTR) + (long)(OFFSET))
 
@@ -224,11 +224,11 @@ UnzipInterface::patch_module (void *base) const
   for (; desc->Name; desc++)
     for (IMAGE_THUNK_DATA *thunk = (IMAGE_THUNK_DATA *)P(base, desc->FirstThunk);
          thunk->u1.Function; thunk++)
-      if ((DWORD)thunk->u1.Function == (DWORD)beep)
+      if (thunk->u1.Function == (ULONG_PTR)beep)
         {
           DWORD o;
-          VirtualProtect (&thunk->u1.Function, 4, PAGE_READWRITE, &o);
-          *(DWORD *)&thunk->u1.Function = DWORD (fake_MessageBeep);
+          VirtualProtect (&thunk->u1.Function, sizeof (thunk->u1.Function), PAGE_READWRITE, &o);
+          thunk->u1.Function = (ULONG_PTR)fake_MessageBeep;
           VirtualProtect (&thunk->u1.Function, 4, o, &o);
           return 1;
         }

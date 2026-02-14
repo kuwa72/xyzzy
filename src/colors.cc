@@ -8,21 +8,21 @@
 static XCOLORREF xcolors[MC_NCOLORS];
 static struct {const char *name, *disp;} xnames[] =
 {
-  {cfgTextColor, "ファイラ文字色"},
-  {cfgBackColor, "ファイラ背景色"},
-  {"highlightTextColor", "ファイラ選択文字色"},
-  {"highlightBackColor", "ファイラ選択背景色"},
-  {cfgCursorColor, "ファイラカーソル色"},
-  {"buftabSelFg", "選択バッファタブ文字色"},
-  {"buftabSelBg", "選択バッファタブ背景色"},
-  {"buftabDispFg", "表示バッファタブ文字色"},
-  {"buftabDispBg", "表示バッファタブ背景色"},
-  {"buftabFg", "バッファタブ文字色"},
-  {"buftabBg", "バッファタブ背景色"},
-  {"tabSelFg", "選択タブ文字色"},
-  {"tabSelBg", "選択タブ背景色"},
-  {"tabFg", "タブ文字色"},
-  {"tabBg", "タブ背景色"},
+  {cfgTextColor, "Filer Text"},
+  {cfgBackColor, "Filer Background"},
+  {"highlightTextColor", "Filer Selection Text"},
+  {"highlightBackColor", "Filer Selection Background"},
+  {cfgCursorColor, "Filer Cursor"},
+  {"buftabSelFg", "Selected Buffer Tab Text"},
+  {"buftabSelBg", "Selected Buffer Tab Background"},
+  {"buftabDispFg", "Display Buffer Tab Text"},
+  {"buftabDispBg", "Display Buffer Tab Background"},
+  {"buftabFg", "Buffer Tab Text"},
+  {"buftabBg", "Buffer Tab Background"},
+  {"tabSelFg", "Selected Tab Text"},
+  {"tabSelBg", "Selected Tab Background"},
+  {"tabFg", "Tab Text"},
+  {"tabBg", "Tab Background"},
 };
 
 const char *

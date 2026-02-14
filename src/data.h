@@ -7,7 +7,7 @@
 
 # define LDATA_PAGE_SIZE 1024
 # define LDATA_PAGE_MASK (LDATA_PAGE_SIZE - 1)
-# define LDATA_MIN_SIZE 4
+# define LDATA_MIN_SIZE sizeof(void*)
 # define LDATA_RADIX 2
 
 # define LDATA_MAX_OBJECTS_PER_LONG \

@@ -1929,8 +1929,8 @@ Fformat_drive (lisp ldrive, lisp lquick)
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
-  int (__stdcall *fmt)(HWND, int, int, int) =
-    (int (__stdcall *)(HWND, int, int, int))GetProcAddress (shell, "SHFormatDrive");
+  int (WINAPI *fmt)(HWND, int, int, int) =
+    (int (WINAPI *)(HWND, int, int, int))GetProcAddress (shell, "SHFormatDrive");
   if (!fmt)
     FEsimple_win32_error (GetLastError ());
 
@@ -1982,8 +1982,8 @@ Ffile_property (lisp lpath)
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
-  int (__stdcall *ex)(SHELLEXECUTEINFO *) =
-    (int (__stdcall *)(SHELLEXECUTEINFO *))GetProcAddress (shell, "ShellExecuteExA");
+  int (WINAPI *ex)(SHELLEXECUTEINFO *) =
+    (int (WINAPI *)(SHELLEXECUTEINFO *))GetProcAddress (shell, "ShellExecuteExA");
   if (!ex)
     FEsimple_win32_error (GetLastError ());
 

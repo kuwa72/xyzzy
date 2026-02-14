@@ -436,7 +436,7 @@ FilerView::init_view (HWND hwnd, HWND hwnd_mask, HWND hwnd_marks,
       ListView_SetSubImageList (fv_hwnd, hil, 0);
     }
 
-  DWORD style = GetWindowLong (fv_hwnd, GWL_STYLE);
+  DWORD style = (DWORD)GetWindowLongPtr (fv_hwnd, GWL_STYLE);
   if (multi)
     style &= ~LVS_SINGLESEL;
   else
@@ -445,7 +445,7 @@ FilerView::init_view (HWND hwnd, HWND hwnd_mask, HWND hwnd_marks,
   if (fv_retrieve_icon)
     style |= LVS_SHAREIMAGELISTS;
 
-  SetWindowLong (fv_hwnd, GWL_STYLE, style);
+  SetWindowLongPtr (fv_hwnd, GWL_STYLE, style);
 
   dropt.set_view (this);
   RegisterDragDrop (fv_hwnd, &dropt);
@@ -495,7 +495,7 @@ FilerView::dispinfo (LV_ITEM *lv)
   switch (lv->iSubItem)
     {
     case 0:
-      lv->pszText = *d->name ? d->name : "..";
+      lv->pszText = *d->name ? d->name : (LPSTR)"..";
       if (lv->mask & LVIF_IMAGE)
         {
           int image;
@@ -1120,7 +1120,7 @@ FilerView::search (lisp string, lisp lstart, lisp lreverse, lisp lwild)
           const char *name = ((filer_data *)lvi.lParam)->name;
           if (!*name)
             name = "..";
-          if (wild ? pathname_match_p (pat, name) : !_stricmp (pat, name))
+          if (wild ? pathname_match_p (pat, name) : !stricmp (pat, name))
             {
               ListView_SetItemState (fv_hwnd, index, LVIS_FOCUSED, LVIS_FOCUSED);
               ListView_EnsureVisible (fv_hwnd, index, 0);
@@ -1271,7 +1271,7 @@ FilerView::echo_filename ()
     }
 }
 
-unsigned __stdcall
+unsigned WINAPI
 FilerView::thread_entry (void *p)
 {
   ((FilerView *)p)->thread_main ();
@@ -1890,7 +1890,7 @@ Filer::Notify (NMHDR *nm)
           return 1;
 
         case LVN_PROCESSKEY:
-          SetWindowLong (id_hwnd, DWL_MSGRESULT,
+          SetWindowLongPtr (id_hwnd, DWL_MSGRESULT,
                          process_keys ((LV_PROCESSKEY *)nm));
           return 1;
 
@@ -2157,7 +2157,7 @@ Filer::GetMinMaxInfo (MINMAXINFO *mmi)
   GetWindowRect (id_hwnd, &dr);
   GetWindowRect (GetDlgItem (id_hwnd, IDC_LIST1), &r);
   mmi->ptMinTrackSize.y = (dr.bottom - dr.top) - (r.bottom - r.top) + 50;
-  SetWindowLong (id_hwnd, DWL_MSGRESULT, 0);
+  SetWindowLongPtr (id_hwnd, DWL_MSGRESULT, 0);
   return 1;
 }
 
@@ -2938,13 +2938,13 @@ const char ViewerWindow::vw_classname[] = "viewer";
 static inline void
 set_window (HWND hwnd, ViewerWindow *wp)
 {
-  SetWindowLong (hwnd, 0, LONG (wp));
+  SetWindowLongPtr (hwnd, 0, (LONG_PTR)wp);
 }
 
 static inline ViewerWindow *
 get_window (HWND hwnd)
 {
-  return (ViewerWindow *)GetWindowLong (hwnd, 0);
+  return (ViewerWindow *)GetWindowLongPtr (hwnd, 0);
 }
 
 static LRESULT CALLBACK

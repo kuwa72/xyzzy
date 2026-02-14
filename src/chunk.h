@@ -5,10 +5,10 @@
 class lchunk: public lisp_object
 {
 public:
-  lisp type;       // chunk‚Ìƒ^ƒCƒv
-  int size;        // ƒTƒCƒY
-  void *data;      // ƒf[ƒ^
-  lisp owner;  // —Ìˆæ‚ğŠm•Û‚µ‚½ƒIƒuƒWƒFƒNƒg(©•ª©g/‘¼‚Ìchunk/nil)
+  lisp type;       // chunkã®ã‚¿ã‚¤ãƒ—
+  int size;        // ã‚µã‚¤ã‚º
+  void *data;      // ãƒ‡ãƒ¼ã‚¿
+  lisp owner;  // é ˜åŸŸã‚’ç¢ºä¿ã—ãŸã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ(è‡ªåˆ†è‡ªèº«/ä»–ã®chunk/nil)
 
   ~lchunk () {if (owner == this) xfree (data);}
 };

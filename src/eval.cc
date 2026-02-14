@@ -465,14 +465,14 @@ lisp
 funcall_builtin (lisp f, lisp arglist)
 {
   assert (functionp (f));
-#ifdef _M_IX86
-  int nargs = xfunction_nargs (f) + xfunction_nopts (f) + (need_rest_p (f) ? 1 : 0);
-  lisp *stack = (lisp *)alloca (sizeof (lisp) * nargs);
+  int total_params = xfunction_nargs (f) + xfunction_nopts (f) + (need_rest_p (f) ? 1 : 0);
+  lisp *args = (lisp *)alloca (sizeof (lisp) * (total_params > 0 ? total_params : 1));
+  int argc = 0;
   for (int i = xfunction_nargs (f); i > 0; i--)
     {
       if (!consp (arglist))
         FEtoo_few_arguments ();
-      *stack++ = xcar (arglist);
+      args[argc++] = xcar (arglist);
       arglist = xcdr (arglist);
     }
 
@@ -481,24 +481,51 @@ funcall_builtin (lisp f, lisp arglist)
       if (!consp (arglist))
         {
           for (; i > 0; i--)
-            *stack++ = 0;
+            args[argc++] = 0;
           break;
         }
-      *stack++ = xcar (arglist);
+      args[argc++] = xcar (arglist);
       arglist = xcdr (arglist);
     }
 
   if (need_rest_p (f))
-    *stack = consp (arglist) ? arglist : Qnil;
+    args[argc++] = consp (arglist) ? arglist : Qnil;
   else if (consp (arglist))
     FEtoo_many_arguments ();
 
 #ifdef DEBUG_GC
   MARK_FUNCALL (f);
 #endif
+
+#ifdef _M_IX86
   return lfunction_proc_0 (xfunction_fn (f))();
 #else
-# error "Not tested"
+  switch (total_params)
+    {
+    case 0:
+      return lfunction_proc_0 (xfunction_fn (f))();
+    case 1:
+      return lfunction_proc_1 (xfunction_fn (f))(args[0]);
+    case 2:
+      return lfunction_proc_2 (xfunction_fn (f))(args[0], args[1]);
+    case 3:
+      return lfunction_proc_3 (xfunction_fn (f))(args[0], args[1], args[2]);
+    case 4:
+      return lfunction_proc_4 (xfunction_fn (f))(args[0], args[1], args[2], args[3]);
+    case 5:
+      return lfunction_proc_5 (xfunction_fn (f))(args[0], args[1], args[2], args[3], args[4]);
+    case 6:
+      return lfunction_proc_6 (xfunction_fn (f))(args[0], args[1], args[2], args[3], args[4], args[5]);
+    case 7:
+      return lfunction_proc_7 (xfunction_fn (f))(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+    case 8:
+      return lfunction_proc_8 (xfunction_fn (f))(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+    case 9:
+      return lfunction_proc_9 (xfunction_fn (f))(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+    default:
+      FEtoo_many_arguments ();
+      return Qnil;
+    }
 #endif
 }
 

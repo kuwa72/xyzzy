@@ -4,7 +4,7 @@
 struct alloc_page_rep
 {
   alloc_page_rep *next;
-  u_int commit;          // Šeƒrƒbƒg‚É‘Î‰‚·‚éƒy[ƒW‚ªcommit‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©
+  u_int commit;          // å„ãƒ“ãƒƒãƒˆã«å¯¾å¿œã™ã‚‹ãƒšãƒ¼ã‚¸ãŒcommitã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹
 };
 
 struct fixed_heap_rep
@@ -80,7 +80,7 @@ alloc_page::alloc ()
       for (u_int i = 0; i < ap_units_per_block; i++)
         if (!(ap_rep->commit & (1 << i)))
           {
-            void *base = (void *)((u_int (ap_rep) & ~(ap_block_size - 1))
+            void *base = (void *)((pointer_t(ap_rep) & ~(pointer_t(ap_block_size) - 1))
                                   + i * ap_unit_size);
             void *p = VirtualAlloc (base, ap_unit_size,
                                     MEM_COMMIT, PAGE_READWRITE);
@@ -125,7 +125,7 @@ alloc_page::free (void *p)
       pointer_t base = pointer_t (p);
       assert (!(base & (ap_unit_size - 1)));
 
-      u_long mask = ~(ap_block_size - 1);
+      pointer_t mask = ~(pointer_t(ap_block_size) - 1);
       base &= mask;
 
       alloc_page_rep *r, *prev = 0;
@@ -213,7 +213,7 @@ fixed_heap::free (void *p)
   pointer_t base = pointer_t (p);
   assert (!(base & (fh_heap_size - 1)));
 
-  u_long mask = ~(fh_ap.ap_page_size - 1);
+  pointer_t mask = ~(pointer_t(fh_ap.ap_page_size) - 1);
   base &= mask;
 
   u_int count = 1;

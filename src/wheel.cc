@@ -151,7 +151,7 @@ struct auto_scroll_param
   int interval;
   HCURSOR hcur[3];
   UINT timer_id;
-  void (__stdcall *callback)(int, void *);
+  void (CALLBACK *callback)(int, void *);
   void *arg;
 };
 
@@ -194,7 +194,7 @@ do_auto_scroll (auto_scroll_param &param)
 
 int
 begin_auto_scroll (HWND hwnd_parent, const POINT &point,
-                   void (__stdcall *callback)(int, void *), void *arg)
+                   void (CALLBACK *callback)(int, void *), void *arg)
 {
   if (!register_wndclass ())
     return 0;

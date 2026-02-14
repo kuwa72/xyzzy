@@ -41,7 +41,7 @@ xsyntax_table (lisp x)
   return ((lsyntax_table *)x)->table;
 }
 
-enum syntax_code
+enum syntax_code : int
 {
   SCwhite,
   SCpunct,

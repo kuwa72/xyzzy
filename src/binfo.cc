@@ -149,7 +149,7 @@ buffer_info::ime_mode (char *b, char *be) const
     return b;
   *b_ime = 1;
   return stpncpy (b, (app.ime_open_mode == kbd_queue::IME_MODE_ON
-                      ? "Ç†" : "--"),
+                      ? "\x82\xa0" : "--"),
                   be - b);
 }
 
@@ -199,7 +199,7 @@ buffer_info::admin_user (char *b, char *be) const
   if (Fadmin_user_p () == Qt)
     {
       int f = 0;
-      b = stpncpy (b, "ä«óùé“: ", be - b);
+      b = stpncpy (b, "Admin: ", be - b);
     }
   return b;
 }

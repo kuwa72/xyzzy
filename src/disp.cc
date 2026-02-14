@@ -364,7 +364,7 @@ public:
   void paint (HDC hdc, ucs2_t wc, int flags)
     {
       p_r.right = min (int (p_r.left + p_cellw), p_right);
-      ExtTextOutW (hdc, p_x, p_y, flags, &p_r, &wc, 1, 0);
+      ExtTextOutW (hdc, p_x, p_y, flags, &p_r, (LPCWSTR)&wc, 1, 0);
       p_r.left = p_r.right;
       p_x += p_cellw;
     }
@@ -378,7 +378,7 @@ paint_chars_ctx::paint_lucida (HDC hdc, ucs2_t wc, int flags)
   int o = (LUCIDA_OFFSET (wc - UNICODE_SMLCDM_MIN) * f.size ().cy / LUCIDA_BASE_HEIGHT
            + app.text_font.cell ().cx / 2);
   p_r.right = min (int (p_r.left + p_cellw), p_right);
-  ExtTextOutW (hdc, p_x + o, p_y, flags, &p_r, &wc, 1, 0);
+  ExtTextOutW (hdc, p_x + o, p_y, flags, &p_r, (LPCWSTR)&wc, 1, 0);
   p_r.left = p_r.right;
   p_x += p_cellw;
 }
@@ -3771,7 +3771,7 @@ refresh_screen (int f)
       if (SetMenu (app.toplev, lmenu == Qnil ? 0 : xwin32_menu_handle (lmenu)))
         {
           DrawMenuBar (app.toplev);
-#ifndef WINDOWBLINDS_FIXED // WindowBlindsëŒçÙ
+#ifndef WINDOWBLINDS_FIXED // WindowBlindsÔøΩŒçÔøΩ
           if (lmenu == Qnil || xsymbol_value (Vlast_active_menu) == Qnil)
             {
               RECT r;

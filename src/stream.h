@@ -50,22 +50,22 @@ enum stream_type
 class lstream: public lisp_object
 {
 public:
-  stream_type type;  // ƒXƒgƒŠ[ƒ€‚ÌƒTƒuƒ^ƒCƒv
-  int column;        // ƒJƒ‰ƒ€ˆÊ’u
-  long linenum;      // s”Ô†
+  stream_type type;  // ã‚¹ãƒˆãƒªãƒ¼ãƒ ã®ã‚µãƒ–ã‚¿ã‚¤ãƒ—
+  int column;        // ã‚«ãƒ©ãƒ ä½ç½®
+  long linenum;      // è¡Œç•ªå·
   void *input;
   void *output;
-  lChar pending;     // unread-char—pƒoƒbƒtƒ@
+  lChar pending;     // unread-charç”¨ãƒãƒƒãƒ•ã‚¡
   lisp pathname;
   char *alt_pathname;
   int start;
   int end;
-  char open_p;        // ƒXƒgƒŠ[ƒ€‚ªƒI[ƒvƒ“‚³‚ê‚Ä‚¢‚é?
-  char encoding;      // ƒGƒ“ƒR[ƒhƒ‚[ƒh
+  char open_p;        // ã‚¹ãƒˆãƒªãƒ¼ãƒ ãŒã‚ªãƒ¼ãƒ—ãƒ³ã•ã‚Œã¦ã„ã‚‹?
+  char encoding;      // ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‰ãƒ¢ãƒ¼ãƒ‰
   enum
     {
-      ENCODE_CANON,   // text(s––•ÏŠ·‚·‚é)
-      ENCODE_RAW,     // text(s––•ÏŠ·‚µ‚È‚¢)
+      ENCODE_CANON,   // text(è¡Œæœ«å¤‰æ›ã™ã‚‹)
+      ENCODE_RAW,     // text(è¡Œæœ«å¤‰æ›ã—ãªã„)
       ENCODE_BINARY   // binary
     };
 
@@ -76,32 +76,32 @@ public:
   LSTREAM USAGE:
 
   FILE STREAM:
-    input        : (FILE *) “ü—Íƒtƒ@ƒCƒ‹‚ÌƒXƒgƒŠ[ƒ€
-    output       : (FILE *) o—Íƒtƒ@ƒCƒ‹‚ÌƒXƒgƒŠ[ƒ€
-    pathname     : (lisp)   ƒtƒ@ƒCƒ‹–¼
-    alt_pathname : (char *) ƒeƒ“ƒ|ƒ‰ƒŠƒtƒ@ƒCƒ‹‚Ìƒtƒ@ƒCƒ‹–¼
+    input        : (FILE *) å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¹ãƒˆãƒªãƒ¼ãƒ 
+    output       : (FILE *) å‡ºåŠ›ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¹ãƒˆãƒªãƒ¼ãƒ 
+    pathname     : (lisp)   ãƒ•ã‚¡ã‚¤ãƒ«å
+    alt_pathname : (char *) ãƒ†ãƒ³ãƒãƒ©ãƒªãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ•ã‚¡ã‚¤ãƒ«å
     start        : -
     end          : -
 
   STRING STREAM:
-    input        : (lisp) “ü—Í•¶š—ñ
-    output       : (lisp) o—Í•¶š—ñ
+    input        : (lisp) å…¥åŠ›æ–‡å­—åˆ—
+    output       : (lisp) å‡ºåŠ›æ–‡å­—åˆ—
     pathname     : -
     alt_pathname : -
-    start        : (int)  ŠJnˆÊ’u
-    end          : (int)  I—¹ˆÊ’u
+    start        : (int)  é–‹å§‹ä½ç½®
+    end          : (int)  çµ‚äº†ä½ç½®
 
   BUFFER STREAM:
-    input        : (lisp) EOBˆÊ’u‚Ìƒ}[ƒJ
-    output       : (lisp) “üo—ÍˆÊ’u‚Ìƒ}[ƒJ
+    input        : (lisp) EOBä½ç½®ã®ãƒãƒ¼ã‚«
+    output       : (lisp) å…¥å‡ºåŠ›ä½ç½®ã®ãƒãƒ¼ã‚«
     pathname     : -
     alt_pathname : -
     start        : -
     end          : -
 
   COMPOSITE STREAM:
-    input        : (lisp) “ü—Í
-    output       : (lisp) o—Í
+    input        : (lisp) å…¥åŠ›
+    output       : (lisp) å‡ºåŠ›
     pathname     : -
     alt_pathname : -
     start        : -
@@ -119,8 +119,8 @@ public:
     input        : (lisp) i/o callback
     output       : (lisp) close callback
     pathname     : (lisp) listen callback
-    alt_pathname : (lisp) “ü—Í•¶š—ñ
-    start        : “ü—ÍˆÊ’u
+    alt_pathname : (lisp) å…¥åŠ›æ–‡å­—åˆ—
+    start        : å…¥åŠ›ä½ç½®
     end          : -
 
   GENERAL OUTPUT STREAM:

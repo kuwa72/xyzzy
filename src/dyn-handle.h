@@ -18,7 +18,7 @@ public:
   HANDLE unfix ();
   void close ();
 
-  friend int pipe (dyn_handle &, dyn_handle &, SECURITY_ATTRIBUTES *, DWORD = 0);
+  friend int pipe (dyn_handle &, dyn_handle &, SECURITY_ATTRIBUTES *, DWORD);
 };
 
 inline

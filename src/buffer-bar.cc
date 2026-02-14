@@ -7,12 +7,16 @@
 buffer_bar *buffer_bar::b_bar;
 Buffer *buffer_bar::b_last_buffer;
 
+#ifdef _MSC_VER
 #pragma warning (disable: 4355)
+#endif
 buffer_bar::buffer_bar (dock_frame &frame)
      : tab_bar (frame, Vbuffer_bar), b_drop_target (this), b_drop_index (-1)
 {
 }
+#ifdef _MSC_VER
 #pragma warning (default: 4355)
+#endif
 
 Buffer *
 buffer_bar::current () const

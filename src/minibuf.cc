@@ -557,12 +557,12 @@ completion::complete_symbol ()
           complete_symbol (xpackage_external (package));
       }
 
-  // ƒpƒbƒP[ƒW–¼‚Ì•âŠ®
+  // ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸åã®è£œå®Œ
   if (!mss.pkg_end ())
     for (lisp p = xsymbol_value (Vpackage_list); consp (p); p = xcdr (p))
       {
         lisp x = xcar (p);
-        // ‚È‚É‚à export ‚µ‚Ä‚¢‚È‚¢ƒpƒbƒP[ƒW‚Í•âŠ®Œó•â‚Éo‚³‚È‚¢
+        // ãªã«ã‚‚ export ã—ã¦ã„ãªã„ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã¯è£œå®Œå€™è£œã«å‡ºã•ãªã„
         if (count_symbols (xpackage_external (x)) <= 0)
           continue;
         do_completion (xpackage_name (x), 0);

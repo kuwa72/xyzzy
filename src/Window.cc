@@ -31,7 +31,7 @@ WindowConfiguration *WindowConfiguration::wc_chain;
 
 wcolor_index Window::forecolor_indexes[] =
 {
-//nrm ctl kw1 kw2 kw3 k1r k2r k3r -   -   -    -  lnm  str tag com   // ”½“] ‘I‘ð –³Œø
+//nrm ctl kw1 kw2 kw3 k1r k2r k3r -   -   -    -  lnm  str tag com   // åè»¢ é¸æŠž ç„¡åŠ¹
   TXF,CXF,K1F,K2F,K3F,TXB,TXB,TXB,TXF,TXF,TXF,TXF,LNF,STF,TGF,CMF,  //   -    -    -
   GRF,GRF,GRF,GRF,GRF,TXB,TXB,TXB,GRF,GRF,GRF,GRF,LNF,GRF,GRF,GRF,  //   -    -    o
   HIF,CXF,HIF,HIF,HIF,HIF,HIF,HIF,HIF,HIF,HIF,HIF,LNF,HIF,HIF,HIF,  //   -    o    -
@@ -44,7 +44,7 @@ wcolor_index Window::forecolor_indexes[] =
 
 wcolor_index Window::backcolor_indexes[] =
 {
-//nrm ctl kw1 kw2 kw3 k1r k2r k3r -   -   -    -  lnm str tag com   // ”½“] ‘I‘ð –³Œø
+//nrm ctl kw1 kw2 kw3 k1r k2r k3r -   -   -    -  lnm str tag com   // åè»¢ é¸æŠž ç„¡åŠ¹
   TXB,TXB,TXB,TXB,TXB,K1F,K2F,K3F,TXB,TXB,TXB,TXB,TXB,TXB,TXB,TXB,  //   -    -    -
   TXB,TXB,TXB,TXB,TXB,GRF,GRF,GRF,TXB,TXB,TXB,TXB,TXB,TXB,TXB,TXB,  //   -    -    o
   HIB,HIB,HIB,HIB,HIB,GRF,GRF,GRF,HIB,HIB,HIB,HIB,HIB,HIB,HIB,HIB,  //   -    o    -
@@ -105,27 +105,27 @@ XCOLORREF Window::w_textprop_xbackcolor[GLYPH_TEXTPROP_NCOLORS];
 
 const wcolor_index_name wcolor_index_names[] =
 {
-  {cfgTextColor, RGB (0, 0, 0), "•¶ŽšF"},
-  {cfgBackColor, RGB (0xff, 0xff, 0xff), "”wŒiF"},
-  {cfgCtlColor, RGB (0x80, 0x80, 0), "§Œä•¶Žš"},
-  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), "‘I‘ð•¶ŽšF"},
-  {cfgSelectionBackColor, RGB (0, 0, 0), "‘I‘ð”wŒiF"},
-  {cfgKwdColor1, RGB (0, 0, 0xff), "ƒL[ƒ[ƒh1"},
-  {cfgKwdColor2, RGB (0, 0x40, 0), "ƒL[ƒ[ƒh2"},
-  {cfgKwdColor3, RGB (0x80, 0, 0x80), "ƒL[ƒ[ƒh3"},
-  {cfgStringColor, RGB (0, 0x40, 0), "•¶Žš—ñ"},
-  {cfgCommentColor, RGB (0, 0x80, 0), "ƒRƒƒ“ƒg"},
-  {cfgTagColor, RGB (0x40, 0x40, 0), "ƒ^ƒO"},
-  {cfgCursorColor, RGB (0x80, 0, 0x80), "sƒJ[ƒ\ƒ‹"},
-  {cfgCaretColor, RGB (0, 0, 0), "ƒLƒƒƒŒƒbƒg"},
-  {cfgImeCaretColor, RGB (0x80, 0, 0), "IMEƒLƒƒƒŒƒbƒg"},
-  {cfgLinenum, RGB (0, 0, 0), "s”Ô†"},
-  {cfgReverse, RGB (0, 0, 0), "ƒjƒZ”½“]F"},
-  {cfgUnselectedModeLineFg, RGB (0, 0, 0), "ƒ‚[ƒhs•¶ŽšF"},
-  {cfgUnselectedModeLineBg, RGB (0, 0, 0), "ƒ‚[ƒhs”wŒiF"},
+  {cfgTextColor, RGB (0, 0, 0), "Text"},
+  {cfgBackColor, RGB (0xff, 0xff, 0xff), "Background"},
+  {cfgCtlColor, RGB (0x80, 0x80, 0), "Control Char"},
+  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), "Selection Text"},
+  {cfgSelectionBackColor, RGB (0, 0, 0), "Selection Background"},
+  {cfgKwdColor1, RGB (0, 0, 0xff), "Keyword 1"},
+  {cfgKwdColor2, RGB (0, 0x40, 0), "Keyword 2"},
+  {cfgKwdColor3, RGB (0x80, 0, 0x80), "Keyword 3"},
+  {cfgStringColor, RGB (0, 0x40, 0), "String"},
+  {cfgCommentColor, RGB (0, 0x80, 0), "Comment"},
+  {cfgTagColor, RGB (0x40, 0x40, 0), "Tag"},
+  {cfgCursorColor, RGB (0x80, 0, 0x80), "Line Cursor"},
+  {cfgCaretColor, RGB (0, 0, 0), "Caret"},
+  {cfgImeCaretColor, RGB (0x80, 0, 0), "IME Caret"},
+  {cfgLinenum, RGB (0, 0, 0), "Line Number"},
+  {cfgReverse, RGB (0, 0, 0), "Pseudo Reverse"},
+  {cfgUnselectedModeLineFg, RGB (0, 0, 0), "Modeline Text"},
+  {cfgUnselectedModeLineBg, RGB (0, 0, 0), "Modeline Background"},
 
-  {0, RGB (0, 0, 0), "‘I‘ðƒ‚[ƒhs•¶ŽšF"},
-  {0, RGB (0, 0, 0), "‘I‘ðƒ‚[ƒhs”wŒiF"},
+  {0, RGB (0, 0, 0), "Selected Modeline Text"},
+  {0, RGB (0, 0, 0), "Selected Modeline Background"},
 };
 
 ModelineParam::ModelineParam ()
@@ -293,7 +293,7 @@ StatusWindow::set (HWND hwnd)
 int
 StatusWindow::paint (const DRAWITEMSTRUCT *dis)
 {
-  if (dis->itemData != DWORD (&sw_last))
+  if (dis->itemData != (ULONG_PTR)&sw_last)
     return 0;
 
   TEXTMETRIC tm;
@@ -312,10 +312,10 @@ StatusWindow::paint (const DRAWITEMSTRUCT *dis)
        b < be; b++)
     {
       SIZE sz;
-      GetTextExtentPoint32W (dis->hDC, b, 1, &sz);
+      GetTextExtentPoint32W (dis->hDC, (LPCWSTR)b, 1, &sz);
       r.right += sz.cx;
       ExtTextOutW (dis->hDC, x, y, ETO_CLIPPED | ETO_OPAQUE,
-                   &r, b, 1, 0);
+                   &r, (LPCWSTR)b, 1, 0);
       r.left = r.right;
       x += sz.cx;
     }
@@ -497,8 +497,8 @@ Window::Window (const Window &src)
 }
 
 #if defined(_MSC_VER) && (_MSC_VER < 1600)
-/* ‚È‚ñ‚©’m‚ç‚ñ‚ªinternal compiler error ‚ªo‚é‚æ‚¤‚É‚È‚Á‚Ä‚µ‚Ü‚Á‚½‚Ì‚Å
-   ‚Ä‚«‚Æ[‚É‘ÎˆB*/
+/* ãªã‚“ã‹çŸ¥ã‚‰ã‚“ãŒinternal compiler error ãŒå‡ºã‚‹ã‚ˆã†ã«ãªã£ã¦ã—ã¾ã£ãŸã®ã§
+   ã¦ãã¨ãƒ¼ã«å¯¾å‡¦ã€‚*/
 #pragma optimize("g", off)
 #endif
 
@@ -2668,7 +2668,7 @@ static void
 activate_xyzzy_window (HWND hwnd)
 {
   Fbegin_wait_cursor ();
-  DWORD r;
+  DWORD_PTR r;
   int ok = SendMessageTimeout (hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 1000, &r);
   Fend_wait_cursor ();
   if (!ok)
@@ -3239,7 +3239,7 @@ ForceSetForegroundWindow (HWND hwnd)
       if (!ok)
         {
           HWND hwnd_fg = GetForegroundWindow ();
-          DWORD r;
+          DWORD_PTR r;
           if (hwnd_fg && SendMessageTimeout (hwnd_fg, WM_NULL, 0, 0,
                                              SMTO_ABORTIFHUNG | SMTO_BLOCK, 100, &r))
             {
@@ -3254,7 +3254,7 @@ ForceSetForegroundWindow (HWND hwnd)
     SetForegroundWindow (hwnd);
 }
 
-static void __stdcall
+static void CALLBACK
 auto_scroll (int n, void *arg)
 {
   Window *wp = (Window *)arg;

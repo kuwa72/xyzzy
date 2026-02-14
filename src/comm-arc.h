@@ -35,28 +35,28 @@ typedef	HGLOBAL	HARC;
 
 typedef struct
 {
-  DWORD dwOriginalSize;              /* �t�@�C���̃T�C�Y                  */
-  DWORD dwCompressedSize;            /* ���k��̃T�C�Y                    */
-  DWORD dwCRC;                       /* �i�[�t�@�C���̃`�F�b�N�T��/CRC    */
-  UINT  uFlag;                       /* �𓀂�e�X�g�̏�������            */
-  UINT  uOSType;                     /* ���̃t�@�C���̍쐬�Ɏg��ꂽ�n�r  */
-  WORD  wRatio;                      /* ���k���i�p�[�~��)                 */
-  WORD  wDate;                       /* �i�[�t�@�C���̓��t                */
-  WORD  wTime;                       /* �i�[�t�@�C���̎���                */
-  char  szFileName[FNAME_MAX32 + 1]; /* �A�[�J�C�u�t�@�C����              */
+  DWORD dwOriginalSize;              /* ファイルのサイズ                  */
+  DWORD dwCompressedSize;            /* 圧縮後のサイズ                    */
+  DWORD dwCRC;                       /* 格納ファイルのチェックサム/CRC    */
+  UINT  uFlag;                       /* 解凍やテストの処理結果            */
+  UINT  uOSType;                     /* このファイルの作成に使われたＯＳ  */
+  WORD  wRatio;                      /* 圧縮率（パーミル)                 */
+  WORD  wDate;                       /* 格納ファイルの日付                */
+  WORD  wTime;                       /* 格納ファイルの時刻                */
+  char  szFileName[FNAME_MAX32 + 1]; /* アーカイブファイル名              */
   char  dummy1[3];
-  char  szAttribute[8];              /* �i�[�t�@�C���̑���                */
-  char  szMode[8];                   /* �i�[�t�@�C���̊i�[���[�h          */
+  char  szAttribute[8];              /* 格納ファイルの属性                */
+  char  szMode[8];                   /* 格納ファイルの格納モード          */
 }
   INDIVIDUALINFO, FAR *LPINDIVIDUALINFO;
 
 typedef struct
 {
-  DWORD dwFileSize;                        /* �i�[�t�@�C���̃T�C�Y */
-  DWORD dwWriteSize;                       /* �𓀂��ď������񂾃T�C�Y */
-  char  szSourceFileName[FNAME_MAX32 + 1]; /* �������s���i�[�t�@�C���� */
+  DWORD dwFileSize;                        /* 格納ファイルのサイズ */
+  DWORD dwWriteSize;                       /* 解凍して書き込んだサイズ */
+  char  szSourceFileName[FNAME_MAX32 + 1]; /* 処理を行う格納ファイル名 */
   char  dummy1[3];
-  char  szDestFileName[FNAME_MAX32 + 1];   /* ���ۂɏ������܂��p�X�� */
+  char  szDestFileName[FNAME_MAX32 + 1];   /* 実際に書き込まれるパス名 */
   char  dummy[3];
 }
   EXTRACTINGINFO, FAR *LPEXTRACTINGINFO;
@@ -64,14 +64,14 @@ typedef struct
 typedef struct
 {
   EXTRACTINGINFO exinfo;
-  DWORD dwCompressedSize;               /* ���k��̃T�C�Y  */
-  DWORD dwCRC;                          /* �i�[�t�@�C���̃`�F�b�N�T��/CRC */
-  UINT  uOSType;                        /* ���̃t�@�C���̍쐬�Ɏg��ꂽ�n�r */
-  WORD  wRatio;                         /* ���k���i�p�[�~��) */
-  WORD  wDate;                          /* �i�[�t�@�C���̓��t  */
-  WORD  wTime;                          /* �i�[�t�@�C���̎���  */
-  char  szAttribute[8];                 /* �i�[�t�@�C���̑���  */
-  char  szMode[8];                      /* �i�[�t�@�C���̊i�[���[�h  */
+  DWORD dwCompressedSize;               /* 圧縮後のサイズ  */
+  DWORD dwCRC;                          /* 格納ファイルのチェックサム/CRC */
+  UINT  uOSType;                        /* このファイルの作成に使われたＯＳ */
+  WORD  wRatio;                         /* 圧縮率（パーミル) */
+  WORD  wDate;                          /* 格納ファイルの日付  */
+  WORD  wTime;                          /* 格納ファイルの時刻  */
+  char  szAttribute[8];                 /* 格納ファイルの属性  */
+  char  szMode[8];                      /* 格納ファイルの格納モード  */
 }
   EXTRACTINGINFOEX, FAR *LPEXTRACTINGINFOEX;
 
@@ -85,19 +85,19 @@ typedef struct
 
 #ifndef CHECKARCHIVE_RAPID
 #define CHECKARCHIVE_MODE_MASK  3
-#define	CHECKARCHIVE_RAPID	0 	/* �ȈՌ^�i�����j */
-#define	CHECKARCHIVE_BASIC	1 	/* �W���^�i�w�b�_�[�̂݁j */
-#define	CHECKARCHIVE_FULLCRC	2	/* ���S�^�i�b�q�b���̃`�F�b�N���܂ށj */
+#define	CHECKARCHIVE_RAPID	0 	/* 簡易型（高速） */
+#define	CHECKARCHIVE_BASIC	1 	/* 標準型（ヘッダーのみ） */
+#define	CHECKARCHIVE_FULLCRC	2	/* 完全型（ＣＲＣ等のチェックを含む） */
 
-/* �ȉ��̃t���O�͏�L�Ƒg�ݍ��킹�Ďg�p�B*/
-#define CHECKARCHIVE_RECOVERY	4	/* �j���w�b�_��ǂݔ�΂��ď��� */
-#define CHECKARCHIVE_SFX	8	/* SFX ���ǂ�����Ԃ� */
-#define CHECKARCHIVE_ALL	16	/* �t�@�C���̍Ō�܂Ō������� */
+/* 以下のフラグは上記と組み合わせて使用。*/
+#define CHECKARCHIVE_RECOVERY	4	/* 破損ヘッダを読み飛ばして処理 */
+#define CHECKARCHIVE_SFX	8	/* SFX かどうかを返す */
+#define CHECKARCHIVE_ALL	16	/* ファイルの最後まで検索する */
 #endif /* CHECKARCHIVE_RAPID */
 
 #ifndef UNPACK_CONFIG_MODE
-#define	UNPACK_CONFIG_MODE	1 /* �𓀁i�����j�n�̃R�}���h */
-#define	PACK_CONFIG_MODE	2 /* ���k�i�쐬�j�n�̃R�}���h */
+#define	UNPACK_CONFIG_MODE	1 /* 解凍（復元）系のコマンド */
+#define	PACK_CONFIG_MODE	2 /* 圧縮（作成）系のコマンド */
 #endif
 
 #ifndef ISARC_FUNCTION_START
@@ -233,22 +233,22 @@ typedef struct
 
 /* Modes for UnarjOpenArchive */
 #if !defined(EXTRACT_FOUND_FILE)
-#define M_INIT_FILE_USE		0x00000001L	/* ���W�X�g���̐ݒ���g�p */
-#define M_REGARDLESS_INIT_FILE	0x00000002L	/* �V ���g�p���Ȃ� */
+#define M_INIT_FILE_USE		0x00000001L	/* レジストリの設定を使用 */
+#define M_REGARDLESS_INIT_FILE	0x00000002L	/* 〃 を使用しない */
 #ifndef NO_COMPAT_UNARJ32
 #define M_NOT_USE_TIME_STAMP	0x00000008L
 #define M_EXTRACT_REPLACE_FILE	0x00000010L
 #define M_EXTRACT_NEW_FILE	0x00000020L
 #define M_EXTRACT_UPDATE_FILE	0x00000040L
 #endif /* NO_COMPAT_UNARJ32 */
-#define M_CHECK_ALL_PATH	0x00000100L	/* ���i�ȃt�@�C�����T�[�` */
-#define M_CHECK_FILENAME_ONLY	0x00000200L	/* �V���s��Ȃ� */
+#define M_CHECK_ALL_PATH	0x00000100L	/* 厳格なファイル名サーチ */
+#define M_CHECK_FILENAME_ONLY	0x00000200L	/* 〃を行わない */
 #ifndef NO_COMPAT_UNARJ32
 #define M_CHECK_DISK_SIZE	0x00000400L
 #define M_REGARDLESS_DISK_SIZE	0x00000800L
 #endif /* NO_COMPAT_UNARJ32 */
-#define M_USE_DRIVE_LETTER	0x00001000L	/* �h���C�u������i�[ */
-#define M_NOT_USE_DRIVE_LETTER	0x00002000L	/* �V ���i�[���Ȃ� */
+#define M_USE_DRIVE_LETTER	0x00001000L	/* ドライブ名から格納 */
+#define M_NOT_USE_DRIVE_LETTER	0x00002000L	/* 〃 を格納しない */
 #ifndef NO_COMPAT_UNARJ32
 #define M_INQUIRE_DIRECTORY	0x00004000L
 #define M_NOT_INQUIRE_DIRECTORY 0x00008000L
@@ -259,9 +259,9 @@ typedef struct
 #define M_REGARD_E_COMMAND	0x00100000L
 #define M_REGARD_X_COMMAND	0x00200000L
 #endif /* NO_COMPAT_UNARJ32 */
-#define M_ERROR_MESSAGE_ON	0x00400000L	/* �G���[���b�Z�[�W��\�� */
-#define M_ERROR_MESSAGE_OFF	0x00800000L	/* �V��\�����Ȃ� */
-#define M_RECOVERY_ON		0x08000000L	/* �j���w�b�_�̓ǂݔ�΂� */
+#define M_ERROR_MESSAGE_ON	0x00400000L	/* エラーメッセージを表示 */
+#define M_ERROR_MESSAGE_OFF	0x00800000L	/* 〃を表示しない */
+#define M_RECOVERY_ON		0x08000000L	/* 破損ヘッダの読み飛ばし */
 #ifndef NO_COMPAT_TAR32
 #define M_BAR_WINDOW_ON		0x01000000L
 #define M_BAR_WINDOW_OFF	0x02000000L
@@ -270,67 +270,67 @@ typedef struct
 #define M_MAKE_INDEX_FILE	0x10000000L
 #define M_NOT_MAKE_INDEX_FILE	0x20000000L
 #endif /* NO_COMPAT_UNARJ32 */
-#define EXTRACT_FOUND_FILE	0x40000000L	/* �������ꂽ�t�@�C������ */
-#define EXTRACT_NAMED_FILE	0x80000000L	/* �w�肵���t�@�C������ */
+#define EXTRACT_FOUND_FILE	0x40000000L	/* 検索されたファイルを解凍 */
+#define EXTRACT_NAMED_FILE	0x80000000L	/* 指定したファイルを解凍 */
 #endif /* EXTRACT_FOUND_FILE */
 
 #ifndef SFX_NOT
-#define SFX_NOT			0	/* �ʏ�̏��� */
+#define SFX_NOT			0	/* 通常の書庫 */
 
 #ifndef NO_COMPAT_UNLHA32
-#define SFX_DOS_S		1	/* LHA's SFX �n (small) */
-#define SFX_DOS_204S		1	/* LHA's SFX 2.04S �ȍ~ */
-#define SFX_DOS_213S		1	/* LHA's SFX 2.04S �ȍ~ */
-#define SFX_DOS_250S		2	/* LHA's SFX 2.50S �ȍ~ */
-#define SFX_DOS_260S		3	/* LHA's SFX 2.60S �ȍ~ */
-#define SFX_DOS_265S		3	/* LHA's SFX 2.60S �ȍ~ */
+#define SFX_DOS_S		1	/* LHA's SFX 系 (small) */
+#define SFX_DOS_204S		1	/* LHA's SFX 2.04S 以降 */
+#define SFX_DOS_213S		1	/* LHA's SFX 2.04S 以降 */
+#define SFX_DOS_250S		2	/* LHA's SFX 2.50S 以降 */
+#define SFX_DOS_260S		3	/* LHA's SFX 2.60S 以降 */
+#define SFX_DOS_265S		3	/* LHA's SFX 2.60S 以降 */
 
-#define SFX_DOS_L		51	/* LHA's SFX �n (large) */
-#define SFX_DOS_204L		51	/* LHA's SFX 2.04L �ȍ~ */
-#define SFX_DOS_213L		51	/* LHA's SFX 2.04L �ȍ~ */
-#define SFX_DOS_250L		52	/* LHA's SFX 2.50L �ȍ~ */
-#define SFX_DOS_260L		53	/* LHA's SFX 2.60L �ȍ~ */
-#define SFX_DOS_265L		53	/* LHA's SFX 2.60L �ȍ~ */
+#define SFX_DOS_L		51	/* LHA's SFX 系 (large) */
+#define SFX_DOS_204L		51	/* LHA's SFX 2.04L 以降 */
+#define SFX_DOS_213L		51	/* LHA's SFX 2.04L 以降 */
+#define SFX_DOS_250L		52	/* LHA's SFX 2.50L 以降 */
+#define SFX_DOS_260L		53	/* LHA's SFX 2.60L 以降 */
+#define SFX_DOS_265L		53	/* LHA's SFX 2.60L 以降 */
 
-#define SFX_DOS_LARC		201	/* SFX by LARC �n */
+#define SFX_DOS_LARC		201	/* SFX by LARC 系 */
 #define SFX_DOS_LARC_S		201	/* SFX by LARC (small) */
 
-#define SFX_DOS_LHARC		301	/* LHarc's SFX �n */
+#define SFX_DOS_LHARC		301	/* LHarc's SFX 系 */
 #define SFX_DOS_LHARC_S		301	/* LHarc's SFX (small) */
 #define SFX_DOS_LHARC_L		351	/* LHarc's SFX (large) */
 
-#define SFX_WIN16_213		1001	/* LHA's SFX 2.13.w16 �n */
+#define SFX_WIN16_213		1001	/* LHA's SFX 2.13.w16 系 */
 #define SFX_WIN16_213_1		1001	/* WinSFX 2.13.w16.1 */
 #define SFX_WIN16_213_2		1002	/* WinSFX 2.13.w16.2 */
-#define SFX_WIN16_213_3		1003	/* WinSFX 2.13.w16.3 �ȍ~ */
+#define SFX_WIN16_213_3		1003	/* WinSFX 2.13.w16.3 以降 */
 
-#define SFX_WIN16_250		1011	/* LHA's SFX 2.50.w16 �n */
-#define SFX_WIN16_250_1		1011	/* WinSFXM 2.50.w16.0001 �ȍ~ */
-#define SFX_WIN16_255_1		1021	/* WinSFXM 2.55.w16.0001 �ȍ~ */
+#define SFX_WIN16_250		1011	/* LHA's SFX 2.50.w16 系 */
+#define SFX_WIN16_250_1		1011	/* WinSFXM 2.50.w16.0001 以降 */
+#define SFX_WIN16_255_1		1021	/* WinSFXM 2.55.w16.0001 以降 */
 
-#define SFX_WIN32_213		2001	/* LHA's SFX 2.13.w32 �n */
-#define SFX_WIN32_213_1		2001	/* WinSFX32 2.13.w32.1 �ȍ~ */
-#define SFX_WIN32_213_3		2002	/* WinSFX32 2.13.w32.3 �ȍ~ */
+#define SFX_WIN32_213		2001	/* LHA's SFX 2.13.w32 系 */
+#define SFX_WIN32_213_1		2001	/* WinSFX32 2.13.w32.1 以降 */
+#define SFX_WIN32_213_3		2002	/* WinSFX32 2.13.w32.3 以降 */
 
-#define SFX_WIN32_250		2011	/* LHA's SFX 2.50.w32 �n */
-#define SFX_WIN32_250_1		2011	/* WinSFX32M 2.50.w32.0001 �ȍ~ */
-#define SFX_WIN32_250_6		2012	/* WinSFX32M 2.50.w32.0006 �ȍ~ */
+#define SFX_WIN32_250		2011	/* LHA's SFX 2.50.w32 系 */
+#define SFX_WIN32_250_1		2011	/* WinSFX32M 2.50.w32.0001 以降 */
+#define SFX_WIN32_250_6		2012	/* WinSFX32M 2.50.w32.0006 以降 */
 
-#define SFX_LZHSFX		2051	/* LZHSFX �n */
-#define SFX_LZHSFX_1002		2051	/* LZHSFX 1.0.0.2 �ȍ~ */
-#define SFX_LZHSFX_1100		2052	/* LZHSFX 1.1.0.0 �ȍ~ */
+#define SFX_LZHSFX		2051	/* LZHSFX 系 */
+#define SFX_LZHSFX_1002		2051	/* LZHSFX 1.0.0.2 以降 */
+#define SFX_LZHSFX_1100		2052	/* LZHSFX 1.1.0.0 以降 */
 
-#define SFX_LZHAUTO		2101	/* LZHAUTO �n */
-#define SFX_LZHAUTO_0002	2101	/* LZHAUTO 0.0.0.2 �ȍ~ */
-#define SFX_LZHAUTO_1000	2102	/* LZHAUTO 1.0.0.0 �ȍ~ */
-#define SFX_LZHAUTO_1002	2102	/* LZHAUTO 1.0.0.0 �ȍ~ */
-#define SFX_LZHAUTO_1100	2103	/* LZHAUTO 1.1.0.0 �ȍ~ */
+#define SFX_LZHAUTO		2101	/* LZHAUTO 系 */
+#define SFX_LZHAUTO_0002	2101	/* LZHAUTO 0.0.0.2 以降 */
+#define SFX_LZHAUTO_1000	2102	/* LZHAUTO 1.0.0.0 以降 */
+#define SFX_LZHAUTO_1002	2102	/* LZHAUTO 1.0.0.0 以降 */
+#define SFX_LZHAUTO_1100	2103	/* LZHAUTO 1.1.0.0 以降 */
 
-#define SFX_WIN32_LHASA		3001	/* Lhasa �C���X�g�[�� */
+#define SFX_WIN32_LHASA		3001	/* Lhasa インストーラ */
 
-#define SFX_DOS_UNKNOWN		9901	/* �F���ł��Ȃ� DOS SFX */
-#define SFX_WIN16_UNKNOWN	9911	/* �F���ł��Ȃ� Win16 SFX */
-#define SFX_WIN32_UNKNOWN	9921	/* �F���ł��Ȃ� Win32 SFX */
+#define SFX_DOS_UNKNOWN		9901	/* 認識できない DOS SFX */
+#define SFX_WIN16_UNKNOWN	9911	/* 認識できない Win16 SFX */
+#define SFX_WIN32_UNKNOWN	9921	/* 認識できない Win32 SFX */
 #endif /* NO_COMPAT_UNLHA32 */
 #endif /* SFX_NOT */
 
@@ -351,11 +351,11 @@ typedef struct
 #ifndef WM_ARCEXTRACT
 #define WM_ARCEXTRACT "wm_arcextract"
 
-#define ARCEXTRACT_BEGIN        0       /* �Y���t�@�C���̏����̊J�n */
-#define ARCEXTRACT_INPROCESS    1       /* �Y���t�@�C���̓W�J�� */
-#define ARCEXTRACT_END          2       /* �����I���A�֘A���������J�� */
-#define ARCEXTRACT_OPEN         3       /* �Y�����ɂ̏����̊J�n */
-#define ARCEXTRACT_COPY         4       /* ���[�N�t�@�C���̏����߂� */
+#define ARCEXTRACT_BEGIN        0       /* 該当ファイルの処理の開始 */
+#define ARCEXTRACT_INPROCESS    1       /* 該当ファイルの展開中 */
+#define ARCEXTRACT_END          2       /* 処理終了、関連メモリを開放 */
+#define ARCEXTRACT_OPEN         3       /* 該当書庫の処理の開始 */
+#define ARCEXTRACT_COPY         4       /* ワークファイルの書き戻し */
 
 typedef BOOL (CALLBACK *LPARCHIVERPROC)(HWND, UINT, UINT, LPEXTRACTINGINFOEX);
 

@@ -29,7 +29,7 @@ sockssl::sockssl (sockinet *so, lisp lserver_name, lisp lverify_mode)
   so->socket () = INVALID_SOCKET;
   delete so;
 
-  // s_rbuf, s_wbuf ‚Æ‚©‚Ç‚¤‚µ‚æ‚¤EEE
+  // s_rbuf, s_wbuf ã¨ã‹ã©ã†ã—ã‚ˆã†ãƒ»ãƒ»ãƒ»
 }
 
 void
@@ -208,7 +208,7 @@ sockssl::perform_handshake ()
 
   // Receive ServerHello from server.
   int chunk_size = max_initial_chunk_size ();
-  safe_ptr <char> chunk = new char[chunk_size];
+  safe_ptr <char> chunk (new char[chunk_size]);
   while (!ss_connected_p)
     {
       int len = sock::recv (chunk, chunk_size);
@@ -414,7 +414,7 @@ sockssl::verify_certificate (const char *server_name, DWORD cert_flags)
   size_t len = strlen (server_name) + 1;
   Char *w = (Char *)alloca (len * sizeof (Char));
   a2w (w, server_name, len);
-  policy_https.pwszServerName = w;
+  policy_https.pwszServerName = (WCHAR *)w;
 
   memset (&policy_para, 0, sizeof (policy_para));
   policy_para.cbSize = sizeof (policy_para);
@@ -441,7 +441,7 @@ int
 sockssl::recv_decrypt (void *buf, int len, int flags)
 {
   int chunk_size = max_data_chunk_size ();
-  safe_ptr <char> chunk = new char [chunk_size];
+  safe_ptr <char> chunk (new char [chunk_size]);
   int nread = 0;
 
   while (true)
@@ -472,15 +472,15 @@ void
 sockssl::decrypt_data (const char *data, int datalen)
 {
   // TODO:
-  //   * buf ‚Æ extra_buf ‚Æ ss_extra_buf ‚Æ 3 ‚Â‚Ìƒoƒbƒtƒ@‚ª‚ ‚é‚Ì‚ª–³‘Ê
-  //   * ss_extra_buf ‚Æ buf ‚ª“¯‚¶êŠ‚ğw‚µ‚Ä‚¢‚Ä‚â‚â‚±‚µ‚¢‚µA2 ‰ñ free
-  //     ‚·‚é‚©‚à‚µ‚ê‚È‚¢‚Ì‚ÅŠë‚È‚¢
-  //   * decrypt_data ‚©‚ç handshake_loop ‚ğŒÄ‚Ño‚µ‚Ä‚¢‚é‚Ì‚ªƒ_ƒT‚¢
-  //   * —áŠO‚ª”­¶‚µ‚½ê‡‚É buf ‚ªƒƒ‚ƒŠƒŠ[ƒN‚·‚é‚©‚à‚µ‚ê‚È‚¢
-  //   * •œ†‰»‚µ‚½ƒf[ƒ^‚ğ•Û‘¶‚·‚éƒoƒbƒtƒ@‚ğ–ˆ‰ñ realloc ‚µ‚Ä‚¢‚é‚Ì‚ª–³‘Ê
-  //   * ‚à‚Á‚ÆŒ«‚¢ƒoƒbƒtƒ@ŠÇ—‚ª•K—v
-  //   * ˆÃ†‰»‚³‚ê‚½ƒf[ƒ^‚ğ•Û‘¶‚·‚éƒoƒbƒtƒ@‚Æ•œ†‰»‚µ‚½ƒf[ƒ^‚ğ•Û‘¶‚·‚éƒoƒbƒtƒ@‚Ì
-  //     2 ‚Â‚ğƒƒ“ƒo•Ï”‚Æ‚µ‚Ä‚Á‚Ä‚»‚ê‚¾‚¯‚ğg‚¤‚æ‚¤‚É‚µ‚½‚¢
+  //   * buf ã¨ extra_buf ã¨ ss_extra_buf ã¨ 3 ã¤ã®ãƒãƒƒãƒ•ã‚¡ãŒã‚ã‚‹ã®ãŒç„¡é§„
+  //   * ss_extra_buf ã¨ buf ãŒåŒã˜å ´æ‰€ã‚’æŒ‡ã—ã¦ã„ã¦ã‚„ã‚„ã“ã—ã„ã—ã€2 å› free
+  //     ã™ã‚‹ã‹ã‚‚ã—ã‚Œãªã„ã®ã§å±ãªã„
+  //   * decrypt_data ã‹ã‚‰ handshake_loop ã‚’å‘¼ã³å‡ºã—ã¦ã„ã‚‹ã®ãŒãƒ€ã‚µã„
+  //   * ä¾‹å¤–ãŒç™ºç”Ÿã—ãŸå ´åˆã« buf ãŒãƒ¡ãƒ¢ãƒªãƒªãƒ¼ã‚¯ã™ã‚‹ã‹ã‚‚ã—ã‚Œãªã„
+  //   * å¾©å·åŒ–ã—ãŸãƒ‡ãƒ¼ã‚¿ã‚’ä¿å­˜ã™ã‚‹ãƒãƒƒãƒ•ã‚¡ã‚’æ¯å› realloc ã—ã¦ã„ã‚‹ã®ãŒç„¡é§„
+  //   * ã‚‚ã£ã¨è³¢ã„ãƒãƒƒãƒ•ã‚¡ç®¡ç†ãŒå¿…è¦
+  //   * æš—å·åŒ–ã•ã‚ŒãŸãƒ‡ãƒ¼ã‚¿ã‚’ä¿å­˜ã™ã‚‹ãƒãƒƒãƒ•ã‚¡ã¨å¾©å·åŒ–ã—ãŸãƒ‡ãƒ¼ã‚¿ã‚’ä¿å­˜ã™ã‚‹ãƒãƒƒãƒ•ã‚¡ã®
+  //     2 ã¤ã‚’ãƒ¡ãƒ³ãƒå¤‰æ•°ã¨ã—ã¦æŒã£ã¦ãã‚Œã ã‘ã‚’ä½¿ã†ã‚ˆã†ã«ã—ãŸã„
   SecBuffer extra_buf = {0};
 
   // add previous leftover buffer
@@ -624,7 +624,7 @@ sockssl::encrypt_send (const void *buf, int len, int flags) const
   SecPkgContext_StreamSizes sizes;
   int msglen = max_chunk_size (sizes) + sizes.cbHeader + sizes.cbTrailer;
 
-  safe_ptr <char> msg = new char [msglen];
+  safe_ptr <char> msg (new char [msglen]);
   MoveMemory (msg + sizes.cbHeader, buf, len);
 
   safe_secbuf <4> buffers (false);

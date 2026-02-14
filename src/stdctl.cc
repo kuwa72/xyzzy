@@ -71,7 +71,7 @@ stdctl_default (HWND hwnd)
 static int
 lbx_keydown (HWND hwnd, int vk)
 {
-  if (!(GetWindowLong (hwnd, GWL_STYLE) & LBS_EXTENDEDSEL)
+  if (!(GetWindowLongPtr (hwnd, GWL_STYLE) & LBS_EXTENDEDSEL)
       || (vk != VK_UP && vk != VK_DOWN && vk != VK_SPACE)
       || GetKeyState (VK_CONTROL) >= 0
       || GetKeyState (VK_SHIFT) < 0)
@@ -107,7 +107,7 @@ lbx_char (HWND hwnd, int ch)
       if (!hwnd_parent)
         return 0;
       PostMessage (hwnd_parent, WM_PRIVATE_LISTBOX_CHAR,
-                   GetWindowLong (hwnd, GWL_ID), ch);
+                   GetWindowLongPtr (hwnd, GWL_ID), ch);
       return 1;
     }
 
@@ -174,7 +174,7 @@ edt_char (HWND hwnd, int ch)
   HWND hwnd_parent = GetParent (hwnd);
   if (!hwnd_parent
       || !GetClassName (hwnd_parent, class_name, sizeof class_name)
-      || _stricmp (class_name, csComboBox))
+      || stricmp (class_name, csComboBox))
     return 0;
 
   if (op == VK_RETURN)
