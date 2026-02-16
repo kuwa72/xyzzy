@@ -52,18 +52,18 @@ init_list_column (HWND list, int ncolumns, const int *width, const int *fmts,
   if (read_conf (entry, key, v, ncolumns))
     width = v;
 
-  LV_COLUMN lvc;
+  LVCOLUMNW lvc;
   lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
 
   for (int i = 0; i < ncolumns; i++)
     {
-      char buf[64];
+      wchar_t buf[64];
       lvc.cx = width[i];
-      LoadString (app.hinst, id_start + i, buf, sizeof buf);
+      LoadStringW (app.hinst, id_start + i, buf, 64);
       lvc.pszText = buf;
       lvc.iSubItem = i;
       lvc.fmt = fmts[i];
-      ListView_InsertColumn (list, i, &lvc);
+      SendMessageW (list, LVM_INSERTCOLUMNW, i, (LPARAM)&lvc);
     }
 }
 
@@ -124,36 +124,44 @@ buffer_list_save_column (HWND list)
 }
 
 static int
-store_buffer_name (HWND list, const Buffer *bp, LV_ITEM *lvi)
+store_buffer_name (HWND list, const Buffer *bp, LVITEMW *lvi)
 {
   int l = xstring_length (bp->lbuffer_name) * 2 + 32;
   char *b = (char *)alloca (l + 1);
   bp->buffer_name (b, b + l);
-  lvi->pszText = b;
-  return ListView_InsertItem (list, lvi);
+  int wl = MultiByteToWideChar (932, 0, b, -1, 0, 0);
+  wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
+  MultiByteToWideChar (932, 0, b, -1, wb, wl);
+  lvi->pszText = wb;
+  return (int)SendMessageW (list, LVM_INSERTITEMW, 0, (LPARAM)lvi);
 }
 
 static void
-store_buffer_size (HWND list, const Buffer *bp, LV_ITEM *lvi)
+store_buffer_size (HWND list, const Buffer *bp, LVITEMW *lvi)
 {
   char b[32];
   sprintf (b, "%d", bp->b_nchars);
-  lvi->pszText = b;
-  ListView_SetItem (list, lvi);
+  wchar_t wb[32];
+  MultiByteToWideChar (932, 0, b, -1, wb, 32);
+  lvi->pszText = wb;
+  SendMessageW (list, LVM_SETITEMW, 0, (LPARAM)lvi);
 }
 
 static void
-store_string (HWND list, lisp string, LV_ITEM *lvi)
+store_string (HWND list, lisp string, LVITEMW *lvi)
 {
   if (stringp (string))
     {
       char *b = (char *)alloca (xstring_length (string) * 2 + 1);
       w2s (b, string);
-      lvi->pszText = b;
+      int wl = MultiByteToWideChar (932, 0, b, -1, 0, 0);
+      wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
+      MultiByteToWideChar (932, 0, b, -1, wb, wl);
+      lvi->pszText = wb;
     }
   else
-    lvi->pszText = "";
-  ListView_SetItem (list, lvi);
+    lvi->pszText = (wchar_t *)L"";
+  SendMessageW (list, LVM_SETITEMW, 0, (LPARAM)lvi);
 }
 
 static void
@@ -172,7 +180,7 @@ buffer_list_init_item (HWND list)
       {
         if (bp == selected_buffer ())
           cur = i;
-        LV_ITEM lvi;
+        LVITEMW lvi;
         lvi.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
         lvi.iItem = i++;
         lvi.iSubItem = 0;
@@ -595,8 +603,8 @@ make_filter_string (char *b, lisp filters)
   *b = 0;
 }
 
-static const UINT MSGFILEOK = RegisterWindowMessage (FILEOKSTRING);
-static const UINT MSGLBSELCH = RegisterWindowMessage (LBSELCHSTRING);
+static const UINT MSGFILEOK = RegisterWindowMessageA (FILEOKSTRINGA);
+static const UINT MSGLBSELCH = RegisterWindowMessageA (LBSELCHSTRINGA);
 
 struct OFN: public tagOFN
 {
@@ -639,16 +647,16 @@ OFN::init_eol_list ()
     if (!ofn_save || eol_list[i].id != IDS_EOL_AUTO)
       {
         char b[64];
-        LoadString (app.hinst, eol_list[i].id, b, sizeof b);
-        int j = SendDlgItemMessage (ofn_hwnd, IDC_EOL_CODE, CB_ADDSTRING, 0, LPARAM (b));
+        LoadStringA (app.hinst, eol_list[i].id, b, sizeof b);
+        int j = SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_ADDSTRING, 0, LPARAM (b));
         if (j != CB_ERR)
           {
-            SendDlgItemMessage (ofn_hwnd, IDC_EOL_CODE, CB_SETITEMDATA, j, eol_list[i].code);
+            SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_SETITEMDATA, j, eol_list[i].code);
             if (eol_list[i].code == ofn_eol_code)
               index = j;
           }
       }
-  SendDlgItemMessage (ofn_hwnd, IDC_EOL_CODE, CB_SETCURSEL, index, 0);
+  SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_SETCURSEL, index, 0);
 }
 
 void
@@ -663,17 +671,17 @@ OFN::init_encoding_list ()
         {
           char b[256];
           w2s (b, b + sizeof b, xchar_encoding_display_name (encoding));
-          int j = SendDlgItemMessage (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
+          int j = SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
           if (j != CB_ERR)
             {
-              SendDlgItemMessage (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETITEMDATA,
-                                  j, LPARAM (encoding));
+              SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETITEMDATA,
+                                   j, LPARAM (encoding));
               if (encoding == ofn_encoding)
                 index = j;
             }
         }
     }
-  SendDlgItemMessage (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETCURSEL, index, 0);
+  SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETCURSEL, index, 0);
 }
 
 void
@@ -766,10 +774,10 @@ void *
 OFN::get_result (int id, void *defalt)
 {
   HWND hwnd = GetDlgItem (ofn_hwnd, id);
-  int n = SendMessage (hwnd, CB_GETCURSEL, 0, 0);
+  int n = SendMessageA (hwnd, CB_GETCURSEL, 0, 0);
   if (n == CB_ERR)
     return defalt;
-  return (void *)SendMessage (hwnd, CB_GETITEMDATA, n, 0);
+  return (void *)SendMessageA (hwnd, CB_GETITEMDATA, n, 0);
 }
 
 void
@@ -809,7 +817,7 @@ OFN::wndproc (UINT msg, WPARAM wparam, LPARAM lparam)
                 {
                   hwnd = GetParent (ofn_hwnd);
                   if (ofn_ok_button)
-                    CommDlg_OpenSave_SetControlText (hwnd, IDOK, "OK");
+                    SendMessageA (hwnd, CDM_SETCONTROLTEXT, IDOK, LPARAM ("OK"));
                 }
               else
                 hwnd = ofn_hwnd;
@@ -840,7 +848,7 @@ file_name_dialog_hook (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   OFN *ofn;
   if (msg == WM_INITDIALOG)
     {
-      lparam = ((OPENFILENAME *)lparam)->lCustData;
+      lparam = ((OPENFILENAMEA *)lparam)->lCustData;
       SetWindowLongPtr (hwnd, DWL_USER, lparam);
       ofn = (OFN *)lparam;
       ofn->ofn_hwnd = hwnd;
@@ -1009,22 +1017,22 @@ Ffile_name_dialog (lisp keys)
     {
       ofn.Flags |= OFN_ENABLETEMPLATE;
       ofn.lpTemplateName = (multiple
-                            ? MAKEINTRESOURCE (MULTIFILEOPENORD)
-                            : MAKEINTRESOURCE (FILEOPENORD));
+                            ? MAKEINTRESOURCEA (MULTIFILEOPENORD)
+                            : MAKEINTRESOURCEA (FILEOPENORD));
       if (!ofn.lpstrTitle && save)
         {
           title = (char *)alloca (256);
-          LoadString (app.hinst, IDS_SAVE_AS, title, 256);
+          LoadStringA (app.hinst, IDS_SAVE_AS, title, 256);
           ofn.lpstrTitle = title;
         }
     }
   else if (ofn.ofn_eol_req || ofn.ofn_encoding_req)
     {
       ofn.Flags |= OFN_ENABLETEMPLATE;
-      ofn.lpTemplateName = MAKEINTRESOURCE (IDD_CUST_EXPLORER);
+      ofn.lpTemplateName = MAKEINTRESOURCEA (IDD_CUST_EXPLORER);
     }
 
-  if (save ? !GetSaveFileName (&ofn) : !GetOpenFileName (&ofn))
+  if (save ? !GetSaveFileNameA (&ofn) : !GetOpenFileNameA (&ofn))
     return Qnil;
 
   multiple_value::count () = 4;
@@ -1103,14 +1111,14 @@ struct ODN: public tagOFNA
 void
 ODN::store_dirname (HWND hwnd)
 {
-  SetDlgItemText (hwnd, IDC_PATH, odn_result);
+  SetDlgItemTextA (hwnd, IDC_PATH, odn_result);
 }
 
 void
 ODN::selch (HWND hwnd, int id)
 {
   char path[PATH_MAX];
-  GetCurrentDirectory (sizeof path, path);
+  GetCurrentDirectoryA (sizeof path, path);
   if (!strcmp (path, odn_result))
     {
       if (id == lst2)
@@ -1127,11 +1135,11 @@ int
 ODN::error (HWND hwnd, int e)
 {
   char buf[1024];
-  FormatMessage ((FORMAT_MESSAGE_FROM_SYSTEM
-                  | FORMAT_MESSAGE_IGNORE_INSERTS
-                  | FORMAT_MESSAGE_MAX_WIDTH_MASK),
-                 0, e, GetUserDefaultLangID (),
-                 buf, sizeof buf, 0);
+  FormatMessageA ((FORMAT_MESSAGE_FROM_SYSTEM
+                   | FORMAT_MESSAGE_IGNORE_INSERTS
+                   | FORMAT_MESSAGE_MAX_WIDTH_MASK),
+                  0, e, GetUserDefaultLangID (),
+                  buf, sizeof buf, 0);
   MsgBox (hwnd, buf, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   return 1;
@@ -1141,7 +1149,7 @@ int
 ODN::ok (HWND hwnd)
 {
   char path[PATH_MAX];
-  GetDlgItemText (hwnd, IDC_PATH, path, sizeof path);
+  GetDlgItemTextA (hwnd, IDC_PATH, path, sizeof path);
   if (!*path)
     return 1;
   DWORD atr = WINFS::GetFileAttributes (path);
@@ -1153,13 +1161,13 @@ ODN::ok (HWND hwnd)
   HWND drive = GetDlgItem (hwnd, cmb2);
   int l = strlen (path);
   strcpy (path + l, " ");
-  int i = SendMessage (drive, CB_FINDSTRING, WPARAM (-1), LPARAM (path));
+  int i = SendMessageA (drive, CB_FINDSTRING, WPARAM (-1), LPARAM (path));
   path[l] = 0;
   if (i != CB_ERR)
     {
-      if (SendMessage (drive, CB_GETCURSEL, 0, 0) == i)
+      if (SendMessageA (drive, CB_GETCURSEL, 0, 0) == i)
         return 1;
-      SendMessage (drive, CB_SETCURSEL, i, 0);
+      SendMessageA (drive, CB_SETCURSEL, i, 0);
       PostMessage (hwnd, WM_COMMAND, MAKEWPARAM (cmb2, CBN_SELCHANGE),
                    LPARAM (drive));
       return 1;
@@ -1175,7 +1183,7 @@ directory_name_dialog_hook (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   if (msg == WM_INITDIALOG)
     {
-      lparam = ((OPENFILENAME *)lparam)->lCustData;
+      lparam = ((OPENFILENAMEA *)lparam)->lCustData;
       SetWindowLongPtr (hwnd, DWL_USER, lparam);
       ((ODN *)lparam)->store_dirname (hwnd);
       center_window (hwnd);
@@ -1231,7 +1239,7 @@ Fdirectory_name_dialog (lisp keys)
   if (sysdep.Win5p ())
     odn.Flags |= OFN_DONTADDTORECENT | OFN_FORCESHOWHIDDEN;
   odn.lpfnHook = directory_name_dialog_hook;
-  odn.lpTemplateName = MAKEINTRESOURCE (IDD_DIRECTORY);
+  odn.lpTemplateName = MAKEINTRESOURCEA (IDD_DIRECTORY);
 
   if (xstring_length (ldefault) < sizeof odn.odn_result / 2 - 1)
     {
@@ -1251,7 +1259,7 @@ Fdirectory_name_dialog (lisp keys)
   odn.lpstrTitle = title;
   odn.lCustData = (LPARAM)&odn;
 
-  if (!GetOpenFileName (&odn))
+  if (!GetOpenFileNameA (&odn))
     return Qnil;
 
   map_backsl_to_sl (odn.odn_result);
@@ -1414,11 +1422,11 @@ list_volume_name::thread_main ()
           {
             char name[5];
             sprintf (name, "%c:\\", c);
-            int type = GetDriveType (name);
+            int type = GetDriveTypeA (name);
             char volname[1024];
             if (type != DRIVE_REMOVABLE
-                && GetVolumeInformation (name, volname + 1, sizeof volname - 1,
-                                         0, 0, 0, 0, 0)
+                && GetVolumeInformationA (name, volname + 1, sizeof volname - 1,
+                                          0, 0, 0, 0, 0)
                 && volname[1])
               {
                 *volname = c;
@@ -1466,13 +1474,13 @@ DriveDialog::setup_list (HWND hwnd)
   ListView_SetExStyle (hwnd, LVS_EXREPORTEX);
   set_list_chars (hwnd);
 
-  LV_COLUMN lvc;
+  LVCOLUMNA lvc;
   lvc.mask = LVCF_FMT | LVCF_SUBITEM;
   for (int i = 0; i < 2; i++)
     {
       lvc.iSubItem = i;
       lvc.fmt = LVCFMT_LEFT;
-      ListView_InsertColumn (hwnd, i, &lvc);
+      SendMessageA (hwnd, LVM_INSERTCOLUMNA, i, (LPARAM)&lvc);
     }
 
   HIMAGELIST hil = ImageList_LoadBitmap (app.hinst,
@@ -1499,9 +1507,9 @@ DriveDialog::insert_drives (HWND hwnd)
 
           char name[5];
           sprintf (name, "%c:\\", c);
-          int type = GetDriveType (name);
+          int type = GetDriveTypeA (name);
 
-          LV_ITEM lvi;
+          LVITEMW lvi;
           lvi.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
           lvi.iItem = item++;
           lvi.iSubItem = 0;
@@ -1512,11 +1520,13 @@ DriveDialog::insert_drives (HWND hwnd)
             lvi.mask &= ~LVIF_IMAGE;
 
           name[2] = 0;
-          lvi.pszText = name;
-          ListView_InsertItem (hwnd, &lvi);
+          wchar_t wname[5];
+          MultiByteToWideChar (932, 0, name, -1, wname, 5);
+          lvi.pszText = wname;
+          SendMessageW (hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 
           SIZE sz;
-          GetTextExtentPoint32 (hdc, name, 2, &sz);
+          GetTextExtentPoint32A (hdc, name, 2, &sz);
           dd_maxw = max (dd_maxw, sz.cx);
         }
       else
@@ -1549,9 +1559,14 @@ DriveDialog::insert_volnames ()
           if (i >= 0)
             {
               volname++;
-              ListView_SetItemText (hwnd, i, 1, (char *)volname);
+              { LVITEMW _lvi; _lvi.iSubItem = 1;
+                int _wl = MultiByteToWideChar (932, 0, volname, -1, 0, 0);
+                wchar_t *_wb = (wchar_t *)alloca (_wl * sizeof (wchar_t));
+                MultiByteToWideChar (932, 0, volname, -1, _wb, _wl);
+                _lvi.pszText = _wb;
+                SendMessageW (hwnd, LVM_SETITEMTEXTW, i, (LPARAM)&_lvi); }
               SIZE sz;
-              GetTextExtentPoint32 (hdc, volname, strlen (volname), &sz);
+              GetTextExtentPoint32A (hdc, volname, strlen (volname), &sz);
               maxw = max (maxw, sz.cx);
             }
         }

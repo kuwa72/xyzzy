@@ -20,9 +20,9 @@ dopaint (HWND hwnd, HDC hdc)
     }
 
   char *s[3];
-  int l = GetWindowTextLength (hwnd);
+  int l = GetWindowTextLengthA (hwnd);
   s[0] = (char *)_alloca (l + 1);
-  GetWindowText (hwnd, s[0], l + 1);
+  GetWindowTextA (hwnd, s[0], l + 1);
   s[1] = strchr (s[0], '\001');
   if (s[1])
     {
@@ -54,9 +54,9 @@ dopaint (HWND hwnd, HDC hdc)
       SIZE sz;
       l = strlen (s[i]);
       SetTextColor (hdc, i == 1 ? hl : bg);
-      GetTextExtentPoint32 (hdc, s[i], l, &sz);
+      GetTextExtentPoint32A (hdc, s[i], l, &sz);
       r.right = min (r.left + sz.cx, xmax);
-      ExtTextOut (hdc, r.left, 0, ETO_CLIPPED, &r, s[i], l, 0);
+      ExtTextOutA (hdc, r.left, 0, ETO_CLIPPED, &r, s[i], l, 0);
       if (i == 1)
         {
           range = MAKELONG (r.left, r.right);
@@ -68,7 +68,7 @@ dopaint (HWND hwnd, HDC hdc)
               u.right = r.right;
               u.bottom = min (sz.cy + 1, r.bottom);
               u.top = u.bottom - 1;
-              ExtTextOut (hdc, 0, 0, ETO_OPAQUE, &u, "", 0, 0);
+              ExtTextOutA (hdc, 0, 0, ETO_OPAQUE, &u, "", 0, 0);
               SetBkColor (hdc, obg);
             }
         }
@@ -221,7 +221,7 @@ init_url_class ()
   wc.hCursor = hcur_harrow;
   wc.hbrBackground = 0;
   wc.lpszMenuName = 0;
-  wc.lpszClassName = WC_URLCLASSA;
+  wc.lpszClassName = WC_URLCLASSW;
   return RegisterClass (&wc);
 }
 

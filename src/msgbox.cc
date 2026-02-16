@@ -30,9 +30,10 @@ XMessageBox::calc_text_rect (RECT &r) const
   HGDIOBJ of = SelectObject (hdc, hfont);
   memset (&r, 0, sizeof r);
   r.right = GetSystemMetrics (SM_CXSCREEN) * 3 / 4;
-  DrawText (hdc, msg, -1, &r,
-            (DT_CALCRECT | DT_EXPANDTABS | DT_LEFT | DT_NOPREFIX
-             | (f_no_wrap ? 0 : DT_WORDBREAK)));
+  WideStr wmsg (msg);
+  DrawTextW (hdc, wmsg, -1, &r,
+             (DT_CALCRECT | DT_EXPANDTABS | DT_LEFT | DT_NOPREFIX
+              | (f_no_wrap ? 0 : DT_WORDBREAK)));
   SelectObject (hdc, of);
   ReleaseDC (hwnd, hdc);
 }
@@ -53,7 +54,8 @@ XMessageBox::calc_button_size (RECT br[MAX_BUTTONS]) const
     {
       RECT tr;
       memset (&tr, 0, sizeof tr);
-      DrawText (hdc, btn[i].caption, -1, &tr, DT_CALCRECT | DT_SINGLELINE);
+      WideStr wcap (btn[i].caption);
+      DrawTextW (hdc, wcap, -1, &tr, DT_CALCRECT | DT_SINGLELINE);
       r.right = max (r.right, LONG (tr.right + 2 * sep));
     }
   SelectObject (hdc, of);
@@ -72,9 +74,11 @@ HWND
 XMessageBox::create_ctl (const char *cls, const char *caption, DWORD style,
                          UINT id, const RECT &r) const
 {
-  HWND c = CreateWindow (cls, caption, style,
-                         r.left, r.top, r.right - r.left, r.bottom - r.top,
-                         hwnd, HMENU (id), hinst, 0);
+  WideStr wcls (cls);
+  WideStr wcap (caption);
+  HWND c = CreateWindowExW (0, wcls, wcap, style,
+                            r.left, r.top, r.right - r.left, r.bottom - r.top,
+                            hwnd, HMENU (id), hinst, 0);
   SendMessage (c, WM_SETFONT, WPARAM (hfont), 0);
   return c;
 }
@@ -121,7 +125,7 @@ BOOL
 XMessageBox::init_dialog ()
 {
   SendMessage (hwnd, WM_SETICON, 1,
-               LPARAM (LoadIcon (app.hinst, MAKEINTRESOURCE (IDI_XYZZY))));
+              LPARAM (LoadIcon (app.hinst, MAKEINTRESOURCE (IDI_XYZZY))));
 
   hfont = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));
 
@@ -234,7 +238,10 @@ XMessageBox::init_dialog ()
                 (warea.left + warea.right - sz.cx) / 2,
                 (warea.top + warea.bottom - sz.cy) / 2 - r.top,
                 sz.cx, sz.cy, SWP_NOZORDER | SWP_NOACTIVATE);
-  SetWindowText (hwnd, title);
+  {
+    WideStr wtitle (title);
+    SetWindowTextW (hwnd, wtitle);
+  }
 
   if (close_id < 0)
     DeleteMenu (GetSystemMenu (hwnd, 0), SC_CLOSE, MF_BYCOMMAND);
@@ -312,7 +319,7 @@ MsgBoxEx (HWND hwnd, const char *msg, const char *title,
           int type, int defbtn, int icon, int beep,
           const char **captions, int ncaptions, int crlf, int no_wrap)
 {
-  XMessageBox mb (app.hinst, msg ? msg : "", title ? title : "Error", crlf, no_wrap);
+  XMessageBox mb (app.hinst, msg ? msg : "", title ? title : "\x83\x47\x83\x89\x81\x5b", crlf, no_wrap);
   if (!captions)
     ncaptions = 0;
 
@@ -328,31 +335,31 @@ MsgBoxEx (HWND hwnd, const char *msg, const char *title,
 
     case MB_OKCANCEL:
       mb.add_button (IDOK, "OK");
-      mb.add_button (IDCANCEL, "Cancel");
+      mb.add_button (IDCANCEL, "\x83\x4c\x83\x83\x83\x93\x83\x5a\x83\x8b");
       mb.set_close (IDCANCEL);
       break;
 
     case MB_ABORTRETRYIGNORE:
-      mb.add_button (IDABORT, "&Abort");
-      mb.add_button (IDRETRY, "&Retry");
-      mb.add_button (IDIGNORE, "&Ignore");
+      mb.add_button (IDABORT, "\x92\x86\x8e\x7e(&A)");
+      mb.add_button (IDRETRY, "\x8d\xc4\x8e\x8e\x8d\x73(&R)");
+      mb.add_button (IDIGNORE, "\x96\xb3\x8e\x8b(&I)");
       break;
 
     case MB_YESNOCANCEL:
-      mb.add_button (IDYES, "&Yes");
-      mb.add_button (IDNO, "&No");
-      mb.add_button (IDCANCEL, "Cancel");
+      mb.add_button (IDYES, "\x82\xcd\x82\xa2(&Y)");
+      mb.add_button (IDNO, "\x82\xa2\x82\xa2\x82\xa6(&N)");
+      mb.add_button (IDCANCEL, "\x83\x4c\x83\x83\x83\x93\x83\x5a\x83\x8b");
       mb.set_close (IDCANCEL);
       break;
 
     case MB_YESNO:
-      mb.add_button (IDYES, "&Yes");
-      mb.add_button (IDNO, "&No");
+      mb.add_button (IDYES, "\x82\xcd\x82\xa2(&Y)");
+      mb.add_button (IDNO, "\x82\xa2\x82\xa2\x82\xa6(&N)");
       break;
 
     case MB_RETRYCANCEL:
-      mb.add_button (IDRETRY, "&Retry");
-      mb.add_button (IDCANCEL, "Cancel");
+      mb.add_button (IDRETRY, "\x8d\xc4\x8e\x8e\x8d\x73(&R)");
+      mb.add_button (IDCANCEL, "\x83\x4c\x83\x83\x83\x93\x83\x5a\x83\x8b");
       mb.set_close (IDCANCEL);
       break;
     }

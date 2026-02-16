@@ -32,8 +32,8 @@ void map_backsl_to_sl (Char *, int);
 int match_suffixes (const char *, lisp);
 int set_device_dir (const char *, int);
 const char *get_device_dir (int);
-int strict_get_file_data (const char *, WIN32_FIND_DATA &);
-lisp make_file_info (const WIN32_FIND_DATA &);
+int strict_get_file_data (const char *, WIN32_FIND_DATAA &);
+lisp make_file_info (const WIN32_FIND_DATAA &);
 char *root_path_name (char *, const char *);
 
 /* lprint.cc */

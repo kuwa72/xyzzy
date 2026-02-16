@@ -59,7 +59,7 @@ void
 file_masks::set_text (HWND hwnd) const
 {
   if (empty_p ())
-    SetWindowText (hwnd, "");
+    SetWindowTextW (hwnd, L"");
   else
     {
       int nbytes = 16;
@@ -73,7 +73,8 @@ file_masks::set_text (HWND hwnd) const
           *b++ = ' ';
           b = stpcpy (b, *p);
         }
-      SetWindowText (hwnd, b0);
+      WideStr wb0 (b0);
+      SetWindowTextW (hwnd, wb0);
     }
 }
 
@@ -316,7 +317,7 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
 
   char *ne = name + strlen (name);
 
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
 
   HANDLE h = WINFS::FindFirstFile (path, &fd);
   if (h != INVALID_HANDLE_VALUE)

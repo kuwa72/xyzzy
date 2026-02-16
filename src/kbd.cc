@@ -12,7 +12,7 @@ kbd_queue::kbd_queue ()
        reconv (0), putc_pending (-1), ime_prop (0), unicode_kbd (0), gc_timer (0)
 {
   GetKeyboardLayout =
-    (GETKEYBOARDLAYOUT)GetProcAddress (GetModuleHandle ("USER32"),
+    (GETKEYBOARDLAYOUT)GetProcAddress (GetModuleHandleA ("USER32"),
                                        "GetKeyboardLayout");
 
   for (int i = 0; i < QUEUE_MAX; i++)
@@ -861,9 +861,9 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
             }
           else
             {
-              int l1 = MultiByteToWideChar (CP_ACP, 0, b0, b1 - b0, 0, 0);
-              int l2 = MultiByteToWideChar (CP_ACP, 0, b1, b2 - b1, 0, 0);
-              int l3 = MultiByteToWideChar (CP_ACP, 0, b2, b3 - b2, 0, 0);
+              int l1 = MultiByteToWideChar (932, 0, b0, b1 - b0, 0, 0);
+              int l2 = MultiByteToWideChar (932, 0, b1, b2 - b1, 0, 0);
+              int l3 = MultiByteToWideChar (932, 0, b2, b3 - b2, 0, 0);
               int l = l1 + l2 + l3;
               size = sizeof *reconv + (l + 1) * sizeof (wchar_t);
               reconv = (RECONVERTSTRING *)xmalloc (size);
@@ -875,7 +875,7 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
               reconv->dwCompStrOffset = l1 * sizeof (wchar_t);
               reconv->dwTargetStrLen = l2;
               reconv->dwTargetStrOffset = l1 * sizeof (wchar_t);
-              MultiByteToWideChar (CP_ACP, 0, b0, -1, (wchar_t *)(reconv + 1), l + 1);
+              MultiByteToWideChar (932, 0, b0, -1, (wchar_t *)(reconv + 1), l + 1);
             }
           return reconv->dwSize;
         }
@@ -916,8 +916,8 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       long offset = strlen (before);
       if (unicode_p)
         {
-          int numc = MultiByteToWideChar (CP_ACP, 0, content, len, 0, 0);
-          int numo = MultiByteToWideChar (CP_ACP, 0, before, offset, 0, 0);
+          int numc = MultiByteToWideChar (932, 0, content, len, 0, 0);
+          int numo = MultiByteToWideChar (932, 0, before, offset, 0, 0);
           len = (numc + 1) * sizeof (wchar_t);
           offset = numo * sizeof (wchar_t);
         }
@@ -938,7 +938,7 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       if (!unicode_p)
         strncpy ((char *)(rsbuf + 1), content, len);
       else
-        MultiByteToWideChar (CP_ACP, 0, content, -1, (wchar_t *)(rsbuf + 1), strlen (content));
+        MultiByteToWideChar (932, 0, content, -1, (wchar_t *)(rsbuf + 1), strlen (content));
 
       return size;
     }
@@ -974,7 +974,7 @@ kbd_queue::get_kbd_layout () const
     return GetKeyboardLayout (0);
 
   char b[KL_NAMELENGTH];
-  if (GetKeyboardLayoutName (b))
+  if (GetKeyboardLayoutNameA (b))
     return HKL (strtol (b, 0, 16));
   return HKL (MAKELANGID (LANG_JAPANESE, SUBLANG_DEFAULT));
 }
@@ -1377,7 +1377,7 @@ Fset_ime_read_string (lisp string)
 lisp
 Fime_register_word_dialog (lisp lcomp, lisp lread)
 {
-  REGISTERWORD rw;
+  REGISTERWORDA rw;
   rw.lpWord = rw.lpReading = 0;
   if (lcomp && lcomp != Qnil)
     {
@@ -1422,7 +1422,7 @@ get_kbd_layout_name (HKL hkl, char *buf, int size)
 
 typedef UINT (WINAPI *GETKEYBOARDLAYOUTLIST)(int, HKL *);
 static const GETKEYBOARDLAYOUTLIST pGetKeyboardLayoutList =
-  (GETKEYBOARDLAYOUTLIST)GetProcAddress (GetModuleHandle ("user32"),
+  (GETKEYBOARDLAYOUTLIST)GetProcAddress (GetModuleHandleA ("user32"),
                                          "GetKeyboardLayoutList");
 
 lisp

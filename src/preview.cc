@@ -6,7 +6,7 @@
 #include "conf.h"
 
 int preview_page_window::wndclass_initialized;
-const char preview_page_window::PageClassName[] = "PreviewPage";
+const wchar_t preview_page_window::PageClassName[] = L"PreviewPage";
 
 const preview_page_window::ids2scale preview_page_window::ids2scales[] =
 {
@@ -479,8 +479,8 @@ preview_page_window::paint_paper (HDC hdc) const
 
   HFONT hfont = p_settings.make_font (p_dev, FONT_ASCII, -d_font_height);
   HGDIOBJ ofont = SelectObject (hdc, hfont);
-  TEXTMETRIC tm;
-  GetTextMetrics (hdc, &tm);
+  TEXTMETRICA tm;
+  GetTextMetricsA (hdc, &tm);
   int h = tm.tmHeight;
   SelectObject (hdc, ofont);
   DeleteObject (hfont);
@@ -699,7 +699,7 @@ preview_page_window::register_wndclass (HINSTANCE hinst)
 {
   if (wndclass_initialized)
     return 1;
-  WNDCLASS wc;
+  WNDCLASSW wc;
   wc.style = CS_HREDRAW | CS_VREDRAW;
   wc.lpfnWndProc = wndproc;
   wc.cbClsExtra = 0;
@@ -710,7 +710,7 @@ preview_page_window::register_wndclass (HINSTANCE hinst)
   wc.hbrBackground = HBRUSH (COLOR_WINDOW + 1);
   wc.lpszMenuName = 0;
   wc.lpszClassName = PageClassName;
-  if (!RegisterClass (&wc))
+  if (!RegisterClassW (&wc))
     return 0;
   wndclass_initialized = 1;
   return 1;
@@ -722,13 +722,13 @@ preview_page_window::create (HWND hwnd, const RECT &r)
   if (!register_wndclass (app.hinst))
     return 0;
 
-  if (!CreateWindowEx (sysdep.Win4p () ? WS_EX_CLIENTEDGE : 0,
-                       PageClassName, "",
-                       (WS_HSCROLL | WS_VSCROLL | WS_VISIBLE | WS_CHILD
-                        | WS_CLIPSIBLINGS | WS_TABSTOP
-                        | (sysdep.Win4p () ? 0 : WS_BORDER)),
-                       r.left, r.top, r.right - r.left, r.bottom - r.top,
-                       hwnd, 0, app.hinst, this))
+  if (!CreateWindowExW (sysdep.Win4p () ? WS_EX_CLIENTEDGE : 0,
+                        PageClassName, L"",
+                        (WS_HSCROLL | WS_VSCROLL | WS_VISIBLE | WS_CHILD
+                         | WS_CLIPSIBLINGS | WS_TABSTOP
+                         | (sysdep.Win4p () ? 0 : WS_BORDER)),
+                        r.left, r.top, r.right - r.left, r.bottom - r.top,
+                        hwnd, 0, app.hinst, this))
     return 0;
   return 1;
 }
@@ -764,7 +764,7 @@ preview_dialog::set_scale_combo ()
       }
   char b[64];
   sprintf (b, "%d%%", p_page.get_scale ());
-  SetDlgItemText (p_hwnd, IDC_SCALE, b);
+  SetDlgItemTextA (p_hwnd, IDC_SCALE, b);
 }
 
 int
@@ -792,9 +792,9 @@ preview_dialog::init_dialog (HWND)
   for (int i = 0; i < numberof (preview_page_window::ids2scales); i++)
     {
       char b[128];
-      LoadString (app.hinst, preview_page_window::ids2scales[i].ids,
-                  b, sizeof b);
-      UINT idx = SendDlgItemMessage (p_hwnd, IDC_SCALE, CB_ADDSTRING, 0, LPARAM (b));
+      LoadStringA (app.hinst, preview_page_window::ids2scales[i].ids,
+                   b, sizeof b);
+      UINT idx = SendDlgItemMessageA (p_hwnd, IDC_SCALE, CB_ADDSTRING, 0, LPARAM (b));
       SendDlgItemMessage (p_hwnd, IDC_SCALE, CB_SETITEMDATA,
                           idx, preview_page_window::ids2scales[i].scale);
     }
@@ -868,9 +868,9 @@ preview_dialog::scale_command (int code)
     case CBN_KILLFOCUS:
       {
         char buf[128];
-        GetDlgItemText (p_hwnd, IDC_SCALE, buf, sizeof buf);
-        int i = SendDlgItemMessage (p_hwnd, IDC_SCALE, CB_FINDSTRINGEXACT,
-                                    WPARAM (-1), LPARAM (buf));
+        GetDlgItemTextA (p_hwnd, IDC_SCALE, buf, sizeof buf);
+        int i = SendDlgItemMessageA (p_hwnd, IDC_SCALE, CB_FINDSTRINGEXACT,
+                                     WPARAM (-1), LPARAM (buf));
         if (i != CB_ERR)
           return 1;
         char *b;
@@ -931,7 +931,10 @@ preview_dialog::update_page (int page, int total)
   char b[128];
   //  sprintf (b, "ページ %d/%d", page, total);
   sprintf (b, "Page %d", page);
-  SendMessage (p_hwnd_sw, SB_SETTEXT, 0, LPARAM (b));
+  {
+    WideStr wb (b);
+    SendMessageW (p_hwnd_sw, SB_SETTEXT, 0, LPARAM ((const wchar_t *)wb));
+  }
 }
 
 inline void

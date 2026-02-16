@@ -3,8 +3,8 @@
 #include "privctlimpl.h"
 
 static BOOL PrivateControlsInitialized;
-static const char PropName[] = "PropPrivCtrl";
-static const char OwnerDrawName[] = "PropOwnerDraw";
+static const TCHAR PropName[] = TEXT("PropPrivCtrl");
+static const TCHAR OwnerDrawName[] = TEXT("PropOwnerDraw");
 
 static LRESULT CALLBACK
 ParentWndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)

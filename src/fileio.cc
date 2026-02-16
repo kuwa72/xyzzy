@@ -279,7 +279,7 @@ Buffer::read_file_contents (ReadFileContext &rfc, const char *filename,
 
   xinput_strstream str (bb, be - bb);
 
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   if (WINFS::get_file_data (filename, fd))
     rfc.r_modtime = fd.ftLastWriteTime;
   else if (!GetFileTime (mf, 0, 0, &rfc.r_modtime))
@@ -615,7 +615,7 @@ Buffer::make_auto_save_file_name (char *name)
 {
   if (!stringp (lfile_name))
     {
-      GetModuleFileName (0, name, PATH_MAX);
+      GetModuleFileNameA (0, name, PATH_MAX);
       char *p = jrindex (name, '\\');
       if (!p)
         return 0;
@@ -737,7 +737,7 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
       u_char bitmap[MAXVERSIONS];
       bzero (bitmap, sizeof bitmap);
 
-      WIN32_FIND_DATA fd;
+      WIN32_FIND_DATAA fd;
       char tem[2];
       tem[0] = name[0];
       tem[1] = name[1];
@@ -1178,7 +1178,7 @@ Buffer::save_buffer (lisp encoding, lisp eol)
   lisp by_copying = symbol_value (Vbackup_by_copying, this);
   if (precious_flag != Qnil && by_copying == Kremote)
     {
-      switch (GetDriveType (root_path_name (tmpname, filename)))
+      switch (GetDriveTypeA (root_path_name (tmpname, filename)))
         {
         case DRIVE_REMOVABLE:
         case DRIVE_FIXED:
@@ -1224,7 +1224,7 @@ Buffer::save_buffer (lisp encoding, lisp eol)
             make_temp_file (backup, filename);
         }
 
-      if (*backup && !CopyFile (filename, backup, 0))
+      if (*backup && !CopyFileA (filename, backup, 0))
         {
           int e = GetLastError ();
           WINFS::DeleteFile (backup);

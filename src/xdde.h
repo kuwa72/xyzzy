@@ -145,7 +145,7 @@ Dde::Exception::Exception ()
 inline
 Dde::DdeString::DdeString (const char *string)
 {
-  hsz = DdeCreateStringHandle (instance (), *string ? string : " ", CP_WINANSI);
+  hsz = DdeCreateStringHandleA (instance (), *string ? string : " ", CP_WINANSI);
   if (!hsz)
     throw Exception ();
 }

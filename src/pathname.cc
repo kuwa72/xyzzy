@@ -10,13 +10,13 @@
 #include "vwin32.h"
 #include "version.h"
 
-typedef int (WINAPI *SHFILEOPERATION)(SHFILEOPSTRUCT *);
+typedef int (WINAPI *SHFILEOPERATION)(SHFILEOPSTRUCTA *);
 
 static SHFILEOPERATION
 get_shfileoperation_proc ()
 {
-  SHFILEOPERATION f = (SHFILEOPERATION)GetProcAddress (GetModuleHandle ("shell32"),
-                                                       "SHFileOperation");
+  SHFILEOPERATION f = (SHFILEOPERATION)GetProcAddress (GetModuleHandleA ("shell32"),
+                                                       "SHFileOperationA");
   if (!f)
     FEsimple_error (ESHFileOperation_not_supported);
 
@@ -138,7 +138,7 @@ set_device_dir (const char *path, int f)
   if (f || xsymbol_value (Vauto_update_per_device_directory) != Qnil)
     {
       char curdir[PATH_MAX];
-      if (GetCurrentDirectory (sizeof curdir, curdir)
+      if (GetCurrentDirectoryA (sizeof curdir, curdir)
           && alpha_char_p (*curdir & 255) && curdir[1] == ':')
         strcpy (devdirs[_char_downcase (*curdir) - 'a'], curdir + 2);
     }
@@ -740,7 +740,7 @@ Ftruename (lisp pathname)
           char *p = jindex (sl, '\\');
           if (p)
             *p = 0;
-          WIN32_FIND_DATA fd;
+          WIN32_FIND_DATAA fd;
           if (WINFS::get_file_data (path, fd))
             t = stpcpy (t, fd.cFileName);
           else if (p)
@@ -967,7 +967,7 @@ FileTime::file_modtime (lisp filename, int dir_ok)
 {
   char path[PATH_MAX + 1];
   pathname2cstr (filename, path);
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   if (!WINFS::get_file_data (path, fd)
       || (!dir_ok && fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
     clear ();
@@ -997,7 +997,7 @@ Fchdir (lisp dirname)
   pathname2cstr (dir, path);
   if (!WINFS::SetCurrentDirectory (path))
     file_error (GetLastError (), dir);
-  if (!GetCurrentDirectory (sizeof path, path))
+  if (!GetCurrentDirectoryA (sizeof path, path))
     file_error (GetLastError (), dir);
 
   if (strcmp (sysdep.curdir, path) == 0)
@@ -1039,7 +1039,7 @@ Fmake_temp_file_name (lisp lprefix, lisp lsuffix, lisp dir, lisp dirp)
         file_error (Enot_a_directory, dir);
       pathname2cstr (dir, temp);
     }
-  else if (!GetTempPath (sizeof temp, temp))
+  else if (!GetTempPathA (sizeof temp, temp))
     file_error (Ecannot_make_temp_file_name);
   char *sl = find_last_slash (temp);
   if (!sl)
@@ -1170,7 +1170,7 @@ Fdelete_file (lisp name, lisp keys)
       map_sl_to_backsl (buf);
       buf[strlen (buf) + 1] = 0;
 
-      SHFILEOPSTRUCT fs = {0};
+      SHFILEOPSTRUCTA fs = {0};
       fs.wFunc = FO_DELETE;
       fs.pFrom = buf;
 #ifndef FOF_NOERRORUI
@@ -1225,7 +1225,7 @@ rename_short_name (const char *fpath, const char *tname, const char *longname)
   memcpy (realpath, fpath, l);
   strcpy (realpath + l, longname);
 
-  if (!GetTempFileName (temppath, "xyz", 0, tempname))
+  if (!GetTempFileNameA (temppath, "xyz", 0, tempname))
     return;
   if (!WINFS::DeleteFile (tempname)
       || !WINFS::MoveFile (realpath, tempname))
@@ -1264,7 +1264,7 @@ check_short_names (const char *from_path, const char *to_path)
   if (xsymbol_value (Vrename_alternate_file_name) == Qnil)
     return;
 
-  WIN32_FIND_DATA from_fd, to_fd;
+  WIN32_FIND_DATAA from_fd, to_fd;
   if (!WINFS::get_file_data (to_path, to_fd))
     return;
 
@@ -1701,7 +1701,7 @@ wnet_error ()
 
   char n[1024], d[1024];
   *n = 0, *d = 0;
-  WNetGetLastError (&e, d, sizeof d, n, sizeof n);
+  WNetGetLastErrorA (&e, d, sizeof d, n, sizeof n);
   FEnetwork_error (make_string (n), make_string (d));
 }
 
@@ -1769,7 +1769,7 @@ Fmodify_file_attributes (lisp lpath, lisp lon, lisp loff)
 }
 
 int
-strict_get_file_data (const char *path, WIN32_FIND_DATA &fd)
+strict_get_file_data (const char *path, WIN32_FIND_DATAA &fd)
 {
   for (const u_char *p = (const u_char *)path; *p;)
     {
@@ -1793,7 +1793,7 @@ Ffile_length (lisp lpath)
 {
   char path[PATH_MAX + 1];
   pathname2cstr (lpath, path);
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   if (!strict_get_file_data (path, fd))
     return Qnil;
   int64_t i = (int64_t (fd.nFileSizeHigh) << 32 |
@@ -1822,7 +1822,7 @@ get_disk_usage (char *path, gdu *du)
   *pe = '*';
   pe[1] = 0;
 
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   HANDLE h = WINFS::FindFirstFile (path, &fd);
   if (h != INVALID_HANDLE_VALUE)
     {
@@ -1925,7 +1925,7 @@ Fformat_drive (lisp ldrive, lisp lquick)
         FErange_error (ldrive);
     }
 
-  HMODULE shell = GetModuleHandle ("shell32.dll");
+  HMODULE shell = GetModuleHandleA ("shell32.dll");
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
@@ -1978,16 +1978,16 @@ Ffile_property (lisp lpath)
   pathname2cstr (lpath, path);
   map_sl_to_backsl (path);
 
-  HMODULE shell = GetModuleHandle ("shell32.dll");
+  HMODULE shell = GetModuleHandleA ("shell32.dll");
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
-  int (WINAPI *ex)(SHELLEXECUTEINFO *) =
-    (int (WINAPI *)(SHELLEXECUTEINFO *))GetProcAddress (shell, "ShellExecuteExA");
+  int (WINAPI *ex)(SHELLEXECUTEINFOA *) =
+    (int (WINAPI *)(SHELLEXECUTEINFOA *))GetProcAddress (shell, "ShellExecuteExA");
   if (!ex)
     FEsimple_win32_error (GetLastError ());
 
-  SHELLEXECUTEINFO sei;
+  SHELLEXECUTEINFOA sei;
   bzero (&sei, sizeof sei);
   sei.cbSize = sizeof sei;
   sei.lpFile = path;
@@ -2037,8 +2037,8 @@ eject_media_winnt (int drive, int type)
   char dev[] = "\\\\.\\x:";
   dev[4] = char (drive);
 
-  dyn_handle h (CreateFile (dev, flags, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                            0, OPEN_EXISTING, 0, 0));
+  dyn_handle h (CreateFileA (dev, flags, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             0, OPEN_EXISTING, 0, 0));
   if (!h.valid ())
     file_error (GetLastError ());
 
@@ -2166,8 +2166,8 @@ win9x_eject_media (HANDLE hvwin32, int drive)
 static lisp
 eject_media_win9x (int drive)
 {
-  dyn_handle hvwin32 (CreateFile ("\\\\.\\vwin32", 0, 0, 0, 0,
-                                  FILE_FLAG_DELETE_ON_CLOSE, 0));
+  dyn_handle hvwin32 (CreateFileA ("\\\\.\\vwin32", 0, 0, 0, 0,
+                                   FILE_FLAG_DELETE_ON_CLOSE, 0));
   if (!hvwin32.valid ())
     file_error (GetLastError ());
 
@@ -2198,7 +2198,7 @@ Feject_media (lisp ldrive)
 
   char root[] = "x:\\";
   root[0] = char (xchar_code (ldrive));
-  int type = GetDriveType (root);
+  int type = GetDriveTypeA (root);
   switch (type)
     {
     default:
@@ -2268,13 +2268,13 @@ class list_servers: public list_net_resources
 {
 protected:
   virtual void doit () {list (0);}
-  int list (NETRESOURCE *);
+  int list (NETRESOURCEA *);
 public:
   list_servers (int pair) : list_net_resources (pair) {}
 };
 
 int
-list_servers::list (NETRESOURCE *r0)
+list_servers::list (NETRESOURCEA *r0)
 {
   HANDLE h;
   m_error = WINFS::WNetOpenEnum (RESOURCE_GLOBALNET, RESOURCETYPE_ANY, 0, r0, &h);
@@ -2283,9 +2283,9 @@ list_servers::list (NETRESOURCE *r0)
   wnet_enum_handle weh (h);
   while (!interrupted ())
     {
-      NETRESOURCE rb[8192];
+      NETRESOURCEA rb[8192];
       DWORD nent = DWORD (-1), size = sizeof rb;
-      m_error = WNetEnumResource (h, &nent, rb, &size);
+      m_error = WNetEnumResourceA (h, &nent, rb, &size);
       if (m_error == ERROR_NO_MORE_ITEMS)
         {
           m_error = NO_ERROR;
@@ -2294,7 +2294,7 @@ list_servers::list (NETRESOURCE *r0)
       if (m_error != NO_ERROR)
         return 0;
 
-      NETRESOURCE *r = rb;
+      NETRESOURCEA *r = rb;
       for (DWORD i = 0; i < nent && !interrupted (); i++, r++)
         switch (r->dwDisplayType)
           {
@@ -2349,7 +2349,7 @@ list_server_resources::doit ()
 {
   int l = strlen (m_server) + 1;
 
-  NETRESOURCE r;
+  NETRESOURCEA r;
   r.dwScope = RESOURCE_GLOBALNET;
   r.dwType = RESOURCETYPE_ANY;
   r.dwDisplayType = RESOURCEDISPLAYTYPE_SERVER;
@@ -2367,9 +2367,9 @@ list_server_resources::doit ()
   wnet_enum_handle weh (h);
   while (!interrupted ())
     {
-      NETRESOURCE rb[8192];
+      NETRESOURCEA rb[8192];
       DWORD nent = DWORD (-1), size = sizeof rb;
-      m_error = WNetEnumResource (h, &nent, rb, &size);
+      m_error = WNetEnumResourceA (h, &nent, rb, &size);
       if (m_error == ERROR_NO_MORE_ITEMS)
         {
           m_error = NO_ERROR;
@@ -2378,7 +2378,7 @@ list_server_resources::doit ()
       if (m_error != NO_ERROR)
         return;
 
-      NETRESOURCE *r = rb;
+      NETRESOURCEA *r = rb;
       for (DWORD i = 0; i < nent && !interrupted (); i++, r++)
         switch (r->dwDisplayType)
           {
@@ -2416,7 +2416,7 @@ Fget_short_path_name (lisp lpath)
   char path[PATH_MAX + 1], spath[PATH_MAX + 1];
   pathname2cstr (lpath, path);
   map_sl_to_backsl (path);
-  if (!GetShortPathName (path, spath, PATH_MAX))
+  if (!GetShortPathNameA (path, spath, PATH_MAX))
     file_error (GetLastError (), lpath);
   map_backsl_to_sl (spath);
   if (stringp (lpath) && xstring_length (lpath)
@@ -2430,7 +2430,7 @@ Fget_short_path_name (lisp lpath)
 }
 
 lisp
-make_file_info (const WIN32_FIND_DATA &fd)
+make_file_info (const WIN32_FIND_DATAA &fd)
 {
   int64_t sz = (int64_t (fd.nFileSizeHigh) << 32 |
                 int64_t (fd.nFileSizeLow));
@@ -2450,7 +2450,7 @@ Fget_file_info (lisp lpath)
 {
   char path[PATH_MAX + 1];
   pathname2cstr (lpath, path);
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   if (!strict_get_file_data (path, fd))
     file_error (GetLastError (), lpath);
   return make_file_info (fd);
@@ -2600,7 +2600,7 @@ Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
         flags |= FOF_MULTIDESTFILES;
     }
 
-  SHFILEOPSTRUCT fs = {0};
+  SHFILEOPSTRUCTA fs = {0};
   fs.wFunc = func;
   fs.fFlags = flags;
   fs.pFrom = fromf;

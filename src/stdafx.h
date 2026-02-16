@@ -53,6 +53,9 @@
 #include <winreg.h>
 #include <winsock.h>
 #include <wtypes.h>
+#include <tchar.h>
+
+#include "wconv.h"
 
 /* 64-bit / MinGW compatibility for window/dialog APIs */
 #ifndef DWL_USER

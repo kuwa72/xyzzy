@@ -173,7 +173,7 @@ edt_char (HWND hwnd, int ch)
   char class_name[16];
   HWND hwnd_parent = GetParent (hwnd);
   if (!hwnd_parent
-      || !GetClassName (hwnd_parent, class_name, sizeof class_name)
+      || !GetClassNameA (hwnd_parent, class_name, sizeof class_name)
       || stricmp (class_name, csComboBox))
     return 0;
 
@@ -199,14 +199,14 @@ static int
 init_hook (HINSTANCE hinst, const char *class_name,
            WNDPROC wndproc, WNDPROC &org_wndproc)
 {
-  WNDCLASS wc;
-  if (!GetClassInfo (0, class_name, &wc))
+  WNDCLASSA wc;
+  if (!GetClassInfoA (0, class_name, &wc))
     return 0;
 
   org_wndproc = wc.lpfnWndProc;
   wc.lpfnWndProc = wndproc;
   wc.hInstance = hinst;
-  return RegisterClass (&wc);
+  return RegisterClassA (&wc);
 }
 
 void

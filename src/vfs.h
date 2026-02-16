@@ -4,7 +4,7 @@
 class WINFS
 {
 protected:
-  typedef BOOL (WINAPI *GETDISKFREESPACEEX)(LPCTSTR, PULARGE_INTEGER,
+  typedef BOOL (WINAPI *GETDISKFREESPACEEX)(LPCSTR, PULARGE_INTEGER,
                                             PULARGE_INTEGER, PULARGE_INTEGER);
   static const GETDISKFREESPACEEX GetDiskFreeSpaceEx;
 
@@ -39,9 +39,9 @@ public:
   static BOOL WINAPI SetCurrentDirectory (LPCSTR lpPathName);
   static BOOL WINAPI SetFileAttributes (LPCSTR lpFileName, DWORD dwFileAttributes);
   static DWORD WINAPI WNetOpenEnum (DWORD dwScope, DWORD dwType, DWORD dwUsage,
-                                    LPNETRESOURCE lpNetResource, LPHANDLE lphEnum);
+                                    LPNETRESOURCEA lpNetResource, LPHANDLE lphEnum);
 
-  static int WINAPI get_file_data (const char *, WIN32_FIND_DATA &);
+  static int WINAPI get_file_data (const char *, WIN32_FIND_DATAA &);
 };
 
 #endif /* _vfs_h_ */

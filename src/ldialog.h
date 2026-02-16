@@ -156,7 +156,7 @@ public:
   PropPage ();
   ~PropPage ();
   void create_template (lisp, lisp);
-  void init_page (PropSheet *, int, PROPSHEETPAGE *, lisp);
+  void init_page (PropSheet *, int, PROPSHEETPAGEW *, lisp);
   void kill_active ();
   void set_active () const;
   void reset () const;

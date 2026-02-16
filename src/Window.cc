@@ -105,27 +105,27 @@ XCOLORREF Window::w_textprop_xbackcolor[GLYPH_TEXTPROP_NCOLORS];
 
 const wcolor_index_name wcolor_index_names[] =
 {
-  {cfgTextColor, RGB (0, 0, 0), "Text"},
-  {cfgBackColor, RGB (0xff, 0xff, 0xff), "Background"},
-  {cfgCtlColor, RGB (0x80, 0x80, 0), "Control Char"},
-  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), "Selection Text"},
-  {cfgSelectionBackColor, RGB (0, 0, 0), "Selection Background"},
-  {cfgKwdColor1, RGB (0, 0, 0xff), "Keyword 1"},
-  {cfgKwdColor2, RGB (0, 0x40, 0), "Keyword 2"},
-  {cfgKwdColor3, RGB (0x80, 0, 0x80), "Keyword 3"},
-  {cfgStringColor, RGB (0, 0x40, 0), "String"},
-  {cfgCommentColor, RGB (0, 0x80, 0), "Comment"},
-  {cfgTagColor, RGB (0x40, 0x40, 0), "Tag"},
-  {cfgCursorColor, RGB (0x80, 0, 0x80), "Line Cursor"},
-  {cfgCaretColor, RGB (0, 0, 0), "Caret"},
-  {cfgImeCaretColor, RGB (0x80, 0, 0), "IME Caret"},
-  {cfgLinenum, RGB (0, 0, 0), "Line Number"},
-  {cfgReverse, RGB (0, 0, 0), "Pseudo Reverse"},
-  {cfgUnselectedModeLineFg, RGB (0, 0, 0), "Modeline Text"},
-  {cfgUnselectedModeLineBg, RGB (0, 0, 0), "Modeline Background"},
+  {cfgTextColor, RGB (0, 0, 0), "\x95\xb6\x8e\x9a\x90\x46"},
+  {cfgBackColor, RGB (0xff, 0xff, 0xff), "\x94\x77\x8c\x69\x90\x46"},
+  {cfgCtlColor, RGB (0x80, 0x80, 0), "\x90\xa7\x8c\xe4\x95\xb6\x8e\x9a"},
+  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), "\x91\x49\x91\xf0\x95\xb6\x8e\x9a\x90\x46"},
+  {cfgSelectionBackColor, RGB (0, 0, 0), "\x91\x49\x91\xf0\x94\x77\x8c\x69\x90\x46"},
+  {cfgKwdColor1, RGB (0, 0, 0xff), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x50"},
+  {cfgKwdColor2, RGB (0, 0x40, 0), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x51"},
+  {cfgKwdColor3, RGB (0x80, 0, 0x80), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x52"},
+  {cfgStringColor, RGB (0, 0x40, 0), "\x95\xb6\x8e\x9a\x97\xf1"},
+  {cfgCommentColor, RGB (0, 0x80, 0), "\x83\x52\x83\x81\x83\x93\x83\x67"},
+  {cfgTagColor, RGB (0x40, 0x40, 0), "\x83\x5e\x83\x4f"},
+  {cfgCursorColor, RGB (0x80, 0, 0x80), "\x8d\x73\x83\x4a\x81\x5b\x83\x5c\x83\x8b"},
+  {cfgCaretColor, RGB (0, 0, 0), "\x83\x4c\x83\x83\x83\x8c\x83\x62\x83\x67"},
+  {cfgImeCaretColor, RGB (0x80, 0, 0), "IME\x83\x4c\x83\x83\x83\x8c\x83\x62\x83\x67"},
+  {cfgLinenum, RGB (0, 0, 0), "\x8d\x73\x94\xd4\x8d\x86"},
+  {cfgReverse, RGB (0, 0, 0), "\x83\x6a\x83\x5a\x94\xbd\x93\x5d\x90\x46"},
+  {cfgUnselectedModeLineFg, RGB (0, 0, 0), "\x83\x82\x81\x5b\x83\x68\x8d\x73\x95\xb6\x8e\x9a\x90\x46"},
+  {cfgUnselectedModeLineBg, RGB (0, 0, 0), "\x83\x82\x81\x5b\x83\x68\x8d\x73\x94\x77\x8c\x69\x90\x46"},
 
-  {0, RGB (0, 0, 0), "Selected Modeline Text"},
-  {0, RGB (0, 0, 0), "Selected Modeline Background"},
+  {0, RGB (0, 0, 0), "\x91\x49\x91\xf0\x83\x82\x81\x5b\x83\x68\x8d\x73\x95\xb6\x8e\x9a\x90\x46"},
+  {0, RGB (0, 0, 0), "\x91\x49\x91\xf0\x83\x82\x81\x5b\x83\x68\x8d\x73\x94\x77\x8c\x69\x90\x46"},
 };
 
 ModelineParam::ModelineParam ()
@@ -160,7 +160,7 @@ ModelineParam::init (HFONT hf)
   for (int i = 0; i < 22; i++)
     {
       SIZE size;
-      GetTextExtentPoint32 (hdc, "0000000000:0000000000", i, &size);
+      GetTextExtentPoint32A (hdc, "0000000000:0000000000", i, &size);
       m_exts[i] = size.cx;
     }
   SelectObject (hdc, of);
@@ -184,7 +184,10 @@ StatusWindow::restore ()
 int
 StatusWindow::text (const char *s)
 {
-  SendMessage (sw_hwnd, SB_SETTEXT, 0, LPARAM (s));
+  {
+    WideStr ws (s);
+    SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM ((const wchar_t *)ws));
+  }
   UpdateWindow (sw_hwnd);
   sw_last.textf = 1;
   return sw_last.l;
@@ -276,7 +279,7 @@ StatusWindow::clear (int no_update)
       sw_last.textf = 0;
       if (!no_update)
         {
-          SendMessage (sw_hwnd, SB_SETTEXT, 0, LPARAM (""));
+          SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM (L""));
           UpdateWindow (sw_hwnd);
         }
     }
@@ -432,7 +435,7 @@ Window::init (int minibufp, int temporary)
   lwp = make_window ();
 
   if (!CreateWindowEx (sysdep.Win4p () ? WS_EX_CLIENTEDGE : 0,
-                       Application::ClientClassName, "",
+                       Application::ClientClassName, L"",
                        (WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE
                         | WS_VSCROLL | WS_HSCROLL),
                        0, 0, 0, 0, app.active_frame.hwnd, 0, app.hinst, this))
@@ -440,7 +443,7 @@ Window::init (int minibufp, int temporary)
 
   if (minibufp)
     w_hwnd_ml = 0;
-  else if (!CreateWindow (Application::ModelineClassName, "",
+  else if (!CreateWindow (Application::ModelineClassName, L"",
                           WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE,
                           0, 0, 0, 0,
                           app.active_frame.hwnd, 0, app.hinst, this))
@@ -2723,7 +2726,7 @@ Flist_xyzzy_windows ()
       if (!hwnd || i <= o)
         break;
       char buf[256];
-      if (GetWindowText (hwnd, buf, sizeof buf))
+      if (GetWindowTextA (hwnd, buf, sizeof buf))
         p = xcons (xcons (make_fixnum (i), make_string (buf)), p);
     }
   return Fnreverse (p);
@@ -3334,8 +3337,8 @@ Window::paint_ruler (HDC hdc, const RECT &r, int x, int y, int column) const
     {
       char buf[32];
       int l = sprintf (buf, "%d", column);
-      ExtTextOut (hdc, x - l * sysdep.ruler_ext.cx / 2, r.top,
-                  ETO_CLIPPED, &r, buf, l, 0);
+      ExtTextOutA (hdc, x - l * sysdep.ruler_ext.cx / 2, r.top,
+                   ETO_CLIPPED, &r, buf, l, 0);
     }
   else if (!(column % 5))
     draw_vline (hdc, y - 2, y + 2, x, sysdep.window_text);

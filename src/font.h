@@ -12,11 +12,11 @@ protected:
   POINT fo_offset;
   SIZE fo_size;
   int fo_ascent;
-  LOGFONT fo_logfont;
+  LOGFONTA fo_logfont;
 public:
   FontObject () : fo_hfont (0) {}
   ~FontObject () {if (fo_hfont) DeleteObject (fo_hfont);}
-  int create (const LOGFONT &);
+  int create (const LOGFONTA &);
   int create (const char *, int, int);
   operator HFONT () const {return fo_hfont;}
   const HFONT hfont () const {return fo_hfont;}
@@ -28,8 +28,8 @@ public:
   const SIZE &size () const {return fo_size;}
   const POINT &offset () const {return fo_offset;}
   int ascent () const {return fo_ascent;}
-  const LOGFONT &logfont () const {return fo_logfont;}
-  static const bool update (LOGFONT &lf, const lisp keys, const bool recommend_size_p);
+  const LOGFONTA &logfont () const {return fo_logfont;}
+  static const bool update (LOGFONTA &lf, const lisp keys, const bool recommend_size_p);
   static const int dpi ()
     {
       HDC hdc = GetDC (0);
@@ -60,7 +60,7 @@ public:
 
 struct FontSetParam
 {
-  LOGFONT fs_logfont[FONT_MAX];
+  LOGFONTA fs_logfont[FONT_MAX];
   int fs_use_backsl;
   int fs_line_spacing;
   int fs_recommend_size;

@@ -107,7 +107,8 @@ user_tool_bar::need_text (TOOLTIPTEXT &ttt)
   if (!stringp (tt))
     return 0;
   w2s (b_ttbuf, b_ttbuf + TTBUFSIZE, tt);
-  ttt.lpszText = b_ttbuf;
+  MultiByteToWideChar (932, 0, b_ttbuf, -1, b_ttbufw, TTBUFSIZE);
+  ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;
 }

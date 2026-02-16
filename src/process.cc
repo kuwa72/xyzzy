@@ -240,7 +240,7 @@ Fcall_process (lisp cmd, lisp keys)
   if (lstdout != lstderr)
     open_for_write (herr, errfile, lstderr, &sa);
 
-  STARTUPINFO si;
+  STARTUPINFOA si;
   bzero (&si, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW;
@@ -258,11 +258,11 @@ Fcall_process (lisp cmd, lisp keys)
   WINFS::SetCurrentDirectory (dir);
 
   PROCESS_INFORMATION pi;
-  int result = CreateProcess (0, cmdline, 0, 0, !no_std_handles,
-                              (CREATE_DEFAULT_ERROR_MODE
-                               /*| CREATE_NEW_PROCESS_GROUP*/
-                               | NORMAL_PRIORITY_CLASS),
-                              (void *)env.str (), dir, &si, &pi);
+  int result = CreateProcessA (0, cmdline, 0, 0, !no_std_handles,
+                               (CREATE_DEFAULT_ERROR_MODE
+                                /*| CREATE_NEW_PROCESS_GROUP*/
+                                | NORMAL_PRIORITY_CLASS),
+                               (void *)env.str (), dir, &si, &pi);
   int error = GetLastError ();
 
   w2s (dir, xsymbol_value (Qdefault_dir));
@@ -829,8 +829,8 @@ NormalProcess::find_tty (HWND hwnd, LPARAM arg)
   if (pid != ((dos_prompt *)arg)->pid)
     return 1;
   char name[32];
-  if (!GetClassName (hwnd, name, sizeof name)
-      || lstrcmp (name, "tty"))
+  if (!GetClassNameA (hwnd, name, sizeof name)
+      || lstrcmpA (name, "tty"))
     return 1;
   ((dos_prompt *)arg)->hwnd = hwnd;
   return 0;
@@ -914,7 +914,7 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   lisp lxshow = symbol_value (Vxyzzyenv_show_flag, selected_buffer ());
   int xshow = show_window_parameter (lxshow, SW_SHOWMINNOACTIVE);
 
-  STARTUPINFO si;
+  STARTUPINFOA si;
   bzero (&si, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
@@ -926,11 +926,11 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   WINFS::SetCurrentDirectory (dir);
 
   PROCESS_INFORMATION pi;
-  int result = CreateProcess (0, cmdline, 0, 0, 1,
-                              (CREATE_NEW_PROCESS_GROUP
-                               | CREATE_DEFAULT_ERROR_MODE
-                               | NORMAL_PRIORITY_CLASS),
-                              (void *)env, dir, &si, &pi);
+  int result = CreateProcessA (0, cmdline, 0, 0, 1,
+                               (CREATE_NEW_PROCESS_GROUP
+                                | CREATE_DEFAULT_ERROR_MODE
+                                | NORMAL_PRIORITY_CLASS),
+                               (void *)env, dir, &si, &pi);
   int error = GetLastError ();
 
   w2s (dir, xsymbol_value (Qdefault_dir));
@@ -1490,9 +1490,9 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
     }
 
   DWORD e;
-  typedef int (WINAPI *SHELLEXECUTEEX)(SHELLEXECUTEINFO *);
+  typedef int (WINAPI *SHELLEXECUTEEX)(SHELLEXECUTEINFOA *);
   SHELLEXECUTEEX ex = (xsymbol_value (Vuse_shell_execute_ex) != Qnil
-                       ? (SHELLEXECUTEEX)GetProcAddress (GetModuleHandle ("shell32.dll"),
+                       ? (SHELLEXECUTEEX)GetProcAddress (GetModuleHandleA ("shell32.dll"),
                                                          "ShellExecuteExA")
                        : 0);
 
@@ -1507,7 +1507,7 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
 
   if (ex)
     {
-      SHELLEXECUTEINFO sei = {sizeof sei};
+      SHELLEXECUTEINFOA sei = {sizeof sei};
       sei.fMask = SEE_MASK_FLAG_NO_UI;
       sei.hwnd = get_active_window ();
       sei.lpFile = path;
@@ -1518,8 +1518,8 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
       e = (*ex)(&sei) ? 33 : DWORD (sei.hInstApp);
     }
   else
-    e = DWORD (ShellExecute (get_active_window (), verb ? verb : "open",
-                             path, param, dir, SW_SHOWNORMAL));
+    e = DWORD (ShellExecuteA (get_active_window (), verb ? verb : "open",
+                              path, param, dir, SW_SHOWNORMAL));
   if (dir)
     WINFS::SetCurrentDirectory (sysdep.curdir);
   SetErrorMode (omode);

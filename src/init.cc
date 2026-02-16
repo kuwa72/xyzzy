@@ -13,6 +13,7 @@
 #include "conf.h"
 #include "colors.h"
 #include "version.h"
+
 #ifdef DEBUG
 # include "mainframe.h"
 # include <crtdbg.h>
@@ -22,11 +23,11 @@
 # define M_PI 3.141592653589793
 #endif
 
-const char Application::ToplevelClassName[] = "xyzzy_toplevel";
-const char Application::FrameClassName[] = "  ";
-const char Application::ClientClassName[] = "   ";
-const char Application::ModelineClassName[] = "    ";
-const char FunctionKeyClassName[] = "     ";
+const wchar_t Application::ToplevelClassName[] = L"xyzzy_toplevel";
+const wchar_t Application::FrameClassName[] = L"  ";
+const wchar_t Application::ClientClassName[] = L"   ";
+const wchar_t Application::ModelineClassName[] = L"    ";
+const wchar_t FunctionKeyClassName[] = L"     ";
 
 Application app;
 
@@ -73,8 +74,10 @@ Application::~Application ()
 static void
 init_module_dir ()
 {
+  wchar_t wpath[PATH_MAX];
+  GetModuleFileNameW (0, wpath, PATH_MAX);
   char path[PATH_MAX];
-  GetModuleFileName (0, path, sizeof path);
+  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
   char *p = jrindex (path, '\\');
   if (p)
     p[1] = 0;
@@ -90,11 +93,14 @@ init_current_dir ()
 static void
 init_windows_dir ()
 {
+  wchar_t wpath[PATH_MAX];
   char path[PATH_MAX];
-  GetWindowsDirectory (path, sizeof path);
+  GetWindowsDirectoryW (wpath, PATH_MAX);
+  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
   xsymbol_value (Qwindows_dir) = make_path (path);
 
-  GetSystemDirectory (path, sizeof path);
+  GetSystemDirectoryW (wpath, PATH_MAX);
+  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
   xsymbol_value (Qsystem_dir) = make_path (path);
 }
 
@@ -216,8 +222,8 @@ init_user_inifile_path (const char *ini_file)
       int l = WINFS::GetFullPathName (ini_file, sizeof path, path, &tem);
       if (l && l < sizeof path)
         {
-          HANDLE h = CreateFile (path, GENERIC_READ, 0, 0, OPEN_ALWAYS,
-                                 FILE_ATTRIBUTE_ARCHIVE, 0);
+          HANDLE h = CreateFileA (path, GENERIC_READ, 0, 0, OPEN_ALWAYS,
+                                  FILE_ATTRIBUTE_ARCHIVE, 0);
           if (h != INVALID_HANDLE_VALUE)
             {
               CloseHandle (h);
@@ -241,7 +247,7 @@ init_dump_path ()
 {
   if (!*app.dump_image)
     {
-      int l = GetModuleFileName (0, app.dump_image, PATH_MAX);
+      int l = GetModuleFileNameA (0, app.dump_image, PATH_MAX);
       char *e = app.dump_image + l;
       if (l > 4 && !_stricmp (e - 4, ".exe"))
         e -= 3;
@@ -558,7 +564,7 @@ init_command_line (int ac)
 void
 report_out_of_memory ()
 {
-  MessageBox (0, "Out of memory", TitleBarString, MB_OK | MB_ICONHAND);
+  MessageBoxA (0, "\x83\x81\x83\x82\x83\x8a\x82\xaa\x95\x73\x91\xab\x82\xb5\x82\xc4\x82\xa2\x82\xdc\x82\xb7", TitleBarString, MB_OK | MB_ICONHAND);
 }
 
 static inline int
@@ -790,7 +796,7 @@ static int
 init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 {
   SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
-  SetDllDirectory("");
+  SetDllDirectoryW(L"");
   app.toplev = 0;
 
   init_ucs2_table ();
@@ -815,8 +821,11 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
     }
 
   if (*sysdep.host_name)
-    strcpy (stpcpy (TitleBarString + strlen (TitleBarString), "@"),
-            sysdep.host_name);
+    {
+      strcpy (stpcpy (TitleBarString + strlen (TitleBarString), "@"),
+              sysdep.host_name);
+      MultiByteToWideChar (932, 0, TitleBarString, -1, TitleBarStringW, TITLE_BAR_STRING_SIZE);
+    }
 
   if (!init_lisp_objects ())
     return 0;
@@ -849,7 +858,7 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   ole_initialized = SUCCEEDED (OleInitialize (0));
 
-  app.toplev = CreateWindow (Application::ToplevelClassName, TitleBarString,
+  app.toplev = CreateWindow (Application::ToplevelClassName, TitleBarStringW,
                              WS_OVERLAPPEDWINDOW,
                              point.x, point.y, size.cx, size.cy,
                              HWND_DESKTOP, 0, hinst, 0);

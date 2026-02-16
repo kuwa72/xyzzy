@@ -224,7 +224,7 @@ make_idl (HWND hwnd, lisp ldir, void *param,
 
   int sz = max (int (strlen (dir) + 1), MAX_PATH) + MAX_PATH;
   wchar_t *w = (wchar_t *)alloca (sz * sizeof (wchar_t));
-  MultiByteToWideChar (CP_ACP, 0, dir, -1, w, sz);
+  MultiByteToWideChar (932, 0, dir, -1, w, sz);
 
   ULONG eaten;
   safe_idl dir_idl (ialloc);
@@ -248,11 +248,11 @@ make_idl (HWND hwnd, lisp ldir, void *param,
       if (ListView_GetItem (hwnd, &lvi))
         {
 #if 0
-          MultiByteToWideChar (CP_ACP, 0, ((filer_data *)lvi.lParam)->name,
+          MultiByteToWideChar (932, 0, ((filer_data *)lvi.lParam)->name,
                                -1, w, sz);
 #else
           const filer_data *f = (const filer_data *)lvi.lParam;
-          MultiByteToWideChar (CP_ACP, 0, *f->name ? f->name : "..", -1, w, sz);
+          MultiByteToWideChar (932, 0, *f->name ? f->name : "..", -1, w, sz);
 #endif
           ole_error (sf->ParseDisplayName (hwnd, 0, w, &eaten,
                                            &idls[nstored], 0));
@@ -369,7 +369,7 @@ shell_context_menu (HWND hwnd, IShellFolder *sf,
   ci.cbSize = sizeof ci;
   ci.fMask = 0;
   ci.hwnd = hwnd;
-  ci.lpVerb = MAKEINTRESOURCE (id - 1);
+  ci.lpVerb = MAKEINTRESOURCEA (id - 1);
   ci.lpParameters = "";
   ci.lpDirectory = "";
   ci.nShow = SW_SHOWNORMAL;
@@ -568,7 +568,7 @@ filer_drop_target::check_self (const wchar_t *w, char *base, char *target)
 {
   int l = wcslen (w) * 2 + 1;
   char *p = (char *)alloca (l);
-  WideCharToMultiByte (CP_OEMCP, 0, w, -1, p, l, 0, 0);
+  WideCharToMultiByte (932, 0, w, -1, p, l, 0, 0);
   return check_self (p, base, target);
 }
 
@@ -645,7 +645,7 @@ filer_drop_target::make_drop_file (const wchar_t *w, const char *base_path,
 {
   int l = wcslen (w) * 2 + 1;
   char *p = (char *)alloca (l);
-  WideCharToMultiByte (CP_OEMCP, 0, w, -1, p, l, 0, 0);
+  WideCharToMultiByte (932, 0, w, -1, p, l, 0, 0);
   return make_drop_file (p, base_path, target, link);
 }
 
@@ -686,7 +686,7 @@ filer_drop_target::process_drop (IDataObject *data_obj, const POINTL &pt,
       const wchar_t *w = (wchar_t *)((char *)df + df->pFiles);
       int l = wcslen (w) * 2 + 1;
       base_path = (char *)alloca (l);
-      WideCharToMultiByte (CP_OEMCP, 0, w, -1, base_path, l, 0, 0);
+      WideCharToMultiByte (932, 0, w, -1, base_path, l, 0, 0);
     }
 
   if (!base_path)
@@ -1046,7 +1046,7 @@ text_drop_target::DragLeave ()
   return S_OK;
 }
 
-static UINT CF_XYZZYTEXT = RegisterClipboardFormat ("xyzzy internal text");
+static UINT CF_XYZZYTEXT = RegisterClipboardFormatA ("xyzzy internal text");
 
 struct xyzzytext_header
 {

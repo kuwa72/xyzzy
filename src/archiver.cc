@@ -131,7 +131,7 @@ ArchiverP::match_suffix (const char *path, int l,
 static LRESULT CALLBACK
 NotifyWndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-  static const UINT extract = RegisterWindowMessage (WM_ARCEXTRACT);
+  static const UINT extract = RegisterWindowMessageA (WM_ARCEXTRACT);
   if (msg == extract)
     {
       EXTRACTINGINFO *i = (EXTRACTINGINFO *)lparam;
@@ -177,7 +177,7 @@ NotifyWndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   return DefWindowProc (hwnd, msg, wparam, lparam);
 }
 
-static const char NotifyClass[] = "ArcNotify";
+static const wchar_t NotifyClass[] = L"ArcNotify";
 
 int
 register_wndclass ()
@@ -187,7 +187,7 @@ register_wndclass ()
   wc.lpfnWndProc = NotifyWndProc;
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
-  wc.hInstance = GetModuleHandle (0);
+  wc.hInstance = GetModuleHandle (NULL);
   wc.hIcon = 0;
   wc.hCursor = 0;
   wc.hbrBackground = 0;
@@ -202,8 +202,8 @@ create_notify_window (HWND parent)
   static int done;
   if (!done)
     done = register_wndclass ();
-  return CreateWindow (NotifyClass, "", parent ? WS_CHILD : WS_OVERLAPPEDWINDOW,
-                       0, 0, 0, 0, parent, 0, GetModuleHandle (0), 0);
+  return CreateWindow (NotifyClass, L"", parent ? WS_CHILD : WS_OVERLAPPEDWINDOW,
+                       0, 0, 0, 0, parent, 0, GetModuleHandle (NULL), 0);
 }
 #endif /* NEED_EXTRACTINGINFO */
 
@@ -744,7 +744,7 @@ SevenZip::puts_create (FILE *fp, char *name, const char *path) const
       putc ('\\', fp);
     }
   fputs (name, fp);
-  DWORD a = GetFileAttributes (path);
+  DWORD a = GetFileAttributesA (path);
   if (a != ~0 && a & FILE_ATTRIBUTE_DIRECTORY)
     {
       if (!has_trail_slash (path))
@@ -784,7 +784,7 @@ Archiver::get_creator (const char *path) const
 int
 Archiver::check_file_size (const char *path)
 {
-  WIN32_FIND_DATA fd;
+  WIN32_FIND_DATAA fd;
   return (strict_get_file_data (path, fd)
           && (fd.nFileSizeHigh || fd.nFileSizeLow));
 }
@@ -1086,7 +1086,7 @@ extract_or_remove (lisp lpath, lisp ldir, lisp lfiles)
   else
     {
       char temp_path[PATH_MAX + 1];
-      GetTempPath (sizeof temp_path, temp_path);
+      GetTempPathA (sizeof temp_path, temp_path);
       WINFS::GetTempFileName (temp_path, "xyz", 0, temp_name);
       stdio_file fp (fopen (temp_name, "w"));
       if (!fp)
@@ -1161,7 +1161,7 @@ Fcreate_archive (lisp larcname, lisp lfiles, lisp ldir)
   size_t dirl = strlen (dir);
 
   char temp_name[PATH_MAX + 1], temp_path[PATH_MAX + 1];
-  GetTempPath (sizeof temp_path, temp_path);
+  GetTempPathA (sizeof temp_path, temp_path);
   WINFS::GetTempFileName (temp_path, "xyz", 0, temp_name);
 
   WINFS::SetCurrentDirectory (dir);

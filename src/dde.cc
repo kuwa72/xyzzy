@@ -14,11 +14,11 @@ const char DdeServerName[] = "Xyzzy";
 
 static DdeItemList system_item_list[] =
 {
-  {0, topic_list_callback, SZDDESYS_ITEM_TOPICS},
-  {0, item_list_callback, SZDDESYS_ITEM_SYSITEMS},
-  {0, formats_callback, SZDDESYS_ITEM_FORMATS},
+  {0, topic_list_callback, "Topics"},
+  {0, item_list_callback, "SysItems"},
+  {0, formats_callback, "Formats"},
 #ifdef notyet
-  {0, help_callback, SZDDESYS_ITEM_HELP},
+  {0, help_callback, "Help"},
 #endif
   {0},
 };
@@ -32,7 +32,7 @@ static DdeItemList lisp_item_list[] =
 
 DdeTopicList DdeServerTopicList[] =
 {
-  {0, system_item_list, SZDDESYS_TOPIC},
+  {0, system_item_list, "System"},
   {0, lisp_item_list, "Lisp"},
   {0},
 };
@@ -346,7 +346,7 @@ static int
 eval_matcher (const DdeItemList *il, HSZ hsz)
 {
   char b[6];
-  if (!DdeQueryString (Dde::instance (), hsz, b, sizeof b, CP_WINANSI))
+  if (!DdeQueryStringA (Dde::instance (), hsz, b, sizeof b, CP_WINANSI))
     return 0;
   return !stricmp ("eval:", b);
 }
@@ -363,9 +363,9 @@ eval_callback (DdeCallbackInfo *dci)
     case XTYP_REQUEST:
     case XTYP_ADVREQ:
       {
-        int l = DdeQueryString (Dde::instance (), dci->item, 0, 0, CP_WINANSI);
+        int l = DdeQueryStringA (Dde::instance (), dci->item, 0, 0, CP_WINANSI);
         safe_ptr <char> data (new char [l + 2]);
-        DdeQueryString (Dde::instance (), dci->item, data, l + 1, CP_WINANSI);
+        DdeQueryStringA (Dde::instance (), dci->item, data, l + 1, CP_WINANSI);
         string = make_string (data + 5);
         break;
       }

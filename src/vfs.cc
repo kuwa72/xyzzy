@@ -35,8 +35,8 @@ NetPassDlg::do_command (int id, int code)
   switch (id)
     {
     case IDOK:
-      GetDlgItemText (hwnd, IDC_USERNAME, username, sizeof username);
-      GetDlgItemText (hwnd, IDC_PASSWD, passwd, sizeof passwd);
+      GetDlgItemTextA (hwnd, IDC_USERNAME, username, sizeof username);
+      GetDlgItemTextA (hwnd, IDC_PASSWD, passwd, sizeof passwd);
       /* fall thru... */
     case IDCANCEL:
       EndDialog (hwnd, id);
@@ -49,7 +49,7 @@ NetPassDlg::init_dialog ()
 {
   center_window (hwnd);
   set_window_icon (hwnd);
-  SetDlgItemText (hwnd, IDC_SHARE_NAME, remote);
+  SetDlgItemTextA (hwnd, IDC_SHARE_NAME, remote);
 }
 
 BOOL
@@ -131,14 +131,14 @@ skip_share (const char *path, int noshare_ok)
 static int
 try_connect (char *remote, int e)
 {
-  NETRESOURCE nr;
+  NETRESOURCEA nr;
   nr.dwType = RESOURCETYPE_DISK;
   nr.lpLocalName = 0;
   nr.lpRemoteName = remote;
   nr.lpProvider = 0;
 
   if (e == ERROR_ACCESS_DENIED
-      && WNetAddConnection2 (&nr, 0, 0, 0) == NO_ERROR)
+      && WNetAddConnection2A (&nr, 0, 0, 0) == NO_ERROR)
     return 1;
 
   while (1)
@@ -147,7 +147,7 @@ try_connect (char *remote, int e)
       if (!d.do_modal ())
         return 0;
 
-      switch (WNetAddConnection2 (&nr, d.passwd, d.username, 0))
+      switch (WNetAddConnection2A (&nr, d.passwd, d.username, 0))
         {
         case NO_ERROR:
           return 1;
@@ -222,13 +222,13 @@ askpass (const char *path1, const char *path2)
 char WINFS::wfs_share_cache[MAX_PATH * 2];
 
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx =
-  (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandle ("KERNEL32"),
+  (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandleA ("KERNEL32"),
                                              "GetDiskFreeSpaceExA");
 
 BOOL WINAPI
 WINFS::CreateDirectory (LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes)
 {
-  WINFS_CALL1 (BOOL, FALSE, lpPathName, CreateDirectory (lpPathName, lpSecurityAttributes));
+  WINFS_CALL1 (BOOL, FALSE, lpPathName, CreateDirectoryA (lpPathName, lpSecurityAttributes));
 }
 
 HANDLE WINAPI
@@ -236,8 +236,8 @@ WINFS::CreateFile (LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
                    LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
                    DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
 {
-  HANDLE r = ::CreateFile (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                           dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+  HANDLE r = ::CreateFileA (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                            dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
   if (r != INVALID_HANDLE_VALUE)
     return r;
   if (!sysdep.WinNTp () || !(dwFlagsAndAttributes & FILE_FLAG_BACKUP_SEMANTICS))
@@ -245,36 +245,36 @@ WINFS::CreateFile (LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
       int e = GetLastError ();
       if (e == ERROR_ACCESS_DENIED)
         {
-          DWORD a = ::GetFileAttributes (lpFileName);
+          DWORD a = ::GetFileAttributesA (lpFileName);
           SetLastError (e);
           if (a != -1 && a & FILE_ATTRIBUTE_DIRECTORY)
             return r;
         }
     }
   if (askpass (lpFileName))
-    r = ::CreateFile (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                      dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    r = ::CreateFileA (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                       dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
   return r;
 }
 
 BOOL WINAPI
 WINFS::DeleteFile (LPCSTR lpFileName)
 {
-  WINFS_CALL1 (BOOL, FALSE, lpFileName, DeleteFile (lpFileName));
+  WINFS_CALL1 (BOOL, FALSE, lpFileName, DeleteFileA (lpFileName));
 }
 
 HANDLE WINAPI
 WINFS::FindFirstFile (LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData)
 {
   WINFS_CALL1 (HANDLE, INVALID_HANDLE_VALUE, lpFileName,
-               FindFirstFile (lpFileName, lpFindFileData));
+               FindFirstFileA (lpFileName, lpFindFileData));
 }
 
 BOOL WINAPI
 WINFS::FindNextFile (HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData)
 {
   *lpFindFileData->cFileName = 0;
-  return (::FindNextFile (hFindFile, lpFindFileData)
+  return (::FindNextFileA (hFindFile, lpFindFileData)
           || (GetLastError () == ERROR_MORE_DATA
               && *lpFindFileData->cFileName));
 }
@@ -287,13 +287,13 @@ GetDiskFreeSpaceFAT32 (LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
   char buf[PATH_MAX + 1];
   if (!lpRootPathName)
     {
-      if (!GetCurrentDirectory (sizeof buf, buf))
+      if (!GetCurrentDirectoryA (sizeof buf, buf))
         return 0;
       lpRootPathName = root_path_name (buf, buf);
     }
 
-  dyn_handle hvwin32 (CreateFile ("\\\\.\\vwin32", 0, 0, 0, 0,
-                                  FILE_FLAG_DELETE_ON_CLOSE, 0));
+  dyn_handle hvwin32 (CreateFileA ("\\\\.\\vwin32", 0, 0, 0, 0,
+                                   FILE_FLAG_DELETE_ON_CLOSE, 0));
   if (!hvwin32.valid ())
     return 0;
 
@@ -324,8 +324,8 @@ WINFS::GetDiskFreeSpace (LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
                          LPDWORD lpBytesPerSector, LPDWORD lpNumberOfFreeClusters,
                          LPDWORD lpTotalNumberOfClusters)
 {
-  BOOL r = ::GetDiskFreeSpace (lpRootPathName, lpSectorsPerCluster, lpBytesPerSector,
-                               lpNumberOfFreeClusters, lpTotalNumberOfClusters);
+  BOOL r = ::GetDiskFreeSpaceA (lpRootPathName, lpSectorsPerCluster, lpBytesPerSector,
+                                lpNumberOfFreeClusters, lpTotalNumberOfClusters);
   if (!r)
     {
       if (GetLastError () == ERROR_NOT_SUPPORTED)
@@ -337,8 +337,8 @@ WINFS::GetDiskFreeSpace (LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
         {
           if (!askpass (lpRootPathName))
             return 0;
-          r = ::GetDiskFreeSpace (lpRootPathName, lpSectorsPerCluster, lpBytesPerSector,
-                                  lpNumberOfFreeClusters, lpTotalNumberOfClusters);
+          r = ::GetDiskFreeSpaceA (lpRootPathName, lpSectorsPerCluster, lpBytesPerSector,
+                                   lpNumberOfFreeClusters, lpTotalNumberOfClusters);
           if (!r)
             return 0;
         }
@@ -375,7 +375,7 @@ WINFS::GetDiskFreeSpace (LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
 DWORD WINAPI
 WINFS::internal_GetFileAttributes (LPCSTR lpFileName)
 {
-  WINFS_CALL1 (DWORD, -1, lpFileName, GetFileAttributes (lpFileName));
+  WINFS_CALL1 (DWORD, -1, lpFileName, GetFileAttributesA (lpFileName));
 }
 
 DWORD WINAPI
@@ -384,7 +384,7 @@ WINFS::GetFileAttributes (LPCSTR lpFileName)
   DWORD attr = internal_GetFileAttributes (lpFileName);
   if (attr == DWORD (-1) && GetLastError () != ERROR_INVALID_NAME)
     {
-      WIN32_FIND_DATA fd;
+      WIN32_FIND_DATAA fd;
       if (get_file_data (lpFileName, fd))
         attr = fd.dwFileAttributes;
     }
@@ -395,7 +395,7 @@ UINT WINAPI
 WINFS::GetTempFileName (LPCSTR lpPathName, LPCSTR lpPrefixString, UINT uUnique, LPSTR lpTempFileName)
 {
   WINFS_CALL1 (UINT, 0, lpPathName,
-               GetTempFileName (lpPathName, lpPrefixString, uUnique, lpTempFileName));
+               GetTempFileNameA (lpPathName, lpPrefixString, uUnique, lpTempFileName));
 }
 
 BOOL WINAPI
@@ -405,22 +405,22 @@ WINFS::GetVolumeInformation (LPCSTR lpRootPathName, LPSTR lpVolumeNameBuffer,
                              LPSTR lpFileSystemNameBuffer, DWORD nFileSystemNameSize)
 {
   WINFS_CALL1 (BOOL, FALSE, lpRootPathName,
-               GetVolumeInformation (lpRootPathName, lpVolumeNameBuffer, nVolumeNameSize,
-                                     lpVolumeSerialNumber, lpMaximumComponentLength,
-                                     lpFileSystemFlags, lpFileSystemNameBuffer, nFileSystemNameSize));
+               GetVolumeInformationA (lpRootPathName, lpVolumeNameBuffer, nVolumeNameSize,
+                                      lpVolumeSerialNumber, lpMaximumComponentLength,
+                                      lpFileSystemFlags, lpFileSystemNameBuffer, nFileSystemNameSize));
 }
 
 HMODULE WINAPI
 WINFS::LoadLibrary (LPCSTR lpLibFileName)
 {
-  WINFS_CALL1 (HMODULE, NULL, lpLibFileName, LoadLibrary (lpLibFileName));
+  WINFS_CALL1 (HMODULE, NULL, lpLibFileName, LoadLibraryA (lpLibFileName));
 }
 
 static BOOL
 move_file (LPCSTR lpExistingFileName, LPCSTR lpNewFileName)
 {
   WINFS_CALL2 (BOOL, FALSE, lpExistingFileName, lpNewFileName,
-               MoveFile (lpExistingFileName, lpNewFileName));
+               MoveFileA (lpExistingFileName, lpNewFileName));
 }
 
 BOOL WINAPI
@@ -439,14 +439,14 @@ WINFS::MoveFile (LPCSTR lpExistingFileName, LPCSTR lpNewFileName)
 BOOL WINAPI
 WINFS::RemoveDirectory (LPCSTR lpPathName)
 {
-  WINFS_CALL1 (BOOL, FALSE, lpPathName, RemoveDirectory (lpPathName));
+  WINFS_CALL1 (BOOL, FALSE, lpPathName, RemoveDirectoryA (lpPathName));
 }
 
 BOOL WINAPI
 WINFS::SetFileAttributes (LPCSTR lpFileName, DWORD dwFileAttributes)
 {
   WINFS_CALL1 (BOOL, FALSE, lpFileName,
-               SetFileAttributes (lpFileName, dwFileAttributes));
+               SetFileAttributesA (lpFileName, dwFileAttributes));
 }
 
 DWORD WINAPI
@@ -455,14 +455,14 @@ WINFS::internal_GetFullPathName (LPCSTR lpFileName, DWORD nBufferLength,
 {
   WINFS_MAPSL (lpFileName);
   WINFS_CALL1 (DWORD, 0, lpFileName,
-               GetFullPathName (lpFileName, nBufferLength, lpBuffer, lpFilePart));
+               GetFullPathNameA (lpFileName, nBufferLength, lpBuffer, lpFilePart));
 }
 
 BOOL WINAPI
 WINFS::SetCurrentDirectory (LPCSTR lpPathName)
 {
   WINFS_MAPSL (lpPathName);
-  WINFS_CALL1 (BOOL, FALSE, lpPathName, SetCurrentDirectory (lpPathName));
+  WINFS_CALL1 (BOOL, FALSE, lpPathName, SetCurrentDirectoryA (lpPathName));
 }
 
 DWORD WINAPI
@@ -486,19 +486,19 @@ WINFS::GetFullPathName (LPCSTR path, DWORD size, LPSTR buf, LPSTR *name)
 
 DWORD WINAPI
 WINFS::WNetOpenEnum (DWORD dwScope, DWORD dwType, DWORD dwUsage,
-                     LPNETRESOURCE lpNetResource, LPHANDLE lphEnum)
+                     LPNETRESOURCEA lpNetResource, LPHANDLE lphEnum)
 {
   if (!lpNetResource)
-    return ::WNetOpenEnum (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
+    return ::WNetOpenEnumA (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
 
-  DWORD r = ::WNetOpenEnum (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
+  DWORD r = ::WNetOpenEnumA (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
   if (r != NO_ERROR && askpass_noshare (lpNetResource->lpRemoteName))
-    r = ::WNetOpenEnum (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
+    r = ::WNetOpenEnumA (dwScope, dwType, dwUsage, lpNetResource, lphEnum);
   return r;
 }
 
 int WINAPI
-WINFS::get_file_data (const char *path, WIN32_FIND_DATA &fd)
+WINFS::get_file_data (const char *path, WIN32_FIND_DATAA &fd)
 {
   HANDLE h = FindFirstFile (path, &fd);
   if (h == INVALID_HANDLE_VALUE)

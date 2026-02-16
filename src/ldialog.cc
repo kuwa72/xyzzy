@@ -82,17 +82,21 @@ Dialog::send_ltext (int id, int msg, WPARAM wparam, lisp init, dlg_txtwidth *dt)
     {
       char *b = (char *)alloca (xstring_length (init) * 2 + 1);
       char *be = w2s (b, init);
+      int wl = MultiByteToWideChar (932, 0, b, be - b, 0, 0);
+      wchar_t *wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
+      MultiByteToWideChar (932, 0, b, be - b, wb, wl);
+      wb[wl] = 0;
       if (dt)
         {
           SIZE sz;
-          if (GetTextExtentPoint32 (dt->hdc, b, be - b, &sz)
+          if (GetTextExtentPoint32W (dt->hdc, wb, wl, &sz)
               && sz.cx > dt->l)
             dt->l = sz.cx;
         }
-      return SendDlgItemMessage (d_hwnd, id, msg, wparam, LPARAM (b));
+      return SendDlgItemMessageW (d_hwnd, id, msg, wparam, LPARAM (wb));
     }
   else
-    return SendDlgItemMessage (d_hwnd, id, msg, wparam, LPARAM (""));
+    return SendDlgItemMessageW (d_hwnd, id, msg, wparam, LPARAM (L""));
 }
 
 void
@@ -138,12 +142,17 @@ static lisp
 get_window_text (HWND dlg, int id)
 {
   HWND hwnd = GetDlgItem (dlg, id);
-  int l = max (0L, SendMessage (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
-  char *b = (char *)alloca (l);
-  *b = 0;
-  GetWindowText (hwnd, b, l);
-  if (*b)
-    return make_string (b);
+  int l = max (0L, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
+  wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
+  *wb = 0;
+  GetWindowTextW (hwnd, wb, l);
+  if (*wb)
+    {
+      int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+      char *b = (char *)alloca (al);
+      WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
+      return make_string (b);
+    }
   return Qnil;
 }
 
@@ -282,9 +291,9 @@ Dialog::edit_command (dlgctrl *c, UINT msg)
     case EN_KILLFOCUS:
     case EN_CHANGE:
       {
-        char buf[10];
+        wchar_t buf[10];
         *buf = 0;
-        GetDlgItemText (d_hwnd, c->id (), buf, sizeof buf);
+        GetDlgItemTextW (d_hwnd, c->id (), buf, 10);
         if (safe_find_keyword (Knon_null, c->keyword ()) != Qnil)
           enable_windows (c, *buf);
         if (*buf)
@@ -319,9 +328,12 @@ lisp
 Dialog::edit_result (dlgctrl *c)
 {
   HWND hwnd = GetDlgItem (d_hwnd, c->id ());
-  int l = max (0L, SendMessage (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
-  char *b = (char *)alloca (l);
-  GetWindowText (hwnd, b, l);
+  int l = max (0L, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
+  wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
+  GetWindowTextW (hwnd, wb, l);
+  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+  char *b = (char *)alloca (al);
+  WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
   lisp kwd = c->keyword ();
   lisp non_null = safe_find_keyword (Knon_null, kwd);
   if (!*b && non_null != Qnil)
@@ -332,7 +344,7 @@ Dialog::edit_result (dlgctrl *c)
 inline void
 Dialog::edit_invalidate (class dlgctrl *c)
 {
-  SetDlgItemText (d_hwnd, c->id (), "");
+  SetDlgItemTextW (d_hwnd, c->id (), L"");
 }
 
 inline void
@@ -384,7 +396,7 @@ Dialog::link_command (dlgctrl *c, UINT msg)
   char *url = (char *)alloca (xstring_length (lurl) * 2 + 1);
   w2s (url, lurl);
   Fbegin_wait_cursor ();
-  ShellExecute (get_active_window (), "open", url, 0, 0, SW_SHOWNORMAL);
+  ShellExecuteA (get_active_window (), "open", url, 0, 0, SW_SHOWNORMAL);
   Fend_wait_cursor ();
 }
 
@@ -538,10 +550,13 @@ Dialog::listbox_command (dlgctrl *c, UINT msg)
 lisp
 Dialog::make_lb_string (int id, int getlen, int gettext, int idx)
 {
-  int l = max (0L, SendDlgItemMessage (d_hwnd, id, getlen, idx, 0)) + 2;
-  char *b = (char *)alloca (l * 2);
-  if (SendDlgItemMessage (d_hwnd, id, gettext, idx, LPARAM (b)) == LB_ERR)
-    *b = 0;
+  int l = max (0L, SendDlgItemMessageW (d_hwnd, id, getlen, idx, 0)) + 2;
+  wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
+  if (SendDlgItemMessageW (d_hwnd, id, gettext, idx, LPARAM (wb)) == LB_ERR)
+    *wb = 0;
+  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+  char *b = (char *)alloca (al);
+  WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
   return make_string (b);
 }
 
@@ -669,8 +684,8 @@ Dialog::combobox_command (dlgctrl *c, UINT msg)
     case CBN_KILLFOCUS:
     case CBN_EDITCHANGE:
       {
-        char buf[10];
-        if (SendDlgItemMessage (d_hwnd, c->id (), WM_GETTEXT, sizeof buf, LPARAM (buf)) >= 0)
+        wchar_t buf[10];
+        if (SendDlgItemMessageW (d_hwnd, c->id (), WM_GETTEXT, 10, LPARAM (buf)) >= 0)
           {
             if (safe_find_keyword (Knon_null, c->keyword ()) != Qnil)
               enable_windows (c, *buf);
@@ -729,16 +744,19 @@ Dialog::combobox_result (dlgctrl *c)
     }
   else
     {
-      int l = max (0L, SendDlgItemMessage (d_hwnd, id, WM_GETTEXTLENGTH, 0, 0)) + 2;
-      char *b = (char *)alloca (l);
-      *b = 0;
+      int l = max (0L, SendDlgItemMessageW (d_hwnd, id, WM_GETTEXTLENGTH, 0, 0)) + 2;
+      wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
+      *wb = 0;
 
-      if (SendDlgItemMessage (d_hwnd, id, WM_GETTEXT, l, LPARAM (b)) >= 0)
+      if (SendDlgItemMessageW (d_hwnd, id, WM_GETTEXT, l, LPARAM (wb)) >= 0)
         {
+          int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+          char *b = (char *)alloca (al);
+          WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
           if (!*b && non_null != Qnil)
             return warn (non_null);
-          if (must_match != Qnil && SendDlgItemMessage (d_hwnd, id, CB_FINDSTRINGEXACT,
-                                                        WPARAM (-1), LPARAM (b)) == CB_ERR)
+          if (must_match != Qnil && SendDlgItemMessageW (d_hwnd, id, CB_FINDSTRINGEXACT,
+                                                         WPARAM (-1), LPARAM (wb)) == CB_ERR)
             return warn (must_match);
           return check_result_type (c, b);
         }
@@ -757,7 +775,7 @@ Dialog::combobox_invalidate (class dlgctrl *c)
 {
   int id = c->id ();
   if ((c->style () & 3) != CBS_DROPDOWNLIST)
-    SetDlgItemText (d_hwnd, id, "");
+    SetDlgItemTextW (d_hwnd, id, L"");
   SendDlgItemMessage (d_hwnd, id, CB_SETCURSEL, WPARAM (-1), 0);
 }
 
@@ -788,7 +806,10 @@ Dialog::spin_init (dlgctrl *c, lisp init)
             {
               char b[32];
               sprintf (b, "%d", val);
-              SetWindowText (hwnd, b);
+              {
+                WideStr wb (b);
+                SetWindowTextW (hwnd, wb);
+              }
             }
         }
     }
@@ -1003,12 +1024,12 @@ draw_item (HDC hdc, const RECT &r, int x, lisp item, int right)
   if (right)
     {
       SIZE size;
-      GetTextExtentPoint32 (hdc, buf, l, &size);
-      ExtTextOut (hdc, r.right - size.cx, r.top,
-                  ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
+      GetTextExtentPoint32A (hdc, buf, l, &size);
+      ExtTextOutA (hdc, r.right - size.cx, r.top,
+                   ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
     }
   else
-    ExtTextOut (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
+    ExtTextOutA (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
 }
 
 void
@@ -1057,14 +1078,14 @@ Dialog::draw_item (int id, DRAWITEMSTRUCT *dis)
           if (cr.right < r.right)
             {
               cr.right = r.right;
-              ExtTextOut (dis->hDC, cr.left, cr.top, ETO_OPAQUE, &cr, "", 0, 0);
+              ExtTextOutA (dis->hDC, cr.left, cr.top, ETO_OPAQUE, &cr, "", 0, 0);
             }
         }
       else
         ::draw_item (dis->hDC, r, r.left, consp (item) ? xcar (item) : item, 0);
     }
   else
-    ExtTextOut (dis->hDC, r.left, r.top, ETO_OPAQUE, &r, "", 0, 0);
+    ExtTextOutA (dis->hDC, r.left, r.top, ETO_OPAQUE, &r, "", 0, 0);
 
   if (dis->itemState & ODS_FOCUS)
     DrawFocusRect (dis->hDC, &r);
@@ -1096,7 +1117,7 @@ lb_match_p (int ch, lisp item)
 static int
 lb_match_p (HWND hwnd, int index, lisp columns, int ch, int lindex)
 {
-  int data = SendMessage (hwnd, LB_GETITEMDATA, index, 0);
+  int data = SendMessageA (hwnd, LB_GETITEMDATA, index, 0);
   if (!data || data == LB_ERR)
     return 0;
   lisp item = lisp (data);
@@ -1123,9 +1144,9 @@ lb_match_p (HWND hwnd, int index, lisp columns, int ch, int lindex)
 static int
 lb_match_p (HWND hwnd, int index, int ch)
 {
-  int l = max (0L, SendMessage (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
+  int l = max (0L, SendMessageA (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
   u_char *b = (u_char *)alloca (l * 2);
-  if (SendMessage (hwnd, LB_GETTEXT, index, LPARAM (b)) == LB_ERR)
+  if (SendMessageA (hwnd, LB_GETTEXT, index, LPARAM (b)) == LB_ERR)
     return 0;
   return lb_match_p (ch, b);
 }
@@ -1140,12 +1161,12 @@ Dialog::listbox_char (int id, int ch)
   if (!c)
     return;
   DWORD style = c->style ();
-  int cursel = SendMessage (hwnd,
-                            style & (LBS_MULTIPLESEL | LBS_EXTENDEDSEL) ? LB_GETCARETINDEX : LB_GETCURSEL,
-                            0, 0);
+  int cursel = SendMessageA (hwnd,
+                             style & (LBS_MULTIPLESEL | LBS_EXTENDEDSEL) ? LB_GETCARETINDEX : LB_GETCURSEL,
+                             0, 0);
   if (cursel < 0)
     cursel = -1;
-  int ncount = SendMessage (hwnd, LB_GETCOUNT, 0, 0);
+  int ncount = SendMessageA (hwnd, LB_GETCOUNT, 0, 0);
   int goal;
 
   ch = char_upcase (ch);
@@ -1180,9 +1201,9 @@ Dialog::listbox_char (int id, int ch)
 
 found:
   if (style & (LBS_MULTIPLESEL | LBS_EXTENDEDSEL))
-    SendMessage (hwnd, LB_SETCARETINDEX, goal, MAKELPARAM (0, 0));
+    SendMessageA (hwnd, LB_SETCARETINDEX, goal, MAKELPARAM (0, 0));
   else
-    SendMessage (hwnd, LB_SETCURSEL, goal, 0);
+    SendMessageA (hwnd, LB_SETCURSEL, goal, 0);
   if (style & LBS_NOTIFY)
     PostMessage (d_hwnd, WM_COMMAND, MAKEWPARAM (id, LBN_SELCHANGE), LPARAM (hwnd));
 }
@@ -1328,7 +1349,7 @@ PropSheetFont::load ()
   if (!face_len)
     {
       face_len = -1;
-      HINSTANCE hinst = GetModuleHandle ("COMCTL32.DLL");
+      HINSTANCE hinst = GetModuleHandleA ("COMCTL32.DLL");
       if (hinst)
         {
           const DLGTEMPLATE *tmpl = (DLGTEMPLATE *)
@@ -1392,7 +1413,7 @@ PropSheetFont::change_font (const char *id)
     return 0;
 
   HGLOBAL result = 0;
-  HRSRC hrsrc = FindResource (app.hinst, id, RT_DIALOG);
+  HRSRC hrsrc = FindResourceA (app.hinst, id, MAKEINTRESOURCEA(5));
   const DLGTEMPLATE *tmpl = (DLGTEMPLATE *)LoadResource (app.hinst, hrsrc);
   if (tmpl)
     {
@@ -1732,7 +1753,7 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
     {
     case WM_INITDIALOG:
       {
-        PropPage *d = (PropPage *)((PROPSHEETPAGE *)lparam)->lParam;
+        PropPage *d = (PropPage *)((PROPSHEETPAGEA *)lparam)->lParam;
         d->d_hwnd = dlg;
         if (!d->p_parent->ps_moved)
           {
@@ -1829,7 +1850,7 @@ PropPage::create_template (lisp page, lisp handlers)
 }
 
 void
-PropPage::init_page (PropSheet *parent, int page_no, PROPSHEETPAGE *psp, lisp init)
+PropPage::init_page (PropSheet *parent, int page_no, PROPSHEETPAGEW *psp, lisp init)
 {
   p_parent = parent;
   d_init = init;
@@ -1939,7 +1960,7 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
 
   lisp *gcprov = (lisp *)alloca (sizeof (lisp) * lpages);
 
-  PROPSHEETPAGE *psp = (PROPSHEETPAGE *)alloca (sizeof *psp * total_pages);
+  PROPSHEETPAGEW *psp = (PROPSHEETPAGEW *)alloca (sizeof *psp * total_pages);
   int i = 0, j = 0;
   for (lisp p = pages; consp (p); p = xcdr (p), i++)
     {
@@ -1961,22 +1982,23 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
 
   protect_gc gcpro2 (gcprov, lpages);
 
-  char *b;
+  wchar_t *wb;
   if (!caption || caption == Qnil)
-    b = "";
+    wb = L"";
   else
     {
-      b = (char *)alloca (2 * xstring_length (caption) + 1);
-      w2s (b, caption);
+      int wl = i2wl (caption);
+      wb = (wchar_t *)alloca (sizeof (wchar_t) * (wl + 1));
+      i2w (caption, (ucs2_t *)wb);
     }
 
-  PROPSHEETHEADER psh;
+  PROPSHEETHEADERW psh;
   psh.dwSize = sizeof psh;
   psh.dwFlags = PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_NOAPPLYNOW;
   psh.hwndParent = get_active_window ();
   psh.hInstance = app.hinst;
   psh.pszIcon = 0;
-  psh.pszCaption = b;
+  psh.pszCaption = wb;
   psh.nPages = total_pages;
   psh.nStartPage = min (max (start_page, 0), total_pages - 1);
   psh.ppsp = psp;
@@ -1984,7 +2006,7 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
 
   sheet.ps_curpage = psh.nStartPage;
 
-  int result = PropertySheet (&psh);
+  int result = PropertySheetW (&psh);
 
   Fdo_events ();
 

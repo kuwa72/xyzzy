@@ -34,6 +34,7 @@
 #define TITLEBAR_STRING PROGRAM_NAME " " DISPLAY_VERSION_STRING
 
 char TitleBarString[TITLE_BAR_STRING_SIZE] = TITLEBAR_STRING;
+wchar_t TitleBarStringW[TITLE_BAR_STRING_SIZE] = L"" TITLEBAR_STRING;
 const char VersionString[] = PROGRAM_VERSION;
 const char DisplayVersionString[] = DISPLAY_VERSION_STRING;
 const char ProgramName[] = PROGRAM_NAME;

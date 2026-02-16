@@ -503,11 +503,11 @@ init_char_encoding ()
   lisp ce;
 
   ce = make_char_encoding (encoding_auto_detect,
-                           make_string ("auto"), make_string ("Auto Detect"));
+                           make_string ("auto"), make_string ("\x8e\xa9\x93\xae\x94\xbb\x92\xe8"));
   xsymbol_value (Qencoding_auto) = ce;
   xsymbol_value (Vencoding_auto) = ce;
 
-  ce = Fmake_sjis_encoding (make_string ("sjis"), make_string ("Japanese (Shift_JIS)"));
+  ce = Fmake_sjis_encoding (make_string ("sjis"), make_string ("\x93\xfa\x96\x7b\x8c\xea(Shift_JIS)"));
   xsymbol_value (Qencoding_sjis) = ce;
   xsymbol_value (Vencoding_sjis) = ce;
 

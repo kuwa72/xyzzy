@@ -365,10 +365,10 @@ public:
   Application ();
   ~Application ();
 
-  static const char ToplevelClassName[];
-  static const char FrameClassName[];
-  static const char ClientClassName[];
-  static const char ModelineClassName[];
+  static const wchar_t ToplevelClassName[];
+  static const wchar_t FrameClassName[];
+  static const wchar_t ClientClassName[];
+  static const wchar_t ModelineClassName[];
 
   HINSTANCE hinst;
   HWND toplev;

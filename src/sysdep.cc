@@ -8,21 +8,21 @@ Sysdep sysdep;
 Sysdep::Sysdep ()
 {
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
-  GetVersionEx (&os_ver);
+  GetVersionExA (&os_ver);
 
   init_wintype ();
   init_machine_type ();
   init_process_type ();
 
-  GetCurrentDirectory (sizeof curdir, curdir);
+  GetCurrentDirectoryA (sizeof curdir, curdir);
   if (*curdir == '\\')
     {
-      GetWindowsDirectory (curdir, sizeof curdir);
+      GetWindowsDirectoryA (curdir, sizeof curdir);
       WINFS::SetCurrentDirectory (curdir);
     }
 
   DWORD len = sizeof host_name;
-  if (!GetComputerName (host_name, &len))
+  if (!GetComputerNameA (host_name, &len))
     *host_name = 0;
 
   process_id = GetCurrentProcessId ();
@@ -46,14 +46,14 @@ Sysdep::Sysdep ()
   hfont_ui90 = 0;
   hfont_ui270 = 0;
 
-  LOGFONT lf;
+  LOGFONTA lf;
   memset (&lf, 0, sizeof lf);
   lf.lfHeight = 12;
   strcpy (lf.lfFaceName, "Arial");
-  hfont_ruler = CreateFontIndirect (&lf);
+  hfont_ruler = CreateFontIndirectA (&lf);
   HDC hdc = GetDC (0);
   HGDIOBJ of = SelectObject (hdc, hfont_ruler);
-  GetTextExtentPoint32 (hdc, "0", 1, &ruler_ext);
+  GetTextExtentPoint32A (hdc, "0", 1, &ruler_ext);
   SelectObject (hdc, of);
 }
 
@@ -171,7 +171,7 @@ void
 Sysdep::init_process_type ()
 {
   typedef BOOL (WINAPI *ISWOW64PROCESS) (HANDLE, PBOOL);
-  ISWOW64PROCESS IsWow64Process = (ISWOW64PROCESS)GetProcAddress (GetModuleHandle ("kernel32"),
+  ISWOW64PROCESS IsWow64Process = (ISWOW64PROCESS)GetProcAddress (GetModuleHandleA ("kernel32"),
                                                                   "IsWow64Process");
   BOOL isWow64 = FALSE;
   if (!IsWow64Process || !IsWow64Process (GetCurrentProcess (), &isWow64))
@@ -189,13 +189,13 @@ Sysdep::init_process_type ()
 HFONT
 Sysdep::create_ui_font (int e)
 {
-  LOGFONT lf;
+  LOGFONTA lf;
   bzero (&lf, sizeof lf);
   lf.lfHeight = 12;
   lf.lfCharSet = SHIFTJIS_CHARSET;
   lf.lfEscapement = e;
   strcpy (lf.lfFaceName, "MS UI Gothic");
-  return CreateFontIndirect (&lf);
+  return CreateFontIndirectA (&lf);
 }
 
 HFONT
@@ -263,7 +263,7 @@ Sysdep::load_settings ()
 void
 Sysdep::load_cursors ()
 {
-  HINSTANCE hinst = GetModuleHandle (0);
+  HINSTANCE hinst = GetModuleHandleA (0);
   hcur_arrow = LoadCursor (0, IDC_ARROW);
   hcur_revarrow = LoadCursor (hinst, MAKEINTRESOURCE (IDC_REVARROW));
   hcur_ibeam = LoadCursor (0, IDC_IBEAM);
@@ -294,7 +294,7 @@ typedef HRESULT (CALLBACK *DLLGETVERSIONPROC)(DLLVERSIONINFO *);
 DWORD
 Sysdep::get_dll_version (const char *name)
 {
-  HINSTANCE hinst = GetModuleHandle (name);
+  HINSTANCE hinst = GetModuleHandleA (name);
   if (!hinst)
     return 0;
 

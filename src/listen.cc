@@ -74,8 +74,8 @@ init_listen_server ()
 {
   hevent_listen = CreateEvent (0, 1, 0, 0);
   if (hevent_listen)
-    SetProp (app.toplev, xyzzysrv_name, hevent_listen);
-  wm_private_xyzzysrv = RegisterWindowMessage (xyzzysrv_name);
+    SetPropA (app.toplev, xyzzysrv_name, hevent_listen);
+  wm_private_xyzzysrv = RegisterWindowMessageA (xyzzysrv_name);
 }
 
 void
@@ -93,7 +93,7 @@ end_listen_server ()
       SetEvent (hevent_listen);
       CloseHandle (hevent_listen);
       hevent_listen = 0;
-      RemoveProp (app.toplev, xyzzysrv_name);
+      RemovePropA (app.toplev, xyzzysrv_name);
     }
 }
 

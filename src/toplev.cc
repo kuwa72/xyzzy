@@ -295,14 +295,14 @@ do_dnd (HDROP hdrop)
                   ForceSetForegroundWindow (app.toplev);
                 }
               lisp list = Qnil;
-              int nfiles = DragQueryFile (hdrop, UINT (-1), 0, 0);
+              int nfiles = DragQueryFileA (hdrop, UINT (-1), 0, 0);
               save_cursor_depth cursor_depth;
               try
                 {
                   for (int i = 0; i < nfiles; i++)
                     {
                       char path[PATH_MAX];
-                      DragQueryFile (hdrop, i, path, sizeof path);
+                      DragQueryFileA (hdrop, i, path, sizeof path);
                       list = xcons (make_string (path), list);
                     }
                   DragFinish (hdrop);
@@ -345,7 +345,7 @@ set_ime_caret ()
       cf.ptCurrentPos = pt;
       app.kbdq.gime.ImmSetCompositionWindow (hIMC, &cf);
 
-      app.kbdq.gime.ImmSetCompositionFont (hIMC, (LOGFONT *)&font.logfont ());
+      app.kbdq.gime.ImmSetCompositionFont (hIMC, (LOGFONTA *)&font.logfont ());
       app.kbdq.gime.ImmReleaseContext (app.toplev, hIMC);
     }
 }
@@ -381,21 +381,21 @@ ime_composition (HWND hwnd, LPARAM lparam)
           ? !(app.kbdq.ime_property () & IME_PROP_UNICODE)
           : xsymbol_value (Vunicode_ime) != Qt)
         {
-          int l = app.kbdq.gime.ImmGetCompositionString (hIMC, GCS_RESULTSTR, 0, 0);
+          int l = app.kbdq.gime.xImmGetCompositionString (hIMC, GCS_RESULTSTR, 0, 0);
           if (l > 0)
             {
               char *s = (char *)alloca (l + 1);
-              if (app.kbdq.gime.ImmGetCompositionString (hIMC, GCS_RESULTSTR, s, l) == l)
+              if (app.kbdq.gime.xImmGetCompositionString (hIMC, GCS_RESULTSTR, s, l) == l)
                 {
                   app.kbdq.puts (s, l);
 
                   lparam &= ~GCS_RESULTSTR;
 
-                  int rl = app.kbdq.gime.ImmGetCompositionString (hIMC, GCS_RESULTREADSTR, 0, 0);
+                  int rl = app.kbdq.gime.xImmGetCompositionString (hIMC, GCS_RESULTREADSTR, 0, 0);
                   if (rl > 0)
                     {
                       char *rs = (char *)alloca (rl + 1);
-                      if (app.kbdq.gime.ImmGetCompositionString (hIMC, GCS_RESULTREADSTR,
+                      if (app.kbdq.gime.xImmGetCompositionString (hIMC, GCS_RESULTREADSTR,
                                                                  rs, rl) == rl)
                         {
                           s[l] = rs[rl] = 0;
@@ -407,11 +407,11 @@ ime_composition (HWND hwnd, LPARAM lparam)
         }
       else
         {
-          int l = app.kbdq.gime.ImmGetCompositionStringW (hIMC, GCS_RESULTSTR, 0, 0);
+          int l = app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTSTR, 0, 0);
           if (l > 0)
             {
               ucs2_t *s = (ucs2_t *)alloca (l + sizeof (ucs2_t));
-              if (app.kbdq.gime.ImmGetCompositionStringW (hIMC, GCS_RESULTSTR, s, l) == l)
+              if (app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTSTR, s, l) == l)
                 {
                   const Char *tab = 0;
                   switch (PRIMARYLANGID (app.kbdq.kbd_langid ()))
@@ -457,11 +457,11 @@ ime_composition (HWND hwnd, LPARAM lparam)
                     }
                   lparam &= ~GCS_RESULTSTR;
 
-                  int rl = app.kbdq.gime.ImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR, 0, 0);
+                  int rl = app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR, 0, 0);
                   if (rl > 0)
                     {
                       ucs2_t *rs = (ucs2_t *)alloca (rl + sizeof (ucs2_t));
-                      if (app.kbdq.gime.ImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR,
+                      if (app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR,
                                                                   rs, rl) == rl)
                         {
                           rl /= sizeof (ucs2_t);
@@ -577,7 +577,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
           report_out_of_memory ();
           return -1;
         }
-      if (!CreateWindow (FunctionKeyClassName, "",
+      if (!CreateWindow (FunctionKeyClassName, L"",
                          (((Window::w_default_flags & Window::WF_FUNCTION_BAR)
                            ? WS_VISIBLE : 0)
                           | WS_CHILD | WS_CLIPSIBLINGS),
@@ -585,7 +585,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                          hwnd, 0, app.hinst, app.active_frame.fnkey))
         return -1;
 
-      app.active_frame.hwnd = CreateWindow (Application::FrameClassName, "",
+      app.active_frame.hwnd = CreateWindow (Application::FrameClassName, L"",
                                             (WS_VISIBLE | WS_CHILD
                                              | WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
                                             0, 0, 0, 0,
@@ -814,6 +814,21 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_CHAR:
       if (xsymbol_value (Vno_input_language_change_notification) != Qnil)
         app.kbdq.init_kbd_encoding ();
+#ifdef UNICODE
+      if (wparam >= 128)
+        {
+          ucs2_t wc = ucs2_t (wparam);
+          Char cc = w2i (wc);
+          if (cc != Char (-1))
+            app.kbdq.putc (cc);
+          else
+            {
+              app.kbdq.putc (utf16_ucs2_to_undef_pair_high (wc));
+              app.kbdq.putc (utf16_ucs2_to_undef_pair_low (wc));
+            }
+          return 0;
+        }
+#endif
       app.kbdq.putc (decode_chars (wparam));
       return 0;
 
@@ -860,7 +875,21 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_IME_CHAR:
       if (xsymbol_value (Vno_input_language_change_notification) != Qnil)
         app.kbdq.init_kbd_encoding ();
+#ifdef UNICODE
+      {
+        ucs2_t wc = ucs2_t (wparam);
+        Char cc = w2i (wc);
+        if (cc != Char (-1))
+          app.kbdq.putc (cc);
+        else
+          {
+            app.kbdq.putc (utf16_ucs2_to_undef_pair_high (wc));
+            app.kbdq.putc (utf16_ucs2_to_undef_pair_low (wc));
+          }
+      }
+#else
       app.kbdq.putw (wparam);
+#endif
       return 0;
 
     case WM_IME_COMPOSITION:
@@ -1066,8 +1095,8 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
       if (!sysdep.Win98p () && !sysdep.Win5p ())
         {
-          static const UINT msime = RegisterWindowMessage (WM_MSIME_RECONVERT);
-          static const UINT atok = RegisterWindowMessage (WM_ATOK_RECONVERT);
+          static const UINT msime = RegisterWindowMessageA (WM_MSIME_RECONVERT);
+          static const UINT atok = RegisterWindowMessageA (WM_ATOK_RECONVERT);
           if ((msg == msime || msg == atok)
               && wparam == IMR_RECONVERTSTRING)
             return app.kbdq.reconvert ((RECONVERTSTRING *)lparam, 1);
@@ -1756,7 +1785,7 @@ Fcall_menu (lisp ln)
   if (req < 0 || req >= n)
     return Qnil;
   char buf[1024], *b = buf;
-  if (!GetMenuString (hmenu, req, buf, sizeof buf, MF_BYPOSITION))
+  if (!GetMenuStringA (hmenu, req, buf, sizeof buf, MF_BYPOSITION))
     return Qnil;
   while (1)
     {

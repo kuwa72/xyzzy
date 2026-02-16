@@ -136,7 +136,7 @@ print_settings::calc_pxl (const printer_device &dev)
 }
 
 int CALLBACK
-print_settings::check_valid_font (const ENUMLOGFONT *, const NEWTEXTMETRIC *,
+print_settings::check_valid_font (const ENUMLOGFONTA *, const NEWTEXTMETRICA *,
                                   DWORD, LPARAM lparam)
 {
   *(int *)lparam = 1;
@@ -149,14 +149,14 @@ print_settings::make_font (HDC hdc, int charset, int height) const
   if (charset != FONT_ASCII)
     {
       int exists = 0;
-      EnumFontFamilies (hdc, ps_font[charset].face,
-                        FONTENUMPROC (check_valid_font),
-                        LPARAM (&exists));
+      EnumFontFamiliesA (hdc, ps_font[charset].face,
+                         FONTENUMPROCA (check_valid_font),
+                         LPARAM (&exists));
       if (!exists)
         charset = FONT_ASCII;
     }
 
-  LOGFONT lf;
+  LOGFONTA lf;
   bzero (&lf, sizeof lf);
   strcpy (lf.lfFaceName, ps_font[charset].face);
   lf.lfHeight = height;
@@ -165,7 +165,7 @@ print_settings::make_font (HDC hdc, int charset, int height) const
   if (ps_font[charset].bold)
     lf.lfWeight = 700;
 
-  return CreateFontIndirect (&lf);
+  return CreateFontIndirectA (&lf);
 }
 
 printer_device::printer_device ()
@@ -205,11 +205,11 @@ printer_device::notice_pderr (int e)
 }
 
 int
-printer_device::do_print_dialog1 (PRINTDLG &pd)
+printer_device::do_print_dialog1 (PRINTDLGA &pd)
 {
   while (1)
     {
-      if (PrintDlg (&pd))
+      if (PrintDlgA (&pd))
         return IDOK;
 
       DWORD e = CommDlgExtendedError ();
@@ -253,7 +253,7 @@ printer_device::do_print_dialog1 (PRINTDLG &pd)
 }
 
 int
-printer_device::do_print_dialog (PRINTDLG &pd)
+printer_device::do_print_dialog (PRINTDLGA &pd)
 {
   pd.hDevNames = pd_devnames;
   pd.hDevMode = pd_devmode;
@@ -291,7 +291,7 @@ printer_device::get_defaults ()
   if (pd_devnames)
     return 1;
 
-  PRINTDLG pd;
+  PRINTDLGA pd;
   bzero (&pd, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.Flags = PD_RETURNDEFAULT;
@@ -308,12 +308,12 @@ printer_device::create_dc ()
   DEVNAMES *dn = (DEVNAMES *)GlobalLock (pd_devnames);
   if (!dn)
     return 0;
-  DEVMODE *dm = pd_devmode ? (DEVMODE *)GlobalLock (pd_devmode) : 0;
+  DEVMODEA *dm = pd_devmode ? (DEVMODEA *)GlobalLock (pd_devmode) : 0;
 
-  HDC hdc = CreateDC ((const char *)dn + dn->wDriverOffset,
-                      (const char *)dn + dn->wDeviceOffset,
-                      (const char *)dn + dn->wOutputOffset,
-                      dm);
+  HDC hdc = CreateDCA ((const char *)dn + dn->wDriverOffset,
+                       (const char *)dn + dn->wDeviceOffset,
+                       (const char *)dn + dn->wOutputOffset,
+                       dm);
   GlobalUnlock (pd_devnames);
   if (dm)
     GlobalUnlock (pd_devmode);
@@ -349,15 +349,15 @@ printer_device::get_dev_spec ()
       DEVNAMES *dn = (DEVNAMES *)GlobalLock (pd_devnames);
       if (dn)
         {
-          DEVMODE *dm = pd_devmode ? (DEVMODE *)GlobalLock (pd_devmode) : 0;
+          DEVMODEA *dm = pd_devmode ? (DEVMODEA *)GlobalLock (pd_devmode) : 0;
           pd_max_copies =
-            DeviceCapabilities ((const char *)dn + dn->wDeviceOffset,
-                                (const char *)dn + dn->wOutputOffset,
-                                DC_COPIES, 0, dm);
+            DeviceCapabilitiesA ((const char *)dn + dn->wDeviceOffset,
+                                 (const char *)dn + dn->wOutputOffset,
+                                 DC_COPIES, 0, dm);
           pd_dm_fields =
-            DeviceCapabilities ((const char *)dn + dn->wDeviceOffset,
-                                (const char *)dn + dn->wOutputOffset,
-                                DC_FIELDS, 0, dm);
+            DeviceCapabilitiesA ((const char *)dn + dn->wDeviceOffset,
+                                 (const char *)dn + dn->wOutputOffset,
+                                 DC_FIELDS, 0, dm);
           if (dm)
             GlobalUnlock (pd_devmode);
           GlobalUnlock (pd_devnames);
@@ -412,7 +412,7 @@ printer_device::create_printer_dc ()
 int
 printer_device::print_setup_dialog (HWND hwnd)
 {
-  PRINTDLG pd;
+  PRINTDLGA pd;
   bzero (&pd, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.hwndOwner = hwnd;
@@ -427,7 +427,7 @@ printer_device::set_dev_copies (const print_settings &ps)
 {
   if (pd_devmode)
     {
-      DEVMODE *dm = (DEVMODE *)GlobalLock (pd_devmode);
+      DEVMODEA *dm = (DEVMODEA *)GlobalLock (pd_devmode);
       if (dm)
         {
           dm->dmCopies = 1;
@@ -458,7 +458,7 @@ printer_device::get_dev_copies (print_settings &ps)
 {
   if (pd_devmode)
     {
-      DEVMODE *dm = (DEVMODE *)GlobalLock (pd_devmode);
+      DEVMODEA *dm = (DEVMODEA *)GlobalLock (pd_devmode);
       if (dm)
         {
           ps.ps_ncopies = dm->dmFields & DM_COPIES ? dm->dmCopies : 1;
@@ -518,8 +518,8 @@ print_engine::init_font (HDC hdc)
 
   HGDIOBJ of = SelectObject (hdc, pe_hfonts[FONT_ASCII]);
 
-  TEXTMETRIC tm;
-  GetTextMetrics (hdc, &tm);
+  TEXTMETRICA tm;
+  GetTextMetricsA (hdc, &tm);
   pe_cell.cx = tm.tmAveCharWidth;
   pe_cell.cy = tm.tmHeight;
 
@@ -531,7 +531,7 @@ print_engine::init_font (HDC hdc)
   for (int i = 0; i < FONT_MAX; i++)
     {
       SelectObject (hdc, pe_hfonts[i]);
-      GetTextMetrics (hdc, &tm);
+      GetTextMetricsA (hdc, &tm);
       pe_offset[i].x = (pe_cell.cx - tm.tmAveCharWidth) / 2;
       pe_offset2x[i] = pe_cell.cx - tm.tmAveCharWidth;
       pe_offset[i].y = (pe_cell.cy - tm.tmHeight) / 2;
@@ -807,7 +807,7 @@ print_engine::paint_ascii (PaintCtx &ctx, Char cc) const
     {
       char c = SJISP (cc) ? 0 : char (cc);
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, &c, 1, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, &c, 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -820,8 +820,8 @@ print_engine::paint_kana (PaintCtx &ctx, Char cc) const
 {
   char c = char (cc);
   SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
-  ExtTextOut (ctx.hdc, ctx.x + pe_offset[FONT_JP].x,
-              ctx.y + pe_offset[FONT_JP].y, 0, 0, &c, 1, 0);
+  ExtTextOutA (ctx.hdc, ctx.x + pe_offset[FONT_JP].x,
+               ctx.y + pe_offset[FONT_JP].y, 0, 0, &c, 1, 0);
   ctx.column++;
   ctx.x += (pe_fixed_pitch
             ? pe_print_cell.cx
@@ -839,8 +839,8 @@ print_engine::paint_kanji (PaintCtx &ctx, Char cc) const
       if (!b[1] || !SJISP (b[0] & 255))
         b[0] = char (0x81), b[1] = char (0x45);
       SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
-      ExtTextOut (ctx.hdc, ctx.x + pe_offset2x[FONT_JP],
-                  ctx.y + pe_offset[FONT_JP].y, 0, 0, b, 2, 0);
+      ExtTextOutA (ctx.hdc, ctx.x + pe_offset2x[FONT_JP],
+                   ctx.y + pe_offset[FONT_JP].y, 0, 0, b, 2, 0);
       ctx.column += 2;
       ctx.x += (pe_fixed_pitch
                 ? pe_print_cell.cx * 2
@@ -849,7 +849,7 @@ print_engine::paint_kanji (PaintCtx &ctx, Char cc) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
       ctx.column++;
       ctx.x += (pe_fixed_pitch
                 ? pe_print_cell.cx
@@ -872,7 +872,7 @@ print_engine::paint_jisx0212 (PaintCtx &ctx, Char cc) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", l, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", l, 0);
     }
   ctx.column += l;
   ctx.x += (pe_fixed_pitch
@@ -893,7 +893,7 @@ print_engine::paint_full_width (PaintCtx &ctx, Char cc, int f) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", 2, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", 2, 0);
     }
   ctx.column += 2;
   ctx.x += (pe_fixed_pitch
@@ -914,7 +914,7 @@ print_engine::paint_latin (PaintCtx &ctx, Char cc, int f) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -928,9 +928,9 @@ print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
   ucs2_t wc = i2w (cc);
   if (wc != ucs2_t (-1))
     {
-      static LOGFONT lf = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME};
+      static LOGFONTA lf = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME};
       lf.lfHeight = pe_cell.cy;
-      HGDIOBJ of = SelectObject (ctx.hdc, CreateFontIndirect (&lf));
+      HGDIOBJ of = SelectObject (ctx.hdc, CreateFontIndirectA (&lf));
       int o;
       if (pe_fixed_pitch)
         o = (LUCIDA_OFFSET (wc - UNICODE_SMLCDM_MIN)
@@ -946,7 +946,7 @@ print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOut (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -1486,7 +1486,7 @@ print_engine::fmt_week (char *b, char *be, int star, int colon)
   static const char *const day_full_names[] =
     { "Sunday","Monday", "Tuesday", "Wednesday",
       "Thursday", "Friday", "Saturday",};
-  static const char day_japanese_names[] = "SuMoTuWeThFrSa";
+  static const char day_japanese_names[] = "\x93\xfa\x8c\x8e\x89\xce\x90\x85\x96\xd8\x8b\xe0\x93\x79";
   int w = current_time ().wDayOfWeek;
   if (w < 0 || w > 6)
     return b;
@@ -1807,7 +1807,7 @@ print_engine::doprint1 (HWND hwnd)
 
   SetAbortProc (pe_dev, abort_proc);
 
-  DOCINFO di;
+  DOCINFOA di;
   bzero (&di, sizeof di);
   di.cbSize = sizeof di;
   di.lpszDocName = docname;
@@ -1815,12 +1815,12 @@ print_engine::doprint1 (HWND hwnd)
   user_abort = 0;
   HWND printing = CreateDialog (app.hinst, MAKEINTRESOURCE (IDD_PRINTING),
                                 app.toplev, (DLGPROC)printing_dlgproc);
-  SetDlgItemText (printing, IDC_DOCNAME, docname);
+  SetDlgItemTextA (printing, IDC_DOCNAME, docname);
   ShowWindow (printing, SW_SHOW);
   UpdateWindow (printing);
   EnableWindow (app.toplev, 0);
 
-  if (StartDoc (pe_dev, &di) == SP_ERROR)
+  if (StartDocA (pe_dev, &di) == SP_ERROR)
     {
       EnableWindow (app.toplev, 1);
       DestroyWindow (printing);
@@ -1834,7 +1834,7 @@ print_engine::doprint1 (HWND hwnd)
     {
       char b[32];
       sprintf (b, "Page %u", page++);
-      SetDlgItemText (printing, IDC_PAGENUM, b);
+      SetDlgItemTextA (printing, IDC_PAGENUM, b);
 
       if (StartPage (pe_dev) == SP_ERROR)
         {
@@ -1926,7 +1926,7 @@ int
 print_engine::notice (HWND hwnd, UINT id, UINT ids)
 {
   char b[256];
-  LoadString (app.hinst, ids, b, sizeof b);
+  LoadStringA (app.hinst, ids, b, sizeof b);
   MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))
@@ -1938,8 +1938,8 @@ int
 print_engine::notice (HWND hwnd, UINT id, UINT ids, int arg)
 {
   char fmt[256], b[512];
-  LoadString (app.hinst, ids, fmt, sizeof fmt);
-  wsprintf (b, fmt, arg);
+  LoadStringA (app.hinst, ids, fmt, sizeof fmt);
+  wsprintfA (b, fmt, arg);
   MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))
@@ -2053,7 +2053,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
       {
         char c = SJISP (cc) ? 0 : char (cc);
         SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-        GetTextExtentPoint32 (gw.hdc, &c, 1, &sz);
+        GetTextExtentPoint32A (gw.hdc, &c, 1, &sz);
         break;
       }
 
@@ -2061,7 +2061,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
       {
         char c = char (cc);
         SelectObject (gw.hdc, gw.hfonts[FONT_JP]);
-        GetTextExtentPoint32 (gw.hdc, &c, 1, &sz);
+        GetTextExtentPoint32A (gw.hdc, &c, 1, &sz);
         break;
       }
 
@@ -2128,7 +2128,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
         else
           {
             SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-            GetTextExtentPoint32 (gw.hdc, "\0", char_width (cc), &sz);
+            GetTextExtentPoint32A (gw.hdc, "\0", char_width (cc), &sz);
           }
         break;
       }
@@ -2144,7 +2144,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
         else
           {
             SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-            GetTextExtentPoint32 (gw.hdc, "\0", char_width (cc), &sz);
+            GetTextExtentPoint32A (gw.hdc, "\0", char_width (cc), &sz);
           }
         break;
       }
@@ -2158,12 +2158,12 @@ get_glyph_width (Char cc, const glyph_width &gw)
           if (!b[1] || !SJISP (b[0] & 255))
             b[0] = char (0x81), b[1] = char (0x45);
           SelectObject (gw.hdc, gw.hfonts[FONT_JP]);
-          GetTextExtentPoint32 (gw.hdc, b, 2, &sz);
+          GetTextExtentPoint32A (gw.hdc, b, 2, &sz);
         }
       else
         {
           SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-          GetTextExtentPoint32 (gw.hdc, "", 1, &sz);
+          GetTextExtentPoint32A (gw.hdc, "", 1, &sz);
         }
       break;
     }

@@ -66,7 +66,7 @@ Fsi_load_dll_module (lisp lname)
 
   dll = make_dll_module ();
   lisp list = xcons (dll, xsymbol_value (Vdll_module_list));
-  HMODULE h = GetModuleHandle (name);
+  HMODULE h = GetModuleHandleA (name);
   if (!h)
     {
       h = WINFS::LoadLibrary (name);

@@ -147,7 +147,8 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
   if (!stringp (tt))
     return 0;
   w2s (b_ttbuf, b_ttbuf + TTBUFSIZE, tt);
-  ttt.lpszText = b_ttbuf;
+  MultiByteToWideChar (932, 0, b_ttbuf, -1, b_ttbufw, TTBUFSIZE);
+  ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;
 }
@@ -216,11 +217,11 @@ user_tab_bar::add_item (lisp item, lisp name, lisp tooltip, lisp menu,
   char buf[ITEM_NAME_MAX];
   w2s (buf, buf + sizeof buf, name);
 
-  TC_ITEM ti;
+  TCITEMA ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
   ti.pszText = buf;
   ti.lParam = LPARAM (p);
-  if (insert_item (n, ti) < 0)
+  if (SendMessageA (b_hwnd, TCM_INSERTITEMA, n, LPARAM (&ti)) < 0)
     FEstorage_error ();
 
   u_item = q;
@@ -241,10 +242,10 @@ user_tab_bar::modify_item (lisp item, lisp name, lisp tooltip, lisp menu)
       char buf[ITEM_NAME_MAX];
       w2s (buf, buf + sizeof buf, name);
 
-      TC_ITEM ti;
+      TCITEMA ti;
       ti.mask = TCIF_TEXT;
       ti.pszText = buf;
-      if (!set_item (i, ti))
+      if (!SendMessageA (b_hwnd, TCM_SETITEMA, i, LPARAM (&ti)))
         return 0;
       item_name (p) = name;
     }

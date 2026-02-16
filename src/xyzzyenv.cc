@@ -41,7 +41,7 @@ split (char *&beg)
   if (*beg == '"')
     {
       beg++;
-      if (*CharPrev (beg, p) == '"')
+      if (*CharPrevA (beg, p) == '"')
         p[-1] = 0;
     }
   else if (*p)
@@ -57,7 +57,7 @@ split (char *&beg, int &l)
     {
       beg++;
       l = p - beg;
-      if (*CharPrev (beg, p) == '"')
+      if (*CharPrevA (beg, p) == '"')
         l--;
     }
   else
@@ -97,21 +97,21 @@ doprint (const char *fmt, ...)
   char buf[1024];
   va_list ap;
   va_start (ap, fmt);
-  wvsprintf (buf, fmt, ap);
+  wvsprintfA (buf, fmt, ap);
   va_end (ap);
   DWORD n;
-  WriteFile (GetStdHandle (STD_ERROR_HANDLE), buf, lstrlen (buf), &n, 0);
+  WriteFile (GetStdHandle (STD_ERROR_HANDLE), buf, lstrlenA (buf), &n, 0);
 }
 
 static void
 syserror (int e, char *buf, int size)
 {
-  if (!FormatMessage ((FORMAT_MESSAGE_FROM_SYSTEM
+  if (!FormatMessageA ((FORMAT_MESSAGE_FROM_SYSTEM
                        | FORMAT_MESSAGE_IGNORE_INSERTS
                        | FORMAT_MESSAGE_MAX_WIDTH_MASK),
                       0, e, GetUserDefaultLangID (),
                       buf, size, 0))
-    wsprintf (buf, "error %d", e);
+    wsprintfA (buf, "error %d", e);
 }
 
 static int
@@ -120,7 +120,7 @@ cmdmatch (const char *p, const char *pe, const char *s)
   if (pe - p >= 4 && (!bcasecmp (pe - 4, ".exe", 4)
                       || !bcasecmp (pe - 4, ".com", 4)))
     pe -= 4;
-  int l = lstrlen (s);
+  int l = lstrlenA (s);
   return pe - p >= l && !bcasecmp (pe - l, s, l);
 }
 
@@ -144,14 +144,14 @@ set_title (char *cmd)
   char *title = (char *)_alloca (cmdl + 1);
   memcpy (title, cmd, cmdl);
   title[cmdl] = 0;
-  SetConsoleTitle (title);
+  SetConsoleTitleA (title);
 }
 
 int
 main (void)
 {
   char buf[256];
-  char *myname = skip_white (GetCommandLine ());
+  char *myname = skip_white (GetCommandLineA ());
   char *opt = split (myname);
   WORD show = 0;
   char *event;
@@ -167,7 +167,7 @@ main (void)
     }
   char *cmdline = split (event);
   char *dir = 0;
-  int no_events = !lstrcmp (event, "--");
+  int no_events = !lstrcmpA (event, "--");
 
   if (no_events)
     {
@@ -178,7 +178,7 @@ main (void)
   set_title (cmdline);
 
   PROCESS_INFORMATION pi;
-  STARTUPINFO si = {sizeof si};
+  STARTUPINFOA si = {sizeof si};
 
   si.dwFlags = STARTF_USESTDHANDLES;
   if (show)
@@ -190,8 +190,8 @@ main (void)
   si.hStdOutput = GetStdHandle (STD_OUTPUT_HANDLE);
   si.hStdError = GetStdHandle (STD_ERROR_HANDLE);
 
-  if (!CreateProcess (0, cmdline, 0, 0, 1, CREATE_NEW_PROCESS_GROUP,
-                      0, dir, &si, &pi))
+  if (!CreateProcessA (0, cmdline, 0, 0, 1, CREATE_NEW_PROCESS_GROUP,
+                       0, dir, &si, &pi))
     {
       syserror (GetLastError (), buf, sizeof buf);
       doprint ("%s: %s: %s\n", myname, cmdline, buf);

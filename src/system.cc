@@ -12,7 +12,7 @@ Fsi_uuid_create (lisp keys)
     rpc_error (UuidCreate (&uuid));
 
   safe_rpc_str uuidstr;
-  rpc_error (UuidToString (&uuid, &uuidstr));
+  rpc_error (UuidToStringA (&uuid, &uuidstr));
 
   multiple_value::count () = 2;
   multiple_value::value (1) = make_list (
@@ -67,13 +67,13 @@ Fsi_search_path (lisp lfile, lisp lpath, lisp lext)
       w2s (ext, lext);
     }
 
-  DWORD len = SearchPath (path, file, ext, 0, 0, 0);
+  DWORD len = SearchPathA (path, file, ext, 0, 0, 0);
   if (!len)
     return Qnil;
 
   char *file_part = 0;
   char *buffer = (char *)alloca (len);
-  if (!SearchPath (path, file, ext, len, buffer, &file_part))
+  if (!SearchPathA (path, file, ext, len, buffer, &file_part))
     return Qnil;
 
   return buffer ? make_path (buffer, 0) : Qnil;

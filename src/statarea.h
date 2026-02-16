@@ -39,7 +39,7 @@ class status_area
   static int char_ext (HDC hdc, char c)
     {
       SIZE sz;
-      GetTextExtentPoint32 (hdc, &c, 1, &sz);
+      GetTextExtentPoint32A (hdc, &c, 1, &sz);
       return sz.cx;
     }
   static int char_max_ext (HDC, char, char);

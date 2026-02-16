@@ -199,7 +199,7 @@ buffer_info::admin_user (char *b, char *be) const
   if (Fadmin_user_p () == Qt)
     {
       int f = 0;
-      b = stpncpy (b, "Admin: ", be - b);
+      b = stpncpy (b, "\x8a\xc7\x97\x9d\x8e\xd2: ", be - b);
     }
   return b;
 }

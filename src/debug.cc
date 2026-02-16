@@ -16,7 +16,7 @@ Debug (char *format, ...)
 
   char buf[BUF_SIZE * 2];
   sprintf_s (buf, BUF_SIZE * 2, "%s\n", msg);
-  OutputDebugString (buf);
+  OutputDebugStringA (buf);
 }
 
 void
@@ -27,5 +27,5 @@ Debug (const Char *b, size_t size)
 
   char *msg = (char *)alloca (size * 2 + 1);
   w2s (msg, b, size);
-  OutputDebugString (msg);
+  OutputDebugStringA (msg);
 }

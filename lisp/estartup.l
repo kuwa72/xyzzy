@@ -176,6 +176,7 @@
 	(when scratch
 	  (save-excursion
 	    (set-buffer scratch)
+	    (set-buffer-fileio-encoding *default-fileio-encoding*)
 	    (funcall *initial-buffer-mode*)))))
     (trap-errors (process-command-line))
     (trap-errors (run-hooks '*post-startup-hook*))))

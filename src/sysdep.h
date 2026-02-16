@@ -8,7 +8,7 @@ struct Sysdep
   Sysdep ();
   ~Sysdep ();
 
-  OSVERSIONINFO os_ver;
+  OSVERSIONINFOA os_ver;
 
   SIZE border;
   SIZE dblclk;

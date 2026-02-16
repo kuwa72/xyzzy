@@ -1030,11 +1030,11 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
 {
   SIZE sz;
   int l = strlen (buf);
-  GetTextExtentPoint32 (hdc, buf, l, &sz);
+  GetTextExtentPoint32A (hdc, buf, l, &sz);
   if (sz.cx <= maxpxl)
     return 0;
 
-  GetTextExtentPoint32 (hdc, "...", 3, &sz);
+  GetTextExtentPoint32A (hdc, "...", 3, &sz);
   maxpxl = (maxpxl - sz.cx);
 
   char *lb, *le;
@@ -1047,7 +1047,7 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
       rb = find_last_slash (buf);
       if (rb)
         {
-          GetTextExtentPoint32 (hdc, rb, re - rb, &sz);
+          GetTextExtentPoint32A (hdc, rb, re - rb, &sz);
           if (sz.cx > maxpxl)
             {
               rb++;
@@ -1068,7 +1068,7 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
             }
           if (dev)
             {
-              GetTextExtentPoint32 (hdc, lb, dev, &sz);
+              GetTextExtentPoint32A (hdc, lb, dev, &sz);
               if (pxl + sz.cx > maxpxl)
                 goto done;
               pxl += sz.cx;
@@ -1083,7 +1083,7 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
               *rb = c;
               if (!slash)
                 break;
-              GetTextExtentPoint32 (hdc, slash, rb - slash, &sz);
+              GetTextExtentPoint32A (hdc, slash, rb - slash, &sz);
               if (sz.cx + pxl > maxpxl)
                 break;
               rb = slash;
@@ -1094,9 +1094,9 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
         {
           rb = buf;
         trim_tail:
-          for (; re > rb; re = CharPrev (rb, re))
+          for (; re > rb; re = CharPrevA (rb, re))
             {
-              GetTextExtentPoint32 (hdc, rb, re - rb, &sz);
+              GetTextExtentPoint32A (hdc, rb, re - rb, &sz);
               if (sz.cx <= maxpxl)
                 {
                   if (re - rb + 3 > l)
@@ -1111,15 +1111,15 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
   else
     {
       maxpxl /= 2;
-      for (lb = buf, le = buf + l / 2; le > lb; le = CharPrev (lb, le))
+      for (lb = buf, le = buf + l / 2; le > lb; le = CharPrevA (lb, le))
         {
-          GetTextExtentPoint32 (hdc, lb, le - lb, &sz);
+          GetTextExtentPoint32A (hdc, lb, le - lb, &sz);
           if (sz.cx <= maxpxl)
             break;
         }
-      for (rb = buf + l / 2, re = buf + l; rb < re; rb = CharNext (rb))
+      for (rb = buf + l / 2, re = buf + l; rb < re; rb = CharNextA (rb))
         {
-          GetTextExtentPoint32 (hdc, rb, re - rb, &sz);
+          GetTextExtentPoint32A (hdc, rb, re - rb, &sz);
           if (sz.cx <= maxpxl)
             break;
         }
@@ -1139,8 +1139,8 @@ abbrev_string (char *buf, int maxl, int pathname_p)
 {
   HDC hdc (GetDC (0));
   HGDIOBJ of (SelectObject (hdc, sysdep.ui_font ()));
-  TEXTMETRIC tm;
-  GetTextMetrics (hdc, &tm);
+  TEXTMETRICA tm;
+  GetTextMetricsA (hdc, &tm);
   int maxpxl = tm.tmAveCharWidth * maxl;
   int r = abbreviate_string (hdc, buf, maxpxl, pathname_p);
   SelectObject (hdc, of);

@@ -13,9 +13,9 @@
 void
 ForceSetForegroundWindow (HWND hwnd)
 {
-  OSVERSIONINFO os;
+  OSVERSIONINFOA os;
   os.dwOSVersionInfoSize = sizeof os;
-  GetVersionEx (&os);
+  GetVersionExA (&os);
 
   DWORD timeout;
   if (PACK_VERSION (os.dwMajorVersion, os.dwMinorVersion) >= PACK_VERSION (4, 10)
@@ -33,8 +33,8 @@ static int
 error (int id)
 {
   char buf[256];
-  LoadString (GetModuleHandle (0), id, buf, sizeof buf);
-  MessageBox (0, buf, 0, MB_SYSTEMMODAL	| MB_ICONHAND);
+  LoadStringA (GetModuleHandleA (0), id, buf, sizeof buf);
+  MessageBoxA (0, buf, 0, MB_SYSTEMMODAL	| MB_ICONHAND);
   return 2;
 }
 
@@ -107,10 +107,10 @@ static int
 create_sexp (xyzzysrv &sv, int ac, char **av)
 {
   char curdir[MAX_PATH + 1];
-  GetCurrentDirectory (sizeof curdir, curdir);
-  int l = 256 + lstrlen (curdir) * 2;
+  GetCurrentDirectoryA (sizeof curdir, curdir);
+  int l = 256 + lstrlenA (curdir) * 2;
   for (int i = 0; i < ac; i++)
-    l += lstrlen (av[i]) * 2 + 3;
+    l += lstrlenA (av[i]) * 2 + 3;
 
   if (!sv.alloc (l))
     return 0;
@@ -153,7 +153,7 @@ static BOOL CALLBACK
 enum_proc (HWND hwnd, LPARAM param)
 {
   lookup_server *ls = (lookup_server *)param;
-  HANDLE h = GetProp (hwnd, xyzzysrv_name);
+  HANDLE h = GetPropA (hwnd, xyzzysrv_name);
   if (!h)
     return 1;
 
@@ -181,8 +181,8 @@ find_server (lookup_server &ls)
 static int
 run_xyzzy (int argc, char **argv, const char *xyzzy)
 {
-  int l = lstrlen (xyzzy) + 1;
-  for (int i = 1; i < argc; l += lstrlen (argv[i]) + 1, i++)
+  int l = lstrlenA (xyzzy) + 1;
+  for (int i = 1; i < argc; l += lstrlenA (argv[i]) + 1, i++)
     ;
   char *const cl = (char *)_alloca (l);
   char *p = stpcpy (cl, xyzzy);
@@ -193,10 +193,10 @@ run_xyzzy (int argc, char **argv, const char *xyzzy)
     }
 
   PROCESS_INFORMATION pi;
-  STARTUPINFO si;
+  STARTUPINFOA si;
   memset (&si, 0, sizeof si);
   si.cb = sizeof si;
-  if (!CreateProcess (0, cl, 0, 0, 0, 0, 0, 0, &si, &pi))
+  if (!CreateProcessA (0, cl, 0, 0, 0, 0, 0, 0, &si, &pi))
     return 0;
   WaitForInputIdle (pi.hProcess, 60000);
   CloseHandle (pi.hProcess);
@@ -223,12 +223,12 @@ skip_args (int argc, char **argv)
 {
   int ac;
   for (ac = 1; ac < argc - 1; ac += 2)
-    if (lstrcmp (argv[ac], "-image")
-        && lstrcmp (argv[ac], "-config")
-        && lstrcmp (argv[ac], "-ini"))
+    if (lstrcmpA (argv[ac], "-image")
+        && lstrcmpA (argv[ac], "-config")
+        && lstrcmpA (argv[ac], "-ini"))
       break;
-  if (ac < argc && (!lstrcmp (argv[ac], "-q")
-                    || !lstrcmp (argv[ac], "-no-init-file")))
+  if (ac < argc && (!lstrcmpA (argv[ac], "-q")
+                    || !lstrcmpA (argv[ac], "-no-init-file")))
     ac++;
   return ac;
 }
@@ -239,7 +239,7 @@ class synchronize
 public:
   synchronize (const char *name)
     {
-      h = CreateMutex (0, 1, name);
+      h = CreateMutexA (0, 1, name);
       if (h && GetLastError () == ERROR_ALREADY_EXISTS)
         WaitForSingleObject (h, INFINITE);
     }
@@ -296,7 +296,7 @@ xmain (int argc, char **argv, const char *xyzzy, int multi_instance)
 
   ForceSetForegroundWindow (ls.hwnd);
 
-  int r = SendMessage (ls.hwnd, RegisterWindowMessage (xyzzysrv_name),
+  int r = SendMessage (ls.hwnd, RegisterWindowMessageA (xyzzysrv_name),
                        GetCurrentProcessId (), LPARAM (sv.handle ()));
   if (!r)
     return error (IDS_READ_FAILED);
@@ -498,22 +498,22 @@ static void
 read_config (config &cf)
 {
   char path[MAX_PATH + 16];
-  GetModuleFileName (0, path, MAX_PATH);
-  cf.notepad = !lstrcmpi (basename (path), "notepad.exe");
-  int l = lstrlen (path);
-  if (l > 4 && !lstrcmpi (&path[l - 4], ".exe"))
-    lstrcpy (&path[l - 3], "ini");
+  GetModuleFileNameA (0, path, MAX_PATH);
+  cf.notepad = !lstrcmpiA (basename (path), "notepad.exe");
+  int l = lstrlenA (path);
+  if (l > 4 && !lstrcmpiA (&path[l - 4], ".exe"))
+    lstrcpyA (&path[l - 3], "ini");
   else
-    lstrcpy (path + l, ".ini");
-  GetPrivateProfileString ("xyzzy", "path", "xyzzy.exe",
-                           cf.xyzzy, sizeof cf.xyzzy, path);
+    lstrcpyA (path + l, ".ini");
+  GetPrivateProfileStringA ("xyzzy", "path", "xyzzy.exe",
+                            cf.xyzzy, sizeof cf.xyzzy, path);
   if (!cf.notepad)
-    cf.notepad = GetPrivateProfileInt ("xyzzy", "compatNotepad", 0, path);
-  cf.multi_instance = GetPrivateProfileInt ("xyzzy", "multipleInstances", 0, path);
-  GetPrivateProfileString ("xyzzy", "precedingOptions", "",
-                           cf.pre_opt, sizeof cf.pre_opt, path);
-  GetPrivateProfileString ("xyzzy", "followingOptions", "",
-                           cf.post_opt, sizeof cf.post_opt, path);
+    cf.notepad = GetPrivateProfileIntA ("xyzzy", "compatNotepad", 0, path);
+  cf.multi_instance = GetPrivateProfileIntA ("xyzzy", "multipleInstances", 0, path);
+  GetPrivateProfileStringA ("xyzzy", "precedingOptions", "",
+                            cf.pre_opt, sizeof cf.pre_opt, path);
+  GetPrivateProfileStringA ("xyzzy", "followingOptions", "",
+                            cf.post_opt, sizeof cf.post_opt, path);
 }
 
 int WINAPI
@@ -522,7 +522,7 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
   config cf;
   read_config (cf);
 
-  const char *const cl = GetCommandLine ();
+  const char *const cl = GetCommandLineA ();
   int ac;
   int nchars = parse_cmdline (cl, 0, ac, 0, cf);
   char **av = (char **)_alloca (sizeof *av * (ac + 1) + nchars);

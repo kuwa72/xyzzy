@@ -96,7 +96,7 @@ status_area::get_extent (const char *s) const
   HDC hdc = GetDC (s_hwnd);
   HGDIOBJ of = SelectObject (hdc, s_hfont);
   SIZE sz;
-  GetTextExtentPoint32 (hdc, s, strlen (s), &sz);
+  GetTextExtentPoint32A (hdc, s, strlen (s), &sz);
   SelectObject (hdc, of);
   ReleaseDC (s_hwnd, hdc);
   return sz.cx;
@@ -206,7 +206,10 @@ status_area::update (int f) const
     {
       int n = s_order[i];
       if (f & (1 << n))
-        SendMessage (s_hwnd, SB_SETTEXT, i + 1, LPARAM (s_lbuf[n]));
+        {
+          WideStr wb (s_lbuf[n]);
+          SendMessageW (s_hwnd, SB_SETTEXT, i + 1, LPARAM ((const wchar_t *)wb));
+        }
     }
 }
 

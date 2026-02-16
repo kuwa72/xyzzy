@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "monitor.h"
 
-static const char csPopupList[] = "PopupList";
+static const wchar_t csPopupList[] = L"PopupList";
 static WNDPROC org_wndproc;
 static ATOM popup_list_atom;
 static HWND hwnd_popup;
@@ -28,16 +28,16 @@ substitute_key (HWND hwnd, WPARAM &wparam, LPARAM lparam)
 static int
 call_callback (HWND hwnd)
 {
-  int n = CallWindowProc (org_wndproc, hwnd, LB_GETCURSEL, 0, 0);
+  int n = SendMessageA (hwnd, LB_GETCURSEL, 0, 0);
   if (n < 0)
     return 0;
 
-  int l = CallWindowProc (org_wndproc, hwnd, LB_GETTEXTLEN, n, 0);
+  int l = SendMessageA (hwnd, LB_GETTEXTLEN, n, 0);
   if (l < 0)
     return 0;
 
   char *buf = (char *)alloca (l * 2 + 1);
-  if (CallWindowProc (org_wndproc, hwnd, LB_GETTEXT, n, LPARAM (buf)) < 0)
+  if (SendMessageA (hwnd, LB_GETTEXT, n, LPARAM (buf)) < 0)
     return 0;
 
   DestroyWindow (hwnd);
@@ -119,7 +119,7 @@ define_wndclass ()
 {
   WNDCLASS wc;
 
-  if (!GetClassInfo (0, "ListBox", &wc))
+  if (!GetClassInfo (0, L"ListBox", &wc))
     return 0;
 
   org_wndproc = wc.lpfnWndProc;
@@ -154,7 +154,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
   if (!popup_list_atom)
     popup_list_atom = define_wndclass ();
 
-  hwnd_popup = CreateWindowEx (WS_EX_DLGMODALFRAME, csPopupList, "",
+  hwnd_popup = CreateWindowEx (WS_EX_DLGMODALFRAME, csPopupList, L"",
                                WS_POPUP | WS_VSCROLL, 0, 0, 0, 0,
                                app.toplev, 0, app.hinst, 0);
 
@@ -172,9 +172,9 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
       lisp s = xcar (p);
       char b[1024];
       int l = w2s (b, b + sizeof b, xstring_contents (s), xstring_length (s)) - b;
-      SendMessage (hwnd_popup, LB_ADDSTRING, 0, LPARAM (b));
+      SendMessageA (hwnd_popup, LB_ADDSTRING, 0, LPARAM (b));
       SIZE ext;
-      GetTextExtentPoint32 (hdc, b, l, &ext);
+      GetTextExtentPoint32A (hdc, b, l, &ext);
       sz.cx = max (sz.cx, ext.cx);
       sz.cy += ext.cy;
     }

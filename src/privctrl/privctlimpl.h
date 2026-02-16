@@ -16,7 +16,7 @@ EXTERN HINSTANCE hinstDLL;
 
 EXTERN ATOM hprop;
 EXTERN ATOM hownerdraw;
-#define ATOM2STR(a) LPSTR (a)
+#define ATOM2STR(a) LPCWSTR ((ULONG_PTR)(ATOM)(a))
 
 EXTERN int Win4p;
 

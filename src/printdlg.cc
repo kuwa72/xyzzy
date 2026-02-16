@@ -50,8 +50,8 @@ subclass_combo::insert (const char *s)
 {
   if (m_end < 0)
     m_end = GetWindowTextLength (m_hwnd);
-  SendMessage (m_hwnd, EM_SETSEL, m_end, m_end);
-  SendMessage (m_hwnd, EM_REPLACESEL, 0, LPARAM (s));
+  SendMessageA (m_hwnd, EM_SETSEL, m_end, m_end);
+  SendMessageA (m_hwnd, EM_REPLACESEL, 0, LPARAM (s));
   m_end += strlen (s);
 }
 
@@ -74,7 +74,7 @@ print_dialog::set_margin_text (UINT edit, LONG value, const char *unit) const
 {
   char b[32];
   sprintf (b, "%d.%d%s", value / 10, value % 10, unit);
-  SetDlgItemText (m_hwnd, edit, b);
+  SetDlgItemTextA (m_hwnd, edit, b);
 }
 
 void
@@ -94,7 +94,7 @@ LONG
 print_dialog::parse_margin_text (UINT edit, const char *unit) const
 {
   char buf[128], *b, *be;
-  GetDlgItemText (m_hwnd, edit, buf, sizeof buf);
+  GetDlgItemTextA (m_hwnd, edit, buf, sizeof buf);
   for (b = buf; *b == ' '; b++)
     ;
   double d = strtod (b, &be);
@@ -191,8 +191,8 @@ print_dialog::add_lang () const
     {
       char buf[128];
       *buf = 0;
-      LoadString (app.hinst, FontSet::lang_id (i), buf, sizeof buf);
-      int idx = SendDlgItemMessage (m_hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
+      LoadStringA (app.hinst, FontSet::lang_id (i), buf, sizeof buf);
+      int idx = SendDlgItemMessageA (m_hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
       SendDlgItemMessage (m_hwnd, IDC_LANG, CB_SETITEMDATA, idx, i);
     }
   SendDlgItemMessage (m_hwnd, IDC_LANG, CB_SETCURSEL, FONT_ASCII, 0);
@@ -209,7 +209,7 @@ print_dialog::get_int (UINT id, BOOL *f, BOOL sign, int defalt) const
   if (l)
     {
       char *b = (char *)alloca (l + 1);
-      GetDlgItemText (m_hwnd, id, b, l + 1);
+      GetDlgItemTextA (m_hwnd, id, b, l + 1);
       for (; *b == ' ' || *b == '\t'; b++)
         ;
       if (*b)
@@ -247,8 +247,8 @@ print_dialog::check_margin_text (UINT id, LONG &r, LONG min, LONG max,
 int
 print_dialog::get_result (int save)
 {
-  GetDlgItemText (m_hwnd, IDC_HEADER, m_settings.ps_header, sizeof m_settings.ps_header);
-  GetDlgItemText (m_hwnd, IDC_FOOTER, m_settings.ps_footer, sizeof m_settings.ps_footer);
+  GetDlgItemTextA (m_hwnd, IDC_HEADER, m_settings.ps_header, sizeof m_settings.ps_header);
+  GetDlgItemTextA (m_hwnd, IDC_FOOTER, m_settings.ps_footer, sizeof m_settings.ps_footer);
   m_settings.ps_header_on = IsDlgButtonChecked (m_hwnd, IDC_CHEADER) == 1;
   m_settings.ps_footer_on = IsDlgButtonChecked (m_hwnd, IDC_CFOOTER) == 1;
 
@@ -371,7 +371,7 @@ void
 print_dialog::init_history (UINT id_combo, const char *section)
 {
   HWND hwnd_combo = GetDlgItem (m_hwnd, id_combo);
-  SendMessage (hwnd_combo, CB_ADDSTRING, 0, LPARAM (""));
+  SendMessageA (hwnd_combo, CB_ADDSTRING, 0, LPARAM (""));
   char kbuf[4096];
   memset (kbuf, 0, sizeof kbuf);
   read_conf (section, 0, kbuf, sizeof kbuf);
@@ -379,7 +379,7 @@ print_dialog::init_history (UINT id_combo, const char *section)
     {
       char buf[MAX_HEADER_LENGTH];
       if (read_conf (section, key, buf, sizeof buf))
-        SendMessage (hwnd_combo, CB_ADDSTRING, 0, LPARAM (buf));
+        SendMessageA (hwnd_combo, CB_ADDSTRING, 0, LPARAM (buf));
     }
 }
 
@@ -388,15 +388,15 @@ print_dialog::save_history (UINT id_combo, const char *section)
 {
   HWND hwnd_combo = GetDlgItem (m_hwnd, id_combo);
   delete_conf (section);
-  int n = SendMessage (hwnd_combo, CB_GETCOUNT, 0, 0);
+  int n = SendMessageA (hwnd_combo, CB_GETCOUNT, 0, 0);
   for (int i = 0; i < n; i++)
     {
       // WinME の CB_GETLBTEXTLEN は文字数を返すらしいので(ただし未確認)、
       // バッファを倍にしておく。
       char buf[MAX_HEADER_LENGTH * 2 + 2];
-      int l = SendMessage (hwnd_combo, CB_GETLBTEXTLEN, i, 0);
+      int l = SendMessageA (hwnd_combo, CB_GETLBTEXTLEN, i, 0);
       if (l > 0 && l < MAX_HEADER_LENGTH
-          && SendMessage (hwnd_combo, CB_GETLBTEXT, i, LPARAM (buf)) > 0)
+          && SendMessageA (hwnd_combo, CB_GETLBTEXT, i, LPARAM (buf)) > 0)
         {
           char key[32];
           sprintf (key, "%d", i);
@@ -414,8 +414,8 @@ print_dialog::init_dialog (HWND)
   init_history (IDC_HEADER, cfgHeader);
   init_history (IDC_FOOTER, cfgFooter);
 
-  SetDlgItemText (m_hwnd, IDC_HEADER, m_settings.ps_header);
-  SetDlgItemText (m_hwnd, IDC_FOOTER, m_settings.ps_footer);
+  SetDlgItemTextA (m_hwnd, IDC_HEADER, m_settings.ps_header);
+  SetDlgItemTextA (m_hwnd, IDC_FOOTER, m_settings.ps_footer);
 
   add_history (IDC_HEADER, IDC_ADD_HEADER, IDC_DELETE_HEADER, BN_CLICKED);
   add_history (IDC_FOOTER, IDC_ADD_FOOTER, IDC_DELETE_FOOTER, BN_CLICKED);
@@ -591,7 +591,7 @@ print_dialog::set_font_face (int lang) const
   sprintf (buf, "%s, %s",
            m_settings.ps_font[lang].face,
            point);
-  SetDlgItemText (m_hwnd, IDC_FACE, buf);
+  SetDlgItemTextA (m_hwnd, IDC_FACE, buf);
 }
 
 int
@@ -623,8 +623,8 @@ print_dialog::check_proportional_font () const
   for (int i = 0; i < FONT_MAX; i++)
     {
       HGDIOBJ of = SelectObject (m_dev, m_settings.make_font (m_dev, m_dev, i));
-      TEXTMETRIC tm;
-      GetTextMetrics (m_dev, &tm);
+      TEXTMETRICA tm;
+      GetTextMetricsA (m_dev, &tm);
       DeleteObject (SelectObject (m_dev, of));
       if (tm.tmPitchAndFamily & TMPF_FIXED_PITCH)
         fixed = 0;
@@ -652,7 +652,7 @@ print_dialog::set_font ()
 
   update_font_size ();
 
-  LOGFONT lf;
+  LOGFONTA lf;
   bzero (&lf, sizeof lf);
   strcpy (lf.lfFaceName, m_settings.ps_font[lang].face);
   HDC hdc = GetDC (m_hwnd);
@@ -663,7 +663,7 @@ print_dialog::set_font ()
   if (m_settings.ps_font[lang].bold)
     lf.lfWeight = 700;
 
-  CHOOSEFONT cf;
+  CHOOSEFONTA cf;
   bzero (&cf, sizeof cf);
   cf.lStructSize = sizeof cf;
   cf.hwndOwner = m_hwnd;
@@ -678,7 +678,7 @@ print_dialog::set_font ()
 
   cf.nSizeMin = 5;
   cf.nSizeMax = 72;
-  if (ChooseFont (&cf))
+  if (ChooseFontA (&cf))
     {
       strcpy (m_settings.ps_font[lang].face, lf.lfFaceName);
       m_settings.ps_font[lang].charset = lf.lfCharSet;
@@ -728,12 +728,12 @@ print_dialog::find_history (UINT id, const char *s)
   while (1)
     {
       int o = i;
-      i = SendDlgItemMessage (m_hwnd, id, CB_FINDSTRINGEXACT, WPARAM (i), LPARAM (s));
+      i = SendDlgItemMessageA (m_hwnd, id, CB_FINDSTRINGEXACT, WPARAM (i), LPARAM (s));
       if (i == CB_ERR || i <= o)
         return -1;
       if (!*s)
         return i;
-      if (SendDlgItemMessage (m_hwnd, id, CB_GETLBTEXT, i, LPARAM (buf)) != CB_ERR
+      if (SendDlgItemMessageA (m_hwnd, id, CB_GETLBTEXT, i, LPARAM (buf)) != CB_ERR
           && !strcmp (s, buf))
         return i;
     }
@@ -748,18 +748,18 @@ print_dialog::history_command (UINT id_combo, UINT code, UINT id_add, UINT id_de
     {
     case CBN_SELCHANGE:
       {
-        int n = SendDlgItemMessage (m_hwnd, id_combo, CB_GETCURSEL, 0, 0);
+        int n = SendDlgItemMessageA (m_hwnd, id_combo, CB_GETCURSEL, 0, 0);
         if (n == CB_ERR)
           return 0;
         fadd = 0;
-        fdel = SendDlgItemMessage (m_hwnd, id_combo, CB_GETLBTEXTLEN, n, 0) > 0;
+        fdel = SendDlgItemMessageA (m_hwnd, id_combo, CB_GETLBTEXTLEN, n, 0) > 0;
         break;
       }
 
     case CBN_EDITCHANGE:
       {
         char buf[MAX_HEADER_LENGTH];
-        if (!GetDlgItemText (m_hwnd, id_combo, buf, sizeof buf))
+        if (!GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf))
           fadd = fdel = 0;
         else
           {
@@ -796,9 +796,9 @@ print_dialog::add_history (UINT id_combo, UINT id_add, UINT id_del, UINT code)
     return 0;
 
   char buf[MAX_HEADER_LENGTH];
-  if (GetDlgItemText (m_hwnd, id_combo, buf, sizeof buf)
+  if (GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf)
       && find_history (id_combo, buf) < 0)
-    SendDlgItemMessage (m_hwnd, id_combo, CB_ADDSTRING, 0, LPARAM (buf));
+    SendDlgItemMessageA (m_hwnd, id_combo, CB_ADDSTRING, 0, LPARAM (buf));
   move_btn_focus (id_add, id_combo);
   history_command (id_combo, CBN_EDITCHANGE, id_add, id_del);
   return 1;
@@ -811,12 +811,12 @@ print_dialog::delete_history (UINT id_combo, UINT id_add, UINT id_del, UINT code
     return 0;
 
   char buf[MAX_HEADER_LENGTH];
-  if (GetDlgItemText (m_hwnd, id_combo, buf, sizeof buf))
+  if (GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf))
     {
       int n = find_history (id_combo, buf);
       if (n >= 0 && SendDlgItemMessage (m_hwnd, id_combo,
                                         CB_DELETESTRING, n, 0) != CB_ERR)
-        SetDlgItemText (m_hwnd, id_combo, "");
+        SetDlgItemTextA (m_hwnd, id_combo, "");
     }
   move_btn_focus (id_del, id_combo);
   history_command (id_combo, CBN_EDITCHANGE, id_add, id_del);
@@ -826,12 +826,12 @@ print_dialog::delete_history (UINT id_combo, UINT id_add, UINT id_del, UINT code
 int
 print_dialog::find_menu_text (HMENU hmenu, int id, char *buf, int size)
 {
-  if (GetMenuString (hmenu, id, buf, size, MF_BYCOMMAND))
+  if (GetMenuStringA (hmenu, id, buf, size, MF_BYCOMMAND))
     return 1;
   for (int i = GetMenuItemCount (hmenu) - 1; i >= 0; i--)
     {
       HMENU hsub = GetSubMenu (hmenu, i);
-      if (hsub && GetMenuString (hsub, id, buf, size, MF_BYCOMMAND))
+      if (hsub && GetMenuStringA (hsub, id, buf, size, MF_BYCOMMAND))
         return 1;
     }
   return 0;

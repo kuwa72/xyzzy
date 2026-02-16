@@ -10,7 +10,7 @@
 void
 write_conf (const char *section, const char *name, const char *str)
 {
-  WritePrivateProfileString (section, name, str, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, str, app.ini_file_path);
 }
 
 void
@@ -18,7 +18,7 @@ write_conf (const char *section, const char *name, long value, int hex)
 {
   char buf[32];
   sprintf (buf, hex ? "#%lx" : "%ld", value);
-  WritePrivateProfileString (section, name, buf, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
 }
 
 void
@@ -27,7 +27,7 @@ write_conf (const char *section, const char *name, const int *value, int n, int 
   char *buf = (char *)alloca (16 * n), *b = buf;
   for (int i = 0; i < n; i++)
     b += sprintf (b, hex ? ",#%x" : ",%d", *value++);
-  WritePrivateProfileString (section, name, buf + 1, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf + 1, app.ini_file_path);
 }
 
 void
@@ -35,15 +35,15 @@ write_conf (const char *section, const char *name, const RECT &r)
 {
   char buf[128];
   sprintf (buf, "(%d,%d)-(%d,%d)", r.left, r.top, r.right, r.bottom);
-  WritePrivateProfileString (section, name, buf, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
 }
 
 void
-write_conf (const char *section, const char *name, const LOGFONT &lf)
+write_conf (const char *section, const char *name, const LOGFONTA &lf)
 {
   char buf[128];
   sprintf (buf, "%d,\"%s\",%d", lf.lfHeight, lf.lfFaceName, lf.lfCharSet);
-  WritePrivateProfileString (section, name, buf, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
 }
 
 void
@@ -51,7 +51,7 @@ write_conf (const char *section, const char *name, const PRLOGFONT &lf)
 {
   char buf[128];
   sprintf (buf, "%d,\"%s\",%d,%d,%d", lf.point, lf.face, lf.charset, lf.bold, lf.italic);
-  WritePrivateProfileString (section, name, buf, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
 }
 
 void
@@ -64,25 +64,25 @@ write_conf (const char *section, const char *name, const WINDOWPLACEMENT &w)
            w.rcNormalPosition.right,
            w.rcNormalPosition.bottom,
            w.showCmd);
-  WritePrivateProfileString (section, name, buf, app.ini_file_path);
+  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
 }
 
 void
 flush_conf ()
 {
-  WritePrivateProfileString (0, 0, 0, app.ini_file_path);
+  WritePrivateProfileStringA (0, 0, 0, app.ini_file_path);
 }
 
 int
 read_conf (const char *section, const char *name, char *buf, int size)
 {
-  return GetPrivateProfileString (section, name, "", buf, size, app.ini_file_path);
+  return GetPrivateProfileStringA (section, name, "", buf, size, app.ini_file_path);
 }
 
 void
 delete_conf (const char *section)
 {
-  WritePrivateProfileString (section, 0, 0, app.ini_file_path);
+  WritePrivateProfileStringA (section, 0, 0, app.ini_file_path);
 }
 
 static int
@@ -156,7 +156,7 @@ read_conf (const char *section, const char *name, RECT &rr)
 }
 
 int
-read_conf (const char *section, const char *name, LOGFONT &lf)
+read_conf (const char *section, const char *name, LOGFONTA &lf)
 {
   char buf[128];
   int l = read_conf (section, name, buf, sizeof buf);
@@ -463,7 +463,7 @@ reg2ini_int (const char *key, ReadRegistry &r, const conf &cf, int l)
 static void
 reg2ini_logfont (const char *key, ReadRegistry &r, const conf &cf)
 {
-  LOGFONT lf;
+  LOGFONTA lf;
   if (r.get (cf.name, &lf, sizeof lf) == sizeof lf)
     write_conf (key, cf.name, lf);
 }
@@ -567,7 +567,7 @@ reg2ini_geometry (const char *rkey)
       WINDOWPLACEMENT w;
       DWORD wl = sizeof w;
       DWORD type;
-      int e = RegEnumValue (er, i, name, &namel, 0, &type, (BYTE *)&w, &wl);
+      int e = RegEnumValueA (er, i, name, &namel, 0, &type, (BYTE *)&w, &wl);
       if (e == ERROR_SUCCESS)
         {
           if (type == REG_BINARY && wl == sizeof w && w.length == sizeof w)
@@ -593,7 +593,7 @@ reg2ini_geometry ()
       char name[128];
       DWORD namel = sizeof name;
       FILETIME ft;
-      int e = RegEnumKeyEx (er, i, name, &namel, 0, 0, 0, &ft);
+      int e = RegEnumKeyExA (er, i, name, &namel, 0, 0, 0, &ft);
       if (e == ERROR_SUCCESS)
         {
           WINDOWPLACEMENT w;
@@ -645,7 +645,7 @@ reg_empty_tree_p (HKEY hkey)
   DWORD clsl = sizeof clsl;
   DWORD nkeys, keyl, xclsl, nvals, naml, datal, desc;
   FILETIME ft;
-  if (RegQueryInfoKey (hkey, cls, &clsl, 0, &nkeys, &keyl, &xclsl,
+  if (RegQueryInfoKeyA (hkey, cls, &clsl, 0, &nkeys, &keyl, &xclsl,
                        &nvals, &naml, &datal, &desc, &ft) != ERROR_SUCCESS)
     return 0;
   return !(nkeys + nvals);
@@ -663,13 +663,13 @@ delete_sub_tree (HKEY hkey, const char *name)
             FILETIME ft;
             char buf[256];
             DWORD sz = sizeof buf;
-            if (RegEnumKeyEx (r, 0, buf, &sz, 0, 0, 0, &ft) != ERROR_SUCCESS
+            if (RegEnumKeyExA (r, 0, buf, &sz, 0, 0, 0, &ft) != ERROR_SUCCESS
                 || !delete_sub_tree (r, buf))
               break;
           }
       }
   }
-  return RegDeleteKey (hkey, name) == ERROR_SUCCESS;
+  return RegDeleteKeyA (hkey, name) == ERROR_SUCCESS;
 }
 
 void
@@ -682,12 +682,12 @@ reg_delete_tree ()
     if (sysdep.WinNTp ())
       delete_sub_tree (r, "xyzzy");
     else
-      RegDeleteKey (r, "xyzzy");
+      RegDeleteKeyA (r, "xyzzy");
     if (!reg_empty_tree_p (r))
       return;
   }
 
   EnumRegistry r (HKEY_CURRENT_USER, "Software");
   if (!r.fail ())
-    RegDeleteKey (r, "Free Software");
+    RegDeleteKeyA (r, "Free Software");
 }

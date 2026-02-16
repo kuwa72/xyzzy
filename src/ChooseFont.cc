@@ -22,23 +22,23 @@ ChooseFontP::add_lang (HWND hwnd)
     {
       char buf[128];
       *buf = 0;
-      LoadString (app.hinst, FontSet::lang_id (i), buf, sizeof buf);
-      int idx = SendDlgItemMessage (hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
-      SendDlgItemMessage (hwnd, IDC_LANG, CB_SETITEMDATA, idx, i);
+      LoadStringA (app.hinst, FontSet::lang_id (i), buf, sizeof buf);
+      int idx = SendDlgItemMessageA (hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
+      SendDlgItemMessageA (hwnd, IDC_LANG, CB_SETITEMDATA, idx, i);
     }
 }
 
 int CALLBACK
-ChooseFontP::enum_font_name_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
+ChooseFontP::enum_font_name_proc (ENUMLOGFONTA *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 {
   if (*elf->elfLogFont.lfFaceName != '@'
       && (elf->elfLogFont.lfPitchAndFamily & 3) == FIXED_PITCH)
     {
       HWND hwnd = HWND (lparam);
-      if (SendMessage (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM (elf->elfLogFont.lfFaceName)) == LB_ERR)
+      if (SendMessageA (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM (elf->elfLogFont.lfFaceName)) == LB_ERR)
         {
-          int i = SendMessage (hwnd, LB_ADDSTRING, 0, LPARAM (elf->elfLogFont.lfFaceName));
-          SendMessage (hwnd, LB_SETITEMDATA, i, (elf->elfLogFont.lfCharSet << 8) | type);
+          int i = SendMessageA (hwnd, LB_ADDSTRING, 0, LPARAM (elf->elfLogFont.lfFaceName));
+          SendMessageA (hwnd, LB_SETITEMDATA, i, (elf->elfLogFont.lfCharSet << 8) | type);
         }
     }
   return 1;
@@ -47,12 +47,12 @@ ChooseFontP::enum_font_name_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, L
 void
 ChooseFontP::add_font_name (HWND hwnd, HDC hdc)
 {
-  EnumFontFamiliesEx (hdc, 0, FONTENUMPROC (enum_font_name_proc),
-                      LPARAM (GetDlgItem (hwnd, IDC_NAMELIST)), 0);
+  EnumFontFamiliesExA (hdc, (LPLOGFONTA)0, FONTENUMPROCA (enum_font_name_proc),
+                       LPARAM (GetDlgItem (hwnd, IDC_NAMELIST)), 0);
 }
 
 int CALLBACK
-ChooseFontP::enum_font_size_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
+ChooseFontP::enum_font_size_proc (ENUMLOGFONTA *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 {
   HWND hwnd = ((xdpi *)lparam)->hwnd;
   int dpi = ((xdpi *)lparam)->dpi;
@@ -64,20 +64,20 @@ ChooseFontP::enum_font_size_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, L
         {
           static const int tt[] =
             {6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 26, 28, 36,};
-          if (SendMessage (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM ("  6")) == LB_ERR)
+          if (SendMessageA (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM ("  6")) == LB_ERR)
             for (int i = 0; i < numberof (tt); i++)
               {
                 sprintf (b, "%3d", tt[i]);
-                SendMessage (hwnd, LB_ADDSTRING, 0, LPARAM (b));
+                SendMessageA (hwnd, LB_ADDSTRING, 0, LPARAM (b));
               }
         }
       else
         {
-          if (SendMessage (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM ("  8")) == LB_ERR)
+          if (SendMessageA (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM ("  8")) == LB_ERR)
             for (int i = FONT_SIZE_MIN_PIXEL; i <= FONT_SIZE_MAX_PIXEL; i++)
               {
                 sprintf (b, "%3d", i);
-                SendMessage (hwnd, LB_ADDSTRING, 0, LPARAM (b));
+                SendMessageA (hwnd, LB_ADDSTRING, 0, LPARAM (b));
               }
         }
     }
@@ -85,9 +85,9 @@ ChooseFontP::enum_font_size_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, L
     {
       sprintf (b, "%3d", (pixel ? elf->elfLogFont.lfHeight
                           : MulDiv (elf->elfLogFont.lfHeight, 72, dpi)));
-      if (SendMessage (hwnd, LB_FINDSTRINGEXACT,
-                       WPARAM (-1), LPARAM (b)) == LB_ERR)
-        SendMessage (hwnd, LB_ADDSTRING, 0, LPARAM (b));
+      if (SendMessageA (hwnd, LB_FINDSTRINGEXACT,
+                        WPARAM (-1), LPARAM (b)) == LB_ERR)
+        SendMessageA (hwnd, LB_ADDSTRING, 0, LPARAM (b));
     }
   return 1;
 }
@@ -96,10 +96,10 @@ void
 ChooseFontP::add_font_size (HWND hwnd, int i)
 {
   char face[LF_FACESIZE];
-  if (SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETTEXT, i, LPARAM (face)) == LB_ERR)
+  if (SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETTEXT, i, LPARAM (face)) == LB_ERR)
     return;
-  SendDlgItemMessage (hwnd, IDC_SIZELIST, WM_SETREDRAW, 0, 0);
-  SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_RESETCONTENT, 0, 0);
+  SendDlgItemMessageA (hwnd, IDC_SIZELIST, WM_SETREDRAW, 0, 0);
+  SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_RESETCONTENT, 0, 0);
 
   xdpi x;
   x.hwnd = GetDlgItem (hwnd, IDC_SIZELIST);
@@ -107,17 +107,17 @@ ChooseFontP::add_font_size (HWND hwnd, int i)
   x.pixel = cf_param.fs_size_pixel;
 
   HDC hdc = GetDC (hwnd);
-  EnumFontFamilies (hdc, face, FONTENUMPROC (enum_font_size_proc), LPARAM (&x));
+  EnumFontFamiliesA (hdc, face, FONTENUMPROCA (enum_font_size_proc), LPARAM (&x));
   ReleaseDC (hwnd, hdc);
 
-  SendDlgItemMessage (hwnd, IDC_SIZELIST, WM_SETREDRAW, 1, 0);
+  SendDlgItemMessageA (hwnd, IDC_SIZELIST, WM_SETREDRAW, 1, 0);
   InvalidateRect (GetDlgItem (hwnd, IDC_SIZELIST), 0, 0);
 }
 
 void
 ChooseFontP::change_font_size (HWND hwnd, int size)
 {
-  int i = SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
   if (i == LB_ERR)
     return;
 
@@ -127,9 +127,9 @@ ChooseFontP::change_font_size (HWND hwnd, int size)
   min.index = max.index = -1;
 
   char b[16];
-  int n = SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETCOUNT, 0, 0);
+  int n = SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETCOUNT, 0, 0);
   for (i = 0; i < n; i++)
-    if (SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) != LB_ERR)
+    if (SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) != LB_ERR)
       {
         int x = atoi (b);
         if (x <= size && (min.index == -1 || x > min.point))
@@ -144,7 +144,7 @@ ChooseFontP::change_font_size (HWND hwnd, int size)
           }
       }
 
-  SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_SETCURSEL,
+  SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_SETCURSEL,
                       ((min.index == -1 && max.index == -1)
                        ? 0
                        : (min.index == -1
@@ -163,18 +163,18 @@ ChooseFontP::notify_lang (HWND hwnd, int code)
 {
   if (code != CBN_SELCHANGE)
     return;
-  int i = SendDlgItemMessage (hwnd, IDC_LANG, CB_GETCURSEL, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_LANG, CB_GETCURSEL, 0, 0);
   if (i == LB_ERR)
     return;
-  i = SendDlgItemMessage (hwnd, IDC_LANG, CB_GETITEMDATA, i, 0);
+  i = SendDlgItemMessageA (hwnd, IDC_LANG, CB_GETITEMDATA, i, 0);
   if (i < 0 || i >= FONT_MAX)
     return;
 
-  int j = SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_FINDSTRINGEXACT,
+  int j = SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_FINDSTRINGEXACT,
                               WPARAM (-1), LPARAM (cf_param.fs_logfont[i].lfFaceName));
   if (j == LB_ERR)
     j = 0;
-  SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_SETCURSEL, j, 0);
+  SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_SETCURSEL, j, 0);
 
   change_font_size (hwnd,
                     (cf_param.fs_size_pixel
@@ -187,11 +187,11 @@ ChooseFontP::notify_font_name (HWND hwnd, int code)
 {
   if (code != LBN_SELCHANGE)
     return;
-  int i = SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
   if (i == LB_ERR)
     return;
   char b[16];
-  if (SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) == LB_ERR)
+  if (SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) == LB_ERR)
     return;
   change_font_size (hwnd, atoi (b));
 }
@@ -202,29 +202,29 @@ ChooseFontP::notify_font_size (HWND hwnd, int code)
   if (code != LBN_SELCHANGE)
     return;
 
-  int lang = SendDlgItemMessage (hwnd, IDC_LANG, CB_GETCURSEL, 0, 0);
+  int lang = SendDlgItemMessageA (hwnd, IDC_LANG, CB_GETCURSEL, 0, 0);
   if (lang == LB_ERR)
     return;
-  lang = SendDlgItemMessage (hwnd, IDC_LANG, CB_GETITEMDATA, lang, 0);
+  lang = SendDlgItemMessageA (hwnd, IDC_LANG, CB_GETITEMDATA, lang, 0);
   if (lang < 0 || lang >= FONT_MAX)
     return;
 
-  int i = SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
   if (i == LB_ERR)
     return;
   char name[LF_FACESIZE];
-  if (SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETTEXT, i, LPARAM (name)) == LB_ERR)
+  if (SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETTEXT, i, LPARAM (name)) == LB_ERR)
     return;
 
-  int j = SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
+  int j = SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
   if (j == LB_ERR)
     return;
   char b[16];
-  if (SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETTEXT, j, LPARAM (b)) == LB_ERR)
+  if (SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETTEXT, j, LPARAM (b)) == LB_ERR)
     return;
 
-  BYTE charset = BYTE (SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETITEMDATA, i, 0) >> 8);
-  LOGFONT lf;
+  BYTE charset = BYTE (SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETITEMDATA, i, 0) >> 8);
+  LOGFONTA lf;
   bzero (&lf, sizeof lf);
   lf.lfHeight = cf_param.fs_size_pixel ? atoi (b) : MulDiv (atoi (b), cf_dpi, 72);
   lf.lfCharSet = charset;
@@ -232,10 +232,10 @@ ChooseFontP::notify_font_size (HWND hwnd, int code)
 
   cf_param.fs_logfont[lang] = lf;
 
-  HFONT hfont = CreateFontIndirect (&lf);
+  HFONT hfont = CreateFontIndirectA (&lf);
   HFONT hfdlg = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));
-  HFONT hfctl = HFONT (SendDlgItemMessage (hwnd, IDC_SAMPLE, WM_GETFONT, 0, 0));
-  SendDlgItemMessage (hwnd, IDC_SAMPLE, WM_SETFONT, WPARAM (hfont), MAKELPARAM (0, 0));
+  HFONT hfctl = HFONT (SendDlgItemMessageA (hwnd, IDC_SAMPLE, WM_GETFONT, 0, 0));
+  SendDlgItemMessageA (hwnd, IDC_SAMPLE, WM_SETFONT, WPARAM (hfont), MAKELPARAM (0, 0));
   if (hfctl != hfdlg)
     DeleteObject (hfctl);
   InvalidateRect (GetDlgItem (hwnd, IDC_SAMPLE), 0, 0);
@@ -246,16 +246,16 @@ ChooseFontP::notify_size_pixel (HWND hwnd, int code)
 {
   if (code != BN_CLICKED)
     return;
-  int i = SendDlgItemMessage (hwnd, IDC_SIZE_PIXEL, BM_GETCHECK, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_SIZE_PIXEL, BM_GETCHECK, 0, 0);
   if (i != cf_param.fs_size_pixel)
     {
       cf_param.fs_size_pixel = i;
 
-      int i = SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
+      int i = SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETCURSEL, 0, 0);
       if (i == LB_ERR)
         return;
       char b[16];
-      if (SendDlgItemMessage (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) == LB_ERR)
+      if (SendDlgItemMessageA (hwnd, IDC_SIZELIST, LB_GETTEXT, i, LPARAM (b)) == LB_ERR)
         return;
       int sz = atoi (b);
       if (cf_param.fs_size_pixel)
@@ -287,13 +287,13 @@ ChooseFontP::draw_font_list (HWND, DRAWITEMSTRUCT *dis)
     {
       char b[LF_FACESIZE];
       *b = 0;
-      SendMessage (dis->hwndItem, LB_GETTEXT, dis->itemID, LPARAM (b));
+      SendMessageA (dis->hwndItem, LB_GETTEXT, dis->itemID, LPARAM (b));
 
       SIZE size;
-      GetTextExtentPoint32 (dis->hDC, "0", 1, &size);
+      GetTextExtentPoint32A (dis->hDC, "0", 1, &size);
 
-      ExtTextOut (dis->hDC, r.left + 18, (r.top + r.bottom - size.cy) / 2,
-                  ETO_OPAQUE, &r, b, strlen (b), 0);
+      ExtTextOutA (dis->hDC, r.left + 18, (r.top + r.bottom - size.cy) / 2,
+                   ETO_OPAQUE, &r, b, strlen (b), 0);
 
       if (dis->itemData & TRUETYPE_FONTTYPE)
         ImageList_Draw (cf_hil, 0, dis->hDC,
@@ -325,10 +325,10 @@ void
 ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
 {
   const char *sample = samples[0].string;
-  int i = SendDlgItemMessage (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
+  int i = SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
   if (i != LB_ERR)
     {
-      BYTE charset = BYTE (SendDlgItemMessage (hwnd, IDC_NAMELIST,
+      BYTE charset = BYTE (SendDlgItemMessageA (hwnd, IDC_NAMELIST,
                                                LB_GETITEMDATA, i, 0) >> 8);
       for (int i = 0; i < numberof (samples); i++)
         if (charset == samples[i].charset)
@@ -344,11 +344,11 @@ ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
   COLORREF obg = SetBkColor (dis->hDC, cf_bg);
   int l = strlen (sample);
   SIZE size = {0};
-  GetTextExtentPoint32 (dis->hDC, sample, l, &size);
+  GetTextExtentPoint32A (dis->hDC, sample, l, &size);
   const RECT &r = dis->rcItem;
-  ExtTextOut (dis->hDC, (r.left + r.right - size.cx) / 2,
-              (r.top + r.bottom - size.cy) / 2,
-              ETO_CLIPPED | ETO_OPAQUE, &r, sample, l, 0);
+  ExtTextOutA (dis->hDC, (r.left + r.right - size.cx) / 2,
+               (r.top + r.bottom - size.cy) / 2,
+               ETO_CLIPPED | ETO_OPAQUE, &r, sample, l, 0);
 
   SetTextColor (dis->hDC, ofg);
   SetBkColor (dis->hDC, obg);
@@ -379,14 +379,14 @@ void
 ChooseFontP::init_dialog (HWND hwnd)
 {
   add_lang (hwnd);
-  SendDlgItemMessage (hwnd, IDC_LANG, CB_SETCURSEL, 0, 0);
+  SendDlgItemMessageA (hwnd, IDC_LANG, CB_SETCURSEL, 0, 0);
 
   HDC hdc = GetDC (hwnd);
   cf_dpi = GetDeviceCaps (hdc, LOGPIXELSY);
   add_font_name (hwnd, hdc);
   ReleaseDC (hwnd, hdc);
 
-  SendDlgItemMessage (hwnd, IDC_SIZE_PIXEL, BM_SETCHECK,
+  SendDlgItemMessageA (hwnd, IDC_SIZE_PIXEL, BM_SETCHECK,
                       cf_param.fs_size_pixel ? 1 : 0, 0);
 
   notify_lang (hwnd, LBN_SELCHANGE);
@@ -422,7 +422,7 @@ void
 ChooseFontP::do_destroy (HWND hwnd)
 {
   HFONT hfdlg = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));
-  HFONT hfctl = HFONT (SendDlgItemMessage (hwnd, IDC_SAMPLE, WM_GETFONT, 0, 0));
+  HFONT hfctl = HFONT (SendDlgItemMessageA (hwnd, IDC_SAMPLE, WM_GETFONT, 0, 0));
   if (hfctl != hfdlg)
     DeleteObject (hfctl);
 }

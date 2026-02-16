@@ -4,6 +4,11 @@ project(xyzzy LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
 
+# Default to Release build if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Source and generated directories
 set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(GEN_DIR ${CMAKE_SOURCE_DIR}/src/gen)
@@ -350,6 +355,7 @@ set(XYZZY_SOURCES
 )
 
 add_executable(xyzzy WIN32 ${XYZZY_SOURCES})
+target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
 target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 add_dependencies(xyzzy gen-src1-run gen-src2-run)
 
@@ -385,6 +391,7 @@ add_executable(xyzzycli WIN32 ${SRC_DIR}/xyzzycli.cc)
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzycli PRIVATE ${SRC_DIR}/xyzzycli.rc)
 endif()
+target_compile_definitions(xyzzycli PRIVATE UNICODE _UNICODE)
 target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}")
 if(NOT MSVC)
     target_link_options(xyzzycli PRIVATE -static)
@@ -397,6 +404,7 @@ add_executable(xyzzyenv ${SRC_DIR}/xyzzyenv.cc)
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzyenv PRIVATE ${SRC_DIR}/xyzzyenv.rc)
 endif()
+target_compile_definitions(xyzzyenv PRIVATE UNICODE _UNICODE)
 target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}")
 if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)

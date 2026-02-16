@@ -42,7 +42,7 @@ protected:
   ChangeColorsPageP (int);
   ~ChangeColorsPageP ();
 
-  void init_page (UINT, PropSheet *, int, PROPSHEETPAGE *);
+  void init_page (UINT, PropSheet *, int, PROPSHEETPAGEW *);
 
   virtual BOOL dialog_proc (UINT, WPARAM, LPARAM);
 
@@ -115,7 +115,7 @@ public:
   int cfp_restore;
 
   ChooseFontPage ();
-  void init_page (PropSheet *, int, PROPSHEETPAGE *);
+  void init_page (PropSheet *, int, PROPSHEETPAGEW *);
 };
 
 class ChangeColorsDialog: public ChangeColorsPageP
@@ -135,7 +135,7 @@ public:
          ccd_dir (0), ccd_subdir (0), ccd_default (0)
     {}
   ~ChangeColorsDialog () {}
-  void init_page (PropSheet *, int, PROPSHEETPAGE *);
+  void init_page (PropSheet *, int, PROPSHEETPAGEW *);
 };
 
 #endif

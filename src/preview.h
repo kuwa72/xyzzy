@@ -75,7 +75,7 @@ protected:
   static int register_wndclass (HINSTANCE);
 
   static int wndclass_initialized;
-  static const char PageClassName[];
+  static const wchar_t PageClassName[];
 public:
   HWND p_hwnd;
   preview_page_window (const printer_device &, print_settings &, print_engine &);

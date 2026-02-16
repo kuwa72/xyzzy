@@ -1299,7 +1299,10 @@ Buffer::refresh_title_bar () const
       char buf[512 + 10];
       buffer_info binfo (0, this, 0, 0, 0);
       *binfo.format (fmt, buf, buf + 512) = 0;
-      SetWindowText (app.toplev, buf);
+      {
+        WideStr wbuf (buf);
+        SetWindowTextW (app.toplev, wbuf);
+      }
     }
   else
     {
@@ -1315,13 +1318,16 @@ Buffer::refresh_title_bar () const
       char *b0 = (char *)alloca (l);
       char *b = b0;
       if (Fadmin_user_p () == Qt && sysdep.Win6p ())
-        b = stpcpy (b, "Admin: ");
+        b = stpcpy (b, "\x8a\xc7\x97\x9d\x8e\xd2: ");
       if (xsymbol_value (Vtitle_bar_text_order) != Qnil)
         strcpy (stpcpy (store_title (x, b, b + l), " - "), TitleBarString);
       else
         store_title (x, stpcpy (stpcpy (b, TitleBarString), " - "), b + l);
 
-      SetWindowText (app.toplev, b0);
+      {
+        WideStr wb0 (b0);
+        SetWindowTextW (app.toplev, wb0);
+      }
     }
   b_last_title_bar_buffer = 0; // 次回タイトルバーを強制的に再描画させる
 }

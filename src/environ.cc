@@ -17,7 +17,7 @@ void
 ReadRegistry::open_local (const char *subkey)
 {
   ALLOC_SUBKEY (b, subkey);
-  if (RegOpenKeyEx (HKEY_CURRENT_USER, b, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
+  if (RegOpenKeyExA (HKEY_CURRENT_USER, b, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     hkey = 0;
 }
 
@@ -25,7 +25,7 @@ ReadRegistry::ReadRegistry (HKEY h, const char *subkey)
 {
   if (!h)
     open_local (subkey);
-  else if (RegOpenKeyEx (h, subkey, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
+  else if (RegOpenKeyExA (h, subkey, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     hkey = 0;
 }
 
@@ -33,8 +33,8 @@ WriteRegistry::WriteRegistry (const char *subkey)
 {
   ALLOC_SUBKEY (b, subkey);
   DWORD x;
-  DWORD e = RegCreateKeyEx (HKEY_CURRENT_USER, b, 0, 0, REG_OPTION_NON_VOLATILE,
-                            KEY_WRITE, 0, &hkey, &x);
+  DWORD e = RegCreateKeyExA (HKEY_CURRENT_USER, b, 0, 0, REG_OPTION_NON_VOLATILE,
+                             KEY_WRITE, 0, &hkey, &x);
   if (e != ERROR_SUCCESS)
     {
       hkey = 0;
@@ -47,8 +47,8 @@ ReadRegistry::get (const char *key, void *buf, DWORD size, DWORD req) const
 {
   assert (!fail ());
   DWORD type;
-  return (RegQueryValueEx (hkey, (char *)key, 0, &type,
-                           (BYTE *)buf, &size) == ERROR_SUCCESS
+  return (RegQueryValueExA (hkey, (char *)key, 0, &type,
+                            (BYTE *)buf, &size) == ERROR_SUCCESS
           && type == req) ? size : -1;
 }
 
@@ -57,7 +57,7 @@ ReadRegistry::query (const char *key, DWORD *type) const
 {
   assert (!fail ());
   DWORD size = 0;
-  if (RegQueryValueEx (hkey, (char *)key, 0, type, 0, &size) == ERROR_SUCCESS)
+  if (RegQueryValueExA (hkey, (char *)key, 0, type, 0, &size) == ERROR_SUCCESS)
     return size;
   return -1;
 }
@@ -66,7 +66,7 @@ int
 WriteRegistry::set (const char *key, DWORD type, const void *buf, int size) const
 {
   assert (!fail ());
-  DWORD e = RegSetValueEx (hkey, key, 0, type, (BYTE *)buf, size);
+  DWORD e = RegSetValueExA (hkey, key, 0, type, (BYTE *)buf, size);
   if (e == ERROR_SUCCESS)
     return 1;
   SetLastError (e);
@@ -77,7 +77,7 @@ int
 WriteRegistry::remove (const char *key) const
 {
   assert (!fail ());
-  DWORD e = RegDeleteValue (hkey, key);
+  DWORD e = RegDeleteValueA (hkey, key);
   if (e == ERROR_SUCCESS || e == ERROR_FILE_NOT_FOUND)
     return 1;
   SetLastError (e);
@@ -233,11 +233,11 @@ Fread_registry (lisp lsection, lisp lkey, lisp lroot)
         char *b = (char *)alloca (l + 1);
         if (!r.get (key, b, l, type))
           FEsimple_win32_error (GetLastError (), lkey);
-        l = ExpandEnvironmentStrings (b, 0, 0);
+        l = ExpandEnvironmentStringsA (b, 0, 0);
         if (!l)
           FEsimple_win32_error (GetLastError (), lkey);
         char *b2 = (char *)alloca (l + 1);
-        if (!ExpandEnvironmentStrings (b, b2, l + 1))
+        if (!ExpandEnvironmentStringsA (b, b2, l + 1))
           FEsimple_win32_error (GetLastError (), lkey);
         return make_string (b2);
       }
@@ -289,7 +289,7 @@ Flist_registry_key (lisp lsection, lisp lroot)
       char name[1024];
       DWORD namel = sizeof name;
       FILETIME ft;
-      int e = RegEnumKeyEx (r, i, name, &namel, 0, 0, 0, &ft);
+      int e = RegEnumKeyExA (r, i, name, &namel, 0, 0, 0, &ft);
       if (e == ERROR_SUCCESS)
         p = xcons (make_string (name), p);
       else
@@ -662,13 +662,13 @@ init_environ ()
 {
   char b[256];
   DWORD n = sizeof b;
-  if (GetUserName (b, &n))
+  if (GetUserNameA (b, &n))
     xsymbol_value (Vuser_name) = make_string (b);
   else
     xsymbol_value (Vuser_name) = make_string ("unknown");
 
   n = sizeof b;
-  if (GetComputerName (b, &n))
+  if (GetComputerNameA (b, &n))
     xsymbol_value (Vmachine_name) = make_string (b);
   else
     xsymbol_value (Vmachine_name) = make_string ("unknown");

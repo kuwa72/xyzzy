@@ -18,12 +18,12 @@ paint_color_list (DRAWITEMSTRUCT *dis, const char *string, COLORREF color)
   if (dis->itemID != UINT (-1))
     {
       SIZE size;
-      GetTextExtentPoint32 (dis->hDC, "M", 1, &size);
+      GetTextExtentPoint32A (dis->hDC, "M", 1, &size);
       size.cx = size.cx * 5 / 2;
-      ExtTextOut (dis->hDC,
-                  r.left + size.cx,
-                  (r.top + r.bottom - size.cy) / 2,
-                  ETO_OPAQUE | ETO_CLIPPED, &r, string, strlen (string), 0);
+      ExtTextOutA (dis->hDC,
+                   r.left + size.cx,
+                   (r.top + r.bottom - size.cy) / 2,
+                   ETO_OPAQUE | ETO_CLIPPED, &r, string, strlen (string), 0);
 
       HGDIOBJ open = SelectObject (dis->hDC, sysdep.hpen_black);
       HBRUSH hbr = CreateSolidBrush (color);
@@ -141,13 +141,13 @@ SelectColor::do_command (int id, int code)
 
     case IDC_OTHER:
       {
-        CHOOSECOLOR xc;
+        CHOOSECOLORA xc;
         xc.lStructSize = sizeof xc;
         xc.hwndOwner = hwnd;
         xc.rgbResult = cc;
         xc.lpCustColors = cust;
         xc.Flags = CC_RGBINIT;
-        if (ChooseColor (&xc))
+        if (ChooseColorA (&xc))
           {
             cc = xc.rgbResult;
             int i = find_match (cc);
@@ -175,7 +175,7 @@ SelectColor::draw_combo (DRAWITEMSTRUCT *dis)
   else
     {
       char b[256];
-      if (!LoadString (app.hinst, dis->itemData, b, sizeof b))
+      if (!LoadStringA (app.hinst, dis->itemData, b, sizeof b))
         *b = 0;
       paint_color_list (dis, b, GetSysColor (dis->itemData - IDS_COLOR_SCROLLBAR));
     }
@@ -251,9 +251,9 @@ SelectColor::add_combo ()
   HWND combo = GetDlgItem (hwnd, IDC_COMBO);
   for (int i = IDS_COLOR_SCROLLBAR; i <= IDS_COLOR_BTNHIGHLIGHT; i++)
     {
-      int j = SendMessage (combo, CB_ADDSTRING, 0, i);
+      int j = SendMessageA (combo, CB_ADDSTRING, 0, i);
       if (j != CB_ERR && cur == i)
-        SendMessage (combo, CB_SETCURSEL, j, 0);
+        SendMessageA (combo, CB_SETCURSEL, j, 0);
     }
 }
 
@@ -360,7 +360,7 @@ ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
   ChangeColorsPageP *p;
   if (msg == WM_INITDIALOG)
     {
-      p = (ChangeColorsPageP *)((PROPSHEETPAGE *)lparam)->lParam;
+      p = (ChangeColorsPageP *)((PROPSHEETPAGEA *)lparam)->lParam;
       SetWindowLongPtr (hwnd, DWL_USER, (LONG_PTR)p);
       p->ccp_hwnd = hwnd;
       if (!p->ccp_parent->ps_moved)
@@ -386,11 +386,11 @@ ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
 
 void
 ChangeColorsPageP::init_page (UINT idd, PropSheet *sheet, int page_no,
-                              PROPSHEETPAGE *psp)
+                              PROPSHEETPAGEW *psp)
 {
   ccp_page_no = page_no;
   ccp_parent = sheet;
-  ccp_hg = PropSheetFont::change_font (MAKEINTRESOURCE (idd));
+  ccp_hg = PropSheetFont::change_font (MAKEINTRESOURCEA (idd));
 
   psp->dwSize = sizeof *psp;
   psp->dwFlags = ccp_hg ? PSP_DLGINDIRECT : 0;
@@ -398,7 +398,7 @@ ChangeColorsPageP::init_page (UINT idd, PropSheet *sheet, int page_no,
   if (ccp_hg)
     psp->pResource = (DLGTEMPLATE *)GlobalLock (ccp_hg);
   else
-    psp->pszTemplate = MAKEINTRESOURCE (idd);
+    psp->pszTemplate = MAKEINTRESOURCEW (idd);
   psp->pszIcon = 0;
   psp->pszTitle = 0;
   psp->lParam = LPARAM (this);
@@ -498,13 +498,13 @@ ChangeColorsPageP::draw_item (int id, DRAWITEMSTRUCT *dis)
       else if (prop_fg_p (dis->itemData))
         {
           char b[32];
-          sprintf (b, "Text %d", dis->itemData - PROP_FG_OFFSET + 1);
+          sprintf (b, "\x95\xb6\x8e\x9a%d", dis->itemData - PROP_FG_OFFSET + 1);
           paint_color_list (dis, b, ccp_curcc[dis->itemData]);
         }
       else if (prop_bg_p (dis->itemData))
         {
           char b[32];
-          sprintf (b, "Bg %d", dis->itemData - PROP_BG_OFFSET + 1);
+          sprintf (b, "\x94\x77\x8c\x69%d", dis->itemData - PROP_BG_OFFSET + 1);
           paint_color_list (dis, b, ccp_curcc[dis->itemData]);
         }
       else if (misc_p (dis->itemData))
@@ -592,7 +592,7 @@ int
 ChooseFontPage::get_result ()
 {
   char b[128];
-  if (!GetDlgItemText (ccp_hwnd, IDC_LSP, b, sizeof b))
+  if (!GetDlgItemTextA (ccp_hwnd, IDC_LSP, b, sizeof b))
     *b = 0;
   int lsp;
   if (!check_integer_format (b, &lsp) || lsp < 0 || lsp > 30)
@@ -667,7 +667,7 @@ ChooseFontPage::do_destroy ()
 }
 
 void
-ChooseFontPage::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGE *psp)
+ChooseFontPage::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGEW *psp)
 {
   ChangeColorsPageP::init_page (IDD_FONT, sheet, page_no, psp);
 
@@ -788,7 +788,7 @@ ChangeColorsDialog::get_result ()
 }
 
 void
-ChangeColorsDialog::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGE *psp)
+ChangeColorsDialog::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGEW *psp)
 {
   ChangeColorsPageP::init_page (IDD_COLOR, sheet, page_no, psp);
 

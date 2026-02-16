@@ -57,7 +57,7 @@ const FontSet::fontface FontSet::fs_default_face[] =
 int
 FontObject::create (const char *face, int h, int charset)
 {
-  LOGFONT lf;
+  LOGFONTA lf;
   bzero (&lf, sizeof lf);
   strcpy (lf.lfFaceName, face);
   lf.lfHeight = h;
@@ -67,15 +67,18 @@ FontObject::create (const char *face, int h, int charset)
 }
 
 int
-FontObject::create (const LOGFONT &lf)
+FontObject::create (const LOGFONTA &lf)
 {
-  HFONT h = CreateFontIndirect (&lf);
+  LOGFONTW lfw;
+  memcpy (&lfw, &lf, offsetof (LOGFONTA, lfFaceName));
+  MultiByteToWideChar (932, 0, lf.lfFaceName, -1, lfw.lfFaceName, LF_FACESIZE);
+  HFONT h = CreateFontIndirectW (&lfw);
   if (!h)
     return 0;
   if (fo_hfont)
     DeleteObject (fo_hfont);
   fo_hfont = h;
-  GetObject (h, sizeof fo_logfont, &fo_logfont);
+  GetObjectA (h, sizeof fo_logfont, &fo_logfont);
   return 1;
 }
 
@@ -93,13 +96,13 @@ void
 FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
 {
   HGDIOBJ of = SelectObject (hdc, fo_hfont);
-  TEXTMETRIC tm;
-  GetTextMetrics (hdc, &tm);
+  TEXTMETRICA tm;
+  GetTextMetricsA (hdc, &tm);
   fo_size.cx = tm.tmAveCharWidth;
   fo_size.cy = tm.tmAscent + tm.tmDescent;
   fo_ascent = tm.tmAscent;
-  GetTextExtentPoint32 (hdc, "A", 1, &ex1);
-  GetTextExtentPoint32 (hdc, "\x82\xa0", 2, &ex2);
+  GetTextExtentPoint32A (hdc, "A", 1, &ex1);
+  GetTextExtentPoint32A (hdc, "\x82\xa0", 2, &ex2);
   SelectObject (hdc, of);
 }
 
@@ -111,7 +114,7 @@ FontObject::calc_offset (const SIZE &sz)
 }
 
 const bool
-FontObject::update (LOGFONT &lf, const lisp keys, const bool recommend_size_p)
+FontObject::update (LOGFONTA &lf, const lisp keys, const bool recommend_size_p)
 {
   check_cons (keys);
   lisp lface = find_keyword (Kface, keys);
@@ -183,14 +186,14 @@ FontSet::paint_backsl_bitmap (HDC hdc)
 {
   HGDIOBJ of = SelectObject (hdc, fs_font[FONT_ASCII]);
 
-  TextOut (hdc, fs_cell.cx * backsl, 0, "/", 1);
+  TextOutA (hdc, fs_cell.cx * backsl, 0, "/", 1);
   StretchBlt (hdc, fs_cell.cx * backsl, 0, fs_cell.cx, fs_cell.cy,
               hdc, fs_cell.cx * (backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
               SRCCOPY);
 
-  TextOut (hdc, fs_cell.cx * bold_backsl, 0, "/", 1);
+  TextOutA (hdc, fs_cell.cx * bold_backsl, 0, "/", 1);
   int omode = SetBkMode (hdc, TRANSPARENT);
-  TextOut (hdc, fs_cell.cx * bold_backsl + 1, 0, "/", 1);
+  TextOutA (hdc, fs_cell.cx * bold_backsl + 1, 0, "/", 1);
   SetBkMode (hdc, omode);
   StretchBlt (hdc, fs_cell.cx * bold_backsl, 0, fs_cell.cx, fs_cell.cy,
               hdc, fs_cell.cx * (bold_backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
@@ -292,8 +295,8 @@ FontSet::paint_fold_bitmap (HDC hdc)
   const FontObject &f = fs_font[FONT_ASCII];
   HGDIOBJ of = SelectObject (hdc, f);
   char c = '<';
-  ExtTextOut (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
-  ExtTextOut (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
+  ExtTextOutA (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
+  ExtTextOutA (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
   SelectObject (hdc, of);
 
   for (int y = 0; y < fs_cell.cy; y += 2)
@@ -360,7 +363,7 @@ FontSet::create (const FontSetParam &param)
       for (int i = 1; i < FONT_MAX; i++)
         for (int h = fs_font[FONT_ASCII].size ().cy; h > 0; h--)
           {
-            LOGFONT lf (param.fs_logfont[i]);
+            LOGFONTA lf (param.fs_logfont[i]);
             lf.lfHeight = h;
             lf.lfWidth = 0;
             fs_font[i].create (lf);
@@ -375,7 +378,7 @@ FontSet::create (const FontSetParam &param)
   for (int i = 0; i < FONT_MAX; i++)
     if (fs_font[i].size ().cx > fs_size.cx)
       {
-        LOGFONT lf (param.fs_logfont[i]);
+        LOGFONTA lf (param.fs_logfont[i]);
         lf.lfWidth = fs_size.cx;
         fs_font[i].create (lf);
         fs_font[i].get_metrics (hdc, ex[i][0], ex[i][1]);
@@ -420,7 +423,7 @@ FontSet::save_params (const FontSetParam &param)
 }
 
 static int CALLBACK
-fix_charset_proc (ENUMLOGFONT *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
+fix_charset_proc (ENUMLOGFONTA *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 {
   HDC hdc = GetDC (0);
   FontSetParam &param = *(FontSetParam *)lparam;
@@ -460,8 +463,8 @@ FontSet::load_params (FontSetParam &param)
           strcpy (param.fs_logfont[i].lfFaceName, default_face (i, 0));
           if (!i)
             {
-              LOGFONT lf;
-              GetObject (GetStockObject (SYSTEM_FIXED_FONT), sizeof lf, &lf);
+              LOGFONTA lf;
+              GetObjectA (GetStockObject (SYSTEM_FIXED_FONT), sizeof lf, &lf);
               param.fs_logfont[0].lfHeight = lf.lfHeight;
             }
           else
@@ -472,7 +475,7 @@ FontSet::load_params (FontSetParam &param)
     }
 
   HDC hdc = GetDC (0);
-  EnumFontFamiliesEx (hdc, 0, FONTENUMPROC (fix_charset_proc), LPARAM (&param), 0);
+  EnumFontFamiliesExA (hdc, (LPLOGFONTA)0, FONTENUMPROCA (fix_charset_proc), LPARAM (&param), 0);
   ReleaseDC (0, hdc);
 }
 
@@ -490,7 +493,7 @@ FontSet::make_alist () const
   lisp r = Qnil;
   for (int i = 0; i < FONT_MAX; i++)
     {
-      LOGFONT lf = font (i).logfont ();
+      LOGFONTA lf = font (i).logfont ();
       int size = lf.lfHeight;
       if (!size_pixel_p ())
         size = FontObject::pixel_to_point (size);
@@ -562,15 +565,15 @@ get_font_height (HWND hwnd)
   HFONT hfont = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));
   HDC hdc = GetDC (hwnd);
   HGDIOBJ ofont = SelectObject (hdc, hfont);
-  TEXTMETRIC tm;
-  GetTextMetrics (hdc, &tm);
+  TEXTMETRICA tm;
+  GetTextMetricsA (hdc, &tm);
   SelectObject (hdc, ofont);
   ReleaseDC (hwnd, hdc);
   return tm.tmHeight;
 }
 
 static int CALLBACK
-check_valid_font (const ENUMLOGFONT *, const NEWTEXTMETRIC *,
+check_valid_font (const ENUMLOGFONTA *, const NEWTEXTMETRIC *,
                   DWORD, LPARAM lparam)
 {
   *(bool *)lparam = true;
@@ -582,14 +585,14 @@ font_exist_p (const HDC hdc, const char *face, BYTE charset)
 {
   bool exists = false;
 
-  LOGFONT font;
-  memset (&font, 0, sizeof (LOGFONT));
+  LOGFONTW font;
+  memset (&font, 0, sizeof (LOGFONTW));
   font.lfCharSet = charset;
-  strcpy (font.lfFaceName, face);
+  MultiByteToWideChar (932, 0, face, -1, font.lfFaceName, LF_FACESIZE);
 
-  EnumFontFamiliesEx (hdc, &font,
-                      FONTENUMPROC (check_valid_font),
-                      LPARAM (&exists), 0);
+  EnumFontFamiliesExW (hdc, &font,
+                       FONTENUMPROCW (check_valid_font),
+                       LPARAM (&exists), 0);
 
   return exists;
 }

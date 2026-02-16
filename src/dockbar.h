@@ -30,12 +30,13 @@ protected:
   lisp b_lname;
   enum {TTBUFSIZE = 256};
   static char b_ttbuf[TTBUFSIZE];
+  static wchar_t b_ttbufw[TTBUFSIZE];
 private:
   u_char b_edge;
   u_char b_border;
   u_char b_dockable;
   u_char b_status;
-  static const char b_dock_bar_prop[];
+  static const wchar_t b_dock_bar_prop[];
 public:
   enum
     {
@@ -117,7 +118,7 @@ public:
     {return (dock_bar *)GetProp (hwnd, b_dock_bar_prop);}
   LRESULT sendmsg (UINT msg, WPARAM wparam, LPARAM lparam) const
     {return CallWindowProc (b_wndproc, b_hwnd, msg, wparam, lparam);}
-  int create (DWORD exstyle, const char *class_name, const char *window_name,
+  int create (DWORD exstyle, const wchar_t *class_name, const wchar_t *window_name,
               DWORD style, int x, int y, int cx, int cy, HWND hwnd_parent,
               HMENU hmenu, HINSTANCE hinst, void *param)
     {
@@ -271,7 +272,7 @@ protected:
 private:
   int t_erasebkgnd_called;
   int t_dots;
-  static const char b_tab_bar_spin_prop[];
+  static const wchar_t b_tab_bar_spin_prop[];
 protected:
   enum {IDC_TAB_SPIN = 1};
   enum {GRIPPER_SIZE = 3};
@@ -314,7 +315,7 @@ public:
   ~tab_bar () {}
   int create (HWND hwnd_parent, DWORD style, UINT id)
     {
-      return dock_bar::create (0, WC_TABCONTROL, "",
+      return dock_bar::create (0, WC_TABCONTROL, L"",
                                style, 0, 0, 0, 0, hwnd_parent,
                                (HMENU)id, app.hinst, 0);
     }

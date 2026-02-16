@@ -7,10 +7,10 @@ get_mouse_scroll_lines ()
 {
   UINT nlines = 0;
 
-  UINT PWM_MSH_SCROLL_LINES = RegisterWindowMessage (MSH_SCROLL_LINES);
+  UINT PWM_MSH_SCROLL_LINES = RegisterWindowMessageA (MSH_SCROLL_LINES);
   if (PWM_MSH_SCROLL_LINES)
     {
-      HWND hwnd = FindWindow (MSH_WHEELMODULE_CLASS, MSH_WHEELMODULE_TITLE);
+      HWND hwnd = FindWindowA (MSH_WHEELMODULE_CLASS, MSH_WHEELMODULE_TITLE);
       if (hwnd)
         {
           nlines = SendMessage (hwnd, PWM_MSH_SCROLL_LINES, 0, 0);
@@ -20,13 +20,13 @@ get_mouse_scroll_lines ()
     }
 
   HKEY hkey;
-  if (RegOpenKeyEx (HKEY_CURRENT_USER,  "Control Panel\\Desktop",
-                    0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
+  if (RegOpenKeyExA (HKEY_CURRENT_USER,  "Control Panel\\Desktop",
+                     0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
     {
       char buf[64];
       DWORD type;
       DWORD size = sizeof buf;
-      if (RegQueryValueEx (hkey, "WheelScrollLines", 0, &type,
+      if (RegQueryValueExA (hkey, "WheelScrollLines", 0, &type,
                            (BYTE *)buf, &size) == ERROR_SUCCESS
           && type == REG_SZ)
         nlines = strtoul (buf, 0, 10);
@@ -51,7 +51,7 @@ mouse_wheel::mouse_wheel ()
   if (!mw_nlines)
     {
       mw_nlines = get_mouse_scroll_lines ();
-      PWM_MSH_MOUSEWHEEL = RegisterWindowMessage (MSH_MOUSEWHEEL);
+      PWM_MSH_MOUSEWHEEL = RegisterWindowMessageA (MSH_MOUSEWHEEL);
     }
 }
 
@@ -89,7 +89,7 @@ mouse_wheel::msg_handler (HWND hwnd, UINT msg,
 }
 
 static ATOM auto_scroll_atom;
-static const char auto_scroll_class_name[] = "autoScrollClass";
+static const wchar_t auto_scroll_class_name[] = L"autoScrollClass";
 
 #define STATE_CENTER 0
 #define STATE_UP 1
@@ -199,7 +199,7 @@ begin_auto_scroll (HWND hwnd_parent, const POINT &point,
   if (!register_wndclass ())
     return 0;
 
-  HWND hwnd_scroll = CreateWindow (auto_scroll_class_name, "", WS_POPUP,
+  HWND hwnd_scroll = CreateWindow (auto_scroll_class_name, L"", WS_POPUP,
                                    0, 0, 0, 0, hwnd_parent,
                                    0, app.hinst, 0);
   if (!hwnd_scroll)

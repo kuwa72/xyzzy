@@ -15,6 +15,7 @@
 
 # define TITLE_BAR_STRING_SIZE 256
 extern char TitleBarString[];
+extern wchar_t TitleBarStringW[];
 extern const char VersionString[];
 extern const char DisplayVersionString[];
 extern const char ProgramName[];

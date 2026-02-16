@@ -23,9 +23,9 @@ calc_rect (HDC hdc, const RECT &scr, RECT &r, int num, int den)
 {
   memset (&r, 0, sizeof r);
   r.right = (scr.right - scr.left) * num / den;
-  DrawText (hdc, popup_text, -1, &r,
-            (DT_EXTERNALLEADING | DT_CALCRECT | DT_EXPANDTABS
-             | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK));
+  DrawTextA (hdc, popup_text, -1, &r,
+             (DT_EXTERNALLEADING | DT_CALCRECT | DT_EXPANDTABS
+              | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK));
 }
 
 static int
@@ -122,8 +122,8 @@ dopaint (HDC hdc)
   HGDIOBJ of = SelectObject (hdc, hfont_popup);
   SetTextColor (hdc, TEXTCOLOR);
   SetBkColor (hdc, BACKCOLOR);
-  DrawText (hdc, popup_text, -1, &popup_rect,
-            DT_EXTERNALLEADING | DT_EXPANDTABS | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
+  DrawTextA (hdc, popup_text, -1, &popup_rect,
+             DT_EXTERNALLEADING | DT_EXPANDTABS | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
   SelectObject (hdc, of);
 }
 
@@ -182,7 +182,7 @@ wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 static int
 create_popup ()
 {
-  static const char wclass[] = "popup!?";
+  static const wchar_t wclass[] = L"popup!?";
 
   f_first_time = 1;
   if (hwnd_popup)
@@ -205,7 +205,7 @@ create_popup ()
   if (!RegisterClass (&wc))
     return 0;
 
-  hwnd_popup = CreateWindow (wclass, "",
+  hwnd_popup = CreateWindow (wclass, L"",
                              WS_POPUP | WS_BORDER,
                              0, 0, 0, 0,
                              app.toplev, 0, app.hinst, 0);
@@ -222,7 +222,7 @@ create_popup ()
           memset (&cm.lfStatusFont, 0, sizeof cm.lfStatusFont);
           cm.lfStatusFont.lfHeight = MulDiv (9, GetDeviceCaps (hdc, LOGPIXELSY), 72);
           cm.lfStatusFont.lfCharSet = SHIFTJIS_CHARSET;
-          strcpy (cm.lfStatusFont.lfFaceName, "MS UI Gothic");
+          wcscpy (cm.lfStatusFont.lfFaceName, L"MS UI Gothic");
           ReleaseDC (hwnd_popup, hdc);
         }
       hfont_popup = CreateFontIndirect (&cm.lfStatusFont);

@@ -41,23 +41,23 @@ buffer_bar::set_buffer_name (const Buffer *bp, char *buf, int size)
 int
 buffer_bar::insert (const Buffer *bp, int i)
 {
-  TC_ITEM ti;
+  TCITEMA ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
   char buf[BUFFER_NAME_MAX * 2 + 32];
   ti.pszText = set_buffer_name (bp, buf, sizeof buf);
   ti.lParam = LPARAM (bp);
-  return insert_item (i, ti);
+  return SendMessageA (b_hwnd, TCM_INSERTITEMA, i, LPARAM (&ti));
 }
 
 int
 buffer_bar::modify (const Buffer *bp, int i)
 {
-  TC_ITEM ti;
+  TCITEMA ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
   char buf[BUFFER_NAME_MAX * 2 + 32];
   ti.pszText = set_buffer_name (bp, buf, sizeof buf);
   ti.lParam = LPARAM (bp);
-  return set_item (i, ti);
+  return SendMessageA (b_hwnd, TCM_SETITEMA, i, LPARAM (&ti));
 }
 
 int
@@ -117,7 +117,8 @@ buffer_bar::need_text (TOOLTIPTEXT &ttt)
     x = bp->lbuffer_name;
 
   w2s (b_ttbuf, b_ttbuf + TTBUFSIZE, x);
-  ttt.lpszText = b_ttbuf;
+  MultiByteToWideChar (932, 0, b_ttbuf, -1, b_ttbufw, TTBUFSIZE);
+  ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;
 }
