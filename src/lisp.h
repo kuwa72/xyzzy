@@ -315,7 +315,7 @@ check_quit ()
 # include "char.h"
 # include "list.h"
 # include "vector.h"
-# include "string.h"
+# include "lstring.h"
 # include "stream.h"
 # include "package.h"
 # include "hash.h"
