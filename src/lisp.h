@@ -17,7 +17,7 @@ public:
 
 typedef lisp_object *lisp;
 
-# include "signal.h"
+# include "lsignal.h"
 # include "data.h"
 # include "utils.h"
 
