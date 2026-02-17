@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ modern, develop, ci-experiment ]
+    branches: [ modern, develop ]
   pull_request:
     branches: [ modern, develop ]
 
