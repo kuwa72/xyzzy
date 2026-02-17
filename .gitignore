@@ -52,6 +52,10 @@ misc/words.utf8.txt
 build/
 xyzzy_debug.log
 
+# Local files
+TODO.md
+test.bat
+
 ## Ignore Makefile temporary files, build results.
 char-width.h
 fns-decl.h

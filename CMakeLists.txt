@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(xyzzy LANGUAGES C CXX)
+project(xyzzy VERSION 0.2.6.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
@@ -7,6 +7,55 @@ set(CMAKE_C_STANDARD 11)
 # Default to Release build if not specified
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+# ============================================================
+# Version description from git
+# ============================================================
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty --long
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_DESCRIBE_LONG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE GIT_DESCRIBE_RESULT
+    )
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_DESCRIBE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(GIT_DESCRIBE_RESULT EQUAL 0 AND NOT "${GIT_DESCRIBE}" STREQUAL "${GIT_DESCRIBE_LONG}")
+        # Not exactly on a tag - include describe string
+        set(VERSION_DESCRIBE_CONTENT "#define PROGRAM_VERSION_DESCRIBE_STRING \"${GIT_DESCRIBE}\"")
+    else()
+        set(VERSION_DESCRIBE_CONTENT "/* On tag or no tags - use default version string */")
+    endif()
+else()
+    set(VERSION_DESCRIBE_CONTENT "/* No git info available */")
+endif()
+file(WRITE ${CMAKE_SOURCE_DIR}/src/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
+
+# ============================================================
+# Find zlib
+# ============================================================
+find_package(ZLIB)
+if(NOT ZLIB_FOUND)
+    # Fallback for MSVC: use vendored zlib
+    if(MSVC)
+        set(ZLIB_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src/zlib)
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(ZLIB_LIBRARIES ${CMAKE_SOURCE_DIR}/src/zlib/Debug/zlib.lib)
+        else()
+            set(ZLIB_LIBRARIES ${CMAKE_SOURCE_DIR}/src/zlib/Release/zlib.lib)
+        endif()
+    else()
+        message(FATAL_ERROR "zlib not found. Install with: pacman -S mingw-w64-clang-aarch64-zlib")
+    endif()
 endif()
 
 # Source and generated directories
@@ -357,10 +406,12 @@ set(XYZZY_SOURCES
 add_executable(xyzzy WIN32 ${XYZZY_SOURCES})
 target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
 target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
 add_dependencies(xyzzy gen-src1-run gen-src2-run)
 
 # Link libraries
 target_link_libraries(xyzzy PRIVATE
+    ${ZLIB_LIBRARIES}
     comctl32
     imm32
     mpr
@@ -371,7 +422,6 @@ target_link_libraries(xyzzy PRIVATE
     ole32
     oleaut32
     uuid
-    z
 )
 
 # Static linking (no DLL dependencies on MSYS2 runtime)
@@ -409,3 +459,62 @@ target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}")
 if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
 endif()
+
+# ============================================================
+# tail-f: File monitoring utility (etc/tail-f.exe)
+# ============================================================
+add_executable(tail-f ${SRC_DIR}/etc/tail-f.cc)
+if(NOT MSVC)
+    target_link_options(tail-f PRIVATE -static)
+endif()
+
+# ============================================================
+# Bytecompile: compile .l -> .lc and generate dump image
+# ============================================================
+add_custom_target(bytecompile
+    COMMAND ${CMAKE_COMMAND} -E env
+        "XYZZYHOME=${CMAKE_SOURCE_DIR}"
+        "XYZZYINIFILE="
+        "XYZZYCONFIGPATH="
+        $<TARGET_FILE:xyzzy> -q -trace -load misc/makelc.l -e "(makelc:makelc-and-exit t)"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS xyzzy
+    COMMENT "Byte-compiling Lisp files and generating dump image"
+    USES_TERMINAL
+)
+
+# ============================================================
+# Testing
+# ============================================================
+enable_testing()
+add_test(
+    NAME xyzzy-unit-tests
+    COMMAND ${CMAKE_COMMAND} -E env
+        "XYZZYHOME=${CMAKE_SOURCE_DIR}"
+        "XYZZYINIFILE="
+        "XYZZYCONFIGPATH="
+        $<TARGET_FILE:xyzzy> -q -trace -l unittest/run-tests-helper.l
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+# ============================================================
+# Install
+# ============================================================
+install(TARGETS xyzzy xyzzycli xyzzyenv RUNTIME DESTINATION .)
+install(TARGETS tail-f RUNTIME DESTINATION etc)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION etc)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION docs)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION reference OPTIONAL)
+install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION .)
+install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
+
+# ============================================================
+# CPack: packaging
+# ============================================================
+set(CPACK_PACKAGE_NAME "xyzzy")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_PACKAGE_FILE_NAME "xyzzy-${PROJECT_VERSION}")
+include(CPack)
