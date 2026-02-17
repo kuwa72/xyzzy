@@ -463,6 +463,42 @@ if(CMAKE_RC_COMPILER)
 endif()
 
 # ============================================================
+# xyzzy-batch: Console version for batch operations (byte-compile, etc.)
+# No WIN32 → console subsystem, so execute_process can wait for it.
+# batch-main.cc provides main() which calls WinMain(SW_HIDE).
+# ============================================================
+add_executable(xyzzy-batch ${XYZZY_SOURCES} ${SRC_DIR}/batch-main.cc)
+target_compile_definitions(xyzzy-batch PRIVATE UNICODE _UNICODE)
+if(MSVC)
+    target_include_directories(xyzzy-batch PRIVATE ${SRC_DIR} ${SRC_DIR}/privctrl ${GEN_DIR})
+else()
+    target_compile_options(xyzzy-batch PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+endif()
+target_include_directories(xyzzy-batch PRIVATE ${ZLIB_INCLUDE_DIRS})
+add_dependencies(xyzzy-batch gen-src1-run gen-src2-run)
+target_link_libraries(xyzzy-batch PRIVATE
+    ${ZLIB_LIBRARIES}
+    comctl32
+    imm32
+    mpr
+    rpcrt4
+    wsock32
+    crypt32
+    secur32
+    ole32
+    oleaut32
+    uuid
+)
+if(NOT MSVC)
+    target_link_options(xyzzy-batch PRIVATE -static -Wl,--stack,0x2000000)
+else()
+    target_link_options(xyzzy-batch PRIVATE /STACK:0x2000000)
+endif()
+if(CMAKE_RC_COMPILER)
+    target_sources(xyzzy-batch PRIVATE ${SRC_DIR}/xyzzy.rc)
+endif()
+
+# ============================================================
 # xyzzycli: Command-line launcher
 # ============================================================
 add_executable(xyzzycli WIN32 ${SRC_DIR}/xyzzycli.cc)
@@ -508,15 +544,12 @@ endif()
 # Bytecompile: compile .l -> .lc and generate dump image
 # ============================================================
 add_custom_target(bytecompile
-    COMMAND ${CMAKE_COMMAND} -E env
-        "XYZZYHOME=${CMAKE_SOURCE_DIR}"
-        "XYZZYINIFILE="
-        "XYZZYCONFIGPATH="
-        $<TARGET_FILE:xyzzy> -q -trace -load misc/makelc.l -e "(makelc:makelc-and-exit t)"
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    DEPENDS xyzzy
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DXYZZY_EXE=$<TARGET_FILE:xyzzy-batch>
+        -P ${CMAKE_SOURCE_DIR}/cmake/bytecompile.cmake
+    DEPENDS xyzzy-batch
     COMMENT "Byte-compiling Lisp files and generating dump image"
-    USES_TERMINAL
 )
 
 # ============================================================

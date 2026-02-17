@@ -52,6 +52,13 @@ jobs:
     - name: Byte-compile Lisp files
       run: cmake --build build --config Release --target bytecompile
 
+    - name: Verify byte-compile results
+      run: |
+        $lcFiles = Get-ChildItem -Recurse lisp/*.lc
+        Write-Host "Found $($lcFiles.Count) .lc files"
+        if ($lcFiles.Count -eq 0) { throw "No .lc files generated!" }
+        $lcFiles | Select-Object -First 10 | ForEach-Object { Write-Host $_.Name }
+
     - name: Package
       run: |
         cd build
