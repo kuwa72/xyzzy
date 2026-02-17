@@ -20,13 +20,13 @@ jobs:
 
     - name: Install zlib via vcpkg
       run: |
-        vcpkg install zlib:arm64-windows
+        vcpkg install zlib:arm64-windows-static-md
 
     - name: Configure CMake
       run: |
         cmake -B build -G "Visual Studio 17 2022" -A ARM64 `
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-          -DVCPKG_TARGET_TRIPLET=arm64-windows
+          -DVCPKG_TARGET_TRIPLET=arm64-windows-static-md
 
     - name: Build
       run: cmake --build build --config Release
@@ -37,11 +37,13 @@ jobs:
           "{0}: {1:N0} KB" -f $_.Name, ($_.Length / 1KB)
         }
 
+    - name: Package
+      run: |
+        cd build
+        cpack -C Release
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: xyzzy-arm64
-        path: |
-          build/Release/xyzzy.exe
-          build/Release/xyzzycli.exe
-          build/Release/xyzzyenv.exe
+        path: build/xyzzy-*.zip
