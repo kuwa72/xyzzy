@@ -1030,12 +1030,14 @@ encoding_auto_detect_p (lisp encoding)
           && xchar_encoding_type (encoding) == encoding_auto_detect);
 }
 
+#ifndef UNICODE
 static int
 encoding_sjis_p (lisp encoding)
 {
   return (!char_encoding_p (encoding)
           || xchar_encoding_type (encoding) == encoding_sjis);
 }
+#endif
 
 static int
 encoding_utf16_p (lisp encoding)
@@ -1058,6 +1060,7 @@ galloc (CLIPBOARDTEXT &clp, int size)
   return 0;
 }
 
+#ifndef UNICODE
 static int
 make_cf_text_sjis (CLIPBOARDTEXT &clp, lisp string)
 {
@@ -1103,12 +1106,15 @@ make_cf_text_sjis (CLIPBOARDTEXT &clp, lisp string)
   GlobalUnlock (clp.hgl);
   return 1;
 }
+#endif /* !UNICODE */
 
 static int
 make_cf_text (CLIPBOARDTEXT &clp, lisp string, lisp encoding)
 {
+#ifndef UNICODE
   if (encoding_sjis_p (encoding) || encoding_auto_detect_p (encoding))
     return make_cf_text_sjis (clp, string);
+#endif
 
   Char_input_string_stream str1 (string);
   encoding_output_stream_helper is1 (encoding, str1, eol_crlf);
@@ -1199,6 +1205,10 @@ Fcopy_to_clipboard (lisp string)
 
   CLIPBOARDTEXT clp[2];
   bzero (clp, sizeof clp);
+#ifdef UNICODE
+  if (!make_cf_wtext (clp[0], string))
+    FEstorage_error ();
+#else
   lisp encoding = symbol_value (Vclipboard_char_encoding, selected_buffer ());
   if (encoding_utf16_p (encoding))
     {
@@ -1220,6 +1230,7 @@ Fcopy_to_clipboard (lisp string)
           FEstorage_error ();
         }
     }
+#endif
 
   int result = 0;
   if (open_clipboard (app.toplev))
@@ -1242,6 +1253,7 @@ Fcopy_to_clipboard (lisp string)
   return boole (result);
 }
 
+#ifndef UNICODE
 static int
 count_cf_text_length (const u_char *string)
 {
@@ -1297,16 +1309,19 @@ make_string_from_cf_text_sjis (lisp lstring, const u_char *s)
     }
   return 1;
 }
+#endif /* !UNICODE */
 
 static int
 make_string_from_cf_text (lisp lstring, const u_char *s)
 {
   const char* ss = reinterpret_cast<const char*> (s);
   lisp encoding = symbol_value (Vclipboard_char_encoding, selected_buffer ());
+#ifndef UNICODE
   if (encoding_auto_detect_p (encoding))
     encoding = detect_char_encoding (ss, strlen (ss));
   if (encoding_sjis_p (encoding))
     return make_string_from_cf_text_sjis (lstring, s);
+#endif
 
   int sl = strlen (ss);
   xinput_strstream str1 (ss, sl);
@@ -1375,6 +1390,11 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int lang)
   xstring_contents (lstring) = b;
   xstring_length (lstring) = l;
 
+#ifdef UNICODE
+  for (; *s; s++)
+    if (*s != '\r' || s[1] != '\n')
+      *b++ = *s;
+#else
   const Char *const translate = cjk_translate_table (lang);
 
   switch (lang)
@@ -1451,7 +1471,8 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int lang)
           }
       break;
     }
-  
+#endif /* !UNICODE */
+
   return 1;
 }
 

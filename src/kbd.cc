@@ -57,6 +57,9 @@ kbd_queue::putraw (lChar c)
 int
 kbd_queue::putc (lChar c)
 {
+#ifdef UNICODE
+  return putraw (c);
+#else
   if (c >= 256)
     return putraw (c);
 
@@ -80,17 +83,22 @@ kbd_queue::putc (lChar c)
 
   char cc = char (c);
   return puts (&cc, 1);
+#endif
 }
 
 int
 kbd_queue::putw (int w)
 {
+#ifdef UNICODE
+  return putc (w);
+#else
   if (w < 256)
     return putc (w);
   char b[2];
   b[0] = w >> 8;
   b[1] = w;
   return puts (b, 2);
+#endif
 }
 
 int
@@ -661,7 +669,11 @@ decode_syschars (WPARAM wparam)
   if (GetKeyState (VK_MENU) < 0)
     {
       if (ascii_char_p (cc))
+#ifdef UNICODE
+        cc |= CC_META;
+#else
         cc |= CC_META_BIT;
+#endif
       else if (function_char_p (Char (cc)))
         cc = function_to_meta_function (Char (cc));
     }
@@ -753,7 +765,11 @@ decode_keys (WPARAM wparam, LPARAM lparam)
           if (GetKeyState (VK_MENU) < 0)
             {
               if (ascii_char_p (c))
+#ifdef UNICODE
+                c |= CC_META;
+#else
                 c |= CC_META_BIT;
+#endif
               else if (function_char_p (Char (c)))
                 c = function_to_meta_function (Char (c));
             }

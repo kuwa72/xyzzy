@@ -260,6 +260,9 @@ Fcall_process (lisp cmd, lisp keys)
   PROCESS_INFORMATION pi;
   int result = CreateProcessA (0, cmdline, 0, 0, !no_std_handles,
                                (CREATE_DEFAULT_ERROR_MODE
+#ifdef UNICODE
+                                | CREATE_UNICODE_ENVIRONMENT
+#endif
                                 /*| CREATE_NEW_PROCESS_GROUP*/
                                 | NORMAL_PRIORITY_CLASS),
                                (void *)env.str (), dir, &si, &pi);
@@ -928,6 +931,9 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   PROCESS_INFORMATION pi;
   int result = CreateProcessA (0, cmdline, 0, 0, 1,
                                (CREATE_NEW_PROCESS_GROUP
+#ifdef UNICODE
+                                | CREATE_UNICODE_ENVIRONMENT
+#endif
                                 | CREATE_DEFAULT_ERROR_MODE
                                 | NORMAL_PRIORITY_CLASS),
                                (void *)env, dir, &si, &pi);

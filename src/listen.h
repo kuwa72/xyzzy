@@ -1,7 +1,11 @@
 #ifndef _listen_h_
 #define _listen_h_
 
+#ifdef UNICODE
+static const char xyzzysrv_name[] = "xyzzy+-server v2";
+#else
 static const char xyzzysrv_name[] = "xyzzy-server v2";
+#endif
 
 // wm_private_xyzzysrv
 //  wparam: process ID

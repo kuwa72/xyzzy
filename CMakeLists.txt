@@ -41,9 +41,14 @@ endif()
 file(WRITE ${CMAKE_SOURCE_DIR}/src/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
 
 # ============================================================
-# Find zlib
+# Find zlib (prefer static library for -static linking)
 # ============================================================
+set(CMAKE_FIND_LIBRARY_SUFFIXES_SAVE ${CMAKE_FIND_LIBRARY_SUFFIXES})
+if(NOT MSVC)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+endif()
 find_package(ZLIB)
+set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_SAVE})
 if(NOT ZLIB_FOUND)
     # Fallback for MSVC: use vendored zlib
     if(MSVC)

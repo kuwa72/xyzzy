@@ -63,9 +63,33 @@ sjis_to_internal_stream::refill_internal ()
         {
           int c2 = s_in.get ();
           if (c2 != eof)
-            c1 = (c1 << 8) + c2;
+            {
+              Char cc = (c1 << 8) + c2;
+#ifdef UNICODE
+              Char ic = w2i (i2w (cc));
+              if (ic == Char (-1))
+                {
+                  s_in.putback (c2);
+                  put (DEFCHAR);
+                }
+              else
+                put (ic);
+#else
+              put (cc);
+#endif
+            }
+          else
+            put (c1);
         }
-      put (c1);
+      else
+        {
+#ifdef UNICODE
+          Char ic = w2i (i2w (c1));
+          put (ic != Char (-1) ? ic : DEFCHAR);
+#else
+          put (c1);
+#endif
+        }
     }
 }
 
@@ -83,8 +107,30 @@ fast_sjis_to_internal_stream::refill_internal ()
     {
       int c1 = *s++;
       if (SJISP (c1) && s < se)
-        c1 = (c1 << 8) + *s++;
-      *d = c1;
+        {
+          Char cc = (c1 << 8) + *s++;
+#ifdef UNICODE
+          Char ic = w2i (i2w (cc));
+          if (ic == Char (-1))
+            {
+              --s;
+              *d = DEFCHAR;
+            }
+          else
+            *d = ic;
+#else
+          *d = cc;
+#endif
+        }
+      else
+        {
+#ifdef UNICODE
+          Char ic = w2i (i2w (c1));
+          *d = (ic != Char (-1)) ? ic : DEFCHAR;
+#else
+          *d = c1;
+#endif
+        }
     }
   s_in.end_direct_input (s);
   end_direct_output (d);
