@@ -37,6 +37,9 @@ jobs:
           "{0}: {1:N0} KB" -f $_.Name, ($_.Length / 1KB)
         }
 
+    - name: Byte-compile Lisp files
+      run: cmake --build build --config Release --target bytecompile
+
     - name: Package
       run: |
         cd build
