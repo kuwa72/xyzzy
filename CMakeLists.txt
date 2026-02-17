@@ -84,8 +84,16 @@ else()
     add_compile_definitions(NDEBUG DEBUG_GC)
 endif()
 
-# MinGW/Clang compatibility flags
-if(NOT MSVC)
+# Compiler-specific flags
+if(MSVC)
+    add_compile_options(
+        /W3
+        /wd4996  # deprecated functions
+        /wd4477  # format string type mismatch
+        /wd4312  # conversion to pointer of greater size
+        /utf-8   # source files are UTF-8
+    )
+else()
     add_compile_options(
         -fms-extensions
         -fno-operator-names
@@ -129,8 +137,13 @@ set(GEN_SRC1_SOURCES
 add_executable(gen-src1 ${GEN_SRC1_SOURCES})
 target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 WIN32 _CONSOLE)
 # Use -iquote instead of -I so that <string.h> finds the system header
-# rather than src/string.h (project's Lisp string type header)
-target_compile_options(gen-src1 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+# rather than src/string.h (project's Lisp string type header).
+# MSVC uses /I but searches system includes first, so no collision.
+if(MSVC)
+    target_include_directories(gen-src1 PRIVATE ${SRC_DIR} ${GEN_DIR})
+else()
+    target_compile_options(gen-src1 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+endif()
 
 # ============================================================
 # gen-src1 code generation custom commands
@@ -249,7 +262,11 @@ set(GEN_SRC2_SOURCES
 
 add_executable(gen-src2 ${GEN_SRC2_SOURCES})
 target_compile_definitions(gen-src2 PRIVATE GEN_SRC2 WIN32 _CONSOLE)
-target_compile_options(gen-src2 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+if(MSVC)
+    target_include_directories(gen-src2 PRIVATE ${SRC_DIR} ${GEN_DIR})
+else()
+    target_compile_options(gen-src2 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+endif()
 # gen-src2 compilation needs chtab.cc from gen-src1
 add_dependencies(gen-src2 gen-src1-run)
 
@@ -410,7 +427,11 @@ set(XYZZY_SOURCES
 
 add_executable(xyzzy WIN32 ${XYZZY_SOURCES})
 target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
-target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+if(MSVC)
+    target_include_directories(xyzzy PRIVATE ${SRC_DIR} ${SRC_DIR}/privctrl ${GEN_DIR})
+else()
+    target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+endif()
 target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
 add_dependencies(xyzzy gen-src1-run gen-src2-run)
 
@@ -447,7 +468,11 @@ if(CMAKE_RC_COMPILER)
     target_sources(xyzzycli PRIVATE ${SRC_DIR}/xyzzycli.rc)
 endif()
 target_compile_definitions(xyzzycli PRIVATE UNICODE _UNICODE)
-target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}")
+if(MSVC)
+    target_include_directories(xyzzycli PRIVATE ${SRC_DIR})
+else()
+    target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}")
+endif()
 if(NOT MSVC)
     target_link_options(xyzzycli PRIVATE -static)
 endif()
@@ -460,7 +485,11 @@ if(CMAKE_RC_COMPILER)
     target_sources(xyzzyenv PRIVATE ${SRC_DIR}/xyzzyenv.rc)
 endif()
 target_compile_definitions(xyzzyenv PRIVATE UNICODE _UNICODE)
-target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}")
+if(MSVC)
+    target_include_directories(xyzzyenv PRIVATE ${SRC_DIR})
+else()
+    target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}")
+endif()
 if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
 endif()
