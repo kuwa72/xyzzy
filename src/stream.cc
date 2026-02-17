@@ -1571,10 +1571,7 @@ listen_stream (lisp stream)
         case st_file_io:
         case st_file_input:
           {
-#ifdef _MSC_VER
-            if (xfile_stream_input (stream)->_cnt > 0)
-              return 1;
-#elif defined(__MINGW32__)
+#if defined(_MSC_VER) || defined(__MINGW32__)
             /* MinGW: use feof/ferror check and non-blocking wait */
             if (!feof (xfile_stream_input (stream))
                 && ferror (xfile_stream_input (stream)) == 0)

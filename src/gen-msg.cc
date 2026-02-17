@@ -16,7 +16,6 @@ static const msgdef msg[] =
 #include "msgdef.h"
 };
 
-#ifndef _MSC_VER
 /* Convert UTF-8 string to CP932. Caller must free() the result. */
 static char *
 utf8_to_cp932 (const char *utf8)
@@ -56,7 +55,6 @@ print_quote_cp932 (const char *p)
         putchar (*p++);
     }
 }
-#endif
 
 static void
 print_quote (const char *p)
@@ -70,12 +68,7 @@ print_quote (const char *p)
           if (*p == '\\' || *p == '"')
             putchar ('\\');
           putchar (*p);
-#ifdef _MSC_VER
-          if (SJISP (*p++ & 0xff))
-            putchar (*p++);
-#else
           p++;
-#endif
         }
     }
 }
@@ -92,12 +85,7 @@ print_quote_rc (const char *p)
           if (*p == '\\' || *p == '"')
             putchar (*p);
           putchar (*p);
-#ifdef _MSC_VER
-          if (SJISP (*p++ & 0xff))
-            putchar (*p++);
-#else
           p++;
-#endif
         }
     }
 }
@@ -123,7 +111,6 @@ gen_msg (int argc, char **argv)
     }
   else if (!strcmp (argv[1], "-c"))
     {
-#ifndef _MSC_VER
       /* Convert all message texts from UTF-8 to CP932 */
       int nmsg = numberof (msg);
       char **texts = (char **)malloc (nmsg * sizeof (char *));
@@ -152,26 +139,6 @@ gen_msg (int argc, char **argv)
       for (int i = 0; i < nmsg; i++)
         free (texts[i]);
       free (texts);
-#else
-      printf ("const char SSM[] =\n");
-      for (int i = 0; i < numberof (msg); i++)
-        {
-          printf ("  \"");
-          print_quote (msg[i].text);
-          printf ("\\0\"\n");
-        }
-      printf (";\n\n");
-
-      printf ("static const char *const message_string[] =\n");
-      printf ("{\n");
-      int l = 0;
-      for (int i = 0; i < numberof (msg); i++)
-        {
-          printf ("  SSM + %d,\n", l);
-          l += strlen (msg[i].text) + 1;
-        }
-      printf ("};\n\n");
-#endif
 
       printf ("const char *\n"
               "get_message_string (int code)\n"

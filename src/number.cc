@@ -179,7 +179,7 @@ truncate (double x)
 }
 
 static double __cdecl
-round (double x)
+xround (double x)
 {
   double q = truncate (x);
   if (q == x)
@@ -242,7 +242,7 @@ ceiling (long *r, long x, long y)
 }
 
 static long
-round (long *r, long x, long y)
+xround (long *r, long x, long y)
 {
   long q = truncate (r, x, y);
   if (*r)
@@ -974,7 +974,7 @@ Ftruncate (lisp number, lisp divisor)
 lisp
 Fround (lisp number, lisp divisor)
 {
-  return fix_number (number, divisor, round, round, round);
+  return fix_number (number, divisor, xround, round, xround);
 }
 
 lisp
@@ -1019,7 +1019,7 @@ Fftruncate (lisp number, lisp divisor)
 lisp
 Ffround (lisp number, lisp divisor)
 {
-  return fix_flonum (number, divisor, round);
+  return fix_flonum (number, divisor, xround);
 }
 
 lisp
