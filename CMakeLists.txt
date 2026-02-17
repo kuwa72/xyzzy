@@ -453,6 +453,8 @@ target_link_libraries(xyzzy PRIVATE
 # Static linking (no DLL dependencies on MSYS2 runtime)
 if(NOT MSVC)
     target_link_options(xyzzy PRIVATE -static -Wl,--stack,0x2000000)
+else()
+    target_link_options(xyzzy PRIVATE /STACK:0x2000000)
 endif()
 
 # Resource file
