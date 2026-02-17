@@ -273,7 +273,7 @@ make_win32_dde_handle ()
 struct Window;
 struct Buffer;
 
-# include "process.h"
+# include "lprocess.h"
 # include "dll.h"
 # include "chunk.h"
 # include "oledata.h"

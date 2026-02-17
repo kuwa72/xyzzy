@@ -1,1 +1,2 @@
-*.bat -crlf
+# Normalize line endings to LF
+* text=auto eol=lf

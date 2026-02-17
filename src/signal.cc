@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
-#include "signal.h"
+#include "lsignal.h"
 
 #ifdef DEBUG
 static void check_condition_def ();

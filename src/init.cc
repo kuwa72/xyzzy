@@ -74,6 +74,25 @@ Application::~Application ()
 static void
 init_module_dir ()
 {
+  // Check XYZZYHOME first — allows out-of-tree builds (exe in build/, lisp in source/)
+  char *xyzzyhome = getenv ("XYZZYHOME");
+  if (xyzzyhome && *xyzzyhome)
+    {
+      char path[PATH_MAX];
+      int l = strlen (xyzzyhome);
+      if (l > 0 && l < PATH_MAX - 2)
+        {
+          strcpy (path, xyzzyhome);
+          if (path[l - 1] != '\\' && path[l - 1] != '/')
+            {
+              path[l] = '\\';
+              path[l + 1] = 0;
+            }
+          xsymbol_value (Qmodule_dir) = make_path (path);
+          return;
+        }
+    }
+
   wchar_t wpath[PATH_MAX];
   GetModuleFileNameW (0, wpath, PATH_MAX);
   char path[PATH_MAX];
@@ -840,7 +859,9 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
   SIZE size;
   int cmdshow = environ::load_geometry (passed_cmdshow, &point, &size);
   int restore_maximized = 0;
-  if (sw_minimized_p (passed_cmdshow))
+  if (passed_cmdshow == SW_HIDE)
+    cmdshow = SW_HIDE;
+  else if (sw_minimized_p (passed_cmdshow))
     {
       restore_maximized = sw_maximized_p (cmdshow);
       cmdshow = passed_cmdshow;

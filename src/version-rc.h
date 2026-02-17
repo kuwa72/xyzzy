@@ -28,6 +28,7 @@ BEGIN
       VALUE "OriginalFilename", PROGRAM_NAME ".exe\0"
       VALUE "ProductName", PROGRAM_NAME "\0"
       VALUE "ProductVersion", XYZZY_VERSION_STR "\0"
+      VALUE "Comments", BUILD_PLATFORM "\0"
     END
   END
   BLOCK "VarFileInfo"

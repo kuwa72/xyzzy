@@ -13,6 +13,33 @@
 # define PROGRAM_MINOR_REVISION 2
 # define PROGRAM_PATCH_LEVEL 0
 
+// Build platform string (compiler + architecture)
+# if defined(_MSC_VER)
+#  if defined(_M_ARM64)
+#   define BUILD_PLATFORM "MSVC/ARM64"
+#  elif defined(_M_AMD64)
+#   define BUILD_PLATFORM "MSVC/x64"
+#  elif defined(_M_IX86)
+#   define BUILD_PLATFORM "MSVC/x86"
+#  else
+#   define BUILD_PLATFORM "MSVC"
+#  endif
+# elif defined(__clang__)
+#  if defined(__aarch64__)
+#   define BUILD_PLATFORM "Clang/ARM64"
+#  elif defined(__x86_64__)
+#   define BUILD_PLATFORM "Clang/x64"
+#  elif defined(__i386__)
+#   define BUILD_PLATFORM "Clang/x86"
+#  else
+#   define BUILD_PLATFORM "Clang"
+#  endif
+# elif defined(__GNUC__)
+#  define BUILD_PLATFORM "GCC"
+# else
+#  define BUILD_PLATFORM "Unknown"
+# endif
+
 # define TITLE_BAR_STRING_SIZE 256
 extern char TitleBarString[];
 extern wchar_t TitleBarStringW[];
