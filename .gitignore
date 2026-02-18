@@ -5,6 +5,7 @@
 
 # Auto generate files
 src/gen/
+src/core/gen/
 
 # Patch files
 *.patch
@@ -55,6 +56,10 @@ xyzzy_debug.log
 # Local files
 TODO.md
 test.bat
+treeview-*.zip
+treeview/
+xyzzy-release.zip
+xyzzy/
 
 ## Ignore Makefile temporary files, build results.
 char-width.h

@@ -38,7 +38,8 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
 else()
     set(VERSION_DESCRIBE_CONTENT "/* No git info available */")
 endif()
-file(WRITE ${CMAKE_SOURCE_DIR}/src/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/src/core/gen)
+file(WRITE ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
 
 # ============================================================
 # Find zlib (prefer static library for -static linking)
@@ -65,7 +66,9 @@ endif()
 
 # Source and generated directories
 set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-set(GEN_DIR ${CMAKE_SOURCE_DIR}/src/gen)
+set(CORE_DIR ${CMAKE_SOURCE_DIR}/src/core)
+set(WIN32_DIR ${CMAKE_SOURCE_DIR}/src/frontend/win32)
+set(GEN_DIR ${CMAKE_SOURCE_DIR}/src/core/gen)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
 # Common defines
@@ -109,8 +112,8 @@ else()
         -Wno-invalid-source-encoding
         -Wno-shift-negative-value
     )
-    # RC files are UTF-8 encoded
-    set(CMAKE_RC_FLAGS "--codepage=65001")
+    # RC files are UTF-8 encoded; also need include paths for resource.h etc.
+    set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
 endif()
 
 # ============================================================
@@ -140,9 +143,9 @@ target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 WIN32 _CONSOLE)
 # rather than src/string.h (project's Lisp string type header).
 # MSVC uses /I but searches system includes first, so no collision.
 if(MSVC)
-    target_include_directories(gen-src1 PRIVATE ${SRC_DIR} ${GEN_DIR})
+    target_include_directories(gen-src1 PRIVATE ${SRC_DIR} ${CORE_DIR} ${GEN_DIR})
 else()
-    target_compile_options(gen-src1 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+    target_compile_options(gen-src1 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
 endif()
 
 # ============================================================
@@ -263,9 +266,9 @@ set(GEN_SRC2_SOURCES
 add_executable(gen-src2 ${GEN_SRC2_SOURCES})
 target_compile_definitions(gen-src2 PRIVATE GEN_SRC2 WIN32 _CONSOLE)
 if(MSVC)
-    target_include_directories(gen-src2 PRIVATE ${SRC_DIR} ${GEN_DIR})
+    target_include_directories(gen-src2 PRIVATE ${SRC_DIR} ${CORE_DIR} ${GEN_DIR})
 else()
-    target_compile_options(gen-src2 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${GEN_DIR}")
+    target_compile_options(gen-src2 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
 endif()
 # gen-src2 compilation needs chtab.cc from gen-src1
 add_dependencies(gen-src2 gen-src1-run)
@@ -291,152 +294,164 @@ add_custom_target(gen-src2-run
 )
 
 # ============================================================
-# xyzzy: Main application
+# xyzzy-core: Static library (Lisp interpreter + text buffer)
 # ============================================================
-set(XYZZY_SOURCES
-    ${SRC_DIR}/alloc.cc
-    ${SRC_DIR}/appid.cc
-    ${SRC_DIR}/arc-if.cc
-    ${SRC_DIR}/archiver.cc
-    ${SRC_DIR}/array.cc
-    ${SRC_DIR}/assert.cc
-    ${SRC_DIR}/backq.cc
-    ${SRC_DIR}/bignum.cc
-    ${SRC_DIR}/binfo.cc
-    ${SRC_DIR}/buffer-bar.cc
-    ${SRC_DIR}/Buffer.cc
-    ${SRC_DIR}/byte-stream.cc
-    ${SRC_DIR}/bytecode.cc
-    ${SRC_DIR}/ces.cc
-    ${SRC_DIR}/char.cc
-    ${SRC_DIR}/chname.cc
-    ${SRC_DIR}/ChooseFont.cc
-    ${SRC_DIR}/chunk.cc
-    ${SRC_DIR}/clipboard.cc
-    ${SRC_DIR}/ColorDialog.cc
-    ${SRC_DIR}/colors.cc
-    ${SRC_DIR}/com.cc
-    ${SRC_DIR}/conf.cc
-    ${SRC_DIR}/ctl3d.cc
-    ${SRC_DIR}/data.cc
-    ${SRC_DIR}/dde.cc
-    ${SRC_DIR}/debug.cc
-    ${SRC_DIR}/dialogs.cc
-    ${SRC_DIR}/disp.cc
-    ${SRC_DIR}/dll.cc
-    ${SRC_DIR}/DnD.cc
-    ${SRC_DIR}/doc.cc
-    ${SRC_DIR}/dockbar.cc
-    ${SRC_DIR}/dsfmt/dSFMT.cc
-    ${SRC_DIR}/edict.cc
-    ${SRC_DIR}/encdec.cc
-    ${SRC_DIR}/encoding.cc
-    ${SRC_DIR}/environ.cc
-    ${SRC_DIR}/eval.cc
-    ${SRC_DIR}/except.cc
-    ${SRC_DIR}/fileio.cc
-    ${SRC_DIR}/filer.cc
-    ${SRC_DIR}/fnkey.cc
-    ${SRC_DIR}/font.cc
-    ${SRC_DIR}/gime.cc
-    ${SRC_DIR}/glob.cc
-    ${SRC_DIR}/guess.cc
-    ${SRC_DIR}/guid.cc
-    ${SRC_DIR}/gzip.cc
-    ${SRC_DIR}/hash.cc
-    ${SRC_DIR}/hashpjw.cc
-    ${SRC_DIR}/init.cc
-    ${SRC_DIR}/insdel.cc
-    ${SRC_DIR}/ipc.cc
-    ${SRC_DIR}/kanji.cc
-    ${SRC_DIR}/kbd.cc
-    ${SRC_DIR}/keymap.cc
-    ${SRC_DIR}/ldialog.cc
-    ${SRC_DIR}/lex.cc
-    ${SRC_DIR}/list.cc
-    ${SRC_DIR}/listen.cc
-    ${SRC_DIR}/lprint.cc
-    ${SRC_DIR}/lread.cc
-    ${SRC_DIR}/md5c.cc
-    ${SRC_DIR}/menu.cc
-    ${SRC_DIR}/minibuf.cc
-    ${SRC_DIR}/mman.cc
-    ${SRC_DIR}/monitor.cc
-    ${SRC_DIR}/mouse.cc
-    ${SRC_DIR}/move.cc
-    ${SRC_DIR}/msgbox.cc
-    ${SRC_DIR}/number.cc
-    ${SRC_DIR}/oledata.cc
-    ${SRC_DIR}/package.cc
-    ${SRC_DIR}/pane.cc
-    ${SRC_DIR}/pathname.cc
-    ${SRC_DIR}/popup.cc
-    ${SRC_DIR}/popupl.cc
-    ${SRC_DIR}/pred.cc
-    ${SRC_DIR}/preview.cc
-    ${SRC_DIR}/print.cc
-    ${SRC_DIR}/printdlg.cc
-    ${SRC_DIR}/privctrl/listviewex.cc
-    ${SRC_DIR}/privctrl/privctrl.cc
-    ${SRC_DIR}/privctrl/url.cc
-    ${SRC_DIR}/process.cc
-    ${SRC_DIR}/random.cc
-    ${SRC_DIR}/regex.cc
-    ${SRC_DIR}/resolver.cc
-    ${SRC_DIR}/search.cc
-    ${SRC_DIR}/sequence.cc
-    ${SRC_DIR}/sha1.cc
-    ${SRC_DIR}/sha2.cc
-    ${SRC_DIR}/signal.cc
-    ${SRC_DIR}/sock.cc
-    ${SRC_DIR}/sockinet.cc
-    ${SRC_DIR}/sockssl.cc
-    ${SRC_DIR}/statarea.cc
-    ${SRC_DIR}/stdctl.cc
-    ${SRC_DIR}/StrBuf.cc
-    ${SRC_DIR}/stream.cc
-    ${SRC_DIR}/string.cc
-    ${SRC_DIR}/structure.cc
-    ${SRC_DIR}/symbol.cc
-    ${SRC_DIR}/symtable.cc
-    ${SRC_DIR}/syntax.cc
-    ${SRC_DIR}/sysdep.cc
-    ${SRC_DIR}/system.cc
-    ${SRC_DIR}/thread.cc
-    ${SRC_DIR}/toplev.cc
-    ${SRC_DIR}/ucs2.cc
-    ${SRC_DIR}/undo.cc
-    ${SRC_DIR}/usertab.cc
-    ${SRC_DIR}/usertool.cc
-    ${SRC_DIR}/utils.cc
-    ${SRC_DIR}/utimer.cc
-    ${SRC_DIR}/vector.cc
-    ${SRC_DIR}/version.cc
-    ${SRC_DIR}/vfs.cc
-    ${SRC_DIR}/wheel.cc
-    ${SRC_DIR}/Window.cc
-    ${SRC_DIR}/winhelp.cc
-    ${SRC_DIR}/wstream.cc
-    ${SRC_DIR}/xdde.cc
-    ${SRC_DIR}/xlist.cc
-    # Generated sources (compiled standalone; gen/symtable.cc is #include'd by src/symtable.cc)
+set(CORE_SOURCES
+    ${CORE_DIR}/alloc.cc
+    ${CORE_DIR}/array.cc
+    ${CORE_DIR}/backq.cc
+    ${CORE_DIR}/bignum.cc
+    ${CORE_DIR}/Buffer.cc
+    ${CORE_DIR}/byte-stream.cc
+    ${CORE_DIR}/bytecode.cc
+    ${CORE_DIR}/ces.cc
+    ${CORE_DIR}/char.cc
+    ${CORE_DIR}/chname.cc
+    ${CORE_DIR}/chunk.cc
+    ${CORE_DIR}/data.cc
+    ${CORE_DIR}/debug.cc
+    ${CORE_DIR}/encdec.cc
+    ${CORE_DIR}/encoding.cc
+    ${CORE_DIR}/environ.cc
+    ${CORE_DIR}/eval.cc
+    ${CORE_DIR}/except.cc
+    ${CORE_DIR}/fileio.cc
+    ${CORE_DIR}/glob.cc
+    ${CORE_DIR}/guess.cc
+    ${CORE_DIR}/gzip.cc
+    ${CORE_DIR}/hash.cc
+    ${CORE_DIR}/hashpjw.cc
+    ${CORE_DIR}/insdel.cc
+    ${CORE_DIR}/kanji.cc
+    ${CORE_DIR}/keymap.cc
+    ${CORE_DIR}/lex.cc
+    ${CORE_DIR}/list.cc
+    ${CORE_DIR}/lprint.cc
+    ${CORE_DIR}/lread.cc
+    ${CORE_DIR}/md5c.cc
+    ${CORE_DIR}/move.cc
+    ${CORE_DIR}/number.cc
+    ${CORE_DIR}/package.cc
+    ${CORE_DIR}/pathname.cc
+    ${CORE_DIR}/pred.cc
+    ${CORE_DIR}/random.cc
+    ${CORE_DIR}/regex.cc
+    ${CORE_DIR}/search.cc
+    ${CORE_DIR}/sequence.cc
+    ${CORE_DIR}/sha1.cc
+    ${CORE_DIR}/sha2.cc
+    ${CORE_DIR}/signal.cc
+    ${CORE_DIR}/StrBuf.cc
+    ${CORE_DIR}/stream.cc
+    ${CORE_DIR}/string.cc
+    ${CORE_DIR}/structure.cc
+    ${CORE_DIR}/symbol.cc
+    ${CORE_DIR}/symtable.cc
+    ${CORE_DIR}/syntax.cc
+    ${CORE_DIR}/system.cc
+    ${CORE_DIR}/ucs2.cc
+    ${CORE_DIR}/undo.cc
+    ${CORE_DIR}/utils.cc
+    ${CORE_DIR}/vector.cc
+    ${CORE_DIR}/version.cc
+    ${CORE_DIR}/wstream.cc
+    ${CORE_DIR}/xlist.cc
+    ${CORE_DIR}/dsfmt/dSFMT.cc
+    # Generated sources (compiled standalone; gen/symtable.cc is #include'd by core/symtable.cc)
     ${GEN_DIR}/chtab.cc
     ${GEN_DIR}/dumpver.cc
     ${GEN_DIR}/msgdef.cc
 )
 
-add_executable(xyzzy WIN32 ${XYZZY_SOURCES})
-target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
+add_library(xyzzy-core STATIC ${CORE_SOURCES})
+target_compile_definitions(xyzzy-core PRIVATE UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(xyzzy PRIVATE ${SRC_DIR} ${SRC_DIR}/privctrl ${GEN_DIR})
+    target_include_directories(xyzzy-core PRIVATE ${CORE_DIR} ${GEN_DIR} ${SRC_DIR})
 else()
-    target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+    target_compile_options(xyzzy-core PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
 endif()
-target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
-add_dependencies(xyzzy gen-src1-run gen-src2-run)
+target_include_directories(xyzzy-core PRIVATE ${ZLIB_INCLUDE_DIRS})
+add_dependencies(xyzzy-core gen-src1-run gen-src2-run)
 
-# Link libraries
-target_link_libraries(xyzzy PRIVATE
+# ============================================================
+# Win32 frontend sources (GUI + platform layer)
+# ============================================================
+set(WIN32_SOURCES
+    # UI
+    ${WIN32_DIR}/Window.cc
+    ${WIN32_DIR}/disp.cc
+    ${WIN32_DIR}/colors.cc
+    ${WIN32_DIR}/font.cc
+    ${WIN32_DIR}/menu.cc
+    ${WIN32_DIR}/dialogs.cc
+    ${WIN32_DIR}/ldialog.cc
+    ${WIN32_DIR}/ChooseFont.cc
+    ${WIN32_DIR}/ColorDialog.cc
+    ${WIN32_DIR}/msgbox.cc
+    ${WIN32_DIR}/statarea.cc
+    ${WIN32_DIR}/minibuf.cc
+    ${WIN32_DIR}/popup.cc
+    ${WIN32_DIR}/popupl.cc
+    ${WIN32_DIR}/pane.cc
+    ${WIN32_DIR}/filer.cc
+    ${WIN32_DIR}/dockbar.cc
+    ${WIN32_DIR}/buffer-bar.cc
+    ${WIN32_DIR}/fnkey.cc
+    ${WIN32_DIR}/preview.cc
+    ${WIN32_DIR}/print.cc
+    ${WIN32_DIR}/printdlg.cc
+    ${WIN32_DIR}/privctrl/privctrl.cc
+    ${WIN32_DIR}/privctrl/listviewex.cc
+    ${WIN32_DIR}/privctrl/url.cc
+    ${WIN32_DIR}/stdctl.cc
+    ${WIN32_DIR}/ctl3d.cc
+    ${WIN32_DIR}/wheel.cc
+    ${WIN32_DIR}/mouse.cc
+    # Platform
+    ${WIN32_DIR}/init.cc
+    ${WIN32_DIR}/toplev.cc
+    ${WIN32_DIR}/kbd.cc
+    ${WIN32_DIR}/gime.cc
+    ${WIN32_DIR}/sysdep.cc
+    ${WIN32_DIR}/conf.cc
+    ${WIN32_DIR}/vfs.cc
+    ${WIN32_DIR}/mman.cc
+    ${WIN32_DIR}/thread.cc
+    ${WIN32_DIR}/utimer.cc
+    ${WIN32_DIR}/monitor.cc
+    ${WIN32_DIR}/binfo.cc
+    ${WIN32_DIR}/doc.cc
+    # Win32 specific
+    ${WIN32_DIR}/com.cc
+    ${WIN32_DIR}/oledata.cc
+    ${WIN32_DIR}/dde.cc
+    ${WIN32_DIR}/xdde.cc
+    ${WIN32_DIR}/dll.cc
+    ${WIN32_DIR}/DnD.cc
+    ${WIN32_DIR}/clipboard.cc
+    ${WIN32_DIR}/appid.cc
+    ${WIN32_DIR}/arc-if.cc
+    ${WIN32_DIR}/archiver.cc
+    ${WIN32_DIR}/guid.cc
+    ${WIN32_DIR}/process.cc
+    ${WIN32_DIR}/sock.cc
+    ${WIN32_DIR}/sockinet.cc
+    ${WIN32_DIR}/sockssl.cc
+    ${WIN32_DIR}/resolver.cc
+    ${WIN32_DIR}/listen.cc
+    ${WIN32_DIR}/ipc.cc
+    ${WIN32_DIR}/edict.cc
+    ${WIN32_DIR}/usertab.cc
+    ${WIN32_DIR}/usertool.cc
+    ${WIN32_DIR}/winhelp.cc
+    # Support
+    ${WIN32_DIR}/assert.cc
+    ${WIN32_DIR}/stdafx.cc
+)
+
+# Common link libraries for Win32 targets
+set(XYZZY_LINK_LIBS
+    xyzzy-core
     ${ZLIB_LIBRARIES}
     comctl32
     imm32
@@ -449,6 +464,19 @@ target_link_libraries(xyzzy PRIVATE
     oleaut32
     uuid
 )
+
+# ============================================================
+# xyzzy: Main GUI application
+# ============================================================
+add_executable(xyzzy WIN32 ${WIN32_SOURCES})
+target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
+if(MSVC)
+    target_include_directories(xyzzy PRIVATE ${CORE_DIR} ${WIN32_DIR} ${WIN32_DIR}/privctrl ${GEN_DIR})
+else()
+    target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+endif()
+target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(xyzzy PRIVATE ${XYZZY_LINK_LIBS})
 
 # Static linking (no DLL dependencies on MSYS2 runtime)
 if(NOT MSVC)
@@ -467,28 +495,15 @@ endif()
 # No WIN32 → console subsystem, so execute_process can wait for it.
 # batch-main.cc provides main() which calls WinMain(SW_HIDE).
 # ============================================================
-add_executable(xyzzy-batch ${XYZZY_SOURCES} ${SRC_DIR}/batch-main.cc)
+add_executable(xyzzy-batch ${WIN32_SOURCES} ${WIN32_DIR}/batch-main.cc)
 target_compile_definitions(xyzzy-batch PRIVATE UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(xyzzy-batch PRIVATE ${SRC_DIR} ${SRC_DIR}/privctrl ${GEN_DIR})
+    target_include_directories(xyzzy-batch PRIVATE ${CORE_DIR} ${WIN32_DIR} ${WIN32_DIR}/privctrl ${GEN_DIR})
 else()
-    target_compile_options(xyzzy-batch PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${SRC_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
+    target_compile_options(xyzzy-batch PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 endif()
 target_include_directories(xyzzy-batch PRIVATE ${ZLIB_INCLUDE_DIRS})
-add_dependencies(xyzzy-batch gen-src1-run gen-src2-run)
-target_link_libraries(xyzzy-batch PRIVATE
-    ${ZLIB_LIBRARIES}
-    comctl32
-    imm32
-    mpr
-    rpcrt4
-    wsock32
-    crypt32
-    secur32
-    ole32
-    oleaut32
-    uuid
-)
+target_link_libraries(xyzzy-batch PRIVATE ${XYZZY_LINK_LIBS})
 if(NOT MSVC)
     target_link_options(xyzzy-batch PRIVATE -static -Wl,--stack,0x2000000)
 else()
@@ -507,9 +522,9 @@ if(CMAKE_RC_COMPILER)
 endif()
 target_compile_definitions(xyzzycli PRIVATE UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(xyzzycli PRIVATE ${SRC_DIR})
+    target_include_directories(xyzzycli PRIVATE ${SRC_DIR} ${CORE_DIR})
 else()
-    target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}")
+    target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}")
 endif()
 if(NOT MSVC)
     target_link_options(xyzzycli PRIVATE -static)
@@ -524,9 +539,9 @@ if(CMAKE_RC_COMPILER)
 endif()
 target_compile_definitions(xyzzyenv PRIVATE UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(xyzzyenv PRIVATE ${SRC_DIR})
+    target_include_directories(xyzzyenv PRIVATE ${SRC_DIR} ${CORE_DIR})
 else()
-    target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}")
+    target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}")
 endif()
 if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
