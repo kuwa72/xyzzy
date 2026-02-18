@@ -237,6 +237,9 @@ br_copy (bignum_rep *old, long x)
   return r;
 }
 
+// On LP64 (Linux), u_long == uint64_t and long == int64_t,
+// so these overloads would be duplicates of the above.
+#if ULONG_MAX != UINT64_MAX
 bignum_rep *
 br_copy (bignum_rep *old, uint64_t x)
 {
@@ -264,6 +267,7 @@ br_copy (bignum_rep *old, int64_t x)
     r = br_copy (old, uint64_t (x));
   return r;
 }
+#endif
 
 bignum_rep *
 br_copy_zero (bignum_rep *r)

@@ -1,7 +1,14 @@
 #ifndef _sock_h_
 #define _sock_h_
 
+#ifdef _WIN32
 #include <winsock.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#endif
 
 class sock_error
 {
@@ -31,7 +38,11 @@ public:
       so_acceptconn = SO_ACCEPTCONN,
       so_broadcast = SO_BROADCAST,
       so_debug = SO_DEBUG,
+#ifdef SO_DONTLINGER
       so_dontlinger = SO_DONTLINGER,
+#else
+      so_dontlinger = (~SO_LINGER),
+#endif
       so_dontroute = SO_DONTROUTE,
       so_error = SO_ERROR,
       so_keepalive = SO_KEEPALIVE,
@@ -179,10 +190,12 @@ public:
   void setopt (int, optname, const void *, int) const;
   void ioctl (int, u_long *) const;
 
+#ifdef _WIN32
   static u_short htons (u_short);
   static u_long htonl (u_long);
   static u_short ntohs (u_short);
   static u_long ntohl (u_long);
+#endif
   static void close_socket (SOCKET);
 
   int getopt (int level, optname opt) const

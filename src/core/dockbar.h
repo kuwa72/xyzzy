@@ -1,6 +1,8 @@
 #ifndef _dockbar_h_
 #define _dockbar_h_
 
+#ifdef _WIN32
+
 #ifndef TBSTYLE_FLAT
 #define TBSTYLE_FLAT 0x0800
 #endif
@@ -438,5 +440,7 @@ public:
   void refresh ();
   virtual void recalc_layout () = 0;
 };
+
+#endif // _WIN32
 
 #endif /* _dockbar_h_ */

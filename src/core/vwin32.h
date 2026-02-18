@@ -1,6 +1,8 @@
 #ifndef _vwin32_h_
 #define _vwin32_h_
 
+#ifdef _WIN32
+
 // DeviceIoControl infrastructure
 #ifndef VWIN32_DIOC_DOS_IOCTL
 
@@ -49,5 +51,7 @@ typedef struct
   DWORD Rsvd[2];
 }
   ExtGetDskFreSpcStruc;
+
+#endif // _WIN32
 
 #endif /* _vwin32_h_ */

@@ -112,9 +112,9 @@ sockinet::saddr::set_addr (lisp lhost)
 {
   long x;
   if (!lhost || lhost == Qnil)
-    set_addr (INADDR_ANY);
+    set_addr ((u_long)INADDR_ANY);
   else if (safe_fixnum_value (lhost, &x))
-    set_addr (x);
+    set_addr ((u_long)x);
   else if (stringp (lhost))
     {
       char *host = (char *)alloca (xstring_length (lhost) * 2 + 1);

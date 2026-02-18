@@ -2470,9 +2470,9 @@ Format::fixed_format (wStream &stream)
           if (f.sign < 0 || atsign)
             n++;
           if (f.exp < 0)
-            n += 1 - f.exp + max (f.be - f.b0, 1);
+            n += 1 - f.exp + max ((int)(f.be - f.b0), 1);
           else
-            n += 1 + max (f.exp, f.be - f.b0);
+            n += 1 + max (f.exp, (int)(f.be - f.b0));
           w = n;
         }
     }
@@ -2482,9 +2482,9 @@ Format::fixed_format (wStream &stream)
   else
     {
       d = max (w - fixed_fmt_width (f.sign, atsign, f.exp, d), 0);
-      d = max (1, min (d, f.be - f.b0 - f.exp - 1));
+      d = max (1, min (d, (int)(f.be - f.b0) - f.exp - 1));
       f.roundf (d);
-      d = max (1, min (d, f.be - f.b0 - f.exp - 1));
+      d = max (1, min (d, (int)(f.be - f.b0) - f.exp - 1));
     }
 
   int no_lead_zero = 0;

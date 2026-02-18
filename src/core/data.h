@@ -85,19 +85,19 @@ struct ldata_free_rep
 inline void
 bitset (u_long *p, int i)
 {
-  p[i / (sizeof *p * CHAR_BIT)] |= 1 << i % (sizeof *p * CHAR_BIT);
+  p[i / (sizeof *p * CHAR_BIT)] |= (u_long)1 << i % (sizeof *p * CHAR_BIT);
 }
 
-inline int
+inline u_long
 bitisset (const u_long *p, int i)
 {
-  return p[i / (sizeof *p * CHAR_BIT)] & (1 << i % (sizeof *p * CHAR_BIT));
+  return p[i / (sizeof *p * CHAR_BIT)] & ((u_long)1 << i % (sizeof *p * CHAR_BIT));
 }
 
 inline void
 bitclr (u_long *p, int i)
 {
-  p[i / (sizeof *p * CHAR_BIT)] &= ~(1 << i % (sizeof *p * CHAR_BIT));
+  p[i / (sizeof *p * CHAR_BIT)] &= ~((u_long)1 << i % (sizeof *p * CHAR_BIT));
 }
 
 int find_zero_bit (u_long *, int);

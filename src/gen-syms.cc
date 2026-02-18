@@ -2745,10 +2745,12 @@ static symbols ed[] =
   DEFUN3 (admin-user-p, 0, 0, 0),
 };
 
+static const char *ss_name = "SS";
+
 static void
 print_name (const symbols *p)
 {
-  printf ("SS + %d, ", p->offset);
+  printf ("%s + %d, ", ss_name, p->offset);
 }
 
 static void
@@ -2924,6 +2926,16 @@ do_all (void (*fn)(symbols *, int, const char *))
   fn (unint, numberof (unint), "unint");
 }
 
+static void
+do_core (void (*fn)(symbols *, int, const char *))
+{
+  fn (lsp, numberof (lsp), "lsp");
+  fn (cl, numberof (cl), "cl");
+  fn (sys, numberof (sys), "sys");
+  fn (kwd, numberof (kwd), "kwd");
+  fn (unint, numberof (unint), "unint");
+}
+
 static int soffset;
 
 static void
@@ -2979,6 +2991,65 @@ print_string ()
   do_all (print_string);
   printf ("\";\n\n");
   soffset = 0;
+}
+
+static void
+compose_vars_only (symbols *p, int n, const char *)
+{
+  if (p == unint)
+    for (int i = 0; i < n; i++, p++)
+      {
+        p->offset = soffset;
+        p->len = 0;
+      }
+  else
+    for (int i = 0; i < n; i++, p++)
+      if (!p->fn)
+        {
+          p->offset = soffset;
+          p->len = strlen (p->name);
+          soffset += p->len;
+        }
+}
+
+static void
+compose_fns_only (symbols *p, int n, const char *)
+{
+  for (int i = 0; i < n; i++, p++)
+    if (p->fn)
+      {
+        p->offset = soffset;
+        p->len = strlen (p->name);
+        soffset += p->len;
+      }
+}
+
+static void
+print_string_vars (symbols *p, int n, const char *)
+{
+  if (p == unint)
+    return;
+  for (int i = 0; i < n; i++, p++)
+    if (!p->fn)
+      {
+        const char *s = p->name;
+        while (*s)
+          printc (*s++);
+      }
+}
+
+static void
+print_string_fns (symbols *p, int n, const char *)
+{
+  if (p == unint)
+    return;
+  for (int i = 0; i < n; i++, p++)
+    if (p->fn)
+      {
+        const char *s = p->name;
+        while (*s)
+          printc (*s++);
+      }
 }
 
 static void
@@ -3070,6 +3141,47 @@ gen_syms (int argc, char **argv)
       do_all (compose);
       do_all (print_defuns);
       do_all (print_defvars);
+    }
+  else if (!strcmp (argv[1], "-symtable-core"))
+    {
+      // Compose offsets: core packages fully, ed variables only
+      soffset = 0;
+      do_core (compose);
+      compose_vars_only (ed, numberof (ed), "ed");
+
+      // Print SS string pool (core + ed variable names)
+      soffset = 0;
+      printf ("static const char SS[] = \n\"");
+      do_core (print_string);
+      print_string_vars (ed, numberof (ed), "ed");
+      printf ("\";\n\n");
+      soffset = 0;
+
+      // Function tables (core packages only; kwd/unint skipped by print_defuns)
+      do_core (print_defuns);
+
+      // Variable tables (all packages including ed)
+      do_all (print_defvars);
+    }
+  else if (!strcmp (argv[1], "-symtable-ed"))
+    {
+      // Compose offsets: ed functions only (offset=0 start)
+      ss_name = "ED_SS";
+      soffset = 0;
+      compose_fns_only (ed, numberof (ed), "ed");
+
+      // Print ED_SS string pool (ed function names)
+      soffset = 0;
+      printf ("static const char ED_SS[] = \n\"");
+      print_string_fns (ed, numberof (ed), "ed");
+      printf ("\";\n\n");
+      soffset = 0;
+
+      // Interactive command strings
+      process_interactive ();
+
+      // ed function table (references ED_SS)
+      print_defuns (ed, numberof (ed), "ed");
     }
   else if (!strcmp (argv[1], "-proto"))
     do_all (print_proto);

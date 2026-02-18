@@ -4,6 +4,8 @@
 #include "lsignal.h"
 #include "version.h"
 
+#ifdef _WIN32
+
 #define MAX_LISP_CALL_STACK_DEPTH 64
 
 struct lisp_call_stack
@@ -551,3 +553,12 @@ cleanup_exception ()
     {
     }
 }
+
+#else // !_WIN32
+
+void
+cleanup_exception ()
+{
+}
+
+#endif // _WIN32

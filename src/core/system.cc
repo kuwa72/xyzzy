@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "system.h"
 
+#ifdef _WIN32
 lisp
 Fsi_uuid_create (lisp keys)
 {
@@ -87,3 +88,4 @@ Fadmin_user_p ()
   else
     return Qnil;
 }
+#endif // _WIN32

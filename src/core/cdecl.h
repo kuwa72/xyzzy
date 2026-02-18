@@ -9,16 +9,16 @@
 # include <stdio.h>
 # include <stdint.h>
 # include <limits.h>
-# include <windows.h>
-# include <winreg.h>
-# include <commctrl.h>
+# include "platform.h"
 # include <stdlib.h>
 # include <stddef.h>
 # include <string.h>
 #ifdef _MSC_VER
 # include <mbstring.h>
 #endif
+#ifdef _WIN32
 # include <malloc.h>
+#endif
 
 #ifdef _MSC_VER
 # pragma warning (default: 4201)
@@ -39,9 +39,14 @@
 # define BITS_PER_INT (sizeof (int) * CHAR_BIT)
 # define BITS_PER_LONG (sizeof (long) * CHAR_BIT)
 
+#ifdef _WIN32
 # define PATH_MAX 1024
+#else
+# include <linux/limits.h>
+#endif
 # define BUFFER_NAME_MAX PATH_MAX
 
+#ifdef _WIN32
 typedef unsigned char u_char;
 typedef unsigned short u_short;
 typedef unsigned int u_int;
@@ -50,6 +55,7 @@ typedef unsigned long u_long;
 typedef u_char u_int8_t;
 typedef u_short u_int16_t;
 typedef u_long u_int32_t;
+#endif
 
 typedef uintptr_t pointer_t;
 
@@ -117,11 +123,13 @@ bcmp (const void *p1, const void *p2, size_t size)
   return memcmp (p1, p2, size);
 }
 
+#ifdef _WIN32
 inline void *
 bzero (void *dst, size_t size)
 {
   return memset (dst, 0, size);
 }
+#endif
 
 inline void
 bcopy (const Char *src, Char *dst, size_t size)
@@ -167,9 +175,11 @@ int assert_failed (const char *, int);
 #  define DBG_PRINT(a) /* empty */
 # endif
 
+# undef __CONCAT
 # define __CONCAT(X, Y) X ## Y
 # define CONCAT(X, Y) __CONCAT (X, Y)
 
+# undef __CONCAT3
 # define __CONCAT3(X, Y, Z) X ## Y ## Z
 # define CONCAT3(X, Y, Z) __CONCAT3 (X, Y, Z)
 

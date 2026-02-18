@@ -475,8 +475,8 @@ selected_window ()
 inline Buffer *
 selected_buffer ()
 {
-  assert (selected_window ());
-  return selected_window ()->w_bufp;
+  Window *w = selected_window ();
+  return w ? w->w_bufp : 0;
 }
 
 inline HWND

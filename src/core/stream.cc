@@ -791,8 +791,12 @@ Fconnect (lisp lhost, lisp lport, lisp keys)
       protect_gc gcpro (stream);
       if (find_keyword_bool (Kssl, keys))
         {
+#ifdef _WIN32
           lisp lverify_mode = find_keyword (Kssl_verify_mode, keys);
           xsocket_stream_sock (stream) = new sockssl (lhost, lverify_mode);
+#else
+          FEsimple_error (Eremove_not_supported);
+#endif
         }
       else
         {
@@ -864,9 +868,13 @@ Fssl_do_handshake (lisp stream, lisp lserver_name, lisp keys)
     {
       Fbegin_wait_cursor ();
       lisp lverify_mode = find_keyword (Kssl_verify_mode, keys);
+#ifdef _WIN32
       sockssl *ssl = new sockssl (so, lserver_name, lverify_mode);
       xsocket_stream_sock (stream) = ssl;
       ssl->handshake ();
+#else
+      FEsimple_error (Eremove_not_supported);
+#endif
     }
   catch (sock_error &e)
     {
@@ -1571,7 +1579,7 @@ listen_stream (lisp stream)
         case st_file_io:
         case st_file_input:
           {
-#if defined(_MSC_VER) || defined(__MINGW32__)
+#ifdef _WIN32
             /* MinGW: use feof/ferror check and non-blocking wait */
             if (!feof (xfile_stream_input (stream))
                 && ferror (xfile_stream_input (stream)) == 0)
@@ -1580,13 +1588,13 @@ listen_stream (lisp stream)
               }
             else if (feof (xfile_stream_input (stream)))
               return 0;
-#else
-# error "Not Supported"
-#endif
             if (WaitForSingleObject (HANDLE (_get_osfhandle (_fileno (xfile_stream_input (stream)))),
                                      0) == WAIT_TIMEOUT)
               return 0;
-
+#else
+            if (feof (xfile_stream_input (stream)))
+              return 0;
+#endif
             int c = getc (xfile_stream_input (stream));
             ungetc (c, xfile_stream_input (stream));
             return c != EOF;

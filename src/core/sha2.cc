@@ -41,6 +41,7 @@
 #include "endian.h"
 #include "sha2.h"
 
+#ifdef _WIN32
 static uint32_t
 htobe32(uint32_t x)
 {
@@ -74,6 +75,7 @@ be64toh(uint64_t x)
 {
 	return htobe64(x);
 }
+#endif // _WIN32
 
 /*** SHA-256/384/512 Various Length Definitions ***********************/
 /* NOTE: Most of these are in sha2.h */

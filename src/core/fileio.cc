@@ -238,7 +238,7 @@ static eol_code
 detect_eol_code (const mapf &mf)
 {
   const u_char *p = (const u_char *)mf.base ();
-  const u_char *const pe = p + min (0x8000UL, mf.size ());
+  const u_char *const pe = p + min ((DWORD)0x8000UL, mf.size ());
 
   if (p < pe)
     {

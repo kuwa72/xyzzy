@@ -1025,6 +1025,7 @@ Fparse_integer (lisp string, lisp keys)
   return result;
 }
 
+#ifdef _WIN32
 int WINAPI
 abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
 {
@@ -1161,6 +1162,7 @@ Fabbreviate_display_string (lisp string, lisp maxlen, lisp pathname_p)
     return string;
   return make_string (buf);
 }
+#endif // _WIN32
 
 lisp
 Fabbreviate_string_column (lisp string, lisp column)

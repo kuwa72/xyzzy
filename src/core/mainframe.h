@@ -1,6 +1,8 @@
 #ifndef _mainframe_h_
 #define _mainframe_h_
 
+#ifdef _WIN32
+
 #include "dockbar.h"
 #include "pane.h"
 
@@ -43,5 +45,7 @@ public:
 };
 
 extern main_frame g_frame;
+
+#endif // _WIN32
 
 #endif /* _mainframe_h_ */

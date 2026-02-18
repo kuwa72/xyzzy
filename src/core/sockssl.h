@@ -9,6 +9,7 @@
 #ifndef _sockssl_h_
 #define _sockssl_h_
 
+#ifdef _WIN32
 #include <wincrypt.h>
 #include <schannel.h>
 #define SECURITY_WIN32
@@ -176,5 +177,6 @@ protected:
   ssl_verify_mode check_ssl_verify_mode (lisp lverify_mode) const;
   const char *check_server_name (lisp lserver_name) const;
 };
+#endif // _WIN32
 
 #endif /* _sockssl_h_ */

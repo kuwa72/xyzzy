@@ -75,7 +75,7 @@ public:
   friend Buffer;
 };
 
-static void
+void
 remove_undo_info (UndoInfo *up)
 {
   UndoInfo *prev;

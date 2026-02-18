@@ -10,6 +10,7 @@
 #include "vwin32.h"
 #include "version.h"
 
+#ifdef _WIN32
 typedef int (WINAPI *SHFILEOPERATION)(SHFILEOPSTRUCTA *);
 
 static SHFILEOPERATION
@@ -22,6 +23,7 @@ get_shfileoperation_proc ()
 
   return f;
 }
+#endif // _WIN32
 
 static lisp
 file_error_condition (int e)
@@ -1166,6 +1168,7 @@ Fdelete_file (lisp name, lisp keys)
   lisp access_denied = access_denied_option (keys);
   if (find_keyword_bool (Krecycle, keys))
     {
+#ifdef _WIN32
       SHFILEOPERATION f = get_shfileoperation_proc ();
       map_sl_to_backsl (buf);
       buf[strlen (buf) + 1] = 0;
@@ -1180,6 +1183,9 @@ Fdelete_file (lisp name, lisp keys)
                    | FOF_NOERRORUI | FOF_SILENT);
       if ((*f)(&fs))
         FEfile_error (Edelete_failed, name);
+#else
+      FEsimple_error (ESHFileOperation_not_supported);
+#endif
     }
   else
     {
@@ -1998,6 +2004,7 @@ Ffile_property (lisp lpath)
   return Qt;
 }
 
+#ifdef _WIN32
 #define LOCK_TIMEOUT 10000
 #define LOCK_RETRIES 20
 
@@ -2428,6 +2435,7 @@ Fget_short_path_name (lisp lpath)
     }
   return make_string (spath);
 }
+#endif // _WIN32
 
 lisp
 make_file_info (const WIN32_FIND_DATAA &fd)
@@ -2445,6 +2453,7 @@ make_file_info (const WIN32_FIND_DATAA &fd)
                     0);
 }
 
+#ifdef _WIN32
 lisp
 Fget_file_info (lisp lpath)
 {
@@ -2490,7 +2499,17 @@ root_path_name (char *buf, const char *path)
     }
   return buf;
 }
+#else // !_WIN32
+char *
+root_path_name (char *buf, const char *path)
+{
+  buf[0] = '/';
+  buf[1] = 0;
+  return buf;
+}
+#endif // _WIN32
 
+#ifdef _WIN32
 static UINT
 file_operation_function (lisp operation)
 {
@@ -2616,3 +2635,4 @@ Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
 
   return Qt;
 }
+#endif // _WIN32

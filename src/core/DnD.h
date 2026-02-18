@@ -1,6 +1,8 @@
 #ifndef _DnD_h_
 # define _DnD_h_
 
+#ifdef _WIN32
+
 #include <ole2.h>
 #include <ole2ver.h>
 
@@ -176,5 +178,7 @@ int drag_file_name (HWND hwnd, lisp, int);
 interface IContextMenu2;
 
 int shell_context_menu (HWND, lisp, const POINT &, HWND, IContextMenu2 **);
+
+#endif // _WIN32
 
 #endif

@@ -2,6 +2,9 @@
 #define _sockinet_h_
 
 #include "sock.h"
+#ifndef _WIN32
+#include <netinet/tcp.h>
+#endif
 
 class sockinet: public sock
 {
@@ -29,7 +32,7 @@ public:
       saddr (lisp, lisp);
 #endif
 
-      u_short port () const {return sock::ntohs (sin_port);}
+      u_short port () const {return ::ntohs (sin_port);}
       const char *addrstr () const {return sockinet::ntoa (sin_addr);}
       const char *hostname () const;
 

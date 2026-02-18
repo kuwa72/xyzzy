@@ -1,6 +1,8 @@
 #ifndef _DIALOGS_H_
 # define _DIALOGS_H_
 
+#ifdef _WIN32
+
 class IdleDialog
 {
 private:
@@ -47,5 +49,7 @@ IdleDialog::set_idle (int f)
 {
   id_idle = f;
 }
+
+#endif // _WIN32
 
 #endif

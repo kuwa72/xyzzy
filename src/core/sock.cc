@@ -130,6 +130,7 @@ sock::errmsg (int e)
   return 0;
 }
 
+#ifdef _WIN32
 int
 sock::init_winsock (HINSTANCE hinst)
 {
@@ -155,6 +156,18 @@ sock::term_winsock ()
 {
   WS_CALL (WSACleanup)();
 }
+#else
+int
+sock::init_winsock (HINSTANCE)
+{
+  return 1;
+}
+
+void
+sock::term_winsock ()
+{
+}
+#endif
 
 void
 sock::initsock (SOCKET so)
@@ -289,7 +302,7 @@ sock::send (const void *buf, int len, int flags) const
     {
       if (s_wtimeo.tv_sec >= 0 && !writablep (s_wtimeo))
         throw sock_error ("sock::send", WSAETIMEDOUT);
-      int n = WS_CALL (send)(s_so, b, min (be - b, 65535), flags);
+      int n = WS_CALL (send)(s_so, b, min ((int)(be - b), 65535), flags);
       if (n <= 0)
         throw sock_error ("send", n ? WS_CALL (WSAGetLastError)() : WSAECONNRESET);
       b += n;
@@ -303,7 +316,7 @@ sock::sendto (const saddr &to, const void *buf, int len, int flags) const
     {
       if (s_wtimeo.tv_sec >= 0 && !writablep (s_wtimeo))
         throw sock_error ("sock::sendto", WSAETIMEDOUT);
-      int n = WS_CALL (sendto)(s_so, b, min (be - b, 65535), flags,
+      int n = WS_CALL (sendto)(s_so, b, min ((int)(be - b), 65535), flags,
                                to.addr (), to.length ());
       if (n <= 0)
         throw sock_error ("sendto", n ? WS_CALL (WSAGetLastError)() : WSAECONNRESET);
@@ -417,6 +430,7 @@ sock::ioctl (int cmd, u_long *arg) const
     throw sock_error ("ioctl");
 }
 
+#ifdef _WIN32
 u_short
 sock::htons (u_short x)
 {
@@ -440,6 +454,7 @@ sock::ntohl (u_long x)
 {
   return WS_CALL (ntohl)(x);
 }
+#endif
 
 void
 sock::sflush ()

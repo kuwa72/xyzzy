@@ -3,7 +3,9 @@
 #include "environ.h"
 #include "conf.h"
 #include "fnkey.h"
+#ifdef _WIN32
 #include "monitor.h"
+#endif
 
 const char Registry::base[] = "Software\\Free Software\\Xyzzy\\";
 const char Registry::Settings[] = "Settings";
@@ -400,7 +402,7 @@ decoded_time_to_universal_time (int year, int mon, int day,
 }
 
 #define FILETIME_UNIT_PER_SECOND 10000000
-#define FILETIME_UTC_BASE   9435484800i64   // FileTime (1900/1/1 0:0:0)
+#define FILETIME_UTC_BASE   9435484800LL   // FileTime (1900/1/1 0:0:0)
 
 lisp
 file_time_to_universal_time (const FILETIME &ft)
@@ -840,12 +842,14 @@ environ::load_geometry (int cmdshow, POINT *point, SIZE *size)
           r.top = w.rcNormalPosition.top + min_visible;
           r.right = w.rcNormalPosition.right - min_visible;
           r.bottom = w.rcNormalPosition.bottom - min_visible;
+#ifdef _WIN32
           if (monitor.get_monitor_from_rect (&r))
             {
               point->x = w.rcNormalPosition.left;
               point->y = w.rcNormalPosition.top;
             }
           else
+#endif
             {
               point->x = point->y = CW_USEDEFAULT;
             }

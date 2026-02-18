@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#ifdef _WIN32
 #ifdef __XYZZY__
 #include "ed.h"
 #endif
@@ -15,10 +16,8 @@ resolver::resolver (int timeout)
 
 resolver::~resolver ()
 {
-#ifndef __XYZZY__
   if (r_hwnd)
     DestroyWindow (r_hwnd);
-#endif
 }
 
 int
@@ -42,13 +41,15 @@ resolver::initialize (HINSTANCE hinst)
 int
 resolver::create (HINSTANCE hinst)
 {
-#ifndef __XYZZY__
-  return r_hwnd || CreateWindow (resolver_wndclass, L"", WS_OVERLAPPED,
-                                 0, 0, 0, 0, HWND_DESKTOP, 0, hinst, this);
-#else
-  return r_hwnd || CreateWindow (resolver_wndclass, L"", WS_CHILD,
-                                 0, 0, 0, 0, app.toplev, 0, hinst, this);
+  if (r_hwnd) return 1;
+  HWND parent = 0;
+#ifdef __XYZZY__
+  parent = app.toplev;
 #endif
+  DWORD style = parent ? WS_CHILD : WS_OVERLAPPED;
+  if (!parent) parent = HWND_DESKTOP;
+  return CreateWindow (resolver_wndclass, L"", style,
+                       0, 0, 0, 0, parent, 0, hinst, this) != 0;
 }
 
 void
@@ -207,3 +208,4 @@ resolver::lookup_serv (const char *service, const char *proto)
                                                           r_buf, sizeof r_buf))
           ? (servent *)r_buf : 0);
 }
+#endif // _WIN32

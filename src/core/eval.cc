@@ -26,9 +26,15 @@ public:
 
 check_stack_depth::check_stack_depth ()
 {
+#ifdef _WIN32
   MEMORY_BASIC_INFORMATION mbi;
   VirtualQuery (&mbi, &mbi, sizeof mbi);
   limit = (char *)mbi.AllocationBase + 512 * 1024;
+#else
+  // On Linux, use a simple heuristic: set limit 512KB below current stack position
+  char st;
+  limit = &st - 512 * 1024;
+#endif
 }
 
 inline void

@@ -118,14 +118,23 @@ Frandom (lisp number, lisp state)
 static long
 genseed ()
 {
-  HCRYPTPROV prov;
   long seed = static_cast <long> (time (0));
 
+#ifdef _WIN32
+  HCRYPTPROV prov;
   if (CryptAcquireContext (&prov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
     {
       CryptGenRandom (prov, sizeof seed, reinterpret_cast <BYTE *> (&seed));
       CryptReleaseContext (prov, 0);
     }
+#else
+  FILE *f = fopen ("/dev/urandom", "rb");
+  if (f)
+    {
+      fread (&seed, sizeof seed, 1, f);
+      fclose (f);
+    }
+#endif
 
   return seed;
 }

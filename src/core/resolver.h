@@ -1,6 +1,7 @@
 #ifndef _resolver_h_
 #define _resolver_h_
 
+#ifdef _WIN32
 #include <winsock.h>
 
 class resolver
@@ -50,5 +51,23 @@ public:
   hostent *lookup_host (const void *, int, int);
   servent *lookup_serv (const char *, const char *);
 };
+
+#else // !_WIN32
+
+// Linux stub - uses synchronous resolution
+class resolver
+{
+public:
+  resolver (int = 60000) {}
+  ~resolver () {}
+
+  void cancel () {}
+
+  hostent *lookup_host (const char *name) { return gethostbyname(name); }
+  hostent *lookup_host (const void *addr, int len, int type) { return gethostbyaddr((const char*)addr, len, type); }
+  servent *lookup_serv (const char *name, const char *proto) { return getservbyname(name, proto); }
+};
+
+#endif // _WIN32
 
 #endif /* _resolver_h_ */

@@ -1,4 +1,5 @@
 #include "gen-stdafx.h"
+#ifdef _WIN32
 #include <windows.h>
 
 #define REQ_RANGE_MIN 0x0080
@@ -86,3 +87,6 @@ gen_fontrange (int argc, char **argv)
   ReleaseDC (0, hdc);
   exit (0);
 }
+#else
+void gen_fontrange (int, char **) {}
+#endif

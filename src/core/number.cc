@@ -106,6 +106,7 @@ make_integer (bignum_rep *rep)
     }
 }
 
+#if ULONG_MAX != UINT64_MAX
 lisp
 make_integer (int64_t x)
 {
@@ -125,6 +126,7 @@ make_integer (uint64_t x)
   lb->rep = br_copy (0, x);
   return lb;
 }
+#endif
 
 static inline lisp
 flonum_to_integer (double x)

@@ -45,22 +45,24 @@ file(WRITE ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h "${VERSION_DESCRI
 # Find zlib (prefer static library for -static linking)
 # ============================================================
 set(CMAKE_FIND_LIBRARY_SUFFIXES_SAVE ${CMAKE_FIND_LIBRARY_SUFFIXES})
-if(NOT MSVC)
+if(WIN32 AND NOT MSVC)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 endif()
 find_package(ZLIB)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_SAVE})
 if(NOT ZLIB_FOUND)
-    # Fallback for MSVC: use vendored zlib
     if(MSVC)
+        # Fallback for MSVC: use vendored zlib
         set(ZLIB_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src/zlib)
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(ZLIB_LIBRARIES ${CMAKE_SOURCE_DIR}/src/zlib/Debug/zlib.lib)
         else()
             set(ZLIB_LIBRARIES ${CMAKE_SOURCE_DIR}/src/zlib/Release/zlib.lib)
         endif()
-    else()
+    elseif(WIN32)
         message(FATAL_ERROR "zlib not found. Install with: pacman -S mingw-w64-clang-aarch64-zlib")
+    else()
+        message(FATAL_ERROR "zlib not found. Install with: sudo apt-get install zlib1g-dev")
     endif()
 endif()
 
@@ -74,12 +76,14 @@ file(MAKE_DIRECTORY ${GEN_DIR})
 # Common defines
 add_compile_definitions(
     STRICT
-    _WIN32
     __XYZZY__
     PRIVCTRL_NODLL
     _CRT_SECURE_NO_DEPRECATE
     UNICODE_TABLE_STATIC
 )
+if(WIN32)
+    add_compile_definitions(_WIN32)
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_definitions(DEBUG DEBUG_GC _DEBUG)
@@ -96,7 +100,7 @@ if(MSVC)
         /wd4312  # conversion to pointer of greater size
         /utf-8   # source files are UTF-8
     )
-else()
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(
         -fms-extensions
         -fno-operator-names
@@ -112,13 +116,32 @@ else()
         -Wno-invalid-source-encoding
         -Wno-shift-negative-value
     )
-    # RC files are UTF-8 encoded; also need include paths for resource.h etc.
-    set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
+    if(WIN32)
+        set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
+    endif()
+else()
+    # GCC
+    add_compile_options(
+        -fms-extensions
+        -fno-operator-names
+        -Wno-format
+        -Wno-parentheses
+        -Wno-unused-value
+        -Wno-switch
+        -Wno-dangling-else
+        -Wno-deprecated-declarations
+        -Wno-write-strings
+        -Wno-narrowing
+        -Wno-shift-negative-value
+    )
 endif()
 
 # ============================================================
-# gen-src1: Code generator (stage 1)
+# gen-src1/gen-src2: Code generators
+# On non-Win32, pre-generated files in src/core/gen/ are used directly.
 # ============================================================
+if(WIN32)
+
 set(GEN_SRC1_SOURCES
     ${SRC_DIR}/gen-main.cc
     ${SRC_DIR}/gen-stdafx.cc
@@ -139,9 +162,6 @@ set(GEN_SRC1_SOURCES
 
 add_executable(gen-src1 ${GEN_SRC1_SOURCES})
 target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 WIN32 _CONSOLE)
-# Use -iquote instead of -I so that <string.h> finds the system header
-# rather than src/string.h (project's Lisp string type header).
-# MSVC uses /I but searches system includes first, so no collision.
 if(MSVC)
     target_include_directories(gen-src1 PRIVATE ${SRC_DIR} ${CORE_DIR} ${GEN_DIR})
 else()
@@ -215,13 +235,14 @@ add_custom_command(
     COMMENT "Generating kanjitab.h"
 )
 
-# gen-syms -> vars-decl.h, fns-decl.h, symtable.cc, dumpver.cc
+# gen-syms -> vars-decl.h, fns-decl.h, symtable-core.cc, symtable-ed.cc, dumpver.cc
 add_custom_command(
     OUTPUT ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
-           ${GEN_DIR}/symtable.cc ${GEN_DIR}/dumpver.cc
+           ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable > ${GEN_DIR}/symtable.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
@@ -249,7 +270,8 @@ add_custom_target(gen-src1-run
         ${GEN_DIR}/kanjitab.h
         ${GEN_DIR}/vars-decl.h
         ${GEN_DIR}/fns-decl.h
-        ${GEN_DIR}/symtable.cc
+        ${GEN_DIR}/symtable-core.cc
+        ${GEN_DIR}/symtable-ed.cc
         ${GEN_DIR}/dumpver.cc
         ${GEN_DIR}/utf2sjis.h
 )
@@ -292,6 +314,23 @@ add_custom_target(gen-src2-run
         ${GEN_DIR}/msgcode.h
         ${GEN_DIR}/msgdef.cc
 )
+
+else() # !WIN32
+# Non-Win32: use pre-generated files, create no-op targets
+add_custom_target(gen-src1-run)
+add_custom_target(gen-src2-run)
+# Verify generated files exist
+foreach(_genfile
+    ${GEN_DIR}/num-arith.h ${GEN_DIR}/char-width.h ${GEN_DIR}/chtab.cc
+    ${GEN_DIR}/ibmext.h ${GEN_DIR}/iso2022state.h ${GEN_DIR}/jisx0212-hash.h
+    ${GEN_DIR}/kanjitab.h ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
+    ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
+    ${GEN_DIR}/utf2sjis.h ${GEN_DIR}/msgcode.h ${GEN_DIR}/msgdef.cc)
+    if(NOT EXISTS ${_genfile})
+        message(FATAL_ERROR "Pre-generated file missing: ${_genfile}\nRun gen tools on Windows first.")
+    endif()
+endforeach()
+endif() # WIN32
 
 # ============================================================
 # xyzzy-core: Static library (Lisp interpreter + text buffer)
@@ -356,8 +395,13 @@ set(CORE_SOURCES
     ${CORE_DIR}/version.cc
     ${CORE_DIR}/wstream.cc
     ${CORE_DIR}/xlist.cc
+    ${CORE_DIR}/sock.cc
+    ${CORE_DIR}/sockinet.cc
+    ${CORE_DIR}/sockssl.cc
+    ${CORE_DIR}/resolver.cc
+    ${CORE_DIR}/mman.cc
     ${CORE_DIR}/dsfmt/dSFMT.cc
-    # Generated sources (compiled standalone; gen/symtable.cc is #include'd by core/symtable.cc)
+    # Generated sources (compiled standalone; gen/symtable-core.cc is #include'd by core/symtable.cc)
     ${GEN_DIR}/chtab.cc
     ${GEN_DIR}/dumpver.cc
     ${GEN_DIR}/msgdef.cc
@@ -375,7 +419,9 @@ add_dependencies(xyzzy-core gen-src1-run gen-src2-run)
 
 # ============================================================
 # Win32 frontend sources (GUI + platform layer)
+# Only build on Windows
 # ============================================================
+if(WIN32)
 set(WIN32_SOURCES
     # UI
     ${WIN32_DIR}/Window.cc
@@ -415,7 +461,6 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/sysdep.cc
     ${WIN32_DIR}/conf.cc
     ${WIN32_DIR}/vfs.cc
-    ${WIN32_DIR}/mman.cc
     ${WIN32_DIR}/thread.cc
     ${WIN32_DIR}/utimer.cc
     ${WIN32_DIR}/monitor.cc
@@ -434,10 +479,6 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/archiver.cc
     ${WIN32_DIR}/guid.cc
     ${WIN32_DIR}/process.cc
-    ${WIN32_DIR}/sock.cc
-    ${WIN32_DIR}/sockinet.cc
-    ${WIN32_DIR}/sockssl.cc
-    ${WIN32_DIR}/resolver.cc
     ${WIN32_DIR}/listen.cc
     ${WIN32_DIR}/ipc.cc
     ${WIN32_DIR}/edict.cc
@@ -447,6 +488,8 @@ set(WIN32_SOURCES
     # Support
     ${WIN32_DIR}/assert.cc
     ${WIN32_DIR}/stdafx.cc
+    # Symbol table (editor functions)
+    ${WIN32_DIR}/symtable-ed.cc
 )
 
 # Common link libraries for Win32 targets
@@ -513,9 +556,57 @@ if(CMAKE_RC_COMPILER)
     target_sources(xyzzy-batch PRIVATE ${SRC_DIR}/xyzzy.rc)
 endif()
 
+endif() # WIN32 (end of xyzzy, xyzzy-batch GUI targets)
+
 # ============================================================
+# xyzzy-cli: CLI frontend (links only xyzzy-core, no Win32 GUI)
+# Core separation quality test - exposes leaked dependencies.
+# ============================================================
+set(CLI_DIR ${CMAKE_SOURCE_DIR}/src/frontend/cli)
+set(CLI_SOURCES
+    ${CLI_DIR}/cli-main.cc
+    ${CLI_DIR}/cli-stubs.cc
+    ${CLI_DIR}/cli-conf.cc
+    ${CLI_DIR}/cli-symtable-ed.cc
+)
+
+add_executable(xyzzy-cli ${CLI_SOURCES})
+target_compile_definitions(xyzzy-cli PRIVATE UNICODE _UNICODE)
+if(MSVC)
+    target_include_directories(xyzzy-cli PRIVATE ${CORE_DIR} ${GEN_DIR})
+else()
+    target_compile_options(xyzzy-cli PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+endif()
+target_include_directories(xyzzy-cli PRIVATE ${ZLIB_INCLUDE_DIRS})
+if(WIN32)
+    target_link_libraries(xyzzy-cli PRIVATE
+        xyzzy-core
+        ${ZLIB_LIBRARIES}
+        mpr       # WNetConnectionDialog, WNetOpenEnum (pathname.cc, vfs stubs)
+        rpcrt4    # UUID functions (system.cc)
+        wsock32   # ntohs etc. (sock.cc in xyzzy-core)
+        crypt32   # Certificate chain (sockssl.cc)
+        secur32   # SChannel/SSPI (sockssl.cc)
+    )
+    if(NOT MSVC)
+        target_link_options(xyzzy-cli PRIVATE -static -Wl,--stack,0x2000000 -Wl,--error-limit=0)
+    else()
+        target_link_options(xyzzy-cli PRIVATE /STACK:0x2000000)
+    endif()
+else()
+    target_link_libraries(xyzzy-cli PRIVATE
+        xyzzy-core
+        ${ZLIB_LIBRARIES}
+        pthread
+    )
+endif()
+
+# ============================================================
+# Win32-only targets
+# ============================================================
+if(WIN32)
+
 # xyzzycli: Command-line launcher
-# ============================================================
 add_executable(xyzzycli WIN32 ${SRC_DIR}/xyzzycli.cc)
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzycli PRIVATE ${SRC_DIR}/xyzzycli.rc)
@@ -530,9 +621,7 @@ if(NOT MSVC)
     target_link_options(xyzzycli PRIVATE -static)
 endif()
 
-# ============================================================
 # xyzzyenv: Environment utility
-# ============================================================
 add_executable(xyzzyenv ${SRC_DIR}/xyzzyenv.cc)
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzyenv PRIVATE ${SRC_DIR}/xyzzyenv.rc)
@@ -547,17 +636,13 @@ if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
 endif()
 
-# ============================================================
 # tail-f: File monitoring utility (etc/tail-f.exe)
-# ============================================================
 add_executable(tail-f ${SRC_DIR}/etc/tail-f.cc)
 if(NOT MSVC)
     target_link_options(tail-f PRIVATE -static)
 endif()
 
-# ============================================================
 # Bytecompile: compile .l -> .lc and generate dump image
-# ============================================================
 add_custom_target(bytecompile
     COMMAND ${CMAKE_COMMAND}
         -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
@@ -567,9 +652,7 @@ add_custom_target(bytecompile
     COMMENT "Byte-compiling Lisp files and generating dump image"
 )
 
-# ============================================================
-# Testing
-# ============================================================
+# Testing (Win32 GUI tests)
 enable_testing()
 add_test(
     NAME xyzzy-unit-tests
@@ -581,9 +664,7 @@ add_test(
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-# ============================================================
-# Install
-# ============================================================
+# Install (Win32)
 install(TARGETS xyzzy xyzzycli xyzzyenv RUNTIME DESTINATION .)
 install(TARGETS tail-f RUNTIME DESTINATION etc)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
@@ -592,6 +673,13 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION docs)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION reference OPTIONAL)
 install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION .)
 install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
+
+endif() # WIN32
+
+# ============================================================
+# Cross-platform install
+# ============================================================
+install(TARGETS xyzzy-cli RUNTIME DESTINATION bin)
 
 # ============================================================
 # CPack: packaging

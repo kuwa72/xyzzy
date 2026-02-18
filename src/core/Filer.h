@@ -1,6 +1,8 @@
 #ifndef _filer_h_
 # define _filer_h_
 
+#ifdef _WIN32
+
 #define DnD_TEST
 
 # include "glob.h"
@@ -636,5 +638,7 @@ Filer::left_window_p () const
 {
   return f_pview == &f_fv1;
 }
+
+#endif // _WIN32
 
 #endif

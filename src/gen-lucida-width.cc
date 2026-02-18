@@ -1,4 +1,5 @@
 #include "gen-stdafx.h"
+#ifdef _WIN32
 
 #define HEIGHT 128
 #define FACE "Lucida Sans Unicode"
@@ -71,3 +72,6 @@ gen_lucida_width (int argc, char **argv)
 
   exit (0);
 }
+#else
+void gen_lucida_width (int, char **) {}
+#endif

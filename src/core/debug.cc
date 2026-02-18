@@ -11,12 +11,16 @@ Debug (char *format, ...)
   char msg[BUF_SIZE];
 
   va_start (ap, format);
-  vsprintf_s (msg, BUF_SIZE, format, ap);
+  vsnprintf (msg, BUF_SIZE, format, ap);
   va_end (ap);
 
   char buf[BUF_SIZE * 2];
-  sprintf_s (buf, BUF_SIZE * 2, "%s\n", msg);
+  snprintf (buf, BUF_SIZE * 2, "%s\n", msg);
+#ifdef _WIN32
   OutputDebugStringA (buf);
+#else
+  fputs (buf, stderr);
+#endif
 }
 
 void
@@ -27,5 +31,9 @@ Debug (const Char *b, size_t size)
 
   char *msg = (char *)alloca (size * 2 + 1);
   w2s (msg, b, size);
+#ifdef _WIN32
   OutputDebugStringA (msg);
+#else
+  fputs (msg, stderr);
+#endif
 }

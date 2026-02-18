@@ -2,7 +2,9 @@
 #include "ed.h"
 #include "lex.h"
 #include "symtable.h"
+#ifdef _WIN32
 #include "mainframe.h"
+#endif
 
 lisp Qnil;
 lisp Qunbound;
@@ -91,6 +93,11 @@ ldataP::do_alloc (int type, int size)
     morecore (type, size);
   char *r = (char *)ld_freep;
   ld_freep = ld_freep->lf_next;
+  // Zero-initialize to clear stale free-list pointers.
+  // GCC's empty base optimization makes lisp_object occupy 0 bytes as a base,
+  // so derived class members start at offset 0 - overlapping the free-list
+  // pointer (lf_next). Without zeroing, destructors may free garbage pointers.
+  memset (r, 0, size);
   bitset (used_place (r), bit_index (r));
   ld_nwasted++;
   return r;
@@ -871,7 +878,9 @@ gc_mark_object ()
 
   toplev_gc_mark (gc_mark_object);
   process_gc_mark (gc_mark_object);
+#ifdef _WIN32
   g_frame.gc_mark (gc_mark_object);
+#endif
   app.user_timer.gc_mark (gc_mark_object);
 
   gc_mark_in_stack ();

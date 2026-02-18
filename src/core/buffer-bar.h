@@ -1,6 +1,8 @@
 #ifndef _buffer_bar_h_
 #define _buffer_bar_h_
 
+#ifdef _WIN32
+
 #include "dockbar.h"
 #include "DnD.h"
 
@@ -54,5 +56,7 @@ public:
   static lisp list_buffers ()
     {return b_bar ? b_bar->buffer_list () : 0;}
 };
+
+#endif // _WIN32
 
 #endif /* _buffer_bar_h_ */

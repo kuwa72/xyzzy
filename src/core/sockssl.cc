@@ -7,6 +7,7 @@
 **************************************************************************/
 
 #include "stdafx.h"
+#ifdef _WIN32
 #ifdef __XYZZY__
 #include "ed.h"
 #endif
@@ -753,3 +754,4 @@ sockssl::check_server_name (lisp lserver_name) const
 
   return b;
 }
+#endif // _WIN32

@@ -1,6 +1,8 @@
 #ifndef _EXCEPT_H_
 # define _EXCEPT_H_
 
+#ifdef _WIN32
+
 class Win32Exception
 {
 public:
@@ -18,6 +20,19 @@ public:
 };
 
 void __cdecl se_handler (u_int, EXCEPTION_POINTERS *);
+
+#else // !_WIN32
+
+// Dummy Win32Exception for non-Windows (never thrown, but catch blocks reference it)
+class Win32Exception
+{
+public:
+  u_int code;
+  void throw_lisp_error () {}
+};
+
+#endif // _WIN32
+
 void cleanup_exception ();
 
 #endif

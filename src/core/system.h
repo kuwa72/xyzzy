@@ -2,6 +2,7 @@
 # define _system_h_
 
 #include "ed.h"
+#ifdef _WIN32
 #include <rpc.h>
 
 static inline void
@@ -21,5 +22,6 @@ public:
   RPC_CSTR *operator & () {return &u;}
   lisp make_string () {return ::make_string (u);}
 };
+#endif // _WIN32
 
 #endif

@@ -1,6 +1,8 @@
 #ifndef _monitor_h_
 # define _monitor_h_
 
+#ifdef _WIN32
+
 # include <windows.h>
 
 class Monitor
@@ -17,5 +19,7 @@ private:
 };
 
 extern Monitor monitor;
+
+#endif // _WIN32
 
 #endif /* _monitor_h_ */

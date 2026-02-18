@@ -374,6 +374,7 @@ convert_backsl_with_sl (char *path, int f, int t)
     }
 }
 
+#ifdef _WIN32
 void
 fill_rect (HDC hdc, const RECT &r, COLORREF c)
 {
@@ -517,6 +518,7 @@ frameDC::frame_rect (const RECT &r, int w) const
   paint (r);
   SelectClipRgn (f_hdc, 0);
 }
+#endif // _WIN32
 
 ucs2_t *
 i2w (const Char *p, int l, ucs2_t *b)
