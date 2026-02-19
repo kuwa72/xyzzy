@@ -80,7 +80,7 @@
 	   (and (null (cddr type))
 		(c-typespec-p (car type))
 		(eq (cadr type) '*)
-		(get ':uint32 'c-type-specifier)))))
+		(get 'void* 'c-type-specifier)))))
 
   (defun expand-c-type (type)
     (let ((x (c-typespec-p type)))
@@ -129,7 +129,8 @@
 (*define-c-type long clock_t)
 (*define-c-type long off_t)
 
-(*define-c-type int64 void*)
+#+:64bit (*define-c-type int64 void*)
+#+:32bit (*define-c-type long void*)
 (*define-c-type void* char*)
 (*define-c-type char* string)
 

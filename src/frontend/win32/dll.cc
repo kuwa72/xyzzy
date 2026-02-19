@@ -351,9 +351,16 @@ funcall_dll (lisp fn, lisp arglist)
   if (!xdll_function_proc (fn))
     FEprogram_error (Edll_not_initialized, fn);
 
-#ifdef _M_IX86
+#if defined(_M_IX86) || defined(__i386__)
   int arg_size = xdll_function_arg_size (fn) + calc_vaarg_size (fn, arglist);
   char *stack = (char *)alloca (arg_size);
+#ifdef __GNUC__
+  /* GCC's alloca may return an aligned pointer above ESP.
+     Save the start address so we can set ESP to it before calling proc.
+     Without this, proc() reads garbage from the stack instead of the
+     arguments filled by push_arg. */
+  char *stack_base = stack;
+#endif
   for (const u_char *at = xdll_function_arg_types (fn),
        *ae = at + xdll_function_nargs (fn);
        at < ae; at++, arglist = xcdr (arglist))
@@ -378,6 +385,80 @@ funcall_dll (lisp fn, lisp arglist)
   FARPROC proc = xdll_function_proc (fn);
   try
     {
+#if defined(__GNUC__)
+      /* GCC x86: alloca returns a 16-byte aligned pointer that may not be at ESP.
+         The MSVC alloca trick (fill buffer at alloca ptr, then call proc() with
+         no args so it reads from [ESP+4]) fails because ESP != alloca ptr on GCC.
+         Use inline asm to set ESP = stack_base before calling proc, so proc sees
+         the filled arguments at [ESP+4].
+         After proc returns (stdcall: RET N cleans args, cdecl: plain RET),
+         ESP is in a different position, but funcall_dll's epilogue restores
+         ESP from EBP (required for alloca functions). */
+      u_char rt = xdll_function_return_type (fn);
+      if (rt == CTYPE_FLOAT)
+        {
+          float fresult;
+          __asm__ volatile (
+            "movl %[base], %%esp\n\t"
+            "call *%[func]\n\t"
+            : "=t" (fresult)
+            : [base] "r" (stack_base), [func] "r" (proc)
+            : "eax", "ecx", "edx", "memory", "cc"
+          );
+          save_last_error ();
+          return make_single_float (fresult);
+        }
+      else if (rt == CTYPE_DOUBLE)
+        {
+          double dresult;
+          __asm__ volatile (
+            "movl %[base], %%esp\n\t"
+            "call *%[func]\n\t"
+            : "=t" (dresult)
+            : [base] "r" (stack_base), [func] "r" (proc)
+            : "eax", "ecx", "edx", "memory", "cc"
+          );
+          save_last_error ();
+          return make_double_float (dresult);
+        }
+      else
+        {
+          /* Integer/pointer/void return: value in EAX (32-bit) or EAX:EDX (64-bit).
+             Use "=A" to capture the full EAX:EDX pair as int64_t. */
+          int64_t r;
+          __asm__ volatile (
+            "movl %[base], %%esp\n\t"
+            "call *%[func]\n\t"
+            : "=A" (r)
+            : [base] "r" (stack_base), [func] "r" (proc)
+            : "ecx", "memory", "cc"
+          );
+          save_last_error ();
+          switch (rt)
+            {
+            default:
+              assert (0);
+            case CTYPE_VOID:
+              return Qnil;
+            case CTYPE_INT8:
+              return make_fixnum ((char)r);
+            case CTYPE_UINT8:
+              return make_fixnum ((u_char)r);
+            case CTYPE_INT16:
+              return make_fixnum ((short)r);
+            case CTYPE_UINT16:
+              return make_fixnum ((u_short)r);
+            case CTYPE_INT32:
+              return make_fixnum ((long)r);
+            case CTYPE_UINT32:
+              return make_integer ((int64_t)(u_long)r);
+            case CTYPE_INT64:
+              return make_integer (r);
+            case CTYPE_UINT64:
+              return make_integer ((uint64_t)r);
+            }
+        }
+#else /* MSVC: alloca returns exactly ESP, so the trick works directly */
       switch (xdll_function_return_type (fn))
         {
         default:
@@ -417,6 +498,7 @@ funcall_dll (lisp fn, lisp arglist)
         case CTYPE_DOUBLE:
           return make_double_float (call_proc <double> (proc));
         }
+#endif
     }
   catch (Win32Exception &e)
     {
@@ -559,7 +641,7 @@ funcall_c_callable (lisp fn, lisp arglist)
   return Ffuncall (xc_callable_function (fn), arglist);
 }
 
-#ifdef _M_IX86
+#if defined(_M_IX86) || defined(__i386__)
 
 /*
   ESP ------------------

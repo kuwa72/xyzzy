@@ -770,6 +770,11 @@ init_environ ()
       xsymbol_value (Vfeatures) = xcons (Kwow64, xsymbol_value (Vfeatures));
       break;
     }
+
+  if (sizeof (pointer_t) == 4)
+    xsymbol_value (Vfeatures) = xcons (K32bit, xsymbol_value (Vfeatures));
+  else
+    xsymbol_value (Vfeatures) = xcons (K64bit, xsymbol_value (Vfeatures));
 }
 
 lisp

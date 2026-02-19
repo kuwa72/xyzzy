@@ -24,6 +24,9 @@ if(old_lc_count GREATER 0)
     file(REMOVE ${old_lc_files})
 endif()
 
+set(LOGFILE "${SOURCE_DIR}/bytecompile-progress.log")
+file(REMOVE "${LOGFILE}")
+
 message(STATUS "Running: ${XYZZY_EXE} -q -load misc/bytecompile-batch.l")
 
 # Console subsystem app — execute_process properly waits for it
@@ -34,6 +37,12 @@ execute_process(
     TIMEOUT 600
 )
 message(STATUS "xyzzy-batch exited with code: ${rc}")
+
+# Show compilation log
+if(EXISTS "${LOGFILE}")
+    file(READ "${LOGFILE}" log_contents)
+    message("${log_contents}")
+endif()
 
 file(GLOB lc_files "${SOURCE_DIR}/lisp/*.lc")
 list(LENGTH lc_files lc_count)

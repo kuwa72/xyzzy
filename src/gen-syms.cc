@@ -1209,6 +1209,8 @@ static symbols kwd[] =
   DEFKWD2 (x64),
   DEFKWD2 (ia64),
   DEFKWD2 (wow64),
+  DEFKWD2 (32bit),
+  DEFKWD2 (64bit),
   DEFKWD2 (no-dup),
   DEFKWD2 (case-fold),
   DEFKWD2 (reverse),

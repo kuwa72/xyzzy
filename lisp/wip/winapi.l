@@ -48,10 +48,13 @@
 (*define-c-type BYTE BOOLEAN)
 
 ;; windef.h
-;; On Win64, WPARAM=UINT_PTR, LPARAM=LONG_PTR, LRESULT=LONG_PTR (all 64-bit)
-(*define-c-type u_int64 WPARAM)
-(*define-c-type int64 LPARAM)
-(*define-c-type int64 LRESULT)
+;; WPARAM=UINT_PTR, LPARAM=LONG_PTR, LRESULT=LONG_PTR (pointer-sized)
+#+:64bit (*define-c-type u_int64 WPARAM)
+#+:32bit (*define-c-type UINT WPARAM)
+#+:64bit (*define-c-type int64 LPARAM)
+#+:32bit (*define-c-type LONG LPARAM)
+#+:64bit (*define-c-type int64 LRESULT)
+#+:32bit (*define-c-type LONG LRESULT)
 (*define-c-type HANDLE HWND)
 (*define-c-type HANDLE HHOOK)
 (*define-c-type WORD ATOM)
