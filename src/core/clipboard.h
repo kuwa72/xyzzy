@@ -1,8 +1,8 @@
 #ifndef _clipboard_h_
 # define _clipboard_h_
 
-typedef BOOL (*AddClipboardFormatListener)(HWND hwnd);
-typedef BOOL (*RemoveClipboardFormatListener)(HWND hwnd);
+typedef BOOL (WINAPI *AddClipboardFormatListener)(HWND hwnd);
+typedef BOOL (WINAPI *RemoveClipboardFormatListener)(HWND hwnd);
 
 class clipboard
 {

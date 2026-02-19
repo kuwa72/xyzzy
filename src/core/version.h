@@ -35,7 +35,15 @@
 #   define BUILD_PLATFORM "Clang"
 #  endif
 # elif defined(__GNUC__)
-#  define BUILD_PLATFORM "GCC"
+#  if defined(__aarch64__)
+#   define BUILD_PLATFORM "GCC/ARM64"
+#  elif defined(__x86_64__)
+#   define BUILD_PLATFORM "GCC/x64"
+#  elif defined(__i386__)
+#   define BUILD_PLATFORM "GCC/x86"
+#  else
+#   define BUILD_PLATFORM "GCC"
+#  endif
 # else
 #  define BUILD_PLATFORM "Unknown"
 # endif

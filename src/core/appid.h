@@ -3,7 +3,7 @@
 
 #include <ShObjIdl.h>
 
-typedef HRESULT (*SETAPPID)(PCWSTR AppID);
+typedef HRESULT (WINAPI *SETAPPID)(PCWSTR AppID);
 
 class appid
 {
