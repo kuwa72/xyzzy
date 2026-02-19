@@ -449,7 +449,7 @@
 (defvar *encoding-default-euc* *encoding-euc-jp*)
 
 (or *default-fileio-encoding*
-    (setq *default-fileio-encoding* *encoding-sjis*))
+    (setq *default-fileio-encoding* *encoding-utf8n*))
 (or *expected-fileio-encoding*
     (setq *expected-fileio-encoding* *encoding-auto*))
 (or *default-process-encoding*
