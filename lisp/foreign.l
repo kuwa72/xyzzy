@@ -129,7 +129,7 @@
 (*define-c-type long clock_t)
 (*define-c-type long off_t)
 
-(*define-c-type long void*)
+(*define-c-type int64 void*)
 (*define-c-type void* char*)
 (*define-c-type char* string)
 

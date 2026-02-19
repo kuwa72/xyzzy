@@ -424,8 +424,131 @@ funcall_dll (lisp fn, lisp arglist)
       throw;
     }
 #else
-  FEprogram_error (Edll_not_initialized, fn);
-  return Qnil;
+  /* Non-x86: use function pointer casts.
+     The compiler handles calling conventions (ARM64/x64 use register-based ABIs).
+     All integer/pointer arguments are passed as int64_t; the callee ignores upper
+     bits for narrower types.  Float/double arguments are not yet supported. */
+
+  int nargs = xdll_function_nargs (fn);
+  if (nargs > 12)
+    FEprogram_error (Edll_not_initialized, fn);
+
+  int64_t a[12] = {};
+  const u_char *at = xdll_function_arg_types (fn);
+  for (int i = 0; i < nargs; i++, arglist = xcdr (arglist))
+    {
+      if (!consp (arglist))
+        FEtoo_few_arguments ();
+      lisp x = xcar (arglist);
+      switch (at[i])
+        {
+        case CTYPE_FLOAT:
+        case CTYPE_DOUBLE:
+          FEprogram_error (Edll_not_initialized, fn);
+          break;
+        default:
+          a[i] = cast_to_int64 (x);
+          break;
+        }
+    }
+
+  if (consp (arglist))
+    FEtoo_many_arguments ();
+
+  FARPROC proc = xdll_function_proc (fn);
+  int64_t r;
+
+  typedef int64_t (*f0)();
+  typedef int64_t (*f1)(int64_t);
+  typedef int64_t (*f2)(int64_t, int64_t);
+  typedef int64_t (*f3)(int64_t, int64_t, int64_t);
+  typedef int64_t (*f4)(int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f7)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t);
+  typedef int64_t (*f8)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t, int64_t);
+  typedef int64_t (*f9)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t, int64_t, int64_t);
+  typedef int64_t (*f10)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
+  try
+    {
+      switch (nargs)
+        {
+        case 0:  r = ((f0)proc)(); break;
+        case 1:  r = ((f1)proc)(a[0]); break;
+        case 2:  r = ((f2)proc)(a[0], a[1]); break;
+        case 3:  r = ((f3)proc)(a[0], a[1], a[2]); break;
+        case 4:  r = ((f4)proc)(a[0], a[1], a[2], a[3]); break;
+        case 5:  r = ((f5)proc)(a[0], a[1], a[2], a[3], a[4]); break;
+        case 6:  r = ((f6)proc)(a[0], a[1], a[2], a[3], a[4], a[5]); break;
+        case 7:  r = ((f7)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+        case 8:  r = ((f8)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]); break;
+        case 9:  r = ((f9)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                a[8]); break;
+        case 10: r = ((f10)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                 a[8], a[9]); break;
+        case 11: r = ((f11)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                 a[8], a[9], a[10]); break;
+        case 12: r = ((f12)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                 a[8], a[9], a[10], a[11]); break;
+        default:
+          FEprogram_error (Edll_not_initialized, fn);
+          return Qnil;
+        }
+    }
+  catch (Win32Exception &e)
+    {
+      e.throw_lisp_error ();
+      throw;
+    }
+
+  save_last_error ();
+
+  switch (xdll_function_return_type (fn))
+    {
+    default:
+      assert (0);
+
+    case CTYPE_VOID:
+      return Qnil;
+
+    case CTYPE_INT8:
+      return make_fixnum ((char)r);
+
+    case CTYPE_UINT8:
+      return make_fixnum ((u_char)r);
+
+    case CTYPE_INT16:
+      return make_fixnum ((short)r);
+
+    case CTYPE_UINT16:
+      return make_fixnum ((u_short)r);
+
+    case CTYPE_INT32:
+      return make_fixnum ((int32_t)r);
+
+    case CTYPE_UINT32:
+      return make_integer ((int64_t)(uint32_t)r);
+
+    case CTYPE_INT64:
+      return make_integer ((int64_t)r);
+
+    case CTYPE_UINT64:
+      return make_integer ((uint64_t)r);
+
+    case CTYPE_FLOAT:
+    case CTYPE_DOUBLE:
+      FEprogram_error (Edll_not_initialized, fn);
+      return Qnil;
+    }
 #endif
 }
 

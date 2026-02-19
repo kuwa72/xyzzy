@@ -572,6 +572,48 @@ Fbuffer_selector ()
   return r == IDOK ? comparator.selected_buffer ()->lbp : Qnil;
 }
 
+// Wide-string helpers for Unicode dialog conversion
+static void
+map_backsl_to_sl_w (wchar_t *s)
+{
+  for (; *s; s++)
+    if (*s == L'\\') *s = L'/';
+}
+
+static void
+map_sl_to_backsl_w (wchar_t *s)
+{
+  for (; *s; s++)
+    if (*s == L'/') *s = L'\\';
+}
+
+static wchar_t *
+pathname2wstr (lisp pathname, wchar_t *buf)
+{
+  char sjis[PATH_MAX + 1];
+  pathname2cstr (pathname, sjis);
+  // Convert SJIS to wide string via CP932
+  MultiByteToWideChar (932, 0, sjis, -1, buf, PATH_MAX);
+  return buf;
+}
+
+static lisp
+make_string_from_wcs (const wchar_t *ws)
+{
+  int len = wcslen (ws);
+  Char *buf = (Char *)alloca (len * sizeof (Char));
+  for (int i = 0; i < len; i++)
+    buf[i] = w2i (ws[i]);
+  return make_string (buf, len);
+}
+
+static wchar_t *
+i2w_lisp (lisp x, wchar_t *buf)
+{
+  i2w (xstring_contents (x), xstring_length (x), (ucs2_t *)buf);
+  return buf;
+}
+
 static int
 count_filter_size (lisp filters)
 {
@@ -583,7 +625,7 @@ count_filter_size (lisp filters)
       lisp a = xcar (f), d = xcdr (f);
       check_string (a);
       check_string (d);
-      size += w2sl (a) + w2sl (d) + 2;
+      size += i2wl (a) + i2wl (d) + 2;
     }
   if (size)
     size++;
@@ -591,20 +633,22 @@ count_filter_size (lisp filters)
 }
 
 static void
-make_filter_string (char *b, lisp filters)
+make_filter_string (wchar_t *b, lisp filters)
 {
   for (; consp (filters); filters = xcdr (filters))
     {
       lisp f = xcar (filters);
       lisp a = xcar (f), d = xcdr (f);
-      b = w2s (b, a) + 1;
-      b = w2s (b, d) + 1;
+      b = (wchar_t *)i2w (xstring_contents (a), xstring_length (a), (ucs2_t *)b);
+      b++;
+      b = (wchar_t *)i2w (xstring_contents (d), xstring_length (d), (ucs2_t *)b);
+      b++;
     }
   *b = 0;
 }
 
-static const UINT MSGFILEOK = RegisterWindowMessageA (FILEOKSTRINGA);
-static const UINT MSGLBSELCH = RegisterWindowMessageA (LBSELCHSTRINGA);
+static const UINT MSGFILEOK = RegisterWindowMessageW (FILEOKSTRINGW);
+static const UINT MSGLBSELCH = RegisterWindowMessageW (LBSELCHSTRINGW);
 
 struct OFN: public tagOFN
 {
@@ -646,17 +690,17 @@ OFN::init_eol_list ()
   for (int i = 0; eol_list[i].id >= 0; i++)
     if (!ofn_save || eol_list[i].id != IDS_EOL_AUTO)
       {
-        char b[64];
-        LoadStringA (app.hinst, eol_list[i].id, b, sizeof b);
-        int j = SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_ADDSTRING, 0, LPARAM (b));
+        wchar_t b[64];
+        LoadStringW (app.hinst, eol_list[i].id, b, numberof (b));
+        int j = SendDlgItemMessageW (ofn_hwnd, IDC_EOL_CODE, CB_ADDSTRING, 0, LPARAM (b));
         if (j != CB_ERR)
           {
-            SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_SETITEMDATA, j, eol_list[i].code);
+            SendDlgItemMessageW (ofn_hwnd, IDC_EOL_CODE, CB_SETITEMDATA, j, eol_list[i].code);
             if (eol_list[i].code == ofn_eol_code)
               index = j;
           }
       }
-  SendDlgItemMessageA (ofn_hwnd, IDC_EOL_CODE, CB_SETCURSEL, index, 0);
+  SendDlgItemMessageW (ofn_hwnd, IDC_EOL_CODE, CB_SETCURSEL, index, 0);
 }
 
 void
@@ -669,24 +713,27 @@ OFN::init_encoding_list ()
       if (char_encoding_p (encoding)
           && (!ofn_save || xchar_encoding_type (encoding) != encoding_auto_detect))
         {
-          char b[256];
-          w2s (b, b + sizeof b, xchar_encoding_display_name (encoding));
-          int j = SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
+          lisp name = xchar_encoding_display_name (encoding);
+          int len = i2wl (xstring_contents (name), xstring_length (name));
+          wchar_t *b = (wchar_t *)alloca ((len + 1) * sizeof (wchar_t));
+          i2w (xstring_contents (name), xstring_length (name), (ucs2_t *)b);
+          int j = SendDlgItemMessageW (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
           if (j != CB_ERR)
             {
-              SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETITEMDATA,
+              SendDlgItemMessageW (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETITEMDATA,
                                    j, LPARAM (encoding));
               if (encoding == ofn_encoding)
                 index = j;
             }
         }
     }
-  SendDlgItemMessageA (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETCURSEL, index, 0);
+  SendDlgItemMessageW (ofn_hwnd, IDC_CHAR_ENCODING, CB_SETCURSEL, index, 0);
 }
 
 void
 OFN::init_dialog ()
 {
+
   if (ofn_encoding_req)
     init_encoding_list ();
   else
@@ -774,10 +821,10 @@ void *
 OFN::get_result (int id, void *defalt)
 {
   HWND hwnd = GetDlgItem (ofn_hwnd, id);
-  int n = SendMessageA (hwnd, CB_GETCURSEL, 0, 0);
+  int n = SendMessageW (hwnd, CB_GETCURSEL, 0, 0);
   if (n == CB_ERR)
     return defalt;
-  return (void *)SendMessageA (hwnd, CB_GETITEMDATA, n, 0);
+  return (void *)SendMessageW (hwnd, CB_GETITEMDATA, n, 0);
 }
 
 void
@@ -817,7 +864,7 @@ OFN::wndproc (UINT msg, WPARAM wparam, LPARAM lparam)
                 {
                   hwnd = GetParent (ofn_hwnd);
                   if (ofn_ok_button)
-                    SendMessageA (hwnd, CDM_SETCONTROLTEXT, IDOK, LPARAM ("OK"));
+                    SendMessageW (hwnd, CDM_SETCONTROLTEXT, IDOK, LPARAM (L"OK"));
                 }
               else
                 hwnd = ofn_hwnd;
@@ -848,7 +895,7 @@ file_name_dialog_hook (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   OFN *ofn;
   if (msg == WM_INITDIALOG)
     {
-      lparam = ((OPENFILENAMEA *)lparam)->lCustData;
+      lparam = ((OPENFILENAMEW *)lparam)->lCustData;
       SetWindowLongPtr (hwnd, DWL_USER, lparam);
       ofn = (OFN *)lparam;
       ofn->ofn_hwnd = hwnd;
@@ -889,20 +936,20 @@ Ffile_name_dialog (lisp keys)
   if (!leol_code)
     leol_code = find_keyword (Knewline_code, keys);
 
-  char dir[PATH_MAX + 1];
+  wchar_t dir[PATH_MAX + 1];
   *dir = 0;
   lisp ldir = find_keyword (Kinitial_directory, keys);
   if (ldir != Qnil)
     {
-      pathname2cstr (ldir, dir);
-      DWORD a = WINFS::GetFileAttributes (dir);
+      pathname2wstr (ldir, dir);
+      DWORD a = GetFileAttributesW (dir);
       if (a == DWORD (-1) || !(a & FILE_ATTRIBUTE_DIRECTORY))
         *dir = 0;
     }
 
   if (!*dir)
-    pathname2cstr (selected_buffer ()->ldirectory, dir);
-  map_sl_to_backsl (dir);
+    pathname2wstr (selected_buffer ()->ldirectory, dir);
+  map_sl_to_backsl_w (dir);
 
   OFN ofn;
   bzero (&ofn, sizeof ofn);
@@ -914,18 +961,18 @@ Ffile_name_dialog (lisp keys)
   ofn.hInstance = app.hinst;
   ofn.lCustData = (LPARAM)&ofn;
 
-  char buf[1024 * 32];
-  if (stringp (ldefault) && xstring_length (ldefault) < sizeof buf / 2 - 1)
+  wchar_t buf[1024 * 16];
+  if (stringp (ldefault) && xstring_length (ldefault) < numberof (buf) / 2 - 1)
     {
-      w2s (buf, ldefault);
-      map_sl_to_backsl (buf);
+      i2w_lisp (ldefault, buf);
+      map_sl_to_backsl_w (buf);
     }
   else if (!filter_size)
-    strcpy (buf, "*.*");
+    wcscpy (buf, L"*.*");
   else
     *buf = 0;
   ofn.lpstrFile = buf;
-  ofn.nMaxFile = sizeof buf;
+  ofn.nMaxFile = numberof (buf);
 
   ofn.Flags = (OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST | OFN_LONGNAMES
                | OFN_ENABLEHOOK | OFN_ENABLESIZING | OFN_SHAREAWARE);
@@ -946,38 +993,38 @@ Ffile_name_dialog (lisp keys)
   if (sysdep.Win5p ())
     ofn.Flags |= OFN_DONTADDTORECENT | OFN_FORCESHOWHIDDEN;
 
-  char *filter = 0;
+  wchar_t *filter = 0;
   if (filter_size)
     {
-      filter = (char *)alloca (filter_size);
+      filter = (wchar_t *)alloca (filter_size * sizeof (wchar_t));
       make_filter_string (filter, lfilters);
     }
   ofn.lpstrFilter = filter;
   ofn.nFilterIndex = filter_index;
 
   ofn.lpstrInitialDir = dir;
-  int l = strlen (dir);
-  if (!memicmp (dir, buf, l))
+  int l = wcslen (dir);
+  if (!_wcsnicmp (dir, buf, l))
     {
-      if (buf[l] == '\\')
+      if (buf[l] == L'\\')
         l++;
-      strcpy (buf, buf + l);
+      wcscpy (buf, buf + l);
     }
 
-  char *title = 0;
+  wchar_t *title = 0;
   if (stringp (ltitle))
     {
       ofn.ofn_ok_button = 1;
-      title = (char *)alloca (xstring_length (ltitle) * 2 + 1);
-      w2s (title, ltitle);
+      title = (wchar_t *)alloca ((xstring_length (ltitle) + 1) * sizeof (wchar_t));
+      i2w_lisp (ltitle, title);
     }
   ofn.lpstrTitle = title;
 
-  char *ext = 0;
+  wchar_t *ext = 0;
   if (stringp (lext))
     {
-      ext = (char *)alloca (xstring_length (lext) * 2 + 1);
-      w2s (ext, lext);
+      ext = (wchar_t *)alloca ((xstring_length (lext) + 1) * sizeof (wchar_t));
+      i2w_lisp (lext, ext);
     }
   ofn.lpstrDefExt = ext;
 
@@ -1017,22 +1064,22 @@ Ffile_name_dialog (lisp keys)
     {
       ofn.Flags |= OFN_ENABLETEMPLATE;
       ofn.lpTemplateName = (multiple
-                            ? MAKEINTRESOURCEA (MULTIFILEOPENORD)
-                            : MAKEINTRESOURCEA (FILEOPENORD));
+                            ? MAKEINTRESOURCEW (MULTIFILEOPENORD)
+                            : MAKEINTRESOURCEW (FILEOPENORD));
       if (!ofn.lpstrTitle && save)
         {
-          title = (char *)alloca (256);
-          LoadStringA (app.hinst, IDS_SAVE_AS, title, 256);
+          title = (wchar_t *)alloca (256 * sizeof (wchar_t));
+          LoadStringW (app.hinst, IDS_SAVE_AS, title, 256);
           ofn.lpstrTitle = title;
         }
     }
   else if (ofn.ofn_eol_req || ofn.ofn_encoding_req)
     {
       ofn.Flags |= OFN_ENABLETEMPLATE;
-      ofn.lpTemplateName = MAKEINTRESOURCEA (IDD_CUST_EXPLORER);
+      ofn.lpTemplateName = MAKEINTRESOURCEW (IDD_CUST_EXPLORER);
     }
 
-  if (save ? !GetSaveFileNameA (&ofn) : !GetOpenFileNameA (&ofn))
+  if (save ? !GetSaveFileNameW (&ofn) : !GetOpenFileNameW (&ofn))
     return Qnil;
 
   multiple_value::count () = 4;
@@ -1046,50 +1093,52 @@ Ffile_name_dialog (lisp keys)
 
   if (!multiple)
     {
-      map_backsl_to_sl (buf);
-      return make_string (buf);
+      map_backsl_to_sl_w (buf);
+      return make_string_from_wcs (buf);
     }
 
   lisp result = Qnil;
   if (ofn.Flags & OFN_EXPLORER)
     {
-      char *b = buf + strlen (buf);
-      map_backsl_to_sl (buf);
+      wchar_t *b = buf + wcslen (buf);
+      map_backsl_to_sl_w (buf);
       if (!b[1])
-        return xcons (make_string (buf), Qnil);
-      char *e = b++;
-      if (jrindex (buf, '/') != e - 1)
-        *e++ = '/';
+        return xcons (make_string_from_wcs (buf), Qnil);
+      wchar_t *e = b++;
+      if (wcsrchr (buf, L'/') != e - 1)
+        *e++ = L'/';
       while (*b)
         {
-          char *p = stpcpy (e, b);
-          b += p - e + 1;
-          result = xcons (make_string (buf), result);
+          wcscpy (e, b);
+          int blen = wcslen (b);
+          b += blen + 1;
+          result = xcons (make_string_from_wcs (buf), result);
         }
     }
   else
     {
-      char *b = jindex (buf, ' ');
+      wchar_t *b = wcschr (buf, L' ');
       if (!b)
         {
-          map_backsl_to_sl (buf);
-          return xcons (make_string (buf), Qnil);
+          map_backsl_to_sl_w (buf);
+          return xcons (make_string_from_wcs (buf), Qnil);
         }
-      char *e = b++;
+      wchar_t *e = b++;
       *e = 0;
-      if (jrindex (buf, '/') != e - 1)
-        *e++ = '/';
+      if (wcsrchr (buf, L'/') != e - 1)
+        *e++ = L'/';
       while (1)
         {
-          char *b2 = jindex (b, ' ');
+          wchar_t *b2 = wcschr (b, L' ');
           if (b2)
             *b2 = 0;
-          strcpy (e, b);
-          char path[PATH_MAX], *name;
-          if (WINFS::GetFullPathName (buf, sizeof path, path, &name))
-            strcpy (e, name);
-          map_backsl_to_sl (buf);
-          result = xcons (make_string (buf), result);
+          wcscpy (e, b);
+          wchar_t path[PATH_MAX];
+          wchar_t *name;
+          if (GetFullPathNameW (buf, numberof (path), path, &name))
+            wcscpy (e, name);
+          map_backsl_to_sl_w (buf);
+          result = xcons (make_string_from_wcs (buf), result);
           if (!b2)
             break;
           b = b2 + 1;

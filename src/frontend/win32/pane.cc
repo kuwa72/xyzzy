@@ -535,5 +535,9 @@ Fsi_plugin_arg ()
       (FARPROC)xpiSetPanePos,
       0,
     };
+#ifdef _WIN64
+  return make_integer ((int64_t)(intptr_t)procs);
+#else
   return make_fixnum (long (procs));
+#endif
 }

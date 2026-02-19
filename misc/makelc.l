@@ -89,7 +89,7 @@
 	 (when (or force-recompile
 		   (file-newer-than-file-p src bin))
            (message "Compiling ~A" src)
-	   (byte-compile-file src)
+	   (mc-byte-compile-file src)
 	   (refresh)
 	   ))))))
 

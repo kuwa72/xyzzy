@@ -1,7 +1,7 @@
 #ifndef _ofn_h_
 #define _ofn_h_
 
-struct tagOFN: public tagOFNA
+struct tagOFN: public tagOFNW
 {
 #ifndef OPENFILENAME_SIZE_VERSION_400
   void *pvReserved;
@@ -11,7 +11,7 @@ struct tagOFN: public tagOFNA
 };
 
 #ifndef OPENFILENAME_SIZE_VERSION_400
-#define OPENFILENAME_SIZE_VERSION_400 (sizeof (tagOFNA))
+#define OPENFILENAME_SIZE_VERSION_400 (sizeof (tagOFNW))
 #endif
 
 #define OPENFILENAME_SIZE_VERSION_500 (sizeof (tagOFN))

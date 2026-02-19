@@ -107,7 +107,11 @@ lisp
 Fsi_chunk_data (lisp chunk)
 {
   check_chunk (chunk);
+#ifdef _WIN64
+  return make_integer ((int64_t)(intptr_t)xchunk_data (chunk));
+#else
   return make_fixnum (long (xchunk_data (chunk)));
+#endif
 }
 
 lisp
@@ -134,7 +138,11 @@ Fsi_chunk_owner (lisp chunk)
 lisp
 Fsi_address_of (lisp object)
 {
+#ifdef _WIN64
+  return make_integer ((int64_t)(intptr_t)object);
+#else
   return make_fixnum (long (object));
+#endif
 }
 
 static char *

@@ -105,27 +105,27 @@ XCOLORREF Window::w_textprop_xbackcolor[GLYPH_TEXTPROP_NCOLORS];
 
 const wcolor_index_name wcolor_index_names[] =
 {
-  {cfgTextColor, RGB (0, 0, 0), "\x95\xb6\x8e\x9a\x90\x46"},
-  {cfgBackColor, RGB (0xff, 0xff, 0xff), "\x94\x77\x8c\x69\x90\x46"},
-  {cfgCtlColor, RGB (0x80, 0x80, 0), "\x90\xa7\x8c\xe4\x95\xb6\x8e\x9a"},
-  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), "\x91\x49\x91\xf0\x95\xb6\x8e\x9a\x90\x46"},
-  {cfgSelectionBackColor, RGB (0, 0, 0), "\x91\x49\x91\xf0\x94\x77\x8c\x69\x90\x46"},
-  {cfgKwdColor1, RGB (0, 0, 0xff), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x50"},
-  {cfgKwdColor2, RGB (0, 0x40, 0), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x51"},
-  {cfgKwdColor3, RGB (0x80, 0, 0x80), "\x83\x4c\x81\x5b\x83\x8f\x81\x5b\x83\x68\x82\x52"},
-  {cfgStringColor, RGB (0, 0x40, 0), "\x95\xb6\x8e\x9a\x97\xf1"},
-  {cfgCommentColor, RGB (0, 0x80, 0), "\x83\x52\x83\x81\x83\x93\x83\x67"},
-  {cfgTagColor, RGB (0x40, 0x40, 0), "\x83\x5e\x83\x4f"},
-  {cfgCursorColor, RGB (0x80, 0, 0x80), "\x8d\x73\x83\x4a\x81\x5b\x83\x5c\x83\x8b"},
-  {cfgCaretColor, RGB (0, 0, 0), "\x83\x4c\x83\x83\x83\x8c\x83\x62\x83\x67"},
-  {cfgImeCaretColor, RGB (0x80, 0, 0), "IME\x83\x4c\x83\x83\x83\x8c\x83\x62\x83\x67"},
-  {cfgLinenum, RGB (0, 0, 0), "\x8d\x73\x94\xd4\x8d\x86"},
-  {cfgReverse, RGB (0, 0, 0), "\x83\x6a\x83\x5a\x94\xbd\x93\x5d\x90\x46"},
-  {cfgUnselectedModeLineFg, RGB (0, 0, 0), "\x83\x82\x81\x5b\x83\x68\x8d\x73\x95\xb6\x8e\x9a\x90\x46"},
-  {cfgUnselectedModeLineBg, RGB (0, 0, 0), "\x83\x82\x81\x5b\x83\x68\x8d\x73\x94\x77\x8c\x69\x90\x46"},
+  {cfgTextColor, RGB (0, 0, 0), L"文字色"},
+  {cfgBackColor, RGB (0xff, 0xff, 0xff), L"背景色"},
+  {cfgCtlColor, RGB (0x80, 0x80, 0), L"制御文字"},
+  {cfgSelectionTextColor, RGB (0xff, 0xff, 0xff), L"選択文字色"},
+  {cfgSelectionBackColor, RGB (0, 0, 0), L"選択背景色"},
+  {cfgKwdColor1, RGB (0, 0, 0xff), L"キーワード１"},
+  {cfgKwdColor2, RGB (0, 0x40, 0), L"キーワード２"},
+  {cfgKwdColor3, RGB (0x80, 0, 0x80), L"キーワード３"},
+  {cfgStringColor, RGB (0, 0x40, 0), L"文字列"},
+  {cfgCommentColor, RGB (0, 0x80, 0), L"コメント"},
+  {cfgTagColor, RGB (0x40, 0x40, 0), L"タグ"},
+  {cfgCursorColor, RGB (0x80, 0, 0x80), L"行カーソル"},
+  {cfgCaretColor, RGB (0, 0, 0), L"キャレット"},
+  {cfgImeCaretColor, RGB (0x80, 0, 0), L"IMEキャレット"},
+  {cfgLinenum, RGB (0, 0, 0), L"行番号"},
+  {cfgReverse, RGB (0, 0, 0), L"ニセ反転色"},
+  {cfgUnselectedModeLineFg, RGB (0, 0, 0), L"モード行文字色"},
+  {cfgUnselectedModeLineBg, RGB (0, 0, 0), L"モード行背景色"},
 
-  {0, RGB (0, 0, 0), "\x91\x49\x91\xf0\x83\x82\x81\x5b\x83\x68\x8d\x73\x95\xb6\x8e\x9a\x90\x46"},
-  {0, RGB (0, 0, 0), "\x91\x49\x91\xf0\x83\x82\x81\x5b\x83\x68\x8d\x73\x94\x77\x8c\x69\x90\x46"},
+  {0, RGB (0, 0, 0), L"選択モード行文字色"},
+  {0, RGB (0, 0, 0), L"選択モード行背景色"},
 };
 
 ModelineParam::ModelineParam ()
@@ -1949,9 +1949,15 @@ Fget_window_start_line (lisp window)
 lisp
 Fget_window_handle (lisp window)
 {
+#ifdef _WIN64
+  if (!window || window == Qnil)
+    return make_integer ((int64_t)(intptr_t)app.toplev);
+  return make_integer ((int64_t)(intptr_t)Window::coerce_to_window (window)->w_hwnd);
+#else
   if (!window || window == Qnil)
     return make_fixnum (long (app.toplev));
   return make_fixnum (long (Window::coerce_to_window (window)->w_hwnd));
+#endif
 }
 
 int

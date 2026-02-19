@@ -81,11 +81,11 @@
 (setq *drag-and-drop-auto-activate* t)
 
 (defvar *file-dialog-filter*
-  '(("ï¿½eï¿½Lï¿½Xï¿½gï¿½tï¿½@ï¿½Cï¿½ï¿½(*.txt;*.doc;*.log)" . "*.txt;*.doc;*.log")
+  '(("ƒeƒLƒXƒgƒtƒ@ƒCƒ‹(*.txt;*.doc;*.log)" . "*.txt;*.doc;*.log")
     ("C/C++(*.c;*.cpp;*.cxx;*.h)" . "*.c;*.cpp;*.cxx;*.cc;*.h;*.hxx")
     ("Lisp(*.l;*.lisp)" . "*.l;*.lisp")
     ("HTML(*.htm;*.html)" . "*.htm;*.html")
-    ("ï¿½ï¿½ï¿½×‚Ä‚Ìƒtï¿½@ï¿½Cï¿½ï¿½(*.*)" . "*.*")))
+    ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*")))
 
 (defvar *file-dialog-filter-index* 5)
 
@@ -102,9 +102,9 @@
 
 (defvar *kinsoku-mode* 15)
 (defvar *kinsoku-bol-chars*
-  "!),.:;?]}ï¿½ï¿½ï¿½ï¿½ï¿½ßAï¿½Bï¿½Cï¿½Dï¿½Eï¿½Fï¿½Gï¿½Hï¿½Iï¿½Jï¿½Kï¿½Lï¿½Rï¿½Sï¿½Tï¿½Uï¿½Xï¿½fï¿½hï¿½jï¿½lï¿½nï¿½pï¿½rï¿½tï¿½vï¿½xï¿½zï¿½ï¿½ï¿½ï¿½")
+  "!),.:;?]}¡£¤¥ŞßABCDEFGHIJKLRSTUXfhjlnprtvxz„â")
 (defvar *kinsoku-eol-chars*
-  "([{ï¿½ï¿½Mï¿½eï¿½gï¿½iï¿½kï¿½mï¿½oï¿½qï¿½sï¿½uï¿½wï¿½yï¿½ï¿½ï¿½ï¿½")
+  "([{¢Megikmoqsuwyƒá")
 (defvar *kinsoku-extend-limit* 3)
 (defvar *kinsoku-shorten-limit* 10)
 (defvar *fill-kinsoku-mode* 15)
@@ -301,6 +301,7 @@
 
 (export 'compare-windows)
 (autoload 'compare-windows "comparew" t)
+
 
 (export 'diff)
 (autoload 'diff "diff" t)
