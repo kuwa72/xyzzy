@@ -24,6 +24,24 @@ _wide_to_cp932 (char *a, const wchar_t *w, int alen)
   return a;
 }
 
+// Length-specified CP932 -> wchar_t (for text rendering)
+// alen: source byte count, or -1 for null-terminated
+// Returns number of wchar_t written
+static inline int
+cp932_to_wcs (const char *a, int alen, wchar_t *w, int wlen)
+{
+  return MultiByteToWideChar (XYZZY_CP932, 0, a, alen, w, wlen);
+}
+
+// Length-specified wchar_t -> CP932
+// wlen: source wchar_t count, or -1 for null-terminated
+// Returns number of bytes written
+static inline int
+wcs_to_cp932 (const wchar_t *w, int wlen, char *a, int alen)
+{
+  return WideCharToMultiByte (XYZZY_CP932, 0, w, wlen, a, alen, 0, 0);
+}
+
 // Macro: CP932 char* -> wchar_t* (alloca on stack)
 #define A2W(a) \
   (_convert = (int)(strlen (a) + 1),\

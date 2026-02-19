@@ -19,15 +19,15 @@ dopaint (HWND hwnd, HDC hdc)
       hbr = 0;
     }
 
-  char *s[3];
-  int l = GetWindowTextLengthA (hwnd);
-  s[0] = (char *)_alloca (l + 1);
-  GetWindowTextA (hwnd, s[0], l + 1);
-  s[1] = strchr (s[0], '\001');
+  wchar_t *s[3];
+  int l = GetWindowTextLengthW (hwnd);
+  s[0] = (wchar_t *)_alloca ((l + 1) * sizeof (wchar_t));
+  GetWindowTextW (hwnd, s[0], l + 1);
+  s[1] = wcschr (s[0], L'\001');
   if (s[1])
     {
       *s[1]++ = 0;
-      s[2] = strchr (s[1], '\002');
+      s[2] = wcschr (s[1], L'\002');
       if (s[2])
         *s[2]++ = 0;
     }
@@ -52,11 +52,11 @@ dopaint (HWND hwnd, HDC hdc)
       if (!s[i])
         break;
       SIZE sz;
-      l = strlen (s[i]);
+      l = wcslen (s[i]);
       SetTextColor (hdc, i == 1 ? hl : bg);
-      GetTextExtentPoint32A (hdc, s[i], l, &sz);
+      GetTextExtentPoint32W (hdc, s[i], l, &sz);
       r.right = min (r.left + sz.cx, xmax);
-      ExtTextOutA (hdc, r.left, 0, ETO_CLIPPED, &r, s[i], l, 0);
+      ExtTextOutW (hdc, r.left, 0, ETO_CLIPPED, &r, s[i], l, 0);
       if (i == 1)
         {
           range = MAKELONG (r.left, r.right);
@@ -68,7 +68,7 @@ dopaint (HWND hwnd, HDC hdc)
               u.right = r.right;
               u.bottom = min (sz.cy + 1, r.bottom);
               u.top = u.bottom - 1;
-              ExtTextOutA (hdc, 0, 0, ETO_OPAQUE, &u, "", 0, 0);
+              ExtTextOutW (hdc, 0, 0, ETO_OPAQUE, &u, L"", 0, 0);
               SetBkColor (hdc, obg);
             }
         }

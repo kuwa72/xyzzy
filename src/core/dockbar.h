@@ -284,7 +284,7 @@ protected:
       HDC hdc;
       int state;
       RECT r;
-      DWORD data;
+      LPARAM data;
     };
   virtual LRESULT wndproc (UINT, WPARAM, LPARAM);
   int nc_calc_size (RECT &) const;
@@ -352,7 +352,7 @@ public:
     {return sendmsg (TCM_SETITEMSIZE, 0, MAKELPARAM (cx, cy));}
   int hit_test (TC_HITTESTINFO &info)
     {return sendmsg (TCM_HITTEST, 0, LPARAM (&info));}
-  DWORD nth (int) const;
+  LPARAM nth (int) const;
   virtual int focus () const
     {
       if (style () & TCS_FOCUSNEVER)

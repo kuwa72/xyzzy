@@ -290,10 +290,14 @@ ChooseFontP::draw_font_list (HWND, DRAWITEMSTRUCT *dis)
       SendMessageA (dis->hwndItem, LB_GETTEXT, dis->itemID, LPARAM (b));
 
       SIZE size;
-      GetTextExtentPoint32A (dis->hDC, "0", 1, &size);
+      GetTextExtentPoint32W (dis->hDC, L"0", 1, &size);
 
-      ExtTextOutA (dis->hDC, r.left + 18, (r.top + r.bottom - size.cy) / 2,
-                   ETO_OPAQUE, &r, b, strlen (b), 0);
+      {
+        wchar_t wb[LF_FACESIZE];
+        int wl = cp932_to_wcs (b, -1, wb, LF_FACESIZE) - 1;
+        ExtTextOutW (dis->hDC, r.left + 18, (r.top + r.bottom - size.cy) / 2,
+                     ETO_OPAQUE, &r, wb, wl, 0);
+      }
 
       if (dis->itemData & TRUETYPE_FONTTYPE)
         ImageList_Draw (cf_hil, 0, dis->hDC,
@@ -325,10 +329,11 @@ void
 ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
 {
   const char *sample = samples[0].string;
+  BYTE charset = 0;
   int i = SendDlgItemMessageA (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
   if (i != LB_ERR)
     {
-      BYTE charset = BYTE (SendDlgItemMessageA (hwnd, IDC_NAMELIST,
+      charset = BYTE (SendDlgItemMessageA (hwnd, IDC_NAMELIST,
                                                LB_GETITEMDATA, i, 0) >> 8);
       for (int i = 0; i < numberof (samples); i++)
         if (charset == samples[i].charset)
@@ -338,17 +343,24 @@ ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
           }
     }
 
+  // Determine code page from charset for proper conversion
+  CHARSETINFO ci;
+  UINT cp = 1252;
+  if (TranslateCharsetInfo ((DWORD *)(DWORD_PTR)charset, &ci, TCI_SRCCHARSET))
+    cp = ci.ciACP;
+
   HFONT hf = HFONT (SendMessage (dis->hwndItem, WM_GETFONT, 0, 0));
   HGDIOBJ of = SelectObject (dis->hDC, hf);
   COLORREF ofg = SetTextColor (dis->hDC, cf_fg);
   COLORREF obg = SetBkColor (dis->hDC, cf_bg);
-  int l = strlen (sample);
+  wchar_t wsample[64];
+  int wl = MultiByteToWideChar (cp, 0, sample, -1, wsample, 64) - 1;
   SIZE size = {0};
-  GetTextExtentPoint32A (dis->hDC, sample, l, &size);
+  GetTextExtentPoint32W (dis->hDC, wsample, wl, &size);
   const RECT &r = dis->rcItem;
-  ExtTextOutA (dis->hDC, (r.left + r.right - size.cx) / 2,
+  ExtTextOutW (dis->hDC, (r.left + r.right - size.cx) / 2,
                (r.top + r.bottom - size.cy) / 2,
-               ETO_CLIPPED | ETO_OPAQUE, &r, sample, l, 0);
+               ETO_CLIPPED | ETO_OPAQUE, &r, wsample, wl, 0);
 
   SetTextColor (dis->hDC, ofg);
   SetBkColor (dis->hDC, obg);

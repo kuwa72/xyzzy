@@ -492,7 +492,7 @@ tab_bar::create (HWND hwnd_parent)
   return 1;
 }
 
-DWORD
+LPARAM
 tab_bar::nth (int i) const
 {
   TC_ITEM ti;
@@ -609,7 +609,7 @@ tab_bar::calc_tab_height ()
   HDC hdc = GetDC (b_hwnd);
   HGDIOBJ of = SelectObject (hdc, sysdep.ui_font ());
   SIZE sz;
-  GetTextExtentPoint32A (hdc, "...", 3, &sz);
+  GetTextExtentPoint32W (hdc, L"...", 3, &sz);
   t_dots = sz.cx;
   SelectObject (hdc, of);
   ReleaseDC (b_hwnd, hdc);
@@ -672,8 +672,11 @@ void
 tab_bar::draw_item (const draw_item_struct &dis, char *s, int l,
                     COLORREF fg, COLORREF bg) const
 {
+  wchar_t ws[1024];
+  int wl = cp932_to_wcs (s, l, ws, 1024);
+
   SIZE sz;
-  GetTextExtentPoint32A (dis.hdc, s, l, &sz);
+  GetTextExtentPoint32W (dis.hdc, ws, wl, &sz);
 
   int x, y;
   switch (edge ())
@@ -713,14 +716,34 @@ tab_bar::draw_item (const draw_item_struct &dis, char *s, int l,
         if (dis.state & ODS_SELECTED)
           y++;
         if (sz.cx > cx)
-          l = abbrev_text (dis.hdc, s, l, cx);
+          {
+            cx -= t_dots;
+            if (cx > 0)
+              {
+                int we = wl;
+                do
+                  {
+                    we--;
+                    if (we <= 0)
+                      break;
+                    GetTextExtentPoint32W (dis.hdc, ws, we, &sz);
+                  }
+                while (sz.cx > cx);
+                ws[we] = L'.';
+                ws[we + 1] = L'.';
+                ws[we + 2] = L'.';
+                wl = we + 3;
+              }
+            else
+              wl = 0;
+          }
         break;
       }
     }
 
   COLORREF ofg = SetTextColor (dis.hdc, fg);
   COLORREF obg = SetBkColor (dis.hdc, bg);
-  ExtTextOutA (dis.hdc, x, y, ETO_CLIPPED | ETO_OPAQUE, &dis.r, s, l, 0);
+  ExtTextOutW (dis.hdc, x, y, ETO_CLIPPED | ETO_OPAQUE, &dis.r, ws, wl, 0);
   SetTextColor (dis.hdc, ofg);
   SetBkColor (dis.hdc, obg);
   if (dis.state & ODS_SELECTED && GetFocus () == b_hwnd)

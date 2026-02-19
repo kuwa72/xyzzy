@@ -518,8 +518,8 @@ print_engine::init_font (HDC hdc)
 
   HGDIOBJ of = SelectObject (hdc, pe_hfonts[FONT_ASCII]);
 
-  TEXTMETRICA tm;
-  GetTextMetricsA (hdc, &tm);
+  TEXTMETRICW tm;
+  GetTextMetricsW (hdc, &tm);
   pe_cell.cx = tm.tmAveCharWidth;
   pe_cell.cy = tm.tmHeight;
 
@@ -531,7 +531,7 @@ print_engine::init_font (HDC hdc)
   for (int i = 0; i < FONT_MAX; i++)
     {
       SelectObject (hdc, pe_hfonts[i]);
-      GetTextMetricsA (hdc, &tm);
+      GetTextMetricsW (hdc, &tm);
       pe_offset[i].x = (pe_cell.cx - tm.tmAveCharWidth) / 2;
       pe_offset2x[i] = pe_cell.cx - tm.tmAveCharWidth;
       pe_offset[i].y = (pe_cell.cy - tm.tmHeight) / 2;
@@ -805,9 +805,9 @@ print_engine::paint_ascii (PaintCtx &ctx, Char cc) const
 {
   if (cc != ' ')
     {
-      char c = SJISP (cc) ? 0 : char (cc);
+      wchar_t wc = SJISP (cc) ? L'\0' : (wchar_t)(unsigned char)cc;
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, &c, 1, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, &wc, 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -818,10 +818,11 @@ print_engine::paint_ascii (PaintCtx &ctx, Char cc) const
 void
 print_engine::paint_kana (PaintCtx &ctx, Char cc) const
 {
-  char c = char (cc);
+  ucs2_t wc = i2w (cc);
+  if (wc == ucs2_t (-1)) wc = L' ';
   SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
-  ExtTextOutA (ctx.hdc, ctx.x + pe_offset[FONT_JP].x,
-               ctx.y + pe_offset[FONT_JP].y, 0, 0, &c, 1, 0);
+  ExtTextOutW (ctx.hdc, ctx.x + pe_offset[FONT_JP].x,
+               ctx.y + pe_offset[FONT_JP].y, 0, 0, (LPCWSTR)&wc, 1, 0);
   ctx.column++;
   ctx.x += (pe_fixed_pitch
             ? pe_print_cell.cx
@@ -833,14 +834,12 @@ print_engine::paint_kanji (PaintCtx &ctx, Char cc) const
 {
   if (char_width (cc) == 2)
     {
-      char b[2];
-      b[0] = cc >> 8;
-      b[1] = char (cc);
-      if (!b[1] || !SJISP (b[0] & 255))
-        b[0] = char (0x81), b[1] = char (0x45);
+      ucs2_t wc = i2w (cc);
+      if (wc == ucs2_t (-1))
+        wc = 0x30FB;  // U+30FB ・ (fallback)
       SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
-      ExtTextOutA (ctx.hdc, ctx.x + pe_offset2x[FONT_JP],
-                   ctx.y + pe_offset[FONT_JP].y, 0, 0, b, 2, 0);
+      ExtTextOutW (ctx.hdc, ctx.x + pe_offset2x[FONT_JP],
+                   ctx.y + pe_offset[FONT_JP].y, 0, 0, (LPCWSTR)&wc, 1, 0);
       ctx.column += 2;
       ctx.x += (pe_fixed_pitch
                 ? pe_print_cell.cx * 2
@@ -849,7 +848,7 @@ print_engine::paint_kanji (PaintCtx &ctx, Char cc) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, L" ", 1, 0);
       ctx.column++;
       ctx.x += (pe_fixed_pitch
                 ? pe_print_cell.cx
@@ -871,8 +870,9 @@ print_engine::paint_jisx0212 (PaintCtx &ctx, Char cc) const
     }
   else
     {
+      wchar_t wsp[] = {L' ', L' '};
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", l, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, wsp, l, 0);
     }
   ctx.column += l;
   ctx.x += (pe_fixed_pitch
@@ -893,7 +893,7 @@ print_engine::paint_full_width (PaintCtx &ctx, Char cc, int f) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "\0", 2, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, L"  ", 2, 0);
     }
   ctx.column += 2;
   ctx.x += (pe_fixed_pitch
@@ -914,7 +914,7 @@ print_engine::paint_latin (PaintCtx &ctx, Char cc, int f) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, L" ", 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -946,7 +946,7 @@ print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
   else
     {
       SelectObject (ctx.hdc, pe_hfonts[FONT_ASCII]);
-      ExtTextOutA (ctx.hdc, ctx.x, ctx.y, 0, 0, "", 1, 0);
+      ExtTextOutW (ctx.hdc, ctx.x, ctx.y, 0, 0, L" ", 1, 0);
     }
   ctx.column++;
   ctx.x += (pe_fixed_pitch
@@ -2051,17 +2051,18 @@ get_glyph_width (Char cc, const glyph_width &gw)
     {
     case ccs_usascii:
       {
-        char c = SJISP (cc) ? 0 : char (cc);
+        wchar_t wc = SJISP (cc) ? L'\0' : (wchar_t)(unsigned char)cc;
         SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-        GetTextExtentPoint32A (gw.hdc, &c, 1, &sz);
+        GetTextExtentPoint32W (gw.hdc, &wc, 1, &sz);
         break;
       }
 
     case ccs_jisx0201_kana:
       {
-        char c = char (cc);
+        ucs2_t wc = i2w (cc);
+        if (wc == ucs2_t (-1)) wc = L' ';
         SelectObject (gw.hdc, gw.hfonts[FONT_JP]);
-        GetTextExtentPoint32A (gw.hdc, &c, 1, &sz);
+        GetTextExtentPoint32W (gw.hdc, (LPCWSTR)&wc, 1, &sz);
         break;
       }
 
@@ -2127,8 +2128,9 @@ get_glyph_width (Char cc, const glyph_width &gw)
           }
         else
           {
+            wchar_t wsp[] = {L' ', L' '};
             SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-            GetTextExtentPoint32A (gw.hdc, "\0", char_width (cc), &sz);
+            GetTextExtentPoint32W (gw.hdc, wsp, char_width (cc), &sz);
           }
         break;
       }
@@ -2143,8 +2145,9 @@ get_glyph_width (Char cc, const glyph_width &gw)
           }
         else
           {
+            wchar_t wsp[] = {L' ', L' '};
             SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-            GetTextExtentPoint32A (gw.hdc, "\0", char_width (cc), &sz);
+            GetTextExtentPoint32W (gw.hdc, wsp, char_width (cc), &sz);
           }
         break;
       }
@@ -2152,18 +2155,16 @@ get_glyph_width (Char cc, const glyph_width &gw)
     default:
       if (char_width (cc) == 2)
         {
-          char b[2];
-          b[0] = cc >> 8;
-          b[1] = char (cc);
-          if (!b[1] || !SJISP (b[0] & 255))
-            b[0] = char (0x81), b[1] = char (0x45);
+          ucs2_t wc = i2w (cc);
+          if (wc == ucs2_t (-1))
+            wc = 0x30FB;  // U+30FB ・ (fallback)
           SelectObject (gw.hdc, gw.hfonts[FONT_JP]);
-          GetTextExtentPoint32A (gw.hdc, b, 2, &sz);
+          GetTextExtentPoint32W (gw.hdc, (LPCWSTR)&wc, 1, &sz);
         }
       else
         {
           SelectObject (gw.hdc, gw.hfonts[FONT_ASCII]);
-          GetTextExtentPoint32A (gw.hdc, "", 1, &sz);
+          GetTextExtentPoint32W (gw.hdc, L" ", 1, &sz);
         }
       break;
     }

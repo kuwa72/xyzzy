@@ -53,7 +53,7 @@ Sysdep::Sysdep ()
   hfont_ruler = CreateFontIndirectA (&lf);
   HDC hdc = GetDC (0);
   HGDIOBJ of = SelectObject (hdc, hfont_ruler);
-  GetTextExtentPoint32A (hdc, "0", 1, &ruler_ext);
+  GetTextExtentPoint32W (hdc, L"0", 1, &ruler_ext);
   SelectObject (hdc, of);
 }
 

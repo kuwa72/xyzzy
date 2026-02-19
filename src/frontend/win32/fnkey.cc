@@ -88,8 +88,12 @@ FKWin::paint_text (HDC hdc, int n, const RECT &br, int offset) const
   else
     *buf = 0;
 
-  ExtTextOutA (hdc, r.left + 2, r.top + 2, ETO_CLIPPED | ETO_OPAQUE,
-               &r, buf, strlen (buf), 0);
+  {
+    wchar_t wbuf[1024 + 1];
+    cp932_to_wcs (buf, -1, wbuf, 1024 + 1);
+    ExtTextOutW (hdc, r.left + 2, r.top + 2, ETO_CLIPPED | ETO_OPAQUE,
+                 &r, wbuf, wcslen (wbuf), 0);
+  }
 
   SetBkColor (hdc, obg);
   SetTextColor (hdc, ofg);

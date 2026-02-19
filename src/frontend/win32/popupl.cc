@@ -172,9 +172,17 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
       lisp s = xcar (p);
       char b[1024];
       int l = w2s (b, b + sizeof b, xstring_contents (s), xstring_length (s)) - b;
-      SendMessageA (hwnd_popup, LB_ADDSTRING, 0, LPARAM (b));
+      {
+        wchar_t wb[1024];
+        cp932_to_wcs (b, -1, wb, 1024);
+        SendMessageW (hwnd_popup, LB_ADDSTRING, 0, LPARAM (wb));
+      }
       SIZE ext;
-      GetTextExtentPoint32A (hdc, b, l, &ext);
+      {
+        wchar_t wb[1024];
+        int wl = cp932_to_wcs (b, l, wb, 1024);
+        GetTextExtentPoint32W (hdc, wb, wl, &ext);
+      }
       sz.cx = max (sz.cx, ext.cx);
       sz.cy += ext.cy;
     }

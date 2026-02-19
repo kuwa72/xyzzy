@@ -160,7 +160,7 @@ ModelineParam::init (HFONT hf)
   for (int i = 0; i < 22; i++)
     {
       SIZE size;
-      GetTextExtentPoint32A (hdc, "0000000000:0000000000", i, &size);
+      GetTextExtentPoint32W (hdc, L"0000000000:0000000000", i, &size);
       m_exts[i] = size.cx;
     }
   SelectObject (hdc, of);
@@ -3341,10 +3341,10 @@ Window::paint_ruler (HDC hdc, const RECT &r, int x, int y, int column) const
 {
   if (!(column % 10))
     {
-      char buf[32];
-      int l = sprintf (buf, "%d", column);
-      ExtTextOutA (hdc, x - l * sysdep.ruler_ext.cx / 2, r.top,
-                   ETO_CLIPPED, &r, buf, l, 0);
+      wchar_t wbuf[32];
+      int l = swprintf (wbuf, 32, L"%d", column);
+      ExtTextOutW (hdc, x - l * sysdep.ruler_ext.cx / 2, r.top,
+                   ETO_CLIPPED, &r, wbuf, l, 0);
     }
   else if (!(column % 5))
     draw_vline (hdc, y - 2, y + 2, x, sysdep.window_text);

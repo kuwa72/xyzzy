@@ -1570,12 +1570,16 @@ DriveDialog::insert_drives (HWND hwnd)
 
           name[2] = 0;
           wchar_t wname[5];
-          MultiByteToWideChar (932, 0, name, -1, wname, 5);
+          cp932_to_wcs (name, -1, wname, 5);
           lvi.pszText = wname;
           SendMessageW (hwnd, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 
           SIZE sz;
-          GetTextExtentPoint32A (hdc, name, 2, &sz);
+          {
+            wchar_t wn[5];
+            int wnl = cp932_to_wcs (name, 2, wn, 5);
+            GetTextExtentPoint32W (hdc, wn, wnl, &sz);
+          }
           dd_maxw = max (dd_maxw, sz.cx);
         }
       else
@@ -1609,13 +1613,15 @@ DriveDialog::insert_volnames ()
             {
               volname++;
               { LVITEMW _lvi; _lvi.iSubItem = 1;
-                int _wl = MultiByteToWideChar (932, 0, volname, -1, 0, 0);
-                wchar_t *_wb = (wchar_t *)alloca (_wl * sizeof (wchar_t));
-                MultiByteToWideChar (932, 0, volname, -1, _wb, _wl);
-                _lvi.pszText = _wb;
+                WideStr _wb (volname);
+                _lvi.pszText = const_cast<wchar_t *>(_wb.c_str ());
                 SendMessageW (hwnd, LVM_SETITEMTEXTW, i, (LPARAM)&_lvi); }
               SIZE sz;
-              GetTextExtentPoint32A (hdc, volname, strlen (volname), &sz);
+              {
+                wchar_t wv[256];
+                int wvl = cp932_to_wcs (volname, -1, wv, 256) - 1;
+                GetTextExtentPoint32W (hdc, wv, wvl, &sz);
+              }
               maxw = max (maxw, sz.cx);
             }
         }

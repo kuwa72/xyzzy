@@ -388,8 +388,11 @@ paint_ascii_chars (HDC hdc, int x, int y, int flags, const RECT &r,
                    const char *string, int len, const INT *padding)
 {
   const FontObject &f = app.text_font.font (FONT_ASCII);
-  ExtTextOutA (hdc, x + f.offset ().x, y + f.offset ().y, flags,
-               &r, string, len, f.need_pad_p () ? padding : 0);
+  wchar_t wbuf[256];
+  for (int i = 0; i < len && i < 256; i++)
+    wbuf[i] = (unsigned char)string[i];
+  ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
+               &r, wbuf, min (len, 256), f.need_pad_p () ? padding : 0);
 }
 
 static inline void
@@ -398,8 +401,10 @@ paint_jp_chars (HDC hdc, int x, int y, int flags, const RECT &r,
 {
   const FontObject &f = app.text_font.font (FONT_JP);
   HGDIOBJ of = SelectObject (hdc, f);
-  ExtTextOutA (hdc, x + f.offset ().x, y + f.offset ().y, flags,
-               &r, string, len, f.need_pad_p () ? padding : 0);
+  wchar_t wbuf[256];
+  int wl = cp932_to_wcs (string, len, wbuf, 256);
+  ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
+               &r, wbuf, wl, f.need_pad_p () ? padding : 0);
   SelectObject (hdc, of);
 }
 
@@ -731,13 +736,13 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
             {
               r.bottom = y + app.text_font.size ().cy;
               r.top = r.bottom - app.text_font.line_width ();
-              ExtTextOutA (hdc, r.left, r.top, ETO_OPAQUE, &r, "", 0, 0);
+              ExtTextOutW (hdc, r.left, r.top, ETO_OPAQUE, &r, L"", 0, 0);
             }
           if (!yoffset && c & GLYPH_STRIKEOUT)
             {
               r.top = y + app.text_font.size ().cy / 2;
               r.bottom = r.top + app.text_font.line_width ();
-              ExtTextOutA (hdc, r.left, r.top, ETO_OPAQUE, &r, "", 0, 0);
+              ExtTextOutW (hdc, r.left, r.top, ETO_OPAQUE, &r, L"", 0, 0);
             }
 
           SetBkColor (hdc, obg);
@@ -3299,16 +3304,20 @@ mode_line_percent_painter::paint_percent (HDC hdc)
   format_percent(nb, 32, m_percent);
   m_last_width = strlen(nb);
 
+  wchar_t wnb[32];
+  for (int i = 0; i < m_last_width; i++)
+    wnb[i] = (unsigned char)nb[i];
+
   SIZE size;
-  GetTextExtentPoint32A (hdc, nb, m_last_width, &size);
+  GetTextExtentPoint32W (hdc, wnb, m_last_width, &size);
 
   long right = size.cx + r.left;
   r.right = min(right, m_ml_size.cx - 1);
 
-  ExtTextOutA (hdc,
+  ExtTextOutW (hdc,
                m_point_pixel ,
                1 + m_modeline_paramp->m_exlead,
-               ETO_OPAQUE | ETO_CLIPPED, &r, nb, m_last_width, 0);
+               ETO_OPAQUE | ETO_CLIPPED, &r, wnb, m_last_width, 0);
   m_last_percent = m_percent;
   
 
@@ -3370,10 +3379,16 @@ mode_line_point_painter::paint_point (HDC hdc)
   for (; e > b && e[-1] == ' '; e--)
     ;
 
-  ExtTextOutA (hdc,
-               x0 + m_modeline_paramp->m_exts[b - nb],
-               1 + m_modeline_paramp->m_exlead,
-               ETO_OPAQUE | ETO_CLIPPED, &r, b, e - b, 0);
+  {
+    wchar_t wb[32];
+    int wlen = e - b;
+    for (int i = 0; i < wlen; i++)
+      wb[i] = (unsigned char)b[i];
+    ExtTextOutW (hdc,
+                 x0 + m_modeline_paramp->m_exts[b - nb],
+                 1 + m_modeline_paramp->m_exlead,
+                 ETO_OPAQUE | ETO_CLIPPED, &r, wb, wlen, 0);
+  }
   m_last_ml_column = m_column;
   m_last_ml_linenum = m_plinenum;
   return right;
@@ -3457,8 +3472,12 @@ Window::paint_mode_line (HDC hdc)
 
   if (painters.size() == 0)
     {
-      ExtTextOutA (hdc, 1, 1 + app.modeline_param.m_exlead,
-                   ETO_OPAQUE | ETO_CLIPPED, &r, b0, b - b0, 0);
+      {
+        wchar_t wml[2048];
+        int wmll = cp932_to_wcs (b0, b - b0, wml, 2048);
+        ExtTextOutW (hdc, 1, 1 + app.modeline_param.m_exlead,
+                     ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
+      }
     }
   else
     {
@@ -3475,23 +3494,29 @@ Window::paint_mode_line (HDC hdc)
 		  }
 		  else
 		  {
+			  wchar_t wml[2048];
+			  int wmll = cp932_to_wcs (b1, painter->get_posp() - b1, wml, 2048);
 			  SIZE size;
-			  GetTextExtentPoint32A (hdc, b1, painter->get_posp() - b1, &size);
+			  GetTextExtentPoint32W (hdc, wml, wmll, &size);
 
 			  point_start_px = r.left + size.cx;
 
 			  r.right = min (point_start_px, int (w_ml_size.cx - 1));
-			  ExtTextOutA (hdc, r.left, 1 + app.modeline_param.m_exlead,
-						   ETO_OPAQUE | ETO_CLIPPED, &r, b1, painter->get_posp() - b1, 0);
+			  ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
+						   ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
 		  }
 
 		  r.left = painter->first_paint(hdc, point_start_px);
 		  b1 = painter->get_posp();
 	  }
 
-      r.right = w_ml_size.cx - 1;
-      ExtTextOutA (hdc, r.left, 1 + app.modeline_param.m_exlead,
-                   ETO_OPAQUE | ETO_CLIPPED, &r, b1, b - b1, 0);
+      {
+        wchar_t wml[2048];
+        int wmll = cp932_to_wcs (b1, b - b1, wml, 2048);
+        r.right = w_ml_size.cx - 1;
+        ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
+                     ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
+      }
     }
 
 

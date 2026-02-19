@@ -479,8 +479,8 @@ preview_page_window::paint_paper (HDC hdc) const
 
   HFONT hfont = p_settings.make_font (p_dev, FONT_ASCII, -d_font_height);
   HGDIOBJ ofont = SelectObject (hdc, hfont);
-  TEXTMETRICA tm;
-  GetTextMetricsA (hdc, &tm);
+  TEXTMETRICW tm;
+  GetTextMetricsW (hdc, &tm);
   int h = tm.tmHeight;
   SelectObject (hdc, ofont);
   DeleteObject (hfont);

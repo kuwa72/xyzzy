@@ -594,6 +594,12 @@ lisp buffer_bar::buffer_list () const { return Qnil; }
 #endif
 
 // ============================================================
+// abbrev.cc stubs (abbreviate_string uses GDI)
+// ============================================================
+
+lisp Fabbreviate_display_string (lisp string, lisp, lisp) { return string; }
+
+// ============================================================
 // binfo.cc stubs
 // ============================================================
 

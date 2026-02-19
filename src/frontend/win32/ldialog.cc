@@ -1021,15 +1021,17 @@ draw_item (HDC hdc, const RECT &r, int x, lisp item, int right)
   char buf[2048];
   item_string (item, buf, sizeof buf);
   int l = strlen (buf);
+  wchar_t wbuf[2048];
+  int wl = cp932_to_wcs (buf, l, wbuf, 2048);
   if (right)
     {
       SIZE size;
-      GetTextExtentPoint32A (hdc, buf, l, &size);
-      ExtTextOutA (hdc, r.right - size.cx, r.top,
-                   ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
+      GetTextExtentPoint32W (hdc, wbuf, wl, &size);
+      ExtTextOutW (hdc, r.right - size.cx, r.top,
+                   ETO_OPAQUE | ETO_CLIPPED, &r, wbuf, wl, 0);
     }
   else
-    ExtTextOutA (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r, buf, l, 0);
+    ExtTextOutW (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r, wbuf, wl, 0);
 }
 
 void
@@ -1078,14 +1080,14 @@ Dialog::draw_item (int id, DRAWITEMSTRUCT *dis)
           if (cr.right < r.right)
             {
               cr.right = r.right;
-              ExtTextOutA (dis->hDC, cr.left, cr.top, ETO_OPAQUE, &cr, "", 0, 0);
+              ExtTextOutW (dis->hDC, cr.left, cr.top, ETO_OPAQUE, &cr, L"", 0, 0);
             }
         }
       else
         ::draw_item (dis->hDC, r, r.left, consp (item) ? xcar (item) : item, 0);
     }
   else
-    ExtTextOutA (dis->hDC, r.left, r.top, ETO_OPAQUE, &r, "", 0, 0);
+    ExtTextOutW (dis->hDC, r.left, r.top, ETO_OPAQUE, &r, L"", 0, 0);
 
   if (dis->itemState & ODS_FOCUS)
     DrawFocusRect (dis->hDC, &r);

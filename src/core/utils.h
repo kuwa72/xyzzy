@@ -43,7 +43,9 @@ strcaseeq (const char *s1, const char *s2)
 char *jindex (const char *, int);
 char *jrindex (const char *, int);
 char *find_last_slash (const char *);
+wchar_t *find_last_slash_w (const wchar_t *);
 char *find_slash (const char *);
+wchar_t *find_slash_w (const wchar_t *);
 void convert_backsl_with_sl (char *, int, int);
 
 inline void

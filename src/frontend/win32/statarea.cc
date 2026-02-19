@@ -96,7 +96,11 @@ status_area::get_extent (const char *s) const
   HDC hdc = GetDC (s_hwnd);
   HGDIOBJ of = SelectObject (hdc, s_hfont);
   SIZE sz;
-  GetTextExtentPoint32A (hdc, s, strlen (s), &sz);
+  {
+    wchar_t ws[256];
+    int wl = cp932_to_wcs (s, -1, ws, 256) - 1;
+    GetTextExtentPoint32W (hdc, ws, wl, &sz);
+  }
   SelectObject (hdc, of);
   ReleaseDC (s_hwnd, hdc);
   return sz.cx;

@@ -114,39 +114,45 @@ static int
 paint_text (HDC hdc, char *s, int l, int fmt, const RECT &r,
             int offset, int dots, int no_extend, int on, int path_ellipse)
 {
+  wchar_t ws[1024 + 10];
+  int wl = cp932_to_wcs (s, l, ws, 1024);
+
   int w = r.right - r.left - 2 * offset;
   SIZE ext;
-  GetTextExtentPoint32A (hdc, s, l, &ext);
+  GetTextExtentPoint32W (hdc, ws, wl, &ext);
   int trim = 0;
   int ofmt = fmt;
-  if (l && ext.cx > w)
+  if (wl && ext.cx > w)
     {
       fmt = LVCFMT_LEFT;
       if (path_ellipse && abbreviate_string (hdc, s, w, 1))
         {
           l = strlen (s);
-          GetTextExtentPoint32A (hdc, s, l, &ext);
+          wl = cp932_to_wcs (s, l, ws, 1024);
+          GetTextExtentPoint32W (hdc, ws, wl, &ext);
         }
       else
         {
           w -= dots;
-          int ll = l;
-          char *se;
-          for (se = CharPrevA (s, s + l); se > s; se = CharPrevA (s, se))
+          int wll = wl;
+          int we = wl;
+          while (we > 0)
             {
-              GetTextExtentPoint32A (hdc, s, se - s, &ext);
+              we--;
+              GetTextExtentPoint32W (hdc, ws, we, &ext);
               if (ext.cx <= w)
                 break;
             }
-          l = se - s;
-          if (l || ext.cx < w + dots + offset)
+          if (we || ext.cx < w + dots + offset)
             {
-              if (!l)
-                l = IsDBCSLeadByte (*s & 0xff) ? 2 : 1;
-              if (l != ll)
+              if (!we)
+                we = 1;
+              if (we != wll)
                 {
-                  strcpy (s + l, "...");
-                  l += 3;
+                  ws[we] = L'.';
+                  ws[we + 1] = L'.';
+                  ws[we + 2] = L'.';
+                  wl = we + 3;
                   trim = 1;
                 }
             }
@@ -176,14 +182,14 @@ paint_text (HDC hdc, char *s, int l, int fmt, const RECT &r,
       rr.top = r.top;
       rr.right = x + ext.cx + offset;
       rr.bottom = r.bottom;
-      ExtTextOutA (hdc, x + on, (r.top + r.bottom - ext.cy) / 2 + on,
-                  ETO_OPAQUE | ETO_CLIPPED, &rr, s, l, 0);
+      ExtTextOutW (hdc, x + on, (r.top + r.bottom - ext.cy) / 2 + on,
+                  ETO_OPAQUE | ETO_CLIPPED, &rr, ws, wl, 0);
       return rr.right;
     }
   else
     {
-      ExtTextOutA (hdc, x + on, (r.top + r.bottom - ext.cy) / 2 + on,
-                  ETO_OPAQUE | ETO_CLIPPED, &r, s, l, 0);
+      ExtTextOutW (hdc, x + on, (r.top + r.bottom - ext.cy) / 2 + on,
+                  ETO_OPAQUE | ETO_CLIPPED, &r, ws, wl, 0);
       return (ofmt == LVCFMT_RIGHT
               ? (trim ? r.left : x)
               : (trim ? r.right : x + ext.cx));
@@ -343,7 +349,7 @@ listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
     }
 
   SIZE dots;
-  GetTextExtentPoint32A (hdc, "...", 3, &dots);
+  GetTextExtentPoint32W (hdc, L"...", 3, &dots);
 
   RECT label;
   ListView_GetItemRect (hwnd, dis->itemID, &label, LVIR_LABEL);
@@ -358,7 +364,7 @@ listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
       SetTextColor (hdc, fg);
       SetBkColor (hdc, bg);
       label.left = rest;
-      ExtTextOutA (hdc, 0, 0, ETO_OPAQUE, &label, "", 0, 0);
+      ExtTextOutW (hdc, 0, 0, ETO_OPAQUE, &label, L"", 0, 0);
     }
   else
     paint_item_text (hwnd, hdc, dis->itemID, 0, LVCFMT_LEFT, label,
@@ -378,7 +384,7 @@ listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
     {
       label.left = label.right;
       label.right = data->client.cx;
-      ExtTextOutA (hdc, 0, 0, ETO_OPAQUE, &label, "", 0, 0);
+      ExtTextOutW (hdc, 0, 0, ETO_OPAQUE, &label, L"", 0, 0);
     }
 
   if (focus && lvi.state & LVIS_FOCUSED)

@@ -138,6 +138,25 @@ find_last_slash (const char *p)
   return (char *)save;
 }
 
+wchar_t *
+find_slash_w (const wchar_t *p)
+{
+  for (const wchar_t *s = p; *s; s++)
+    if (*s == L'/' || *s == L'\\')
+      return (wchar_t *)s;
+  return 0;
+}
+
+wchar_t *
+find_last_slash_w (const wchar_t *p)
+{
+  wchar_t *save = 0;
+  for (const wchar_t *s = p; *s; s++)
+    if (*s == L'/' || *s == L'\\')
+      save = (wchar_t *)s;
+  return save;
+}
+
 long
 log2 (u_long x)
 {

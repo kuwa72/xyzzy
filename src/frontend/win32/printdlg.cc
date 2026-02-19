@@ -623,8 +623,8 @@ print_dialog::check_proportional_font () const
   for (int i = 0; i < FONT_MAX; i++)
     {
       HGDIOBJ of = SelectObject (m_dev, m_settings.make_font (m_dev, m_dev, i));
-      TEXTMETRICA tm;
-      GetTextMetricsA (m_dev, &tm);
+      TEXTMETRICW tm;
+      GetTextMetricsW (m_dev, &tm);
       DeleteObject (SelectObject (m_dev, of));
       if (tm.tmPitchAndFamily & TMPF_FIXED_PITCH)
         fixed = 0;

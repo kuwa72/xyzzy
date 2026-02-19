@@ -96,13 +96,13 @@ void
 FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
 {
   HGDIOBJ of = SelectObject (hdc, fo_hfont);
-  TEXTMETRICA tm;
-  GetTextMetricsA (hdc, &tm);
+  TEXTMETRICW tm;
+  GetTextMetricsW (hdc, &tm);
   fo_size.cx = tm.tmAveCharWidth;
   fo_size.cy = tm.tmAscent + tm.tmDescent;
   fo_ascent = tm.tmAscent;
-  GetTextExtentPoint32A (hdc, "A", 1, &ex1);
-  GetTextExtentPoint32A (hdc, "\x82\xa0", 2, &ex2);
+  GetTextExtentPoint32W (hdc, L"A", 1, &ex1);
+  GetTextExtentPoint32W (hdc, L"\x3042", 1, &ex2);  // U+3042 あ
   SelectObject (hdc, of);
 }
 
@@ -186,14 +186,14 @@ FontSet::paint_backsl_bitmap (HDC hdc)
 {
   HGDIOBJ of = SelectObject (hdc, fs_font[FONT_ASCII]);
 
-  TextOutA (hdc, fs_cell.cx * backsl, 0, "/", 1);
+  TextOutW (hdc, fs_cell.cx * backsl, 0, L"/", 1);
   StretchBlt (hdc, fs_cell.cx * backsl, 0, fs_cell.cx, fs_cell.cy,
               hdc, fs_cell.cx * (backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
               SRCCOPY);
 
-  TextOutA (hdc, fs_cell.cx * bold_backsl, 0, "/", 1);
+  TextOutW (hdc, fs_cell.cx * bold_backsl, 0, L"/", 1);
   int omode = SetBkMode (hdc, TRANSPARENT);
-  TextOutA (hdc, fs_cell.cx * bold_backsl + 1, 0, "/", 1);
+  TextOutW (hdc, fs_cell.cx * bold_backsl + 1, 0, L"/", 1);
   SetBkMode (hdc, omode);
   StretchBlt (hdc, fs_cell.cx * bold_backsl, 0, fs_cell.cx, fs_cell.cy,
               hdc, fs_cell.cx * (bold_backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
@@ -294,9 +294,9 @@ FontSet::paint_fold_bitmap (HDC hdc)
 
   const FontObject &f = fs_font[FONT_ASCII];
   HGDIOBJ of = SelectObject (hdc, f);
-  char c = '<';
-  ExtTextOutA (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
-  ExtTextOutA (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &c, 1, 0);
+  wchar_t wc = L'<';
+  ExtTextOutW (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
+  ExtTextOutW (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
   SelectObject (hdc, of);
 
   for (int y = 0; y < fs_cell.cy; y += 2)
@@ -565,8 +565,8 @@ get_font_height (HWND hwnd)
   HFONT hfont = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));
   HDC hdc = GetDC (hwnd);
   HGDIOBJ ofont = SelectObject (hdc, hfont);
-  TEXTMETRICA tm;
-  GetTextMetricsA (hdc, &tm);
+  TEXTMETRICW tm;
+  GetTextMetricsW (hdc, &tm);
   SelectObject (hdc, ofont);
   ReleaseDC (hwnd, hdc);
   return tm.tmHeight;

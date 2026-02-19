@@ -1490,6 +1490,7 @@ inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return 0; }
 inline BOOL DeleteObject(HGDIOBJ) { return FALSE; }
 inline HFONT CreateFontIndirectA(const LOGFONTA*) { return 0; }
 inline BOOL GetTextExtentPoint32A(HDC, LPCSTR, int, SIZE*) { return FALSE; }
+inline BOOL GetTextExtentPoint32W(HDC, LPCWSTR, int, SIZE*) { return FALSE; }
 inline BOOL GetTextMetricsA(HDC, TEXTMETRICA*) { return FALSE; }
 
 // Key state

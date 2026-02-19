@@ -483,6 +483,7 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/ipc.cc
     ${WIN32_DIR}/edict.cc
     ${WIN32_DIR}/usertab.cc
+    ${WIN32_DIR}/abbrev.cc
     ${WIN32_DIR}/usertool.cc
     ${WIN32_DIR}/winhelp.cc
     # Support
