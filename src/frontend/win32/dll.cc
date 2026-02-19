@@ -836,8 +836,209 @@ init_c_callable (lisp cc)
       insn[0xc] = 0xcc;
     }
 }
+#elif defined(_M_ARM64) || defined(__aarch64__)
+
+/* ARM64 instruction encoding helpers */
+
+static uint32_t arm64_stp_pre (int rt, int rt2, int rn, int imm7)
+{
+  /* STP Xt1, Xt2, [Xn, #imm]!  (pre-index, 64-bit) */
+  return 0xa9800000u | ((uint32_t)(imm7 & 0x7f) << 15)
+         | ((uint32_t)rt2 << 10) | ((uint32_t)rn << 5) | (uint32_t)rt;
+}
+
+static uint32_t arm64_stp_off (int rt, int rt2, int rn, int imm7)
+{
+  /* STP Xt1, Xt2, [Xn, #imm]  (signed offset, 64-bit) */
+  return 0xa9000000u | ((uint32_t)(imm7 & 0x7f) << 15)
+         | ((uint32_t)rt2 << 10) | ((uint32_t)rn << 5) | (uint32_t)rt;
+}
+
+static uint32_t arm64_ldp_post (int rt, int rt2, int rn, int imm7)
+{
+  /* LDP Xt1, Xt2, [Xn], #imm  (post-index, 64-bit) */
+  return 0xa8c00000u | ((uint32_t)(imm7 & 0x7f) << 15)
+         | ((uint32_t)rt2 << 10) | ((uint32_t)rn << 5) | (uint32_t)rt;
+}
+
+static uint32_t arm64_movz (int rd, uint16_t imm16, int shift)
+{
+  /* MOVZ Xd, #imm16, LSL #shift  (shift = 0,16,32,48) */
+  uint32_t hw = (uint32_t)(shift / 16);
+  return 0xd2800000u | (hw << 21) | ((uint32_t)imm16 << 5) | (uint32_t)rd;
+}
+
+static uint32_t arm64_movk (int rd, uint16_t imm16, int shift)
+{
+  /* MOVK Xd, #imm16, LSL #shift */
+  uint32_t hw = (uint32_t)(shift / 16);
+  return 0xf2800000u | (hw << 21) | ((uint32_t)imm16 << 5) | (uint32_t)rd;
+}
+
+static uint32_t arm64_add_imm (int rd, int rn, int imm12)
+{
+  /* ADD Xd, Xn, #imm12  (64-bit) */
+  return 0x91000000u | ((uint32_t)(imm12 & 0xfff) << 10)
+         | ((uint32_t)rn << 5) | (uint32_t)rd;
+}
+
+static uint32_t arm64_blr (int rn)
+{
+  /* BLR Xn */
+  return 0xd63f0000u | ((uint32_t)rn << 5);
+}
+
+static uint32_t arm64_mov_sp (int rd, int rn)
+{
+  /* MOV Xd, Xn  (when one operand is SP, use ADD Xd, Xn, #0) */
+  return arm64_add_imm (rd, rn, 0);
+}
+
+static uint32_t arm64_ret ()
+{
+  /* RET (X30) */
+  return 0xd65f03c0u;
+}
+
+/*
+  ARM64 c_callable stub.
+  Called from the thunk with:
+    X0 = pointer to c_callable lisp object (cc)
+    X1 = pointer to saved registers array (int64_t[8], original X0-X7)
+  Returns: int64_t result to be returned to Windows.
+*/
+static int64_t
+c_callable_stub_arm64 (lisp cc, int64_t *regs)
+{
+  int nargs = xc_callable_nargs (cc);
+  const u_char *at = xc_callable_arg_types (cc);
+
+  lisp largs = Qnil;
+  /* Build argument list in reverse order for proper cons ordering */
+  for (int i = nargs - 1; i >= 0; i--)
+    {
+      lisp v;
+      switch (at[i])
+        {
+        case CTYPE_INT8:
+          v = make_fixnum ((int8_t)regs[i]);
+          break;
+        case CTYPE_UINT8:
+          v = make_fixnum ((uint8_t)regs[i]);
+          break;
+        case CTYPE_INT16:
+          v = make_fixnum ((int16_t)regs[i]);
+          break;
+        case CTYPE_UINT16:
+          v = make_fixnum ((uint16_t)regs[i]);
+          break;
+        case CTYPE_INT32:
+          v = make_fixnum ((int32_t)regs[i]);
+          break;
+        case CTYPE_UINT32:
+          v = make_integer ((int64_t)(uint32_t)regs[i]);
+          break;
+        case CTYPE_INT64:
+          v = make_integer (regs[i]);
+          break;
+        case CTYPE_UINT64:
+          v = make_integer ((uint64_t)regs[i]);
+          break;
+        default:
+          v = make_integer (regs[i]);
+          break;
+        }
+      largs = xcons (v, largs);
+    }
+
+  protect_gc gcpro (largs);
+  try
+    {
+      lisp result = Ffuncall (xc_callable_function (cc), largs);
+      return cast_to_int64 (result);
+    }
+  catch (nonlocal_jump &)
+    {
+    }
+  return 0;
+}
+
+/*
+  ARM64 thunk code generated in insn[] (16 instructions = 64 bytes):
+
+  STP  X29, X30, [SP, #-80]!   // Save frame pointer + link register, allocate 80 bytes
+  MOV  X29, SP                   // Set up frame pointer
+  STP  X0, X1, [SP, #16]        // Save original callback args X0-X7
+  STP  X2, X3, [SP, #32]
+  STP  X4, X5, [SP, #48]
+  STP  X6, X7, [SP, #64]
+  MOVZ X0, #cc[0:15]            // Load cc pointer into X0 (arg 1 to stub)
+  MOVK X0, #cc[16:31], LSL #16
+  MOVK X0, #cc[32:47], LSL #32
+  ADD  X1, SP, #16              // X1 = pointer to saved args array (arg 2 to stub)
+  MOVZ X16, #stub[0:15]         // Load stub address into X16
+  MOVK X16, #stub[16:31], LSL #16
+  MOVK X16, #stub[32:47], LSL #32
+  BLR  X16                       // Call stub(cc, args)
+  LDP  X29, X30, [SP], #80      // Restore frame + deallocate
+  RET                             // Return to Windows
+*/
+
+void
+init_c_callable (lisp cc)
+{
+  uintptr_t cc_addr = (uintptr_t)cc;
+  uintptr_t stub_addr = (uintptr_t)c_callable_stub_arm64;
+
+  uint32_t *insn = (uint32_t *)xc_callable_insn (cc);
+
+  /* STP X29, X30, [SP, #-80]!  (imm7 = -80/8 = -10) */
+  insn[0] = arm64_stp_pre (29, 30, 31, -10);
+  /* MOV X29, SP */
+  insn[1] = arm64_mov_sp (29, 31);
+  /* STP X0, X1, [SP, #16]  (imm7 = 16/8 = 2) */
+  insn[2] = arm64_stp_off (0, 1, 31, 2);
+  /* STP X2, X3, [SP, #32]  (imm7 = 32/8 = 4) */
+  insn[3] = arm64_stp_off (2, 3, 31, 4);
+  /* STP X4, X5, [SP, #48]  (imm7 = 48/8 = 6) */
+  insn[4] = arm64_stp_off (4, 5, 31, 6);
+  /* STP X6, X7, [SP, #64]  (imm7 = 64/8 = 8) */
+  insn[5] = arm64_stp_off (6, 7, 31, 8);
+
+  /* MOVZ X0, #cc[0:15] */
+  insn[6] = arm64_movz (0, (uint16_t)(cc_addr), 0);
+  /* MOVK X0, #cc[16:31], LSL #16 */
+  insn[7] = arm64_movk (0, (uint16_t)(cc_addr >> 16), 16);
+  /* MOVK X0, #cc[32:47], LSL #32 */
+  insn[8] = arm64_movk (0, (uint16_t)(cc_addr >> 32), 32);
+
+  /* ADD X1, SP, #16 */
+  insn[9] = arm64_add_imm (1, 31, 16);
+
+  /* MOVZ X16, #stub[0:15] */
+  insn[10] = arm64_movz (16, (uint16_t)(stub_addr), 0);
+  /* MOVK X16, #stub[16:31], LSL #16 */
+  insn[11] = arm64_movk (16, (uint16_t)(stub_addr >> 16), 16);
+  /* MOVK X16, #stub[32:47], LSL #32 */
+  insn[12] = arm64_movk (16, (uint16_t)(stub_addr >> 32), 32);
+
+  /* BLR X16 */
+  insn[13] = arm64_blr (16);
+
+  /* LDP X29, X30, [SP], #80  (imm7 = 80/8 = 10) */
+  insn[14] = arm64_ldp_post (29, 30, 31, 10);
+  /* RET */
+  insn[15] = arm64_ret ();
+
+  DWORD o = 0;
+  if (!VirtualProtect (insn, INSN_SIZE, PAGE_EXECUTE_READWRITE, &o))
+    FEsimple_win32_error (GetLastError (), make_fixnum (o));
+
+  FlushInstructionCache (GetCurrentProcess (), insn, INSN_SIZE);
+}
+
 #else
-void init_c_callable (lisp cc) { /* c-callable requires x86; skip on non-x86 */ }
+void init_c_callable (lisp cc) { /* c-callable not supported on this architecture */ }
 #endif
 
 static lisp
