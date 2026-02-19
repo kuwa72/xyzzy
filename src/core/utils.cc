@@ -350,7 +350,7 @@ strequal (const char *cp, const Char *Cp, int l)
 }
 
 int
-strcasecmp (const char *s1, const char *s2)
+sjis_strcasecmp (const char *s1, const char *s2)
 {
   const u_char *p1 = (const u_char *)s1;
   const u_char *p2 = (const u_char *)s2;

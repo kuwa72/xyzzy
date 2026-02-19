@@ -754,7 +754,7 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
               if (*p == '.')
                 {
                   *p = 0;
-                  if (!strcasecmp (fd.cFileName, name))
+                  if (!sjis_strcasecmp (fd.cFileName, name))
                     {
                       int i, n = 0;
                       for (i = 1; i <= max_verchars && digit_char_p (p[i]); i++)

@@ -33,11 +33,11 @@ int default_float_format ();
 int streq (const Char *, int, const char *);
 int strequal (const char *, const Char *);
 int strequal (const char *, const Char *, int);
-int strcasecmp (const char *, const char *);
+int sjis_strcasecmp (const char *, const char *);
 static inline int
 strcaseeq (const char *s1, const char *s2)
 {
-  return !strcasecmp (s1, s2);
+  return !sjis_strcasecmp (s1, s2);
 }
 
 char *jindex (const char *, int);

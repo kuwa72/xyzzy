@@ -583,7 +583,7 @@ compare_filename (const char *s1, const char *s2, int param)
 {
   if (!(param & FilerView::SORT_NUM))
     return (param & FilerView::SORT_CASE
-            ? strcmp (s1, s2) : strcasecmp (s1, s2));
+            ? strcmp (s1, s2) : sjis_strcasecmp (s1, s2));
 
   extern u_char char_no_translate_table[];
   extern u_char char_translate_downcase_table[];
