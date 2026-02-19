@@ -7,10 +7,49 @@
 #define DECLARE_CONF(NAME, VALUE) char NAME[] = VALUE;
 #include "conf.h"
 
+// CP932 -> wchar_t helper for INI file I/O (A->W migration).
+// All internal strings are CP932; WritePrivateProfileStringW needs wchar_t.
+static void
+write_ini (const char *section, const char *name, const char *str)
+{
+  wchar_t wpath[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, app.ini_file_path, -1, wpath, PATH_MAX + 1);
+
+  wchar_t wsection[256], wname[256];
+  wchar_t *ws = 0, *wn = 0;
+  if (section)
+    { MultiByteToWideChar (932, 0, section, -1, wsection, 256); ws = wsection; }
+  if (name)
+    { MultiByteToWideChar (932, 0, name, -1, wname, 256); wn = wname; }
+
+  if (str)
+    {
+      wchar_t wstr[1024];
+      MultiByteToWideChar (932, 0, str, -1, wstr, 1024);
+      WritePrivateProfileStringW (ws, wn, wstr, wpath);
+    }
+  else
+    WritePrivateProfileStringW (ws, wn, 0, wpath);
+}
+
+static int
+read_ini (const char *section, const char *name, char *buf, int size)
+{
+  wchar_t wsection[256], wname[256], wpath[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, section, -1, wsection, 256);
+  MultiByteToWideChar (932, 0, name, -1, wname, 256);
+  MultiByteToWideChar (932, 0, app.ini_file_path, -1, wpath, PATH_MAX + 1);
+  wchar_t wbuf[1024];
+  GetPrivateProfileStringW (wsection, wname, L"", wbuf, 1024, wpath);
+  WideCharToMultiByte (932, 0, wbuf, -1, buf, size, 0, 0);
+  buf[size - 1] = 0;
+  return (int)strlen (buf);
+}
+
 void
 write_conf (const char *section, const char *name, const char *str)
 {
-  WritePrivateProfileStringA (section, name, str, app.ini_file_path);
+  write_ini (section, name, str);
 }
 
 void
@@ -18,7 +57,7 @@ write_conf (const char *section, const char *name, long value, int hex)
 {
   char buf[32];
   sprintf (buf, hex ? "#%lx" : "%ld", value);
-  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
+  write_ini (section, name, buf);
 }
 
 void
@@ -27,7 +66,7 @@ write_conf (const char *section, const char *name, const int *value, int n, int 
   char *buf = (char *)alloca (16 * n), *b = buf;
   for (int i = 0; i < n; i++)
     b += sprintf (b, hex ? ",#%x" : ",%d", *value++);
-  WritePrivateProfileStringA (section, name, buf + 1, app.ini_file_path);
+  write_ini (section, name, buf + 1);
 }
 
 void
@@ -35,7 +74,7 @@ write_conf (const char *section, const char *name, const RECT &r)
 {
   char buf[128];
   sprintf (buf, "(%d,%d)-(%d,%d)", r.left, r.top, r.right, r.bottom);
-  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
+  write_ini (section, name, buf);
 }
 
 void
@@ -43,7 +82,7 @@ write_conf (const char *section, const char *name, const LOGFONTA &lf)
 {
   char buf[128];
   sprintf (buf, "%d,\"%s\",%d", lf.lfHeight, lf.lfFaceName, lf.lfCharSet);
-  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
+  write_ini (section, name, buf);
 }
 
 void
@@ -51,7 +90,7 @@ write_conf (const char *section, const char *name, const PRLOGFONT &lf)
 {
   char buf[128];
   sprintf (buf, "%d,\"%s\",%d,%d,%d", lf.point, lf.face, lf.charset, lf.bold, lf.italic);
-  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
+  write_ini (section, name, buf);
 }
 
 void
@@ -64,25 +103,25 @@ write_conf (const char *section, const char *name, const WINDOWPLACEMENT &w)
            w.rcNormalPosition.right,
            w.rcNormalPosition.bottom,
            w.showCmd);
-  WritePrivateProfileStringA (section, name, buf, app.ini_file_path);
+  write_ini (section, name, buf);
 }
 
 void
 flush_conf ()
 {
-  WritePrivateProfileStringA (0, 0, 0, app.ini_file_path);
+  write_ini (0, 0, 0);
 }
 
 int
 read_conf (const char *section, const char *name, char *buf, int size)
 {
-  return GetPrivateProfileStringA (section, name, "", buf, size, app.ini_file_path);
+  return read_ini (section, name, buf, size);
 }
 
 void
 delete_conf (const char *section)
 {
-  WritePrivateProfileStringA (section, 0, 0, app.ini_file_path);
+  write_ini (section, 0, 0);
 }
 
 static int
