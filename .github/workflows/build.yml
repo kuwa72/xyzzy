@@ -69,3 +69,57 @@ jobs:
       with:
         name: ${{ matrix.artifact }}
         path: build/xyzzy-*.zip
+
+  build-x86:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW32
+        install: >-
+          mingw-w64-i686-gcc
+          mingw-w64-i686-cmake
+          mingw-w64-i686-zlib
+          make
+
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        cmake -B build -G "MinGW Makefiles" \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_RC_COMPILER=windres \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_BUILD_TYPE=Release
+        cmake --build build -- -j$(nproc)
+
+    - name: Show build results
+      shell: msys2 {0}
+      run: |
+        file build/xyzzy.exe build/xyzzy-batch.exe build/xyzzy-cli.exe
+        ls -lh build/*.exe
+
+    - name: Byte-compile Lisp files
+      shell: msys2 {0}
+      run: cmake --build build --target bytecompile
+
+    - name: Verify byte-compile results
+      shell: msys2 {0}
+      run: |
+        count=$(find lisp -name '*.lc' | wc -l)
+        echo "Found $count .lc files"
+        if [ "$count" -eq 0 ]; then echo "No .lc files generated!"; exit 1; fi
+        find lisp -name '*.lc' | head -10
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: xyzzy-x86
+        path: |
+          build/xyzzy.exe
+          build/xyzzy-batch.exe
+          build/xyzzy-cli.exe

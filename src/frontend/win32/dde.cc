@@ -3,12 +3,12 @@
 #include "xdde.h"
 #include "safe_ptr.h"
 
-static HDDEDATA topic_list_callback (DdeCallbackInfo *);
-static HDDEDATA item_list_callback (DdeCallbackInfo *);
-static HDDEDATA formats_callback (DdeCallbackInfo *);
-static HDDEDATA help_callback (DdeCallbackInfo *);
-static HDDEDATA eval_callback (DdeCallbackInfo *);
-static int eval_matcher (const DdeItemList *, HSZ);
+static HDDEDATA CALLBACK topic_list_callback (DdeCallbackInfo *);
+static HDDEDATA CALLBACK item_list_callback (DdeCallbackInfo *);
+static HDDEDATA CALLBACK formats_callback (DdeCallbackInfo *);
+static HDDEDATA CALLBACK help_callback (DdeCallbackInfo *);
+static HDDEDATA CALLBACK eval_callback (DdeCallbackInfo *);
+static int CALLBACK eval_matcher (const DdeItemList *, HSZ);
 
 const char DdeServerName[] = "Xyzzy";
 
@@ -237,7 +237,7 @@ Fdde_request (lisp lconv, lisp ldata, lisp type)
   return result;
 }
 
-static HDDEDATA
+static HDDEDATA CALLBACK
 topic_list_callback (DdeCallbackInfo *dci)
 {
   if (dci->type == XTYP_ADVSTART)
@@ -269,7 +269,7 @@ topic_list_callback (DdeCallbackInfo *dci)
   return hdata;
 }
 
-static HDDEDATA
+static HDDEDATA CALLBACK
 item_list_callback (DdeCallbackInfo *dci)
 {
   if (dci->type == XTYP_ADVSTART)
@@ -310,7 +310,7 @@ item_list_callback (DdeCallbackInfo *dci)
   return hdata;
 }
 
-static HDDEDATA
+static HDDEDATA CALLBACK
 formats_callback (DdeCallbackInfo *dci)
 {
   if (dci->type == XTYP_ADVSTART)
@@ -332,7 +332,7 @@ formats_callback (DdeCallbackInfo *dci)
   return hdata;
 }
 
-static HDDEDATA
+static HDDEDATA CALLBACK
 help_callback (DdeCallbackInfo *dci)
 {
   if (dci->type == XTYP_ADVSTART)
@@ -342,7 +342,7 @@ help_callback (DdeCallbackInfo *dci)
   return HDDEDATA (dci->type == XTYP_REQUEST ? DDE_FNOTPROCESSED : 0);
 }
 
-static int
+static int CALLBACK
 eval_matcher (const DdeItemList *il, HSZ hsz)
 {
   char b[6];
@@ -351,7 +351,7 @@ eval_matcher (const DdeItemList *il, HSZ hsz)
   return !stricmp ("eval:", b);
 }
 
-static HDDEDATA
+static HDDEDATA CALLBACK
 eval_callback (DdeCallbackInfo *dci)
 {
   if (dci->type == XTYP_ADVSTART)

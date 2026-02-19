@@ -1,0 +1,11 @@
+EXPORTS
+    _GetHwnd@0=GetHwnd
+    _close@0=close
+    _create@8=create
+    _createEx@16=createEx
+    _navigate@4=navigate
+    _refresh@0=refresh
+    _goBack@0=goBack
+    _goForward@0=goForward
+    _goHome@0=goHome
+    _locationURL@8=locationURL

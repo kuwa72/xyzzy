@@ -83,6 +83,64 @@ struct symbols
 #define SI_MAKE_SYMBOL2(name) MAKE_SYMBOL (name, CAT (Vsi_, name))
 #define CL_MAKE_SYMBOL2(name) MAKE_SYMBOL (name, CAT (Vcl_, name))
 
+#if defined(__GNUC__) && !defined(__clang__)
+/* GCC is strict about ## token pasting: V ## *foo* fails because V*
+   is not a valid preprocessing token. MSVC/Clang handle this silently.
+   Since all CAT results here are stringified via STR() in DEF/VDEF,
+   use C string literal concatenation ("V" "*foo*" = "V*foo*") instead. */
+#define _SCAT(X, Y) #X #Y
+/* DEF-based macros (7 fields: name, fn, sym, req, opt, flags, interactive) */
+#undef DEFSF3
+#define DEFSF3(name) {STR (name), _SCAT(F, name), _SCAT(S, name), 2, 0, FFspecial_form, 0}
+#undef DEFSF3Q
+#define DEFSF3Q(name) {STR (name), _SCAT(F, name), _SCAT(Q, name), 2, 0, FFspecial_form, 0}
+#undef SI_DEFSF3
+#define SI_DEFSF3(name) {STR (name), _SCAT(Fsi_, name), _SCAT(Ssi_, name), 2, 0, FFspecial_form, 0}
+#undef CL_DEFSF3
+#define CL_DEFSF3(name) {STR (name), _SCAT(Fcl_, name), _SCAT(Ssi_, name), 2, 0, FFspecial_form, 0}
+#undef DEFMACRO3
+#define DEFMACRO3(name) {STR (name), _SCAT(F, name), _SCAT(S, name), 2, 0, FFspecial_form | FFmacro, 0}
+#undef DEFMACRO3Q
+#define DEFMACRO3Q(name) {STR (name), _SCAT(F, name), _SCAT(Q, name), 2, 0, FFspecial_form | FFmacro, 0}
+#undef DEFPMACRO3
+#define DEFPMACRO3(name) {STR (name), _SCAT(F, name), _SCAT(S, name), 2, 0, FFspecial_form | FFpseudo_macro, 0}
+#undef DEFPMACRO3Q
+#define DEFPMACRO3Q(name) {STR (name), _SCAT(F, name), _SCAT(Q, name), 2, 0, FFspecial_form | FFpseudo_macro, 0}
+#undef DEFUN3
+#define DEFUN3(name, req, opt, f) {STR (name), _SCAT(F, name), _SCAT(S, name), req, opt, f, 0}
+#undef DEFUN3Q
+#define DEFUN3Q(name, req, opt, f) {STR (name), _SCAT(F, name), _SCAT(Q, name), req, opt, f, 0}
+#undef SI_DEFUN3
+#define SI_DEFUN3(name, req, opt, f) {STR (name), _SCAT(Fsi_, name), _SCAT(Ssi_, name), req, opt, f, 0}
+#undef CL_DEFUN3
+#define CL_DEFUN3(name, req, opt, f) {STR (name), _SCAT(Fcl_, name), _SCAT(Scl_, name), req, opt, f, 0}
+#undef DEFCMD3
+#define DEFCMD3(name, req, opt, f, g) {STR (name), _SCAT(F, name), _SCAT(S, name), req, opt, f, g}
+/* VDEF-based macros (6 fields: name, 0, sym, 0, 0, flags) */
+#undef DEFCONST2Q
+#define DEFCONST2Q(name) {STR (name), 0, _SCAT(Q, name), 0, 0, SFconstant | SFspecial}
+#undef DEFKWD2
+#define DEFKWD2(name) {STR (name), 0, _SCAT(K, name), 0, 0, SFconstant | SFspecial}
+#undef DEFVAR2
+#define DEFVAR2(name) {STR (name), 0, _SCAT(V, name), 0, 0, SFspecial}
+#undef SI_DEFVAR2
+#define SI_DEFVAR2(name) {STR (name), 0, _SCAT(Vsi_, name), 0, 0, SFspecial}
+#undef CL_DEFVAR2
+#define CL_DEFVAR2(name) {STR (name), 0, _SCAT(Vcl_, name), 0, 0, SFspecial}
+#undef MAKE_SYMBOL2
+#define MAKE_SYMBOL2(name) {STR (name), 0, _SCAT(V, name), 0, 0, 0}
+#undef MAKE_SYMBOL2Q
+#define MAKE_SYMBOL2Q(name) {STR (name), 0, _SCAT(Q, name), 0, 0, 0}
+#undef MAKE_SYMBOL2QC
+#define MAKE_SYMBOL2QC(name) {STR (name), 0, _SCAT(QC, name), 0, 0, 0}
+#undef MAKE_SYMBOL2F
+#define MAKE_SYMBOL2F(name, f) {STR (name), 0, _SCAT(V, name), 0, 0, f}
+#undef SI_MAKE_SYMBOL2
+#define SI_MAKE_SYMBOL2(name) {STR (name), 0, _SCAT(Vsi_, name), 0, 0, 0}
+#undef CL_MAKE_SYMBOL2
+#define CL_MAKE_SYMBOL2(name) {STR (name), 0, _SCAT(Vcl_, name), 0, 0, 0}
+#endif
+
 #define DEFCONDITION(a, b, c, d) {0, 0, "Q" STR (a), 0, 0, 0}
 
 static symbols lsp[] =

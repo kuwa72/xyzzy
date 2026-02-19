@@ -503,7 +503,7 @@ funcall_builtin (lisp f, lisp arglist)
   MARK_FUNCALL (f);
 #endif
 
-#ifdef _M_IX86
+#if defined(_M_IX86) && defined(_MSC_VER)
   return lfunction_proc_0 (xfunction_fn (f))();
 #else
   switch (total_params)

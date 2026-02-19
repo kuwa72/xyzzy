@@ -1,0 +1,47 @@
+LIBRARY "TreeView"
+
+EXPORTS
+    CreateEx            @1
+    Create              @2
+    Close               @3
+    GetHwnd             @4
+    SetSize             @5
+    SetPos              @6
+    GetHtree            @7
+    ModifyStyle         @8
+    GetChildItem        @10
+    GetCount            @11
+    GetItem             @12
+    GetItemData         @13
+    GetItemState        @14
+    GetItemText         @15
+    GetNextItem         @16
+    GetNextSiblingItem  @17
+    GetParentItem       @18
+    GetPrevSiblingItem  @19
+    GetRootItem         @20
+    ItemHasChildren     @21
+    SetItem             @22
+    SetItemData         @23
+    SetItemState        @24
+    SetItemText         @25
+    GetSelectedItem     @26
+    DeleteAllItems      @30
+    DeleteItem          @31
+    EditLabel           @32
+    InsertItem          @33
+    Select              @34
+    Expand              @35
+    SortChildren        @36
+    SetClickCallback    @40
+    SetRclickCallback   @41
+    SetDblclkCallback   @42
+    SetKeyDownCallback  @43
+    SetNmTreeCallback   @44
+    SetEditLabelCallback @45
+    AddFileIcon         @50
+    AddIcon             @51
+    RemoveIcon          @52
+    RemoveAllIcons      @53
+    DisableCharJump     @55
+    SimpleTrackPopupMenu @60

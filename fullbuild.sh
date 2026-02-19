@@ -2,14 +2,22 @@
 # fullbuild.sh - WSL2 → MSYS2 bridge build script for xyzzy (SBCL pattern)
 #
 # Usage:
-#   From WSL2: ./fullbuild.sh [clean|rebuild]
-#   From MSYS2: ./fullbuild.sh [clean|rebuild]
+#   ./fullbuild.sh [target] [action]
+#
+# Targets:
+#   clangarm64  ARM64 (default on ARM64 host)
+#   mingw64     x86_64
+#   mingw32     i686 (XP compatible)
+#
+# Actions:
+#   build       Build (default)
+#   clean       Remove build directory
+#   rebuild     Clean + build
 
 # WSL2 → MSYS2 bridge
 if [ -z "$MSYS2_BUILD" ] && uname -r | grep -qi microsoft; then
     export MSYS2_BUILD=1
     XYZZY_DIR=$(cd "$(dirname "$0")" && pwd)
-    # Convert WSL path to MSYS2 path
     MSYS2_PATH=$(echo "$XYZZY_DIR" | sed 's|^/mnt/c|/c|')
     exec /mnt/c/msys64/usr/bin/bash.exe -l -c \
         "cd '$MSYS2_PATH' && MSYS2_BUILD=1 ./fullbuild.sh $*"
@@ -17,29 +25,59 @@ fi
 
 set -e
 
-# Detect MSYS2 environment
-if [ -d /clangarm64 ]; then
-    MSYS2_ENV=clangarm64
-    export PATH=/clangarm64/bin:$PATH
-    CMAKE_C_COMPILER=clang
-    CMAKE_CXX_COMPILER=clang++
-    CMAKE_RC_COMPILER=llvm-windres
-elif [ -d /mingw64 ]; then
-    MSYS2_ENV=mingw64
-    export PATH=/mingw64/bin:$PATH
-    CMAKE_C_COMPILER=gcc
-    CMAKE_CXX_COMPILER=g++
-    CMAKE_RC_COMPILER=windres
-else
-    echo "Error: No supported MSYS2 environment found (clangarm64 or mingw64)"
-    exit 1
+# Parse arguments (order-free)
+TARGET=""
+ACTION=build
+for arg in "$@"; do
+    case "$arg" in
+        clangarm64|mingw64|mingw32) TARGET="$arg" ;;
+        build|clean|rebuild) ACTION="$arg" ;;
+        *)
+            echo "Usage: $0 [clangarm64|mingw64|mingw32] [build|clean|rebuild]"
+            exit 1
+            ;;
+    esac
+done
+
+# Auto-detect target if not specified
+if [ -z "$TARGET" ]; then
+    if [ -d /clangarm64 ]; then
+        TARGET=clangarm64
+    elif [ -d /mingw64 ]; then
+        TARGET=mingw64
+    else
+        echo "Error: Cannot auto-detect target. Specify one of: clangarm64 mingw64 mingw32"
+        exit 1
+    fi
 fi
 
-echo "=== xyzzy build ($MSYS2_ENV) ==="
+# Configure toolchain
+case "$TARGET" in
+    clangarm64)
+        export PATH=/clangarm64/bin:$PATH
+        CMAKE_C_COMPILER=clang
+        CMAKE_CXX_COMPILER=clang++
+        CMAKE_RC_COMPILER=llvm-windres
+        ;;
+    mingw64)
+        export PATH=/mingw64/bin:$PATH
+        CMAKE_C_COMPILER=gcc
+        CMAKE_CXX_COMPILER=g++
+        CMAKE_RC_COMPILER=windres
+        ;;
+    mingw32)
+        export PATH=/mingw32/bin:$PATH
+        CMAKE_C_COMPILER=gcc
+        CMAKE_CXX_COMPILER=g++
+        CMAKE_RC_COMPILER=windres
+        ;;
+esac
 
-BUILD_DIR="build-${MSYS2_ENV}"
+echo "=== xyzzy build ($TARGET) ==="
 
-case "${1:-build}" in
+BUILD_DIR="build-${TARGET}"
+
+case "$ACTION" in
     clean)
         echo "Cleaning $BUILD_DIR..."
         rm -rf "$BUILD_DIR"
@@ -47,12 +85,6 @@ case "${1:-build}" in
         ;;
     rebuild)
         rm -rf "$BUILD_DIR"
-        ;;
-    build)
-        ;;
-    *)
-        echo "Usage: $0 [build|clean|rebuild]"
-        exit 1
         ;;
 esac
 
@@ -66,6 +98,6 @@ cmake .. -G "MinGW Makefiles" \
     -DCMAKE_SYSTEM_NAME=Windows \
     -DCMAKE_BUILD_TYPE=Release
 
-mingw32-make -j$(nproc) "$@"
+mingw32-make -j$(nproc)
 
 echo "=== Build complete ==="

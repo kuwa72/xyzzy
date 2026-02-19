@@ -120,7 +120,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
     endif()
 else()
-    # GCC
+    # GCC / Clang (non-MSVC)
     add_compile_options(
         -fms-extensions
         -fno-operator-names
@@ -528,9 +528,12 @@ else()
     target_link_options(xyzzy PRIVATE /STACK:0x2000000)
 endif()
 
-# Resource file
+# Resource file (windres needs -I, not -iquote, for include paths)
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzy PRIVATE ${SRC_DIR}/xyzzy.rc)
+    set_source_files_properties(${SRC_DIR}/xyzzy.rc PROPERTIES
+        OBJECT_DEPENDS "${CORE_DIR}/resource.h"
+        INCLUDE_DIRECTORIES "${CORE_DIR};${SRC_DIR}")
 endif()
 
 # ============================================================
@@ -554,6 +557,9 @@ else()
 endif()
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzy-batch PRIVATE ${SRC_DIR}/xyzzy.rc)
+    set_source_files_properties(${SRC_DIR}/xyzzy.rc PROPERTIES
+        OBJECT_DEPENDS "${CORE_DIR}/resource.h"
+        INCLUDE_DIRECTORIES "${CORE_DIR};${SRC_DIR}")
 endif()
 
 endif() # WIN32 (end of xyzzy, xyzzy-batch GUI targets)
@@ -589,7 +595,10 @@ if(WIN32)
         secur32   # SChannel/SSPI (sockssl.cc)
     )
     if(NOT MSVC)
-        target_link_options(xyzzy-cli PRIVATE -static -Wl,--stack,0x2000000 -Wl,--error-limit=0)
+        target_link_options(xyzzy-cli PRIVATE -static -Wl,--stack,0x2000000)
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            target_link_options(xyzzy-cli PRIVATE -Wl,--error-limit=0)
+        endif()
     else()
         target_link_options(xyzzy-cli PRIVATE /STACK:0x2000000)
     endif()
@@ -636,6 +645,47 @@ if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
 endif()
 
+# Browser.dll: WebBrowser ActiveX plugin (ATL-free, IWebBrowser2)
+add_library(browser SHARED
+    ${WIN32_DIR}/Browser.cpp
+    ${SRC_DIR}/xpi.cc
+    ${WIN32_DIR}/Browser.def
+)
+target_compile_definitions(browser PRIVATE BROWSER_EXPORTS WIN32 UNICODE _UNICODE)
+if(MSVC)
+    target_include_directories(browser PRIVATE ${SRC_DIR} ${WIN32_DIR})
+else()
+    target_compile_options(browser PRIVATE
+        "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${WIN32_DIR}"
+        -Wno-pragma-pack)
+    target_link_options(browser PRIVATE -static)
+endif()
+target_link_libraries(browser PRIVATE ole32 oleaut32 uuid)
+set_target_properties(browser PROPERTIES
+    OUTPUT_NAME "Browser"
+    PREFIX ""
+)
+
+# TreeView.dll: TreeView common control plugin (MFC-free)
+add_library(treeview SHARED
+    ${WIN32_DIR}/TreeView.cpp
+    ${SRC_DIR}/xpi.cc
+    ${WIN32_DIR}/TreeView.def
+)
+target_compile_definitions(treeview PRIVATE TREEVIEW_EXPORTS WIN32 UNICODE _UNICODE)
+if(MSVC)
+    target_include_directories(treeview PRIVATE ${SRC_DIR} ${WIN32_DIR})
+else()
+    target_compile_options(treeview PRIVATE
+        "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${WIN32_DIR}")
+    target_link_options(treeview PRIVATE -static)
+endif()
+target_link_libraries(treeview PRIVATE comctl32)
+set_target_properties(treeview PROPERTIES
+    OUTPUT_NAME "TreeView"
+    PREFIX ""
+)
+
 # tail-f: File monitoring utility (etc/tail-f.exe)
 add_executable(tail-f ${SRC_DIR}/etc/tail-f.cc)
 if(NOT MSVC)
@@ -665,7 +715,7 @@ add_test(
 )
 
 # Install (Win32)
-install(TARGETS xyzzy xyzzycli xyzzyenv RUNTIME DESTINATION .)
+install(TARGETS xyzzy xyzzycli xyzzyenv browser treeview RUNTIME DESTINATION .)
 install(TARGETS tail-f RUNTIME DESTINATION etc)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION etc)

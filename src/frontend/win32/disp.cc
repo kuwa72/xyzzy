@@ -1520,7 +1520,7 @@ private:
   lisp check_format (lisp);
   int sc2mask (int sc) {return 1 << ((sc >> GLYPH_KEYWORD_SHIFT_BITS) & 3);}
 public:
-  regexp_kwd::regexp_kwd (lisp, point_t, const Buffer *);
+  regexp_kwd (lisp, point_t, const Buffer *);
   int kwdmatch (const Point &, int, int &);
   int kwdmatch_begin (const Point &, int);
   int valid_p () const {return int (rk_list);}

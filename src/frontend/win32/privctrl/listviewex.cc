@@ -251,7 +251,7 @@ paint_colors (const listview_item_data *data, int enabled, int selected,
     }
 }
 
-static LONG
+static LONG WINAPI
 listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
 {
   HWND hwnd = dis->hwndItem;
