@@ -76,7 +76,13 @@ void destruct_regexp (lisp);
 void output_funcall_mark (FILE *);
 #endif
 
-/* toplev.cc */
+/* cmdloop.cc (core) */
+void command_loop ();
+lisp execute_string (lisp);
+void toplev_gc_mark (void (*)(lisp));
+int toplev_accept_mouse_move_p ();
+
+/* toplev.cc (frontend) */
 LRESULT CALLBACK toplevel_wndproc (HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK frame_wndproc (HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK client_wndproc (HWND, UINT, WPARAM, LPARAM);
@@ -84,14 +90,11 @@ LRESULT CALLBACK modeline_wndproc (HWND, UINT, WPARAM, LPARAM);
 void main_loop ();
 int start_quit_thread ();
 int wait_process_terminate (HANDLE);
-lisp execute_string (lisp);
 int end_wait_cursor (int);
 void set_ime_caret ();
 void recalc_toplevel ();
 void set_caret_blink_time ();
 void restore_caret_blink_time ();
-void toplev_gc_mark (void (*)(lisp));
-int toplev_accept_mouse_move_p ();
 
 /* minibuf.cc */
 lisp load_default (lisp, int);

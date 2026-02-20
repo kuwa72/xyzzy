@@ -1528,10 +1528,4 @@ Fcurrent_kbd_layout ()
   return xcons (make_fixnum (int (hkl)), Qnil);
 }
 
-int
-char_mouse_move_p (Char cc)
-{
-  if (function_char_p (cc))
-    cc = meta_function_to_function (cc & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
-  return cc == CCF_MOUSEMOVE;
-}
+// char_mouse_move_p moved to src/core/cmdloop.cc

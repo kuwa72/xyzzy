@@ -400,6 +400,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/sockssl.cc
     ${CORE_DIR}/resolver.cc
     ${CORE_DIR}/mman.cc
+    ${CORE_DIR}/cmdloop.cc
     ${CORE_DIR}/dsfmt/dSFMT.cc
     # Generated sources (compiled standalone; gen/symtable-core.cc is #include'd by core/symtable.cc)
     ${GEN_DIR}/chtab.cc
@@ -615,30 +616,33 @@ endif()
 # xyzzy-ncurses: ncurses terminal frontend (Linux/BSD/POSIX)
 # ============================================================
 if(NOT WIN32)
-    find_package(Curses)
-    if(CURSES_FOUND)
+    # Prefer ncursesw (wide character support) over plain ncurses
+    find_library(NCURSESW_LIBRARY ncursesw)
+    find_path(NCURSESW_INCLUDE_DIR ncurses.h PATH_SUFFIXES ncursesw)
+    if(NCURSESW_LIBRARY AND NCURSESW_INCLUDE_DIR)
         set(NCURSES_DIR ${CMAKE_SOURCE_DIR}/src/frontend/ncurses)
         set(NCURSES_SOURCES
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
+            ${NCURSES_DIR}/ncurses-kbd.cc
             ${CLI_DIR}/cli-conf.cc
-            ${CLI_DIR}/cli-symtable-ed.cc
+            ${NCURSES_DIR}/ncurses-symtable-ed.cc
         )
 
         add_executable(xyzzy-ncurses ${NCURSES_SOURCES})
         target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE)
         target_compile_options(xyzzy-ncurses PRIVATE
             "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
-        target_include_directories(xyzzy-ncurses PRIVATE ${ZLIB_INCLUDE_DIRS} ${CURSES_INCLUDE_DIRS})
+        target_include_directories(xyzzy-ncurses PRIVATE ${ZLIB_INCLUDE_DIRS} ${NCURSESW_INCLUDE_DIR})
         target_link_libraries(xyzzy-ncurses PRIVATE
             xyzzy-core
             ${ZLIB_LIBRARIES}
-            ${CURSES_LIBRARIES}
+            ${NCURSESW_LIBRARY}
             pthread
         )
         install(TARGETS xyzzy-ncurses RUNTIME DESTINATION bin)
     else()
-        message(STATUS "ncurses not found - skipping xyzzy-ncurses target")
+        message(STATUS "ncursesw not found - skipping xyzzy-ncurses target")
     endif()
 endif()
 

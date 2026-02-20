@@ -184,27 +184,32 @@ LRESULT CALLBACK frame_wndproc (HWND, UINT, WPARAM, LPARAM) { return 0; }
 LRESULT CALLBACK client_wndproc (HWND, UINT, WPARAM, LPARAM) { return 0; }
 LRESULT CALLBACK modeline_wndproc (HWND, UINT, WPARAM, LPARAM) { return 0; }
 
-void main_loop () {}
+// main_loop delegates to core command_loop
+void main_loop () { command_loop (); }
 int start_quit_thread () { return 1; }
 int wait_process_terminate (HANDLE) { return 0; }
-lisp execute_string (lisp) { return Qnil; }
 int end_wait_cursor (int) { return 0; }
 void set_ime_caret () {}
 void recalc_toplevel () {}
 void set_caret_blink_time () {}
 void restore_caret_blink_time () {}
-void toplev_gc_mark (void (*)(lisp)) {}
-int toplev_accept_mouse_move_p () { return 0; }
 
-// lprint.cc functions are already in xyzzy-core, no stubs needed.
-// Only stub functions NOT in core:
+// toplev_gc_mark, toplev_accept_mouse_move_p, execute_string
+// are now in core/cmdloop.cc
+
 int get_glyph_width (Char, const glyph_width &) { return 8; }
 
 // ============================================================
 // msgbox.cc stubs
 // ============================================================
 
-int MsgBox (HWND, const char *, const char *, UINT, int) { return IDOK; }
+int MsgBox (HWND, const char *, const char *, UINT style, int)
+{
+  // For yes/no dialogs, default to "yes" (e.g., kill-xyzzy with modified buffers)
+  if ((style & 0x0f) == MB_YESNO)
+    return IDYES;
+  return IDOK;
+}
 int MsgBoxEx (HWND, const char *, const char *, int, int, int, int,
               const char **, int, int, int) { return IDOK; }
 void XMessageBox::add_button (UINT, const char *) {}
@@ -221,17 +226,265 @@ void report_out_of_memory ()
 }
 
 // ============================================================
-// minibuf.cc stubs
+// minibuf.cc — ncurses minibuffer (recursive edit)
 // ============================================================
 
-lisp load_default (lisp, int) { return Qnil; }
-lisp load_history (lisp, int) { return Qnil; }
-lisp load_history (lisp, int, lisp) { return Qnil; }
-lisp load_title (lisp, int) { return Qnil; }
-lisp read_minibuffer (const Char *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int) { return Qnil; }
-lisp complete_read (const Char *, long, lisp, lisp, lisp, lisp, int, int) { return Qnil; }
-lisp read_filename (const Char *, long, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp minibuffer_read_integer (const Char *, long) { return Qnil; }
+static int minibuffer_recursive_level;
+
+static lisp
+load_default_impl (const char *fmt, lisp keys, int number)
+{
+  if (keys == Qnil)
+    return Qnil;
+
+  char b[32];
+  sprintf (b, fmt, number);
+  int l = strlen (b);
+  Char w[32];
+  a2w (w, b, l);
+  temporary_string t (w, l);
+  lisp var = Ffind_symbol (t.string (), xsymbol_value (Vkeyword_package));
+  return var != Qnil ? find_keyword (var, keys) : Qnil;
+}
+
+lisp
+load_default (lisp keys, int number)
+{
+  return load_default_impl ("default%d", keys, number);
+}
+
+lisp
+load_history (lisp keys, int number)
+{
+  return load_default_impl ("history%d", keys, number);
+}
+
+lisp
+load_history (lisp keys, int number, lisp def)
+{
+  lisp x = load_history (keys, number);
+  return x != Qnil ? x : def;
+}
+
+lisp
+load_title (lisp keys, int number)
+{
+  return load_default_impl ("title%d", keys, number);
+}
+
+static Buffer *
+create_minibuffer ()
+{
+  char b[32];
+  sprintf (b, " *Minibuf%d*", minibuffer_recursive_level);
+  return Buffer::make_internal_buffer (b);
+}
+
+static int
+count_prompt_columns (const Char *s, int l)
+{
+  int n = 0;
+  for (const Char *se = s + l; s < se; s++)
+    n += char_width (*s);
+  return n;
+}
+
+void command_loop ();
+lisp Fsi_throw_error (lisp);
+
+lisp
+read_minibuffer (const Char *prompt, long prompt_length, lisp def,
+                 lisp type, lisp compl, lisp history,
+                 int noselect, int completion, int must_match,
+                 lisp title, int opt_arg)
+{
+  check_kbd_enable ();
+  Window *wp = selected_window ();
+  Buffer *curbp = selected_buffer ();
+  if (wp->minibuffer_window_p ()
+      && symbol_value (Venable_recursive_minibuffers, curbp) == Qnil)
+    FEsimple_error (Eattempt_to_use_minibuffer_recursively);
+
+  Buffer *bp = create_minibuffer ();
+  bp->ldirectory = curbp->ldirectory;
+  bp->lsyntax_table = curbp->lsyntax_table;
+  bp->lminibuffer_buffer = curbp->lbp;
+  bp->ldialog_title = title;
+  bp->lminibuffer_default = stringp (def) ? def : Qnil;
+  bp->lmap = xsymbol_value (Vminibuffer_local_map);
+  if (bp->lmap == Qunbound || bp->lmap == Qnil)
+    bp->lmap = Qnil;
+
+  bp->b_prompt = prompt;
+  bp->b_prompt_length = prompt_length;
+  bp->b_prompt_columns = count_prompt_columns (prompt, prompt_length);
+  *bp->b_prompt_arg = 0;
+  if (!opt_arg)
+    {
+      long n;
+      if (xsymbol_value (Vprefix_args) == Vuniversal_argument
+          && safe_fixnum_value (xsymbol_value (Vprefix_value), &n)
+          && n == 4)
+        strcpy (bp->b_prompt_arg, "C-u ");
+      else if (safe_fixnum_value (xsymbol_value (Vprefix_value), &n))
+        sprintf (bp->b_prompt_arg, "%d ", n);
+    }
+  bp->b_prompt_columns += strlen (bp->b_prompt_arg);
+
+  bp->b_minibufferp = 1;
+  bp->b_fold_mode = bp->b_fold_columns = Buffer::FOLD_NONE;
+  bp->fold_width_modified ();
+  bp->lcomplete_type = type;
+  bp->lcomplete_list = compl;
+
+  protect_gc gcpro4 (type);
+  protect_gc gcpro5 (compl);
+
+  Window *mini = Window::minibuffer_window ();
+  mini->set_buffer_params (bp);
+  mini->set_window ();
+  mini->w_flags = 0;
+  minibuffer_recursive_level++;
+
+  // Insert default value if provided
+  if (stringp (def) && !noselect)
+    bp->insert_chars_internal (mini->w_point,
+                               xstring_contents (def),
+                               xstring_length (def), 1);
+
+  lisp result = Qnil;
+  lisp nld_type = 0, nld_id = 0;
+  int abnormal_exit = 0;
+  try
+    {
+      command_loop ();
+      abnormal_exit = 1;
+    }
+  catch (nonlocal_jump &)
+    {
+      nonlocal_data *nld = nonlocal_jump::data ();
+      result = nld->value;
+      nld_type = nld->type;
+      nld_id = nld->id;
+    }
+
+  protect_gc gcpro (result);
+  protect_gc gcpro2 (nld_id);
+
+  bp->lcomplete_type = Qnil;
+  bp->lcomplete_list = Qnil;
+
+  bp->b_prompt = 0;
+  bp->b_prompt_length = 0;
+  bp->b_prompt_columns = 0;
+  *bp->b_prompt_arg = 0;
+
+  if (--minibuffer_recursive_level)
+    bp->b_minibufferp = 0;
+
+  lisp contents = Qnil;
+  protect_gc gcpro3 (contents);
+
+  if (!abnormal_exit)
+    {
+      if (nld_type == Qexit_this_level && nld_id == Qnil)
+        {
+          try
+            {
+              contents = bp->substring (0, bp->b_nchars);
+            }
+          catch (nonlocal_jump &)
+            {
+            }
+        }
+    }
+
+  bp->lminibuffer_buffer = Qnil;
+  bp->lvar = Qnil;
+  bp->ldialog_title = Qnil;
+  bp->lminibuffer_default = Qnil;
+
+  // Restore previous window
+  wp->set_window ();
+
+  if (minibuffer_recursive_level)
+    Fdelete_buffer (bp->lbp);
+  else
+    Ferase_buffer (bp->lbp);
+
+  if (abnormal_exit)
+    Fexit_recursive_edit (Qnil);
+
+  if (contents == Qnil)
+    {
+      if (nld_type == Qexit_this_level)
+        Fsi_throw_error (nld_id);
+      throw nonlocal_jump ();
+    }
+
+  return result != Qnil ? result : contents;
+}
+
+lisp
+complete_read (const Char *prompt, long prompt_length, lisp def,
+               lisp type, lisp compl, lisp history,
+               int must_match, int opt_arg)
+{
+  lisp string = read_minibuffer (prompt, prompt_length, def, type, compl,
+                                 history, 0, 1, must_match, Qnil, opt_arg);
+
+  if (!symbolp (type))
+    return string;
+
+  if (type == Kexist_buffer_name)
+    return Ffind_buffer (string);
+
+  if (type == Kbuffer_name)
+    {
+      if (stringp (string) && !xstring_length (string))
+        return def;
+      lisp x = Ffind_buffer (string);
+      return x == Qnil ? string : x;
+    }
+
+  if (type == Ksymbol_name || type == Kfunction_name
+      || type == Kcommand_name || type == Kvariable_name
+      || type == Knon_trivial_symbol_name)
+    return Fintern (string, 0);
+
+  if (type == Kchar_encoding || type == Kexact_char_encoding)
+    return find_char_encoding (string);
+
+  return string;
+}
+
+lisp
+read_filename (const Char *prompt, long prompt_length, lisp type,
+               lisp title, lisp defalt, lisp history)
+{
+  Buffer *bp = selected_buffer ();
+  return read_minibuffer (prompt, prompt_length,
+                          (defalt != Qnil
+                           ? defalt
+                           : (symbol_value (Vinsert_default_directory, bp) != Qnil
+                              ? bp->ldirectory : Qnil)),
+                          type, Qnil,
+                          (history != Qnil
+                           ? history
+                           : type == Kdirectory_name ? Kdirectory_name : Kfile_name),
+                          1, 1,
+                          type == Kexist_file_name || type == Kdirectory_name,
+                          title, -1);
+}
+
+lisp
+minibuffer_read_integer (const Char *prompt, long prompt_length)
+{
+  lisp string = read_minibuffer (prompt, prompt_length, Qnil, Kinteger, Qnil, Kinteger,
+                                 0, 0, 0, Qnil, -1);
+  int l = xstring_length (string);
+  return parse_integer (string, 0, l, 10, 1);
+}
 
 // ============================================================
 // process.cc stubs
@@ -690,17 +943,203 @@ int assert_failed (const char *file, int line)
 #endif
 
 // ============================================================
-// Window.cc stubs (Window statics + WindowConfiguration)
+// Window.cc — ncurses implementations
 // ============================================================
 
 #include "Window.h"
+#include "charset.h"
+#include <ncurses.h>
 
 XCOLORREF Window::default_xcolors[USER_DEFINABLE_COLORS];
+COLORREF Window::default_colors[WCOLOR_MAX];
 int Window::w_default_flags = 0;
 int Window::w_hjump_columns = 4;
+
+Window::Window (int minibufp, int temporary)
+{
+  lwp = Qnil;
+  w_bufp = 0;
+  w_next = w_prev = 0;
+
+  w_flags_mask = minibufp ? WF_NEWLINE : -1;
+  w_flags = 0;
+  w_last_flags = flags ();
+
+  bzero (&w_point, sizeof w_point);
+  w_mark = NO_MARK_SET;
+  w_last_point = 0;
+  w_disp = 0;
+  w_last_disp = 0;
+  w_last_top_linenum = 1;
+  w_last_top_column = 0;
+  w_linenum = 1;
+  w_plinenum = 1;
+  w_column = 0;
+  w_goal_column = 0;
+  w_top_column = 0;
+  w_selection_type = Buffer::SELECTION_VOID;
+  w_selection_point = NO_MARK_SET;
+  w_selection_marker = NO_MARK_SET;
+  w_selection_column = 0;
+  w_selection_region.p1 = -1;
+  w_reverse_temp = Buffer::SELECTION_VOID;
+  w_reverse_region.p1 = NO_MARK_SET;
+  w_reverse_region.p2 = NO_MARK_SET;
+
+  // ncurses init (no HWND)
+  w_last_bufp = 0;
+  w_disp_flags = WDF_WINDOW | WDF_MODELINE;
+  w_last_mark_linenum = -1;
+  bzero (&w_rect, sizeof w_rect);
+  bzero (&w_order, sizeof w_order);
+  bzero (w_last_vars, sizeof w_last_vars);
+  bzero (&w_clsize, sizeof w_clsize);
+  bzero (&w_ech, sizeof w_ech);
+  w_colors = default_colors;
+  w_inverse_mode_line = 0;
+  w_ime_mode_line = 0;
+  w_cursor_line.ypixel = -1;
+  w_ruler_top_column = -1;
+  w_ruler_column = -1;
+  w_ruler_fold_column = Buffer::FOLD_NONE;
+  w_ignore_scroll_margin = 0;
+  w_hwnd = 0;
+  w_hwnd_ml = 0;
+  bzero (&w_vsinfo, sizeof w_vsinfo);
+  bzero (&w_hsinfo, sizeof w_hsinfo);
+  bzero (&w_ch_max, sizeof w_ch_max);
+  w_glyphs = 0;
+}
+
+Window::Window (const Window &src)
+{
+  lwp = Qnil;
+  w_next = w_prev = 0;
+#define CP(x) (x = src.x)
+  CP (w_bufp);
+  CP (w_flags_mask);
+  CP (w_flags);
+  CP (w_last_flags);
+  CP (w_point);
+  CP (w_mark);
+  CP (w_last_point);
+  CP (w_disp);
+  CP (w_last_disp);
+  CP (w_last_top_linenum);
+  CP (w_last_top_column);
+  CP (w_linenum);
+  CP (w_plinenum);
+  CP (w_column);
+  CP (w_goal_column);
+  CP (w_top_column);
+  CP (w_selection_type);
+  CP (w_selection_point);
+  CP (w_selection_marker);
+  CP (w_reverse_temp);
+  CP (w_reverse_region);
+  CP (w_selection_column);
+  CP (w_selection_region);
+#undef CP
+  // ncurses: no HWND init
+  w_last_bufp = 0;
+  w_disp_flags = WDF_WINDOW | WDF_MODELINE;
+  w_last_mark_linenum = -1;
+  bzero (&w_rect, sizeof w_rect);
+  bzero (&w_order, sizeof w_order);
+  bzero (w_last_vars, sizeof w_last_vars);
+  bzero (&w_clsize, sizeof w_clsize);
+  bzero (&w_ech, sizeof w_ech);
+  w_colors = default_colors;
+  w_inverse_mode_line = 0;
+  w_ime_mode_line = 0;
+  w_cursor_line.ypixel = -1;
+  w_ruler_top_column = -1;
+  w_ruler_column = -1;
+  w_ruler_fold_column = Buffer::FOLD_NONE;
+  w_ignore_scroll_margin = 0;
+  w_hwnd = 0;
+  w_hwnd_ml = 0;
+  bzero (&w_vsinfo, sizeof w_vsinfo);
+  bzero (&w_hsinfo, sizeof w_hsinfo);
+  bzero (&w_ch_max, sizeof w_ch_max);
+  w_glyphs = 0;
+  lwp = make_window ();
+  xwindow_wp (lwp) = this;
+}
+
+Window::~Window ()
+{
+  if (windowp (lwp))
+    xwindow_wp (lwp) = 0;
+}
+
+void
+Window::save_buffer_params ()
+{
+  if (!w_bufp)
+    return;
+  w_bufp->b_point = w_point.p_point;
+  w_bufp->b_mark = w_mark;
+  w_bufp->b_selection_point = w_selection_point;
+  w_bufp->b_selection_marker = w_selection_marker;
+  w_bufp->b_selection_type = w_selection_type;
+  w_bufp->b_selection_column = w_selection_column;
+  w_bufp->b_reverse_temp = w_reverse_temp;
+  w_bufp->b_reverse_region = w_reverse_region;
+  w_bufp->b_disp = w_disp;
+}
+
+void
+Window::set_buffer_params (Buffer *bp)
+{
+  w_bufp = bp;
+  w_point.p_point = 0;
+  w_point.p_chunk = bp->b_chunkb;
+  w_point.p_offset = 0;
+  bp->goto_char (w_point, bp->b_point);
+  w_mark = bp->b_mark;
+  w_selection_point = bp->b_selection_point;
+  w_selection_marker = bp->b_selection_marker;
+  w_selection_type = bp->b_selection_type;
+  w_selection_column = bp->b_selection_column;
+  w_reverse_temp = bp->b_reverse_temp;
+  w_reverse_region = bp->b_reverse_region;
+  w_disp = bp->b_disp;
+  w_last_disp = w_disp;
+}
+
+void
+Window::set_buffer (Buffer *bp)
+{
+  if (bp != w_bufp)
+    {
+      save_buffer_params ();
+      set_buffer_params (bp);
+      w_goal_column = 0;
+      w_disp_flags |= WDF_WINDOW | WDF_MODELINE | WDF_GOAL_COLUMN;
+    }
+}
+
+void
+Window::set_window ()
+{
+  app.active_frame.selected = this;
+  if (w_bufp)
+    w_bufp->check_range (w_point);
+}
+
 void Window::change_color () {}
 void Window::modify_all_mode_line () {}
-void Window::set_buffer (Buffer *) {}
+void Window::init_colors (const XCOLORREF *, const XCOLORREF *,
+                          const XCOLORREF *, const XCOLORREF *) {}
+void Window::init (int, int) {}
+
+// mode_line_painter vtable anchor functions
+bool mode_line_percent_painter::need_repaint_all () { return false; }
+int mode_line_percent_painter::paint_percent (HDC) { return 0; }
+int mode_line_percent_painter::calc_percent (Buffer *, point_t) { return 0; }
+bool mode_line_point_painter::need_repaint_all () { return false; }
+int mode_line_point_painter::paint_point (HDC) { return 0; }
 
 WindowConfiguration *WindowConfiguration::wc_chain = 0;
 WindowConfiguration::WindowConfiguration () : wc_selected (0), wc_nwindows (0), wc_data (0) {}
@@ -751,13 +1190,423 @@ char *buffer_info::admin_user (char *b, char *) const { *b = 0; return b; }
 char *buffer_info::percent (char *b, char *) const { *b = 0; return b; }
 
 // ============================================================
-// Keyboard/Input stubs
+// Keyboard/Input — real implementations in ncurses-kbd.cc
+// Only stubs that ncurses-kbd.cc doesn't provide:
 // ============================================================
 
 void check_kbd_enable () {}
-lChar kbd_queue::fetch (int, int) { return lChar_EOF; }
-int kbd_queue::listen () { return 0; }
-int kbd_queue::toggle_ime (int, int) { return 0; }
+
+// ============================================================
+// Display (ncurses refresh_screen implementation)
+// ============================================================
+
+// Iterate through buffer content starting at 'from', rendering to ncurses.
+// Returns the buffer position where rendering stopped.
+static point_t
+render_buffer (Buffer *bp, point_t from, int y_start, int y_end, int cols)
+{
+  if (!bp)
+    return 0;
+
+  // Set up a Point to walk through the buffer
+  Point pt;
+  pt.p_point = 0;
+  pt.p_chunk = bp->b_chunkb;
+  pt.p_offset = 0;
+  if (from > 0)
+    bp->goto_char (pt, from);
+
+  point_t nchars = bp->b_nchars;
+
+  for (int y = y_start; y < y_end; y++)
+    {
+      move (y, 0);
+      clrtoeol ();
+      int x = 0;
+      while (x < cols && pt.p_point < nchars)
+        {
+          Char c = pt.p_chunk->c_text[pt.p_offset];
+          if (c == '\n')
+            {
+              // Advance past newline
+              pt.p_point++;
+              pt.p_offset++;
+              if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+                {
+                  pt.p_chunk = pt.p_chunk->c_next;
+                  pt.p_offset = 0;
+                }
+              break;
+            }
+
+          if (c == '\t')
+            {
+              int tab = 8 - (x % 8);
+              for (int i = 0; i < tab && x < cols; i++, x++)
+                mvaddch (y, x, ' ');
+            }
+          else if (c < 0x20)
+            {
+              // Control char: display as ^X
+              if (x + 1 < cols)
+                {
+                  mvaddch (y, x, '^');
+                  mvaddch (y, x + 1, c + '@');
+                  x += 2;
+                }
+              else
+                break;
+            }
+          else if (c < 0x80)
+            {
+              mvaddch (y, x, c);
+              x++;
+            }
+          else
+            {
+              // Non-ASCII: convert internal Char to UCS-2 via i2w()
+              ucs2_t wc = i2w (c);
+              if (wc != 0)
+                {
+                  cchar_t cc;
+                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  setcchar (&cc, ws, 0, 0, NULL);
+                  mvadd_wch (y, x, &cc);
+                  // Check if wide char
+                  int w = wcwidth ((wchar_t)wc);
+                  x += (w > 0) ? w : 1;
+                }
+              else
+                {
+                  mvaddch (y, x, '?');
+                  x++;
+                }
+            }
+
+          // Advance point
+          pt.p_point++;
+          pt.p_offset++;
+          if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+            {
+              pt.p_chunk = pt.p_chunk->c_next;
+              pt.p_offset = 0;
+            }
+        }
+
+      // Fill lines beyond buffer with '~'
+      if (pt.p_point >= nchars && y + 1 < y_end)
+        {
+          for (int yy = y + 1; yy < y_end; yy++)
+            {
+              move (yy, 0);
+              clrtoeol ();
+              mvaddch (yy, 0, '~');
+            }
+          break;
+        }
+    }
+
+  return pt.p_point;
+}
+
+// Compute the screen row/col for a given buffer position relative to w_disp
+static void
+point_to_screen (Buffer *bp, point_t disp, point_t target, int cols,
+                 int *out_y, int *out_x)
+{
+  *out_y = 0;
+  *out_x = 0;
+  if (!bp || target <= disp)
+    return;
+
+  Point pt;
+  pt.p_point = 0;
+  pt.p_chunk = bp->b_chunkb;
+  pt.p_offset = 0;
+  if (disp > 0)
+    bp->goto_char (pt, disp);
+
+  int y = 0, x = 0;
+  point_t nchars = bp->b_nchars;
+
+  while (pt.p_point < target && pt.p_point < nchars)
+    {
+      Char c = pt.p_chunk->c_text[pt.p_offset];
+      if (c == '\n')
+        {
+          y++;
+          x = 0;
+        }
+      else if (c == '\t')
+        x = x + 8 - (x % 8);
+      else if (c < 0x20)
+        x += 2;
+      else if (c < 0x80)
+        x++;
+      else
+        {
+          ucs2_t wc = i2w (c);
+          int w = (wc != 0) ? wcwidth ((wchar_t)wc) : 1;
+          x += (w > 0) ? w : 1;
+        }
+
+      // Advance point
+      pt.p_point++;
+      pt.p_offset++;
+      if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+        {
+          pt.p_chunk = pt.p_chunk->c_next;
+          pt.p_offset = 0;
+        }
+    }
+
+  *out_y = y;
+  *out_x = x;
+}
+
+// Draw modeline for a given buffer on a given screen row
+static void
+draw_modeline (Buffer *bp, int row, int cols)
+{
+  attron (A_REVERSE);
+  move (row, 0);
+  clrtoeol ();
+  if (stringp (bp->lbuffer_name))
+    {
+      const Char *name = xstring_contents (bp->lbuffer_name);
+      int len = xstring_length (bp->lbuffer_name);
+      char mbuf[256];
+      int mi = 0;
+      mbuf[mi++] = '-';
+      mbuf[mi++] = '-';
+      // Show modified flag
+      mbuf[mi++] = (bp->b_modified ? '*' : '-');
+      mbuf[mi++] = ' ';
+      for (int i = 0; i < len && mi < (int)sizeof (mbuf) - 2; i++)
+        {
+          if (name[i] < 0x80)
+            mbuf[mi++] = (char)name[i];
+          else
+            mbuf[mi++] = '?';
+        }
+      mbuf[mi++] = ' ';
+      while (mi < cols && mi < (int)sizeof (mbuf) - 1)
+        mbuf[mi++] = '-';
+      mbuf[mi] = 0;
+      mvprintw (row, 0, "%s", mbuf);
+    }
+  else
+    {
+      for (int i = 0; i < cols; i++)
+        mvaddch (row, i, '-');
+    }
+  attroff (A_REVERSE);
+}
+
+// Render minibuffer prompt and content on a given screen row
+static void
+draw_minibuffer (Window *mini, int row, int cols)
+{
+  move (row, 0);
+  clrtoeol ();
+
+  Buffer *bp = mini->w_bufp;
+  if (!bp)
+    return;
+
+  int x = 0;
+
+  // Draw prompt arg (e.g. "C-u " or "4 ")
+  if (bp->b_prompt_arg[0])
+    {
+      mvprintw (row, x, "%s", bp->b_prompt_arg);
+      x += strlen (bp->b_prompt_arg);
+    }
+
+  // Draw prompt text
+  if (bp->b_prompt && bp->b_prompt_length > 0)
+    {
+      for (long i = 0; i < bp->b_prompt_length && x < cols; i++)
+        {
+          Char c = bp->b_prompt[i];
+          if (c < 0x80)
+            {
+              mvaddch (row, x, (char)c);
+              x++;
+            }
+          else
+            {
+              ucs2_t wc = i2w (c);
+              if (wc != 0)
+                {
+                  cchar_t cc;
+                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  setcchar (&cc, ws, 0, 0, NULL);
+                  mvadd_wch (row, x, &cc);
+                  int w = wcwidth ((wchar_t)wc);
+                  x += (w > 0) ? w : 1;
+                }
+              else
+                {
+                  mvaddch (row, x, '?');
+                  x++;
+                }
+            }
+        }
+    }
+
+  // Draw minibuffer content (the text user is typing)
+  if (bp->b_nchars > 0)
+    {
+      Point pt;
+      pt.p_point = 0;
+      pt.p_chunk = bp->b_chunkb;
+      pt.p_offset = 0;
+
+      while (pt.p_point < bp->b_nchars && x < cols)
+        {
+          Char c = pt.p_chunk->c_text[pt.p_offset];
+          if (c < 0x20)
+            {
+              // skip control chars
+            }
+          else if (c < 0x80)
+            {
+              mvaddch (row, x, c);
+              x++;
+            }
+          else
+            {
+              ucs2_t wc = i2w (c);
+              if (wc != 0)
+                {
+                  cchar_t cc;
+                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  setcchar (&cc, ws, 0, 0, NULL);
+                  mvadd_wch (row, x, &cc);
+                  int w = wcwidth ((wchar_t)wc);
+                  x += (w > 0) ? w : 1;
+                }
+              else
+                {
+                  mvaddch (row, x, '?');
+                  x++;
+                }
+            }
+
+          pt.p_point++;
+          pt.p_offset++;
+          if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+            {
+              pt.p_chunk = pt.p_chunk->c_next;
+              pt.p_offset = 0;
+            }
+        }
+    }
+}
+
+void
+refresh_screen (int)
+{
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+
+  // Determine if minibuffer is active
+  Window *sel = selected_window ();
+  if (!sel)
+    return;
+  int in_minibuffer = sel->minibuffer_window_p ()
+                      && sel->w_bufp
+                      && sel->w_bufp->b_minibufferp;
+
+  // Find the main editing window (first non-minibuffer window)
+  Window *main_wp = app.active_frame.windows;
+  if (!main_wp || !main_wp->w_bufp)
+    return;
+
+  // Layout:
+  //   Normal:      text(0..rows-2) + modeline(rows-1)
+  //   Minibuffer:  text(0..rows-3) + modeline(rows-2) + minibuf(rows-1)
+  int ml_row = in_minibuffer ? rows - 2 : rows - 1;
+  int text_rows = ml_row;
+
+  // Render main buffer content
+  render_buffer (main_wp->w_bufp, main_wp->w_disp, 0, text_rows, cols);
+
+  // Draw modeline
+  draw_modeline (main_wp->w_bufp, ml_row, cols);
+
+  // Draw minibuffer if active
+  if (in_minibuffer)
+    {
+      Window *mini = Window::minibuffer_window ();
+      draw_minibuffer (mini, rows - 1, cols);
+
+      // Position cursor in minibuffer
+      Buffer *mbp = mini->w_bufp;
+      int cx = mbp->b_prompt_columns + strlen (mbp->b_prompt_arg);
+      // Add position of point within minibuffer content
+      if (mbp->b_nchars > 0 && mini->w_point.p_point > 0)
+        {
+          Point pt;
+          pt.p_point = 0;
+          pt.p_chunk = mbp->b_chunkb;
+          pt.p_offset = 0;
+          int point_x = 0;
+          while (pt.p_point < mini->w_point.p_point && pt.p_point < mbp->b_nchars)
+            {
+              Char c = pt.p_chunk->c_text[pt.p_offset];
+              if (c < 0x20)
+                ; // control chars take 0 width in display
+              else if (c < 0x80)
+                point_x++;
+              else
+                {
+                  ucs2_t wc = i2w (c);
+                  int w = (wc != 0) ? wcwidth ((wchar_t)wc) : 1;
+                  point_x += (w > 0) ? w : 1;
+                }
+              pt.p_point++;
+              pt.p_offset++;
+              if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+                {
+                  pt.p_chunk = pt.p_chunk->c_next;
+                  pt.p_offset = 0;
+                }
+            }
+          cx += point_x;
+        }
+      move (rows - 1, cx);
+    }
+  else
+    {
+      // Position cursor in main buffer at point
+      int cy, cx;
+      point_to_screen (main_wp->w_bufp, main_wp->w_disp,
+                        main_wp->w_point.p_point, cols, &cy, &cx);
+      if (cy < text_rows)
+        move (cy, cx);
+    }
+
+  // Flush to terminal
+  ::refresh ();
+}
+
+void
+pending_refresh_screen ()
+{
+  // No-op for ncurses (we refresh synchronously)
+}
+
+Window *
+Window::minibuffer_window ()
+{
+  // Return the minibuffer window (second in the list)
+  Window *wp = app.active_frame.windows;
+  if (wp && wp->w_next)
+    return wp->w_next;
+  return 0;
+}
 
 // ============================================================
 // Wait cursor / Process / Buffer stubs
@@ -917,3 +1766,323 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 }
 
 #endif // !_WIN32
+
+// ============================================================
+// Lisp-callable functions from symtable-ed.cc that are
+// Win32-frontend-only. Stubbed for ncurses.
+// ============================================================
+
+// Window management (minimal implementations)
+lisp Fselected_window () { return selected_window () ? selected_window ()->lwp : Qnil; }
+lisp Fwindow_buffer (lisp) { return selected_buffer () ? selected_buffer ()->lbp : Qnil; }
+lisp Fwindow_height (lisp) { return make_fixnum (24); }
+lisp Fwindow_width (lisp) { return make_fixnum (80); }
+lisp Fwindow_lines (lisp) { return make_fixnum (23); }
+lisp Fwindow_columns (lisp) { return make_fixnum (80); }
+lisp Fwindow_coordinate (lisp) { return Qnil; }
+lisp Fget_window_line (lisp) { return make_fixnum (0); }
+lisp Fget_window_start_line (lisp) { return make_fixnum (0); }
+lisp Fget_window_handle (lisp) { return Qnil; }
+lisp Fget_window_flags () { return make_fixnum (0); }
+lisp Fset_window_flags (lisp) { return Qnil; }
+lisp Fget_local_window_flags (lisp) { return make_fixnum (0); }
+lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
+lisp Fset_window (lisp) { return Qnil; }
+lisp Fsplit_window (lisp, lisp) { return Qnil; }
+lisp Fdelete_window () { return Qnil; }
+lisp Fdelete_other_windows () { return Qnil; }
+lisp Fenlarge_window (lisp, lisp) { return Qnil; }
+lisp Fnext_window (lisp, lisp) { return Qnil; }
+lisp Fprevious_window (lisp, lisp) { return Qnil; }
+lisp Fdeleted_window_p (lisp) { return Qnil; }
+lisp Fpos_not_visible_in_window_p (lisp, lisp) { return Qnil; }
+lisp Fcurrent_window_configuration () { return Qnil; }
+lisp Fset_window_configuration (lisp) { return Qnil; }
+
+// Screen
+lisp Fscreen_height () { return make_fixnum (24); }
+lisp Fscreen_width () { return make_fixnum (80); }
+lisp Frefresh_screen (lisp) { refresh_screen (1); return Qnil; }
+
+// Minibuffer
+lisp Fminibuffer_window () { return Qnil; }
+lisp Fminibuffer_window_p (lisp) { return Qnil; }
+lisp Fminibuffer_buffer (lisp) { return Qnil; }
+lisp Fminibuffer_default (lisp) { return Qnil; }
+lisp Fminibuffer_completion_list (lisp) { return Qnil; }
+lisp Fminibuffer_completion_type (lisp) { return Qnil; }
+lisp Fminibuffer_dialog_title (lisp) { return Qnil; }
+
+// Read functions (minibuffer input)
+lisp Fread_string (lisp, lisp) { return Qnil; }
+lisp Fread_integer (lisp, lisp) { return Qnil; }
+lisp Fread_sexp (lisp, lisp) { return Qnil; }
+lisp Fread_command_name (lisp, lisp) { return Qnil; }
+lisp Fread_function_name (lisp, lisp) { return Qnil; }
+lisp Fread_variable_name (lisp, lisp) { return Qnil; }
+lisp Fread_symbol_name (lisp, lisp) { return Qnil; }
+lisp Fread_buffer_name (lisp, lisp) { return Qnil; }
+lisp Fread_exist_buffer_name (lisp, lisp) { return Qnil; }
+lisp Fread_file_name (lisp, lisp) { return Qnil; }
+lisp Fread_exist_file_name (lisp, lisp) { return Qnil; }
+lisp Fread_file_name_list (lisp, lisp) { return Qnil; }
+lisp Fread_directory_name (lisp, lisp) { return Qnil; }
+lisp Fread_char_encoding (lisp, lisp) { return Qnil; }
+lisp Fread_exact_char_encoding (lisp, lisp) { return Qnil; }
+lisp Fcompleting_read (lisp, lisp, lisp) { return Qnil; }
+lisp Fdo_completion (lisp, lisp, lisp, lisp) { return Qnil; }
+
+// Prefix args
+lisp Freset_prefix_args (lisp, lisp) { return Qnil; }
+lisp Fset_next_prefix_args (lisp, lisp, lisp) { return Qnil; }
+
+// Popup
+lisp Fpopup_string (lisp, lisp, lisp) { return Qnil; }
+lisp Fpopup_list (lisp, lisp, lisp) { return Qnil; }
+lisp Fcontinue_popup () { return Qnil; }
+
+// Menu
+lisp Fcreate_menu (lisp) { return Qnil; }
+lisp Fcreate_popup_menu (lisp) { return Qnil; }
+lisp Fadd_menu_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fadd_menu_separator (lisp, lisp) { return Qnil; }
+lisp Fadd_popup_menu (lisp, lisp, lisp) { return Qnil; }
+lisp Finsert_menu_item (lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Finsert_menu_separator (lisp, lisp, lisp) { return Qnil; }
+lisp Finsert_popup_menu (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fdelete_menu (lisp, lisp, lisp) { return Qnil; }
+lisp Fcopy_menu_items (lisp, lisp) { return Qnil; }
+lisp Fset_menu (lisp) { return Qnil; }
+lisp Fcurrent_menu (lisp) { return Qnil; }
+lisp Fget_menu (lisp, lisp, lisp) { return Qnil; }
+lisp Fget_menu_position (lisp, lisp) { return Qnil; }
+lisp Fcall_menu (lisp) { return Qnil; }
+lisp Ftrack_popup_menu (lisp, lisp) { return Qnil; }
+lisp Fuse_local_menu (lisp) { return Qnil; }
+
+// Dialog
+lisp Fdialog_box (lisp, lisp, lisp) { return Qnil; }
+lisp Fproperty_sheet (lisp, lisp, lisp) { return Qnil; }
+lisp Ffile_name_dialog (lisp) { return Qnil; }
+lisp Fdirectory_name_dialog (lisp) { return Qnil; }
+lisp Fdrive_dialog (lisp) { return Qnil; }
+lisp Fbuffer_selector () { return Qnil; }
+lisp Fprint_dialog (lisp) { return Qnil; }
+lisp Fprint_buffer (lisp) { return Qnil; }
+
+// Font
+lisp Fget_text_fontset () { return Qnil; }
+lisp Fset_text_fontset (lisp) { return Qnil; }
+lisp Fget_filer_font () { return Qnil; }
+lisp Fset_filer_font (lisp) { return Qnil; }
+
+// IME
+lisp Fget_ime_mode () { return Qnil; }
+lisp Ftoggle_ime (lisp) { return Qnil; }
+lisp Fset_ime_read_string (lisp) { return Qnil; }
+lisp Fget_ime_composition_string () { return Qnil; }
+lisp Fpop_ime_composition_string () { return Qnil; }
+lisp Fime_register_word_dialog (lisp, lisp) { return Qnil; }
+lisp Fenable_global_ime (lisp) { return Qnil; }
+
+// Process
+lisp Fmake_process (lisp, lisp) { return Qnil; }
+lisp Fcall_process (lisp, lisp) { return Qnil; }
+lisp Fbuffer_process (lisp) { return Qnil; }
+lisp Fprocess_buffer (lisp) { return Qnil; }
+lisp Fprocess_status (lisp) { return Qnil; }
+lisp Fprocess_exit_code (lisp) { return Qnil; }
+lisp Fprocess_command (lisp) { return Qnil; }
+lisp Fprocess_send_string (lisp, lisp) { return Qnil; }
+lisp Fprocess_filter (lisp) { return Qnil; }
+lisp Fset_process_filter (lisp, lisp) { return Qnil; }
+lisp Fprocess_sentinel (lisp) { return Qnil; }
+lisp Fset_process_sentinel (lisp, lisp) { return Qnil; }
+lisp Fprocess_incode (lisp) { return Qnil; }
+lisp Fset_process_incode (lisp, lisp) { return Qnil; }
+lisp Fprocess_outcode (lisp) { return Qnil; }
+lisp Fset_process_outcode (lisp, lisp) { return Qnil; }
+lisp Fprocess_eol_code (lisp) { return Qnil; }
+lisp Fset_process_eol_code (lisp, lisp) { return Qnil; }
+lisp Fkill_process (lisp) { return Qnil; }
+lisp Fsignal_process (lisp) { return Qnil; }
+lisp Fopen_network_stream (lisp, lisp, lisp, lisp) { return Qnil; }
+
+// OLE
+lisp Fole_create_object (lisp) { return Qnil; }
+lisp Fole_get_object (lisp) { return Qnil; }
+lisp Fole_putprop (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fole_getprop (lisp, lisp, lisp) { return Qnil; }
+lisp Fole_method (lisp, lisp, lisp) { return Qnil; }
+lisp Fole_method_star (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fole_create_event_sink (lisp, lisp, lisp) { return Qnil; }
+lisp Fset_ole_event_handler (lisp, lisp, lisp) { return Qnil; }
+lisp Fole_enumerator_create (lisp) { return Qnil; }
+lisp Fole_enumerator_next (lisp) { return Qnil; }
+lisp Fole_enumerator_reset (lisp) { return Qnil; }
+lisp Fole_enumerator_skip (lisp, lisp) { return Qnil; }
+lisp Fole_drop_files (lisp, lisp, lisp, lisp) { return Qnil; }
+
+// DDE
+lisp Fdde_initiate (lisp, lisp) { return Qnil; }
+lisp Fdde_terminate (lisp) { return Qnil; }
+lisp Fdde_execute (lisp, lisp) { return Qnil; }
+lisp Fdde_poke (lisp, lisp, lisp) { return Qnil; }
+lisp Fdde_request (lisp, lisp, lisp) { return Qnil; }
+
+// Tool bar
+lisp Fcreate_tool_bar (lisp, lisp, lisp) { return Qnil; }
+lisp Fshow_tool_bar (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fhide_tool_bar (lisp) { return Qnil; }
+lisp Fdelete_tool_bar (lisp) { return Qnil; }
+lisp Ftool_bar_exist_p (lisp) { return Qnil; }
+lisp Ftool_bar_info (lisp) { return Qnil; }
+lisp Flist_tool_bars () { return Qnil; }
+lisp Ffocus_tool_bar () { return Qnil; }
+lisp Frefresh_tool_bars () { return Qnil; }
+
+// Tab bar
+lisp Fcreate_tab_bar (lisp, lisp) { return Qnil; }
+lisp Ftab_bar_add_item (lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Ftab_bar_delete_item (lisp, lisp) { return Qnil; }
+lisp Ftab_bar_select_item (lisp, lisp) { return Qnil; }
+lisp Ftab_bar_current_item (lisp) { return Qnil; }
+lisp Ftab_bar_find_item (lisp, lisp) { return Qnil; }
+lisp Ftab_bar_list_items (lisp) { return Qnil; }
+lisp Ftab_bar_modify_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+
+// Timer
+lisp Fstart_timer (lisp, lisp, lisp) { return Qnil; }
+lisp Fstop_timer (lisp) { return Qnil; }
+
+// Listen server
+lisp Fstart_xyzzy_server () { return Qnil; }
+lisp Fstop_xyzzy_server () { return Qnil; }
+
+// Function bar
+lisp Fset_function_bar_label (lisp, lisp) { return Qnil; }
+lisp Fnumber_of_function_bar_labels () { return make_fixnum (0); }
+lisp Fset_number_of_function_bar_labels (lisp) { return Qnil; }
+
+// Filer (all stubs)
+lisp Ffiler (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Ffiler_forward_line (lisp, lisp) { return Qnil; }
+lisp Ffiler_forward_page (lisp, lisp) { return Qnil; }
+lisp Ffiler_goto_bof (lisp) { return Qnil; }
+lisp Ffiler_goto_eof (lisp) { return Qnil; }
+lisp Ffiler_goto_file (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Ffiler_mark (lisp, lisp) { return Qnil; }
+lisp Ffiler_mark_all (lisp, lisp) { return Qnil; }
+lisp Ffiler_mark_match_files (lisp, lisp) { return Qnil; }
+lisp Ffiler_toggle_mark (lisp, lisp) { return Qnil; }
+lisp Ffiler_toggle_all_marks (lisp, lisp) { return Qnil; }
+lisp Ffiler_clear_all_marks (lisp) { return Qnil; }
+lisp Ffiler_count_marks (lisp, lisp) { return Qnil; }
+lisp Ffiler_get_mark_files (lisp, lisp) { return Qnil; }
+lisp Ffiler_get_current_file (lisp) { return Qnil; }
+lisp Ffiler_current_file_directory_p (lisp) { return Qnil; }
+lisp Ffiler_current_file_dot_dot_p (lisp) { return Qnil; }
+lisp Ffiler_get_directory (lisp) { return Qnil; }
+lisp Ffiler_set_directory (lisp, lisp) { return Qnil; }
+lisp Ffiler_set_file_mask (lisp, lisp) { return Qnil; }
+lisp Ffiler_get_drive (lisp) { return Qnil; }
+lisp Ffiler_sort (lisp, lisp) { return Qnil; }
+lisp Ffiler_get_sort_order (lisp) { return Qnil; }
+lisp Ffiler_demand_reload () { return Qnil; }
+lisp Ffiler_reload (lisp, lisp) { return Qnil; }
+lisp Ffiler_close (lisp) { return Qnil; }
+lisp Ffiler_dual_window_p () { return Qnil; }
+lisp Ffiler_left_window () { return Qnil; }
+lisp Ffiler_right_window () { return Qnil; }
+lisp Ffiler_left_window_p () { return Qnil; }
+lisp Ffiler_swap_windows () { return Qnil; }
+lisp Ffiler_modal_p () { return Qnil; }
+lisp Ffiler_isearch (lisp, lisp, lisp) { return Qnil; }
+lisp Ffiler_viewer () { return Qnil; }
+lisp Ffiler_read_char () { return Qnil; }
+lisp Ffiler_get_text () { return Qnil; }
+lisp Ffiler_set_text (lisp) { return Qnil; }
+lisp Ffiler_calc_directory_size (lisp) { return Qnil; }
+lisp Ffiler_calc_directory_byte_size (lisp) { return Qnil; }
+lisp Ffiler_context_menu () { return Qnil; }
+lisp Ffiler_subscribe_to_reload (lisp, lisp) { return Qnil; }
+lisp Ffiler_scroll_left (lisp) { return Qnil; }
+lisp Ffiler_scroll_right (lisp) { return Qnil; }
+lisp Ffiler_modify_column_width (lisp, lisp, lisp) { return Qnil; }
+
+// Archive
+lisp Flist_archive (lisp, lisp) { return Qnil; }
+lisp Fcreate_archive (lisp, lisp, lisp) { return Qnil; }
+lisp Fextract_archive (lisp, lisp, lisp) { return Qnil; }
+lisp Fdelete_file_in_archive (lisp, lisp) { return Qnil; }
+lisp Fconvert_to_SFX (lisp, lisp) { return Qnil; }
+lisp Farchiver_dll_version (lisp) { return Qnil; }
+lisp Farchiver_dll_config_dialog (lisp, lisp) { return Qnil; }
+
+// Shell / Shortcut
+lisp Fshell_execute (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fcreate_shortcut (lisp, lisp, lisp) { return Qnil; }
+lisp Fresolve_shortcut (lisp) { return Qnil; }
+lisp Feject_media (lisp) { return Qnil; }
+lisp Fget_special_folder_location (lisp) { return Qnil; }
+lisp Fget_file_info (lisp) { return Qnil; }
+
+// Misc
+lisp Fmain_loop () { command_loop (); return Qnil; }
+lisp Fsit_for (lisp, lisp) { return Qnil; }
+lisp Fsleep_for (lisp) { return Qnil; }
+lisp Factivate_xyzzy_window (lisp) { return Qnil; }
+lisp Fcount_xyzzy_instance () { return make_fixnum (1); }
+lisp Flist_xyzzy_windows () { return Qnil; }
+lisp Fnext_xyzzy_window () { return Qnil; }
+lisp Fprevious_xyzzy_window () { return Qnil; }
+lisp Fget_recent_keys () { return Qnil; }
+lisp Fexit_recursive_edit (lisp value)
+{
+  nonlocal_data *nld = nonlocal_jump::data ();
+  nld->type = Qexit_this_level;
+  nld->value = value ? value : Qnil;
+  nld->tag = Qnil;
+  nld->id = Qnil;
+  throw nonlocal_jump ();
+  /*NOTREACHED*/
+  return Qnil;
+}
+
+lisp Fquit_recursive_edit (lisp silent)
+{
+  nonlocal_data *nld = nonlocal_jump::data ();
+  nld->type = Qexit_this_level;
+  nld->value = Qnil;
+  nld->tag = Qnil;
+  nld->id = xsymbol_value (silent && silent != Qnil
+                           ? Vierror_silent_quit
+                           : Vierror_quit);
+  throw nonlocal_jump ();
+  /*NOTREACHED*/
+  return Qnil;
+}
+lisp Fquit_char () { return make_char ('G' - '@'); }
+lisp Fset_quit_char (lisp) { return Qnil; }
+lisp Fset_cursor (lisp) { return Qnil; }
+lisp Fdrag_region (lisp, lisp) { return Qnil; }
+lisp Fcancel_mouse_event () { return Qnil; }
+lisp Fbegin_auto_scroll () { return Qnil; }
+lisp Fcreate_buffer_bar () { return Qnil; }
+lisp Fstart_save_kbd_macro () { return Qnil; }
+lisp Fstop_save_kbd_macro () { return Qnil; }
+lisp Fkbd_macro_saving_p () { return Qnil; }
+lisp Fcurrent_kbd_layout () { return Qnil; }
+lisp Fselect_kbd_layout (lisp) { return Qnil; }
+lisp Flist_kbd_layout () { return Qnil; }
+
+// Network/Server resources
+lisp Flist_servers (lisp) { return Qnil; }
+lisp Flist_server_resources (lisp, lisp) { return Qnil; }
+
+// WinHelp / HTML Help / Dictionary
+lisp Frun_winhelp (lisp, lisp) { return Qnil; }
+lisp Fkill_winhelp (lisp) { return Qnil; }
+lisp Ffind_winhelp_path (lisp, lisp) { return Qnil; }
+lisp Fhtml_help (lisp, lisp) { return Qnil; }
+lisp Flookup_dictionary (lisp, lisp, lisp, lisp) { return Qnil; }

@@ -187,17 +187,15 @@ LRESULT CALLBACK modeline_wndproc (HWND, UINT, WPARAM, LPARAM) { return 0; }
 void main_loop () {}
 int start_quit_thread () { return 1; }
 int wait_process_terminate (HANDLE) { return 0; }
-lisp execute_string (lisp) { return Qnil; }
 int end_wait_cursor (int) { return 0; }
 void set_ime_caret () {}
 void recalc_toplevel () {}
 void set_caret_blink_time () {}
 void restore_caret_blink_time () {}
-void toplev_gc_mark (void (*)(lisp)) {}
-int toplev_accept_mouse_move_p () { return 0; }
 
-// lprint.cc functions are already in xyzzy-core, no stubs needed.
-// Only stub functions NOT in core:
+// toplev_gc_mark, toplev_accept_mouse_move_p, execute_string
+// are now in core/cmdloop.cc
+
 int get_glyph_width (Char, const glyph_width &) { return 8; }
 
 // ============================================================
@@ -421,6 +419,7 @@ dock_frame::dock_frame () : f_hwnd (0), f_arrange (0) {}
 dock_frame::~dock_frame () {}
 void dock_frame::gc_mark (void (*)(lisp)) {}
 void dock_frame::cleanup () {}
+lisp dock_frame::lookup_command (int) const { return Qnil; }
 
 splitter::splitter ()
 {
@@ -760,8 +759,24 @@ char *buffer_info::percent (char *b, char *) const { *b = 0; return b; }
 
 void check_kbd_enable () {}
 lChar kbd_queue::fetch (int, int) { return lChar_EOF; }
+lChar kbd_queue::peek (int) { return lChar_EOF; }
 int kbd_queue::listen () { return 0; }
+void kbd_queue::clear () {}
+void kbd_queue::close_ime () {}
+void kbd_queue::restore_ime () {}
+int kbd_queue::lookup_kbd_macro (lisp) const { return 0; }
 int kbd_queue::toggle_ime (int, int) { return 0; }
+
+void key_sequence::push (Char, int) {}
+void key_sequence::done (Char, int) {}
+
+// ============================================================
+// Display stubs (called by core/cmdloop.cc)
+// ============================================================
+
+void refresh_screen (int) {}
+void pending_refresh_screen () {}
+Window *Window::minibuffer_window () { return 0; }
 
 // ============================================================
 // Wait cursor / Process / Buffer stubs
