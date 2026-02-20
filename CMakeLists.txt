@@ -612,6 +612,37 @@ else()
 endif()
 
 # ============================================================
+# xyzzy-ncurses: ncurses terminal frontend (Linux/BSD/POSIX)
+# ============================================================
+if(NOT WIN32)
+    find_package(Curses)
+    if(CURSES_FOUND)
+        set(NCURSES_DIR ${CMAKE_SOURCE_DIR}/src/frontend/ncurses)
+        set(NCURSES_SOURCES
+            ${NCURSES_DIR}/ncurses-main.cc
+            ${NCURSES_DIR}/ncurses-stubs.cc
+            ${CLI_DIR}/cli-conf.cc
+            ${CLI_DIR}/cli-symtable-ed.cc
+        )
+
+        add_executable(xyzzy-ncurses ${NCURSES_SOURCES})
+        target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE)
+        target_compile_options(xyzzy-ncurses PRIVATE
+            "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
+        target_include_directories(xyzzy-ncurses PRIVATE ${ZLIB_INCLUDE_DIRS} ${CURSES_INCLUDE_DIRS})
+        target_link_libraries(xyzzy-ncurses PRIVATE
+            xyzzy-core
+            ${ZLIB_LIBRARIES}
+            ${CURSES_LIBRARIES}
+            pthread
+        )
+        install(TARGETS xyzzy-ncurses RUNTIME DESTINATION bin)
+    else()
+        message(STATUS "ncurses not found - skipping xyzzy-ncurses target")
+    endif()
+endif()
+
+# ============================================================
 # Win32-only targets
 # ============================================================
 if(WIN32)
