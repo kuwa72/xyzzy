@@ -252,9 +252,9 @@ SelectColor::add_combo ()
   HWND combo = GetDlgItem (hwnd, IDC_COMBO);
   for (int i = IDS_COLOR_SCROLLBAR; i <= IDS_COLOR_BTNHIGHLIGHT; i++)
     {
-      int j = SendMessageA (combo, CB_ADDSTRING, 0, i);
+      int j = SendMessageW (combo, CB_ADDSTRING, 0, i);
       if (j != CB_ERR && cur == i)
-        SendMessageA (combo, CB_SETCURSEL, j, 0);
+        SendMessageW (combo, CB_SETCURSEL, j, 0);
     }
 }
 
@@ -361,7 +361,7 @@ ChangeColorsPageP::ccp_dialog_proc (HWND hwnd, UINT msg,
   ChangeColorsPageP *p;
   if (msg == WM_INITDIALOG)
     {
-      p = (ChangeColorsPageP *)((PROPSHEETPAGEA *)lparam)->lParam;
+      p = (ChangeColorsPageP *)((PROPSHEETPAGEW *)lparam)->lParam;
       SetWindowLongPtr (hwnd, DWL_USER, (LONG_PTR)p);
       p->ccp_hwnd = hwnd;
       if (!p->ccp_parent->ps_moved)
@@ -592,9 +592,11 @@ ChooseFontPage::notify_color (int n)
 int
 ChooseFontPage::get_result ()
 {
+  wchar_t wb[128];
+  if (!GetDlgItemTextW (ccp_hwnd, IDC_LSP, wb, numberof (wb)))
+    *wb = 0;
   char b[128];
-  if (!GetDlgItemTextA (ccp_hwnd, IDC_LSP, b, sizeof b))
-    *b = 0;
+  WideCharToMultiByte (932, 0, wb, -1, b, sizeof b, 0, 0);
   int lsp;
   if (!check_integer_format (b, &lsp) || lsp < 0 || lsp > 30)
     {

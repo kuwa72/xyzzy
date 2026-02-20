@@ -798,7 +798,7 @@ FilerView::reload (lisp lmask)
   set_path ();
   if (fv_parent->primary_window_p (this))
     set_title (mask);
-  SetDlgItemTextA (fv_parent->id_hwnd, IDC_NAME, "");
+  SetDlgItemTextW (fv_parent->id_hwnd, IDC_NAME, L"");
   if (load_contents (mask))
     {
       restart_thread ();
@@ -879,8 +879,10 @@ FilerView::set_directory (lisp dir)
   if (!chdevdir (dir))
     file_error (GetLastError (), dir);
 
+  wchar_t wcur[PATH_MAX];
+  GetCurrentDirectoryW (numberof (wcur), wcur);
   char cur[PATH_MAX];
-  GetCurrentDirectoryA (sizeof cur, cur);
+  WideCharToMultiByte (932, 0, wcur, -1, cur, sizeof cur, 0, 0);
   fv_parent->restore_dir ();
   lisp lcur = make_string (cur);
   map_backsl_to_sl (xstring_contents (lcur),
@@ -1561,7 +1563,9 @@ add_combo (HWND combo, lisp string)
 {
   char *b = (char *)alloca (xstring_length (string) * 2 + 1);
   w2s (b, string);
-  SendMessage (combo, CB_ADDSTRING, 0, LPARAM (b));
+  wchar_t wb[1024];
+  MultiByteToWideChar (932, 0, b, -1, wb, 1024);
+  SendMessageW (combo, CB_ADDSTRING, 0, LPARAM (wb));
 }
 
 static void
@@ -1917,7 +1921,7 @@ Filer::Notify (NMHDR *nm)
           return 1;
 
         case NM_DBLCLK:
-          SetDlgItemTextA (id_hwnd, IDC_NAME, "");
+          SetDlgItemTextW (id_hwnd, IDC_NAME, L"");
           PostMessage (id_hwnd, WM_COMMAND, IDOK, 0);
           return 1;
 
@@ -2381,11 +2385,14 @@ lisp
 Filer::get_text ()
 {
   HWND hwnd = GetDlgItem (id_hwnd, IDC_NAME);
-  int l = GetWindowTextLengthA (hwnd);
-  if (!l)
+  int wl = GetWindowTextLengthW (hwnd);
+  if (!wl)
     return Qnil;
-  char *b = (char *)alloca (l + 2);
-  GetWindowTextA (hwnd, b, l + 1);
+  wchar_t *wb = (wchar_t *)alloca ((wl + 2) * sizeof (wchar_t));
+  GetWindowTextW (hwnd, wb, wl + 1);
+  int l = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+  char *b = (char *)alloca (l + 1);
+  WideCharToMultiByte (932, 0, wb, -1, b, l + 1, 0, 0);
   return make_string (b);
 }
 
@@ -2395,7 +2402,9 @@ Filer::set_text (lisp string)
   check_string (string);
   char *b = (char *)alloca (xstring_length (string) * 2 + 1);
   w2s (b, string);
-  SetDlgItemTextA (id_hwnd, IDC_NAME, b);
+  wchar_t wb[256];
+  MultiByteToWideChar (932, 0, b, -1, wb, numberof (wb));
+  SetDlgItemTextW (id_hwnd, IDC_NAME, wb);
 }
 
 int

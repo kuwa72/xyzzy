@@ -1380,14 +1380,17 @@ print_error (wStream &stream, const print_control &, lisp object)
         stream.add (s);
       else
         {
-          char buf[1024];
-          static char *args[] = {"", "", "", "", 0,};
-          if (!FormatMessageA ((FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY
+          wchar_t wbuf[1024];
+          static wchar_t *args[] = {(wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", 0,};
+          if (!FormatMessageW ((FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY
                                 | FORMAT_MESSAGE_MAX_WIDTH_MASK),
                                0, xerror_number (object), GetUserDefaultLangID (),
-                               buf, sizeof buf, args))
-            *buf = 0;
-          if (!*buf)
+                               wbuf, numberof (wbuf), (va_list *)args))
+            *wbuf = 0;
+          char buf[1024];
+          if (*wbuf)
+            WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
+          else
             wsprintfA (buf, "Undocumented win32 error: %d", xerror_number (object));
           stream.add (buf);
         }

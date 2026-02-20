@@ -395,8 +395,10 @@ Dialog::link_command (dlgctrl *c, UINT msg)
     return;
   char *url = (char *)alloca (xstring_length (lurl) * 2 + 1);
   w2s (url, lurl);
+  wchar_t wurl[MAX_PATH];
+  MultiByteToWideChar (932, 0, url, -1, wurl, MAX_PATH);
   Fbegin_wait_cursor ();
-  ShellExecuteA (get_active_window (), "open", url, 0, 0, SW_SHOWNORMAL);
+  ShellExecuteW (get_active_window (), L"open", wurl, 0, 0, SW_SHOWNORMAL);
   Fend_wait_cursor ();
 }
 
@@ -1119,7 +1121,7 @@ lb_match_p (int ch, lisp item)
 static int
 lb_match_p (HWND hwnd, int index, lisp columns, int ch, int lindex)
 {
-  int data = SendMessageA (hwnd, LB_GETITEMDATA, index, 0);
+  int data = SendMessageW (hwnd, LB_GETITEMDATA, index, 0);
   if (!data || data == LB_ERR)
     return 0;
   lisp item = lisp (data);
@@ -1146,10 +1148,13 @@ lb_match_p (HWND hwnd, int index, lisp columns, int ch, int lindex)
 static int
 lb_match_p (HWND hwnd, int index, int ch)
 {
-  int l = max (0L, SendMessageA (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
-  u_char *b = (u_char *)alloca (l * 2);
-  if (SendMessageA (hwnd, LB_GETTEXT, index, LPARAM (b)) == LB_ERR)
+  int l = max (0L, SendMessageW (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
+  wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
+  if (SendMessageW (hwnd, LB_GETTEXT, index, LPARAM (wb)) == LB_ERR)
     return 0;
+  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+  u_char *b = (u_char *)alloca (al);
+  WideCharToMultiByte (932, 0, wb, -1, (char *)b, al, 0, 0);
   return lb_match_p (ch, b);
 }
 
@@ -1163,12 +1168,12 @@ Dialog::listbox_char (int id, int ch)
   if (!c)
     return;
   DWORD style = c->style ();
-  int cursel = SendMessageA (hwnd,
+  int cursel = SendMessageW (hwnd,
                              style & (LBS_MULTIPLESEL | LBS_EXTENDEDSEL) ? LB_GETCARETINDEX : LB_GETCURSEL,
                              0, 0);
   if (cursel < 0)
     cursel = -1;
-  int ncount = SendMessageA (hwnd, LB_GETCOUNT, 0, 0);
+  int ncount = SendMessageW (hwnd, LB_GETCOUNT, 0, 0);
   int goal;
 
   ch = char_upcase (ch);
@@ -1203,9 +1208,9 @@ Dialog::listbox_char (int id, int ch)
 
 found:
   if (style & (LBS_MULTIPLESEL | LBS_EXTENDEDSEL))
-    SendMessageA (hwnd, LB_SETCARETINDEX, goal, MAKELPARAM (0, 0));
+    SendMessageW (hwnd, LB_SETCARETINDEX, goal, MAKELPARAM (0, 0));
   else
-    SendMessageA (hwnd, LB_SETCURSEL, goal, 0);
+    SendMessageW (hwnd, LB_SETCURSEL, goal, 0);
   if (style & LBS_NOTIFY)
     PostMessage (d_hwnd, WM_COMMAND, MAKEWPARAM (id, LBN_SELCHANGE), LPARAM (hwnd));
 }
@@ -1755,7 +1760,7 @@ lprop_page_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
     {
     case WM_INITDIALOG:
       {
-        PropPage *d = (PropPage *)((PROPSHEETPAGEA *)lparam)->lParam;
+        PropPage *d = (PropPage *)((PROPSHEETPAGEW *)lparam)->lParam;
         d->d_hwnd = dlg;
         if (!d->p_parent->ps_moved)
           {

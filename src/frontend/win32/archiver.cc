@@ -744,7 +744,7 @@ SevenZip::puts_create (FILE *fp, char *name, const char *path) const
       putc ('\\', fp);
     }
   fputs (name, fp);
-  DWORD a = GetFileAttributesA (path);
+  DWORD a = WINFS::GetFileAttributes (path);
   if (a != ~0 && a & FILE_ATTRIBUTE_DIRECTORY)
     {
       if (!has_trail_slash (path))

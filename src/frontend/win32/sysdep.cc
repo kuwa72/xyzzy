@@ -14,10 +14,16 @@ Sysdep::Sysdep ()
   init_machine_type ();
   init_process_type ();
 
-  GetCurrentDirectoryA (sizeof curdir, curdir);
+  {
+    wchar_t wcurdir[PATH_MAX];
+    GetCurrentDirectoryW (numberof (wcurdir), wcurdir);
+    WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
+  }
   if (*curdir == '\\')
     {
-      GetWindowsDirectoryA (curdir, sizeof curdir);
+      wchar_t wcurdir[PATH_MAX];
+      GetWindowsDirectoryW (wcurdir, numberof (wcurdir));
+      WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
       WINFS::SetCurrentDirectory (curdir);
     }
 
@@ -171,7 +177,7 @@ void
 Sysdep::init_process_type ()
 {
   typedef BOOL (WINAPI *ISWOW64PROCESS) (HANDLE, PBOOL);
-  ISWOW64PROCESS IsWow64Process = (ISWOW64PROCESS)GetProcAddress (GetModuleHandleA ("kernel32"),
+  ISWOW64PROCESS IsWow64Process = (ISWOW64PROCESS)GetProcAddress (GetModuleHandleW (L"kernel32"),
                                                                   "IsWow64Process");
   BOOL isWow64 = FALSE;
   if (!IsWow64Process || !IsWow64Process (GetCurrentProcess (), &isWow64))
@@ -263,7 +269,7 @@ Sysdep::load_settings ()
 void
 Sysdep::load_cursors ()
 {
-  HINSTANCE hinst = GetModuleHandleA (0);
+  HINSTANCE hinst = GetModuleHandleW (0);
   hcur_arrow = LoadCursor (0, IDC_ARROW);
   hcur_revarrow = LoadCursor (hinst, MAKEINTRESOURCE (IDC_REVARROW));
   hcur_ibeam = LoadCursor (0, IDC_IBEAM);
@@ -294,7 +300,9 @@ typedef HRESULT (CALLBACK *DLLGETVERSIONPROC)(DLLVERSIONINFO *);
 DWORD
 Sysdep::get_dll_version (const char *name)
 {
-  HINSTANCE hinst = GetModuleHandleA (name);
+  wchar_t wname[PATH_MAX];
+  MultiByteToWideChar (932, 0, name, -1, wname, PATH_MAX);
+  HINSTANCE hinst = GetModuleHandleW (wname);
   if (!hinst)
     return 0;
 

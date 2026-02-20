@@ -655,13 +655,15 @@ tab_bar::abbrev_text (HDC hdc, char *s0, int l, int cx) const
     return 0;
 
   SIZE sz;
+  wchar_t ws[1024];
   char *se = s0 + l;
   do
     {
       se = CharPrevA (s0, se);
       if (se == s0)
         break;
-      GetTextExtentPoint32A (hdc, s0, se - s0, &sz);
+      int wl = cp932_to_wcs (s0, se - s0, ws, 1024);
+      GetTextExtentPoint32W (hdc, ws, wl, &sz);
     }
   while (sz.cx > cx);
   strcpy (se, "...");

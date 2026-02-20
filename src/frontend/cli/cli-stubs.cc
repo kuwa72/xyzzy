@@ -64,7 +64,11 @@ Sysdep::Sysdep ()
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
   GetVersionExA (&os_ver);
 
-  GetCurrentDirectoryA (sizeof curdir, curdir);
+  {
+    wchar_t wcurdir[PATH_MAX];
+    GetCurrentDirectoryW (numberof (wcurdir), wcurdir);
+    WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
+  }
 
   DWORD len = sizeof host_name;
   if (!GetComputerNameA (host_name, &len))
@@ -438,70 +442,198 @@ main_frame g_frame;
 
 char WINFS::wfs_share_cache[MAX_PATH * 2];
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx =
-  (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandleA ("kernel32"), "GetDiskFreeSpaceExA");
+  (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandleW (L"kernel32"), "GetDiskFreeSpaceExW");
 
 BOOL WINAPI WINFS::CreateDirectory (LPCSTR p, LPSECURITY_ATTRIBUTES a)
-{ return ::CreateDirectoryA (p, a); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::CreateDirectoryW (wp, a);
+}
 
 HANDLE WINAPI WINFS::CreateFile (LPCSTR p, DWORD a, DWORD s,
   LPSECURITY_ATTRIBUTES sa, DWORD cd, DWORD f, HANDLE t)
-{ return ::CreateFileA (p, a, s, sa, cd, f, t); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::CreateFileW (wp, a, s, sa, cd, f, t);
+}
 
 BOOL WINAPI WINFS::DeleteFile (LPCSTR p)
-{ return ::DeleteFileA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::DeleteFileW (wp);
+}
 
 HANDLE WINAPI WINFS::FindFirstFile (LPCSTR p, LPWIN32_FIND_DATAA d)
-{ return ::FindFirstFileA (p, d); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  WIN32_FIND_DATAW wd;
+  HANDLE h = ::FindFirstFileW (wp, &wd);
+  if (h != INVALID_HANDLE_VALUE)
+    {
+      d->dwFileAttributes = wd.dwFileAttributes;
+      d->ftCreationTime = wd.ftCreationTime;
+      d->ftLastAccessTime = wd.ftLastAccessTime;
+      d->ftLastWriteTime = wd.ftLastWriteTime;
+      d->nFileSizeHigh = wd.nFileSizeHigh;
+      d->nFileSizeLow = wd.nFileSizeLow;
+      d->dwReserved0 = wd.dwReserved0;
+      d->dwReserved1 = wd.dwReserved1;
+      WideCharToMultiByte (932, 0, wd.cFileName, -1, d->cFileName, MAX_PATH, 0, 0);
+      WideCharToMultiByte (932, 0, wd.cAlternateFileName, -1, d->cAlternateFileName, 14, 0, 0);
+    }
+  return h;
+}
 
 BOOL WINAPI WINFS::FindNextFile (HANDLE h, LPWIN32_FIND_DATAA d)
-{ return ::FindNextFileA (h, d); }
+{
+  WIN32_FIND_DATAW wd;
+  BOOL r = ::FindNextFileW (h, &wd);
+  if (r)
+    {
+      d->dwFileAttributes = wd.dwFileAttributes;
+      d->ftCreationTime = wd.ftCreationTime;
+      d->ftLastAccessTime = wd.ftLastAccessTime;
+      d->ftLastWriteTime = wd.ftLastWriteTime;
+      d->nFileSizeHigh = wd.nFileSizeHigh;
+      d->nFileSizeLow = wd.nFileSizeLow;
+      d->dwReserved0 = wd.dwReserved0;
+      d->dwReserved1 = wd.dwReserved1;
+      WideCharToMultiByte (932, 0, wd.cFileName, -1, d->cFileName, MAX_PATH, 0, 0);
+      WideCharToMultiByte (932, 0, wd.cAlternateFileName, -1, d->cAlternateFileName, 14, 0, 0);
+    }
+  return r;
+}
 
 BOOL WINAPI WINFS::GetDiskFreeSpace (LPCSTR p, LPDWORD a, LPDWORD b, LPDWORD c, LPDWORD d)
-{ return ::GetDiskFreeSpaceA (p, a, b, c, d); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::GetDiskFreeSpaceW (wp, a, b, c, d);
+}
 
 DWORD WINAPI WINFS::internal_GetFileAttributes (LPCSTR p)
-{ return ::GetFileAttributesA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::GetFileAttributesW (wp);
+}
 
 DWORD WINAPI WINFS::GetFileAttributes (LPCSTR p)
-{ return ::GetFileAttributesA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::GetFileAttributesW (wp);
+}
 
 UINT WINAPI WINFS::GetTempFileName (LPCSTR p, LPCSTR x, UINT u, LPSTR b)
-{ return ::GetTempFileNameA (p, x, u, b); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  wchar_t wx[PATH_MAX + 1];
+  wchar_t wb[MAX_PATH + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  MultiByteToWideChar (932, 0, x, -1, wx, PATH_MAX + 1);
+  UINT r = ::GetTempFileNameW (wp, wx, u, wb);
+  if (r)
+    WideCharToMultiByte (932, 0, wb, -1, b, MAX_PATH, 0, 0);
+  return r;
+}
 
 BOOL WINAPI WINFS::GetVolumeInformation (LPCSTR p, LPSTR vn, DWORD vs, LPDWORD sn,
   LPDWORD mcl, LPDWORD fsf, LPSTR fsn, DWORD fss)
-{ return ::GetVolumeInformationA (p, vn, vs, sn, mcl, fsf, fsn, fss); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  wchar_t wvn[PATH_MAX + 1];
+  wchar_t wfsn[PATH_MAX + 1];
+  BOOL r = ::GetVolumeInformationW (wp, wvn, vs, sn, mcl, fsf, wfsn, fss);
+  if (r)
+    {
+      if (vn) WideCharToMultiByte (932, 0, wvn, -1, vn, vs, 0, 0);
+      if (fsn) WideCharToMultiByte (932, 0, wfsn, -1, fsn, fss, 0, 0);
+    }
+  return r;
+}
 
 HMODULE WINAPI WINFS::LoadLibrary (LPCSTR p)
-{ return ::LoadLibraryA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::LoadLibraryW (wp);
+}
 
 BOOL WINAPI WINFS::MoveFile (LPCSTR a, LPCSTR b)
-{ return ::MoveFileA (a, b); }
+{
+  wchar_t wa[PATH_MAX + 1];
+  wchar_t wb[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, a, -1, wa, PATH_MAX + 1);
+  MultiByteToWideChar (932, 0, b, -1, wb, PATH_MAX + 1);
+  return ::MoveFileW (wa, wb);
+}
 
 BOOL WINAPI WINFS::RemoveDirectory (LPCSTR p)
-{ return ::RemoveDirectoryA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::RemoveDirectoryW (wp);
+}
 
 BOOL WINAPI WINFS::SetFileAttributes (LPCSTR p, DWORD a)
-{ return ::SetFileAttributesA (p, a); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::SetFileAttributesW (wp, a);
+}
 
 DWORD WINAPI WINFS::internal_GetFullPathName (LPCSTR p, DWORD n, LPSTR b, LPSTR *f)
-{ return ::GetFullPathNameA (p, n, b, f); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  wchar_t wb[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  DWORD r = ::GetFullPathNameW (wp, PATH_MAX + 1, wb, NULL);
+  if (r == 0 || r > PATH_MAX)
+    return 0;
+  int len = WideCharToMultiByte (932, 0, wb, -1, b, n, 0, 0);
+  if (len == 0)
+    return 0;
+  if (f)
+    {
+      *f = b;
+      for (char *s = b; *s; s++)
+        {
+          if (IsDBCSLeadByte (*s) && s[1])
+            s++;
+          else if (*s == '\\' || *s == '/')
+            *f = s + 1;
+        }
+    }
+  return len - 1;
+}
 
 BOOL WINAPI WINFS::SetCurrentDirectory (LPCSTR p)
-{ return ::SetCurrentDirectoryA (p); }
+{
+  wchar_t wp[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, p, -1, wp, PATH_MAX + 1);
+  return ::SetCurrentDirectoryW (wp);
+}
 
 DWORD WINAPI WINFS::GetFullPathName (LPCSTR p, DWORD n, LPSTR b, LPSTR *f)
-{ return ::GetFullPathNameA (p, n, b, f); }
+{
+  return internal_GetFullPathName (p, n, b, f);
+}
 
 DWORD WINAPI WINFS::WNetOpenEnum (DWORD s, DWORD t, DWORD u, LPNETRESOURCEA r, LPHANDLE h)
 { return ::WNetOpenEnumA (s, t, u, r, h); }
 
 int WINAPI WINFS::get_file_data (const char *path, WIN32_FIND_DATAA &fd)
 {
-  HANDLE h = ::FindFirstFileA (path, &fd);
+  HANDLE h = FindFirstFile (path, &fd);
   if (h == INVALID_HANDLE_VALUE)
     return 0;
-  FindClose (h);
+  ::FindClose (h);
   return 1;
 }
 

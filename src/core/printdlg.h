@@ -50,7 +50,7 @@ protected:
   int delete_history (UINT, UINT, UINT, UINT);
   void save_history (UINT, const char *);
   int find_history (UINT, const char *);
-  static int find_menu_text (HMENU, int, char *, int);
+  static int find_menu_text (HMENU, int, wchar_t *, int);
   int format_popup (UINT, class subclass_combo &);
 
 private:

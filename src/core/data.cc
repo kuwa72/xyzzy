@@ -2525,7 +2525,9 @@ load_dyn_library (ldll_module *p)
   char *s = (char *)alloca (xstring_length (p->name) * 2 + 1);
   w2s (s, p->name);
   p->loaded = 0;
-  HMODULE h = GetModuleHandleA (s);
+  wchar_t ws[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, s, -1, ws, PATH_MAX + 1);
+  HMODULE h = GetModuleHandleW (ws);
   if (!h)
     {
       h = WINFS::LoadLibrary (s);

@@ -41,23 +41,29 @@ buffer_bar::set_buffer_name (const Buffer *bp, char *buf, int size)
 int
 buffer_bar::insert (const Buffer *bp, int i)
 {
-  TCITEMA ti;
+  TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
   char buf[BUFFER_NAME_MAX * 2 + 32];
-  ti.pszText = set_buffer_name (bp, buf, sizeof buf);
+  set_buffer_name (bp, buf, sizeof buf);
+  wchar_t wbuf[BUFFER_NAME_MAX * 2 + 32];
+  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
+  ti.pszText = wbuf;
   ti.lParam = LPARAM (bp);
-  return SendMessageA (b_hwnd, TCM_INSERTITEMA, i, LPARAM (&ti));
+  return SendMessageW (b_hwnd, TCM_INSERTITEMW, i, LPARAM (&ti));
 }
 
 int
 buffer_bar::modify (const Buffer *bp, int i)
 {
-  TCITEMA ti;
+  TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
   char buf[BUFFER_NAME_MAX * 2 + 32];
-  ti.pszText = set_buffer_name (bp, buf, sizeof buf);
+  set_buffer_name (bp, buf, sizeof buf);
+  wchar_t wbuf[BUFFER_NAME_MAX * 2 + 32];
+  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
+  ti.pszText = wbuf;
   ti.lParam = LPARAM (bp);
-  return SendMessageA (b_hwnd, TCM_SETITEMA, i, LPARAM (&ti));
+  return SendMessageW (b_hwnd, TCM_SETITEMW, i, LPARAM (&ti));
 }
 
 int

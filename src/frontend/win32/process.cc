@@ -1496,10 +1496,10 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
     }
 
   DWORD e;
-  typedef int (WINAPI *SHELLEXECUTEEX)(SHELLEXECUTEINFOA *);
-  SHELLEXECUTEEX ex = (xsymbol_value (Vuse_shell_execute_ex) != Qnil
-                       ? (SHELLEXECUTEEX)GetProcAddress (GetModuleHandleA ("shell32.dll"),
-                                                         "ShellExecuteExA")
+  typedef int (WINAPI *SHELLEXECUTEEXW_FN)(SHELLEXECUTEINFOW *);
+  SHELLEXECUTEEXW_FN ex = (xsymbol_value (Vuse_shell_execute_ex) != Qnil
+                       ? (SHELLEXECUTEEXW_FN)GetProcAddress (GetModuleHandleW (L"shell32.dll"),
+                                                              "ShellExecuteExW")
                        : 0);
 
   char *verb = 0;
@@ -1511,21 +1511,31 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
       w2s (verb, lverb);
     }
 
+  wchar_t wpath[PATH_MAX + 1];
+  if (path) MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
+  wchar_t wdir[PATH_MAX + 1];
+  if (dir) MultiByteToWideChar (932, 0, dir, -1, wdir, PATH_MAX + 1);
+  wchar_t wparam[4096];
+  if (param) MultiByteToWideChar (932, 0, param, -1, wparam, numberof (wparam));
+  wchar_t wverb[64];
+  if (verb) MultiByteToWideChar (932, 0, verb, -1, wverb, numberof (wverb));
+
   if (ex)
     {
-      SHELLEXECUTEINFOA sei = {sizeof sei};
+      SHELLEXECUTEINFOW sei = {sizeof sei};
       sei.fMask = SEE_MASK_FLAG_NO_UI;
       sei.hwnd = get_active_window ();
-      sei.lpFile = path;
-      sei.lpParameters = param;
-      sei.lpDirectory = dir;
-      sei.lpVerb = verb;
+      sei.lpFile = path ? wpath : 0;
+      sei.lpParameters = param ? wparam : 0;
+      sei.lpDirectory = dir ? wdir : 0;
+      sei.lpVerb = verb ? wverb : 0;
       sei.nShow = SW_SHOW;
       e = (*ex)(&sei) ? 33 : DWORD (sei.hInstApp);
     }
   else
-    e = DWORD (ShellExecuteA (get_active_window (), verb ? verb : "open",
-                              path, param, dir, SW_SHOWNORMAL));
+    e = DWORD (ShellExecuteW (get_active_window (), verb ? wverb : L"open",
+                              path ? wpath : 0, param ? wparam : 0,
+                              dir ? wdir : 0, SW_SHOWNORMAL));
   if (dir)
     WINFS::SetCurrentDirectory (sysdep.curdir);
   SetErrorMode (omode);

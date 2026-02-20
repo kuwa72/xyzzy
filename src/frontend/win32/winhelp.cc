@@ -8,13 +8,17 @@ Frun_winhelp (lisp file, lisp topic)
 {
   char path[PATH_MAX + 1];
   pathname2cstr (file, path);
+  wchar_t wpath[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
   if (!topic || topic == Qnil)
-    return boole (WinHelpA (app.toplev, path, HELP_CONTENTS, 0));
+    return boole (WinHelpW (app.toplev, wpath, HELP_CONTENTS, 0));
 
   check_string (topic);
   char *b = (char *)alloca (xstring_length (topic) * 2 + 1);
   w2s (b, topic);
-  return boole (WinHelpA (app.toplev, path, HELP_PARTIALKEY, (DWORD_PTR)b));
+  wchar_t wb[1024];
+  MultiByteToWideChar (932, 0, b, -1, wb, 1024);
+  return boole (WinHelpW (app.toplev, wpath, HELP_PARTIALKEY, (DWORD_PTR)wb));
 }
 
 lisp
@@ -22,7 +26,9 @@ Fkill_winhelp (lisp file)
 {
   char path[PATH_MAX + 1];
   pathname2cstr (file, path);
-  return boole (WinHelpA (app.toplev, path, HELP_QUIT, 0));
+  wchar_t wpath[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
+  return boole (WinHelpW (app.toplev, wpath, HELP_QUIT, 0));
 }
 
 struct iheader
@@ -111,7 +117,7 @@ ifile::get_titles (FILE *fp)
       if_headers[i].ih_file[iheader::FILE_LENGTH] = 0;
       if_headers[i].ih_title[iheader::TITLE_LENGTH] = 0;
       for (char *p = if_headers[i].ih_title, *pe = p + iheader::TITLE_LENGTH;
-           p < pe; p = CharNextA (p))
+           p < pe; p = CharNextExA (932, (LPCSTR)p, 0))
         if (*p && *(u_char *)p < ' ')
           *p = ' ';
     }
@@ -245,14 +251,20 @@ iset::init_files (HWND dlg)
     for (int i = 0; i < f->if_nfiles; i++)
       if (is_match_all || f->if_headers[i].ih_match)
         {
-          int idx = SendDlgItemMessageA (dlg, IDC_FILES, LB_ADDSTRING, 0,
-                                         LPARAM (f->if_headers[i].ih_title));
+          wchar_t wtitle[iheader::TITLE_LENGTH + 1];
+          MultiByteToWideChar (932, 0, f->if_headers[i].ih_title, -1, wtitle, iheader::TITLE_LENGTH + 1);
+          int idx = SendDlgItemMessageW (dlg, IDC_FILES, LB_ADDSTRING, 0,
+                                         LPARAM (wtitle));
           if (idx != LB_ERR)
             SendDlgItemMessage (dlg, IDC_FILES, LB_SETITEMDATA,
                                 idx, LPARAM (&f->if_headers[i]));
         }
   SendDlgItemMessage (dlg, IDC_FILES, LB_SETCURSEL, 0, 0);
-  SetDlgItemTextA (dlg, IDC_TOPIC, is_topic);
+  {
+    wchar_t wtopic[256];
+    MultiByteToWideChar (932, 0, is_topic, -1, wtopic, 256);
+    SetDlgItemTextW (dlg, IDC_TOPIC, wtopic);
+  }
 }
 
 inline
@@ -317,8 +329,10 @@ select_dialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
         case IDOK:
           {
             iset *is = (iset *)GetWindowLongPtr (dlg, DWL_USER);
+            wchar_t wbuf[256];
+            GetDlgItemTextW (dlg, IDC_TOPIC, wbuf, numberof (wbuf));
             char buf[256];
-            GetDlgItemTextA (dlg, IDC_TOPIC, buf, sizeof buf);
+            WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
             if (strcmp (buf, is->is_topic))
               {
                 strcpy (is->is_topic, buf);
@@ -360,7 +374,7 @@ iset::lookup ()
 static void
 trim_spaces (char *p)
 {
-  for (; *p && *p != ' ' && *p != '\t'; p = CharNextA (p))
+  for (; *p && *p != ' ' && *p != '\t'; p = CharNextExA (932, (LPCSTR)p, 0))
     ;
   *p = 0;
 }
@@ -397,7 +411,7 @@ Ffind_winhelp_path (lisp index_file, lisp ltopic)
   return make_string (is.is_match->ih_file);
 }
 
-typedef HWND (WINAPI *HTMLHELPPROC)(HWND, LPCSTR, UINT, DWORD);
+typedef HWND (WINAPI *HTMLHELPPROC)(HWND, LPCWSTR, UINT, DWORD);
 
 #define HH_KEYWORD_LOOKUP 0xd
 #define HH_GET_LAST_ERROR 0x14
@@ -406,11 +420,11 @@ typedef struct tagHH_AKLINK
 {
   int cbStruct;
   BOOL fReserved;
-  LPCSTR pszKeywords;
-  LPCSTR pszUrl;
-  LPCSTR pszMsgText;
-  LPCSTR pszMsgTitle;
-  LPCSTR pszWindow;
+  LPCWSTR pszKeywords;
+  LPCWSTR pszUrl;
+  LPCWSTR pszMsgText;
+  LPCWSTR pszMsgTitle;
+  LPCWSTR pszWindow;
   BOOL fIndexOnFail;
 } HH_AKLINK;
 
@@ -427,21 +441,25 @@ Fhtml_help (lisp lfile, lisp lkeyword)
   check_string (lfile);
   check_string (lkeyword);
 
-  static HTMLHELPPROC HtmlHelp = (HTMLHELPPROC)GetProcAddress (LoadLibraryA ("hhctrl.ocx"),
-                                                               "HtmlHelpA");
+  static HTMLHELPPROC HtmlHelp = (HTMLHELPPROC)GetProcAddress (LoadLibraryW (L"hhctrl.ocx"),
+                                                               "HtmlHelpW");
   if (!HtmlHelp)
     FEsimple_error (Ehtml_help_does_not_supported);
 
   char *file = (char *)alloca (xstring_length (lfile) * 2 + 1);
   w2s (file, lfile);
+  wchar_t wfile[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, file, -1, wfile, PATH_MAX + 1);
   char *keyword = (char *)alloca (xstring_length (lkeyword) * 2 + 1);
   w2s (keyword, lkeyword);
+  wchar_t wkeyword[1024];
+  MultiByteToWideChar (932, 0, keyword, -1, wkeyword, 1024);
 
   HH_AKLINK link = {sizeof link};
-  link.pszKeywords = keyword;
+  link.pszKeywords = wkeyword;
   link.fIndexOnFail = 1;
 
-  if (HtmlHelp (GetDesktopWindow (), file, HH_KEYWORD_LOOKUP, (DWORD_PTR)&link))
+  if (HtmlHelp (GetDesktopWindow (), wfile, HH_KEYWORD_LOOKUP, (DWORD_PTR)&link))
     return Qt;
 
   HH_LAST_ERROR err = {sizeof err};
@@ -450,8 +468,9 @@ Fhtml_help (lisp lfile, lisp lkeyword)
     {
       if (err.description)
         {
-          USES_CONVERSION;
-          char *desc = W2A (err.description);
+          int al = WideCharToMultiByte (932, 0, err.description, -1, 0, 0, 0, 0);
+          char *desc = (char *)alloca (al);
+          WideCharToMultiByte (932, 0, err.description, -1, desc, al, 0, 0);
           SysFreeString (err.description);
           FEsimple_error (Ehtml_help_error, make_string (desc));
         }

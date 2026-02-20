@@ -1178,7 +1178,9 @@ Buffer::save_buffer (lisp encoding, lisp eol)
   lisp by_copying = symbol_value (Vbackup_by_copying, this);
   if (precious_flag != Qnil && by_copying == Kremote)
     {
-      switch (GetDriveTypeA (root_path_name (tmpname, filename)))
+      wchar_t wroot[PATH_MAX + 1];
+      MultiByteToWideChar (932, 0, root_path_name (tmpname, filename), -1, wroot, PATH_MAX + 1);
+      switch (GetDriveTypeW (wroot))
         {
         case DRIVE_REMOVABLE:
         case DRIVE_FIXED:

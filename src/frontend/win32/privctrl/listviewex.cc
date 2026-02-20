@@ -10,11 +10,11 @@ static WNDPROC ListViewProc;
 
 #undef ListView_FindItem
 #define ListView_FindItem(hwnd, iStart, plvfi) \
-  (int)CallWindowProc (ListViewProc, (hwnd), LVM_FINDITEMA, (WPARAM)(int)(iStart), (LPARAM)(const LV_FINDINFOA FAR*)(plvfi))
+  (int)CallWindowProc (ListViewProc, (hwnd), LVM_FINDITEMW, (WPARAM)(int)(iStart), (LPARAM)(const LV_FINDINFOW FAR*)(plvfi))
 
 #undef ListView_GetColumn
 #define ListView_GetColumn(hwnd, iCol, pcol) \
-    (BOOL)CallWindowProc (ListViewProc, (hwnd), LVM_GETCOLUMNA, (WPARAM)(int)(iCol), (LPARAM)(LV_COLUMNA FAR*)(pcol))
+    (BOOL)CallWindowProc (ListViewProc, (hwnd), LVM_GETCOLUMNW, (WPARAM)(int)(iCol), (LPARAM)(LV_COLUMNW FAR*)(pcol))
 
 #undef ListView_GetImageList
 #define ListView_GetImageList(hwnd, iImageList) \
@@ -22,7 +22,7 @@ static WNDPROC ListViewProc;
 
 #undef ListView_GetItem
 #define ListView_GetItem(hwnd, pitem) \
-  (BOOL)CallWindowProc (ListViewProc, (hwnd), LVM_GETITEMA, 0, (LPARAM)(LV_ITEMA FAR*)(pitem))
+  (BOOL)CallWindowProc (ListViewProc, (hwnd), LVM_GETITEMW, 0, (LPARAM)(LV_ITEMW FAR*)(pitem))
 
 #undef ListView_GetItemCount
 #define ListView_GetItemCount(hwnd) \
@@ -35,10 +35,10 @@ static WNDPROC ListViewProc;
 
 #undef ListView_SetItemState
 #define ListView_SetItemState(hwndLV, i, data, mask) \
-  { LV_ITEMA _ms_lvi;\
+  { LV_ITEMW _ms_lvi;\
     _ms_lvi.stateMask = mask;\
     _ms_lvi.state = data;\
-    CallWindowProc (ListViewProc, (hwndLV), LVM_SETITEMSTATE, (WPARAM)i, (LPARAM)(LV_ITEMA FAR *)&_ms_lvi);\
+    CallWindowProc (ListViewProc, (hwndLV), LVM_SETITEMSTATE, (WPARAM)i, (LPARAM)(LV_ITEMW FAR *)&_ms_lvi);\
   }
 
 #undef ListView_GetItemText
@@ -201,15 +201,18 @@ paint_item_text (HWND hwnd, HDC hdc, int item, int subitem, int fmt,
                  const RECT &r, int offset, int dots, int no_extend,
                  LPARAM lparam, const listview_item_data *data)
 {
-  char s[1024 + 10];
-  LV_ITEMA lvi;
+  wchar_t ws[1024 + 10];
+  LV_ITEMW lvi;
   lvi.iSubItem = subitem;
-  lvi.pszText = s;
+  lvi.pszText = ws;
   lvi.cchTextMax = 1024;
-  int l = CallWindowProc (ListViewProc, hwnd, LVM_GETITEMTEXTA, item, LPARAM (&lvi));
-  l = min (l, 1024);
-  if (s != lvi.pszText)
-    memcpy (s, lvi.pszText, l);
+  int wl = CallWindowProc (ListViewProc, hwnd, LVM_GETITEMTEXTW, item, LPARAM (&lvi));
+  wl = min (wl, 1024);
+  if (ws != lvi.pszText)
+    memcpy (ws, lvi.pszText, wl * sizeof (wchar_t));
+  ws[wl] = 0;
+  char s[2048 + 10];
+  int l = WideCharToMultiByte (932, 0, ws, wl, s, sizeof s - 10, 0, 0);
   s[l] = 0;
   return paint_text (hdc, s, l, fmt, r, offset, dots, no_extend, 0,
                      data->path_ellipse_indices & (1 << subitem));
@@ -265,7 +268,7 @@ listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
   const RECT &r = dis->rcItem;
   const listview_item_data *data = get_listview_item_data (hwnd);
 
-  LV_ITEMA lvi;
+  LV_ITEMW lvi;
   lvi.mask = LVIF_IMAGE | LVIF_STATE | LVIF_PARAM;
   lvi.iItem = dis->itemID;
   lvi.iSubItem = 0;
@@ -370,7 +373,7 @@ listview_draw_item (UINT id, DRAWITEMSTRUCT *dis)
     paint_item_text (hwnd, hdc, dis->itemID, 0, LVCFMT_LEFT, label,
                      OFFSET_FIRST, dots.cx, 0, lvi.lParam, data);
 
-  LV_COLUMNA lvc;
+  LV_COLUMNW lvc;
   lvc.mask = LVCF_FMT | LVCF_WIDTH;
   for (int i = 1; ListView_GetColumn (hwnd, i, &lvc); i++)
     {
@@ -911,21 +914,22 @@ isearch (HWND hwnd, int cc, int wrap, listview_item_data *data)
   int cur = get_current_focus (hwnd, nitems);
 
   DWORD tick = GetTickCount ();
-  LV_ITEMA lvi;
+  LV_ITEMW lviw;
+  wchar_t wbuf[256];
   char *text = (char *)alloca (data->icc + 3);
   if (cur == data->isearch_cur && cur >= 0 && data->icc)
     {
+      wbuf[0] = 0;
+      lviw.iSubItem = 0;
+      lviw.pszText = wbuf;
+      lviw.cchTextMax = min ((int)data->icc + 2, 255);
+      size_t wl = CallWindowProc (ListViewProc, hwnd, LVM_GETITEMTEXTW,
+                                  cur, LPARAM (&lviw));
+      if (lviw.pszText != wbuf)
+        memcpy (wbuf, lviw.pszText, min (wl, (size_t)255) * sizeof (wchar_t));
+      wbuf[min (wl, (size_t)255)] = 0;
       *text = 0;
-      lvi.iSubItem = 0;
-      lvi.pszText = text;
-      lvi.cchTextMax = data->icc + 2;
-      size_t l = CallWindowProc (ListViewProc, hwnd, LVM_GETITEMTEXTA,
-                                 cur, LPARAM (&lvi));
-      if (lvi.pszText != text)
-        {
-          memcpy (text, lvi.pszText, data->icc + 2);
-          text[data->icc + 2] = 0;
-        }
+      WideCharToMultiByte (932, 0, wbuf, -1, text, data->icc + 3, 0, 0);
       if (strlen (text) < data->icc)
         data->icc = 0;
     }
@@ -954,11 +958,13 @@ isearch (HWND hwnd, int cc, int wrap, listview_item_data *data)
   data->f_ikeyup = 0;
 
   int found;
-  LV_FINDINFOA fi;
+  wchar_t wtext[8];
+  MultiByteToWideChar (932, 0, text, -1, wtext, 8);
+  LV_FINDINFOW fi;
   fi.flags = LVFI_PARTIAL;
   if (wrap)
     fi.flags |= LVFI_WRAP;
-  fi.psz = text;
+  fi.psz = wtext;
   data->f_ikeyup = 1;
   while (1)
     {
@@ -1365,9 +1371,9 @@ ListViewExProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 int
 init_listview_class ()
 {
-  HMODULE hcomctl32 = GetModuleHandleA ("comctl32.dll");
-  WNDCLASSA wca;
-  if (!GetClassInfoA (hcomctl32, WC_LISTVIEWA, &wca))
+  HMODULE hcomctl32 = GetModuleHandleW (L"comctl32.dll");
+  WNDCLASSW wca;
+  if (!GetClassInfoW (hcomctl32, WC_LISTVIEWW, &wca))
     return 0;
 
   ListViewProc = wca.lpfnWndProc;

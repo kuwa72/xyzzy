@@ -2731,9 +2731,13 @@ Flist_xyzzy_windows ()
       HWND hwnd = xh.next (i);
       if (!hwnd || i <= o)
         break;
-      char buf[256];
-      if (GetWindowTextA (hwnd, buf, sizeof buf))
-        p = xcons (xcons (make_fixnum (i), make_string (buf)), p);
+      wchar_t wbuf[256];
+      if (GetWindowTextW (hwnd, wbuf, 256))
+        {
+          char buf[512];
+          WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
+          p = xcons (xcons (make_fixnum (i), make_string (buf)), p);
+        }
     }
   return Fnreverse (p);
 }

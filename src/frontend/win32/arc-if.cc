@@ -217,7 +217,7 @@ UnzipInterface::patch_module (void *base) const
   if (desc == (IMAGE_IMPORT_DESCRIPTOR *)nt)
     return 0;
 
-  FARPROC beep = GetProcAddress (GetModuleHandleA ("user32"), "MessageBeep");
+  FARPROC beep = GetProcAddress (GetModuleHandleW (L"user32"), "MessageBeep");
   if (!beep)
     return 0;
 

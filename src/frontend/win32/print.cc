@@ -207,11 +207,11 @@ printer_device::notice_pderr (int e)
 }
 
 int
-printer_device::do_print_dialog1 (PRINTDLGA &pd)
+printer_device::do_print_dialog1 (PRINTDLGW &pd)
 {
   while (1)
     {
-      if (PrintDlgA (&pd))
+      if (PrintDlgW (&pd))
         return IDOK;
 
       DWORD e = CommDlgExtendedError ();
@@ -255,7 +255,7 @@ printer_device::do_print_dialog1 (PRINTDLGA &pd)
 }
 
 int
-printer_device::do_print_dialog (PRINTDLGA &pd)
+printer_device::do_print_dialog (PRINTDLGW &pd)
 {
   pd.hDevNames = pd_devnames;
   pd.hDevMode = pd_devmode;
@@ -293,7 +293,7 @@ printer_device::get_defaults ()
   if (pd_devnames)
     return 1;
 
-  PRINTDLGA pd;
+  PRINTDLGW pd;
   bzero (&pd, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.Flags = PD_RETURNDEFAULT;
@@ -310,11 +310,11 @@ printer_device::create_dc ()
   DEVNAMES *dn = (DEVNAMES *)GlobalLock (pd_devnames);
   if (!dn)
     return 0;
-  DEVMODEA *dm = pd_devmode ? (DEVMODEA *)GlobalLock (pd_devmode) : 0;
+  DEVMODEW *dm = pd_devmode ? (DEVMODEW *)GlobalLock (pd_devmode) : 0;
 
-  HDC hdc = CreateDCA ((const char *)dn + dn->wDriverOffset,
-                       (const char *)dn + dn->wDeviceOffset,
-                       (const char *)dn + dn->wOutputOffset,
+  HDC hdc = CreateDCW ((const wchar_t *)dn + dn->wDriverOffset,
+                       (const wchar_t *)dn + dn->wDeviceOffset,
+                       (const wchar_t *)dn + dn->wOutputOffset,
                        dm);
   GlobalUnlock (pd_devnames);
   if (dm)
@@ -351,14 +351,14 @@ printer_device::get_dev_spec ()
       DEVNAMES *dn = (DEVNAMES *)GlobalLock (pd_devnames);
       if (dn)
         {
-          DEVMODEA *dm = pd_devmode ? (DEVMODEA *)GlobalLock (pd_devmode) : 0;
+          DEVMODEW *dm = pd_devmode ? (DEVMODEW *)GlobalLock (pd_devmode) : 0;
           pd_max_copies =
-            DeviceCapabilitiesA ((const char *)dn + dn->wDeviceOffset,
-                                 (const char *)dn + dn->wOutputOffset,
+            DeviceCapabilitiesW ((const wchar_t *)dn + dn->wDeviceOffset,
+                                 (const wchar_t *)dn + dn->wOutputOffset,
                                  DC_COPIES, 0, dm);
           pd_dm_fields =
-            DeviceCapabilitiesA ((const char *)dn + dn->wDeviceOffset,
-                                 (const char *)dn + dn->wOutputOffset,
+            DeviceCapabilitiesW ((const wchar_t *)dn + dn->wDeviceOffset,
+                                 (const wchar_t *)dn + dn->wOutputOffset,
                                  DC_FIELDS, 0, dm);
           if (dm)
             GlobalUnlock (pd_devmode);
@@ -414,7 +414,7 @@ printer_device::create_printer_dc ()
 int
 printer_device::print_setup_dialog (HWND hwnd)
 {
-  PRINTDLGA pd;
+  PRINTDLGW pd;
   bzero (&pd, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.hwndOwner = hwnd;
@@ -429,7 +429,7 @@ printer_device::set_dev_copies (const print_settings &ps)
 {
   if (pd_devmode)
     {
-      DEVMODEA *dm = (DEVMODEA *)GlobalLock (pd_devmode);
+      DEVMODEW *dm = (DEVMODEW *)GlobalLock (pd_devmode);
       if (dm)
         {
           dm->dmCopies = 1;
@@ -460,7 +460,7 @@ printer_device::get_dev_copies (print_settings &ps)
 {
   if (pd_devmode)
     {
-      DEVMODEA *dm = (DEVMODEA *)GlobalLock (pd_devmode);
+      DEVMODEW *dm = (DEVMODEW *)GlobalLock (pd_devmode);
       if (dm)
         {
           ps.ps_ncopies = dm->dmFields & DM_COPIES ? dm->dmCopies : 1;
@@ -1807,22 +1807,26 @@ print_engine::doprint1 (HWND hwnd)
       pe_bp->buffer_name (docname, docname + l);
     }
 
+  int wdoclen = MultiByteToWideChar (932, 0, docname, -1, 0, 0);
+  wchar_t *wdocname = (wchar_t *)alloca (wdoclen * sizeof (wchar_t));
+  MultiByteToWideChar (932, 0, docname, -1, wdocname, wdoclen);
+
   SetAbortProc (pe_dev, abort_proc);
 
-  DOCINFOA di;
+  DOCINFOW di;
   bzero (&di, sizeof di);
   di.cbSize = sizeof di;
-  di.lpszDocName = docname;
+  di.lpszDocName = wdocname;
 
   user_abort = 0;
   HWND printing = CreateDialog (app.hinst, MAKEINTRESOURCE (IDD_PRINTING),
                                 app.toplev, (DLGPROC)printing_dlgproc);
-  SetDlgItemTextA (printing, IDC_DOCNAME, docname);
+  SetDlgItemTextW (printing, IDC_DOCNAME, wdocname);
   ShowWindow (printing, SW_SHOW);
   UpdateWindow (printing);
   EnableWindow (app.toplev, 0);
 
-  if (StartDocA (pe_dev, &di) == SP_ERROR)
+  if (StartDocW (pe_dev, &di) == SP_ERROR)
     {
       EnableWindow (app.toplev, 1);
       DestroyWindow (printing);
@@ -1834,9 +1838,9 @@ print_engine::doprint1 (HWND hwnd)
 
   do
     {
-      char b[32];
-      sprintf (b, "Page %u", page++);
-      SetDlgItemTextA (printing, IDC_PAGENUM, b);
+      wchar_t wb[32];
+      wsprintfW (wb, L"Page %u", page++);
+      SetDlgItemTextW (printing, IDC_PAGENUM, wb);
 
       if (StartPage (pe_dev) == SP_ERROR)
         {

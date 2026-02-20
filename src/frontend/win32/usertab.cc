@@ -217,11 +217,13 @@ user_tab_bar::add_item (lisp item, lisp name, lisp tooltip, lisp menu,
   char buf[ITEM_NAME_MAX];
   w2s (buf, buf + sizeof buf, name);
 
-  TCITEMA ti;
+  TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
-  ti.pszText = buf;
+  wchar_t wbuf[ITEM_NAME_MAX];
+  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
+  ti.pszText = wbuf;
   ti.lParam = LPARAM (p);
-  if (SendMessageA (b_hwnd, TCM_INSERTITEMA, n, LPARAM (&ti)) < 0)
+  if (SendMessageW (b_hwnd, TCM_INSERTITEMW, n, LPARAM (&ti)) < 0)
     FEstorage_error ();
 
   u_item = q;
@@ -242,10 +244,12 @@ user_tab_bar::modify_item (lisp item, lisp name, lisp tooltip, lisp menu)
       char buf[ITEM_NAME_MAX];
       w2s (buf, buf + sizeof buf, name);
 
-      TCITEMA ti;
+      TCITEMW ti;
       ti.mask = TCIF_TEXT;
-      ti.pszText = buf;
-      if (!SendMessageA (b_hwnd, TCM_SETITEMA, i, LPARAM (&ti)))
+      wchar_t wbuf[ITEM_NAME_MAX];
+      MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
+      ti.pszText = wbuf;
+      if (!SendMessageW (b_hwnd, TCM_SETITEMW, i, LPARAM (&ti)))
         return 0;
       item_name (p) = name;
     }

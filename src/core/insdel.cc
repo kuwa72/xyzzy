@@ -1393,7 +1393,16 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int lang)
 #ifdef UNICODE
   for (; *s; s++)
     if (*s != '\r' || s[1] != '\n')
-      *b++ = *s;
+      {
+        Char cc = w2i (*s);
+        if (cc == Char (-1))
+          {
+            *b++ = utf16_ucs2_to_undef_pair_high (*s);
+            *b++ = utf16_ucs2_to_undef_pair_low (*s);
+          }
+        else
+          *b++ = cc;
+      }
 #else
   const Char *const translate = cjk_translate_table (lang);
 
@@ -1519,16 +1528,12 @@ Fget_clipboard_data ()
       if (encoding_utf16_p (encoding))
         result = get_clipboatd_data (CF_UNICODETEXT, lstring,
                                      xchar_encoding_utf_cjk (encoding));
+      // Always prefer CF_UNICODETEXT over CF_TEXT.
+      // CF_TEXT uses ACP which may not be CP932 (e.g. CP1252 on ARM64).
       if (result == -1)
-        {
-          UINT fmt = 0;
-          while ((fmt = EnumClipboardFormats (fmt)))
-            if (fmt == CF_TEXT || fmt == CF_UNICODETEXT)
-              {
-                result = get_clipboatd_data (fmt, lstring, ENCODING_LANG_NIL);
-                break;
-              }
-        }
+        result = get_clipboatd_data (CF_UNICODETEXT, lstring, ENCODING_LANG_NIL);
+      if (result == -1)
+        result = get_clipboatd_data (CF_TEXT, lstring, ENCODING_LANG_NIL);
       CloseClipboard ();
     }
   if (!result)

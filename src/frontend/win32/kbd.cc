@@ -12,7 +12,7 @@ kbd_queue::kbd_queue ()
        reconv (0), putc_pending (-1), ime_prop (0), unicode_kbd (0), gc_timer (0)
 {
   GetKeyboardLayout =
-    (GETKEYBOARDLAYOUT)GetProcAddress (GetModuleHandleA ("USER32"),
+    (GETKEYBOARDLAYOUT)GetProcAddress (GetModuleHandleW (L"USER32"),
                                        "GetKeyboardLayout");
 
   for (int i = 0; i < QUEUE_MAX; i++)
@@ -1438,7 +1438,7 @@ get_kbd_layout_name (HKL hkl, char *buf, int size)
 
 typedef UINT (WINAPI *GETKEYBOARDLAYOUTLIST)(int, HKL *);
 static const GETKEYBOARDLAYOUTLIST pGetKeyboardLayoutList =
-  (GETKEYBOARDLAYOUTLIST)GetProcAddress (GetModuleHandleA ("user32"),
+  (GETKEYBOARDLAYOUTLIST)GetProcAddress (GetModuleHandleW (L"user32"),
                                          "GetKeyboardLayoutList");
 
 lisp

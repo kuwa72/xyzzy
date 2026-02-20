@@ -33,8 +33,8 @@ private:
 
 private:
   static void notice_pderr (int);
-  static int do_print_dialog1 (PRINTDLGA &);
-  static int do_print_dialog (PRINTDLGA &);
+  static int do_print_dialog1 (PRINTDLGW &);
+  static int do_print_dialog (PRINTDLGW &);
   static int get_defaults ();
   static HDC create_dc ();
   void get_dev_spec ();

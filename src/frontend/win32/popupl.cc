@@ -28,19 +28,23 @@ substitute_key (HWND hwnd, WPARAM &wparam, LPARAM lparam)
 static int
 call_callback (HWND hwnd)
 {
-  int n = SendMessageA (hwnd, LB_GETCURSEL, 0, 0);
+  int n = SendMessageW (hwnd, LB_GETCURSEL, 0, 0);
   if (n < 0)
     return 0;
 
-  int l = SendMessageA (hwnd, LB_GETTEXTLEN, n, 0);
+  int l = SendMessageW (hwnd, LB_GETTEXTLEN, n, 0);
   if (l < 0)
     return 0;
 
-  char *buf = (char *)alloca (l * 2 + 1);
-  if (SendMessageA (hwnd, LB_GETTEXT, n, LPARAM (buf)) < 0)
+  wchar_t *wbuf = (wchar_t *)alloca ((l + 1) * sizeof (wchar_t));
+  if (SendMessageW (hwnd, LB_GETTEXT, n, LPARAM (wbuf)) < 0)
     return 0;
 
   DestroyWindow (hwnd);
+
+  int al = WideCharToMultiByte (932, 0, wbuf, -1, 0, 0, 0, 0);
+  char *buf = (char *)alloca (al);
+  WideCharToMultiByte (932, 0, wbuf, -1, buf, al, 0, 0);
 
   try
     {

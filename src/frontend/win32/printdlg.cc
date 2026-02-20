@@ -18,7 +18,7 @@ public:
        : m_owndproc (0), m_hwnd (0), m_beg (-1), m_end (-1) {}
   void subclass (HWND, UINT, WNDPROC);
   LRESULT wndproc (HWND, UINT, WPARAM, LPARAM);
-  void insert (const char *);
+  void insert (const wchar_t *);
 };
 
 void
@@ -46,13 +46,13 @@ subclass_combo::wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 void
-subclass_combo::insert (const char *s)
+subclass_combo::insert (const wchar_t *s)
 {
   if (m_end < 0)
     m_end = GetWindowTextLength (m_hwnd);
-  SendMessageA (m_hwnd, EM_SETSEL, m_end, m_end);
-  SendMessageA (m_hwnd, EM_REPLACESEL, 0, LPARAM (s));
-  m_end += strlen (s);
+  SendMessageW (m_hwnd, EM_SETSEL, m_end, m_end);
+  SendMessageW (m_hwnd, EM_REPLACESEL, 0, LPARAM (s));
+  m_end += wcslen (s);
 }
 
 static subclass_combo sc_header, sc_footer;
@@ -74,7 +74,9 @@ print_dialog::set_margin_text (UINT edit, LONG value, const char *unit) const
 {
   char b[32];
   sprintf (b, "%d.%d%s", value / 10, value % 10, unit);
-  SetDlgItemTextA (m_hwnd, edit, b);
+  wchar_t wb[32];
+  MultiByteToWideChar (932, 0, b, -1, wb, numberof (wb));
+  SetDlgItemTextW (m_hwnd, edit, wb);
 }
 
 void
@@ -93,8 +95,10 @@ print_dialog::set_margin (UINT edit, UINT spin, LONG value,
 LONG
 print_dialog::parse_margin_text (UINT edit, const char *unit) const
 {
+  wchar_t wbuf[128];
+  GetDlgItemTextW (m_hwnd, edit, wbuf, numberof (wbuf));
   char buf[128], *b, *be;
-  GetDlgItemTextA (m_hwnd, edit, buf, sizeof buf);
+  WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
   for (b = buf; *b == ' '; b++)
     ;
   double d = strtod (b, &be);
@@ -208,8 +212,11 @@ print_dialog::get_int (UINT id, BOOL *f, BOOL sign, int defalt) const
   int l = GetWindowTextLength (GetDlgItem (m_hwnd, id));
   if (l)
     {
-      char *b = (char *)alloca (l + 1);
-      GetDlgItemTextA (m_hwnd, id, b, l + 1);
+      wchar_t *wb = (wchar_t *)alloca ((l + 1) * sizeof (wchar_t));
+      GetDlgItemTextW (m_hwnd, id, wb, l + 1);
+      int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
+      char *b = (char *)alloca (al);
+      WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
       for (; *b == ' ' || *b == '\t'; b++)
         ;
       if (*b)
@@ -247,8 +254,13 @@ print_dialog::check_margin_text (UINT id, LONG &r, LONG min, LONG max,
 int
 print_dialog::get_result (int save)
 {
-  GetDlgItemTextA (m_hwnd, IDC_HEADER, m_settings.ps_header, sizeof m_settings.ps_header);
-  GetDlgItemTextA (m_hwnd, IDC_FOOTER, m_settings.ps_footer, sizeof m_settings.ps_footer);
+  {
+    wchar_t wb[MAX_HEADER_LENGTH];
+    GetDlgItemTextW (m_hwnd, IDC_HEADER, wb, numberof (wb));
+    WideCharToMultiByte (932, 0, wb, -1, m_settings.ps_header, sizeof m_settings.ps_header, 0, 0);
+    GetDlgItemTextW (m_hwnd, IDC_FOOTER, wb, numberof (wb));
+    WideCharToMultiByte (932, 0, wb, -1, m_settings.ps_footer, sizeof m_settings.ps_footer, 0, 0);
+  }
   m_settings.ps_header_on = IsDlgButtonChecked (m_hwnd, IDC_CHEADER) == 1;
   m_settings.ps_footer_on = IsDlgButtonChecked (m_hwnd, IDC_CFOOTER) == 1;
 
@@ -371,7 +383,7 @@ void
 print_dialog::init_history (UINT id_combo, const char *section)
 {
   HWND hwnd_combo = GetDlgItem (m_hwnd, id_combo);
-  SendMessageA (hwnd_combo, CB_ADDSTRING, 0, LPARAM (""));
+  SendMessageW (hwnd_combo, CB_ADDSTRING, 0, LPARAM (L""));
   char kbuf[4096];
   memset (kbuf, 0, sizeof kbuf);
   read_conf (section, 0, kbuf, sizeof kbuf);
@@ -379,7 +391,11 @@ print_dialog::init_history (UINT id_combo, const char *section)
     {
       char buf[MAX_HEADER_LENGTH];
       if (read_conf (section, key, buf, sizeof buf))
-        SendMessageA (hwnd_combo, CB_ADDSTRING, 0, LPARAM (buf));
+        {
+          wchar_t wbuf[MAX_HEADER_LENGTH];
+          MultiByteToWideChar (932, 0, buf, -1, wbuf, MAX_HEADER_LENGTH);
+          SendMessageW (hwnd_combo, CB_ADDSTRING, 0, LPARAM (wbuf));
+        }
     }
 }
 
@@ -388,16 +404,16 @@ print_dialog::save_history (UINT id_combo, const char *section)
 {
   HWND hwnd_combo = GetDlgItem (m_hwnd, id_combo);
   delete_conf (section);
-  int n = SendMessageA (hwnd_combo, CB_GETCOUNT, 0, 0);
+  int n = SendMessageW (hwnd_combo, CB_GETCOUNT, 0, 0);
   for (int i = 0; i < n; i++)
     {
-      // WinME の CB_GETLBTEXTLEN は文字数を返すらしいので(ただし未確認)、
-      // バッファを倍にしておく。
-      char buf[MAX_HEADER_LENGTH * 2 + 2];
-      int l = SendMessageA (hwnd_combo, CB_GETLBTEXTLEN, i, 0);
+      wchar_t wbuf[MAX_HEADER_LENGTH * 2 + 2];
+      int l = SendMessageW (hwnd_combo, CB_GETLBTEXTLEN, i, 0);
       if (l > 0 && l < MAX_HEADER_LENGTH
-          && SendMessageA (hwnd_combo, CB_GETLBTEXT, i, LPARAM (buf)) > 0)
+          && SendMessageW (hwnd_combo, CB_GETLBTEXT, i, LPARAM (wbuf)) > 0)
         {
+          char buf[MAX_HEADER_LENGTH * 2 + 2];
+          WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
           char key[32];
           sprintf (key, "%d", i);
           conf_write_string (section, key, buf);
@@ -414,8 +430,14 @@ print_dialog::init_dialog (HWND)
   init_history (IDC_HEADER, cfgHeader);
   init_history (IDC_FOOTER, cfgFooter);
 
-  SetDlgItemTextA (m_hwnd, IDC_HEADER, m_settings.ps_header);
-  SetDlgItemTextA (m_hwnd, IDC_FOOTER, m_settings.ps_footer);
+  {
+    wchar_t wh[MAX_HEADER_LENGTH];
+    MultiByteToWideChar (932, 0, m_settings.ps_header, -1, wh, MAX_HEADER_LENGTH);
+    SetDlgItemTextW (m_hwnd, IDC_HEADER, wh);
+    wchar_t wf[MAX_HEADER_LENGTH];
+    MultiByteToWideChar (932, 0, m_settings.ps_footer, -1, wf, MAX_HEADER_LENGTH);
+    SetDlgItemTextW (m_hwnd, IDC_FOOTER, wf);
+  }
 
   add_history (IDC_HEADER, IDC_ADD_HEADER, IDC_DELETE_HEADER, BN_CLICKED);
   add_history (IDC_FOOTER, IDC_ADD_FOOTER, IDC_DELETE_FOOTER, BN_CLICKED);
@@ -723,18 +745,20 @@ print_dialog::preview ()
 int
 print_dialog::find_history (UINT id, const char *s)
 {
-  char *buf = (char *)alloca (strlen (s) * 2 + 2);
+  wchar_t ws[MAX_HEADER_LENGTH];
+  MultiByteToWideChar (932, 0, s, -1, ws, MAX_HEADER_LENGTH);
+  wchar_t wbuf[MAX_HEADER_LENGTH];
   int i = -1;
   while (1)
     {
       int o = i;
-      i = SendDlgItemMessageA (m_hwnd, id, CB_FINDSTRINGEXACT, WPARAM (i), LPARAM (s));
+      i = SendDlgItemMessageW (m_hwnd, id, CB_FINDSTRINGEXACT, WPARAM (i), LPARAM (ws));
       if (i == CB_ERR || i <= o)
         return -1;
       if (!*s)
         return i;
-      if (SendDlgItemMessageA (m_hwnd, id, CB_GETLBTEXT, i, LPARAM (buf)) != CB_ERR
-          && !strcmp (s, buf))
+      if (SendDlgItemMessageW (m_hwnd, id, CB_GETLBTEXT, i, LPARAM (wbuf)) != CB_ERR
+          && !wcscmp (ws, wbuf))
         return i;
     }
 }
@@ -748,21 +772,23 @@ print_dialog::history_command (UINT id_combo, UINT code, UINT id_add, UINT id_de
     {
     case CBN_SELCHANGE:
       {
-        int n = SendDlgItemMessageA (m_hwnd, id_combo, CB_GETCURSEL, 0, 0);
+        int n = SendDlgItemMessageW (m_hwnd, id_combo, CB_GETCURSEL, 0, 0);
         if (n == CB_ERR)
           return 0;
         fadd = 0;
-        fdel = SendDlgItemMessageA (m_hwnd, id_combo, CB_GETLBTEXTLEN, n, 0) > 0;
+        fdel = SendDlgItemMessageW (m_hwnd, id_combo, CB_GETLBTEXTLEN, n, 0) > 0;
         break;
       }
 
     case CBN_EDITCHANGE:
       {
-        char buf[MAX_HEADER_LENGTH];
-        if (!GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf))
+        wchar_t wbuf[MAX_HEADER_LENGTH];
+        if (!GetDlgItemTextW (m_hwnd, id_combo, wbuf, numberof (wbuf)))
           fadd = fdel = 0;
         else
           {
+            char buf[MAX_HEADER_LENGTH];
+            WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
             fadd = find_history (id_combo, buf) < 0;
             fdel = !fadd;
           }
@@ -795,10 +821,14 @@ print_dialog::add_history (UINT id_combo, UINT id_add, UINT id_del, UINT code)
   if (code != BN_CLICKED)
     return 0;
 
-  char buf[MAX_HEADER_LENGTH];
-  if (GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf)
-      && find_history (id_combo, buf) < 0)
-    SendDlgItemMessageA (m_hwnd, id_combo, CB_ADDSTRING, 0, LPARAM (buf));
+  wchar_t wbuf[MAX_HEADER_LENGTH];
+  if (GetDlgItemTextW (m_hwnd, id_combo, wbuf, numberof (wbuf)))
+    {
+      char buf[MAX_HEADER_LENGTH];
+      WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
+      if (find_history (id_combo, buf) < 0)
+        SendDlgItemMessageW (m_hwnd, id_combo, CB_ADDSTRING, 0, LPARAM (wbuf));
+    }
   move_btn_focus (id_add, id_combo);
   history_command (id_combo, CBN_EDITCHANGE, id_add, id_del);
   return 1;
@@ -810,13 +840,15 @@ print_dialog::delete_history (UINT id_combo, UINT id_add, UINT id_del, UINT code
   if (code != BN_CLICKED)
     return 0;
 
-  char buf[MAX_HEADER_LENGTH];
-  if (GetDlgItemTextA (m_hwnd, id_combo, buf, sizeof buf))
+  wchar_t wbuf[MAX_HEADER_LENGTH];
+  if (GetDlgItemTextW (m_hwnd, id_combo, wbuf, numberof (wbuf)))
     {
+      char buf[MAX_HEADER_LENGTH];
+      WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
       int n = find_history (id_combo, buf);
       if (n >= 0 && SendDlgItemMessage (m_hwnd, id_combo,
                                         CB_DELETESTRING, n, 0) != CB_ERR)
-        SetDlgItemTextA (m_hwnd, id_combo, "");
+        SetDlgItemTextW (m_hwnd, id_combo, L"");
     }
   move_btn_focus (id_del, id_combo);
   history_command (id_combo, CBN_EDITCHANGE, id_add, id_del);
@@ -824,14 +856,14 @@ print_dialog::delete_history (UINT id_combo, UINT id_add, UINT id_del, UINT code
 }
 
 int
-print_dialog::find_menu_text (HMENU hmenu, int id, char *buf, int size)
+print_dialog::find_menu_text (HMENU hmenu, int id, wchar_t *buf, int size)
 {
-  if (GetMenuStringA (hmenu, id, buf, size, MF_BYCOMMAND))
+  if (GetMenuStringW (hmenu, id, buf, size, MF_BYCOMMAND))
     return 1;
   for (int i = GetMenuItemCount (hmenu) - 1; i >= 0; i--)
     {
       HMENU hsub = GetSubMenu (hmenu, i);
-      if (hsub && GetMenuStringA (hsub, id, buf, size, MF_BYCOMMAND))
+      if (hsub && GetMenuStringW (hsub, id, buf, size, MF_BYCOMMAND))
         return 1;
     }
   return 0;
@@ -850,13 +882,13 @@ print_dialog::format_popup (UINT id_btn, subclass_combo &sc)
                                    | TPM_NONOTIFY | TPM_RETURNCMD),
                             r.right, r.top, 0, m_hwnd, 0);
 
-  char text[256];
-  if (cmd <= 0 || !find_menu_text (hsub, cmd, text, sizeof text))
+  wchar_t text[256];
+  if (cmd <= 0 || !find_menu_text (hsub, cmd, text, numberof (text)))
     *text = 0;
 
   DestroyMenu (hmenu);
 
-  char *p = strchr (text, '\t');
+  wchar_t *p = wcschr (text, L'\t');
   if (p)
     sc.insert (p + 1);
 

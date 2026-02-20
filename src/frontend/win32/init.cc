@@ -241,8 +241,8 @@ init_user_inifile_path (const char *ini_file)
       int l = WINFS::GetFullPathName (ini_file, sizeof path, path, &tem);
       if (l && l < sizeof path)
         {
-          HANDLE h = CreateFileA (path, GENERIC_READ, 0, 0, OPEN_ALWAYS,
-                                  FILE_ATTRIBUTE_ARCHIVE, 0);
+          HANDLE h = WINFS::CreateFile (path, GENERIC_READ, 0, 0, OPEN_ALWAYS,
+                                       FILE_ATTRIBUTE_ARCHIVE, 0);
           if (h != INVALID_HANDLE_VALUE)
             {
               CloseHandle (h);
@@ -583,7 +583,7 @@ init_command_line (int ac)
 void
 report_out_of_memory ()
 {
-  MessageBoxA (0, "\x83\x81\x83\x82\x83\x8a\x82\xaa\x95\x73\x91\xab\x82\xb5\x82\xc4\x82\xa2\x82\xdc\x82\xb7", TitleBarString, MB_OK | MB_ICONHAND);
+  MessageBoxW (0, L"\x30E1\x30E2\x30EA\x304C\x4E0D\x8DB3\x3057\x3066\x3044\x307E\x3059", TitleBarStringW, MB_OK | MB_ICONHAND);
 }
 
 static inline int

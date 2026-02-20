@@ -362,7 +362,17 @@ typedef struct _SHFILEOPSTRUCTA {
   LPVOID hNameMappings;
   LPCSTR lpszProgressTitle;
 } SHFILEOPSTRUCTA;
-typedef int (*SHFILEOPERATION)(SHFILEOPSTRUCTA *);
+typedef struct _SHFILEOPSTRUCTW {
+  HWND hwnd;
+  UINT wFunc;
+  LPCWSTR pFrom;
+  LPCWSTR pTo;
+  FILEOP_FLAGS fFlags;
+  BOOL fAnyOperationsAborted;
+  LPVOID hNameMappings;
+  LPCWSTR lpszProgressTitle;
+} SHFILEOPSTRUCTW;
+typedef int (*SHFILEOPERATION)(SHFILEOPSTRUCTW *);
 inline DWORD GetShortPathNameA(LPCSTR s, LPSTR buf, DWORD n) {
   if (s && buf && n > 0) { strncpy(buf, s, n); buf[n-1] = 0; return (DWORD)strlen(buf); }
   return 0;
@@ -382,8 +392,21 @@ typedef struct _SHELLEXECUTEINFOA {
   HINSTANCE hInstApp;
   void *lpIDList;
 } SHELLEXECUTEINFOA;
+typedef struct _SHELLEXECUTEINFOW {
+  DWORD cbSize;
+  ULONG fMask;
+  HWND hwnd;
+  LPCWSTR lpVerb;
+  LPCWSTR lpFile;
+  LPCWSTR lpParameters;
+  LPCWSTR lpDirectory;
+  int nShow;
+  HINSTANCE hInstApp;
+  void *lpIDList;
+} SHELLEXECUTEINFOW;
 #define SEE_MASK_INVOKEIDLIST 0x0C
 inline BOOL ShellExecuteExA(SHELLEXECUTEINFOA*) { return FALSE; }
+inline BOOL ShellExecuteExW(SHELLEXECUTEINFOW*) { return FALSE; }
 
 // DeviceIoControl
 #define CTL_CODE(t,f,m,a) (((t)<<16)|((a)<<14)|((f)<<2)|(m))
@@ -734,6 +757,20 @@ typedef struct _WIN32_FIND_DATAA {
   char cAlternateFileName[14];
 } WIN32_FIND_DATAA;
 typedef WIN32_FIND_DATAA *LPWIN32_FIND_DATAA;
+
+typedef struct _WIN32_FIND_DATAW {
+  DWORD dwFileAttributes;
+  FILETIME ftCreationTime;
+  FILETIME ftLastAccessTime;
+  FILETIME ftLastWriteTime;
+  DWORD nFileSizeHigh;
+  DWORD nFileSizeLow;
+  DWORD dwReserved0;
+  DWORD dwReserved1;
+  wchar_t cFileName[MAX_PATH];
+  wchar_t cAlternateFileName[14];
+} WIN32_FIND_DATAW;
+typedef WIN32_FIND_DATAW *LPWIN32_FIND_DATAW;
 
 typedef struct _WINDOWPLACEMENT {
   UINT length;
@@ -1230,6 +1267,15 @@ inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
   if (getcwd(buf, n)) return (DWORD)strlen(buf);
   return 0;
 }
+inline DWORD GetCurrentDirectoryW(DWORD n, LPWSTR buf) {
+  char tmp[4096];
+  if (!getcwd(tmp, sizeof(tmp))) return 0;
+  size_t len = strlen(tmp);
+  for (size_t i = 0; i < len && i < (size_t)(n - 1); i++)
+    buf[i] = (wchar_t)(unsigned char)tmp[i];
+  if (len < (size_t)n) buf[len] = 0;
+  return (DWORD)len;
+}
 
 inline BOOL GetComputerNameA(LPSTR buf, DWORD *len) {
   if (gethostname(buf, *len) == 0) {
@@ -1280,6 +1326,29 @@ inline BOOL SetCurrentDirectoryA(LPCSTR p) { return chdir(p) == 0; }
 inline UINT GetTempFileNameA(LPCSTR, LPCSTR, UINT, LPSTR) { return 0; }
 inline BOOL GetDiskFreeSpaceA(LPCSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD) { return FALSE; }
 inline BOOL GetVolumeInformationA(LPCSTR, LPSTR, DWORD, LPDWORD, LPDWORD, LPDWORD, LPSTR, DWORD) { return FALSE; }
+inline BOOL GetVolumeInformationW(LPCWSTR, LPWSTR, DWORD, LPDWORD, LPDWORD, LPDWORD, LPWSTR, DWORD) { return FALSE; }
+inline BOOL IsDBCSLeadByte(BYTE) { return FALSE; }
+
+// W-suffix file operation stubs (for cli-stubs.cc WINFS methods)
+inline HANDLE CreateFileW(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE) { return INVALID_HANDLE_VALUE; }
+inline DWORD GetFileAttributesW(LPCWSTR) { return INVALID_FILE_ATTRIBUTES; }
+inline BOOL SetFileAttributesW(LPCWSTR, DWORD) { return FALSE; }
+inline HANDLE FindFirstFileW(LPCWSTR, WIN32_FIND_DATAW*) { return INVALID_HANDLE_VALUE; }
+inline BOOL FindNextFileW(HANDLE, WIN32_FIND_DATAW*) { return FALSE; }
+inline BOOL DeleteFileW(LPCWSTR) { return FALSE; }
+inline BOOL MoveFileW(LPCWSTR, LPCWSTR) { return FALSE; }
+inline BOOL CreateDirectoryW(LPCWSTR, LPSECURITY_ATTRIBUTES) { return FALSE; }
+inline BOOL RemoveDirectoryW(LPCWSTR) { return FALSE; }
+inline DWORD GetFullPathNameW(LPCWSTR f, DWORD n, LPWSTR b, LPWSTR*) {
+  if (!f || !b) return 0;
+  size_t len = wcslen(f);
+  if (len >= n) return 0;
+  wcscpy(b, f);
+  return (DWORD)len;
+}
+inline BOOL SetCurrentDirectoryW(LPCWSTR) { return FALSE; }
+inline UINT GetTempFileNameW(LPCWSTR, LPCWSTR, UINT, LPWSTR) { return 0; }
+inline BOOL GetDiskFreeSpaceW(LPCWSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD) { return FALSE; }
 inline DWORD GetTempPathA(DWORD n, LPSTR buf) {
   const char *tmp = "/tmp";
   if (strlen(tmp) < n) { strcpy(buf, tmp); return (DWORD)strlen(buf); }
@@ -1288,7 +1357,9 @@ inline DWORD GetTempPathA(DWORD n, LPSTR buf) {
 
 // Module/DLL stubs
 inline HMODULE GetModuleHandleA(LPCSTR) { return 0; }
+inline HMODULE GetModuleHandleW(LPCWSTR) { return 0; }
 inline HMODULE LoadLibraryA(LPCSTR) { return 0; }
+inline HMODULE LoadLibraryW(LPCWSTR) { return 0; }
 inline BOOL FreeLibrary(HMODULE) { return FALSE; }
 inline FARPROC GetProcAddress(HMODULE, LPCSTR) { return 0; }
 inline DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD n) { if (buf && n) *buf = 0; return 0; }
@@ -1410,6 +1481,7 @@ inline BOOL GetFileTime(HANDLE, FILETIME*, FILETIME*, FILETIME*) { return FALSE;
 inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) { return (DWORD)-1; }
 inline BOOL SetEndOfFile(HANDLE) { return FALSE; }
 inline DWORD GetDriveTypeA(LPCSTR) { return 0; }
+inline DWORD GetDriveTypeW(LPCWSTR) { return 0; }
 inline BOOL CopyFileA(LPCSTR, LPCSTR, BOOL) { return FALSE; }
 
 // BY_HANDLE_FILE_INFORMATION
@@ -1687,6 +1759,10 @@ inline int _fpclass(double x) {
 #define FORMAT_MESSAGE_ARGUMENT_ARRAY 0x00002000
 #define FORMAT_MESSAGE_MAX_WIDTH_MASK 0x000000FF
 inline DWORD FormatMessageA(DWORD, LPCVOID, DWORD, DWORD, LPSTR buf, DWORD n, ...) {
+  if (buf && n) *buf = 0;
+  return 0;
+}
+inline DWORD FormatMessageW(DWORD, LPCVOID, DWORD, DWORD, LPWSTR buf, DWORD n, ...) {
   if (buf && n) *buf = 0;
   return 0;
 }

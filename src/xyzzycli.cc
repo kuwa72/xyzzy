@@ -32,9 +32,9 @@ ForceSetForegroundWindow (HWND hwnd)
 static int
 error (int id)
 {
-  char buf[256];
-  LoadStringA (GetModuleHandleA (0), id, buf, sizeof buf);
-  MessageBoxA (0, buf, 0, MB_SYSTEMMODAL	| MB_ICONHAND);
+  wchar_t buf[256];
+  LoadStringW (GetModuleHandleW (0), id, buf, sizeof buf / sizeof buf[0]);
+  MessageBoxW (0, buf, 0, MB_SYSTEMMODAL	| MB_ICONHAND);
   return 2;
 }
 
@@ -106,8 +106,10 @@ public:
 static int
 create_sexp (xyzzysrv &sv, int ac, char **av)
 {
+  wchar_t wcurdir[MAX_PATH + 1];
+  GetCurrentDirectoryW (MAX_PATH + 1, wcurdir);
   char curdir[MAX_PATH + 1];
-  GetCurrentDirectoryA (sizeof curdir, curdir);
+  WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
   int l = 256 + lstrlenA (curdir) * 2;
   for (int i = 0; i < ac; i++)
     l += lstrlenA (av[i]) * 2 + 3;

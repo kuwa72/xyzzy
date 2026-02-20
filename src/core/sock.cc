@@ -40,7 +40,7 @@ get_wsock_fn (HINSTANCE h, const char *name, FARPROC dummy)
 static void
 init_winsock_functions ()
 {
-  HINSTANCE h = LoadLibraryA ("WSOCK32.DLL");
+  HINSTANCE h = LoadLibraryW (L"WSOCK32.DLL");
 #define WSOCKDEF(TYPE, NAME, ARGS, RESULT) \
   WINSOCK::NAME = \
     (TYPE (WINAPI *) ARGS)get_wsock_fn (h, TOSTR (NAME), \

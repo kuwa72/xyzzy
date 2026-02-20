@@ -11,13 +11,13 @@
 #include "version.h"
 
 #ifdef _WIN32
-typedef int (WINAPI *SHFILEOPERATION)(SHFILEOPSTRUCTA *);
+typedef int (WINAPI *SHFILEOPERATION)(SHFILEOPSTRUCTW *);
 
 static SHFILEOPERATION
 get_shfileoperation_proc ()
 {
-  SHFILEOPERATION f = (SHFILEOPERATION)GetProcAddress (GetModuleHandleA ("shell32"),
-                                                       "SHFileOperationA");
+  SHFILEOPERATION f = (SHFILEOPERATION)GetProcAddress (GetModuleHandleW (L"shell32"),
+                                                       "SHFileOperationW");
   if (!f)
     FEsimple_error (ESHFileOperation_not_supported);
 
@@ -139,8 +139,10 @@ set_device_dir (const char *path, int f)
     return 0;
   if (f || xsymbol_value (Vauto_update_per_device_directory) != Qnil)
     {
+      wchar_t wcurdir[PATH_MAX];
       char curdir[PATH_MAX];
-      if (GetCurrentDirectoryA (sizeof curdir, curdir)
+      if (GetCurrentDirectoryW (numberof (wcurdir), wcurdir)
+          && WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0)
           && alpha_char_p (*curdir & 255) && curdir[1] == ':')
         strcpy (devdirs[_char_downcase (*curdir) - 'a'], curdir + 2);
     }
@@ -999,8 +1001,12 @@ Fchdir (lisp dirname)
   pathname2cstr (dir, path);
   if (!WINFS::SetCurrentDirectory (path))
     file_error (GetLastError (), dir);
-  if (!GetCurrentDirectoryA (sizeof path, path))
-    file_error (GetLastError (), dir);
+  {
+    wchar_t wpath[PATH_MAX];
+    if (!GetCurrentDirectoryW (numberof (wpath), wpath))
+      file_error (GetLastError (), dir);
+    WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
+  }
 
   if (strcmp (sysdep.curdir, path) == 0)
     return Qnil;
@@ -1173,9 +1179,13 @@ Fdelete_file (lisp name, lisp keys)
       map_sl_to_backsl (buf);
       buf[strlen (buf) + 1] = 0;
 
-      SHFILEOPSTRUCTA fs = {0};
+      wchar_t wbuf[PATH_MAX + 2];
+      MultiByteToWideChar (932, 0, buf, -1, wbuf, PATH_MAX);
+      wbuf[wcslen (wbuf) + 1] = 0;
+
+      SHFILEOPSTRUCTW fs = {0};
       fs.wFunc = FO_DELETE;
-      fs.pFrom = buf;
+      fs.pFrom = wbuf;
 #ifndef FOF_NOERRORUI
 #define FOF_NOERRORUI 0x0400
 #endif
@@ -1231,7 +1241,7 @@ rename_short_name (const char *fpath, const char *tname, const char *longname)
   memcpy (realpath, fpath, l);
   strcpy (realpath + l, longname);
 
-  if (!GetTempFileNameA (temppath, "xyz", 0, tempname))
+  if (!WINFS::GetTempFileName (temppath, "xyz", 0, tempname))
     return;
   if (!WINFS::DeleteFile (tempname)
       || !WINFS::MoveFile (realpath, tempname))
@@ -1931,7 +1941,7 @@ Fformat_drive (lisp ldrive, lisp lquick)
         FErange_error (ldrive);
     }
 
-  HMODULE shell = GetModuleHandleA ("shell32.dll");
+  HMODULE shell = GetModuleHandleW (L"shell32.dll");
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
@@ -1984,20 +1994,23 @@ Ffile_property (lisp lpath)
   pathname2cstr (lpath, path);
   map_sl_to_backsl (path);
 
-  HMODULE shell = GetModuleHandleA ("shell32.dll");
+  HMODULE shell = GetModuleHandleW (L"shell32.dll");
   if (!shell)
     FEsimple_win32_error (GetLastError ());
 
-  int (WINAPI *ex)(SHELLEXECUTEINFOA *) =
-    (int (WINAPI *)(SHELLEXECUTEINFOA *))GetProcAddress (shell, "ShellExecuteExA");
+  int (WINAPI *ex)(SHELLEXECUTEINFOW *) =
+    (int (WINAPI *)(SHELLEXECUTEINFOW *))GetProcAddress (shell, "ShellExecuteExW");
   if (!ex)
     FEsimple_win32_error (GetLastError ());
 
-  SHELLEXECUTEINFOA sei;
+  wchar_t wpath[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
+
+  SHELLEXECUTEINFOW sei;
   bzero (&sei, sizeof sei);
   sei.cbSize = sizeof sei;
-  sei.lpFile = path;
-  sei.lpVerb = "properties";
+  sei.lpFile = wpath;
+  sei.lpVerb = L"properties";
   sei.fMask = SEE_MASK_INVOKEIDLIST;
   if (!(*ex)(&sei))
     FEsimple_win32_error (GetLastError ());
@@ -2041,10 +2054,10 @@ eject_media_winnt (int drive, int type)
       break;
     }
 
-  char dev[] = "\\\\.\\x:";
-  dev[4] = char (drive);
+  wchar_t dev[] = L"\\\\.\\x:";
+  dev[4] = wchar_t (drive);
 
-  dyn_handle h (CreateFileA (dev, flags, FILE_SHARE_READ | FILE_SHARE_WRITE,
+  dyn_handle h (CreateFileW (dev, flags, FILE_SHARE_READ | FILE_SHARE_WRITE,
                              0, OPEN_EXISTING, 0, 0));
   if (!h.valid ())
     file_error (GetLastError ());
@@ -2173,7 +2186,7 @@ win9x_eject_media (HANDLE hvwin32, int drive)
 static lisp
 eject_media_win9x (int drive)
 {
-  dyn_handle hvwin32 (CreateFileA ("\\\\.\\vwin32", 0, 0, 0, 0,
+  dyn_handle hvwin32 (CreateFileW (L"\\\\.\\vwin32", 0, 0, 0, 0,
                                    FILE_FLAG_DELETE_ON_CLOSE, 0));
   if (!hvwin32.valid ())
     file_error (GetLastError ());
@@ -2203,9 +2216,9 @@ Feject_media (lisp ldrive)
   if (!alpha_char_p (xchar_code (ldrive)))
     file_error (ERROR_INVALID_DRIVE);
 
-  char root[] = "x:\\";
-  root[0] = char (xchar_code (ldrive));
-  int type = GetDriveTypeA (root);
+  wchar_t wroot[] = L"x:\\";
+  wroot[0] = wchar_t (xchar_code (ldrive));
+  int type = GetDriveTypeW (wroot);
   switch (type)
     {
     default:
@@ -2597,6 +2610,20 @@ file_operation_files (char *buf, lisp files)
     }
 }
 
+static wchar_t *
+file_list_to_wcs (const char *src, wchar_t *dst, int dstmax)
+{
+  wchar_t *p = dst;
+  while (*src)
+    {
+      int n = MultiByteToWideChar (932, 0, src, -1, p, dstmax - int (p - dst));
+      p += n;
+      src += strlen (src) + 1;
+    }
+  *p = 0;
+  return dst;
+}
+
 lisp
 Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
 {
@@ -2608,22 +2635,26 @@ Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
   int from_len = count_file_operation_files (from_names);
   char *fromf = (char *)alloca ((PATH_MAX + 10) * from_len);
   file_operation_files (fromf, from_names);
+  wchar_t *wfromf = (wchar_t *)alloca ((PATH_MAX + 10) * from_len * sizeof (wchar_t));
+  file_list_to_wcs (fromf, wfromf, (PATH_MAX + 10) * from_len);
 
-  char *tof = nullptr;
+  wchar_t *wtof = nullptr;
   if (operation != Kdelete)
     {
       int to_len = count_file_operation_files (to_names);
-      tof = (char *)alloca ((PATH_MAX + 10) * to_len);
+      char *tof = (char *)alloca ((PATH_MAX + 10) * to_len);
       file_operation_files (tof, to_names);
+      wtof = (wchar_t *)alloca ((PATH_MAX + 10) * to_len * sizeof (wchar_t));
+      file_list_to_wcs (tof, wtof, (PATH_MAX + 10) * to_len);
       if (to_len > 1)
         flags |= FOF_MULTIDESTFILES;
     }
 
-  SHFILEOPSTRUCTA fs = {0};
+  SHFILEOPSTRUCTW fs = {0};
   fs.wFunc = func;
   fs.fFlags = flags;
-  fs.pFrom = fromf;
-  fs.pTo = tof;
+  fs.pFrom = wfromf;
+  fs.pTo = wtof;
 
   int e = (*f)(&fs);
   if (e)

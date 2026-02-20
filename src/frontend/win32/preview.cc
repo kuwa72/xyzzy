@@ -762,9 +762,9 @@ preview_dialog::set_scale_combo ()
         SendDlgItemMessage (p_hwnd, IDC_SCALE, CB_SETCURSEL, i, 0);
         return;
       }
-  char b[64];
-  sprintf (b, "%d%%", p_page.get_scale ());
-  SetDlgItemTextA (p_hwnd, IDC_SCALE, b);
+  wchar_t b[64];
+  wsprintfW (b, L"%d%%", p_page.get_scale ());
+  SetDlgItemTextW (p_hwnd, IDC_SCALE, b);
 }
 
 int
@@ -867,12 +867,14 @@ preview_dialog::scale_command (int code)
 
     case CBN_KILLFOCUS:
       {
-        char buf[128];
-        GetDlgItemTextA (p_hwnd, IDC_SCALE, buf, sizeof buf);
-        int i = SendDlgItemMessageA (p_hwnd, IDC_SCALE, CB_FINDSTRINGEXACT,
-                                     WPARAM (-1), LPARAM (buf));
+        wchar_t wbuf[128];
+        GetDlgItemTextW (p_hwnd, IDC_SCALE, wbuf, numberof (wbuf));
+        int i = SendDlgItemMessageW (p_hwnd, IDC_SCALE, CB_FINDSTRINGEXACT,
+                                     WPARAM (-1), LPARAM (wbuf));
         if (i != CB_ERR)
           return 1;
+        char buf[128];
+        WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
         char *b;
         for (b = buf; *b == ' '; b++)
           ;
