@@ -27,4 +27,13 @@ public:
   void clipboard_update (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 };
 
+struct CLIPBOARDTEXT
+{
+  UINT fmt;
+  HGLOBAL hgl;
+};
+
+int make_clipboard_text (CLIPBOARDTEXT &, lisp, int);
+int make_string_from_clipboard_text (lisp, const void *, UINT, int);
+
 #endif

@@ -143,16 +143,6 @@ void update_buffer_bar ();
 /* init.cc */
 void report_out_of_memory ();
 
-/* insdel.cc */
-struct CLIPBOARDTEXT
-{
-  UINT fmt;
-  HGLOBAL hgl;
-};
-
-int make_clipboard_text (CLIPBOARDTEXT &, lisp, int);
-int make_string_from_clipboard_text (lisp, const void *, UINT, int);
-
 /* popup.cc */
 void erase_popup (int, int);
 

@@ -894,4 +894,30 @@ lisp Fget_short_path_name (lisp lpath)
 {
   return lpath;
 }
+
+lisp Fcopy_to_clipboard (lisp)
+{
+  return Qnil;
+}
+
+lisp Fget_clipboard_data ()
+{
+  return Qnil;
+}
+
+lisp Fclipboard_empty_p ()
+{
+  return Qt;
+}
+
+int make_clipboard_text (CLIPBOARDTEXT &, lisp, int)
+{
+  return 0;
+}
+
+int make_string_from_clipboard_text (lisp, const void *, UINT, int)
+{
+  return 0;
+}
+
 #endif // !_WIN32
