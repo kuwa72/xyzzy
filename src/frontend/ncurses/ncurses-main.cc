@@ -460,7 +460,12 @@ init_symbol_value ()
 static void
 init_env_symbols ()
 {
-  xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
+  // Add :ncurses to *features* for #-ncurses / #+ncurses reader conditionals
+  lisp Kncurses = Fintern (make_string ("ncurses"),
+                            xsymbol_value (Vkeyword_package));
+  xsymbol_value (Vfeatures) = xcons (Kncurses,
+                                xcons (Kxyzzy,
+                                  xcons (Kieee_floating_point, Qnil)));
   xsymbol_value (Qdump_image_path) = Qnil;
   init_module_dir ();
   init_current_dir ();
