@@ -1,5 +1,6 @@
 #define LUCIDA_BASE_HEIGHT 128
 #define LUCIDA_FACE_NAME "Lucida Sans Unicode"
+#define LUCIDA_FACE_NAME_W L"Lucida Sans Unicode"
 
 #define LUCIDA_SPACING 6
 struct lucida_spacing {char a; u_char b;};

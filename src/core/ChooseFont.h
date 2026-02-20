@@ -19,8 +19,8 @@ protected:
       HWND hwnd;
     };
 
-  static int CALLBACK enum_font_name_proc (ENUMLOGFONTA *, NEWTEXTMETRIC *, int, LPARAM);
-  static int CALLBACK enum_font_size_proc (ENUMLOGFONTA *, NEWTEXTMETRIC *, int, LPARAM);
+  static int CALLBACK enum_font_name_proc (ENUMLOGFONTW *, NEWTEXTMETRIC *, int, LPARAM);
+  static int CALLBACK enum_font_size_proc (ENUMLOGFONTW *, NEWTEXTMETRIC *, int, LPARAM);
   void add_lang (HWND);
   void add_font_name (HWND, HDC);
   void add_font_size (HWND, int);

@@ -52,6 +52,21 @@ wcs_to_cp932 (const wchar_t *w, int wlen, char *a, int alen)
   (_convert = (int)(wcslen (w) + 1) * 2,\
    _wide_to_cp932 ((char *)alloca (_convert), (w), _convert))
 
+// LOGFONTA <-> LOGFONTW conversion (non-string fields are binary compatible)
+static inline void
+logfont_a_to_w (const LOGFONTA &lfa, LOGFONTW &lfw)
+{
+  memcpy (&lfw, &lfa, offsetof (LOGFONTA, lfFaceName));
+  cp932_to_wcs (lfa.lfFaceName, -1, lfw.lfFaceName, LF_FACESIZE);
+}
+
+static inline void
+logfont_w_to_a (const LOGFONTW &lfw, LOGFONTA &lfa)
+{
+  memcpy (&lfa, &lfw, offsetof (LOGFONTA, lfFaceName));
+  wcs_to_cp932 (lfw.lfFaceName, -1, lfa.lfFaceName, LF_FACESIZE);
+}
+
 // RAII wide string from CP932 (heap allocated, for longer strings)
 class WideStr
 {

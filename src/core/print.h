@@ -115,7 +115,7 @@ public:
   LONG ps_line_spacing_pxl;
 
 private:
-  static int CALLBACK check_valid_font (const ENUMLOGFONTA *, const NEWTEXTMETRICA *,
+  static int CALLBACK check_valid_font (const ENUMLOGFONTW *, const NEWTEXTMETRICW *,
                                         DWORD, LPARAM);
 
 public:

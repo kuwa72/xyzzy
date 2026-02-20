@@ -16,7 +16,7 @@
 GlobalIME::GlobalIME ()
      : gi_app (0), gi_pump (0)
 {
-  ImmGetPropertyProc = (IMMGETPROPERTYPROC)GetProcAddress (GetModuleHandleA ("imm32.dll"),
+  ImmGetPropertyProc = (IMMGETPROPERTYPROC)GetProcAddress (GetModuleHandleW (L"imm32.dll"),
                                                            "ImmGetProperty");
 }
 
@@ -135,11 +135,13 @@ GlobalIME::ImmSetCompositionWindow (HIMC himc, COMPOSITIONFORM *cf)
 BOOL
 GlobalIME::ImmSetCompositionFont (HIMC himc, LOGFONTA *lf)
 {
+  LOGFONTW lfw;
+  logfont_a_to_w (*lf, lfw);
 #ifdef HAVE_DIMM_H
   if (gi_app)
-    return gi_app->SetCompositionFontA (himc, lf) == S_OK;
+    return gi_app->SetCompositionFontW (himc, &lfw) == S_OK;
 #endif /* HAVE_DIMM_H */
-  return ::ImmSetCompositionFontA (himc, lf);
+  return ::ImmSetCompositionFontW (himc, &lfw);
 }
 
 LONG

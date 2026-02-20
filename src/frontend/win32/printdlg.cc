@@ -189,10 +189,10 @@ print_dialog::add_lang () const
 {
   for (int i = 0; i < FONT_MAX; i++)
     {
-      char buf[128];
+      wchar_t buf[128];
       *buf = 0;
-      LoadStringA (app.hinst, FontSet::lang_id (i), buf, sizeof buf);
-      int idx = SendDlgItemMessageA (m_hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
+      LoadStringW (app.hinst, FontSet::lang_id (i), buf, numberof (buf));
+      int idx = SendDlgItemMessageW (m_hwnd, IDC_LANG, CB_ADDSTRING, 0, LPARAM (buf));
       SendDlgItemMessage (m_hwnd, IDC_LANG, CB_SETITEMDATA, idx, i);
     }
   SendDlgItemMessage (m_hwnd, IDC_LANG, CB_SETCURSEL, FONT_ASCII, 0);
@@ -580,18 +580,18 @@ print_dialog::current_lang () const
 void
 print_dialog::set_font_face (int lang) const
 {
-  char buf[LF_FACESIZE + 32];
-  char point[32];
+  wchar_t wface[LF_FACESIZE];
+  cp932_to_wcs (m_settings.ps_font[lang].face, -1, wface, LF_FACESIZE);
+  wchar_t point[32];
   if (m_settings.ps_font[lang].point % 10)
-    sprintf (point, "%d.%d",
+    wsprintfW (point, L"%d.%d",
              m_settings.ps_font[lang].point / 10,
              m_settings.ps_font[lang].point % 10);
   else
-    sprintf (point, "%d", m_settings.ps_font[lang].point / 10);
-  sprintf (buf, "%s, %s",
-           m_settings.ps_font[lang].face,
-           point);
-  SetDlgItemTextA (m_hwnd, IDC_FACE, buf);
+    wsprintfW (point, L"%d", m_settings.ps_font[lang].point / 10);
+  wchar_t buf[LF_FACESIZE + 32];
+  wsprintfW (buf, L"%s, %s", wface, point);
+  SetDlgItemTextW (m_hwnd, IDC_FACE, buf);
 }
 
 int
@@ -652,23 +652,23 @@ print_dialog::set_font ()
 
   update_font_size ();
 
-  LOGFONTA lf;
-  bzero (&lf, sizeof lf);
-  strcpy (lf.lfFaceName, m_settings.ps_font[lang].face);
+  LOGFONTW lfw;
+  bzero (&lfw, sizeof lfw);
+  cp932_to_wcs (m_settings.ps_font[lang].face, -1, lfw.lfFaceName, LF_FACESIZE);
   HDC hdc = GetDC (m_hwnd);
-  lf.lfHeight = MulDiv (m_settings.ps_font[lang].point, GetDeviceCaps (hdc, LOGPIXELSY), 720);
+  lfw.lfHeight = MulDiv (m_settings.ps_font[lang].point, GetDeviceCaps (hdc, LOGPIXELSY), 720);
   ReleaseDC (m_hwnd, hdc);
-  lf.lfCharSet = m_settings.ps_font[lang].charset;
-  lf.lfItalic = m_settings.ps_font[lang].italic;
+  lfw.lfCharSet = m_settings.ps_font[lang].charset;
+  lfw.lfItalic = m_settings.ps_font[lang].italic;
   if (m_settings.ps_font[lang].bold)
-    lf.lfWeight = 700;
+    lfw.lfWeight = 700;
 
-  CHOOSEFONTA cf;
+  CHOOSEFONTW cf;
   bzero (&cf, sizeof cf);
   cf.lStructSize = sizeof cf;
   cf.hwndOwner = m_hwnd;
   cf.hDC = m_dev;
-  cf.lpLogFont = &lf;
+  cf.lpLogFont = &lfw;
   cf.Flags = (CF_FORCEFONTEXIST
               | CF_INITTOLOGFONTSTRUCT | CF_LIMITSIZE
               | CF_NOSIMULATIONS | CF_NOVECTORFONTS
@@ -678,13 +678,13 @@ print_dialog::set_font ()
 
   cf.nSizeMin = 5;
   cf.nSizeMax = 72;
-  if (ChooseFontA (&cf))
+  if (ChooseFontW (&cf))
     {
-      strcpy (m_settings.ps_font[lang].face, lf.lfFaceName);
-      m_settings.ps_font[lang].charset = lf.lfCharSet;
+      wcs_to_cp932 (lfw.lfFaceName, -1, m_settings.ps_font[lang].face, LF_FACESIZE);
+      m_settings.ps_font[lang].charset = lfw.lfCharSet;
       m_settings.ps_font[lang].point = cf.iPointSize;
-      m_settings.ps_font[lang].italic = lf.lfItalic;
-      m_settings.ps_font[lang].bold = lf.lfWeight >= 700;
+      m_settings.ps_font[lang].italic = lfw.lfItalic;
+      m_settings.ps_font[lang].bold = lfw.lfWeight >= 700;
       update_font_size ();
       set_font_face (lang);
       check_proportional_font ();

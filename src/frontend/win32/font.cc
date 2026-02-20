@@ -70,15 +70,16 @@ int
 FontObject::create (const LOGFONTA &lf)
 {
   LOGFONTW lfw;
-  memcpy (&lfw, &lf, offsetof (LOGFONTA, lfFaceName));
-  MultiByteToWideChar (932, 0, lf.lfFaceName, -1, lfw.lfFaceName, LF_FACESIZE);
+  logfont_a_to_w (lf, lfw);
   HFONT h = CreateFontIndirectW (&lfw);
   if (!h)
     return 0;
   if (fo_hfont)
     DeleteObject (fo_hfont);
   fo_hfont = h;
-  GetObjectA (h, sizeof fo_logfont, &fo_logfont);
+  LOGFONTW lfw2;
+  GetObjectW (h, sizeof lfw2, &lfw2);
+  logfont_w_to_a (lfw2, fo_logfont);
   return 1;
 }
 
@@ -423,16 +424,18 @@ FontSet::save_params (const FontSetParam &param)
 }
 
 static int CALLBACK
-fix_charset_proc (ENUMLOGFONTA *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
+fix_charset_proc (ENUMLOGFONTW *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 {
   HDC hdc = GetDC (0);
   FontSetParam &param = *(FontSetParam *)lparam;
-  if (*elf->elfLogFont.lfFaceName != '@')
+  if (*elf->elfLogFont.lfFaceName != L'@')
     for (int i = 0; i < FONT_MAX; i++)
       {
         if (font_exist_p (hdc, param.fs_logfont[i].lfFaceName, param.fs_logfont[i].lfCharSet))
           continue;
-        if (!strcmp (elf->elfLogFont.lfFaceName, param.fs_logfont[i].lfFaceName))
+        wchar_t wface[LF_FACESIZE];
+        cp932_to_wcs (param.fs_logfont[i].lfFaceName, -1, wface, LF_FACESIZE);
+        if (!wcscmp (elf->elfLogFont.lfFaceName, wface))
           param.fs_logfont[i].lfCharSet = elf->elfLogFont.lfCharSet;
       }
   ReleaseDC (0, hdc);
@@ -463,9 +466,9 @@ FontSet::load_params (FontSetParam &param)
           strcpy (param.fs_logfont[i].lfFaceName, default_face (i, 0));
           if (!i)
             {
-              LOGFONTA lf;
-              GetObjectA (GetStockObject (SYSTEM_FIXED_FONT), sizeof lf, &lf);
-              param.fs_logfont[0].lfHeight = lf.lfHeight;
+              LOGFONTW lfw;
+              GetObjectW (GetStockObject (SYSTEM_FIXED_FONT), sizeof lfw, &lfw);
+              param.fs_logfont[0].lfHeight = lfw.lfHeight;
             }
           else
             param.fs_logfont[i].lfHeight = param.fs_logfont[0].lfHeight;
@@ -475,7 +478,7 @@ FontSet::load_params (FontSetParam &param)
     }
 
   HDC hdc = GetDC (0);
-  EnumFontFamiliesExA (hdc, (LPLOGFONTA)0, FONTENUMPROCA (fix_charset_proc), LPARAM (&param), 0);
+  EnumFontFamiliesExW (hdc, (LPLOGFONTW)0, FONTENUMPROCW (fix_charset_proc), LPARAM (&param), 0);
   ReleaseDC (0, hdc);
 }
 
@@ -573,7 +576,7 @@ get_font_height (HWND hwnd)
 }
 
 static int CALLBACK
-check_valid_font (const ENUMLOGFONTA *, const NEWTEXTMETRIC *,
+check_valid_font (const ENUMLOGFONTW *, const NEWTEXTMETRIC *,
                   DWORD, LPARAM lparam)
 {
   *(bool *)lparam = true;
@@ -588,7 +591,7 @@ font_exist_p (const HDC hdc, const char *face, BYTE charset)
   LOGFONTW font;
   memset (&font, 0, sizeof (LOGFONTW));
   font.lfCharSet = charset;
-  MultiByteToWideChar (932, 0, face, -1, font.lfFaceName, LF_FACESIZE);
+  cp932_to_wcs (face, -1, font.lfFaceName, LF_FACESIZE);
 
   EnumFontFamiliesExW (hdc, &font,
                        FONTENUMPROCW (check_valid_font),

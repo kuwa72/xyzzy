@@ -136,7 +136,7 @@ print_settings::calc_pxl (const printer_device &dev)
 }
 
 int CALLBACK
-print_settings::check_valid_font (const ENUMLOGFONTA *, const NEWTEXTMETRICA *,
+print_settings::check_valid_font (const ENUMLOGFONTW *, const NEWTEXTMETRICW *,
                                   DWORD, LPARAM lparam)
 {
   *(int *)lparam = 1;
@@ -149,23 +149,25 @@ print_settings::make_font (HDC hdc, int charset, int height) const
   if (charset != FONT_ASCII)
     {
       int exists = 0;
-      EnumFontFamiliesA (hdc, ps_font[charset].face,
-                         FONTENUMPROCA (check_valid_font),
+      wchar_t wface[LF_FACESIZE];
+      cp932_to_wcs (ps_font[charset].face, -1, wface, LF_FACESIZE);
+      EnumFontFamiliesW (hdc, wface,
+                         FONTENUMPROCW (check_valid_font),
                          LPARAM (&exists));
       if (!exists)
         charset = FONT_ASCII;
     }
 
-  LOGFONTA lf;
-  bzero (&lf, sizeof lf);
-  strcpy (lf.lfFaceName, ps_font[charset].face);
-  lf.lfHeight = height;
-  lf.lfCharSet = ps_font[charset].charset;
-  lf.lfItalic = ps_font[charset].italic;
+  LOGFONTW lfw;
+  bzero (&lfw, sizeof lfw);
+  cp932_to_wcs (ps_font[charset].face, -1, lfw.lfFaceName, LF_FACESIZE);
+  lfw.lfHeight = height;
+  lfw.lfCharSet = ps_font[charset].charset;
+  lfw.lfItalic = ps_font[charset].italic;
   if (ps_font[charset].bold)
-    lf.lfWeight = 700;
+    lfw.lfWeight = 700;
 
-  return CreateFontIndirectA (&lf);
+  return CreateFontIndirectW (&lfw);
 }
 
 printer_device::printer_device ()
@@ -928,9 +930,9 @@ print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
   ucs2_t wc = i2w (cc);
   if (wc != ucs2_t (-1))
     {
-      static LOGFONTA lf = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME};
-      lf.lfHeight = pe_cell.cy;
-      HGDIOBJ of = SelectObject (ctx.hdc, CreateFontIndirectA (&lf));
+      static LOGFONTW lfw = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME_W};
+      lfw.lfHeight = pe_cell.cy;
+      HGDIOBJ of = SelectObject (ctx.hdc, CreateFontIndirectW (&lfw));
       int o;
       if (pe_fixed_pitch)
         o = (LUCIDA_OFFSET (wc - UNICODE_SMLCDM_MIN)
@@ -1925,8 +1927,10 @@ print_engine::bad_range (HWND hwnd)
 int
 print_engine::notice (HWND hwnd, UINT id, UINT ids)
 {
-  char b[256];
-  LoadStringA (app.hinst, ids, b, sizeof b);
+  wchar_t wb[256];
+  LoadStringW (app.hinst, ids, wb, numberof (wb));
+  char b[512];
+  wcs_to_cp932 (wb, -1, b, sizeof b);
   MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))
@@ -1937,9 +1941,11 @@ print_engine::notice (HWND hwnd, UINT id, UINT ids)
 int
 print_engine::notice (HWND hwnd, UINT id, UINT ids, int arg)
 {
-  char fmt[256], b[512];
-  LoadStringA (app.hinst, ids, fmt, sizeof fmt);
-  wsprintfA (b, fmt, arg);
+  wchar_t wfmt[256], wb[512];
+  LoadStringW (app.hinst, ids, wfmt, numberof (wfmt));
+  wsprintfW (wb, wfmt, arg);
+  char b[1024];
+  wcs_to_cp932 (wb, -1, b, sizeof b);
   MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))

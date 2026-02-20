@@ -46,11 +46,11 @@ Sysdep::Sysdep ()
   hfont_ui90 = 0;
   hfont_ui270 = 0;
 
-  LOGFONTA lf;
+  LOGFONTW lf;
   memset (&lf, 0, sizeof lf);
   lf.lfHeight = 12;
-  strcpy (lf.lfFaceName, "Arial");
-  hfont_ruler = CreateFontIndirectA (&lf);
+  wcscpy (lf.lfFaceName, L"Arial");
+  hfont_ruler = CreateFontIndirectW (&lf);
   HDC hdc = GetDC (0);
   HGDIOBJ of = SelectObject (hdc, hfont_ruler);
   GetTextExtentPoint32W (hdc, L"0", 1, &ruler_ext);
@@ -189,13 +189,13 @@ Sysdep::init_process_type ()
 HFONT
 Sysdep::create_ui_font (int e)
 {
-  LOGFONTA lf;
+  LOGFONTW lf;
   bzero (&lf, sizeof lf);
   lf.lfHeight = 12;
   lf.lfCharSet = SHIFTJIS_CHARSET;
   lf.lfEscapement = e;
-  strcpy (lf.lfFaceName, "MS UI Gothic");
-  return CreateFontIndirectA (&lf);
+  wcscpy (lf.lfFaceName, L"MS UI Gothic");
+  return CreateFontIndirectW (&lf);
 }
 
 HFONT

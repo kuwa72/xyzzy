@@ -447,9 +447,9 @@ static inline void
 paint_chars_lucida (HDC hdc, int x, int y, int flags, const RECT &r,
                     const char *string, int len, const INT *padding, int c)
 {
-  static LOGFONTA lf = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME};
-  lf.lfHeight = app.text_font.font (FONT_ASCII).size ().cy;
-  HGDIOBJ of = SelectObject (hdc, CreateFontIndirectA (&lf));
+  static LOGFONTW lfw = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME_W};
+  lfw.lfHeight = app.text_font.font (FONT_ASCII).size ().cy;
+  HGDIOBJ of = SelectObject (hdc, CreateFontIndirectW (&lfw));
   paint_chars_ctx ctx (x, y, r, 1);
   for (const u_char *s = (const u_char *)string, *const se = s + len; s < se; s++)
     ctx.paint_lucida (hdc, i2w (c + *s), flags);

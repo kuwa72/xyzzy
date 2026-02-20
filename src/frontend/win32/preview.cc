@@ -791,10 +791,10 @@ preview_dialog::init_dialog (HWND)
 
   for (int i = 0; i < numberof (preview_page_window::ids2scales); i++)
     {
-      char b[128];
-      LoadStringA (app.hinst, preview_page_window::ids2scales[i].ids,
-                   b, sizeof b);
-      UINT idx = SendDlgItemMessageA (p_hwnd, IDC_SCALE, CB_ADDSTRING, 0, LPARAM (b));
+      wchar_t b[128];
+      LoadStringW (app.hinst, preview_page_window::ids2scales[i].ids,
+                   b, numberof (b));
+      UINT idx = SendDlgItemMessageW (p_hwnd, IDC_SCALE, CB_ADDSTRING, 0, LPARAM (b));
       SendDlgItemMessage (p_hwnd, IDC_SCALE, CB_SETITEMDATA,
                           idx, preview_page_window::ids2scales[i].scale);
     }

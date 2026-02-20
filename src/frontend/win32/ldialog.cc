@@ -1351,7 +1351,7 @@ PropSheetFont::load ()
   if (!face_len)
     {
       face_len = -1;
-      HINSTANCE hinst = GetModuleHandleA ("COMCTL32.DLL");
+      HINSTANCE hinst = GetModuleHandleW (L"COMCTL32.DLL");
       if (hinst)
         {
           const DLGTEMPLATE *tmpl = (DLGTEMPLATE *)
@@ -1409,13 +1409,13 @@ PropSheetFont::change_font (const DLGTEMPLATE *rtmpl, DWORD size)
 }
 
 HGLOBAL
-PropSheetFont::change_font (const char *id)
+PropSheetFont::change_font (const wchar_t *id)
 {
   if (!PropSheetFont::load ())
     return 0;
 
   HGLOBAL result = 0;
-  HRSRC hrsrc = FindResourceA (app.hinst, id, MAKEINTRESOURCEA(5));
+  HRSRC hrsrc = FindResourceW (app.hinst, id, MAKEINTRESOURCEW(5));
   const DLGTEMPLATE *tmpl = (DLGTEMPLATE *)LoadResource (app.hinst, hrsrc);
   if (tmpl)
     {

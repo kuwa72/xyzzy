@@ -4,6 +4,7 @@
 #include "ColorDialog.h"
 #include "conf.h"
 #include "font.h"
+#include "wconv.h"
 
 static void
 paint_color_list (DRAWITEMSTRUCT *dis, const wchar_t *string, COLORREF color)
@@ -390,7 +391,7 @@ ChangeColorsPageP::init_page (UINT idd, PropSheet *sheet, int page_no,
 {
   ccp_page_no = page_no;
   ccp_parent = sheet;
-  ccp_hg = PropSheetFont::change_font (MAKEINTRESOURCEA (idd));
+  ccp_hg = PropSheetFont::change_font (MAKEINTRESOURCEW (idd));
 
   psp->dwSize = sizeof *psp;
   psp->dwFlags = ccp_hg ? PSP_DLGINDIRECT : 0;
@@ -672,8 +673,11 @@ ChooseFontPage::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGEW *psp)
   ChangeColorsPageP::init_page (IDD_FONT, sheet, page_no, psp);
 
   for (int i = 0; i < FONT_MAX; i++)
-    GetObject (app.text_font.font (i), sizeof cfp_param.fs_logfont[i],
-               &cfp_param.fs_logfont[i]);
+    {
+      LOGFONTW lfw;
+      GetObjectW (app.text_font.font (i), sizeof lfw, &lfw);
+      logfont_w_to_a (lfw, cfp_param.fs_logfont[i]);
+    }
   cfp_param.fs_line_spacing = app.text_font.line_spacing ();
   cfp_param.fs_use_backsl = app.text_font.use_backsl_p ();
   cfp_param.fs_recommend_size = app.text_font.recommend_size_p ();

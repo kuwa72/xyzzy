@@ -183,7 +183,7 @@ struct PropSheetFont
   static int load ();
   static void find_font (const DLGTEMPLATE *);
   static HGLOBAL change_font (const DLGTEMPLATE *, DWORD);
-  static HGLOBAL change_font (const char *);
+  static HGLOBAL change_font (const wchar_t *);
 };
 
 #endif
