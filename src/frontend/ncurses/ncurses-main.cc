@@ -656,20 +656,11 @@ setup_minimal_keybindings ()
 }
 
 // ncurses-specific keybindings (when Lisp startup succeeded)
-// Only sets up what Lisp doesn't provide: minibuffer keymap, etc.
+// minibuf.l already defines minibuffer keymaps with proper RET/C-g bindings,
+// so we only need to ensure default-input-function is set.
 static void
 setup_ncurses_keybindings ()
 {
-  // Minibuffer keymap (Lisp's minibuf.l is #-ncurses'd, so we set it up here)
-  lisp mini_map = xsymbol_value (Vminibuffer_local_map);
-  if (Fkeymapp (mini_map) == Qnil || mini_map == Qnil)
-    {
-      mini_map = Fmake_sparse_keymap ();
-      xsymbol_value (Vminibuffer_local_map) = mini_map;
-    }
-  Fdefine_key (mini_map, make_char (0x0d), Sexit_recursive_edit);
-  Fdefine_key (mini_map, make_char (0x07), Squit_recursive_edit);
-
   // Ensure default-input-function is set for non-ASCII self-insert
   lisp sic = Fintern (make_string ("self-insert-command"), 0);
   if (xsymbol_value (Vdefault_input_function) == Qnil
@@ -829,6 +820,10 @@ int main (int argc, char **argv)
 
       slog ("startup begin");
 
+      // Suppress verbose loading messages — they write to stdout
+      // which corrupts the ncurses screen.
+      xsymbol_value (Vload_verbose) = Qnil;
+
       // Load startup.l — use .l (not .lc) since .lc was compiled
       // without #-ncurses conditionals.
       int lisp_loaded = 0;
@@ -859,7 +854,7 @@ int main (int argc, char **argv)
               slog (spath);
             }
           slog ("loading startup.l...");
-          Fload (startup_path, xcons (Kverbose, xcons (Qt, Qnil)));
+          Fload (startup_path, xcons (Kverbose, xcons (Qnil, Qnil)));
           lisp_loaded = 1;
           slog ("startup.l loaded OK");
         }

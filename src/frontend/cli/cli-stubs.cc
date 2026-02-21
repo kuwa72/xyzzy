@@ -873,6 +873,9 @@ lisp Fdo_events () { return Qnil; }
 #ifndef _WIN32
 #include <unistd.h>
 
+// FindClose stub for Linux CLI (handles are always INVALID_HANDLE_VALUE)
+BOOL FindClose (HANDLE) { return TRUE; }
+
 lisp Fadmin_user_p ()
 {
   return getuid () == 0 ? Qt : Qnil;

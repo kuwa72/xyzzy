@@ -138,11 +138,10 @@ kbd_queue::fetch (int wait, int)
       // and let command_loop handle it via lChar_EOF when exhausted
     }
 
-  if (!wait)
-    {
-      fetchlog ("fetch: no-wait → EOF\n");
-      return lChar_EOF;
-    }
+  // Note: Win32 fetch() always blocks regardless of 'wait' param.
+  // readc_stream() calls fetch(0,0) for keyboard stream reads
+  // (e.g. read-char *keyboard* in universal-argument).
+  // We must also always block here.
 
   // Block on ncurses input
   fetchlog ("fetch: waiting on wget_wch...\n");
@@ -177,14 +176,10 @@ kbd_queue::fetch (int wait, int)
     }
 
   // Regular character (wchar_t)
-  // Handle C-g (quit)
-  if (wch == 7) // Ctrl-G
-    {
-      fetchlog ("fetch: C-g (quit)\n");
-      keylog ("fetch: C-g (quit)\n");
-      xsymbol_value (Vquit_flag) = Qt;
-      return (lChar)wch;
-    }
+  // C-g is just a regular key — let the keymap handle it.
+  // Do NOT set Vquit_flag here; that would cause QUIT macros to
+  // signal a quit error before quit-recursive-edit can throw
+  // exit-this-level properly.
 
   // ncurses raw() mode sends LF (0x0a) for Enter; xyzzy expects CR (0x0d)
   if (wch == 0x0a)

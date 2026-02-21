@@ -1309,7 +1309,7 @@ inline DWORD GetFileAttributesA(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
 inline BOOL SetFileAttributesA(LPCSTR, DWORD) { return FALSE; }
 inline HANDLE FindFirstFileA(LPCSTR, WIN32_FIND_DATAA*) { return INVALID_HANDLE_VALUE; }
 inline BOOL FindNextFileA(HANDLE, WIN32_FIND_DATAA*) { return FALSE; }
-inline BOOL FindClose(HANDLE) { return FALSE; }
+BOOL FindClose(HANDLE h);
 inline BOOL DeleteFileA(LPCSTR) { return FALSE; }
 inline BOOL MoveFileA(LPCSTR, LPCSTR) { return FALSE; }
 inline BOOL CreateDirectoryA(LPCSTR, LPSECURITY_ATTRIBUTES) { return FALSE; }
