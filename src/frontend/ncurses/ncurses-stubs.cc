@@ -1476,25 +1476,23 @@ draw_modeline (Buffer *bp, int row, int cols)
     {
       const Char *name = xstring_contents (bp->lbuffer_name);
       int len = xstring_length (bp->lbuffer_name);
-      char mbuf[256];
-      int mi = 0;
-      mbuf[mi++] = '-';
-      mbuf[mi++] = '-';
-      // Show modified flag
-      mbuf[mi++] = (bp->b_modified ? '*' : '-');
-      mbuf[mi++] = ' ';
-      for (int i = 0; i < len && mi < (int)sizeof (mbuf) - 2; i++)
+      // Build wide string for modeline
+      wchar_t wbuf[256];
+      int wi = 0;
+      wbuf[wi++] = L'-';
+      wbuf[wi++] = L'-';
+      wbuf[wi++] = bp->b_modified ? L'*' : L'-';
+      wbuf[wi++] = L' ';
+      for (int i = 0; i < len && wi < 250; i++)
         {
-          if (name[i] < 0x80)
-            mbuf[mi++] = (char)name[i];
-          else
-            mbuf[mi++] = '?';
+          ucs2_t wc = i2w (name[i]);
+          wbuf[wi++] = wc ? (wchar_t)wc : L'?';
         }
-      mbuf[mi++] = ' ';
-      while (mi < cols && mi < (int)sizeof (mbuf) - 1)
-        mbuf[mi++] = '-';
-      mbuf[mi] = 0;
-      mvprintw (row, 0, "%s", mbuf);
+      wbuf[wi++] = L' ';
+      while (wi < cols && wi < 255)
+        wbuf[wi++] = L'-';
+      wbuf[wi] = 0;
+      mvaddnwstr (row, 0, wbuf, wi);
     }
   else
     {

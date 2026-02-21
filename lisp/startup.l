@@ -8,15 +8,12 @@
 #+ncurses (si:*load-library "loadup.l")
 #-ncurses (si:*load-library "loadup")
 
-;; Define variables from #-ncurses excluded files that cmds.l references
+;; Define variables from #-ncurses excluded files that are still needed
 ;; Must use ed:: prefix since these are in the editor package
 #+ncurses
 (progn
-  (defvar-local ed::abbrev-mode nil)
   (defvar ed::*buffer-package* nil)
-  (make-variable-buffer-local 'ed::*buffer-package*)
-  (defvar ed::*minibuffer-complex-command-history* nil)
-  (defvar ed::*minibuffer-default-history* nil))
+  (make-variable-buffer-local 'ed::*buffer-package*))
 
 (provide "startup")
 
@@ -27,6 +24,8 @@
 #+ncurses
 (defun si:*startup ()
   (trap-errors (ed::init-misc-objects))
+  ;; BS/DEL key binding (terminal sends 0x7f for backspace)
+  (global-set-key #\DEL 'ed::delete-backward-char-or-selection)
   t)
 
 #-ncurses
