@@ -135,6 +135,11 @@ DWORD Sysdep::get_dll_version (const char *) { return 0; }
 // StatusWindow (used by core for status display)
 // ============================================================
 
+// StatusWindow ncurses display buffer — mirror of sw_last for non-member access
+static ucs2_t g_status_buf[StatusWindow::TEXT_MAX];
+static int g_status_len = 0;
+
+
 StatusWindow::StatusWindow ()
 {
   sw_hwnd = 0;
@@ -145,19 +150,117 @@ StatusWindow::StatusWindow ()
 }
 
 void StatusWindow::restore () {}
+
 int StatusWindow::text (const char *s)
 {
-  // Don't write to stderr — it corrupts the ncurses screen.
-  // TODO: display in ncurses status line
+  // Convert ASCII/SJIS string to ucs2 buffer and display
+  sw_b = sw_buf;
+  for (const u_char *p = (const u_char *)s; *p && sw_b < sw_tail;)
+    {
+      if (SJISP (*p) && p[1])
+        {
+          Char ic = (*p << 8) | p[1];
+          *sw_b++ = i2w (ic);
+          p += 2;
+        }
+      else
+        *sw_b++ = *p++;
+    }
+  int l = sw_b - sw_buf;
+  memcpy (g_status_buf, sw_buf, sizeof (*sw_buf) * l);
+  g_status_len = l;
+  sw_last.l = l;
+  sw_last.textf = 1;
+  sw_b = sw_buf;
+  return l;
+}
+
+void
+StatusWindow::puts (const Char *b, int size)
+{
+  for (const Char *be = b + size; b < be; b++)
+    putc (*b);
+}
+
+int
+StatusWindow::putc (Char c)
+{
+  if (c == '\n')
+    newline ();
+  else
+    {
+      if (sw_b >= sw_tail)
+        return 0;
+      if (c == '\t')
+        {
+          for (int i = 0; i < 8 && sw_b < sw_tail; i++)
+            *sw_b++ = ' ';
+        }
+      else
+        *sw_b++ = i2w (c);
+    }
   return 1;
 }
-void StatusWindow::puts (const Char *, int) {}
-int StatusWindow::putc (Char) { return 0; }
-void StatusWindow::newline () {}
-void StatusWindow::puts (const char *, int) {}
-void StatusWindow::puts (int, int) {}
-void StatusWindow::flush () {}
-void StatusWindow::clear (int) {}
+
+void
+StatusWindow::newline ()
+{
+  flush ();
+  sw_b = sw_buf;
+}
+
+void
+StatusWindow::puts (const char *s, int fl)
+{
+  for (const u_char *p = (const u_char *)s; *p;)
+    {
+      if (SJISP (*p) && p[1])
+        {
+          putc ((*p << 8) | p[1]);
+          p += 2;
+        }
+      else
+        putc (*p++);
+    }
+  if (fl)
+    newline ();
+}
+
+void
+StatusWindow::puts (int code, int fl)
+{
+  puts (get_message_string (code), fl);
+}
+
+void
+StatusWindow::flush ()
+{
+  int l = sw_b - sw_buf;
+  if (l && (sw_last.textf || l != sw_last.l
+            || memcmp (sw_last.buf, sw_buf, sizeof (*sw_buf) * l)))
+    {
+      memcpy (sw_last.buf, sw_buf, sizeof (*sw_buf) * l);
+      memcpy (g_status_buf, sw_buf, sizeof (*sw_buf) * l);
+      sw_last.l = l;
+      g_status_len = l;
+      sw_last.textf = 0;
+
+    }
+}
+
+void
+StatusWindow::clear (int)
+{
+  if (sw_last.l || sw_last.textf)
+    {
+      sw_last.l = 0;
+      sw_last.textf = 0;
+      g_status_len = 0;
+
+    }
+  sw_b = sw_buf;
+}
+
 void StatusWindow::set (HWND) {}
 int StatusWindow::paint (const DRAWITEMSTRUCT *) { return 0; }
 
@@ -1074,6 +1177,8 @@ int assert_failed (const char *file, int line)
 #include "Window.h"
 #include "charset.h"
 #include <ncurses.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 XCOLORREF Window::default_xcolors[USER_DEFINABLE_COLORS];
 COLORREF Window::default_colors[WCOLOR_MAX];
@@ -1493,6 +1598,10 @@ point_to_screen (Buffer *bp, point_t disp, point_t target, int cols,
 static void
 draw_modeline (Buffer *bp, int row, int cols)
 {
+  if (cols <= 0)
+    return;
+  int maxw = (cols < 255) ? cols : 255;
+
   attron (A_REVERSE);
   move (row, 0);
   clrtoeol ();
@@ -1503,24 +1612,24 @@ draw_modeline (Buffer *bp, int row, int cols)
       // Build wide string for modeline
       wchar_t wbuf[256];
       int wi = 0;
-      wbuf[wi++] = L'-';
-      wbuf[wi++] = L'-';
-      wbuf[wi++] = bp->b_modified ? L'*' : L'-';
-      wbuf[wi++] = L' ';
-      for (int i = 0; i < len && wi < 250; i++)
+      if (wi < maxw) wbuf[wi++] = L'-';
+      if (wi < maxw) wbuf[wi++] = L'-';
+      if (wi < maxw) wbuf[wi++] = bp->b_modified ? L'*' : L'-';
+      if (wi < maxw) wbuf[wi++] = L' ';
+      for (int i = 0; i < len && wi < maxw; i++)
         {
           ucs2_t wc = i2w (name[i]);
           wbuf[wi++] = wc ? (wchar_t)wc : L'?';
         }
-      wbuf[wi++] = L' ';
-      while (wi < cols && wi < 255)
+      if (wi < maxw) wbuf[wi++] = L' ';
+      while (wi < maxw)
         wbuf[wi++] = L'-';
       wbuf[wi] = 0;
       mvaddnwstr (row, 0, wbuf, wi);
     }
   else
     {
-      for (int i = 0; i < cols; i++)
+      for (int i = 0; i < maxw; i++)
         mvaddch (row, i, '-');
     }
   attroff (A_REVERSE);
@@ -1646,11 +1755,113 @@ displog (const char *fmt, ...)
     }
 }
 
+// Draw status line (echo area) showing StatusWindow content
+static void
+draw_status_line (int row, int cols)
+{
+  move (row, 0);
+  clrtoeol ();
+
+  // Check for Vminibuffer_message first (set by (message ...) Lisp function)
+  lisp msg = xsymbol_value (Vminibuffer_message);
+  if (stringp (msg))
+    {
+      const Char *s = xstring_contents (msg);
+      int len = xstring_length (msg);
+      int x = 0;
+      for (int i = 0; i < len && x < cols; i++)
+        {
+          Char c = s[i];
+          if (c < 0x20)
+            ; // skip control chars
+          else if (c < 0x80)
+            {
+              mvaddch (row, x, c);
+              x++;
+            }
+          else
+            {
+              ucs2_t wc = i2w (c);
+              if (wc != 0)
+                {
+                  cchar_t cc;
+                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  setcchar (&cc, ws, 0, 0, NULL);
+                  mvadd_wch (row, x, &cc);
+                  int w = wcwidth ((wchar_t)wc);
+                  x += (w > 0) ? w : 1;
+                }
+              else
+                {
+                  mvaddch (row, x, '?');
+                  x++;
+                }
+            }
+        }
+      return;
+    }
+
+  // Otherwise show StatusWindow content
+  int l = g_status_len;
+  if (l > 0)
+    {
+      const ucs2_t *buf = g_status_buf;
+      int x = 0;
+      for (int i = 0; i < l && x < cols; i++)
+        {
+          ucs2_t wc = buf[i];
+          if (wc < 0x20)
+            ; // skip
+          else if (wc < 0x80)
+            {
+              mvaddch (row, x, (char)wc);
+              x++;
+            }
+          else
+            {
+              cchar_t cc;
+              wchar_t ws[2] = {(wchar_t)wc, 0};
+              setcchar (&cc, ws, 0, 0, NULL);
+              mvadd_wch (row, x, &cc);
+              int w = wcwidth ((wchar_t)wc);
+              x += (w > 0) ? w : 1;
+            }
+        }
+    }
+}
+
+// SIGWINCH flag (set in ncurses-main.cc)
+extern volatile int g_need_resize;
+
 void
 refresh_screen (int)
 {
+  // Handle terminal resize (SIGWINCH / KEY_RESIZE)
+  // SIGWINCH may arrive while wget_wch has buffered input, so
+  // KEY_RESIZE is not always delivered. We must handle it here too.
+  if (g_need_resize)
+    {
+      g_need_resize = 0;
+
+      struct winsize ws;
+      if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &ws) == 0
+          && ws.ws_row > 0 && ws.ws_col > 0)
+        resizeterm (ws.ws_row, ws.ws_col);
+
+      int rows, cols;
+      getmaxyx (stdscr, rows, cols);
+      app.active_frame.size.cx = cols;
+      app.active_frame.size.cy = rows;
+
+      clear ();
+      displog ("refresh: resized to %dx%d\n", cols, rows);
+    }
+
   int rows, cols;
   getmaxyx (stdscr, rows, cols);
+
+  if (rows < 3 || cols < 4)
+    return;  // Need at least: 1 text + 1 modeline + 1 echo, and minimal width
 
   // Determine if minibuffer is active
   Window *sel = selected_window ();
@@ -1671,10 +1882,11 @@ refresh_screen (int)
            (long)main_wp->w_point.p_point,
            in_minibuffer, rows, cols);
 
-  // Layout:
-  //   Normal:      text(0..rows-2) + modeline(rows-1)
-  //   Minibuffer:  text(0..rows-3) + modeline(rows-2) + minibuf(rows-1)
-  int ml_row = in_minibuffer ? rows - 2 : rows - 1;
+  // Layout (always 3 zones):
+  //   text:      rows 0 .. rows-3
+  //   modeline:  row rows-2
+  //   echo area: row rows-1  (status line or minibuffer)
+  int ml_row = rows - 2;
   int text_rows = ml_row;
 
   // Render main buffer content
@@ -1683,7 +1895,7 @@ refresh_screen (int)
   // Draw modeline
   draw_modeline (main_wp->w_bufp, ml_row, cols);
 
-  // Draw minibuffer if active
+  // Draw echo area (last row)
   if (in_minibuffer)
     {
       Window *mini = Window::minibuffer_window ();
@@ -1727,6 +1939,9 @@ refresh_screen (int)
     }
   else
     {
+      // Draw status line (messages, errors, etc.)
+      draw_status_line (rows - 1, cols);
+
       // Position cursor in main buffer at point
       int cy, cx;
       point_to_screen (main_wp->w_bufp, main_wp->w_disp,

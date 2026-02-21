@@ -54,7 +54,7 @@ static void crash_handler (int sig)
   _exit (1);
 }
 
-static volatile int g_need_resize = 0;
+volatile int g_need_resize = 0;
 
 static void sigwinch_handler (int)
 {
@@ -766,7 +766,16 @@ int main (int argc, char **argv)
 {
   signal (SIGSEGV, crash_handler);
   signal (SIGABRT, crash_handler);
-  signal (SIGWINCH, sigwinch_handler);
+
+  // SIGWINCH: use sigaction WITHOUT SA_RESTART so that
+  // wget_wch() returns ERR immediately when the terminal is resized.
+  {
+    struct sigaction sa;
+    sa.sa_handler = sigwinch_handler;
+    sigemptyset (&sa.sa_mask);
+    sa.sa_flags = 0;  // no SA_RESTART
+    sigaction (SIGWINCH, &sa, NULL);
+  }
 
   // ncurses needs locale set before initscr
   setlocale (LC_ALL, "");

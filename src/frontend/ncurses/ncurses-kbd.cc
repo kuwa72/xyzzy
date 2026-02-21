@@ -6,6 +6,12 @@
 #include <ncurses.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+
+void refresh_screen (int);
+
+// SIGWINCH flag (set in ncurses-main.cc)
+extern volatile int g_need_resize;
 
 // Key debug log (enabled by XYZZY_KEYLOG env var)
 static int g_keylog_fd = -1;
@@ -70,6 +76,10 @@ map_ncurses_key (int key)
 static lChar
 wchar_to_lchar (wchar_t wc)
 {
+  // ncurses raw() mode sends LF (0x0a) for Enter; xyzzy expects CR (0x0d)
+  if (wc == 0x0a)
+    wc = 0x0d;
+
   if (wc < 0x80)
     return (lChar)wc;
 
@@ -83,6 +93,15 @@ wchar_to_lchar (wchar_t wc)
 
   // Outside BMP or unmapped: return as-is (will display as unknown)
   return lChar_EOF;
+}
+
+// Convert ncurses wget_wch result to lChar (special key or character)
+static lChar
+ncurses_key_to_lchar (int ret, wint_t wch)
+{
+  if (ret == KEY_CODE_YES)
+    return map_ncurses_key (wch);
+  return wchar_to_lchar ((wchar_t)wch);
 }
 
 // Debug log for fetch (written to /tmp/xyzzy-fetch.log)
@@ -104,6 +123,43 @@ fetchlog (const char *fmt, ...)
     {
       ssize_t r __attribute__((unused)) = write (g_fetchlog_fd, buf, n);
     }
+}
+
+// Handle terminal resize: resizeterm + update frame size + drain KEY_RESIZE.
+// Saves any real key found while draining into kbd_queue::pending.
+// Returns with g_need_resize = 0.
+static void
+handle_resize (kbd_queue &kbdq)
+{
+  g_need_resize = 0;
+
+  struct winsize ws;
+  if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &ws) == 0
+      && ws.ws_row > 0 && ws.ws_col > 0)
+    {
+      resizeterm (ws.ws_row, ws.ws_col);
+      app.active_frame.size.cx = ws.ws_col;
+      app.active_frame.size.cy = ws.ws_row;
+    }
+
+  // Drain any KEY_RESIZE that resizeterm enqueued
+  nodelay (stdscr, TRUE);
+  wint_t drain;
+  int drain_ret;
+  while ((drain_ret = wget_wch (stdscr, &drain)) != ERR)
+    {
+      if (drain_ret == KEY_CODE_YES && drain == KEY_RESIZE)
+        continue;
+      // Got a real key — save it via public push_back()
+      kbdq.push_back (ncurses_key_to_lchar (drain_ret, drain));
+      break;
+    }
+  nodelay (stdscr, FALSE);
+
+  clear ();
+  fetchlog ("fetch: resize handled (%dx%d)\n",
+            (int)app.active_frame.size.cx,
+            (int)app.active_frame.size.cy);
 }
 
 lChar
@@ -143,51 +199,53 @@ kbd_queue::fetch (int wait, int)
   // (e.g. read-char *keyboard* in universal-argument).
   // We must also always block here.
 
-  // Block on ncurses input
-  fetchlog ("fetch: waiting on wget_wch...\n");
-  keylog ("fetch: waiting (wait=%d)...\n", wait);
-
-  // Try wget_wch first for wide char support; fall back to wgetch
+  // Block on ncurses input (retry on signal interruption / resize)
   wint_t wch;
-  int ret = wget_wch (stdscr, &wch);
-
-  fetchlog ("fetch: ret=%d wch=%d (0x%x)\n", ret, (int)wch, (int)wch);
-  keylog ("fetch: ret=%d wch=%d (0x%x)\n", ret, (int)wch, (int)wch);
-
-  if (ret == ERR)
+  int ret;
+  for (;;)
     {
-      fetchlog ("fetch: wget_wch returned ERR, trying wgetch fallback\n");
-      // Fallback to narrow char input
-      int ch = wgetch (stdscr);
-      fetchlog ("fetch: wgetch=%d (0x%x)\n", ch, ch);
-      if (ch == ERR)
-        return lChar_EOF;
-      wch = ch;
-      ret = (ch >= KEY_MIN) ? KEY_CODE_YES : OK;
+      fetchlog ("fetch: waiting on wget_wch...\n");
+
+      ret = wget_wch (stdscr, &wch);
+
+      fetchlog ("fetch: ret=%d wch=%d (0x%x) resize=%d\n",
+                ret, (int)wch, (int)wch, (int)g_need_resize);
+
+      if (ret == ERR)
+        {
+          // SIGWINCH interrupted the read (SA_RESTART is off).
+          // Handle resize now so the screen updates immediately.
+          if (g_need_resize)
+            {
+              handle_resize (*this);
+              refresh_screen (1);
+            }
+          continue;
+        }
+
+      // KEY_RESIZE: ncurses pseudo-key sent after SIGWINCH.
+      if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
+        {
+          handle_resize (*this);
+          // Don't call refresh_screen here — handle_resize already
+          // drained KEY_RESIZE, but refresh_screen would call
+          // resizeterm again (via g_need_resize in stubs), which
+          // re-enqueues KEY_RESIZE causing an infinite loop.
+          // The next iteration will either get a real key or ERR.
+          continue;
+        }
+
+      // Got a real key. If SIGWINCH arrived during the read but
+      // wget_wch returned the key instead of ERR/KEY_RESIZE,
+      // handle the resize before returning.
+      if (g_need_resize)
+        handle_resize (*this);
+
+      break;
     }
 
-  if (ret == KEY_CODE_YES)
-    {
-      // Special key
-      lChar c = map_ncurses_key (wch);
-      fetchlog ("fetch: special key → lChar=0x%lx\n", (unsigned long)c);
-      keylog ("fetch: special key → lChar=0x%lx\n", (unsigned long)c);
-      return c;
-    }
-
-  // Regular character (wchar_t)
-  // C-g is just a regular key — let the keymap handle it.
-  // Do NOT set Vquit_flag here; that would cause QUIT macros to
-  // signal a quit error before quit-recursive-edit can throw
-  // exit-this-level properly.
-
-  // ncurses raw() mode sends LF (0x0a) for Enter; xyzzy expects CR (0x0d)
-  if (wch == 0x0a)
-    wch = 0x0d;
-
-  lChar result = wchar_to_lchar ((wchar_t)wch);
-  fetchlog ("fetch: wchar=%d → lChar=0x%lx\n", (int)wch, (unsigned long)result);
-  keylog ("fetch: wchar=%d → lChar=0x%lx\n", (int)wch, (unsigned long)result);
+  lChar result = ncurses_key_to_lchar (ret, wch);
+  fetchlog ("fetch: → lChar=0x%lx\n", (unsigned long)result);
   return result;
 }
 
@@ -216,18 +274,13 @@ kbd_queue::peek (int)
 
   if (ret == ERR)
     return lChar_EOF;
-
-  lChar c;
-  if (ret == KEY_CODE_YES)
-    c = map_ncurses_key (wch);
-  else
+  if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
     {
-      if (wch == 0x0a)
-        wch = 0x0d;
-      c = wchar_to_lchar ((wchar_t)wch);
+      g_need_resize = 1;
+      return lChar_EOF;
     }
 
-  return c;
+  return ncurses_key_to_lchar (ret, wch);
 }
 
 int
@@ -241,15 +294,12 @@ kbd_queue::listen ()
   nodelay (stdscr, FALSE);
   if (ret == ERR)
     return 0;
-  lChar c;
-  if (ret == KEY_CODE_YES)
-    c = map_ncurses_key (wch);
-  else
+  if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
     {
-      if (wch == 0x0a)
-        wch = 0x0d;
-      c = wchar_to_lchar ((wchar_t)wch);
+      g_need_resize = 1;
+      return 0;
     }
+  lChar c = ncurses_key_to_lchar (ret, wch);
   if (c != lChar_EOF)
     pending = c;
   return c != lChar_EOF;
