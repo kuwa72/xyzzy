@@ -85,6 +85,27 @@ wchar_to_lchar (wchar_t wc)
   return lChar_EOF;
 }
 
+// Debug log for fetch (written to /tmp/xyzzy-fetch.log)
+// Defined in core/cmdloop.cc; opened here on first use
+extern int g_fetchlog_fd;
+static void
+fetchlog (const char *fmt, ...)
+{
+  if (g_fetchlog_fd < 0)
+    g_fetchlog_fd = open ("/tmp/xyzzy-fetch.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (g_fetchlog_fd < 0)
+    return;
+  char buf[256];
+  va_list ap;
+  va_start (ap, fmt);
+  int n = vsnprintf (buf, sizeof (buf), fmt, ap);
+  va_end (ap);
+  if (n > 0)
+    {
+      ssize_t r __attribute__((unused)) = write (g_fetchlog_fd, buf, n);
+    }
+}
+
 lChar
 kbd_queue::fetch (int wait, int)
 {
@@ -93,6 +114,7 @@ kbd_queue::fetch (int wait, int)
     {
       lChar c = pending;
       pending = lChar_EOF;
+      fetchlog ("fetch: from pending 0x%lx\n", (unsigned long)c);
       return c;
     }
 
@@ -101,6 +123,7 @@ kbd_queue::fetch (int wait, int)
     {
       lChar c = cc[head];
       head = (head + 1) % QUEUE_MAX;
+      fetchlog ("fetch: from queue 0x%lx\n", (unsigned long)c);
       return c;
     }
 
@@ -116,22 +139,39 @@ kbd_queue::fetch (int wait, int)
     }
 
   if (!wait)
-    return lChar_EOF;
+    {
+      fetchlog ("fetch: no-wait → EOF\n");
+      return lChar_EOF;
+    }
 
   // Block on ncurses input
+  fetchlog ("fetch: waiting on wget_wch...\n");
   keylog ("fetch: waiting (wait=%d)...\n", wait);
+
+  // Try wget_wch first for wide char support; fall back to wgetch
   wint_t wch;
   int ret = wget_wch (stdscr, &wch);
 
+  fetchlog ("fetch: ret=%d wch=%d (0x%x)\n", ret, (int)wch, (int)wch);
   keylog ("fetch: ret=%d wch=%d (0x%x)\n", ret, (int)wch, (int)wch);
 
   if (ret == ERR)
-    return lChar_EOF;
+    {
+      fetchlog ("fetch: wget_wch returned ERR, trying wgetch fallback\n");
+      // Fallback to narrow char input
+      int ch = wgetch (stdscr);
+      fetchlog ("fetch: wgetch=%d (0x%x)\n", ch, ch);
+      if (ch == ERR)
+        return lChar_EOF;
+      wch = ch;
+      ret = (ch >= KEY_MIN) ? KEY_CODE_YES : OK;
+    }
 
   if (ret == KEY_CODE_YES)
     {
       // Special key
       lChar c = map_ncurses_key (wch);
+      fetchlog ("fetch: special key → lChar=0x%lx\n", (unsigned long)c);
       keylog ("fetch: special key → lChar=0x%lx\n", (unsigned long)c);
       return c;
     }
@@ -140,6 +180,7 @@ kbd_queue::fetch (int wait, int)
   // Handle C-g (quit)
   if (wch == 7) // Ctrl-G
     {
+      fetchlog ("fetch: C-g (quit)\n");
       keylog ("fetch: C-g (quit)\n");
       xsymbol_value (Vquit_flag) = Qt;
       return (lChar)wch;
@@ -150,6 +191,7 @@ kbd_queue::fetch (int wait, int)
     wch = 0x0d;
 
   lChar result = wchar_to_lchar ((wchar_t)wch);
+  fetchlog ("fetch: wchar=%d → lChar=0x%lx\n", (int)wch, (unsigned long)result);
   keylog ("fetch: wchar=%d → lChar=0x%lx\n", (int)wch, (unsigned long)result);
   return result;
 }

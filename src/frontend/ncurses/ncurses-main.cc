@@ -45,6 +45,7 @@ lisp Fintern (lisp string, lisp package);
 void command_loop ();
 void create_default_buffers ();
 lisp Fcommand_execute (lisp command, lisp hook);
+lisp Fkeymapp (lisp);
 
 static void crash_handler (int sig)
 {
@@ -654,6 +655,28 @@ setup_minimal_keybindings ()
   Fdefine_key (mini_map, make_char (0x07), Squit_recursive_edit);
 }
 
+// ncurses-specific keybindings (when Lisp startup succeeded)
+// Only sets up what Lisp doesn't provide: minibuffer keymap, etc.
+static void
+setup_ncurses_keybindings ()
+{
+  // Minibuffer keymap (Lisp's minibuf.l is #-ncurses'd, so we set it up here)
+  lisp mini_map = xsymbol_value (Vminibuffer_local_map);
+  if (Fkeymapp (mini_map) == Qnil || mini_map == Qnil)
+    {
+      mini_map = Fmake_sparse_keymap ();
+      xsymbol_value (Vminibuffer_local_map) = mini_map;
+    }
+  Fdefine_key (mini_map, make_char (0x0d), Sexit_recursive_edit);
+  Fdefine_key (mini_map, make_char (0x07), Squit_recursive_edit);
+
+  // Ensure default-input-function is set for non-ASCII self-insert
+  lisp sic = Fintern (make_string ("self-insert-command"), 0);
+  if (xsymbol_value (Vdefault_input_function) == Qnil
+      || xsymbol_value (Vdefault_input_function) == Qunbound)
+    xsymbol_value (Vdefault_input_function) = sic;
+}
+
 // Write to log fd (survives SIGTERM since write() is unbuffered)
 static int g_log_fd = -1;
 static void
@@ -791,28 +814,104 @@ int main (int argc, char **argv)
         if (strcmp (argv[i], "--self-test") == 0)
           self_test = 1;
 
-      if (!self_test)
+      // Progress log to /tmp/xyzzy-startup.log
+      int sfd = open ("/tmp/xyzzy-startup.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      auto slog = [&](const char *msg) {
+        if (sfd >= 0) {
+          struct timespec ts;
+          clock_gettime (CLOCK_MONOTONIC, &ts);
+          char buf[256];
+          int n = snprintf (buf, sizeof (buf), "[%ld.%03ld] %s\n",
+                            (long)ts.tv_sec, ts.tv_nsec / 1000000, msg);
+          ssize_t r __attribute__((unused)) = write (sfd, buf, n);
+        }
+      };
+
+      slog ("startup begin");
+
+      // Load startup.l — use .l (not .lc) since .lc was compiled
+      // without #-ncurses conditionals.
+      int lisp_loaded = 0;
+      try
         {
-          // Try to load startup.l for key bindings etc.
-          try
+          lisp startup_path = Qnil;
+          lisp mod = xsymbol_value (Qmodule_dir);
+          if (mod != Qnil && stringp (mod))
             {
-              Fsi_startup ();
+              char mpath[PATH_MAX];
+              const Char *ms = xstring_contents (mod);
+              int ml = xstring_length (mod);
+              int i;
+              for (i = 0; i < ml && i < PATH_MAX - 20; i++)
+                mpath[i] = (ms[i] < 0x80) ? (char)ms[i] : '?';
+              mpath[i] = 0;
+              char spath[PATH_MAX];
+              snprintf (spath, sizeof (spath), "%slisp/startup.l", mpath);
+              struct stat st;
+              if (stat (spath, &st) == 0)
+                startup_path = make_string (spath);
+              else
+                {
+                  snprintf (spath, sizeof (spath), "%sstartup.l", mpath);
+                  if (stat (spath, &st) == 0)
+                    startup_path = make_string (spath);
+                }
+              slog (spath);
             }
-          catch (nonlocal_jump &)
+          slog ("loading startup.l...");
+          Fload (startup_path, xcons (Kverbose, xcons (Qt, Qnil)));
+          lisp_loaded = 1;
+          slog ("startup.l loaded OK");
+        }
+      catch (nonlocal_jump &)
+        {
+          slog ("startup.l FAILED");
+          nonlocal_data *nld = nonlocal_jump::data ();
+          if (nld->type && symbolp (nld->type))
             {
-              // startup.l failed — fall through to minimal keybindings
+              lisp name = xsymbol_name (nld->type);
+              if (stringp (name))
+                {
+                  const Char *s = xstring_contents (name);
+                  int l = xstring_length (name);
+                  char mb[256];
+                  int mi = 0;
+                  for (int j = 0; j < l && mi < (int)sizeof (mb) - 2; j++)
+                    mb[mi++] = (s[j] < 0x80) ? (char)s[j] : '?';
+                  mb[mi] = 0;
+                  slog (mb);
+                }
             }
         }
 
-      // Set up minimal key bindings (overrides or supplements startup.l)
-      setup_minimal_keybindings ();
+      // Re-establish ncurses terminal settings after Lisp loading
+      // (file I/O during loading may have disrupted terminal state)
+      raw ();
+      noecho ();
+      keypad (stdscr, TRUE);
+      slog ("ncurses terminal re-initialized");
+
+      if (!lisp_loaded)
+        {
+          setup_minimal_keybindings ();
+          slog ("using minimal keybindings");
+        }
+      else
+        {
+          setup_ncurses_keybindings ();
+          slog ("using Lisp keybindings");
+        }
 
       if (self_test)
         {
+          slog ("self-test mode");
           self_test_minibuffer ();
+          if (sfd >= 0) close (sfd);
           endwin ();
           return 0;
         }
+
+      slog ("entering command_loop");
 
       // Enter command loop (fetch -> dispatch -> refresh)
       try
@@ -823,6 +922,9 @@ int main (int argc, char **argv)
         {
           // Normal exit via C-x C-c throws nonlocal_jump
         }
+
+      slog ("command_loop exited");
+      if (sfd >= 0) close (sfd);
 
       endwin ();
     }

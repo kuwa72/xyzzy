@@ -105,11 +105,33 @@ char_mouse_move_p (Char cc)
   return cc == CCF_MOUSEMOVE;
 }
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <unistd.h>
+int g_fetchlog_fd = -1;
+static void
+dlog (const char *fmt, ...)
+{
+  if (g_fetchlog_fd < 0)
+    return;
+  char buf[256];
+  va_list ap;
+  va_start (ap, fmt);
+  int n = vsnprintf (buf, sizeof (buf), fmt, ap);
+  va_end (ap);
+  if (n > 0)
+    { ssize_t r __attribute__((unused)) = write (g_fetchlog_fd, buf, n); }
+}
+#else
+#define dlog(...) ((void)0)
+#endif
+
 static lisp
 dispatch (lChar cc)
 {
   lisp command;
   Char c = Char (cc);
+  dlog ("dispatch: cc=0x%lx c=0x%x\n", (unsigned long)cc, (unsigned)c);
 
   app.gc_itimer.reset ();
   app.as_itimer.reset ();
@@ -152,8 +174,25 @@ dispatch (lChar cc)
         return Qt;
 
       command = g_map.lookup (c);
+      dlog ("dispatch: lookup → command=%p (Qnil=%p)\n", (void*)command, (void*)Qnil);
+      if (command && symbolp (command))
+        {
+          lisp name = xsymbol_name (command);
+          if (stringp (name))
+            {
+              const Char *s = xstring_contents (name);
+              int l = xstring_length (name);
+              char mb[128];
+              int mi = 0;
+              for (int i = 0; i < l && mi < 120; i++)
+                mb[mi++] = (s[i] < 0x80) ? (char)s[i] : '?';
+              mb[mi] = 0;
+              dlog ("dispatch: command=%s\n", mb);
+            }
+        }
       if (!command)
         {
+          dlog ("dispatch: no binding for 0x%x\n", (unsigned)c);
           app.keyseq.push (c, !app.kbdq.macro_is_running ());
           Fcontinue_pre_selection ();
           app.kbdq.close_ime ();
@@ -207,15 +246,54 @@ run_command:
       return Qnil;
     }
 
+  dlog ("dispatch: executing command\n");
   lisp result = Qnil;
   try
     {
       stack_trace trace (stack_trace::apply, Scommand_execute, command, 0);
       result = Fcommand_execute (command, 0);
+      dlog ("dispatch: command returned ok, nchars=%ld\n",
+            (long)selected_buffer()->b_nchars);
     }
   catch (nonlocal_jump &)
     {
       nonlocal_data *nld = nonlocal_jump::data ();
+      dlog ("dispatch: command threw (type=%p)\n", (void*)nld->type);
+      if (nld->type && symbolp (nld->type))
+        {
+          lisp name = xsymbol_name (nld->type);
+          if (stringp (name))
+            {
+              const Char *s = xstring_contents (name);
+              int l = xstring_length (name);
+              char mb[128];
+              int mi = 0;
+              for (int i = 0; i < l && mi < 120; i++)
+                mb[mi++] = (s[i] < 0x80) ? (char)s[i] : '?';
+              mb[mi] = 0;
+              dlog ("dispatch: throw type=%s\n", mb);
+            }
+        }
+      // Log the condition message
+      if (nld->id && nld->id != Qnil)
+        {
+          try
+            {
+              lisp cs = Fsi_condition_string (nld->id);
+              if (stringp (cs))
+                {
+                  const Char *s = xstring_contents (cs);
+                  int l = xstring_length (cs);
+                  char mb[512];
+                  int mi = 0;
+                  for (int i = 0; i < l && mi < 500; i++)
+                    mb[mi++] = (s[i] < 0x80) ? (char)s[i] : '?';
+                  mb[mi] = 0;
+                  dlog ("dispatch: condition=%s\n", mb);
+                }
+            }
+          catch (...) {}
+        }
       if (nld->type == Qexit_this_level)
         throw;
       print_condition (nonlocal_jump::data ());
