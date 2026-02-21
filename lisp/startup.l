@@ -23,33 +23,8 @@
 
 #+ncurses
 (progn
-  ;; Minimal pop-to-buffer for ncurses (no window splitting yet)
-  (defun ed::pop-to-buffer (buffer &optional popup-windows vert-p)
-    (set-buffer buffer))
-
   ;; Suppress completion list display (needs window splitting)
-  (setq ed::*completion-auto-help* nil)
-
-  ;; pos-visible-in-window-p: defined in window.l (#-ncurses excluded)
-  ;; C builtin pos-not-visible-in-window-p is stubbed (always returns nil = visible)
-  (defun ed::pos-visible-in-window-p (point &optional window)
-    (not (pos-not-visible-in-window-p point window)))
-
-  ;; recenter: defined in window.l (#-ncurses excluded)
-  (defun ed::recenter (&optional arg)
-    (interactive "p"))
-
-  ;; get-selection-start-end: defined in select.l (#-ncurses excluded)
-  ;; Returns nil nil (no selection) since selection is not implemented yet
-  (defun ed::get-selection-start-end ()
-    (values nil nil))
-
-  ;; selection-start-end macro: defined in select.l
-  (defmacro ed::selection-start-end ((start end) &body body)
-    `(multiple-value-bind (,start ,end)
-         (ed::get-selection-start-end)
-       (when ,start
-         ,@body))))
+  (setq ed::*completion-auto-help* nil))
 
 #+ncurses
 (defun si:*startup ()
