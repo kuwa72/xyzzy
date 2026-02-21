@@ -1427,179 +1427,258 @@ char *buffer_info::percent (char *b, char *) const { *b = 0; return b; }
 void check_kbd_enable () {}
 
 // ============================================================
-// Display (ncurses refresh_screen implementation)
+// Display (ncurses glyph-based rendering)
 // ============================================================
 
-// Iterate through buffer content starting at 'from', rendering to ncurses.
-// Returns the buffer position where rendering stopped.
-static point_t
-render_buffer (Buffer *bp, point_t from, int y_start, int y_end, int cols)
+#include "glyph.h"
+
+// Shared log fd (opened by fetch in ncurses-kbd.cc)
+extern int g_fetchlog_fd;
+static void
+displog (const char *fmt, ...)
 {
-  if (!bp)
-    return 0;
-
-  // Set up a Point to walk through the buffer
-  Point pt;
-  pt.p_point = 0;
-  pt.p_chunk = bp->b_chunkb;
-  pt.p_offset = 0;
-  if (from > 0)
-    bp->goto_char (pt, from);
-
-  point_t nchars = bp->b_nchars;
-
-  for (int y = y_start; y < y_end; y++)
+  if (g_fetchlog_fd < 0)
+    return;
+  char buf[256];
+  va_list ap;
+  va_start (ap, fmt);
+  int n = vsnprintf (buf, sizeof (buf), fmt, ap);
+  va_end (ap);
+  if (n > 0)
     {
-      move (y, 0);
-      clrtoeol ();
-      int x = 0;
-      while (x < cols && pt.p_point < nchars)
-        {
-          Char c = pt.p_chunk->c_text[pt.p_offset];
-          if (c == '\n')
-            {
-              // Advance past newline
-              pt.p_point++;
-              pt.p_offset++;
-              if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
-                {
-                  pt.p_chunk = pt.p_chunk->c_next;
-                  pt.p_offset = 0;
-                }
-              break;
-            }
+      ssize_t r __attribute__((unused)) = write (g_fetchlog_fd, buf, n);
+    }
+}
 
-          if (c == '\t')
+// Initialize or resize glyph buffers for a window.
+// For ncurses, cell size is 1x1 (character cells, not pixels).
+static void
+ncurses_calc_client_size (Window *wp, int width, int height)
+{
+  wp->w_client.cx = max (0, width);
+  wp->w_client.cy = max (0, height);
+  // For ncurses: 1 char = 1 cell, no pixel math
+  wp->w_ech.cx = max (0, width);
+  wp->w_ech.cy = max (0, height);
+  wp->w_ch_max.cx = max (0, width);
+  wp->w_ch_max.cy = max (0, height);
+  if (!wp->w_ech.cx && wp->w_ch_max.cx)
+    wp->w_ech.cx = 1;
+  if (!wp->w_ech.cy && wp->w_ch_max.cy)
+    wp->w_ech.cy = 1;
+  if (!wp->w_glyphs.g_rep
+      || wp->w_glyphs.g_rep->gr_size.cx != wp->w_ch_max.cx
+      || wp->w_glyphs.g_rep->gr_size.cy != wp->w_ch_max.cy)
+    {
+      if (!wp->alloc_glyph_rep ())
+        wp->w_glyphs = Glyphs (0);
+      wp->w_disp_flags |= Window::WDF_WINDOW | Window::WDF_MODELINE | Window::WDF_WINSIZE_CHANGED;
+    }
+}
+
+// Output a single glyph_t to ncurses at position (row, col).
+// Returns the number of columns consumed (1 for half-width, 2 for full-width).
+static int
+output_glyph (int row, int col, glyph_t g)
+{
+  // Extract character (low 8 bits)
+  Char cc = g & 0xff;
+
+  // Determine attributes from glyph bits
+  attr_t attrs = 0;
+  if (g & GLYPH_BOLD)
+    attrs |= A_BOLD;
+  if (g & GLYPH_UNDERLINE)
+    attrs |= A_UNDERLINE;
+  if (g & GLYPH_REVERSED)
+    attrs |= A_REVERSE;
+  if (g & GLYPH_SELECTED)
+    attrs |= A_REVERSE;
+
+  // Check for bitmap glyphs (special display chars)
+  if (g & GLYPH_BITMAP_BIT)
+    {
+      // Bitmap markers: newline mark, tab mark, etc.
+      // For ncurses, show as space (these are visual markers only)
+      mvaddch (row, col, ' ' | attrs);
+      return 1;
+    }
+
+  // Determine color pair from syntax highlighting
+  int color_pair = 0;
+  if (!(g & GLYPH_TEXTPROP_FG_BIT))
+    {
+      glyph_t text_type = g & GLYPH_TEXT_MASK;
+      // Map glyph text types to color pairs
+      // 0 = normal, 1-7 = syntax colors
+      switch (text_type)
+        {
+        case GLYPH_COMMENT:  color_pair = 1; break;  // green
+        case GLYPH_STRING:   color_pair = 2; break;  // yellow
+        case GLYPH_KEYWORD1: color_pair = 3; break;  // cyan
+        case GLYPH_KEYWORD2: color_pair = 4; break;  // magenta
+        case GLYPH_KEYWORD3: color_pair = 5; break;  // red
+        case GLYPH_TAG:      color_pair = 6; break;  // blue
+        case GLYPH_CTRL:     color_pair = 7; break;  // bright red
+        case GLYPH_LINENUM:  color_pair = 8; break;  // dim
+        default: break;
+        }
+    }
+
+  if (color_pair)
+    attrs |= COLOR_PAIR (color_pair);
+
+  // Check glyph category (DBCS lead/trail)
+  glyph_t cat = g & GLYPH_CATEGORY_MASK;
+
+  if (cat == GLYPH_LEAD)
+    {
+      // DBCS lead byte — will be combined with trail in caller
+      // Just return, the caller handles lead+trail pair
+      return 0;
+    }
+
+  if (cat == GLYPH_JUNK)
+    {
+      mvaddch (row, col, ' ' | attrs);
+      return 1;
+    }
+
+  // Single-byte or DBCS trail (where cc has the full character)
+  if (cc < 0x20)
+    {
+      // Control character
+      mvaddch (row, col, ('^') | attrs);
+      return 1;
+    }
+  else if (cc < 0x80)
+    {
+      mvaddch (row, col, cc | attrs);
+      return 1;
+    }
+  else
+    {
+      // Non-ASCII: convert internal Char to UCS-2
+      ucs2_t wc = i2w (cc);
+      if (wc != 0)
+        {
+          cchar_t cch;
+          wchar_t ws[2] = {(wchar_t)wc, 0};
+          setcchar (&cch, ws, attrs, (short)color_pair, NULL);
+          mvadd_wch (row, col, &cch);
+          int w = wcwidth ((wchar_t)wc);
+          return (w > 0) ? w : 1;
+        }
+      else
+        {
+          mvaddch (row, col, '?' | attrs);
+          return 1;
+        }
+    }
+}
+
+// Render one glyph_data row to ncurses screen row.
+static void
+render_glyph_row (int row, int cols, const glyph_data *gd)
+{
+  move (row, 0);
+  clrtoeol ();
+
+  if (!gd || gd->gd_len <= 0)
+    return;
+
+  const glyph_t *g = gd->gd_cc;
+  int len = gd->gd_len;
+  int x = 0;
+
+  for (int i = 0; i < len && x < cols; i++)
+    {
+      glyph_t gt = g[i];
+      glyph_t cat = gt & GLYPH_CATEGORY_MASK;
+
+      if (cat == GLYPH_LEAD && i + 1 < len)
+        {
+          // DBCS pair: lead byte has high byte, trail has low byte
+          // The actual Char is stored across lead+trail
+          glyph_t trail = g[i + 1];
+          Char lead_cc = gt & 0xff;
+          Char trail_cc = trail & 0xff;
+          Char full_cc = (lead_cc << 8) | trail_cc;
+
+          // Get attributes from lead glyph
+          attr_t attrs = 0;
+          if (gt & GLYPH_BOLD) attrs |= A_BOLD;
+          if (gt & GLYPH_UNDERLINE) attrs |= A_UNDERLINE;
+          if (gt & GLYPH_REVERSED) attrs |= A_REVERSE;
+          if (gt & GLYPH_SELECTED) attrs |= A_REVERSE;
+
+          int color_pair = 0;
+          if (!(gt & GLYPH_TEXTPROP_FG_BIT))
             {
-              int tab = 8 - (x % 8);
-              for (int i = 0; i < tab && x < cols; i++, x++)
-                mvaddch (y, x, ' ');
-            }
-          else if (c < 0x20)
-            {
-              // Control char: display as ^X
-              if (x + 1 < cols)
+              glyph_t text_type = gt & GLYPH_TEXT_MASK;
+              switch (text_type)
                 {
-                  mvaddch (y, x, '^');
-                  mvaddch (y, x + 1, c + '@');
-                  x += 2;
+                case GLYPH_COMMENT:  color_pair = 1; break;
+                case GLYPH_STRING:   color_pair = 2; break;
+                case GLYPH_KEYWORD1: color_pair = 3; break;
+                case GLYPH_KEYWORD2: color_pair = 4; break;
+                case GLYPH_KEYWORD3: color_pair = 5; break;
+                case GLYPH_TAG:      color_pair = 6; break;
+                case GLYPH_CTRL:     color_pair = 7; break;
+                case GLYPH_LINENUM:  color_pair = 8; break;
+                default: break;
                 }
-              else
-                break;
             }
-          else if (c < 0x80)
+          if (color_pair)
+            attrs |= COLOR_PAIR (color_pair);
+
+          ucs2_t wc = i2w (full_cc);
+          if (wc != 0)
             {
-              mvaddch (y, x, c);
-              x++;
+              cchar_t cch;
+              wchar_t ws[2] = {(wchar_t)wc, 0};
+              setcchar (&cch, ws, attrs, (short)color_pair, NULL);
+              mvadd_wch (row, x, &cch);
+              int w = wcwidth ((wchar_t)wc);
+              x += (w > 0) ? w : 1;
             }
           else
             {
-              // Non-ASCII: convert internal Char to UCS-2 via i2w()
-              ucs2_t wc = i2w (c);
-              if (wc != 0)
-                {
-                  cchar_t cc;
-                  wchar_t ws[2] = {(wchar_t)wc, 0};
-                  setcchar (&cc, ws, 0, 0, NULL);
-                  mvadd_wch (y, x, &cc);
-                  // Check if wide char
-                  int w = wcwidth ((wchar_t)wc);
-                  x += (w > 0) ? w : 1;
-                }
-              else
-                {
-                  mvaddch (y, x, '?');
-                  x++;
-                }
+              mvaddch (row, x, '?' | attrs);
+              x++;
             }
-
-          // Advance point
-          pt.p_point++;
-          pt.p_offset++;
-          if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
-            {
-              pt.p_chunk = pt.p_chunk->c_next;
-              pt.p_offset = 0;
-            }
+          i++;  // skip trail
         }
-
-      // Fill lines beyond buffer with '~'
-      if (pt.p_point >= nchars && y + 1 < y_end)
+      else if (cat == GLYPH_TRAIL)
         {
-          for (int yy = y + 1; yy < y_end; yy++)
-            {
-              move (yy, 0);
-              clrtoeol ();
-              mvaddch (yy, 0, '~');
-            }
-          break;
+          // Orphan trail — skip
+          continue;
         }
-    }
-
-  return pt.p_point;
-}
-
-// Compute the screen row/col for a given buffer position relative to w_disp
-static void
-point_to_screen (Buffer *bp, point_t disp, point_t target, int cols,
-                 int *out_y, int *out_x)
-{
-  *out_y = 0;
-  *out_x = 0;
-  if (!bp || target <= disp)
-    return;
-
-  Point pt;
-  pt.p_point = 0;
-  pt.p_chunk = bp->b_chunkb;
-  pt.p_offset = 0;
-  if (disp > 0)
-    bp->goto_char (pt, disp);
-
-  int y = 0, x = 0;
-  point_t nchars = bp->b_nchars;
-
-  while (pt.p_point < target && pt.p_point < nchars)
-    {
-      Char c = pt.p_chunk->c_text[pt.p_offset];
-      if (c == '\n')
+      else if (cat == GLYPH_JUNK)
         {
-          y++;
-          x = 0;
+          // Unused cell
+          x++;
         }
-      else if (c == '\t')
-        x = x + 8 - (x % 8);
-      else if (c < 0x20)
-        x += 2;
-      else if (c < 0x80)
-        x++;
       else
         {
-          ucs2_t wc = i2w (c);
-          int w = (wc != 0) ? wcwidth ((wchar_t)wc) : 1;
+          // Normal single-byte glyph
+          int w = output_glyph (row, x, gt);
           x += (w > 0) ? w : 1;
         }
-
-      // Advance point
-      pt.p_point++;
-      pt.p_offset++;
-      if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
-        {
-          pt.p_chunk = pt.p_chunk->c_next;
-          pt.p_offset = 0;
-        }
     }
-
-  *out_y = y;
-  *out_x = x;
 }
 
-// Draw modeline for a given buffer on a given screen row
+// Draw modeline for a given window on a given screen row
 static void
-draw_modeline (Buffer *bp, int row, int cols)
+draw_modeline (Window *wp, int row, int cols)
 {
   if (cols <= 0)
     return;
+
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return;
+
   int maxw = (cols < 255) ? cols : 255;
 
   attron (A_REVERSE);
@@ -1609,7 +1688,6 @@ draw_modeline (Buffer *bp, int row, int cols)
     {
       const Char *name = xstring_contents (bp->lbuffer_name);
       int len = xstring_length (bp->lbuffer_name);
-      // Build wide string for modeline
       wchar_t wbuf[256];
       int wi = 0;
       if (wi < maxw) wbuf[wi++] = L'-';
@@ -1622,6 +1700,15 @@ draw_modeline (Buffer *bp, int row, int cols)
           wbuf[wi++] = wc ? (wchar_t)wc : L'?';
         }
       if (wi < maxw) wbuf[wi++] = L' ';
+
+      // Show line:col position
+      char pos[32];
+      snprintf (pos, sizeof (pos), "(%ld,%ld)",
+                wp->w_linenum, wp->w_column);
+      for (int i = 0; pos[i] && wi < maxw; i++)
+        wbuf[wi++] = pos[i];
+      if (wi < maxw) wbuf[wi++] = L' ';
+
       while (wi < maxw)
         wbuf[wi++] = L'-';
       wbuf[wi] = 0;
@@ -1737,24 +1824,6 @@ draw_minibuffer (Window *mini, int row, int cols)
     }
 }
 
-// Shared log fd (opened by fetch in ncurses-kbd.cc)
-extern int g_fetchlog_fd;
-static void
-displog (const char *fmt, ...)
-{
-  if (g_fetchlog_fd < 0)
-    return;
-  char buf[256];
-  va_list ap;
-  va_start (ap, fmt);
-  int n = vsnprintf (buf, sizeof (buf), fmt, ap);
-  va_end (ap);
-  if (n > 0)
-    {
-      ssize_t r __attribute__((unused)) = write (g_fetchlog_fd, buf, n);
-    }
-}
-
 // Draw status line (echo area) showing StatusWindow content
 static void
 draw_status_line (int row, int cols)
@@ -1830,15 +1899,210 @@ draw_status_line (int row, int cols)
     }
 }
 
+// Reframe: ensure w_point is visible in the window.
+// Handles both vertical scrolling (w_disp) and horizontal scrolling (w_top_column).
+static void
+ncurses_reframe (Window *wp)
+{
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return;
+
+  if (bp->b_fold_columns != Buffer::FOLD_NONE)
+    bp->folded_count_lines ();
+
+  long linenum, column;
+  if (bp->b_fold_columns == Buffer::FOLD_NONE)
+    {
+      linenum = bp->point_linenum (wp->w_point.p_point);
+      column = bp->point_column (wp->w_point);
+    }
+  else
+    {
+      linenum = bp->folded_point_linenum (wp->w_point.p_point);
+      column = bp->folded_point_column (wp->w_point);
+    }
+  wp->w_linenum = linenum;
+  wp->w_column = column;
+  if (wp->w_disp_flags & Window::WDF_GOAL_COLUMN)
+    wp->w_goal_column = column;
+
+  // --- Horizontal scrolling (w_top_column) ---
+  if (bp->b_fold_columns == Buffer::FOLD_NONE)
+    {
+      // maxwidth = visible text columns (excluding margin + linenum)
+      int maxwidth = wp->w_ech.cx - 1;  // -1 for leading space
+      if (wp->w_flags & Window::WF_LINE_NUMBER)
+        maxwidth -= Window::LINENUM_COLUMNS + 1;
+      maxwidth -= bp->b_prompt_columns;
+
+      // If point is on a double-width char, need one more column
+      if (wp->w_point.p_offset != wp->w_point.p_chunk->c_used)
+        {
+          Char c = wp->w_point.ch ();
+          if (c != CC_LFD && c != CC_TAB && char_width (c) == 2)
+            maxwidth--;
+        }
+
+      if (maxwidth < 1)
+        maxwidth = 1;
+
+      int hjump = bp->b_hjump_columns;
+      if (hjump <= 0)
+        hjump = Window::w_hjump_columns;
+      if (hjump <= 0)
+        hjump = 4;
+
+      if (column < wp->w_top_column)
+        wp->w_top_column = column / hjump * hjump;
+      else if (column >= wp->w_top_column + maxwidth)
+        wp->w_top_column = ((column - maxwidth + hjump) / hjump * hjump);
+
+      if (column < wp->w_top_column || column - wp->w_top_column >= maxwidth)
+        wp->w_top_column = column;
+    }
+
+  // --- Vertical scrolling (w_disp) ---
+  long disp_linenum;
+  if (bp->b_fold_columns == Buffer::FOLD_NONE)
+    disp_linenum = bp->point_linenum (wp->w_disp);
+  else
+    disp_linenum = bp->folded_point_linenum (wp->w_disp);
+
+  int visible_rows = wp->w_ech.cy;
+  if (visible_rows <= 0)
+    visible_rows = 1;
+
+  if (linenum < disp_linenum || linenum >= disp_linenum + visible_rows)
+    {
+      disp_linenum = linenum - visible_rows / 2;
+      if (disp_linenum < 1)
+        disp_linenum = 1;
+
+      Point df;
+      if (bp->b_fold_columns == Buffer::FOLD_NONE)
+        bp->linenum_point (df, disp_linenum);
+      else
+        bp->folded_linenum_point (df, disp_linenum);
+      wp->w_disp = df.p_point;
+    }
+}
+
+// Compute cursor position from glyph data.
+// Walk glyph rows to find where w_point falls.
+static void
+glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
+{
+  *out_y = 0;
+  *out_x = 0;
+
+  if (!wp->w_glyphs.g_rep)
+    return;
+
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return;
+
+  // Walk buffer from w_disp to w_point, tracking screen position
+  // using the same logic as the glyph system
+  point_t target = wp->w_point.p_point;
+  point_t disp = wp->w_disp;
+
+  if (target < disp)
+    return;
+
+  Point pt;
+  pt.p_point = 0;
+  pt.p_chunk = bp->b_chunkb;
+  pt.p_offset = 0;
+  if (disp > 0)
+    bp->goto_char (pt, disp);
+
+  int y = 0, x = 0;
+  int cols = wp->w_ech.cx;
+  int rows = wp->w_ech.cy;
+  point_t nchars = bp->b_nchars;
+
+  // redraw_line() adds a leading space (left margin) at glyph column 0,
+  // plus optional line number columns. x tracks the text column;
+  // the leading space offset is added at the end.
+  int linenum_offset = 0;
+  if (wp->w_flags & Window::WF_LINE_NUMBER)
+    linenum_offset = Window::LINENUM_COLUMNS + 1;
+
+  while (pt.p_point < target && pt.p_point < nchars && y < rows)
+    {
+      Char c = pt.p_chunk->c_text[pt.p_offset];
+      if (c == '\n')
+        {
+          y++;
+          x = 0;
+        }
+      else if (c == '\t')
+        {
+          int tab = bp->b_tab_columns;
+          if (tab <= 0) tab = 8;
+          x = x + tab - (x % tab);
+        }
+      else if (c < 0x20)
+        x += 2;  // ^X
+      else if (char_width (c) == 2)
+        x += 2;
+      else
+        x++;
+
+      // Handle line wrap (for fold mode)
+      if (bp->b_fold_columns != Buffer::FOLD_NONE
+          && x + 1 + linenum_offset >= cols)
+        {
+          y++;
+          x = 0;
+        }
+
+      pt.p_point++;
+      pt.p_offset++;
+      if (pt.p_offset >= pt.p_chunk->c_used && pt.p_chunk->c_next)
+        {
+          pt.p_chunk = pt.p_chunk->c_next;
+          pt.p_offset = 0;
+        }
+    }
+
+  *out_y = y;
+  // Adjust for horizontal scroll (w_top_column) then add glyph offsets:
+  // +1 for leading space margin, + linenum columns
+  *out_x = (x - wp->w_top_column) + 1 + linenum_offset;
+}
+
+// Initialize ncurses color pairs for syntax highlighting
+static int g_colors_initialized = 0;
+static void
+init_ncurses_colors ()
+{
+  if (g_colors_initialized)
+    return;
+  g_colors_initialized = 1;
+
+  // Color pairs for syntax highlighting
+  init_pair (1, COLOR_GREEN, -1);     // comment
+  init_pair (2, COLOR_YELLOW, -1);    // string
+  init_pair (3, COLOR_CYAN, -1);      // keyword1
+  init_pair (4, COLOR_MAGENTA, -1);   // keyword2
+  init_pair (5, COLOR_RED, -1);       // keyword3
+  init_pair (6, COLOR_BLUE, -1);      // tag
+  init_pair (7, COLOR_RED, -1);       // ctrl (bright via A_BOLD)
+  init_pair (8, COLOR_WHITE, -1);     // linenum (dim via A_DIM)
+}
+
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
 
 void
 refresh_screen (int)
 {
+  init_ncurses_colors ();
+
   // Handle terminal resize (SIGWINCH / KEY_RESIZE)
-  // SIGWINCH may arrive while wget_wch has buffered input, so
-  // KEY_RESIZE is not always delivered. We must handle it here too.
   if (g_need_resize)
     {
       g_need_resize = 0;
@@ -1861,9 +2125,8 @@ refresh_screen (int)
   getmaxyx (stdscr, rows, cols);
 
   if (rows < 3 || cols < 4)
-    return;  // Need at least: 1 text + 1 modeline + 1 echo, and minimal width
+    return;
 
-  // Determine if minibuffer is active
   Window *sel = selected_window ();
   if (!sel)
     return;
@@ -1871,29 +2134,71 @@ refresh_screen (int)
                       && sel->w_bufp
                       && sel->w_bufp->b_minibufferp;
 
-  // Find the main editing window (first non-minibuffer window)
+  // Find the main editing window
   Window *main_wp = app.active_frame.windows;
   if (!main_wp || !main_wp->w_bufp)
     return;
 
   Buffer *bp = main_wp->w_bufp;
+
+  // Layout:
+  //   text:      rows 0 .. rows-3
+  //   modeline:  row rows-2
+  //   echo area: row rows-1
+  int ml_row = rows - 2;
+  int text_rows = ml_row;
+
   displog ("refresh: nchars=%ld point=%ld mini=%d rows=%d cols=%d\n",
            (long)bp->b_nchars,
            (long)main_wp->w_point.p_point,
            in_minibuffer, rows, cols);
 
-  // Layout (always 3 zones):
-  //   text:      rows 0 .. rows-3
-  //   modeline:  row rows-2
-  //   echo area: row rows-1  (status line or minibuffer)
-  int ml_row = rows - 2;
-  int text_rows = ml_row;
+  // Initialize/resize glyph buffers
+  ncurses_calc_client_size (main_wp, cols, text_rows);
 
-  // Render main buffer content
-  render_buffer (main_wp->w_bufp, main_wp->w_disp, 0, text_rows, cols);
+  // Reframe: ensure point is visible
+  ncurses_reframe (main_wp);
+
+  // Fill glyph buffers via core redraw_window
+  if (main_wp->w_glyphs.g_rep)
+    {
+      Point df;
+      df.p_point = 0;
+      df.p_chunk = bp->b_chunkb;
+      df.p_offset = 0;
+      if (main_wp->w_disp > 0)
+        bp->goto_char (df, main_wp->w_disp);
+
+      long vlinenum;
+      if (bp->b_fold_columns == Buffer::FOLD_NONE)
+        vlinenum = bp->point_linenum (main_wp->w_disp);
+      else
+        vlinenum = bp->folded_point_linenum (main_wp->w_disp);
+
+      int hide = symbol_value (Vhide_restricted_region, bp) != Qnil;
+      main_wp->redraw_window (df, vlinenum, 1, hide);
+
+      // Render glyph data to ncurses
+      glyph_data **ng = main_wp->w_glyphs.g_rep->gr_nglyph;
+      for (int y = 0; y < text_rows && y < main_wp->w_ch_max.cy; y++)
+        render_glyph_row (y, cols, ng[y]);
+
+      // Fill remaining rows with ~
+      for (int y = main_wp->w_ch_max.cy; y < text_rows; y++)
+        {
+          move (y, 0);
+          clrtoeol ();
+          mvaddch (y, 0, '~');
+        }
+
+      // Swap old/new glyph buffers for next frame's diff
+      glyph_data **tmp = main_wp->w_glyphs.g_rep->gr_oglyph;
+      main_wp->w_glyphs.g_rep->gr_oglyph = main_wp->w_glyphs.g_rep->gr_nglyph;
+      main_wp->w_glyphs.g_rep->gr_nglyph = tmp;
+    }
 
   // Draw modeline
-  draw_modeline (main_wp->w_bufp, ml_row, cols);
+  draw_modeline (main_wp, ml_row, cols);
 
   // Draw echo area (last row)
   if (in_minibuffer)
@@ -1904,7 +2209,6 @@ refresh_screen (int)
       // Position cursor in minibuffer
       Buffer *mbp = mini->w_bufp;
       int cx = mbp->b_prompt_columns + strlen (mbp->b_prompt_arg);
-      // Add position of point within minibuffer content
       if (mbp->b_nchars > 0 && mini->w_point.p_point > 0)
         {
           Point pt;
@@ -1916,7 +2220,7 @@ refresh_screen (int)
             {
               Char c = pt.p_chunk->c_text[pt.p_offset];
               if (c < 0x20)
-                ; // control chars take 0 width in display
+                ;
               else if (c < 0x80)
                 point_x++;
               else
@@ -1939,13 +2243,11 @@ refresh_screen (int)
     }
   else
     {
-      // Draw status line (messages, errors, etc.)
       draw_status_line (rows - 1, cols);
 
-      // Position cursor in main buffer at point
+      // Position cursor in main buffer
       int cy, cx;
-      point_to_screen (main_wp->w_bufp, main_wp->w_disp,
-                        main_wp->w_point.p_point, cols, &cy, &cx);
+      glyph_point_to_screen (main_wp, &cy, &cx);
       if (cy < text_rows)
         move (cy, cx);
     }

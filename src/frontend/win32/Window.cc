@@ -334,76 +334,8 @@ StatusWindow::paint (const DRAWITEMSTRUCT *dis)
 }
 
 
-glyph_rep::glyph_rep (int w, int h)
-{
-  gr_size.cx = w;
-  gr_size.cy = h;
-  gr_oglyph = (glyph_data **)((char *)this + sizeof *this);
-  gr_nglyph = gr_oglyph + h;
-  gr_ref = 0;
+// glyph_rep::glyph_rep, glyph_rep::copy moved to core/glyph.cc
 
-  char *p = (char *)(gr_nglyph + h);
-  for (int i = 0; i < 2 * h; i++)
-    {
-      gr_oglyph[i] = (glyph_data *)p;
-      gr_oglyph[i]->gd_len = 0;
-      gr_oglyph[i]->gd_mod = 0;
-      gr_oglyph[i]->gd_cc[0] = 0;
-      p += sizeof (glyph_data) + sizeof (glyph_t) * (w + 1);
-    }
-  assert (p - (char *)this == size (w, h));
-}
-
-void
-glyph_rep::copy (const glyph_rep *src)
-{
-  if (src)
-    {
-      int h = min (gr_size.cy, src->gr_size.cy);
-      int y;
-      for (y = 0; y < h; y++)
-        {
-          int w = min (gr_size.cx, LONG (src->gr_oglyph[y]->gd_len));
-          memcpy (gr_oglyph[y]->gd_cc, src->gr_oglyph[y]->gd_cc, sizeof (glyph_t) * w);
-          glyph_t *g, *ge;
-          for (g = gr_oglyph[y]->gd_cc + w,
-               ge = gr_oglyph[y]->gd_cc + gr_size.cx;
-               g < ge; g++)
-            *g = GLYPH_JUNK;
-          *g = 0;
-          gr_oglyph[y]->gd_len = short (gr_size.cx);
-        }
-
-      for (; y < gr_size.cy; y++)
-        {
-          glyph_t *g, *ge;
-          for (g = gr_oglyph[y]->gd_cc, ge = g + gr_size.cx; g < ge; g++)
-            *g = GLYPH_JUNK;
-          *g = 0;
-          gr_oglyph[y]->gd_len = short (gr_size.cx);
-        }
-
-      if (gr_size.cy >= src->gr_size.cy && src->gr_size.cy)
-        for (glyph_t *g = gr_oglyph[src->gr_size.cy - 1]->gd_cc,
-             *ge = g + gr_oglyph[src->gr_size.cy - 1]->gd_len;
-             g < ge; g++)
-          glyph_make_junk (g);
-      if (gr_size.cx >= src->gr_size.cx && src->gr_size.cx)
-        for (y = 0; y < h; y++)
-          glyph_make_junk (&gr_oglyph[y]->gd_cc[src->gr_size.cx - 1]);
-    }
-  else
-    {
-      for (int y = 0; y < gr_size.cy; y++)
-        {
-          glyph_t *g, *ge;
-          for (g = gr_oglyph[y]->gd_cc, ge = g + gr_size.cx; g < ge; g++)
-            *g = GLYPH_JUNK;
-          *g = 0;
-          gr_oglyph[y]->gd_len = short (gr_size.cx);
-        }
-    }
-}
 
 void
 Window::init (int minibufp, int temporary)
@@ -840,17 +772,7 @@ Window::create_default_windows ()
   Window::move_all_windows (0);
 }
 
-int
-Window::alloc_glyph_rep ()
-{
-  void *tem = malloc (glyph_rep::size (w_ch_max.cx, w_ch_max.cy));
-  if (!tem)
-    return 0;
-  glyph_rep *rep = new (tem) glyph_rep (w_ch_max.cx, w_ch_max.cy);
-  rep->copy (w_glyphs.g_rep);
-  w_glyphs = Glyphs (rep);
-  return 1;
-}
+// Window::alloc_glyph_rep moved to core/glyph.cc
 
 void
 Window::calc_client_size (int width, int height)
