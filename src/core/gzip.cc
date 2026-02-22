@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "byte-stream.h"
 #define ZEXPORT __cdecl
-#include "zlib/zlib.h"
+#include <zlib.h>
 
 #define ZBUFSIZE 4096
 static u_char gz_magic[] = {0x1f, 0x8b};
