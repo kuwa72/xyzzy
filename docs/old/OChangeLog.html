@@ -1,7 +1,7 @@
 <!doctype html public "-//W3C//DTD HTML 3.2//EN">
 <html>
  <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <link rev="made" href="mailto:kamei@jsdlab.co.jp">
   <title>OChangeLog</title>
  </head>
@@ -9,14 +9,14 @@
   <blockquote>
    <h4>Thu Dec 28 2000 Version 0.2.1.173</h4>
    <ul>
-    <li>�����̂��p���������悤�ȂƂ�����C���B
+    <li>書くのも恥ずかしいようなところを修正。
    </ul>
    <h4>Mon Dec 25 2000 Version 0.2.1.172</h4>
    <ul>
-    <li>�t�@�C���̃X�e�[�^�X�E�B���h�E�ւ̃t�@�C�����\�����A�ɂȂƂ��ɏ�������悤�ɂ��Ă݂��B�܂��A�ϐ�*filer-echo-filename*��nil�Ȃ�\�����Ȃ��悤�ɂ����B
-    <li>fill-column�̐ݒ�ɂ���Ă�fill-paragraph���A���Ă��Ȃ��Ȃ�̂��C���B
+    <li>ファイラのステータスウィンドウへのファイル名表示を、暇なときに処理するようにしてみた。また、変数*filer-echo-filename*がnilなら表示しないようにした。
+    <li>fill-columnの設定によってはfill-paragraphが帰ってこなくなるのを修正。
     <li>get-menu <var>menu tag-or-position</var> &amp;optional <var>tag-or-position-p</var>
-    <li>interactive��:emacs�L�[���[�h��ǉ��Bnon-nil�Ȃ�A<var>p</var>�̃f�t�H���g��1�ɁA<var>r</var>�����������ɂ���B����Ȋ����ɂ���Ƒ����������l�����邩���B
+    <li>interactiveに:emacsキーワードを追加。non-nilなら、<var>p</var>のデフォルトを1に、<var>r</var>を小さい順にする。こんな感じにすると多少嬉しい人もいるかも。
     <pre>
 (defmacro emacs:defun (name (&rest lambda-list) &body body)
   (let (decl intr)
@@ -30,53 +30,53 @@
 	          `((,@(car intr) :emacs t)) intr)
        ,@body)))
     </pre>
-    <li>delete-indentation�ŁA���{��̏ꍇ�̓X�y�[�X�����Ȃ��悤�ɂ����B
-    <li>�ϐ�c-comment-indent��C/C++�̃R�����g���̃C���f���g�ʂ��w��ł���悤�ɂ����B
-    <li>�������̂�*show-match-hook*��run-hook-with-args-while-success�ŌĂԂ悤�ɂ����B
-    <li>�ϐ�*modal-filer-save-size*�B
+    <li>delete-indentationで、日本語の場合はスペースを入れないようにした。
+    <li>変数c-comment-indentでC/C++のコメント内のインデント量を指定できるようにした。
+    <li>苦情が来たので*show-match-hook*をrun-hook-with-args-while-successで呼ぶようにした。
+    <li>変数*modal-filer-save-size*。
    </ul>
    <h4>Mon Dec 11 2000 Version 0.2.1.171</h4>
    <ul>
-    <li>���������܂������Ȃ���ԂŃt�@�C�����J���Ǝ��ʂ̂��C���B
-    <li>forward-line, forward-virtual-line�̖߂�l���A���ۂɈړ������s����Ԃ��悤�ɕύX�B0�Ȃ��nil��Ԃ��B
-    <li>mark-whole-buffer�B
-    <li>�ϐ�next-line-add-newlines��non-nil�Ȃ�A����Ȃ�̓��������悤�ɂ����B
-    <li>�ϐ�*modal-filer-save-position*��nil�̏ꍇ�A���[�_���t�@�C���̕\���ʒu���Œ肷��悤�ɂ����B
-    <li>�ϐ�*move-forward-after-undo-deletion*��non-nil�Ȃ�A�폜��undo�����Ƃ��A�O���Ɉړ�����悤�ɂ��Ă݂��B
-    <li>end-of-virtual-line�Abeginning-of-virtual-line�B
-    <li>������������n�C���C�g�\������O��*show-match-hook*���ĂԂ悤�ɂ����B*show-match-hook*��nil��Ԃ����ꍇ�̂݃n�C���C�g�\������B
-    <li>filer-gresreg�B
-    <li>filer-byte-compile�B
+    <li>メモリがまったくない状態でファイラを開くと死ぬのを修正。
+    <li>forward-line, forward-virtual-lineの戻り値を、実際に移動した行数を返すように変更。0ならばnilを返す。
+    <li>mark-whole-buffer。
+    <li>変数next-line-add-newlinesがnon-nilなら、それなりの動作をするようにした。
+    <li>変数*modal-filer-save-position*がnilの場合、モーダルファイラの表示位置を固定するようにした。
+    <li>変数*move-forward-after-undo-deletion*がnon-nilなら、削除をundoしたとき、前方に移動するようにしてみた。
+    <li>end-of-virtual-line、beginning-of-virtual-line。
+    <li>検索文字列をハイライト表示する前に*show-match-hook*を呼ぶようにした。*show-match-hook*がnilを返した場合のみハイライト表示する。
+    <li>filer-gresreg。
+    <li>filer-byte-compile。
    </ul>
    <h4>Mon Dec 04 2000 Version 0.2.1.170</h4>
    <ul>
-    <li>�t�@�C���̃R���e�L�X�g���j���[���瑗��Ȃ������̂��C���B
-    <li>eval-last-sexp�̓������኱�ύX�B
+    <li>ファイラのコンテキストメニューから送れなかったのを修正。
+    <li>eval-last-sexpの動きを若干変更。
    </ul>
    <h4>Mon Nov 27 2000 Version 0.2.1.169</h4>
    <ul>
-    <li>ISO-8859-10��Baltic���Ɗ��Ⴂ���Ă����̂��C���B
-    <li>���ł�ISO-8859-13���T�|�[�g�B
-    <li>�t�@�C���̃R���e�L�X�g���j���[�����Ŏ����B
-    <li>�t�@�C������ʂɂ���ꍇ�̃t�@�C���̍ŏ��̕\�����኱��������������B
-    <li>�R�}���h���C���I�v�V������-mailto��ǉ��B
-    <li>���̑����܂����ƁB
+    <li>ISO-8859-10がBalticだと勘違いしていたのを修正。
+    <li>ついでにISO-8859-13をサポート。
+    <li>ファイラのコンテキストメニューを勘で実装。
+    <li>ファイルが大量にある場合のファイラの最初の表示を若干高速化したつもり。
+    <li>コマンドラインオプションに-mailtoを追加。
+    <li>その他こまいこと。
    </ul>
    <h4>Mon Nov 20 2000 Version 0.2.1.168</h4>
    <ul>
-    <li>auto-mode�ő��݂��Ȃ����[�h�����w�肳�ꂽ�ꍇ�A*auto-mode-alist*�����Ă��Ȃ������̂��C���B
-    <li>yank-and-pop�Ƃ��B
-    <li>yank-selection-and-pop�Ƃ��B
-    <li>yank-selection��ring�ɂ�����Ƃ��B
-    <li>execute-extended-command��*this-command*���ݒ肳��Ă��Ȃ������̂��C���B
-    <li>save-buffer�Awrite-region��encoding��eol-code���w��ł���悤�ɂ����B
+    <li>auto-modeで存在しないモード名が指定された場合、*auto-mode-alist*を見ていなかったのを修正。
+    <li>yank-and-popとか。
+    <li>yank-selection-and-popとか。
+    <li>yank-selectionをringにしたりとか。
+    <li>execute-extended-commandで*this-command*が設定されていなかったのを修正。
+    <li>save-buffer、write-regionにencodingとeol-codeを指定できるようにした。
     <ul>
      <li>save-buffer &amp;optional <var>char-encoding eol-code</var>
      <li>write-region <var>from to filename</var> &amp;optional <var>append char-encoding eol-code</var>
      <li>write-file <var>filename</var> &amp;optional <var>nomsg append char-encoding eol-code</var>
      <li>append-file <var>filename</var> &amp;optional <var>nomsg char-encoding eol-code</var>
     </ul>
-    <li>�M���V�A�����E�L���������̑S�p���p�ϊ�
+    <li>ギリシア文字・キリル文字の全角半角変換
     <ul>
      <li>map-to-half-width-region <var>from to</var> &key :ascii :hiragana :katakana :greek :cyrillic
      <li>map-to-full-width-region <var>from to</var> &key :ascii :hiragana :katakana :greek :cyrillic
@@ -86,78 +86,78 @@
    </ul>
    <h4>Mon Nov 06 2000 Version 0.2.1.167</h4>
    <ul>
-    <li>fill��()���̈������኱�ύX�B
-    <li>95�n��UTF16���N���b�v�{�[�h�ɃR�s�[�����ꍇ�ACF_TEXT�������悤�ɂ����B
+    <li>fillで()等の扱いを若干変更。
+    <li>95系でUTF16をクリップボードにコピーした場合、CF_TEXTも入れるようにした。
    </ul>
    <h4>Mon Oct 30 2000 Version 0.2.1.166</h4>
    <ul>
-    <li>fill-paragraph��ASCII�ȊO�̃A���t�@�x�b�g���l�����Ă��Ȃ������̂��C���B
-    <li>filer-grep�������Ȃ������̂��C���B
-    <li>list-function�̃��X�g���֐����̐擪�����Ŕ�ׂ�悤�ɂ����B
+    <li>fill-paragraphでASCII以外のアルファベットを考慮していなかったのを修正。
+    <li>filer-grepが動かなかったのを修正。
+    <li>list-functionのリストを関数名の先頭文字で飛べるようにした。
    </ul>
    <h4>Mon Oct 23 2000 Version 0.2.1.165</h4>
    <ul>
-    <li>���[�h���X�t�@�C��������Ƃ��A�^�������ƃA�N�Z�X�ᔽ�ŗ�����̂��C���B
-    <li>dabbrev�̓W�J���ɂ��ׂẴo�b�t�@��T���悤�ɂ����B�ϐ�*dabbrev-search-this-buffer-only*��nil�Ȃ�A�J�����g�o�b�t�@�݂̂�Ώۂ�����B
-    <li>�ϐ�*smart-indentation*��t�̏ꍇ(�f�t�H���g)�A�C���f���g���ɂ܂������ύX����K�v���Ȃ���ΕύX���Ȃ��悤�ɂ����Bnil�Ȃ�]���ʂ��ɕύX����Bt�ł�nil�ł��Ȃ���΁A�������̈ʒu���Ⴄ�ꍇ�̂�(�^�u�ƃX�y�[�X�̑g�ݍ��킹�͍l�����Ȃ�)�ύX����悤�ɂ����B
-    <li>filer-grep�B
+    <li>モードレスファイラを閉じたとき、運が悪いとアクセス違反で落ちるのを修正。
+    <li>dabbrevの展開時にすべてのバッファを探すようにした。変数*dabbrev-search-this-buffer-only*がnilなら、カレントバッファのみを対象をする。
+    <li>変数*smart-indentation*がtの場合(デフォルト)、インデント時にまったく変更する必要がなければ変更しないようにした。nilなら従来通り常に変更する。tでもnilでもなければ、字下げの位置が違う場合のみ(タブとスペースの組み合わせは考慮しない)変更するようにした。
+    <li>filer-grep。
    </ul>
    <h4>Tue Oct 10 2000  Version 0.2.1.164</h4>
    <ul>
-    <li>�~�j�o�b�t�@���\������Ă���Ԃ́A�t���[����������Ȃ��悤�ɂ���(����)�B
-    <li>�y�[�W�w��ł̈�������܂����������̂��C���B
-    <li>���P�����Ȃ��ł��ނ悤�ɂ����B
-    <li>���[�_���t�@�C����C-g�Ńt�@�C�������悤�ɂ����B�o�C���h�̕ύX�͂ł��Ȃ����Ƃɂ��Ă����B
-    <li>find-errors�ŁA�ϐ�*find-errors-find-buffers*(�ςȖ��O)��non-nil�Ȃ�A�t�@�C�������݂����o�b�t�@�����݂���ꍇ�̓o�b�t�@�ɔ�Ԃ悤�ɂ����B
-    <li>find-errors�ŃG���[��������Ȃ��ꍇ�͌��̈ʒu�ɖ߂�悤�ɂ����B
-    <li>�t�@�C���̑I�����ꂽ���ڂ̕����F/�w�i�F���w��ł���悤�ɂ����B
-    <li>�t�@�C���̃t�@�C���T�C�Y��3����؂�ŕ\���ł���悤�ɂ����B�蔲���Ȃ̂ŁA���[�h���X�̏ꍇ�͍ĕ\���������_�ŗL���ɂȂ�B
+    <li>ミニバッファが表示されている間は、フレームをいじれないようにした(つもり)。
+    <li>ページ指定での印刷がいまいちだったのを修正。
+    <li>首を捻挫しないですむようにした。
+    <li>モーダルファイラのC-gでファイラを閉じるようにした。バインドの変更はできないことにしておく。
+    <li>find-errorsで、変数*find-errors-find-buffers*(変な名前)がnon-nilなら、ファイルが存在せずバッファが存在する場合はバッファに飛ぶようにした。
+    <li>find-errorsでエラーが見つからない場合は元の位置に戻るようにした。
+    <li>ファイラの選択された項目の文字色/背景色を指定できるようにした。
+    <li>ファイラのファイルサイズを3桁区切りで表示できるようにした。手抜きなので、モードレスの場合は再表示した時点で有効になる。
    </ul>
    <h4>Mon Oct 02 2000 Version 0.2.1.163</h4>
    <ul>
-    <li>comctl32.dll 4.0�ł̃c�[���o�[�����܂����������̂��C���B
-    <li>�^�u���c�ɓ\���悤�ɂ���(IE3�ȏ�/comctl32.dll 4.70�ȏ�)�B���Ȃ薳���Ȃ��Ƃ����Ă���̂ŉ^�������Ɠ����Ȃ������B
-    <li>�^�u�̃f�U�C��������ɕς��Ă݂��B
-    <li>�Ō�̃o�b�t�@���폜���ꂽ��A*initial-buffer-mode*��funcall����悤�ɂ����B
-    <li>�o�b�t�@�ɑ΂���grep�̏o�͂́A�o�b�t�@����&lt;&gt;�ň͂ނ悤�ɂ����B
-    <li>�R�����g������text-attribute���d�Ȃ��Ă���ƁA�ŏ��̕����̐F���ςɂȂ�̂��C���B
+    <li>comctl32.dll 4.0でのツールバーがいまいちだったのを修正。
+    <li>タブを縦に貼れるようにした(IE3以上/comctl32.dll 4.70以上)。かなり無茶なことをしているので運が悪いと動かないかも。
+    <li>タブのデザインを微妙に変えてみた。
+    <li>最後のバッファが削除されたら、*initial-buffer-mode*をfuncallするようにした。
+    <li>バッファに対するgrepの出力は、バッファ名を&lt;&gt;で囲むようにした。
+    <li>コメント文字とtext-attributeが重なっていると、最初の文字の色が変になるのを修正。
    </ul>
    <h4>Mon Sep 25 2000 Version 0.2.1.162</h4>
    <ul>
-    <li>session��read-only�̕ۑ��B
+    <li>sessionでread-onlyの保存。
     <li>set-per-device-directory <var>directory</var>
-    <li>�ϐ�*auto-update-per-device-directory*��nil�Ȃ�A�h���C�u���Ƃ̃f�B���N�g��������ɕύX���Ȃ��悤�ɂ����B
-    <li>�ǂݍ��ݍς݂̃t�@�C����find-file-read-only�����ꍇ��read-only�ɂ���悤�ɂ����B
-    <li>hide-ifdef�ōs���ɗ]����CR�����Ă��Ă��������[�ɂ����B
-    <li>�^�u�o�[�����ɂ��Ă���Ƃ��A�F�������ƕς��Ȃ������̂��C���B
+    <li>変数*auto-update-per-device-directory*がnilなら、ドライブごとのディレクトリを勝手に変更しないようにした。
+    <li>読み込み済みのファイルをfind-file-read-onlyした場合もread-onlyにするようにした。
+    <li>hide-ifdefで行末に余分なCRがついていてもおっけーにした。
+    <li>タブバーが下についているとき、色がちゃんと変わらなかったのを修正。
    </ul>
    <h4>Mon Sep 18 2000 Version 0.2.1.161</h4>
    <ul>
-    <li>integer-length��g�ݍ��݂ɂ����B
-    <li>�^�u�ɐF��������悤�ɂ��Ă݂���B
-    <li>����̈�s�̕������̌v�Z�����܂����s���R�������̂��C���B���ʁA���[�h���b�v�E�֑������Ŏw�蕶�����𒴂���ꍇ�A�]�������ɂ͂ݏo���悤�ɂȂ����B
-    <li>�ϐ�*next-buffer-in-tab-order*��non-nil�Ȃ�Anext-buffer/previous-buffer���^�u�̏��ɓ����悤�ɂ����B
-    <li>next-buffer/previous-buffer��g�ݍ��݂łȂ������B
+    <li>integer-lengthを組み込みにした。
+    <li>タブに色をつけられるようにしてみたり。
+    <li>印刷の一行の文字数の計算がいまいち不自然だったのを修正。結果、ワードラップ・禁則処理で指定文字数を超える場合、余白部分にはみ出すようになった。
+    <li>変数*next-buffer-in-tab-order*がnon-nilなら、next-buffer/previous-bufferがタブの順に動くようにした。
+    <li>next-buffer/previous-bufferを組み込みでなくした。
     <li>get-next-buffer &amp;optional <var>buffer reverse tab-order</var>
     <li>find-file-read-only
-    <li>�\����fill�ŋ֑������̐ݒ�����ꂼ��w��ł���悤�ɂ����B
+    <li>表示とfillで禁則処理の設定をそれぞれ指定できるようにした。
     <li>kinsoku-goto-column <var>column</var> &amp;optional <var>mode</var>
-    <li>�o�b�t�@�̍X�V�����̕ύX�^�C�~���O���኱�ς����B
-    <li>�h���C�u���Ƃ̃J�����g�f�B���N�g���̊Ǘ������܂����������̂��኱�}�V�ɂ����B
-    <li>��`���N���b�v�{�[�h�ɓ˂����߂�悤�ɂ��Ă݂��B
-    <li>�����t�@�C�����l�[�����̃_�C�A���O�̉��X�N���[���B
-    <li>�����t�@�C�����l�[�����̃q�X�g���B
-    <li>�_�C�A���O�݂̂��Ƃ��Ȃ��Ƃ�����C���B
-    <li>�X�e�[�^�X�o�[�̍s�ԍ��\����ݒ�ʂ�ɁB
-    <li>�s�ԍ��F�̃f�t�H���g���e�L�X�g�F�Ɠ����ɁB
-    <li>9x�n�̏ꍇ�Adirectory-name-dialog�Ō��ɃX�y�[�X���t���̂��C���B
-    <li>�L�[���[�h�t�@�C����;*�^�C�v�̋L�q���@���኱�ύX�B�]���̂��̂��Ƃ肠�����T�|�[�g
+    <li>バッファの更新日時の変更タイミングを若干変えた。
+    <li>ドライブごとのカレントディレクトリの管理がいまいちだったのを若干マシにした。
+    <li>矩形をクリップボードに突っ込めるようにしてみた。
+    <li>複数ファイルリネーム時のダイアログの横スクロール。
+    <li>複数ファイルリネーム時のヒストリ。
+    <li>ダイアログのみっともないところを修正。
+    <li>ステータスバーの行番号表示を設定通りに。
+    <li>行番号色のデフォルトをテキスト色と同じに。
+    <li>9x系の場合、directory-name-dialogで後ろにスペースが付くのを修正。
+    <li>キーワードファイルの;*タイプの記述方法を若干変更。従来のものもとりあえずサポート
     <p><code>;*</code> <var>n</var> [ <var>attrib</var> ]</p>
      <dl compact>
       <dt><var>n</var>
-      <dd>�L�[���[�h�ԍ�(0�`5)�B3�`5��0�`2�Ɠ����F�̔��]�B
+      <dd>キーワード番号(0〜5)。3〜5は0〜2と同じ色の反転。
       <dt><var>attrib</var>
-      <dd>�����݂����Ȃ́B�ȉ��̔C�ӂ̑g�ݍ��킹�B
+      <dd>属性みたいなの。以下の任意の組み合わせ。
        <dl compact>
         <dt>b
         <dd>bold
@@ -166,119 +166,119 @@
         <dt>s
         <dd>strike-out
         <dt>l
-        <dd>��s�ۂ��ƁB;**�ł��g����B
+        <dd>一行丸ごと。;**でも使える。
        </dl>
      </dl>
-    <li>�t���[�����̕ύX�Brename-pseudo-frame�B
+    <li>フレーム名の変更。rename-pseudo-frame。
     <li>tab-bar-modify-item <var>bar item string</var> &amp;optional <var>tooltip</var>
    </ul>
    <h4>Wed Sep 06 2000 Version 0.2.1.160</h4>
    <ul>
-    <li>�^�C�~���O�ɂ���Ă͎��ʂ��Ƃ�����悤���B�[���Ƃňꉞ�Ώ����Ă݂����A�Č�������������Ȃ��̂Œ��������ǂ����͕s���B
+    <li>タイミングによっては死ぬことがあるようだ。つーことで一応対処してみたが、再現条件が分からないので直ったかどうかは不明。
    </ul>
    <h4>Mon Sep 04 2000 Version 0.2.1.159</h4>
    <ul>
-    <li>�ϐ�*auto-encoding-alist*�Ƃ��B
-    <li>ISO-8859-N�ŕۑ������Ƃ��AC1�̈�̕ϊ����������������̂��C���B
-    <li>�r�����Ă���ꍇ�A���O��t���ĕۑ��Ō��Ɠ����t�@�C���ɕۑ��ł��Ȃ������̂��C���B
-    <li>����̍s�ԁB
-    <li>�s�ԍ��ƃj�Z���]�̐F�B
-    <li>�c�[���o�[�ɐ܂�Ԃ��n�̃{�^����ǉ��B
-    <li>�\�����j���[�𑝂₵�Ă݂���B
-    <li>�܂�Ԃ��ʒu�̕ۑ��B
-    <li>�Z�b�V���������B
+    <li>変数*auto-encoding-alist*とか。
+    <li>ISO-8859-Nで保存したとき、C1領域の変換がおかしかったのを修正。
+    <li>排他している場合、名前を付けて保存で元と同じファイルに保存できなかったのを修正。
+    <li>印刷の行間。
+    <li>行番号とニセ反転の色。
+    <li>ツールバーに折り返し系のボタンを追加。
+    <li>表示メニューを増やしてみたり。
+    <li>折り返し位置の保存。
+    <li>セッションを閉じる。
     <li>local-variable-p <var>symbol</var> &amp;optional <var>buffer</var>
-    <li>make-tags-file-dialog�̐ݒ�̕ۑ��B
-    <li>isearch�œ��͂���̂Ƃ��͕������ۑ����Ȃ��悤�ɂ����B
-    <li>�ϐ�*gmark-keep-column*��non-nil�Ȃ�Agmark��back-tag-jump�ōs���Ɉړ����Ȃ��悤�ɂ����B
-    <li>�������̊֐��Ŋ��35�܂ł����w��ł��Ȃ������̂��C���B
+    <li>make-tags-file-dialogの設定の保存。
+    <li>isearchで入力が空のときは文字列を保存しないようにした。
+    <li>変数*gmark-keep-column*がnon-nilなら、gmarkとback-tag-jumpで行頭に移動しないようにした。
+    <li>いくつかの関数で基数に35までしか指定できなかったのを修正。
    </ul>
    <h4>Tue Aug 29 2000 Version 0.2.1.158</h4>
    <ul>
-    <li>�c�̃t���[�����኱�݂͂₷����������B
-    <li>�Z�b�V�����t�@�C���̃q�X�g�����啶������������ʂ��Ă����̂��C���B
-    <li>�Z�b�V�����̕ۑ��ŃJ�����g�Z�b�V�������X�V����Ȃ������̂��C���B
+    <li>縦のフレームを若干掴みやすくしたつもり。
+    <li>セッションファイルのヒストリが大文字小文字を区別していたのを修正。
+    <li>セッションの保存でカレントセッションが更新されなかったのを修正。
    </ul>
    <h4>Mon Aug 28 2000 Version 0.2.1.157</h4>
    <ul>
-    <li>-q�t���ŋN������ƁA�ݒ肪���ł��܂��̂��C���B
-    <li>�ϐ�*page-scroll-keep-window-position*��nil�Ȃ�Anext-page�Ńo�b�t�@�̍Ōオ�E�B���h�E���ɂ���ꍇ�A�o�b�t�@�̍Ō�Ɉړ�����悤�ɂ����B
-    <li>�R�}���h���C���I�v�V������ -s/-S ��ǉ��B
-    <li>�Z�b�V����(�ǂݍ���ł���t�@�C���ƃE�B���h�E�\��)�̓ǂݏ����B�Z�b�V�����̎����ۑ��Ƃ́A�I�����ɃJ�����g�Z�b�V����������ɕۑ����邱�ƁB�Ō�ɊJ�����A�܂��͕ۑ������Z�b�V�������J�����g�Z�b�V�����ɂȂ�A�͂��B
-    <li>�񓯊���grep(�߂����x���B�����ɖ��������邩��)�B
-    <li>grep�Ńf�B���N�g���̃��C���h�J�[�h��W�J����悤�ɂ����B
-    <li>�ϐ�*jump-scroll-threshold*�B�|�C���g���\���G���A���牽�s�O���ɏo����W�����v�X�N���[�����邩���w�肷��B�f�t�H���g��3�B0���w�肷��ƁA�X�N���[�����K�v�ȏ�ʂŏ�ɃW�����v�X�N���[������(������*scroll-margin*��0�̂Ƃ�)�B
-    <li>���X�N���[�����Ȃ������Ȑݒ�ł́A�Ȃ�ׂ����X�N���[�����Ȃ��悤�ɂ����B�Ƃ肠����EOF�ȊO�ł͑��v�Ȃ͂��B
-    <li>�L�����b�g�̐F�����߂�Ƃ��A�n�ׂ��̐F���l������悤�ɂ����B���A�F�̑g�ݍ��킹�ɂ���Ă͌��ɂ��������B
+    <li>-q付きで起動すると、設定が飛んでしまうのを修正。
+    <li>変数*page-scroll-keep-window-position*がnilなら、next-pageでバッファの最後がウィンドウ内にある場合、バッファの最後に移動するようにした。
+    <li>コマンドラインオプションに -s/-S を追加。
+    <li>セッション(読み込んでいるファイルとウィンドウ構成)の読み書き。セッションの自動保存とは、終了時にカレントセッションを勝手に保存すること。最後に開いた、または保存したセッションがカレントセッションになる、はず。
+    <li>非同期のgrep(めっさ遅い。実装に無理があるかも)。
+    <li>grepでディレクトリのワイルドカードを展開するようにした。
+    <li>変数*jump-scroll-threshold*。ポイントが表示エリアから何行外側に出たらジャンプスクロールするかを指定する。デフォルトは3。0を指定すると、スクロールが必要な場面で常にジャンプスクロールする(ただし*scroll-margin*が0のとき)。
+    <li>横スクロールしなさそうな設定では、なるべく横スクロールしないようにした。とりあえずEOF以外では大丈夫なはず。
+    <li>キャレットの色を決めるとき、地べたの色を考慮するようにした。が、色の組み合わせによっては見にくいかも。
    </ul>
    <h4>Mon Aug 21 2000 Version 0.2.1.156</h4>
    <ul>
-    <li>string-rectangle���p�N���Ă����B
-    <li>���X�g�{�b�N�X�ł̐擪�ꕶ���T�[�`���ς������̂��C���B
-    <li>�t�@�C���ł�isearch���኱�}�V�ɂ�������B
-    <li>�ϐ�*tab-bar-never-focus*��non-nil�̏ꍇ�A�^�u�o�[�Ƀt�H�[�J�X���ړ����Ȃ��悤�ɂ����B
-    <li>���X�N���[�����Ă���Ƃ��A�܂�Ԃ����C�����\������Ȃ��ꍇ���������̂��C���B
-    <li>�t���[���o�[�ɂ��j�Z�t���[���B
-    <li>*buffer-bar-selected-buffer-to-first*��non-nil�ł��A�L�[�Ń^�u���ړ������ꍇ�̓^�u���ړ����Ȃ��悤�ɂ����B
-    <li>�^�u�o�[��Tab���������Ƃ��̃t�H�[�J�X�ړ������܂����������̂��C���B
-    <li>�ł����t�H���g�̂Ƃ��A�_�C�A���O�̕������؂��̂��C���B�t�@�C���̃_�C�A���O�͋C�͂������Ȃ������̂ł܂��B
-    <li>delete-command-bar���ς������̂��C���B
-    <li>make-tags-file������Ȃ�ɂ������삵�Ȃ������̂��C���B
-    <li>�t�@�C���̃\�[�g���_���_���������̂��C���B
-    <li>tab-bar-current-item�����������삵�Ȃ������̂��C���B
+    <li>string-rectangleをパクってきた。
+    <li>リストボックスでの先頭一文字サーチが変だったのを修正。
+    <li>ファイラでのisearchを若干マシにしたつもり。
+    <li>変数*tab-bar-never-focus*がnon-nilの場合、タブバーにフォーカスを移動しないようにした。
+    <li>横スクロールしているとき、折り返しラインが表示されない場合があったのを修正。
+    <li>フレームバーによるニセフレーム。
+    <li>*buffer-bar-selected-buffer-to-first*がnon-nilでも、キーでタブを移動した場合はタブを移動しないようにした。
+    <li>タブバーでTabを押したときのフォーカス移動がいまいちだったのを修正。
+    <li>でかいフォントのとき、ダイアログの文字が切れるのを修正。ファイラのダイアログは気力が続かなかったのでまだ。
+    <li>delete-command-barが変だったのを修正。
+    <li>make-tags-fileがそれなりにしか動作しなかったのを修正。
+    <li>ファイラのソートがダメダメだったのを修正。
+    <li>tab-bar-current-itemが正しく動作しなかったのを修正。
    </ul>
    <h4>Wed Aug 16 2000 Version 0.2.1.155</h4>
    <ul>
-    <li>refresh-screen�Ɉ������^�����At�ł�nil�ł��Ȃ��ꍇ�́A���S�ɉ�ʂ��X�V����悤�ɂ����B
-    <li>�ϐ�*buffer-bar-selected-buffer-to-first*��non-nil�Ȃ�A�I�����ꂽ�o�b�t�@����Ԑ擪�Ɏ����Ă����悤�ɂ����B����Ă݂�ᕪ���邯�ǁA�g�����ɂȂ��ł���?(^^;
-    <li>�N����������-p��ǉ��B
-    <li>*list-box-...-char*���g�ݍ��݂̃_�C�A���O�Ɍ����Ă��Ȃ������̂��C���B������������]�v�ȂƂ��ɂ܂Ō����Ă��܂��Ă邩���B
-    <li>�t�@�C�����̔�r�Ŋ������l�����Ă��Ȃ������������̂��C���B
-    <li>tag-jump���Ȃ�ƂȂ������������̂��C���B
-    <li>direct-tag-jump(�ւȂ��傱)�B
-    <li>�ϐ�*rename-alternate-file-name*��non-nil�Ȃ�Acopy-file/rename-file��MS-DOS�t�@�C�������o�b�e�B���O�����ꍇ�A����Ƀ��l�[������悤�ɂ����B���댯�����B
-    <li>�܂�Ԃ��ʒu�ɐ���\���ł���悤�ɂ����B�܂�Ԃ��}�[�N���E�[�ɓ�����Ă̂��A����łł������Ƃɂ��Ă����B�]����*window-flag-fold-line*/toggle-fold-line�����ꂼ��*window-flag-fold-mark*/toggle-fold-mark�ɕύX�B
-    <li>EOF��2���ɕ\�������P�[�X���������̂��C���B
-    <li>�o�b�t�@���폜�����Ƃ��o�b�t�@�o�[���ĕ`�悳��Ȃ��ꍇ���������̂��C���B
+    <li>refresh-screenに引数が与えられ、tでもnilでもない場合は、完全に画面を更新するようにした。
+    <li>変数*buffer-bar-selected-buffer-to-first*がnon-nilなら、選択されたバッファを一番先頭に持っていくようにした。やってみりゃ分かるけど、使い物にならんでしょ?(^^;
+    <li>起動時引数に-pを追加。
+    <li>*list-box-...-char*が組み込みのダイアログに効いていなかったのを修正。もしかしたら余計なとこにまで効いてしまってるかも。
+    <li>ファイル名の比較で漢字を考慮していない個所があったのを修正。
+    <li>tag-jumpがなんとなく怪しかったのを修正。
+    <li>direct-tag-jump(へなちょこ)。
+    <li>変数*rename-alternate-file-name*がnon-nilなら、copy-file/rename-fileでMS-DOSファイル名がバッティングした場合、勝手にリネームするようにした。やや危険かも。
+    <li>折り返し位置に線を表示できるようにした。折り返しマークを右端に統一ってのも、これでできたことにしておく。従来の*window-flag-fold-line*/toggle-fold-lineをそれぞれ*window-flag-fold-mark*/toggle-fold-markに変更。
+    <li>EOFが2個所に表示されるケースがあったのを修正。
+    <li>バッファを削除したときバッファバーが再描画されない場合があったのを修正。
    </ul>
    <h4>Mon Aug 14 2000 Version 0.2.1.154</h4>
    <ul>
-    <li>���j���[�̏������t���O��:modify-selection�A:modify-rectangle��ǉ��B���łɑ��̃t���O��buffer-read-only������悤�ɂ����B
-    <li>�^�u�̕\���ŃS�~���c��ꍇ���������̂��C����������B
-    <li>����̕����w��(�������v�����^���T�|�[�g���Ă���ꍇ�̂�)�B�����Ɠ������ǂ����͕s���B
-    <li>����t�H���g�T�C�Y��ASCII�ȊO���C���B
-    <li>�t�@�C���̓����t�@�C���̊m�F�_�C�A���O��Toy���񂩂�ς����Ă݂���B
-    <li>���X�g�{�b�N�X�̃J�[�\���ړ��L�[���������傢��`�\�ɂ����B
+    <li>メニューの初期化フラグに:modify-selection、:modify-rectangleを追加。ついでに他のフラグでbuffer-read-onlyを見るようにした。
+    <li>タブの表示でゴミが残る場合があったのを修正したつもり。
+    <li>印刷の部数指定(ただしプリンタがサポートしている場合のみ)。ちゃんと動くかどうかは不明。
+    <li>印刷フォントサイズのASCII以外お任せ。
+    <li>ファイラの同名ファイルの確認ダイアログをToyくんからぱくってみたり。
+    <li>リストボックスのカーソル移動キーをもうちょい定義可能にした。
     <dl>
      <dt>*list-box-pageup-char*
-     <dd>1�y�[�W��Ɉړ�����L�[
+     <dd>1ページ上に移動するキー
      <dt>*list-box-pagedown-char*
-     <dd>1�y�[�W���Ɉړ�����L�[
+     <dd>1ページ下に移動するキー
     </dl>
-    <li>�ȉ��̃R�}���h�������B
+    <li>以下のコマンドを実装。
     <ul>
      <li>next-word
      <li>previous-word
      <li>selection-next-word
      <li>selection-previous-word
     </ul>
-    <li>�ϐ�*scroll-margin*������Ă݂��B�ݒ�l�͍s���B����Ȃ�ɂ͓����͂��B
-    <li>isearch��C-g�����Ƃ��̃f�t�H���g������̕ۑ����@��ύX�B
-    <li>�����E�u���_�C�A���O�ŃG�X�P�[�v�V�[�P���X�𗝉�����̂Ƃ��A�f�t�H���g�ŕ\������镶���������Ȃ�ɁB
-    <li>�^�C�}�[
+    <li>変数*scroll-margin*を作ってみた。設定値は行数。それなりには動くはず。
+    <li>isearchでC-gしたときのデフォルト文字列の保存方法を変更。
+    <li>検索・置換ダイアログでエスケープシーケンスを理解しろのとき、デフォルトで表示される文字列をそれなりに。
+    <li>タイマー
     <ul>
-     <li>start-timer <var>interval fn</var> &amp;optiona <var>one-shot-p</var><br><var>interval</var>�̒P�ʂ͕b�B�񕉂łȂ���ΐ����łȂ��Ă��\��Ȃ��B
+     <li>start-timer <var>interval fn</var> &amp;optiona <var>one-shot-p</var><br><var>interval</var>の単位は秒。非負でなければ整数でなくても構わない。
      <li>stop-timer <var>fn</var>
     </ul>
-    <li>�L�����b�g�̕\�����@���኱�ύX�B
-    <li>�~�j�o�b�t�@�̃v�����v�g�������Ȃ��Ȃ�ꍇ���������̂��C���B
-    <li>�֐�set-status-bar-format��p�~�B����ɕϐ�*status-bar-format*��������B
-    <li>EventSink�������������������B
+    <li>キャレットの表示方法を若干変更。
+    <li>ミニバッファのプロンプトが見えなくなる場合があったのを修正。
+    <li>関数set-status-bar-formatを廃止。代わりに変数*status-bar-format*を作った。
+    <li>EventSinkがそこそこ動くかも。
     <ul>
      <li>ole-create-event-sink <var>oleobj</var> &amp;optional <var>interface typelib-file</var>
      <li>set-ole-event-handler <var>oleobj event-name handler</var>
     </ul>
-    <li>����ɓ��Ȃ��ƂɁA��`�\�ȃ^�u�o�[�Ƃ�����Ă݂���B�S�R�e�X�g���ĂȂ��̂ł�����������i�j�����B
+    <li>さらに軟弱なことに、定義可能なタブバーとか作ってみたり。全然テストしてないのでもしかしたらナニかも。
     <ul>
      <li>create-tab-bar <var>bar fn</var>
      <li>tab-bar-add-item <var>bar item string</var> &amp;optional <var>tooltip</var> &amp;key :first :last :before :after
@@ -288,24 +288,24 @@
      <li>tab-bar-find-item <var>bar item</var>
      <li>tab-bar-list-items <var>bar</var>
     </ul>
-    <li>�t�@�C���̃w�b�_���N���b�N����\�[�g���ςȂ��ƂɂȂ��Ă����̂��C���B
-    <li>setf�̏ꏊ���}�N���ŁA�}�N�����C���^�v���^���Ƀ��[�h����Ă��Ȃ��ꍇ�A�R���p�C���ł��Ȃ��Ȃ��Ă����̂��C���B
-    <li>with-output-to-selected-buffer/with-input-from-selected-buffer�Ŋ֌W�Ȃ��o�b�t�@�̃|�C���g���ړ�����ꍇ���������̂��C���B
-    <li>byte compile���string=�Astring-equal��������ȊO���󂯓���Ȃ������̂��C���B
-    <li>�c�[���o�[�Ƀt�H�[�J�X���ړ�����R�}���h
+    <li>ファイラのヘッダをクリックするソートが変なことになっていたのを修正。
+    <li>setfの場所がマクロで、マクロがインタプリタ環境にロードされていない場合、コンパイルできなくなっていたのを修正。
+    <li>with-output-to-selected-buffer/with-input-from-selected-bufferで関係ないバッファのポイントが移動する場合があったのを修正。
+    <li>byte compile後のstring=、string-equalが文字列以外を受け入れなかったのを修正。
+    <li>ツールバーにフォーカスを移動するコマンド
     <ul>
      <li>focus-tool-bar
     </ul>
-    <li>�c�[���o�[�̈ʒu�ۑ��B�����������̈ʒu�ɖ߂�͂��B
+    <li>ツールバーの位置保存。だいたい元の位置に戻るはず。
     <ul>
      <li>tool-bar-exist-p <var>name</var>
     </ul>
-    <li>wip/tb.l���폜�B�g���Ă���l�͕ςȂ��ƂɂȂ邩������Ȃ��̂ō폜���邱�ƁB
+    <li>wip/tb.lを削除。使っている人は変なことになるかもしれないので削除すること。
    </ul>
    <h4>Wed Aug 09 2000 Version 0.2.1.153</h4>
    <ul>
-    <li>���Ȃ��ƂɃc�[���o�[�Ƃ�����Ă݂���B�ւȂ��傱�Ȃ̂Ńt���[�e�B���O�͂ł��Ȃ��B�ʒu�̕ۑ����܂��ł��ĂȂ��Bwip/tb.l�����[�h����Ί������͂߂�񂶂�Ȃ����ȁB
-    <li>����܂����Ȃ��ƂɁA�o�b�t�@�^�u�Ƃ�����Ă݂���B
+    <li>軟弱なことにツールバーとか作ってみたり。へなちょこなのでフローティングはできない。位置の保存もまだできてない。wip/tb.lをロードすれば感じが掴めるんじゃないかな。
+    <li>これまた軟弱なことに、バッファタブとか作ってみたり。
     <ul>
      <li>create-buffer-bar
      <li>create-tool-bar <var>name bitmap items</var>
@@ -315,115 +315,115 @@
      <li>tool-bar-info <var>name</var>
      <li>list-tool-bars
     </ul>
-    <li>undo���̕ύX�t���O�̈��������܂����������̂��C����������B
-    <li>find-file��encoding����������Ă����̂��C���B
-    <li>�����֘A�̕ϐ���ۑ�����悤�ɂ����B
-    <li>�X�e�[�^�X�o�[�̕\�����e���w��ł���悤�ɂ����B
+    <li>undo時の変更フラグの扱いがいまいちだったのを修正したつもり。
+    <li>find-fileのencodingが無視されていたのを修正。
+    <li>検索関連の変数を保存するようにした。
+    <li>ステータスバーの表示内容を指定できるようにした。
     <ul>
-     <li>set-status-bar-format <var>format</var><br><var>format</var>�͍��ڂ��w�肷��ȉ��̕������܂ޕ�����B�����̕��я��ɕ\�������B
+     <li>set-status-bar-format <var>format</var><br><var>format</var>は項目を指定する以下の文字を含む文字列。文字の並び順に表示される。
      <dl compact>
       <dt>t
-      <dd>���v
+      <dd>時計
       <dt>p
-      <dd>�J�[�\���ʒu
+      <dd>カーソル位置
       <dt>c
-      <dd>�J�[�\���ʒu�̕����R�[�h(�����R�[�h)
+      <dd>カーソル位置の文字コード(内部コード)
       <dt>u
-      <dd>�J�[�\���ʒu�̕����R�[�h(���j�R�[�h)
+      <dd>カーソル位置の文字コード(ユニコード)
      </dl>
     </ul>
-    <li>���X�g�{�b�N�X�̃J�[�\���ړ��L�[���`�\�ɂ����B�ȉ��̕ϐ��ɕ�����ݒ肷��B
+    <li>リストボックスのカーソル移動キーを定義可能にした。以下の変数に文字を設定する。
     <dl>
      <dt>*list-box-up-char*
-     <dd>��Ɉړ�����L�[
+     <dd>上に移動するキー
      <dt>*list-box-down-char*
-     <dd>���Ɉړ�����L�[
+     <dd>下に移動するキー
      <dt>*list-box-def-char*
-     <dd>�f�t�H���g�{�^���������L�[
+     <dd>デフォルトボタンを押すキー
     </dl>
-    <li>�~�j�o�b�t�@�ł̃T�[�`���Ȃ��^�C�v�̃q�X�g��(Ctrl+�㉺)�B
-    <li>find-errors�Ńo�b�t�@���t�@�C����D�悷��悤�ɂ��Ă݂��B
-    <li>�󔒂Ŏn�܂�o�b�t�@����must-match ��do-completion���}�b�`���Ȃ������̂��C���B�������A�󔒂Ŏn�܂�ꍇ�͕⊮�̌��ɂ͏o���Ȃ��B
-    <li>�����L�[�X�g���[�N�̐ݒ肪�ł��Ȃ��P�[�X���������̂��C���B
-    <li>�ϐ�title-bar-format�Ń^�C�g���o�[�̃t�H�[�}�b�g���w��ł���悤�ɂ����B������mode-line-format�Ɠ����B
+    <li>ミニバッファでのサーチしないタイプのヒストリ(Ctrl+上下)。
+    <li>find-errorsでバッファよりファイルを優先するようにしてみた。
+    <li>空白で始まるバッファ名にmust-match のdo-completionがマッチしなかったのを修正。ただし、空白で始まる場合は補完の候補には出さない。
+    <li>複数キーストロークの設定ができないケースがあったのを修正。
+    <li>変数title-bar-formatでタイトルバーのフォーマットを指定できるようにした。書式はmode-line-formatと同じ。
     <dl compact>
-     <dt>%*<dd>�ύX����: **, �����֎~: %-, �ύX����E�����֎~: %*, ����ȊO: --
-     <dt>%#*<dd>�ύX����: *, �ύX�Ȃ�: (��)
-     <dt>%r<dd>������: (��), �����֎~: %
-     <dt>%#r<dd>������: (��), �����֎~: %, �s���S�o�b�t�@: #
-     <dt>%p<dd>�v���O������
-     <dt>%v<dd>�o�[�W����
-     <dt>%h<dd>�z�X�g��
-     <dt>%#h<dd>@�z�X�g��
-     <dt>%b<dd>�o�b�t�@��
-     <dt>%f<dd>File: �t�@�C����
-     <dt>%#f<dd>�t�@�C����
-     <dt>%F<dd>File: �t�@�C�����B�t�@�C�������Ȃ���΃o�b�t�@��
-     <dt>%#F<dd>�t�@�C�����B�t�@�C�������Ȃ���΃o�b�t�@��
-     <dt>%M<dd>���[�h(�}�C�i�[���[�h�܂�)
-     <dt>%m<dd>���[�h
-     <dt>%k<dd>�G���R�[�f�B���O
-     <dt>%l<dd>���s�R�[�h
-     <dt>%i<dd>IME�̏�ԁBmode-line-format�̂݁B
-     <dt>%P<dd>�J�[�\���ʒu�Bmode-line-format�̂݁B
+     <dt>%*<dd>変更あり: **, 書込禁止: %-, 変更あり・書込禁止: %*, それ以外: --
+     <dt>%#*<dd>変更あり: *, 変更なし: (空白)
+     <dt>%r<dd>書込可: (空白), 書込禁止: %
+     <dt>%#r<dd>書込可: (空白), 書込禁止: %, 不完全バッファ: #
+     <dt>%p<dd>プログラム名
+     <dt>%v<dd>バージョン
+     <dt>%h<dd>ホスト名
+     <dt>%#h<dd>@ホスト名
+     <dt>%b<dd>バッファ名
+     <dt>%f<dd>File: ファイル名
+     <dt>%#f<dd>ファイル名
+     <dt>%F<dd>File: ファイル名。ファイル名がなければバッファ名
+     <dt>%#F<dd>ファイル名。ファイル名がなければバッファ名
+     <dt>%M<dd>モード(マイナーモード含む)
+     <dt>%m<dd>モード
+     <dt>%k<dd>エンコーディング
+     <dt>%l<dd>改行コード
+     <dt>%i<dd>IMEの状態。mode-line-formatのみ。
+     <dt>%P<dd>カーソル位置。mode-line-formatのみ。
     </dl>
-    <li>�t�@�C���R�s�[�ɂ��o�b�N�A�b�v�t�@�C���̍쐬�B���\���M�Ȃ��B�g���l�͂����Ɠ����̂��m�F���Ă���g�����ƁB�ϐ�backup-by-copying��non-nil�̏ꍇ�A�R�s�[�ɂ���ăo�b�N�A�b�v�����B�������A�l��:remote�̏ꍇ�́A�ۑ��悪�l�b�g���[�N�̏ꍇ�̂݃R�s�[�����Bnil�Ȃ�Ώ]���ʂ胊�l�[�������B
-    <li>[���ʐݒ�]-[�t�H���g]�Ƀe�X�g�{�^���������B
-    <li>���[�h���C��������Ń��T�C�Y�ł���悤�ɂ����B
-    <li>�v���r���[�Ɉ���{�^���������B
-    <li>insert-file-contents�ɃI�t�Z�b�g�ƃT�C�Y���w��ł���悤�ɂ����B�P�ʂ̓o�C�g�B
+    <li>ファイルコピーによるバックアップファイルの作成。結構自信なし。使う人はちゃんと動くのを確認してから使うこと。変数backup-by-copyingがnon-nilの場合、コピーによってバックアップされる。ただし、値が:remoteの場合は、保存先がネットワークの場合のみコピーされる。nilならば従来通りリネームされる。
+    <li>[共通設定]-[フォント]にテストボタンをつけた。
+    <li>モードラインをつかんでリサイズできるようにした。
+    <li>プレビューに印刷ボタンをつけた。
+    <li>insert-file-contentsにオフセットとサイズを指定できるようにした。単位はバイト。
     <ul>
      <li>insert-file-contents <var>filename</var> &amp;optional <var>visit-p offset size</var>
     </ul>
-    <li>�s�ԍ��Ȃ��ŃE�B���h�E���Ő܂�Ԃ��Ƃ��A���X�N���[������̂��C���B
-    <li>�^�C�g���o�[�̍ĕ`��B
+    <li>行番号なしでウィンドウ幅で折り返すとき、横スクロールするのを修正。
+    <li>タイトルバーの再描画。
     <ul>
      <li>refresh-title-bar
     </ul>
-    <li>�}�E�X�J�[�\�����\���ɂ��鏈�����኱�ύX�B
-    <li>xyzzycli�ɔ������邩�ǂ������w��ł���悤�ɂ����B�f�t�H���g�ł͔�������B�ȉ��̊֐��������B�Ƃ肠���� (add-hook 'foo-hook #'stop-xyzzy-server) �Ƃ�����Ƃ��΂������ƁB
+    <li>マウスカーソルを非表示にする処理を若干変更。
+    <li>xyzzycliに反応するかどうかを指定できるようにした。デフォルトでは反応する。以下の関数を実装。とりあえず (add-hook 'foo-hook #'stop-xyzzy-server) とかやっとけばいいかと。
     <ul>
      <li>start-xyzzy-server
      <li>stop-xyzzy-server
     </ul>
-    <li>xyzzycli�������ɋN�����ꂽ�Ƃ��A���������悤�ɂ�������B
-    <li>�������̃_�C�A���O�ŁA3����؂�̃J���}�������Ă����̂��폜�B
-    <li>�t�@�C����N�����ꍇ�A���o�����ǂ������̂��C���B
-    <li>�t�@�C�������ɓo�^����Ȃ��ꍇ���������̂��C���B
-    <li>*auto-save-to-backup-directory*��non-nil�̂Ƃ��A���������������Ă��Ȃ������̂��C���B*backup-directory*�Ɋ֐����w�肵�Ă���ꍇ�͏C�����K�v(backup.l�Q��)�B
-    <li>step���o�O���Ă����̂��C���B
+    <li>xyzzycliが同時に起動されたとき、同期を取るようにしたつもり。
+    <li>いくつかのダイアログで、3桁区切りのカンマが入っていたのを削除。
+    <li>ファイラでNした場合、物覚えが良すぎたのを修正。
+    <li>ファイル履歴に登録されない場合があったのを修正。
+    <li>*auto-save-to-backup-directory*がnon-nilのとき、正しい動きをしていなかったのを修正。*backup-directory*に関数を指定している場合は修正が必要(backup.l参照)。
+    <li>stepがバグっていたのを修正。
    </ul>
    <h4>Thu Jul 27 2000 Version 0.2.1.152</h4>
    <ul>
-    <li>����֐��ł��Ȃ��΂��R�[�h���������̂��C���B
-    <li>�[���K�w�ɑ΂���grep�̌ł܂鎞�Ԃ�Z�������B���ʁA���[�v���Ă���f�B���N�g���ɑ΂��Ă��g����悤�ɂȂ����B
-    <li>�֐�directory�Œ��f�ł���悤�ɂ����B
-    <li>�t�@�C���̉𓀂Ŋg���q�����Ȃ��悤�ɂ����B
+    <li>ある関数でかなりやばいコードがあったのを修正。
+    <li>深い階層に対するgrepの固まる時間を短くした。結果、ループしているディレクトリに対しても使えるようになった。
+    <li>関数directoryで中断できるようにした。
+    <li>ファイルの解凍で拡張子を見ないようにした。
    </ul>
    <h4>Fri Jul 21 2000 Version 0.2.1.151</h4>
    <ul>
-    <li>Richard Virenque +7'36&quot;�A<s>Marco Pantani</s>(-_-;)�B
-    <li>�X�N���[���o�[���o�b�t�@���[�J���̂Ƃ��A�`�悪�ς������̂��C���B
-    <li>si:quoted-printable-encode�����܂����������̂��C���B
-    <li>si:base64-decode���኱�ύX�B
-    <li>0.1.1.116�ȑO����o�[�W�����A�b�v�����ꍇ�A�t�H���g�̐ݒ肪�ςɂȂ�̂��C��(���Ԃ�)�B
-    <li>�V������UTF-5�Ƃ��B
-    <li>�t�H���g�ɂ���ă~�j�o�b�t�@����������ꍇ���������̂��C����������B
-    <li>make-tags-file�̃p�b�`��荞�݁B
+    <li>Richard Virenque +7'36&quot;、<s>Marco Pantani</s>(-_-;)。
+    <li>スクロールバーがバッファローカルのとき、描画が変だったのを修正。
+    <li>si:quoted-printable-encodeがいまいちだったのを修正。
+    <li>si:base64-decodeを若干変更。
+    <li>0.1.1.116以前からバージョンアップした場合、フォントの設定が変になるのを修正(たぶん)。
+    <li>シャレでUTF-5とか。
+    <li>フォントによってミニバッファが狭すぎる場合があったのを修正したつもり。
+    <li>make-tags-fileのパッチ取り込み。
    </ul>
    <h4>Mon Jul 10 2000 Version 0.2.1.150</h4>
    <ul>
-    <li>Richard Virenque +11'26&quot;�AMarco Pantani +11'06&quot;�B���悢�捡������R�x�B
-    <li>Alt+Space�ŃV�X�e�����j���[���J���Ȃ������̂��C���B
-    <li>�L�[���[�h�Ɏg����F���𑝂₵�Ă݂���B��������5�b�ł͖����������c�Btext-attribute��]�p���Ă邾���Ȃ̂ł���Ȃɑ債���A���ł͂Ȃ��B<br>�L�[���[�h�t�@�C���ł̎w����@�́A
+    <li>Richard Virenque +11'26&quot;、Marco Pantani +11'06&quot;。いよいよ今日から山岳。
+    <li>Alt+Spaceでシステムメニューが開かなかったのを修正。
+    <li>キーワードに使える色数を増やしてみたり。さすがに5秒では無理だった…。text-attributeを転用してるだけなのでそんなに大したアレではない。<br>キーワードファイルでの指定方法は、
      <p><code>;**</code> <var>fg</var> [ <var>bg</var> [ <var>attrib</var> ] ]</p>
      <dl compact>
       <dt><var>fg</var>
-      <dd>�����F(0�`f)�B0�Ȃ�Ε��ʂ̐F�B
+      <dd>文字色(0〜f)。0ならば普通の色。
       <dt><var>bg</var>
-      <dd>�w�i�F(0�`f)�B0�Ȃ�Ε��ʂ̐F�B
+      <dd>背景色(0〜f)。0ならば普通の色。
       <dt><var>attrib</var>
-      <dd>�����݂����Ȃ́B�ȉ��̔C�ӂ̑g�ݍ��킹�B
+      <dd>属性みたいなの。以下の任意の組み合わせ。
        <dl compact>
         <dt>b
         <dd>bold
@@ -436,110 +436,110 @@
      <p>ex.</p>
      <dl compact>
       <dt><code>;**1</code>
-      <dd>�����F1�B
+      <dd>文字色1。
       <dt><code>;**0a</code>
-      <dd>�����F�͕W���A�w�i�F10�B
+      <dd>文字色は標準、背景色10。
       <dt><code>;**3c</code>
-      <dd>�����F3�A�w�i�F12
+      <dd>文字色3、背景色12
       <dt><code>;**20bu</code>
-      <dd>�����F2�A�w�i�F�͕W���A�{�[���h+�A���_�[���C��
+      <dd>文字色2、背景色は標準、ボールド+アンダーライン
      </dl></li>
-     <li>�t�@�C���̃\�[�g���኱�ύX�B
-     <li>�N���C���t���Ȃ����炢�����ɕۑ���������(��������)�B
+     <li>ファイラのソートを若干変更。
+     <li>誰も気が付かないぐらい微妙に保存を高速化(したつもり)。
    </ul>
    <h4>Mon Jul 03 2000 Version 0.2.1.149</h4>
    <ul>
-    <li>Richard Virenque +1'33&quot;�AMarco Pantani +2'18&quot;�B
-    <li>���K�\����scan-buffer��:limit���w�肳�ꂽ�ꍇ�A:limit�̈ʒu��`^'�A`$'���}�b�`���Ă����̂��C���B
-    <li>�^�O�W�����v�Ńo�b�t�@����`//'�����܂ރo�b�t�@�ɔ�ׂȂ������̂��C���B
-    <li>�ȉ��̊֐��������B
+    <li>Richard Virenque +1'33&quot;、Marco Pantani +2'18&quot;。
+    <li>正規表現のscan-bufferで:limitが指定された場合、:limitの位置に`^'、`$'がマッチしていたのを修正。
+    <li>タグジャンプでバッファ名に`//'等を含むバッファに飛べなかったのを修正。
+    <li>以下の関数を実装。
     <ul>
-     <li>find-text-attribute-point <var>point</var><br>�߂�l��from, to, tag, foreground, background, bold, underline, strike-out, prefix, extend�B
+     <li>find-text-attribute-point <var>point</var><br>戻り値はfrom, to, tag, foreground, background, bold, underline, strike-out, prefix, extend。
      <li>delete-text-attribute-point <var>point</var>
      <li>abbreviate-string-column <var>string column</var>
      <li>si:performance-counter
      <li>process-command <var>process</var>
     </ul>
-    <li>������ǉ�
+    <li>引数を追加
     <ul>
      <li>list-text-attributes &amp;optional <var>start end</var>
     </ul>
-    <li>process-buffer�Ńv���Z�X���I�����Ă��Ă��o�b�t�@��Ԃ��悤�ɂ����B
+    <li>process-bufferでプロセスが終了していてもバッファを返すようにした。
    </ul>
-   <h4>Mon Jun 26 2000 Version 0.2.1.148(����2)</h4>
+   <h4>Mon Jun 26 2000 Version 0.2.1.148(その2)</h4>
    <ul>
-    <li>�~�j�o�b�t�@�̃q�X�g���̈ꕔ���ςɂȂ��Ă��̂��C���B
+    <li>ミニバッファのヒストリの一部が変になってたのを修正。
    </ul>
    <h4>Mon Jun 26 2000 Version 0.2.1.148</h4>
    <ul>
-    <li>�ȉ��̊֐��������B
+    <li>以下の関数を実装。
     <ul>
-     <li>delete-file-in-archive <var>archive-file</var> &amp;rest <var>files</var><br>LHA��lhd�̏��������������B
+     <li>delete-file-in-archive <var>archive-file</var> &amp;rest <var>files</var><br>LHAのlhdの消し方が分からん。
      <li>list-text-attributes
     </ul>
-    <li>list-archive�Ɉ�����ǉ��B
+    <li>list-archiveに引数を追加。
     <dl>
      <dt>list-archive <var>archive-file</var> &amp;optional <var>file-name-only</var>
     </dl>
-    <li>extended-key-translate-table��Space���w��ł���悤�ɂ����B
-    <li>interactive�w��q�̊O����`���\�ɂ����Bbuffer.l�̉��̕����Q�ƁB�t�b�N�֐��ɂ�prompt,default,history,title��4���n��B
-    <li><s>���������Ƃ��Ƀe���|�����t�@�C�����c��݂����Ȃ񂾂��ǁA�����s���B�C���t�����l�����狳���āB</s>
-    <li>���̑��A�ׂ����Ƃ��B
+    <li>extended-key-translate-tableにSpaceも指定できるようにした。
+    <li>interactive指定子の外部定義を可能にした。buffer.lの下の方を参照。フック関数にはprompt,default,history,titleの4つが渡る。
+    <li><s>何かしたときにテンポラリファイルが残るみたいなんだけど、原因不明。気が付いた人いたら教えて。</s>
+    <li>その他、細かいとこ。
    </ul>
    <h4>Mon Jun 19 2000 Version 0.2.1.147</h4>
    <ul>
-    <li>*evalhook*, *applyhook*, evalhook, applyhook�B
-    <li>step (�ւȂ��傱)�B
-    <li>toggle-trace-on-error�B
-    <li>ISO-2022-KR�����b�L���O�V�t�g���g���Ă��Ȃ������̂��C���B
-    <li>���܂񂷁B�܂��^�O�W�����v�̎d�g�݂�ύX�B���Ԃ�A���ʃ^�C�v(grep/gcc)�AVC++�ABC++�ABCC�ɑΉ��B
-    <li>�~�j�o�b�t�@�Ő��l��ǂނƂ��ɂ����ƃ`�F�b�N����悤�ɂ����B
-    <li>�t�@�C���ǂݍ��݂��኱�������B
-    <li>�f�t�H���g�� gc �̃��b�Z�[�W���o���Ȃ��悤�ɂ��Ă݂��B���т����l��*garbage-collection-messages*��non-nil�ɁB
+    <li>*evalhook*, *applyhook*, evalhook, applyhook。
+    <li>step (へなちょこ)。
+    <li>toggle-trace-on-error。
+    <li>ISO-2022-KRがロッキングシフトを使っていなかったのを修正。
+    <li>すまんす。またタグジャンプの仕組みを変更。たぶん、普通タイプ(grep/gcc)、VC++、BC++、BCCに対応。
+    <li>ミニバッファで数値を読むときにちゃんとチェックするようにした。
+    <li>ファイル読み込みを若干高速化。
+    <li>デフォルトで gc のメッセージを出さないようにしてみた。さびしい人は*garbage-collection-messages*をnon-nilに。
    </ul>
    <h4>Tue Jun 06 2000 Version 0.2.1.146</h4>
    <ul>
-    <li>double fault�����runtime error�ɂȂ��Ă��܂��̂��C���B
-    <li>�N���b�v�{�[�h���I�[�v���ł��Ȃ��ꍇ�A���g���C����悤�ɂ��Ă݂����ǂ�����?
+    <li>double faultするとruntime errorになってしまうのを修正。
+    <li>クリップボードがオープンできない場合、リトライするようにしてみたけどいかが?
    </ul>
    <h4>Mon Jun 05 2000 Version 0.2.1.145</h4>
    <ul>
-    <li>��Ƀz�C�[�����񂵂��Ƃ��A��ʂɃS�~���c��ꍇ���������̂��C���B
-    <li>���Ȃ��΂��R�[�h���������̂��C���B
-    <li>filer-read-link�������܂Ƃ��ɁB
+    <li>主にホイールを回したとき、画面にゴミが残る場合があったのを修正。
+    <li>かなりやばいコードがあったのを修正。
+    <li>filer-read-linkを少しまともに。
    </ul>
    <h4>Wed May 31 2000 Version 0.2.1.144</h4>
    <ul>
-    <li>C/C++��indent-for-comment���C���B
-    <li>digit-argument��������ƕύX�B
-    <li>diff��������ƕύX�B
-    <li>�m���Ԃ�:strike-out�������Ȃ��Ȃ��Ă����̂��C���B
-    <li>�����̈�̍ĕ`�悪���܂����������̂��C���B
-    <li>gresregd�̑S�u�����ς������̂��C���B
+    <li>C/C++のindent-for-commentを修正。
+    <li>digit-argumentをちょっと変更。
+    <li>diffをちょっと変更。
+    <li>知らん間に:strike-outが動かなくなっていたのを修正。
+    <li>無効領域の再描画がいまいちだったのを修正。
+    <li>gresregdの全置換が変だったのを修正。
    </ul>
    <h4>Mon May 22 2000 Version 0.2.1.143</h4>
    <ul>
-    <li>M-x�Ńp�b�P�[�W�t���̃R�}���h���F���ł���悤�ɂ����B
+    <li>M-xでパッケージ付きのコマンドも認識できるようにした。
     <li>indent-for-comment
-    <li>Shift+���N���b�N�B
+    <li>Shift+左クリック。
    </ul>
    <h4>Thu May 18 2000 Version 0.2.1.142</h4>
    <ul>
-    <li>goto-line�łƂ�ł��Ȃ��Ƃ���ɔ��ł����ꍇ���������̂��C���B
-    <li>window-columns�Awindow-width�����߂����Ă��Ɓ[�Ȓl��Ԃ��Ă����̂��C���B
+    <li>goto-lineでとんでもないところに飛んでいく場合があったのを修正。
+    <li>window-columns、window-width等がめっさてけとーな値を返していたのを修正。
     <li>char-columns <var>char</var>
    </ul>
    <h4>Tue May 16 2000 Version 0.2.1.141</h4>
    <ul>
-    <li>process-filter�Ŏ��Ԃ��|�������ꍇ�A�ςȂ��ƂɂȂ��Ă����̂��C���B
-    <li>Encoding��binary��ǉ��B�ϐ���*encoding-binary*�B
+    <li>process-filterで時間が掛かった場合、変なことになっていたのを修正。
+    <li>Encodingにbinaryを追加。変数は*encoding-binary*。
     <ul>
      <li>make-binary-encoding <var>name display-name</var>
     </ul>
    </ul>
    <h4>Mon May 15 2000 Version 0.2.1.140</h4>
    <ul>
-    <li>�ȉ��̊֐�������
+    <li>以下の関数を実装
     <ul>
      <li>set-buffer-alternate-file-name <var>name</var> &amp;optional <var>buffer</var>
      <li>get-buffer-alternate-file-name &amp;optional <var>buffer</var>
@@ -547,8 +547,8 @@
      <li>hjump-columns &amp;optional <var>buffer</var>
      <li>set-hjump-columns <var>columns</var> &amp;optional <var>buffer</var>
     </ul>
-    <li>find-file�����������B
-    <li>�ȉ��� hook ���ĂԂ悤�ɂ����B
+    <li>find-fileを書き直し。
+    <li>以下の hook を呼ぶようにした。
     <ul>
      <li>*before-save-buffer-hook* [until-success]
      <li>*after-save-buffer-hook*
@@ -558,97 +558,97 @@
      <li>*grepd-hook*
      <li>*grep-hook*
     </ul>
-    <li>*find-file-hooks*���Ăԃ^�C�~���O���Ԉ���Ă����̂��C���B
-    <li>���b�Z�[�W�\���ɖ��ʂ��������̂��C���B
-    <li>window-flags��*window-flag-scrolling*��ǉ��Bnon-nil�Ȃ�`��ʒu�̌v�Z�ŃW�����v�X�N���[�����Ȃ��悤�ɂ���B
+    <li>*find-file-hooks*を呼ぶタイミングが間違っていたのを修正。
+    <li>メッセージ表示に無駄があったのを修正。
+    <li>window-flagsに*window-flag-scrolling*を追加。non-nilなら描画位置の計算でジャンプスクロールしないようにする。
    </ul>
    <h4>Mon May 08 2000 Version 0.2.1.139</h4>
    <ul>
-    <li>���W�X�g�����g���̂���߂��B���W�X�g���ɈȑO�̃o�[�W�����̃f�[�^���c���Ă���ꍇ�A�V�����`���ɕϊ�������A���W�X�g���̌Â��f�[�^���폜���邩�ǂ����m�F����B���ʂȎ���Ȃ�����Yes��I�Ԃ��ƁB�V�����`���̃f�[�^�͎��s�t�@�C�������݂���ꏊ�Ɉˑ�����̂ŁA�������f�B���N�g���Ŏ��s����̂��g�B�폜���Ȃ���΋N�����邽�тɂ����������Ă���͂��B
-    <li>�ŁA����p�ɂ������֐��������B
+    <li>レジストリを使うのをやめた。レジストリに以前のバージョンのデータが残っている場合、新しい形式に変換した後、レジストリの古いデータを削除するかどうか確認する。特別な事情がない限りYesを選ぶこと。新しい形式のデータは実行ファイルが存在する場所に依存するので、正しいディレクトリで実行するのが吉。削除しなければ起動するたびにしつこく聞いてくるはず。
+    <li>で、それ用にいくつか関数を実装。
     <ul>
      <li>si:delete-registry-tree
      <li>list-registry-key <var>section</var> &amp;optional <var>root</var>
      <li>user-config-path
     </ul>
-    <li>�}�C�i�[���[�h�L�[�}�b�v���w��ł���悤�ɂ����B
+    <li>マイナーモードキーマップを指定できるようにした。
     <ul>
      <li>command-keys <var>command global-keymap local-keymap</var> &amp;optional <var>minor-mode-keymaps</var>
      <li>set-minor-mode-map <var>keymap</var> &amp;optional <var>buffer</var>
      <li>unset-minor-mode-map <var>keymap</var> &amp;optional <var>buffer</var>
      <li>minor-mode-map &amp;optional <var>buffer</var>
     </ul>
-    <li>�Ƃ����킯�Ōr�����[�h���}�C�i�[���[�h�ɁB
-    <li>���K�\���̒u���ŋ󕶎���Ƀ}�b�`�A�܂��͋󕶎���ɒu�������ꍇ�̋������኱�ύX�B
+    <li>というわけで罫線モードをマイナーモードに。
+    <li>正規表現の置換で空文字列にマッチ、または空文字列に置換した場合の挙動を若干変更。
     <ul>
      <li>scan-buffer <var>pattern</var> &amp;key :no-dup :case-fold :reverse :tail :regexp :left-bound :right-bound :last-match
      <li>replace-buffer <var>pattern replacement</var> &amp;key :case-fold :tail :regexp :left-bound :right-bound :once :literal :last-match
     </ul>
-    <li>�f�B���N�g����file-write-time������悤�ɂ����B
-    <li>�f�B���N�g����rename-file�ňړ��悪���݂���ꍇ�̃G���[��95��NT�œ����ɂȂ�悤�ɂ����B
-    <li>version-up-xyzzy�Ƃ���������[���Ȃ����������Ă݂��B
-    <li>���ɉ���������悤�ȋC�����邯�ǖY�ꂽ�B
+    <li>ディレクトリのfile-write-timeを取れるようにした。
+    <li>ディレクトリのrename-fileで移動先が存在する場合のエラーを95とNTで同じになるようにした。
+    <li>version-up-xyzzyとかいうしょーもないもんを作ってみた。
+    <li>他に何かやったような気がするけど忘れた。
    </ul>
    <h4>Mon Apr 24 2000 Version 0.2.0.138</h4>
    <ul>
-    <li>���v�̃T�C�Y������Ȃ�ɂ�������B
-    <li>���Ɏg�����m��񂯂ǂ���Ȃ̎����B
+    <li>時計のサイズをそれなりにしたつもり。
+    <li>何に使うか知らんけどこんなの実装。
     <ul>
      <li>si:md5 <var>input-string-or-stream</var>
      <li>si:sha-1 <var>input-string-or-stream</var>
      <li>si:hmac-md5 <var>key input-string-or-stream</var>
      <li>si:hmac-sha-1 <var>key input-string-or-stream</var>
     </ul>
-    <li>�\���ł��镶����1000�����΂������₵���B���Ȃ莩�M�Ȃ��B
-    <li>�^�O�W�����v�����܂����������̂��C���B
-    <li>KOI8-R/KOI8-U���T�|�[�g(�ǂ߂����Ȃ��̂�)�B
+    <li>表示できる文字を1000文字ばかし増やした。かなり自信なし。
+    <li>タグジャンプがいまいちだったのを修正。
+    <li>KOI8-R/KOI8-Uをサポート(読めもしないのに)。
    </ul>
    <h4>Mon Apr 17 2000 Version 0.2.0.137</h4>
    <ul>
-    <li>IPA Extensions�ASpacing Modifier Letters�ACombining Diacritical Marks�̂ւȂ��傱�T�|�[�g�B�ւȂ��傱�Ȃ̂ō����̏����͂��Ȃ��B
-    <li>Unicode-&gt;�����R�[�h�̃}�b�s���O���������������B
-    <li>�N�����̋����ă_���v�̃L�[��Shift����Shift+Ctrl�ɕύX�B
+    <li>IPA Extensions、Spacing Modifier Letters、Combining Diacritical Marksのへなちょこサポート。へなちょこなので合字の処理はしない。
+    <li>Unicode-&gt;内部コードのマッピングを少しいじった。
+    <li>起動時の強制再ダンプのキーをShiftからShift+Ctrlに変更。
    </ul>
-   <h4>Wed Apr 12 2000 Version 0.2.0.136(����2)</h4>
+   <h4>Wed Apr 12 2000 Version 0.2.0.136(その2)</h4>
    <ul>
-    <li>selection-(for|back)ward-word��ׂ��Ă����̂��C���B
+    <li>selection-(for|back)ward-wordを潰していたのを修正。
    </ul>
    <h4>Wed Apr 12 2000 Version 0.2.0.136</h4>
    <ul>
-    <li>�����łȂ�timezone��������悤�ɂ���(�����)�B
-    <li>decode-mime-header�Ō���w��(RFC 2231��5)�ɑΉ�(�������邾������)�B*rfc2047-encoded-word-regexp*��ς����̂ŁA�v��������t�V�̂���l�͏C�������[�ɁB���Ă������Adecode-mime-field�����̂܂܎g����悤�ɂ�������B
-    <li>�����G���R�[�f�B���O�̎�������̐��x�������ɏオ�����͂��B
-    <li>si:www-url-encode�Ɉ�����ǉ�
+    <li>整数でないtimezoneも扱えるようにした(やっと)。
+    <li>decode-mime-headerで言語指定(RFC 2231の5)に対応(無視するだけだが)。*rfc2047-encoded-word-regexp*を変えたので、思い当たるフシのある人は修正するよーに。っていうか、decode-mime-fieldをそのまま使えるようにしたつもり。
+    <li>文字エンコーディングの自動判定の精度が微妙に上がったはず。
+    <li>si:www-url-encodeに引数を追加
     <dl>
      <dt>si:www-url-encode <var>input-string-or-stream</var> &amp;optional <var>output-stream literal-chars</var>
      <dt>literal-chars
-     <dd>�G���R�[�h���Ȃ������𕶎���ŁB�ȗ���nil�Ȃ�&quot;-A-Za-z0-9$_.+!*'(|),&quot;�Ɠ��l�Bt�Ȃ炷�ׂĂ̕������G���R�[�h����B
+     <dd>エンコードしない文字を文字列で。省略かnilなら&quot;-A-Za-z0-9$_.+!*'(|),&quot;と同値。tならすべての文字をエンコードする。
     </dl>
-    <li>*ime-does-not-process-C-\\*��non-nil�̂Ƃ��AMS-IME 2000��C-\����͂ł���悤�ɂ���(���Ԃ�)�B
-    <li>���߂񁫂����BISO-2022-JP-2�ł��ϊ�����̂�IBM�g�����������ŁANEC�g�������͂��̂܂܏o���񂾂����B
+    <li>*ime-does-not-process-C-¥¥*がnon-nilのとき、MS-IME 2000でC-¥を入力できるようにした(たぶん)。
+    <li>ごめん↓うそ。ISO-2022-JP-2でも変換するのはIBM拡張文字だけで、NEC拡張文字はそのまま出すんだった。
    </ul>
    <h4>Mon Apr 03 2000 Version 0.2.0.135</h4>
    <ul>
-    <li>IBM�g��������NEC�g��������ISO-2022-JP�ŕۑ������Ƃ��A���܂ł�JIS X 0212�ɕϊ����Ă������A�C���ς�����̂�NEC�g�������ɕϊ�����悤�ɂ����BISO-2022-JP-2�ł�JIS X 0212�ɕϊ�����̂͌����܂ł��Ȃ��Bencoding��:cjk��:jp��:jp2���ɂ���Č��܂�B
-    <li>decode-mime-header�����������B�F���ł���charset�𑝂₵�AQ�G���R�[�f�B���O���f�R�[�h�ł���悤�ɂ�������Bunfolding �����傢�ς����B
-    <li>�ȉ��̊֐��Ɉ�����ǉ��B
+    <li>IBM拡張文字とNEC拡張文字をISO-2022-JPで保存したとき、今まではJIS X 0212に変換していたが、気が変わったのでNEC拡張文字に変換するようにした。ISO-2022-JP-2ではJIS X 0212に変換するのは言うまでもない。encodingの:cjkが:jpか:jp2かによって決まる。
+    <li>decode-mime-headerを書き直し。認識できるcharsetを増やし、Qエンコーディングもデコードできるようにしたつもり。unfolding もちょい変えた。
+    <li>以下の関数に引数を追加。
     <ul>
      <li>si:base64-decode <var>input-string-or-stream</var> &amp;optional <var>output-stream fold-width</var>
      <dl>
       <dt>fold-width
-      <dd>�܂�Ԃ������B�f�t�H���g��72�Bt�Ȃ�܂�Ԃ��Ȃ��B
+      <dd>折り返す桁数。デフォルトは72。tなら折り返さない。
      </dl>
      <li>si:quoted-printable-decode <var>input-string-or-stream</var> &amp;optional <var>output-stream underscore-to-space</var>
      <dl>
       <dt>underscore-to-space
-      <dd>non-nil�Ȃ�`_'��` '�ɕϊ�����B
+      <dd>non-nilなら`_'を` 'に変換する。
      </dl>
     </ul>
-    <li>�N�����A�R�}���h���C������������ꍇ��Shift�̃`�F�b�N�����Ȃ��悤�ɂ����B
-    <li>�}�E�X�̃_�u���N���b�N�̓�����኱�ύX�B
-    <li>Windows 2000��Shift�������Ȃ��痧���グ���Ƃ��ɁA�Ȃ�ׂ��O�ɏo�Ă���悤�ɂ����B
-    <li>compare-windows�Ƃ��B
-    <li>�g�������Ȃ������ȋC�����邯�ǁA����Ȃ̂������B
+    <li>起動時、コマンドライン引数がある場合はShiftのチェックをしないようにした。
+    <li>マウスのダブルクリックの動作を若干変更。
+    <li>Windows 2000でShiftを押しながら立ち上げたときに、なるべく前に出てくるようにした。
+    <li>compare-windowsとか。
+    <li>使い道がなさそうな気がするけど、こんなのを実装。
     <ul>
      <li>parse-char-encoding-region <var>accept-char-encoding from to</var>
      <li>parse-char-encoding-string <var>accept-char-encoding string</var> :start :end
@@ -662,75 +662,75 @@
    </ul>
    <h4>Wed Mar 29 2000 Version 0.2.0.134</h4>
    <ul>
-    <li>connect�̍Œ���gc���N����Ƃ��Ȃ��΂����ƂɂȂ��Ă����̂��C��(���Ԃ�)�B
-    <li>���̑��ǁ[�ł������Ƃ�����������ƁB
+    <li>connectの最中にgcが起こるとかなりやばいことになっていたのを修正(たぶん)。
+    <li>その他どーでもいいところをちょろっと。
    </ul>
    <h4>Tue Mar 21 2000 Version 0.2.0.133</h4>
    <ul>
-    <li>�ȉ��̊֐�(or �R�}���h)������
+    <li>以下の関数(or コマンド)を実装
     <ul>
      <li>iso-char-code <var>char</var>
      <li>iso-code-char <var>code charset</var>
      <li>shift-region <var>start end</var> &amp;optional <var>column</var>
      <li>unshift-region <var>start end</var> &amp;optional <var>column</var>
     </ul>
-    <li>quote-char�Ŋe�핶���R�[�h����͂ł���悤�ɂ����BC-q�̎���j(JIS X 0208)�Ax(JIS X 0212)�Ag(GB 2312)�Ak(KS C 5601)�AB(Big-5)�Ai(ISO-8859-?)�B
-    <li>�������̃R�}���h��tab-columns���o�b�t�@���[�J���������ꍇ�̂��Ƃ��ȁ`����l���Ă��Ȃ������̂��C���B
-    <li>ASCII�ȊO�̃t�H���g�T�C�Y�ɂ����߃T�C�Y���w��ł���悤�ɂ����B�������ATrueType�t�H���g�łȂ��Ƃ��܂������Ȃ��ꍇ�������B
-    <li>�����R�[�h�̔��胋�[�`����������Ƃ��������B
-    <li>detect-kanji-code��detect-char-encoding�ɕύX�B
-    <li>map-kanji-code-(region|selection)��map-char-encoding-(region|selection)�ɕύX�B
+    <li>quote-charで各種文字コードを入力できるようにした。C-qの次にj(JIS X 0208)、x(JIS X 0212)、g(GB 2312)、k(KS C 5601)、B(Big-5)、i(ISO-8859-?)。
+    <li>いくつかのコマンドでtab-columnsがバッファローカルだった場合のことをな〜んも考えていなかったのを修正。
+    <li>ASCII以外のフォントサイズにお勧めサイズを指定できるようにした。ただし、TrueTypeフォントでないとうまくいかない場合が多い。
+    <li>文字コードの判定ルーチンをちょっといじった。
+    <li>detect-kanji-codeをdetect-char-encodingに変更。
+    <li>map-kanji-code-(region|selection)をmap-char-encoding-(region|selection)に変更。
    </ul>
-   <h4>Tue Mar 14 2000 Version 0.2.0.132.1(��������)</h4>
+   <h4>Tue Mar 14 2000 Version 0.2.0.132.1(こっそり)</h4>
    <ul>
-    <li>ToAscii�̎d�l�͂���ł����̂�?
+    <li>ToAsciiの仕様はあれでいいのか?
    </ul>
-   <h4>Tue Mar 14 2000 Version 0.2.0.132(��������)</h4>
+   <h4>Tue Mar 14 2000 Version 0.2.0.132(こっそり)</h4>
    <ul>
-    <li>�����n�_�C�A���O�ő啶���������̋�ʂ̃`�F�b�N���t�������̂��C���B
-    <li>�f�b�h�L�[�̓��͂Ŏ��ʂ̂��C���B
+    <li>検索系ダイアログで大文字小文字の区別のチェックが逆だったのを修正。
+    <li>デッドキーの入力で死ぬのを修正。
    </ul>
    <h4>Wed Mar 08 2000 Version 0.2.0.131</h4>
    <ul>
-    <li>IE�Ƃ�IntelliPoint�Ƀt�H�[�J�X��ςȂƂ���Ɏ����Ă������ꍇ������̂ɑΏ��B
-    <li>�m���Ԃ�grepd/gresregd�̃R���{�{�b�N�X���������Ȃ��Ă����̂��C���B
+    <li>IEとかIntelliPointにフォーカスを変なところに持っていかれる場合があるのに対処。
+    <li>知らん間にgrepd/gresregdのコンボボックスが小さくなっていたのを修正。
    </ul>
    <h4>Mon Mar 06 2000 Version 0.2.0.130</h4>
    <ul>
-    <li>�܂�Ԃ�����̂Ƃ��A�܂�Ԃ������ς��悤�Ȑݒ������Ǝ��ʂ̂��C���B
-    <li>�_�C�A���O�ł�case-fold-search�̐ݒ肪���܂����������̂��C���B
-    <li>�^�O�W�����v�ŁA�^�O�̒T������ύX�B
-    <li>delete-last-ime-composition/rewind-ime-composition�������Ȃ��Ȃ��Ă����̂��C���B
-    <li>�T�C�Y0�̃o�b�t�@��UTF�n�ŕۑ������Ƃ��AUnicode signature�������Ȃ��悤�ɂ����B
-    <li>isearch-yank-word/isearch-yank�ŁA*case-fold-search*��:smart��*isearch-smart-case*��non-nil�̏ꍇ�A������Ɠ�����ς���悤�ɂ����B
-    <li>����make-utf7-encoding�̐������Ԉ���Ă����̂��C���B
+    <li>折り返しありのとき、折り返し幅が変わるような設定をすると死ぬのを修正。
+    <li>ダイアログでのcase-fold-searchの設定がいまいちだったのを修正。
+    <li>タグジャンプで、タグの探し方を変更。
+    <li>delete-last-ime-composition/rewind-ime-compositionが動かなくなっていたのを修正。
+    <li>サイズ0のバッファをUTF系で保存したとき、Unicode signatureを書かないようにした。
+    <li>isearch-yank-word/isearch-yankで、*case-fold-search*が:smartで*isearch-smart-case*がnon-nilの場合、ちょっと動きを変えるようにした。
+    <li>↓でmake-utf7-encodingの説明が間違っていたのを修正。
    </ul>
    <h4>Mon Feb 21 2000 Version 0.2.0.129</h4>
    <ul>
-    <li>�����n�̃_�C�A���O�ŃG�X�P�[�v�V�[�P���X���g����悤�ɂ����B�g����G�X�P�[�v�V�[�P���X�́A
+    <li>検索系のダイアログでエスケープシーケンスを使えるようにした。使えるエスケープシーケンスは、
     <dl compact>
-     <dt>\t
-     <dd>�^�u
-     <dt>\n
-     <dd>���s
-     <dt>\r
-     <dd>���A
-     <dt>\f
-     <dd>����
-     <dt>\v
-     <dd>�����^�u
-     <dt>\x<var>NN</var>
-     <dd>2���܂ł�16�i��
-     <dt>\X<var>NNNN</var>
-     <dd>4���܂ł�16�i��
+     <dt>¥t
+     <dd>タブ
+     <dt>¥n
+     <dd>改行
+     <dt>¥r
+     <dd>復帰
+     <dt>¥f
+     <dd>改頁
+     <dt>¥v
+     <dd>垂直タブ
+     <dt>¥x<var>NN</var>
+     <dd>2桁までの16進数
+     <dt>¥X<var>NNNN</var>
+     <dd>4桁までの16進数
     </dl>
-    <li>�ȉ��̊֐��������B
+    <li>以下の関数を実装。
     <ul>
      <li>decode-escape-sequence <var>string regexpp</var>
      <li>process-marker <var>process</var>
     </ul>
-    <li>process-send-string�ŉ\�Ȍ���f�b�h���b�N���N����Ȃ��悤�ɂ�������(���Ȃ莩�M�Ȃ�)�B�P���ɓǂ񂾃f�[�^���o�b�t�@�����O���Ă��邾���Ȃ̂ŁA���܂薳���Ȃ��Ƃ͂��Ȃ��悤�ɁB���Ȃ݂Ƀf�b�h���b�N����Ƃ����Ă��A���ʂɎg�����ɂ͂܂��N���Ȃ��͂��B
-    <li>�ȉ��̊֐���convert-encoding-to-internal/convert-encoding-from-internal���g���悤�ύX(�g�ݍ��݂���Ȃ��Ȃ���)�B
+    <li>process-send-stringで可能な限りデッドロックが起こらないようにしたつもり(かなり自信なし)。単純に読んだデータをバッファリングしているだけなので、あまり無茶なことはしないように。ちなみにデッドロックするといっても、普通に使う分にはまず起きないはず。
+    <li>以下の関数をconvert-encoding-to-internal/convert-encoding-from-internalを使うよう変更(組み込みじゃなくなった)。
     <ul>
      <li>map-sjis-to-internal
      <li>map-euc-to-internal
@@ -745,45 +745,45 @@
      <li>map-internal-to-utf-7
      <li>map-internal-to-ucs-2
     </ul>
-    <li>make-utf7-encoding�̎d�l���኱�ύX
+    <li>make-utf7-encodingの仕様を若干変更
     <ul>
      <li>make-utf7-encoding <var>name display-name</var> :windows (:direct-encode-set-o t) (:direct-encode-white t) :imap4-mailbox-name
      <dl>
       <dt>:windows
-      <dd>non-nil�Ȃ�CP932�̕ϊ��\���g���B
+      <dd>non-nilならCP932の変換表を使う。
       <dt>:direct-encode-set-o
-      <dd>nil�Ȃ�Set O���G���R�[�f�B���O���Ȃ��B
+      <dd>nilならSet Oをエンコーディングしない。
       <dt>:direct-encode-white
-      <dd>nil�Ȃ�󔒂��G���R�[�f�B���O���Ȃ��B
+      <dd>nilなら空白をエンコーディングしない。
       <dt>:imap4-mailbox-name
-      <dd>non-nil�Ȃ�RFC2060�ɏ]���ăG���R�[�f�B���O����B
+      <dd>non-nilならRFC2060に従ってエンコーディングする。
      </dl>
     </ul>
-    <li>�N���b�v�{�[�h�̃G���R�[�f�B���O���w��ł���悤�ɂ����B
-    <li>define-menu/define-popup-menu��:menu���w��ł���悤�ɂ����B
-    <li>Shell��Command Output�ł̓��͂����傱���ƁB
+    <li>クリップボードのエンコーディングを指定できるようにした。
+    <li>define-menu/define-popup-menuに:menuを指定できるようにした。
+    <li>ShellとCommand Outputでの入力をちょこっと。
    </ul>
-   <h4>Thu Feb 17 2000 Version 0.2.0.128(��������)</h4>
+   <h4>Thu Feb 17 2000 Version 0.2.0.128(こそっと)</h4>
    <ul>
-    <li>�܂�Ԃ�����ŕҏW�����Ƃ��߂���x�������̂��኱�}�V�ɂ����B
-    <li>process-send-string�Ńf�b�h���b�N����\�����������̂𑽏��}�V��(�ł�����Ƃ��Ⴗ��)�B
-    <li>�ŏ����̏�Ԃ̂Ƃ��Ɂu�N��������Ɂv���o��ƃA�N�e�B�u�ɂȂ�Ȃ��̂��_���_���ɏC�������̂��_���_���ɏC�������̂��_���_���ɏC�������̂��C��(����łǁ[��?)�B
+    <li>折り返しありで編集したときめちゃ遅かったのを若干マシにした。
+    <li>process-send-stringでデッドロックする可能性があったのを多少マシに(でもするときゃする)。
+    <li>最小化の状態のときに「誰かが勝手に」が出るとアクティブにならないのをダメダメに修正したのをダメダメに修正したのをダメダメに修正したのを修正(これでどーだ?)。
    </ul>
    <h4>Mon Feb 14 2000 Version 0.2.0.127</h4>
    <ul>
-    <li>�Ƃ肠�����C���t�����Ƃ��낾��Windows 2000�Ή��B
+    <li>とりあえず気が付いたところだけWindows 2000対応。
     <ul>
-     <li>�l�b�g���[�N�̃p�X���[�h�B
-     <li>�O�ʂɏo�Ă��Ȃ���(98�ƈꏏ)�B
-     <li>���{��ȊO��IME���́B
-     <li>�_���v�t�@�C���̊g���q��.w2k�ɁB
-     <li>�u�t�@�C�����J��/���O��t���ĕۑ��v�́u�k���Łv��I���ł��Ȃ��悤�ɁB
-     <li>�Ȃ񂩗����オ�肪�߂����x����ł����ǁB�ꔭ�ڂ�GetMessage����Ԃ��Ă��Ȃ��݂����B�Ȃ��? ...���i�łł͂܂Ƃ��ɂȂ��Ă�B
-     <li>����ȊO�ŕs����o����A�o�Ă���l������Ă��ƂŁB
+     <li>ネットワークのパスワード。
+     <li>前面に出てこない件(98と一緒)。
+     <li>日本語以外のIME入力。
+     <li>ダンプファイルの拡張子を.w2kに。
+     <li>「ファイルを開く/名前を付けて保存」の「縮小版」を選択できないように。
+     <li>なんか立ち上がりがめっさ遅いんですけど。一発目のGetMessageから返ってこないみたい。なんで? ...製品版ではまともになってる。
+     <li>それ以外で不具合が出たら、出てから考えるってことで。
     </ul>
-    <li>�m���ԂɁu�O/����xyzzy�v�������Ȃ��Ȃ��Ă����̂��C���B
-    <li>�l�b�g���[�N�̋��L���̕⊮���ɂ��p�X���[�h�𕷂��悤�ɂ����B
-    <li>�X�}�[�g(��)�ȑ啶���������̋�ʂȂ������B�ȉ��̊֐���:case-fold(�܂��͂���ɑ����������)��:smart�̏ꍇ�A�p�^�[���ɑ啶�����܂܂�Ă��Ȃ��ꍇ�͋�ʂȂ��A�܂܂�Ă���΋�ʂ���悤�ɂ����B
+    <li>知らん間に「前/次のxyzzy」が動かなくなっていたのを修正。
+    <li>ネットワークの共有名の補完時にもパスワードを聞くようにした。
+    <li>スマート(笑)な大文字小文字の区別なし検索。以下の関数で:case-fold(またはそれに相当するもの)が:smartの場合、パターンに大文字が含まれていない場合は区別なし、含まれていれば区別するようにした。
     <ul>
      <li>scan-buffer
      <li>compile-regexp
@@ -794,27 +794,27 @@
      <li>substitute-string
      <li>string-looking-at
     </ul>
-    �ŁA*case-fold-search*�̃f�t�H���g��:smart�ɂ��A�����n�_�C�A���O�̑啶���������̋�ʂ̃`�F�b�N�{�b�N�X��3state�ɂ����B
-    <li>�f�t�H���g�̃t�H���g�T�C�Y�������������̂��C���B
-    <li>�⊮���̌��E�B���h�E�̃X�N���[���Ƃ��B
+    で、*case-fold-search*のデフォルトを:smartにし、検索系ダイアログの大文字小文字の区別のチェックボックスを3stateにした。
+    <li>デフォルトのフォントサイズが小さすぎたのを修正。
+    <li>補完時の候補ウィンドウのスクロールとか。
    </ul>
    <h4>Tue Feb 08 2000 Version 0.2.0.126</h4>
    <ul>
-    <li>������Ƃ����_�C�G�b�g�B
-    <li>������/�؍����IME�ɕςȃt�H���g���w�肵�Ă����̂��C���B
-    <li>�}�E�X�J�[�\���̏����������܂����������̂��C���B
-    <li>�t�@�C������0�o�C�g�̃t�@�C�����I�[�v���ł��Ȃ������̂��C��(�T�C�Y��0�o�C�g�̃t�@�C������V���[�g�J�b�g�̃����N�悪�ǂ߂Ă��܂��Ă�������)�B
+    <li>ちょっとだけダイエット。
+    <li>中国語/韓国語のIMEに変なフォントを指定していたのを修正。
+    <li>マウスカーソルの消し方がいまいちだったのを修正。
+    <li>ファイラから0バイトのファイルがオープンできなかったのを修正(サイズが0バイトのファイルからショートカットのリンク先が読めてしまっていたため)。
    </ul>
    <h4>Mon Feb 07 2000 Version 0.2.0.125</h4>
    <ul>
-    <li>ISO-2022-KR(�Ă��������b�L���O�V�t�g���g���R�[�h�n�S��)�ւ̕ϊ�����Ȃ��o�O���Ă����̂��_���_���ɏC�������̂��C���B
-    <li>CNS-11643(plane-1/plane-2)�̃T�|�[�g�B������Big-5�ɑ��݂��镶���̂݁B
-    <li>make-iso2022-encoding�̎d�l���኱�ύX
+    <li>ISO-2022-KR(ていうかロッキングシフトを使うコード系全般)への変換が情けなくバグっていたのをダメダメに修正したのを修正。
+    <li>CNS-11643(plane-1/plane-2)のサポート。ただしBig-5に存在する文字のみ。
+    <li>make-iso2022-encodingの仕様を若干変更
     <ul>
      <li>make-iso2022-encoding <var>name display-name</var> &amp;key :g0 :g1 :g2 :g3 :ascii-eol :ascii-control :7bits :locking-shift :short-form :no-escape :cjk :use-cns11643
      <dl>
       <dt>:g0, :g1, :g2, :g3
-      <dd>���X�g�łȂ��Ȃ�A������Ԃ�G0�AG1�AG2�AG3�Ɏw�����鉺�L�̕����Z�b�g�̂ǂꂩ�B�w�����Ȃ��Ȃ�nil�B���̏ꍇ�A���ׂĂ̕����Z�b�g���w���\�Ƃ݂Ȃ��B���X�g�Ȃ�΁A�擪�̗v�f�͏�����Ԃ�G0�AG1�AG2�AG3�Ɏw�����鉺�L�̕����Z�b�g�̂ǂꂩ�A�w�����Ȃ��Ȃ�nil�B�c��̗v�f�͎w���\�ȕ����Z�b�g�B
+      <dd>リストでないなら、初期状態でG0、G1、G2、G3に指示する下記の文字セットのどれか。指示しないならnil。この場合、すべての文字セットを指示可能とみなす。リストならば、先頭の要素は初期状態でG0、G1、G2、G3に指示する下記の文字セットのどれか、指示しないならnil。残りの要素は指示可能な文字セット。
       <ul>
        <li>:us-ascii
        <li>:jisx0201-kana
@@ -836,19 +836,19 @@
        <li>:cns11643-2
       </ul>
       <dt>:ascii-eol
-      <dd>non-nil�Ȃ�s����ASCII�������w������B
+      <dd>non-nilなら行末でASCII文字を指示する。
       <dt>:ascii-control
-      <dd>non-nil�Ȃ琧�䕶���̑O��ASCII�������w������B
+      <dd>non-nilなら制御文字の前でASCII文字を指示する。
       <dt>:7bits
-      <dd>non-nil�Ȃ�7BIT�B
+      <dd>non-nilなら7BIT。
       <dt>:locking-shift
-      <dd>non-nil�Ȃ烍�b�L���O�V�t�g���g���B
+      <dd>non-nilならロッキングシフトを使う。
       <dt>:short-from
-      <dd>non-nil�Ȃ�JIS X 0208��GB2312�̎w���ɏȗ��`���g���B
+      <dd>non-nilならJIS X 0208とGB2312の指示に省略形を使う。
       <dt>:no-escape
-      <dd>non-nil�Ȃ�G�X�P�[�v�V�[�P���X�����߂��Ȃ��B
+      <dd>non-nilならエスケープシーケンスを解釈しない。
       <dt>:cjk
-      <dd>����w��Bnon-nil�Ȃ�ȉ��̌���ɂ��������āA���������������ɕϊ�����B
+      <dd>言語指定。non-nilなら以下の言語にしたがって、漢字を似た文字に変換する。
       <ul>
        <li>:jp
        <li>:kr
@@ -857,91 +857,91 @@
        <li>:cn-big5
       </ul>
       <dt>:use-cns11643
-      <dd>non-nil�Ȃ�Big-5��CNS-11643�ɕϊ�����B
+      <dd>non-nilならBig-5をCNS-11643に変換する。
      </dl>
     </ul>
-    <li>�Ƃ����킯�ŁA�W���ŗp�ӂ��������؂̕����G���R�[�f�B���O�͂���Ȃ��肳�܂ɂȂ����B
+    <li>というわけで、標準で用意した日中韓の文字エンコーディングはこんなありさまになった。
     <table border="1">
-     <tr><th>name<th>display-name<th>Lisp�ϐ�<th>���l
-     <tr><td>sjis<td>���{��(Shift_JIS)<td>*encoding-sjis*<td>���ʂ�Shift_JIS(��?)�B
-     <tr><td>jis<td>���{��(ISO-2022-JP)<td>*encoding-jis*<td>������JIS�B�����͉\�Ȍ���JIS�̕����ɕϊ�����B
-     <tr><td>euc-jp<td>���{��(EUC-JP)<td>*encoding-euc-jp*<td>���{��EUC�B�����͉\�Ȍ���JIS�̕����ɕϊ�����B
-     <tr><td>iso2022jp2<td>���{��(ISO-2022-JP-2)<td>*encoding-iso-2022-jp-2*<td>7bit�n�B�����͕ϊ����Ȃ��B
-     <tr><td>iso-8bit-jp<td>���{��(ISO 8bit with ESC)<td>*encoding-iso-8bit-jp*<td>���{��EUC�ŃG�X�P�[�v�V�[�P���X�𗝉�����B�����͕ϊ����Ȃ��B
-     <tr><td>euc-gb<td>������(GB2312)<td>*encoding-euc-gb*<td>������GB�B�����͉\�Ȍ���GB�̕����ɕϊ�����B
-     <tr><td>big5<td>������(Big-5)<td>*encoding-big5*<td>���ʂ�Big-5�B
-     <tr><td>iso2022cn<td>������(ISO-2022-CN)<td>*encoding-iso-2022-cn*<td>7bit�n�B�����͉\�Ȍ���GB�܂���CNS�ɕϊ�����B
-     <tr><td>iso-8bit-cn<td>������(ISO 8bit with ESC)<td>*encoding-iso-8bit-cn*<td>EUC-GB�ŃG�X�P�[�v�V�[�P���X�𗝉�����B�����͕ϊ����Ȃ��B
-     <tr><td>euc-kr<td>�؍���(EUC-KR)<td>*encoding-euc-kr*<td>���Ԃ񂲂����ʂ�EUC-KR�B�����͉\�Ȍ���KS�ɕϊ�����B
-     <tr><td>iso2022kr<td>�؍���(ISO-2022-KR)<td>*encoding-iso-2022-kr*<td>7bit�n�B�����͉\�Ȍ���KS�ɕϊ�����B
-     <tr><td>iso-8bit-kr<td>�؍���(ISO 8bit with ESC)<td>*encoding-iso-8bit-kr*<td>EUC-KR�ŃG�X�P�[�v�V�[�P���X�𗝉�����B�����͕ϊ����Ȃ��B
+     <tr><th>name<th>display-name<th>Lisp変数<th>備考
+     <tr><td>sjis<td>日本語(Shift_JIS)<td>*encoding-sjis*<td>普通のShift_JIS(か?)。
+     <tr><td>jis<td>日本語(ISO-2022-JP)<td>*encoding-jis*<td>いわゆるJIS。漢字は可能な限りJISの文字に変換する。
+     <tr><td>euc-jp<td>日本語(EUC-JP)<td>*encoding-euc-jp*<td>日本語EUC。漢字は可能な限りJISの文字に変換する。
+     <tr><td>iso2022jp2<td>日本語(ISO-2022-JP-2)<td>*encoding-iso-2022-jp-2*<td>7bit系。漢字は変換しない。
+     <tr><td>iso-8bit-jp<td>日本語(ISO 8bit with ESC)<td>*encoding-iso-8bit-jp*<td>日本語EUCでエスケープシーケンスを理解する。漢字は変換しない。
+     <tr><td>euc-gb<td>中国語(GB2312)<td>*encoding-euc-gb*<td>いわゆるGB。漢字は可能な限りGBの文字に変換する。
+     <tr><td>big5<td>中国語(Big-5)<td>*encoding-big5*<td>普通のBig-5。
+     <tr><td>iso2022cn<td>中国語(ISO-2022-CN)<td>*encoding-iso-2022-cn*<td>7bit系。漢字は可能な限りGBまたはCNSに変換する。
+     <tr><td>iso-8bit-cn<td>中国語(ISO 8bit with ESC)<td>*encoding-iso-8bit-cn*<td>EUC-GBでエスケープシーケンスを理解する。漢字は変換しない。
+     <tr><td>euc-kr<td>韓国語(EUC-KR)<td>*encoding-euc-kr*<td>たぶんごく普通のEUC-KR。漢字は可能な限りKSに変換する。
+     <tr><td>iso2022kr<td>韓国語(ISO-2022-KR)<td>*encoding-iso-2022-kr*<td>7bit系。漢字は可能な限りKSに変換する。
+     <tr><td>iso-8bit-kr<td>韓国語(ISO 8bit with ESC)<td>*encoding-iso-8bit-kr*<td>EUC-KRでエスケープシーケンスを理解する。漢字は変換しない。
     </table>
    </ul>
    <h4>Fri Feb 04 2000 Version 0.2.0.124</h4>
    <ul>
-    <li>Global IME�ɑΉ�(���Ԃ�)�B
+    <li>Global IMEに対応(たぶん)。
     <ul>
      <li>enable-global-ime <var>enable</var>
     </ul>
-    <li>*query-kill-xyzzy-hook*�������Ȃ��Ȃ��Ă����̂��C���B
-    <li>NT�ȊO�ŃN���b�v�{�[�h�̒��g��UNICODE�̂Ƃ�Paste���j���[�������ɂȂ��Ă����̂��b��C���B
-    <li>�}�E�X�ł͈̔͑I���̓������������傢�ύX�B
-    <li>insert-file��Q�ڂ��ď����Ă����̂��C���B
-    <li>exkey-zenkaku�V���[�Y��ǉ��B
-    <li>�}�E�X�J�[�\���̏����������܂����������̂��C���B
-    <li>process-filter��process-sentinel���ĂԂƂ���*inhibit-quit*��non-nil��bind����悤�ɂ����B
+    <li>*query-kill-xyzzy-hook*が動かなくなっていたのを修正。
+    <li>NT以外でクリップボードの中身がUNICODEのときPasteメニューが無効になっていたのを暫定修正。
+    <li>マウスでの範囲選択の動きをもうちょい変更。
+    <li>insert-fileを寝ぼけて書いていたのを修正。
+    <li>exkey-zenkakuシリーズを追加。
+    <li>マウスカーソルの消し方がいまいちだったのを修正。
+    <li>process-filterとprocess-sentinelを呼ぶときに*inhibit-quit*をnon-nilにbindするようにした。
    </ul>
    <h4>Tue Feb 01 2000 Version 0.2.0.123</h4>
    <ul>
-    <li>ISO-2022-KR(�Ă��������b�L���O�V�t�g���g���R�[�h�n�S��)�ւ̕ϊ�����Ȃ��o�O���Ă����̂��C��(�ł��_���_��)�B
-    <li>�}�E�X�ł͈̔͑I���̓������኱�ύX�B
-    <li>fill-region-hook�Ƃ�(�g�����̂ɂȂ邩�ǂ�����?)�B
+    <li>ISO-2022-KR(ていうかロッキングシフトを使うコード系全般)への変換が情けなくバグっていたのを修正(でもダメダメ)。
+    <li>マウスでの範囲選択の動きを若干変更。
+    <li>fill-region-hookとか(使いものになるかどうかは?)。
    </ul>
    <h4>Mon Jan 31 2000 Version 0.2.0.122</h4>
    <ul>
-    <li>�����锼�p�X�y�[�X�̕\���B
-    <li>�}�E�X�J�[�\����������悤�ɂ����B
-    <li>�ꕔ��hook�̌Ăѕ����኱�ύX�B
+    <li>いわゆる半角スペースの表示。
+    <li>マウスカーソルを消せるようにした。
+    <li>一部のhookの呼び方を若干変更。
     <ul>
      <li>run-hooks &amp;rest <var>hooks</var>
      <li>run-hook-with-args <var>hook</var> &amp;rest args
      <li>run-hook-with-args-while-success <var>hook</var> &amp;rest args
      <li>run-hook-with-args-until-success <var>hook</var> &amp;rest args
     </ul>
-    <li>�d�����[�h�ł̃L���b�V���̃t���b�V���̕��@��ύX�Betc/dxflush.dxa���g�����j���[�ɑg�ݍ���ł���ꍇ�̂݁Bdxflush.dxa���Ȃ���Ώ]���ʂ�B������������|�{����̊�ɐ�������̂����邩���B
-    <li>�E�B���h�E���Ő܂�Ԃ��Ƃ��A�܂�Ԃ��}�[�N�̗L���Ő܂�Ԃ�����ς���悤�ɂ����B�܂��A�s�ԍ���On/Off���Ă��܂�Ԃ������ς��Ȃ������̂��C���B
-    <li>�s�̊Ԋu���s�N�Z���P�ʂɕύX�B
-    <li>�t�H���g�T�C�Y�̌v�Z�ŃA���_�[���C���J�[�\���̕����l�����Ȃ��悤�ɂ����B�t�H���g�̃t�F�C�X�ƃT�C�Y�ɂ���Ă�`_'�Ȃǂ��A���_�[���C���J�[�\���Əd�Ȃ�ꍇ�����邪�A�C�ɓ���Ȃ���΍s�̊Ԋu��1�ɂ��邱�ƁB�x���Ȃ����Ǝv�����ꍇ��1�ɂ��邱�ƁB
-    <li>tab-columns�Ƀo�b�t�@��^�����ꍇ�A�o�b�t�@���[�J�����ǂ�����2�Ԗڂ̖߂�l�ŕԂ��悤�ɂ����B
+    <li>電八モードでのキャッシュのフラッシュの方法を変更。etc/dxflush.dxaを拡張メニューに組み込んである場合のみ。dxflush.dxaがなければ従来通り。もしかしたら榎本さんの顔に線が入るのが直るかも。
+    <li>ウィンドウ幅で折り返すとき、折り返しマークの有無で折り返し幅を変えるようにした。また、行番号をOn/Offしても折り返し幅が変わらなかったのを修正。
+    <li>行の間隔をピクセル単位に変更。
+    <li>フォントサイズの計算でアンダーラインカーソルの分を考慮しないようにした。フォントのフェイスとサイズによっては`_'などがアンダーラインカーソルと重なる場合があるが、気に入らなければ行の間隔を1にすること。遅くなったと思った場合も1にすること。
+    <li>tab-columnsにバッファを与えた場合、バッファローカルかどうかを2番目の戻り値で返すようにした。
    </ul>
-   <h4>Wed Jan 26 2000 Version 0.2.0.121.2(��������)</h4>
+   <h4>Wed Jan 26 2000 Version 0.2.0.121.2(こっそり)</h4>
    <ul>
-    <li>�ŏ����̏�Ԃ̂Ƃ��Ɂu�N��������Ɂv���o��ƃA�N�e�B�u�ɂȂ�Ȃ��̂��_���_���ɏC�������̂��_���_���ɏC�������̂��C��(����ς�_���_��)�B
-    <li>detect-kanji-code��UTF8�̃r�b�g��8����16�ɕύX�ɂȂ��Ă��̂������̂�Y��Ă��B�ǂ������̂����܂������d�l��ς��邯�ǁB
+    <li>最小化の状態のときに「誰かが勝手に」が出るとアクティブにならないのをダメダメに修正したのをダメダメに修正したのを修正(やっぱりダメダメ)。
+    <li>detect-kanji-codeでUTF8のビットが8から16に変更になってたのを書くのを忘れてた。どうせそのうちまるっきり仕様を変えるけど。
    </ul>
-   <h4>Wed Jan 26 2000 Version 0.2.0.121.1(��������)</h4>
+   <h4>Wed Jan 26 2000 Version 0.2.0.121.1(こっそり)</h4>
    <ul>
-    <li>��������Y��Ă�����! gresregd�ŃE�B���h�E�T�C�Y�ȏ���͂ł���悤�ɂ����B
-    <li>���ɖY��Ă�̂���?
-    <li>�ŏ����̏�Ԃ̂Ƃ��Ɂu�N��������Ɂv���o��ƃA�N�e�B�u�ɂȂ�Ȃ��̂��_���_���ɏC�������̂��C��(�ł��_���_��)�B
-    <li>make-temp-file-name��prefix��^�����Ƃ��ɕςɂȂ�̂��C���B
+    <li>すっかり忘れてたっっ! gresregdでウィンドウサイズ以上入力できるようにした。
+    <li>他に忘れてるのある?
+    <li>最小化の状態のときに「誰かが勝手に」が出るとアクティブにならないのをダメダメに修正したのを修正(でもダメダメ)。
+    <li>make-temp-file-nameにprefixを与えたときに変になるのを修正。
    </ul>
-   <h4>Tue Jan 25 2000 Version 0.2.0.121(��������)</h4>
+   <h4>Tue Jan 25 2000 Version 0.2.0.121(こっそり)</h4>
    <ul>
-    <li>���[�A�����܂��O�Ɍ����Ƃ�����i18n����Ȃ�����ˁB
-    <li>�t�@�C�����o�͌n���܂��啝�ɏ��������B���܂�e�X�g���ĂȂ��̂ŕs������邩���B
-    <li>�t�@�C�����o�͌n�ňȉ���Windows code page���T�|�[�g�B
+    <li>あー、つっこまれる前に言っとくけどi18nじゃないからね。
+    <li>ファイル入出力系をまた大幅に書き換え。あまりテストしてないので不具合があるかも。
+    <li>ファイル入出力系で以下のWindows code pageをサポート。
     <ul>
      <li>1252(Latin1)
      <li>1250(Latin2)
-     <li>1251(Cyrillic)<br>�������A0xa5/U+0490��0xb4/U+0491�͖��T�|�[�g
+     <li>1251(Cyrillic)<br>ただし、0xa5/U+0490と0xb4/U+0491は未サポート
      <li>1253(Greek)
      <li>1254(Turkish)
      <li>1257(Baltic)
     </ul>
-    <li>���͕����R�[�h�n��Windows�̃L�[�{�[�h���C�A�E�g�ɏ]���悤�ɂ����̂�IME��������Γ��͂ł���͂��BNT4�ȊO�ł͖��e�X�g�BNT3.51�̓L�[�{�[�h���C�A�E�g���ς�����Ƃ��̃��b�Z�[�W���s���Ȃ̂łĂ��Ɓ[�Ɏ������Ă���B*keyboard-layout-list*���Q�ƁB
-    <li>���ꂩGlobal IME�̎d�l�̍ݏ���m���Ă��狳���āB
-    <li>char-encoding�^��V�݁B�ȉ��̊֐��������B�������A����d�l���ς��\������B
+    <li>入力文字コード系をWindowsのキーボードレイアウトに従うようにしたのでIMEさえあれば入力できるはず。NT4以外では未テスト。NT3.51はキーボードレイアウトが変わったときのメッセージが不明なのでてけとーに実装してある。*keyboard-layout-list*を参照。
+    <li>だれかGlobal IMEの仕様の在処を知ってたら教えて。
+    <li>char-encoding型を新設。以下の関数を実装。ただし、今後仕様が変わる可能性あり。
     <ul>
      <li>char-encoding-p <var>object</var>
      <li>read-char-encoding <var>prompt</var>
@@ -949,16 +949,16 @@
      <li>make-auto-detect-encoding <var>name display-name</var>
      <dl>
       <dt><var>name</var>
-      <dd>���O�B�~�j�o�b�t�@�ł̓��͂ƃ��[�h���C���ւ̕\���B
+      <dd>名前。ミニバッファでの入力とモードラインへの表示。
       <dt><var>display-name</var>
-      <dd>�\�����B�_�C�A���O�ŕ\���B
+      <dd>表示名。ダイアログで表示。
      </dl>
      <li>make-sjis-encoding <var>name display-name</var>
      <li>make-big5-encoding <var>name display-name</var>
      <li>make-iso2022-encoding <var>name display-name</var> :g0 :g1 :g2 :g3 :ascii-eol :control-eol :7bits :locking-shift :short-form :no-escape
      <dl>
       <dt>:g0, :g1, :g2, :g3
-      <dd>������Ԃ�G0�AG1�AG2�AG3�Ɏw�����鉺�L�̕����Z�b�g�̂ǂꂩ�A�w�����Ȃ��Ȃ�nil�B
+      <dd>初期状態でG0、G1、G2、G3に指示する下記の文字セットのどれか、指示しないならnil。
       <ul>
        <li>:us-ascii
        <li>:jisx0201-kana
@@ -978,22 +978,22 @@
        <li>:big5-2
       </ul>
       <dt>:ascii-eol
-      <dd>non-nil�Ȃ�s����ASCII�������w������B
+      <dd>non-nilなら行末でASCII文字を指示する。
       <dt>:control-eol
-      <dd>non-nil�Ȃ琧�䕶���̑O��ASCII�������w������B
+      <dd>non-nilなら制御文字の前でASCII文字を指示する。
       <dt>:7bits
-      <dd>non-nil�Ȃ�7BIT�B
+      <dd>non-nilなら7BIT。
       <dt>:locking-shift
-      <dd>non-nil�Ȃ烍�b�L���O�V�t�g���g���B
+      <dd>non-nilならロッキングシフトを使う。
       <dt>:short-from
-      <dd>non-nil�Ȃ�JIS X 0208��GB2312�̎w���ɏȗ��`���g���B
+      <dd>non-nilならJIS X 0208とGB2312の指示に省略形を使う。
       <dt>:no-escape
-      <dd>non-nil�Ȃ�G�X�P�[�v�V�[�P���X�����߂��Ȃ��B
+      <dd>non-nilならエスケープシーケンスを解釈しない。
      </dl>
      <li>make-iso8859-encoding <var>name display-name ccs</var>
      <dl>
       <dt><var>ccs</var>
-      <dd>���L�̕����Z�b�g�̂ǂꂩ�B
+      <dd>下記の文字セットのどれか。
       <ul>
        <li>:iso8859-1
        <li>:iso8859-2
@@ -1008,7 +1008,7 @@
      <li>make-windows-codepage-encoding <var>name display-name codepage</var>
      <dl>
       <dt><var>codepage</var>
-      <dd>���L�̃R�[�h�y�[�W�̂ǂꂩ�B
+      <dd>下記のコードページのどれか。
       <ul>
        <li>1252
        <li>1250
@@ -1023,50 +1023,50 @@
      <li>make-utf7-encoding <var>name display-name</var> :windows
      <dl>
       <dt>:signature
-      <dd>non-nil�Ȃ�Unicode signature(������BOM)������B
+      <dd>non-nilならUnicode signature(いわゆるBOM)をつける。
       <dt>:endian
-      <dd>:big-endian�܂���:littel-endian�B����ȊO�̏ꍇ�̓O���[�o���ϐ�*default-utf16-byte-order*�̒l�B
+      <dd>:big-endianまたは:littel-endian。それ以外の場合はグローバル変数*default-utf16-byte-order*の値。
       <dt>:windows
-      <dd>non-nil�Ȃ�CP932�̕ϊ��\���g���B
+      <dd>non-nilならCP932の変換表を使う。
      </dl>
      <li>char-encoding-name <var>char-encoding</var>
      <li>char-encoding-display-name <var>char-encoding</var>
     </ul>
-    <li>�Ƃ����킯�ŁA����T�|�[�g���Ă��镶���G���R�[�f�B���O�͂��񂾂��B�������A�����G���R�[�f�B���O�̎�������͈ȑO�̂܂܂Ȃ̂ŁA�܂����{�ꂵ������ł��Ȃ��B
+    <li>というわけで、現状サポートしている文字エンコーディングはこんだけ。ただし、文字エンコーディングの自動判定は以前のままなので、まだ日本語しか判定できない。
     <table border="1">
-     <tr><th>name<th>display-name<th>Lisp�ϐ�<th>���l
-     <tr><td>auto<td>��������<td>*encoding-auto*<td>.
-     <tr><td>sjis<td>���{��(Shift_JIS)<td>*encoding-sjis*<td>.
-     <tr><td>jis<td>���{��(ISO-2022-JP)<td>*encoding-jis*<td>.
-     <tr><td>euc-jp<td>���{��(EUC-JP)<td>*encoding-euc-jp*<td>.
-     <tr><td>iso-8bit-jp<td>���{��(ISO 8bit with ESC)<td>*encoding-iso-8bit-jp*<td>���{��EUC�ŃG�X�P�[�v�V�[�P���X�𗝉�����
-     <tr><td>euc-gb<td>������(GB2312)<td>*encoding-euc-gb*<td>.
-     <tr><td>big5<td>������(Big-5)<td>*encoding-big5*<td>.
-     <tr><td>euc-kr<td>�؍���(EUC-KR)<td>*encoding-euc-kr*<td>.
-     <tr><td>iso2022kr<td>�؍���(ISO-2022-KR)<td>*encoding-iso-2022-kr*<td>.
-     <tr><td>iso-latin1<td>����(ISO-8859-1)<td>*encoding-iso-8859-1*<td>.
-     <tr><td>iso-latin2<td>����(ISO-8859-2)<td>*encoding-iso-8859-2*<td>.
-     <tr><td>iso-latin3<td>ISO-8859-3<td>*encoding-iso-8859-3*<td>����g���Ă�̃G�X�y�����g���炢?
-     <tr><td>iso-latin4<td>ISO-8859-4<td>*encoding-iso-8859-4*<td>�ǂ�?
-     <tr><td>iso-cyrillic<td>�L��������(ISO-8859-5)<td>*encoding-iso-8859-5*<td>.
-     <tr><td>iso-greek<td>�M���V�A��(ISO-8859-7)<td>*encoding-iso-8859-7*<td>.
-     <tr><td>iso-latin5<td>�g���R��(ISO-8859-9)<td>*encoding-iso-8859-9*<td>.
-     <tr><td>iso-latin6<td>�o���g����(ISO-8859-10)<td>*encoding-iso-8859-10*<td>.
-     <tr><td>win-latin1<td>����(Windows 1252)<td>*encoding-windows-latin1*<td>.
-     <tr><td>win-latin2<td>����(Windows 1250)<td>*encoding-windows-latin2*<td>.
-     <tr><td>win-cyrillic<td>�L��������(Windows 1251)<td>*encoding-windows-cyrillic*<td>.
-     <tr><td>win-greek<td>�M���V�A��(Windows 1253)<td>*encoding-windows-greek*<td>.
-     <tr><td>win-turkish<td>�g���R��(Windows 1254)<td>*encoding-windows-turkish*<td>.
-     <tr><td>win-baltic<td>�o���g����(Windows 1257)<td>*encoding-windows-baltic*<td>.
-     <tr><td>utf16<td>Unicode (UTF-16)<td>*encoding-utf16*<td>Unicode signature�t����UTF-16�B�o�C�g�I�[�_�[�́A�ǂݍ��ݎ��̓t�@�C���`���ɏ]���B�������ݎ��͓ǂݍ��ݎ��̃t�@�C���`���ŁB�ǂݍ��܂Ȃ������Ƃ��A�܂��͔���ł��Ȃ������ꍇ�̓O���[�o���ϐ�*default-utf16-byte-order*�̒l�ɏ]���B
-     <tr><td>utf16le-bom<td>Unicode (UTF-16)[LE]<td>*encoding-utf16le-bom*<td>�ςȖ��O�����AUnicode signature�t�����g���G���f�B�A����UTF-16�̂��ƁB
-     <tr><td>utf16be-bom<td>Unicode (UTF-16)[BE]<td>*encoding-utf16be-bom*<td>Unicode signature�t���r�b�O�G���f�B�A����UTF-16�B
-     <tr><td>utf16le<td>Unicode (UTF-16LE)<td>*encoding-utf16le*<td>Unicode signature�Ȃ����g���G���f�B�A����UTF-16�B
-     <tr><td>utf16be<td>Unicode (UTF-16BE)<td>*encoding-utf16be*<td>Unicode signature�Ȃ��r�b�O�G���f�B�A����UTF-16�B
-     <tr><td>utf8<td>Unicode (UTF-8)<td>*encoding-utf8*<td>Unicode signature�t����UTF-8�B
-     <tr><td>utf8n<td>Unicode (UTF-8N)<td>*encoding-utf8n*<td>Unicode signature�Ȃ���UTF-8�B
+     <tr><th>name<th>display-name<th>Lisp変数<th>備考
+     <tr><td>auto<td>自動判定<td>*encoding-auto*<td>.
+     <tr><td>sjis<td>日本語(Shift_JIS)<td>*encoding-sjis*<td>.
+     <tr><td>jis<td>日本語(ISO-2022-JP)<td>*encoding-jis*<td>.
+     <tr><td>euc-jp<td>日本語(EUC-JP)<td>*encoding-euc-jp*<td>.
+     <tr><td>iso-8bit-jp<td>日本語(ISO 8bit with ESC)<td>*encoding-iso-8bit-jp*<td>日本語EUCでエスケープシーケンスを理解する
+     <tr><td>euc-gb<td>中国語(GB2312)<td>*encoding-euc-gb*<td>.
+     <tr><td>big5<td>中国語(Big-5)<td>*encoding-big5*<td>.
+     <tr><td>euc-kr<td>韓国語(EUC-KR)<td>*encoding-euc-kr*<td>.
+     <tr><td>iso2022kr<td>韓国語(ISO-2022-KR)<td>*encoding-iso-2022-kr*<td>.
+     <tr><td>iso-latin1<td>欧米(ISO-8859-1)<td>*encoding-iso-8859-1*<td>.
+     <tr><td>iso-latin2<td>中欧(ISO-8859-2)<td>*encoding-iso-8859-2*<td>.
+     <tr><td>iso-latin3<td>ISO-8859-3<td>*encoding-iso-8859-3*<td>これ使ってるのエスペラントぐらい?
+     <tr><td>iso-latin4<td>ISO-8859-4<td>*encoding-iso-8859-4*<td>どこ?
+     <tr><td>iso-cyrillic<td>キリル文字(ISO-8859-5)<td>*encoding-iso-8859-5*<td>.
+     <tr><td>iso-greek<td>ギリシア語(ISO-8859-7)<td>*encoding-iso-8859-7*<td>.
+     <tr><td>iso-latin5<td>トルコ語(ISO-8859-9)<td>*encoding-iso-8859-9*<td>.
+     <tr><td>iso-latin6<td>バルト言語(ISO-8859-10)<td>*encoding-iso-8859-10*<td>.
+     <tr><td>win-latin1<td>欧米(Windows 1252)<td>*encoding-windows-latin1*<td>.
+     <tr><td>win-latin2<td>中欧(Windows 1250)<td>*encoding-windows-latin2*<td>.
+     <tr><td>win-cyrillic<td>キリル文字(Windows 1251)<td>*encoding-windows-cyrillic*<td>.
+     <tr><td>win-greek<td>ギリシア語(Windows 1253)<td>*encoding-windows-greek*<td>.
+     <tr><td>win-turkish<td>トルコ語(Windows 1254)<td>*encoding-windows-turkish*<td>.
+     <tr><td>win-baltic<td>バルト言語(Windows 1257)<td>*encoding-windows-baltic*<td>.
+     <tr><td>utf16<td>Unicode (UTF-16)<td>*encoding-utf16*<td>Unicode signature付きのUTF-16。バイトオーダーは、読み込み時はファイル形式に従う。書き込み時は読み込み時のファイル形式で。読み込まなかったとき、または判定できなかった場合はグローバル変数*default-utf16-byte-order*の値に従う。
+     <tr><td>utf16le-bom<td>Unicode (UTF-16)[LE]<td>*encoding-utf16le-bom*<td>変な名前だが、Unicode signature付きリトルエンディアンのUTF-16のこと。
+     <tr><td>utf16be-bom<td>Unicode (UTF-16)[BE]<td>*encoding-utf16be-bom*<td>Unicode signature付きビッグエンディアンのUTF-16。
+     <tr><td>utf16le<td>Unicode (UTF-16LE)<td>*encoding-utf16le*<td>Unicode signatureなしリトルエンディアンのUTF-16。
+     <tr><td>utf16be<td>Unicode (UTF-16BE)<td>*encoding-utf16be*<td>Unicode signatureなしビッグエンディアンのUTF-16。
+     <tr><td>utf8<td>Unicode (UTF-8)<td>*encoding-utf8*<td>Unicode signature付きのUTF-8。
+     <tr><td>utf8n<td>Unicode (UTF-8N)<td>*encoding-utf8n*<td>Unicode signatureなしのUTF-8。
      <tr><td>utf7<td>Unicode (UTF-7)<td>*encoding-utf7*<td>.
-     <tr><td>std-utf16<td>STD Unicode (UTF-16)<td>*encoding-std-utf16*<td>���ς�炸�ςȖ��O�����AWindows�̕ϊ��\�ł͂Ȃ�Unicode Consortium���z�z���Ă���ϊ��\���g�p���邱�Ƃ�������Unicode (UTF-16)�Ɠ����BWindows�����Ŏg�p���镪�ɂ͂�����g���K�v�͂Ȃ��B���Ȃ݂ɂ܂������e�X�g���Ă��Ȃ�(^^;
+     <tr><td>std-utf16<td>STD Unicode (UTF-16)<td>*encoding-std-utf16*<td>相変わらず変な名前だが、Windowsの変換表ではなくUnicode Consortiumが配布している変換表を使用することを除いてUnicode (UTF-16)と同じ。Windowsだけで使用する分にはこれを使う必要はない。ちなみにまったくテストしていない(^^;
      <tr><td>std-utf16le-bom<td>STD Unicode (UTF-16)[LE]<td>*encoding-std-utf16le-bom*<td>.
      <tr><td>std-utf16be-bom<td>STD Unicode (UTF-16)[BE]<td>*encoding-std-utf16be-bom*<td>.
      <tr><td>std-utf16le<td>STD Unicode (UTF-16LE)<td>*encoding-std-utf16le*<td>.
@@ -1075,16 +1075,16 @@
      <tr><td>std-utf8n<td>STD Unicode (UTF-8N)<td>*encoding-std-utf8n*<td>.
      <tr><td>std-utf7<td>STD Unicode (UTF-7)<td>*encoding-std-utf7*<td>.
     </table>
-    <li>���܂񂷁B�`kanji-code���`char-encoding�܂��́`encoding�ɁA�`newline-code���`eol-code�ɕύX�����B
+    <li>すまんす。〜kanji-codeを〜char-encodingまたは〜encodingに、〜newline-codeを〜eol-codeに変更した。
     <ol>
-     <li>�ϐ���
+     <li>変数名
      <ul>
       <li>*default-newline-code* -&gt; *default-eol-code*
       <li>*default-kanji-code* -&gt; *default-fileio-encoding*
       <li>*newline-expected-code* -&gt; *expected-eol-code*
       <li>*kanji-expected-code* -&gt; *expected-fileio-encoding*
      </ul>
-     <li>�֐���
+     <li>関数名
      <ul>
       <li>buffer-kanji-fileio-code -&gt; buffer-fileio-encoding
       <li>buffer-newline-code -&gt; buffer-eol-code
@@ -1097,13 +1097,13 @@
       <li>change-newline-code -&gt; change-eol-code
       <li>change-default-newline-code -&gt; change-default-eol-code
      </ul>
-     <li>�L�[���[�h����:newline-code��:eol-code�ɁA:kanji-code��:char-encoding�ɁB
+     <li>キーワード引数:newline-codeを:eol-codeに、:kanji-codeを:char-encodingに。
      <ul>
       <li>file-name-dialog <strong>:char-encoding :eol-code</strong> :filter :filter-index :title :default :extension :save :multiple :must-exist :explorer :hide-read-only
       <li>make-process <var>command-line</var> &amp;key :environ :output :exec-directory :incode :outcode <strong>:eol-code</strong>
       <li>open-network-stream <var>buffer hostname service</var> &amp;key :incode :outcode <strong>:eol-code</strong>
      </ul>
-     <li>�����̌^���G���R�[�f�B���O�n�ɁB
+     <li>引数の型をエンコーディング系に。
      <ul>
       <li>make-process <var>command-line</var> &amp;key :environ :output :exec-directory <strong>:incode :outcode</strong> :eol-code
       <li>open-network-stream <var>buffer hostname service</var> &amp;key <strong>:incode :outcode</strong> :eol-code
@@ -1111,12 +1111,12 @@
       <li>set-process-outcode <var>process <strong>code</strong></var>
       <li>find-file-internal <var>filename</var> &amp;optional <var>nowarn <strong>encoding</strong> eol-code nomsg</var>
      </ul>
-     <li>�߂�l�̌^���G���R�[�f�B���O�n�ɁB
+     <li>戻り値の型をエンコーディング系に。
      <ul>
       <li>process-incode <var>process</var>
       <li>process-outcode <var>process</var>
      </ul>
-     <li>�����̐��A��ނ�ύX
+     <li>引数の数、種類を変更
      <ul>
       <li>revert-buffer &amp;optional <var><strong>encoding</strong></var>
       <li>find-file <var>filename</var> &amp;optional <var><strong>encoding</strong> nomsg</var>
@@ -1126,55 +1126,55 @@
       <li>insert-file <var>filename</var> &amp;optional <var><strong>encoding</strong></var>
      </ul>
     </ol>
-    <li>*encoding-default-euc*: �ǂݍ��ݎ��̎�������ŁAEUC�n�Ɣ��肵���ꍇ�̃G���R�[�f�B���O�n���w��B
-    <li>*encoding-default-iso2022*: �ǂݍ��ݎ��̎�������ŁAISO-2022�n�Ɣ��肵���ꍇ�̃G���R�[�f�B���O�n���w��B
-    <li>interactive�w��q��z(�����G���R�[�f�B���O)/Z(����������܂ޕ����G���R�[�f�B���O)��ǉ��B0z/0Z�Ǝw�肵���ꍇ�͐����������鎞�����B
-    <li>C/C++���[�h��`('�̌��ɋ󔒂�����ꍇ�̃C���f���g�̂������B
-    <li>�ȉ��̊֐��������B
+    <li>*encoding-default-euc*: 読み込み時の自動判定で、EUC系と判定した場合のエンコーディング系を指定。
+    <li>*encoding-default-iso2022*: 読み込み時の自動判定で、ISO-2022系と判定した場合のエンコーディング系を指定。
+    <li>interactive指定子にz(文字エンコーディング)/Z(自動判定を含む文字エンコーディング)を追加。0z/0Zと指定した場合は数引数がある時だけ。
+    <li>C/C++モードで`('の後ろに空白がある場合のインデントのしかた。
+    <li>以下の関数を実装。
     <ul>
      <li>stack-trace &amp;optional <var>stream</var>
      <dl>
       <dt><var>stream</var>
-      <dd>�^�����Ȃ���nil�Ȃ��*standard-output*�ցBt�Ȃ��*error-output*�ցB����ȊO�͏o�͂���X�g���[���B
+      <dd>与えられないかnilならば*standard-output*へ。tならば*error-output*へ。それ以外は出力するストリーム。
      </dl>
     </ul>
-    <li>auto-fill�̓������኱�ύX�B
-    <li>�~�j�o�b�t�@�ɂ���Ƃ��ł�xyzzycli���G���[�ɂȂ�Ȃ��悤�ɁB
-    <li>���s�R�[�h������킷�萔*eol-lf*�A*eol-crlf*�A*eol-cr*���`�����B
-    <li>�ŏ����̏�Ԃ̂Ƃ��Ɂu�N��������Ɂv���o��ƃA�N�e�B�u�ɂȂ�Ȃ��̂��C��(�ł��_���_��)�B
+    <li>auto-fillの動きを若干変更。
+    <li>ミニバッファにいるときでもxyzzycliがエラーにならないように。
+    <li>改行コードをあらわす定数*eol-lf*、*eol-crlf*、*eol-cr*を定義した。
+    <li>最小化の状態のときに「誰かが勝手に」が出るとアクティブにならないのを修正(でもダメダメ)。
    </ul>
    <h4>Fri Jan 14 2000 Version 0.1.2.120</h4>
    <ul>
-    <li>isearch�̂���F5�������Ȃ������̂��C���B
-    <li>�v���Z�X�̏I�������m�ł��Ȃ������̂�����������(�]�v�Ђǂ��Ȃ�������)�B
-    <li>�\���^�u�̃A�N�Z�X�L�[�̏d�����C���B
+    <li>isearchのあとF5が効かなかったのを修正。
+    <li>プロセスの終了が検知できなかったのが直ったかも(余計ひどくなったかも)。
+    <li>表示タブのアクセスキーの重複を修正。
    </ul>
-   <h4>Mon Jan 10 2000 Version 0.1.2.119(����������J)</h4>
+   <h4>Mon Jan 10 2000 Version 0.1.2.119(こっそり公開)</h4>
    <ul>
-    <li>GB 2312-80 / KS C 5601-1987 / Big-5 ���Ƃ肠�����T�|�[�g�B
-    <li>���̑����傱���傱�ƁB
+    <li>GB 2312-80 / KS C 5601-1987 / Big-5 をとりあえずサポート。
+    <li>その他ちょこちょこと。
    </ul>
-   <h4>Fri Jan 07 2000 Version 0.1.2.118(����������J)</h4>
+   <h4>Fri Jan 07 2000 Version 0.1.2.118(こっそり公開)</h4>
    <ul>
-    <li>�����ϊ��n���ڂ�ڂ낾�����̂��C���B
-    <li>set-text-attribute��fg�̂ݎw�肵���ꍇ�Abg���ςȐF�ɂȂ�̂��C���B
-    <li>�|�b�v�A�b�v���j���[�̏o�����B
+    <li>漢字変換系がぼろぼろだったのを修正。
+    <li>set-text-attributeでfgのみ指定した場合、bgが変な色になるのを修正。
+    <li>ポップアップメニューの出し方。
    </ul>
-   <h4>Thu Jan 06 2000 Version 0.1.2.117(����������J)</h4>
+   <h4>Thu Jan 06 2000 Version 0.1.2.117(こっそり公開)</h4>
    <ul>
-    <li>�Ȃ�ƂȂ�CP932�ȊO�̕����Z�b�g���T�|�[�g�B�Ƃ肠�������̂Ƃ���F���ł���̂́A
+    <li>なんとなくCP932以外の文字セットをサポート。とりあえず今のところ認識できるのは、
     <ul>
      <li>CP932(US-ASCII + JIS X 0201 + JIS X 0208)
      <li>JIS X 0212
-     <li>ISO 8859-1�`5, 7, 9, 10 �E����
+     <li>ISO 8859-1〜5, 7, 9, 10 右半分
     </ul>
-���񂾂��B�R�[�h�|�C���g�ɂ͂܂������󂫂�����̂ŁAGB 2312-80 / KS C 5601-1987(KS C 5601-1992�͖���) / Big-5 �͓���悤�Ǝv���Γ���񂾂��ǁA�ǁ[����[���ȁ[�B
-    <li>����ɔ����āA�����Z�b�g(����)���ƂɃt�H���g���w��ł���悤�ɂ����B���V�A��E�M���V����ɑ΂��ē��{��t�H���g���w�肷��ƕ\�������^���^�ɂȂ邪�A����͂��������d�l�B
-    <li>�t�@�C�����o�́A�R�[�h�ϊ��n���ۂ��Ə��������B�������������Ǝv�����A���܂������M�Ȃ��B
-    <li>UTF-16�̂ւȂ��傱�T�|�[�g�B���łɁAUnicode�n�̒m��Ȃ��������܂ރt�@�C����ǂ�ŏ����Ă��󂳂Ȃ��悤�ɂ�������B�������ւȂ��傱�Ȃ̂ŁA�܂Ƃ��ɕ\���Ƃ��͂ł��Ȃ��B�܂��A�T���Q�[�g�y�A�ƒm��Ȃ������́A2�����Ƀ}�b�v����Ă��邽�߁A����ɕҏW����Ɖ��Ă��܂��B
-    <li>quote-char��Unicode�n�ł̓��͂��ł���悤�ɂ����Bu�ɑ�����4����16�i������͂���BU+1234�̏ꍇ�AC-q u 1 2 3 4�݂����Ȋ����B
+こんだけ。コードポイントにはまだ多少空きがあるので、GB 2312-80 / KS C 5601-1987(KS C 5601-1992は無理) / Big-5 は入れようと思えば入るんだけど、どーしょーかなー。
+    <li>それに伴って、文字セット(言語)ごとにフォントを指定できるようにした。ロシア語・ギリシャ語に対して日本語フォントを指定すると表示がメタメタになるが、それはそういう仕様。
+    <li>ファイル入出力、コード変換系を丸ごと書き直し。だいたい動くと思うが、いまいち自信なし。
+    <li>UTF-16のへなちょこサポート。ついでに、Unicode系の知らない文字を含むファイルを読んで書いても壊さないようにしたつもり。ただしへなちょこなので、まともに表示とかはできない。また、サロゲートペアと知らない文字は、2文字にマップされているため、下手に編集すると壊れてしまう。
+    <li>quote-charでUnicode系での入力ができるようにした。uに続けて4桁の16進数を入力する。U+1234の場合、C-q u 1 2 3 4みたいな感じ。
    </ul>
-   <p><a href="OOChangeLog.html">�����Ɛ̂�ChangeLog</a></p>
+   <p><a href="OOChangeLog.html">もっと昔のChangeLog</a></p>
   </blockquote>
  </body>
 </html>
