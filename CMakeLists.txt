@@ -756,9 +756,22 @@ install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
 endif() # WIN32
 
 # ============================================================
+# Cross-platform tools
+# ============================================================
+
+# gendic: EDICT -> xyzzy binary dictionary converter
+add_executable(gendic ${SRC_DIR}/gendic.cc)
+if(MSVC)
+    target_compile_options(gendic PRIVATE /W3)
+else()
+    target_compile_options(gendic PRIVATE -Wall -std=c++11)
+endif()
+
+# ============================================================
 # Cross-platform install
 # ============================================================
 install(TARGETS xyzzy-cli RUNTIME DESTINATION bin)
+install(TARGETS gendic RUNTIME DESTINATION bin)
 
 # ============================================================
 # CPack: packaging
