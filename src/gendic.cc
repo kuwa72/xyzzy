@@ -19,10 +19,57 @@
 #include <errno.h>
 #include <vector>
 #include <map>
+#include <set>
 #include <string>
 #include <algorithm>
+#include <unordered_map>
 
 typedef uint16_t Char;
+
+// ======== EUC-JP -> SJIS conversion ========
+// edict is EUC-JP encoded; convert each line to SJIS before processing
+
+static bool eucjp_lead (uint8_t c)
+{
+  return c >= 0xA1 && c <= 0xFE;
+}
+
+// Convert EUC-JP double-byte (e1, e2) to SJIS double-byte (*s1, *s2)
+// Based on standard JIS X 0208 row/col mapping
+static void eucjp_byte2sjis (uint8_t e1, uint8_t e2, uint8_t *s1, uint8_t *s2)
+{
+  unsigned int h = e1 - 0xA1;  // 0..93  (h even = odd JIS row)
+  unsigned int l = e2 - 0xA1;  // 0..93
+  *s2 = (h & 1) ? (uint8_t)(l + 0x9F)
+                : (uint8_t)(l + (l < 63 ? 0x40 : 0x41));
+  h >>= 1;
+  *s1 = (uint8_t)(h + (h < 0x1F ? 0x81 : 0xC1));
+}
+
+// Convert a EUC-JP byte string to SJIS, returning converted string
+static std::string eucjp_to_sjis (const char *src, int len)
+{
+  std::string out;
+  out.reserve (len);
+  for (int i = 0; i < len;)
+    {
+      uint8_t c = (uint8_t)src[i];
+      if (eucjp_lead (c) && i + 1 < len && eucjp_lead ((uint8_t)src[i + 1]))
+        {
+          uint8_t s1, s2;
+          eucjp_byte2sjis (c, (uint8_t)src[i + 1], &s1, &s2);
+          out += (char)s1;
+          out += (char)s2;
+          i += 2;
+        }
+      else
+        {
+          out += (char)c;
+          i++;
+        }
+    }
+  return out;
+}
 
 // ======== SJIS utilities ========
 
@@ -116,6 +163,8 @@ struct DicPool
   }
 
   // Add SJIS string to pool, return its DIC offset. Deduplicates.
+  // s->l stores xyzzy Char count (not byte count), matching make_string(data, size)
+  // which calls s2w(b, size, &string) treating size as Char count.
   int32_t add (const char *s, int len)
   {
     std::string key (s, len);
@@ -126,9 +175,20 @@ struct DicPool
     if (buf.size () % 2)
       buf.push_back (0); // 2-byte align
 
+    // Count xyzzy Chars from SJIS byte sequence (1 byte per ASCII, 2 bytes per DBCS)
+    int32_t nchars = 0;
+    for (int i = 0; i < len; )
+      {
+        if (sjis_lead ((uint8_t)s[i]) && i + 1 < len)
+          i += 2;
+        else
+          i++;
+        nchars++;
+      }
+
     int32_t off = (int32_t)buf.size ();
-    buf.push_back ((uint8_t)(len & 0xFF));
-    buf.push_back ((uint8_t)(len >> 8));
+    buf.push_back ((uint8_t)(nchars & 0xFF));
+    buf.push_back ((uint8_t)(nchars >> 8));
     buf.insert (buf.end (), (const uint8_t *)s, (const uint8_t *)s + len);
     cache[key] = off;
     return off;
@@ -174,13 +234,15 @@ static bool write_edix (const char *path, const std::vector<IdxEntry> &raw)
   {
     int32_t              key_off;
     std::vector<int32_t> vals;
+    std::set<int32_t>    seen; // for deduplication
   };
   std::map<std::string, Group> groups;
   for (auto &e : raw)
     {
       auto &g = groups[e.key];
       g.key_off = e.key_off;
-      g.vals.push_back (e.val_off);
+      if (g.seen.insert (e.val_off).second)
+        g.vals.push_back (e.val_off);
     }
 
   struct Entry
@@ -358,23 +420,65 @@ static bool parse_edict_line (const char *line, int len, ParsedLine &out)
   return !out.word.empty () && !out.defs.empty ();
 }
 
-// Extract individual alphabetic words from an ASCII definition string
-static std::vector<std::string> extract_words (const std::string &def)
+
+// Extract a single-word definition for e2j indexing.
+// Returns the definition word if — after stripping EDICT POS/marker tags —
+// the entire remaining content is a single alphabetic word (hyphens/apostrophes
+// allowed).  Returns empty string for multi-word phrases like "morning off".
+//
+// Examples:
+//   "(n) etiquette"         -> "etiquette"  (single word after POS strip)
+//   "(n) morning off"       -> ""           (two words -> skip)
+//   "(n) (1) off"           -> "off"
+//   "sK) (v1,vt) to blow"  -> ""           (multi-word after tags)
+static std::string single_word_def (const std::string &def)
 {
-  std::vector<std::string> words;
   const char *s   = def.c_str ();
   const char *end = s + def.size ();
-  while (s < end)
+
+  // Strip all leading tags: "(n)", "(1)", "sK)", etc.
+  for (;;)
     {
-      while (s < end && !isalpha ((uint8_t)*s)) s++;
-      if (s >= end) break;
-      const char *ws = s;
-      while (s < end && (isalpha ((uint8_t)*s) || *s == '-' || *s == '\''))
-        s++;
-      if (s > ws + 1) // skip single-character words
-        words.emplace_back (ws, s);
+      while (s < end && (*s == ' ' || *s == '\t')) s++;
+      if (s >= end) return {};
+      if (*s == '(')
+        {
+          const char *c = s + 1;
+          while (c < end && *c != ')') c++;
+          if (c >= end) break;
+          s = c + 1;
+          continue;
+        }
+      // "word)" style marker (sK), rK), gikun), etc.)
+      if (isalpha ((uint8_t)*s))
+        {
+          const char *c = s;
+          while (c < end && isalpha ((uint8_t)*c)) c++;
+          if (c < end && *c == ')') { s = c + 1; continue; }
+        }
+      break;
     }
-  return words;
+
+  // skip non-alpha prefix (e.g. leading digits, punctuation)
+  while (s < end && !isalpha ((uint8_t)*s)) s++;
+  if (s >= end) return {};
+
+  // Extract the word
+  const char *ws = s;
+  while (s < end && (isalpha ((uint8_t)*s) || *s == '-' || *s == '\'')) s++;
+  int wlen = (int)(s - ws);
+  if (wlen < 2) return {};
+
+  // After the word, skip trailing spaces/punctuation
+  while (s < end && (*s == ' ' || *s == '.' || *s == '!' || *s == '?'
+                     || *s == ',' || *s == ';' || *s == ':')) s++;
+
+  // If anything meaningful remains, this is a multi-word phrase — skip
+  if (s < end && isalpha ((uint8_t)*s)) return {};
+
+  std::string w (ws, ws + wlen);
+  for (char &c : w) c = (char)tolower ((uint8_t)c);
+  return w;
 }
 
 // ======== Main ========
@@ -400,8 +504,14 @@ int main (int argc, char *argv[])
       return 1;
     }
 
+  // Max results per e2j key: avoids huge result lists for common words.
+  // ~100 × avg ~100 Chars/entry ≈ 10K chars per popup — acceptably fast.
+  static const int E2J_MAX_RESULTS = 100;
+
   DicPool dic;
   std::vector<IdxEntry> e2j_raw, j2e_raw, idi_raw, jrd_raw;
+  // Track count per e2j key to enforce cap
+  std::unordered_map<std::string, int> e2j_count;
 
   std::vector<char> linebuf;
   linebuf.reserve (4096);
@@ -429,17 +539,22 @@ int main (int argc, char *argv[])
       if (len == 0) continue;
       if (line_num == 1) continue; // skip EDICT header line
 
+      // Convert EUC-JP line to SJIS (edict is EUC-JP encoded)
+      std::string sjis_line = eucjp_to_sjis (linebuf.data (), len);
+
       ParsedLine pl;
-      if (!parse_edict_line (linebuf.data (), len, pl)) continue;
+      if (!parse_edict_line (sjis_line.c_str (), (int)sjis_line.size (), pl))
+        continue;
       entry_count++;
 
-      // Add full line as value in DIC
+      // Add full line as value in DIC (used by j2e/idi/jrd)
       int32_t val_off = dic.add (pl.full.c_str (), (int)pl.full.size ());
 
-      // j2e: key = Japanese word
+      // j2e: key = Japanese word, value = full line
+      int32_t headword_off;
       {
-        int32_t key_off = dic.add (pl.word.c_str (), (int)pl.word.size ());
-        j2e_raw.push_back ({key_off, pl.word, val_off});
+        headword_off = dic.add (pl.word.c_str (), (int)pl.word.size ());
+        j2e_raw.push_back ({headword_off, pl.word, val_off});
       }
 
       // jrd: key = reading (if present)
@@ -462,12 +577,16 @@ int main (int argc, char *argv[])
               idi_raw.push_back ({key_off, def, val_off});
             }
 
-          // e2j: individual English words
-          for (auto &w : extract_words (def))
-            {
-              int32_t key_off = dic.add (w.c_str (), (int)w.size ());
-              e2j_raw.push_back ({key_off, w, val_off});
-            }
+          // e2j: only single-word definitions (exact match semantics)
+          {
+            std::string w = single_word_def (def);
+            if (!w.empty () && ++e2j_count[w] <= E2J_MAX_RESULTS)
+              {
+                int32_t key_off = dic.add (w.c_str (), (int)w.size ());
+                // e2j value = Japanese headword only (not full line)
+                e2j_raw.push_back ({key_off, w, headword_off});
+              }
+          }
         }
 
       if (entry_count % 10000 == 0)

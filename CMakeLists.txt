@@ -765,6 +765,9 @@ if(MSVC)
     target_compile_options(gendic PRIVATE /W3)
 else()
     target_compile_options(gendic PRIVATE -Wall -std=c++11)
+    if(WIN32)
+        target_link_options(gendic PRIVATE -static)
+    endif()
 endif()
 
 # ============================================================

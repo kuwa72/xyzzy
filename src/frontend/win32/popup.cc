@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "monitor.h"
 
-static char *popup_text;
+static wchar_t *popup_text;
 static RECT popup_rect;
 static HWND hwnd_popup;
 static HFONT hfont_popup;
@@ -23,7 +23,7 @@ calc_rect (HDC hdc, const RECT &scr, RECT &r, int num, int den)
 {
   memset (&r, 0, sizeof r);
   r.right = (scr.right - scr.left) * num / den;
-  DrawTextA (hdc, popup_text, -1, &r,
+  DrawTextW (hdc, popup_text, -1, &r,
              (DT_EXTERNALLEADING | DT_CALCRECT | DT_EXPANDTABS
               | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK));
 }
@@ -50,7 +50,7 @@ check_range (const RECT &scr, const RECT &r, const RECT &pos, POINT &p)
 }
 
 static void
-set_text (const char *text, const RECT &pos)
+set_text (const wchar_t *text, const RECT &pos)
 {
   RECT scr;
   monitor.get_workarea_from_rect (&pos, &scr);
@@ -59,7 +59,7 @@ set_text (const char *text, const RECT &pos)
   scr.right -= 16;
   scr.bottom -= 16;
 
-  popup_text = (char *)text;
+  popup_text = (wchar_t *)text;
 
   RECT r[4];
 
@@ -122,7 +122,7 @@ dopaint (HDC hdc)
   HGDIOBJ of = SelectObject (hdc, hfont_popup);
   SetTextColor (hdc, TEXTCOLOR);
   SetBkColor (hdc, BACKCOLOR);
-  DrawTextA (hdc, popup_text, -1, &popup_rect,
+  DrawTextW (hdc, popup_text, -1, &popup_rect,
              DT_EXTERNALLEADING | DT_EXPANDTABS | DT_LEFT | DT_NOPREFIX | DT_WORDBREAK);
   SelectObject (hdc, of);
 }
@@ -269,9 +269,11 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
       popup_text = 0;
     }
 
-  int l = w2sl (lstring) + 1;
-  char *p = (char *)xmalloc (l);
-  w2s (p, lstring);
+  int l = xstring_length (lstring) + 1;
+  wchar_t *p = (wchar_t *)xmalloc (l * sizeof (wchar_t));
+  for (int i = 0; i < xstring_length (lstring); i++)
+    p[i] = i2w (xstring_contents (lstring)[i]);
+  p[l - 1] = L'\0';
   set_text (p, r);
   if (timeout > 0)
     SetTimer (hwnd_popup, TIMER_ID, timeout * 1000, 0);
