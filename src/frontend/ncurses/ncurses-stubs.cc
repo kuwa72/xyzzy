@@ -61,65 +61,22 @@ Sysdep sysdep;
 
 Sysdep::Sysdep ()
 {
+  memset (this, 0, sizeof (*this));
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
   GetVersionExA (&os_ver);
-
   {
     wchar_t wcurdir[PATH_MAX];
     GetCurrentDirectoryW (numberof (wcurdir), wcurdir);
     WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
   }
-
   DWORD len = sizeof host_name;
   if (!GetComputerNameA (host_name, &len))
     *host_name = 0;
-
   process_id = GetCurrentProcessId ();
-
   perf_counter_present_p = QueryPerformanceFrequency ((LARGE_INTEGER *)&perf_freq);
-
-  // Minimal init - no GUI resources
-  wintype = WINTYPE_WINDOWS_NT5;
   windows_name = "ncurses";
   windows_short_name = "ncurses";
-
-  memset (&border, 0, sizeof border);
-  memset (&dblclk, 0, sizeof dblclk);
-  memset (&edge, 0, sizeof edge);
-  vscroll = 0;
-  hscroll = 0;
-
-  btn_text = 0;
-  btn_highlight = 0;
-  btn_shadow = 0;
-  btn_face = 0;
-  window_text = 0;
-  gray_text = 0;
-  highlight_text = 0;
-  highlight = 0;
-  window = 0;
-
-  hbr_white = 0;
-  hbr_black = 0;
-  hpen_white = 0;
-  hpen_black = 0;
-
-  hcur_arrow = 0;
-  hcur_revarrow = 0;
-  hcur_ibeam = 0;
-  hcur_wait = 0;
-  hcur_sizewe = 0;
-  hcur_sizens = 0;
-  hcur_current = 0;
-
-  hfont_ruler = 0;
-  memset (&ruler_ext, 0, sizeof ruler_ext);
-
-  machine_type = MACHINETYPE_UNKNOWN;
   process_type = PROCESSTYPE_NATIVE;
-
-  comctl32_version = 0;
-  shell32_version = 0;
 }
 
 Sysdep::~Sysdep ()

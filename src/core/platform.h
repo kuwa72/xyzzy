@@ -278,10 +278,6 @@ typedef void (*FARPROC)(void);
 #define WM_NCXBUTTONDBLCLK 0x00AD
 #define WM_MOUSEWHEEL     0x020A
 
-// Scroll bar
-#define SB_VERT 1
-#define SB_HORZ 0
-
 // Hook types
 #define WH_MOUSE 7
 
@@ -380,18 +376,6 @@ inline DWORD GetShortPathNameA(LPCSTR s, LPSTR buf, DWORD n) {
 inline HWND GetFocus() { return 0; }
 
 // ShellExecuteEx
-typedef struct _SHELLEXECUTEINFOA {
-  DWORD cbSize;
-  ULONG fMask;
-  HWND hwnd;
-  LPCSTR lpVerb;
-  LPCSTR lpFile;
-  LPCSTR lpParameters;
-  LPCSTR lpDirectory;
-  int nShow;
-  HINSTANCE hInstApp;
-  void *lpIDList;
-} SHELLEXECUTEINFOA;
 typedef struct _SHELLEXECUTEINFOW {
   DWORD cbSize;
   ULONG fMask;
@@ -405,7 +389,6 @@ typedef struct _SHELLEXECUTEINFOW {
   void *lpIDList;
 } SHELLEXECUTEINFOW;
 #define SEE_MASK_INVOKEIDLIST 0x0C
-inline BOOL ShellExecuteExA(SHELLEXECUTEINFOA*) { return FALSE; }
 inline BOOL ShellExecuteExW(SHELLEXECUTEINFOW*) { return FALSE; }
 
 // DeviceIoControl
@@ -481,16 +464,6 @@ inline DWORD WaitForSingleObject(HANDLE, DWORD) { return WAIT_TIMEOUT; }
 #define HKEY_CLASSES_ROOT ((HKEY)(ULONG_PTR)0x80000000)
 #define HKEY_LOCAL_MACHINE ((HKEY)(ULONG_PTR)0x80000002)
 #define HKEY_USERS ((HKEY)(ULONG_PTR)0x80000003)
-
-// OFN flags (used in filer/dialogs)
-#define OFN_EXPLORER             0x00080000
-#define OFN_NODEREFERENCELINKS   0x00100000
-#define OFN_LONGNAMES            0x00200000
-#define OFN_ENABLEINCLUDENOTIFY  0x00400000
-#define OFN_ENABLESIZING         0x00800000
-#define OFN_DONTADDTORECENT      0x02000000
-#define OFN_FORCESHOWHIDDEN      0x10000000
-#define OFN_EX_NOPLACESBAR       0x00000001
 
 // DDE
 #define XTYP_EXECUTE  0x4050
@@ -738,12 +711,6 @@ typedef struct tagNEWTEXTMETRIC {
   UINT ntmAvgWidth;
 } NEWTEXTMETRIC;
 
-typedef struct tagENUMLOGFONTA {
-  LOGFONTA elfLogFont;
-  char elfFullName[64];
-  char elfStyle[32];
-} ENUMLOGFONTA;
-
 typedef struct _WIN32_FIND_DATAA {
   DWORD dwFileAttributes;
   FILETIME ftCreationTime;
@@ -979,12 +946,6 @@ typedef struct tagNONCLIENTMETRICSA {
   LOGFONTA lfStatusFont;
   LOGFONTA lfMessageFont;
 } NONCLIENTMETRICSA;
-
-// TPMPARAMS (popup menu)
-typedef struct tagTPMPARAMS {
-  UINT cbSize;
-  RECT rcExclude;
-} TPMPARAMS;
 
 // MONITORINFO
 typedef struct tagMONITORINFO {
@@ -1322,11 +1283,6 @@ inline DWORD GetFullPathNameA(LPCSTR f, DWORD n, LPSTR b, LPSTR*) {
   strcpy(b, f);
   return (DWORD)len;
 }
-inline BOOL SetCurrentDirectoryA(LPCSTR p) { return chdir(p) == 0; }
-inline UINT GetTempFileNameA(LPCSTR, LPCSTR, UINT, LPSTR) { return 0; }
-inline BOOL GetDiskFreeSpaceA(LPCSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD) { return FALSE; }
-inline BOOL GetVolumeInformationA(LPCSTR, LPSTR, DWORD, LPDWORD, LPDWORD, LPDWORD, LPSTR, DWORD) { return FALSE; }
-inline BOOL GetVolumeInformationW(LPCWSTR, LPWSTR, DWORD, LPDWORD, LPDWORD, LPDWORD, LPWSTR, DWORD) { return FALSE; }
 inline BOOL IsDBCSLeadByte(BYTE) { return FALSE; }
 
 // W-suffix file operation stubs (for cli-stubs.cc WINFS methods)
@@ -1349,6 +1305,7 @@ inline DWORD GetFullPathNameW(LPCWSTR f, DWORD n, LPWSTR b, LPWSTR*) {
 inline BOOL SetCurrentDirectoryW(LPCWSTR) { return FALSE; }
 inline UINT GetTempFileNameW(LPCWSTR, LPCWSTR, UINT, LPWSTR) { return 0; }
 inline BOOL GetDiskFreeSpaceW(LPCWSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD) { return FALSE; }
+inline BOOL GetVolumeInformationW(LPCWSTR, LPWSTR, DWORD, LPDWORD, LPDWORD, LPDWORD, LPWSTR, DWORD) { return FALSE; }
 inline DWORD GetTempPathA(DWORD n, LPSTR buf) {
   const char *tmp = "/tmp";
   if (strlen(tmp) < n) { strcpy(buf, tmp); return (DWORD)strlen(buf); }
@@ -1367,7 +1324,6 @@ inline DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD n) { if (buf && n) *bu
 // Window stubs
 inline BOOL DestroyMenu(HMENU) { return FALSE; }
 inline BOOL DestroyWindow(HWND) { return FALSE; }
-inline HWND CreateWindowExA(DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID) { return 0; }
 inline ATOM RegisterClassExA(const WNDCLASSEXA*) { return 0; }
 inline BOOL SetTimer(HWND, UINT_PTR, UINT, void*) { return FALSE; }
 inline BOOL KillTimer(HWND, UINT_PTR) { return FALSE; }
@@ -1395,20 +1351,9 @@ inline LONG_PTR SetWindowLongPtr(HWND, int, LONG_PTR) { return 0; }
 inline HWND CreateWindowEx(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID) { return 0; }
 #define CreateWindowExW CreateWindowEx
 inline int MessageBoxA(HWND, LPCSTR, LPCSTR, UINT) { return IDOK; }
-inline BOOL ShowWindow(HWND, int) { return FALSE; }
-inline BOOL UpdateWindow(HWND) { return FALSE; }
-inline BOOL MoveWindow(HWND, int, int, int, int, BOOL) { return FALSE; }
 inline BOOL GetClientRect(HWND, RECT*) { return FALSE; }
 inline BOOL GetWindowRect(HWND, RECT*) { return FALSE; }
-inline BOOL ScreenToClient(HWND, POINT*) { return FALSE; }
-inline BOOL ClientToScreen(HWND, POINT*) { return FALSE; }
-inline HWND GetParent(HWND) { return 0; }
-inline BOOL IsWindowVisible(HWND) { return FALSE; }
 inline BOOL EnableWindow(HWND, BOOL) { return FALSE; }
-inline BOOL SetWindowPos(HWND, HWND, int, int, int, int, UINT) { return FALSE; }
-inline HDWP BeginDeferWindowPos(int) { return 0; }
-inline HDWP DeferWindowPos(HDWP, HWND, HWND, int, int, int, int, UINT) { return 0; }
-inline BOOL EndDeferWindowPos(HDWP) { return FALSE; }
 inline LRESULT SendMessageW(HWND, UINT, WPARAM, LPARAM) { return 0; }
 inline BOOL PostMessageW(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
 
@@ -1481,7 +1426,6 @@ inline void GetLocalTime(SYSTEMTIME *st) {
 inline BOOL GetFileTime(HANDLE, FILETIME*, FILETIME*, FILETIME*) { return FALSE; }
 inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) { return (DWORD)-1; }
 inline BOOL SetEndOfFile(HANDLE) { return FALSE; }
-inline DWORD GetDriveTypeA(LPCSTR) { return 0; }
 inline DWORD GetDriveTypeW(LPCWSTR) { return 0; }
 inline BOOL CopyFileA(LPCSTR, LPCSTR, BOOL) { return FALSE; }
 
@@ -1517,20 +1461,9 @@ inline BOOL GetWindowPlacement(HWND, WINDOWPLACEMENT*) { return FALSE; }
 // Text detection
 inline BOOL IsTextUnicode(const void*, int, int*) { return FALSE; }
 
-// Clipboard (stubs)
-#define CF_UNICODETEXT  13
-#define GMEM_MOVEABLE   0x0002
-inline HGLOBAL GlobalAlloc(UINT, size_t) { return 0; }
-inline void* GlobalLock(HGLOBAL) { return 0; }
+// Global memory (used by ColorDialog.h)
 inline BOOL GlobalUnlock(HGLOBAL) { return FALSE; }
 inline HGLOBAL GlobalFree(HGLOBAL) { return 0; }
-inline BOOL OpenClipboard(HWND) { return FALSE; }
-inline BOOL CloseClipboard() { return FALSE; }
-inline BOOL EmptyClipboard() { return FALSE; }
-inline HANDLE SetClipboardData(UINT, HANDLE) { return 0; }
-inline HANDLE GetClipboardData(UINT) { return 0; }
-inline UINT EnumClipboardFormats(UINT) { return 0; }
-inline BOOL IsClipboardFormatAvailable(UINT) { return FALSE; }
 
 // Dialog
 inline BOOL IsDialogMessage(HWND, MSG*) { return FALSE; }
@@ -1554,7 +1487,6 @@ inline DWORD ExpandEnvironmentStringsA(LPCSTR src, LPSTR dst, DWORD n) {
   return (DWORD)(strlen(src) + 1);
 }
 inline int GetSystemMetrics(int) { return 0; }
-inline BOOL SystemParametersInfoA(UINT, UINT, void*, UINT) { return FALSE; }
 inline LONG RegOpenKeyExA(HKEY, LPCSTR, DWORD, DWORD, HKEY*) { return 1; }
 inline LONG RegQueryValueExA(HKEY, LPCSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
 inline LONG RegCloseKey(HKEY) { return 0; }
@@ -1565,30 +1497,17 @@ inline LONG RegDeleteKeyA(HKEY, LPCSTR) { return 1; }
 inline LONG RegEnumKeyExA(HKEY, DWORD, LPSTR, DWORD*, DWORD*, LPSTR, DWORD*, FILETIME*) { return 1; }
 inline LONG RegEnumValueA(HKEY, DWORD, LPSTR, DWORD*, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
 
-// SHGetFolderPathA stub
-#ifndef CSIDL_APPDATA
-#define CSIDL_APPDATA 0x001a
-#endif
-inline long SHGetFolderPathA(HWND, int, HANDLE, DWORD, LPSTR buf) {
-  const char *home = getenv("HOME");
-  if (home && buf) { strcpy(buf, home); return 0; }
-  return -1;
-}
-
 // GDI stubs
 inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return 0; }
 inline BOOL DeleteObject(HGDIOBJ) { return FALSE; }
-inline HFONT CreateFontIndirectA(const LOGFONTA*) { return 0; }
 inline BOOL GetTextExtentPoint32A(HDC, LPCSTR, int, SIZE*) { return FALSE; }
 inline BOOL GetTextExtentPoint32W(HDC, LPCWSTR, int, SIZE*) { return FALSE; }
-inline BOOL GetTextMetricsA(HDC, TEXTMETRICA*) { return FALSE; }
 
 // Key state
 #define VK_SHIFT   0x10
 #define VK_CONTROL 0x11
 #define VK_MENU    0x12
 inline short GetKeyState(int) { return 0; }
-inline short GetAsyncKeyState(int) { return 0; }
 
 // Page constants for CreateFileMapping
 #define PAGE_READONLY 0x02
@@ -1724,11 +1643,6 @@ inline int WSAGetLastError() { return errno; }
 // _beginthreadex stub
 inline uintptr_t _beginthreadex(void*, unsigned, unsigned int (*)(void*), void*, unsigned, unsigned*) { return 0; }
 
-// MAKELPARAM alias
-#ifndef MAKEWPARAM
-#define MAKEWPARAM(l, h) ((WPARAM)MAKELONG(l, h))
-#endif
-
 // Missing MSVC-isms
 #ifndef _MSC_VER
 #include <cmath>
@@ -1759,10 +1673,6 @@ inline int _fpclass(double x) {
 #define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000
 #define FORMAT_MESSAGE_ARGUMENT_ARRAY 0x00002000
 #define FORMAT_MESSAGE_MAX_WIDTH_MASK 0x000000FF
-inline DWORD FormatMessageA(DWORD, LPCVOID, DWORD, DWORD, LPSTR buf, DWORD n, ...) {
-  if (buf && n) *buf = 0;
-  return 0;
-}
 inline DWORD FormatMessageW(DWORD, LPCVOID, DWORD, DWORD, LPWSTR buf, DWORD n, ...) {
   if (buf && n) *buf = 0;
   return 0;
@@ -1807,16 +1717,8 @@ inline int _eof(int fd) { off_t cur = lseek(fd, 0, SEEK_CUR); off_t end = lseek(
 #define _SH_DENYWR 0
 #define _SH_DENYRW 0
 #endif
-inline int _sopen(const char *f, int flags, int share, ...) { return open(f, flags, 0666); }
-inline int _access(const char *f, int mode) { return access(f, mode); }
-inline int _chmod(const char *f, int mode) { return chmod(f, mode); }
-inline int _chsize(int fd, long size) { return ftruncate(fd, size); }
-inline char *_fullpath(char *buf, const char *path, size_t n) {
-  return realpath(path, buf);
-}
 inline int _isatty(int fd) { return isatty(fd); }
 #define _fileno fileno
-#define _setmode(fd, mode) (0)
 
 // _get_osfhandle / _open_osfhandle (stubs)
 inline intptr_t _get_osfhandle(int fd) { return (intptr_t)(intptr_t)fd; }
