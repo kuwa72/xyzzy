@@ -1380,7 +1380,8 @@ inline int ReleaseDC(HWND, HDC) { return 0; }
 inline BOOL PostMessageA(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
 inline LRESULT SendMessageA(HWND, UINT, WPARAM, LPARAM) { return 0; }
 
-inline void PostQuitMessage(int) {}
+extern volatile int g_quit_message_posted;
+inline void PostQuitMessage(int) { g_quit_message_posted = 1; }
 inline BOOL SetWindowTextW(HWND, LPCWSTR) { return FALSE; }
 inline BOOL SetWindowTextA(HWND, LPCSTR) { return FALSE; }
 inline HWND SetFocus(HWND) { return 0; }

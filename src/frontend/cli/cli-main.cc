@@ -15,6 +15,9 @@ static void crash_handler(int sig) {
   _exit(1);
 }
 #endif
+// Flag set by PostQuitMessage (kill-xyzzy)
+volatile int g_quit_message_posted = 0;
+
 #include "lex.h"
 #include "environ.h"
 #include "except.h"

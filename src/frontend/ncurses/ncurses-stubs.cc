@@ -450,6 +450,7 @@ read_minibuffer (const Char *prompt, long prompt_length, lisp def,
   protect_gc gcpro5 (compl);
 
   Window *mini = Window::minibuffer_window ();
+  Buffer *prev_mini_bufp = mini->w_bufp;
   mini->set_buffer_params (bp);
   mini->set_window ();
   mini->w_flags = 0;
@@ -519,8 +520,11 @@ read_minibuffer (const Char *prompt, long prompt_length, lisp def,
   bp->ldialog_title = Qnil;
   bp->lminibuffer_default = Qnil;
 
-  // Restore previous window
+  // Restore previous window and minibuffer state
+  // Win32 uses WindowConfiguration destructor which restores w_bufp;
+  // here we restore it manually so next-window skips the minibuffer.
   wp->set_window ();
+  mini->w_bufp = prev_mini_bufp;
 
   if (minibuffer_recursive_level)
     Fdelete_buffer (bp->lbp);
@@ -2097,6 +2101,60 @@ init_ncurses_colors ()
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
 
+// Render one editing window: fill glyphs, render to screen, draw modeline
+static void
+render_window (Window *wp, int cols)
+{
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return;
+
+  int win_top = wp->w_rect.top;
+  int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;  // -1 for modeline
+  if (text_rows < 1)
+    text_rows = 1;
+
+  ncurses_calc_client_size (wp, cols, text_rows);
+  ncurses_reframe (wp);
+
+  if (wp->w_glyphs.g_rep)
+    {
+      Point df;
+      df.p_point = 0;
+      df.p_chunk = bp->b_chunkb;
+      df.p_offset = 0;
+      if (wp->w_disp > 0)
+        bp->goto_char (df, wp->w_disp);
+
+      long vlinenum;
+      if (bp->b_fold_columns == Buffer::FOLD_NONE)
+        vlinenum = bp->point_linenum (wp->w_disp);
+      else
+        vlinenum = bp->folded_point_linenum (wp->w_disp);
+
+      int hide = symbol_value (Vhide_restricted_region, bp) != Qnil;
+      wp->redraw_window (df, vlinenum, 1, hide);
+
+      glyph_data **ng = wp->w_glyphs.g_rep->gr_nglyph;
+      for (int y = 0; y < text_rows && y < wp->w_ch_max.cy; y++)
+        render_glyph_row (win_top + y, cols, ng[y]);
+
+      for (int y = wp->w_ch_max.cy; y < text_rows; y++)
+        {
+          move (win_top + y, 0);
+          clrtoeol ();
+          mvaddch (win_top + y, 0, '~');
+        }
+
+      glyph_data **tmp = wp->w_glyphs.g_rep->gr_oglyph;
+      wp->w_glyphs.g_rep->gr_oglyph = wp->w_glyphs.g_rep->gr_nglyph;
+      wp->w_glyphs.g_rep->gr_nglyph = tmp;
+    }
+
+  // Draw modeline at bottom of this window's area
+  draw_modeline (wp, wp->w_rect.bottom - 1, cols);
+}
+
 void
 refresh_screen (int)
 {
@@ -2117,6 +2175,7 @@ refresh_screen (int)
       app.active_frame.size.cx = cols;
       app.active_frame.size.cy = rows;
 
+      Window::compute_geometry ();
       clear ();
       displog ("refresh: resized to %dx%d\n", cols, rows);
     }
@@ -2134,76 +2193,21 @@ refresh_screen (int)
                       && sel->w_bufp
                       && sel->w_bufp->b_minibufferp;
 
-  // Find the main editing window
-  Window *main_wp = app.active_frame.windows;
-  if (!main_wp || !main_wp->w_bufp)
+  Window *mini = Window::minibuffer_window ();
+  if (!mini)
     return;
 
-  Buffer *bp = main_wp->w_bufp;
-
-  // Layout:
-  //   text:      rows 0 .. rows-3
-  //   modeline:  row rows-2
-  //   echo area: row rows-1
-  int ml_row = rows - 2;
-  int text_rows = ml_row;
-
-  displog ("refresh: nchars=%ld point=%ld mini=%d rows=%d cols=%d\n",
-           (long)bp->b_nchars,
-           (long)main_wp->w_point.p_point,
-           in_minibuffer, rows, cols);
-
-  // Initialize/resize glyph buffers
-  ncurses_calc_client_size (main_wp, cols, text_rows);
-
-  // Reframe: ensure point is visible
-  ncurses_reframe (main_wp);
-
-  // Fill glyph buffers via core redraw_window
-  if (main_wp->w_glyphs.g_rep)
+  // Render each non-minibuffer window
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
     {
-      Point df;
-      df.p_point = 0;
-      df.p_chunk = bp->b_chunkb;
-      df.p_offset = 0;
-      if (main_wp->w_disp > 0)
-        bp->goto_char (df, main_wp->w_disp);
-
-      long vlinenum;
-      if (bp->b_fold_columns == Buffer::FOLD_NONE)
-        vlinenum = bp->point_linenum (main_wp->w_disp);
-      else
-        vlinenum = bp->folded_point_linenum (main_wp->w_disp);
-
-      int hide = symbol_value (Vhide_restricted_region, bp) != Qnil;
-      main_wp->redraw_window (df, vlinenum, 1, hide);
-
-      // Render glyph data to ncurses
-      glyph_data **ng = main_wp->w_glyphs.g_rep->gr_nglyph;
-      for (int y = 0; y < text_rows && y < main_wp->w_ch_max.cy; y++)
-        render_glyph_row (y, cols, ng[y]);
-
-      // Fill remaining rows with ~
-      for (int y = main_wp->w_ch_max.cy; y < text_rows; y++)
-        {
-          move (y, 0);
-          clrtoeol ();
-          mvaddch (y, 0, '~');
-        }
-
-      // Swap old/new glyph buffers for next frame's diff
-      glyph_data **tmp = main_wp->w_glyphs.g_rep->gr_oglyph;
-      main_wp->w_glyphs.g_rep->gr_oglyph = main_wp->w_glyphs.g_rep->gr_nglyph;
-      main_wp->w_glyphs.g_rep->gr_nglyph = tmp;
+      if (!wp->w_bufp)
+        continue;
+      render_window (wp, cols);
     }
-
-  // Draw modeline
-  draw_modeline (main_wp, ml_row, cols);
 
   // Draw echo area (last row)
   if (in_minibuffer)
     {
-      Window *mini = Window::minibuffer_window ();
       draw_minibuffer (mini, rows - 1, cols);
 
       // Position cursor in minibuffer
@@ -2245,11 +2249,16 @@ refresh_screen (int)
     {
       draw_status_line (rows - 1, cols);
 
-      // Position cursor in main buffer
-      int cy, cx;
-      glyph_point_to_screen (main_wp, &cy, &cx);
-      if (cy < text_rows)
-        move (cy, cx);
+      // Position cursor in active window
+      if (!sel->minibuffer_window_p ())
+        {
+          int cy, cx;
+          glyph_point_to_screen (sel, &cy, &cx);
+          int win_top = sel->w_rect.top;
+          int text_rows = sel->w_rect.bottom - sel->w_rect.top - 1;
+          if (cy < text_rows)
+            move (win_top + cy, cx);
+        }
     }
 
   // Flush to terminal
@@ -2265,11 +2274,243 @@ pending_refresh_screen ()
 Window *
 Window::minibuffer_window ()
 {
-  // Return the minibuffer window (second in the list)
+  // Return the last window in the chain (the minibuffer window)
   Window *wp = app.active_frame.windows;
-  if (wp && wp->w_next)
-    return wp->w_next;
-  return 0;
+  if (!wp)
+    return 0;
+  while (wp->w_next)
+    wp = wp->w_next;
+  return wp;
+}
+
+// ============================================================
+// Window management (ncurses implementation)
+// ============================================================
+
+Window *
+Window::coerce_to_window (lisp object)
+{
+  if (!object || object == Qnil)
+    return selected_window ();
+  check_window (object);
+  if (!xwindow_wp (object))
+    FEprogram_error (Edeleted_window);
+  return xwindow_wp (object);
+}
+
+int
+Window::count_windows ()
+{
+  int n = 0;
+  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next, n++)
+    ;
+  return n;
+}
+
+void
+Window::close ()
+{
+  xwindow_wp (lwp) = 0;
+
+  for (WindowConfiguration *wc = WindowConfiguration::wc_chain; wc; wc = wc->wc_prev)
+    for (WindowConfiguration::Data *d = wc->wc_data, *de = d + wc->wc_nwindows; d < de; d++)
+      if (d->wp == this)
+        {
+          w_next = app.active_frame.reserved;
+          app.active_frame.reserved = this;
+          return;
+        }
+
+  w_next = app.active_frame.deleted;
+  app.active_frame.deleted = this;
+}
+
+// Recompute w_rect for all windows based on terminal size.
+// ncurses version: character grid coordinates, horizontal split only.
+// Parameters are ignored (Win32 compat signature with defaults in Window.h).
+void
+Window::compute_geometry (const SIZE &, int)
+{
+  if (!app.active_frame.windows)
+    return;
+
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+  app.active_frame.size.cx = cols;
+  app.active_frame.size.cy = rows;
+
+  // Find minibuffer window (last in chain)
+  Window *mini = minibuffer_window ();
+  if (!mini)
+    return;
+
+  // Count non-minibuffer windows
+  int nwin = 0;
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    nwin++;
+
+  if (nwin == 0)
+    return;
+
+  // Layout: last row = minibuffer/echo area
+  // Remaining rows divided among windows, each with 1 modeline row
+  int avail = rows - 1;  // subtract minibuffer row
+  int per_win = avail / nwin;
+  int remainder = avail - per_win * nwin;
+
+  int top = 0;
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      int h = per_win;
+      if (remainder > 0)
+        {
+          h++;
+          remainder--;
+        }
+      wp->w_rect.left = 0;
+      wp->w_rect.right = cols;
+      wp->w_rect.top = top;
+      wp->w_rect.bottom = top + h;
+      top += h;
+
+      // text rows = total height - 1 (modeline)
+      int text_rows = h - 1;
+      if (text_rows < 1)
+        text_rows = 1;
+      ncurses_calc_client_size (wp, cols, text_rows);
+    }
+
+  // Minibuffer gets the last row
+  mini->w_rect.left = 0;
+  mini->w_rect.right = cols;
+  mini->w_rect.top = rows - 1;
+  mini->w_rect.bottom = rows;
+}
+
+void
+Window::split (int nlines, int verticalp)
+{
+  if (minibuffer_window_p ())
+    FEsimple_error (Ecannot_split_minibuffer_window);
+
+  if (verticalp)
+    FEsimple_error (Ecannot_split);  // vertical split not supported yet
+
+  // Check minimum size: each resulting window needs at least 1 text row + 1 modeline
+  int cur_height = w_rect.bottom - w_rect.top;
+  if (cur_height < 4)  // need at least 2+2 rows for two windows
+    FEsimple_error (Ecannot_split);
+
+  // Create new window as copy
+  Window *wp = new Window (*this);
+
+  // Link into chain: this -> wp -> (old this->w_next)
+  if (w_next)
+    w_next->w_prev = wp;
+  wp->w_next = w_next;
+  wp->w_prev = this;
+  w_next = wp;
+
+  // Determine which window gets the cursor
+  int h0, h1;
+  int current;
+  if (!nlines)
+    {
+      h0 = w_ech.cy / 2;
+      h1 = w_ech.cy - h0 - 1;
+      current = w_linenum - w_last_top_linenum < h0 ? 0 : 1;
+    }
+  else if (nlines > 0)
+    {
+      h0 = nlines;
+      h1 = w_ech.cy - h0 - 1;
+      current = 0;
+    }
+  else
+    {
+      h1 = -nlines;
+      h0 = w_ech.cy - h1 - 1;
+      current = 1;
+    }
+
+  if (h0 < 1 || h1 < 1)
+    FEsimple_error (Ecannot_split);
+
+  if (current)
+    wp->set_window ();
+
+  // Recompute geometry for all windows
+  compute_geometry ();
+}
+
+void
+Window::delete_other_windows ()
+{
+  if (minibuffer_window_p ())
+    return;
+
+  Window *mini = minibuffer_window ();
+
+  int f = 0;
+  for (Window *wp = app.active_frame.windows, *next; wp; wp = next)
+    {
+      next = wp->w_next;
+      if (wp != this && wp != mini)
+        {
+          wp->save_buffer_params ();
+          wp->close ();
+          f = 1;
+        }
+    }
+  if (!f)
+    return;
+
+  app.active_frame.windows = this;
+  set_window ();
+  w_prev = 0;
+  w_next = mini;
+  mini->w_prev = this;
+  mini->w_next = 0;
+
+  compute_geometry ();
+}
+
+int
+Window::delete_window ()
+{
+  if (minibuffer_window_p ())
+    return 0;
+
+  // Check if this is the only non-minibuffer window
+  Window *mini = minibuffer_window ();
+  if (!w_prev && w_next == mini)
+    FEsimple_error (Eonly_one_window);
+
+  // Unlink from chain
+  if (!w_prev)
+    {
+      // First window: next becomes head
+      Window *can = w_next;
+      can->w_prev = 0;
+      app.active_frame.windows = can;
+      save_buffer_params ();
+      close ();
+      can->set_window ();
+    }
+  else
+    {
+      // Middle or last non-mini window
+      Window *can = w_prev;
+      can->w_next = w_next;
+      if (w_next)
+        w_next->w_prev = can;
+      save_buffer_params ();
+      close ();
+      can->set_window ();
+    }
+
+  compute_geometry ();
+  return 1;
 }
 
 // ============================================================
@@ -2278,7 +2519,26 @@ Window::minibuffer_window ()
 
 lisp Fbegin_wait_cursor () { return Qnil; }
 lisp Fend_wait_cursor () { return Qnil; }
-lisp Fget_buffer_window (lisp, lisp) { return Qnil; }
+
+lisp
+Fget_buffer_window (lisp buffer, lisp curwin)
+{
+  Buffer *bp = Buffer::coerce_to_buffer (buffer);
+  Window *cwp = ((curwin && curwin != Qnil)
+                 ? Window::coerce_to_window (curwin) : 0);
+  int f = 0;
+  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+    if (wp->w_bufp == bp)
+      {
+        if (wp != cwp)
+          return wp->lwp;
+        if (f)
+          return wp->lwp;
+        f = 1;
+      }
+  return f ? cwp->lwp : Qnil;
+}
+
 lisp Fprocess_marker (lisp) { return Qnil; }
 void Buffer::cleanup_waitobj_list () {}
 
@@ -2436,42 +2696,205 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 // Win32-frontend-only. Stubbed for ncurses.
 // ============================================================
 
-// Window management (minimal implementations)
+// Window management
 lisp Fselected_window () { return selected_window () ? selected_window ()->lwp : Qnil; }
-lisp Fwindow_buffer (lisp) { return selected_buffer () ? selected_buffer ()->lbp : Qnil; }
-lisp Fwindow_height (lisp) { return make_fixnum (24); }
-lisp Fwindow_width (lisp) { return make_fixnum (80); }
-lisp Fwindow_lines (lisp) { return make_fixnum (23); }
-lisp Fwindow_columns (lisp) { return make_fixnum (80); }
-lisp Fwindow_coordinate (lisp) { return Qnil; }
-lisp Fget_window_line (lisp) { return make_fixnum (0); }
-lisp Fget_window_start_line (lisp) { return make_fixnum (0); }
+
+lisp
+Fwindow_buffer (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  return wp->w_bufp ? wp->w_bufp->lbp : Qnil;
+}
+
+lisp
+Fwindow_height (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  int h = wp->w_rect.bottom - wp->w_rect.top - 1;
+  return make_fixnum (max (h, 1));
+}
+
+lisp
+Fwindow_width (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  return make_fixnum (max ((int)wp->w_ech.cx, 1));
+}
+
+lisp
+Fwindow_lines (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  int h = wp->w_rect.bottom - wp->w_rect.top - 1;
+  return make_fixnum (max (h, 1));
+}
+
+lisp
+Fwindow_columns (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  int w = wp->w_ech.cx;
+  if (wp->flags () & Window::WF_LINE_NUMBER)
+    w -= Window::LINENUM_COLUMNS + 1;
+  return make_fixnum (max (w, 1));
+}
+
+lisp
+Fwindow_coordinate (lisp lwindow)
+{
+  Window *wp = Window::coerce_to_window (lwindow);
+  return make_list (make_fixnum (wp->w_rect.left),
+                    make_fixnum (wp->w_rect.top),
+                    make_fixnum (wp->w_rect.right),
+                    make_fixnum (wp->w_rect.bottom),
+                    0);
+}
+
+lisp
+Fget_window_line (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  if (!wp->w_bufp)
+    return Qnil;
+  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
+                      ? (wp->w_bufp->point_linenum (wp->w_point)
+                         - wp->w_bufp->point_linenum (wp->w_disp))
+                      : (wp->w_bufp->folded_point_linenum (wp->w_point)
+                         - wp->w_bufp->folded_point_linenum (wp->w_disp)));
+}
+
+lisp
+Fget_window_start_line (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  if (!wp->w_bufp)
+    return Qnil;
+  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
+                      ? wp->w_bufp->point_linenum (wp->w_disp)
+                      : wp->w_bufp->folded_point_linenum (wp->w_disp));
+}
+
 lisp Fget_window_handle (lisp) { return Qnil; }
 lisp Fget_window_flags () { return make_fixnum (0); }
 lisp Fset_window_flags (lisp) { return Qnil; }
 lisp Fget_local_window_flags (lisp) { return make_fixnum (0); }
 lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
-lisp Fset_window (lisp) { return Qnil; }
-lisp Fsplit_window (lisp, lisp) { return Qnil; }
-lisp Fdelete_window () { return Qnil; }
-lisp Fdelete_other_windows () { return Qnil; }
+
+lisp
+Fset_window (lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  if (!wp->w_bufp)
+    return Qnil;
+  wp->set_window ();
+  return Qt;
+}
+
+lisp
+Fsplit_window (lisp arg, lisp verticalp)
+{
+  selected_window ()->split (!arg || arg == Qnil || arg == Qt ? 0 : fixnum_value (arg),
+                             verticalp && verticalp != Qnil);
+  return Qt;
+}
+
+lisp
+Fdelete_window ()
+{
+  return boole (selected_window ()->delete_window ());
+}
+
+lisp
+Fdelete_other_windows ()
+{
+  selected_window ()->delete_other_windows ();
+  return Qt;
+}
+
 lisp Fenlarge_window (lisp, lisp) { return Qnil; }
-lisp Fnext_window (lisp, lisp) { return Qnil; }
-lisp Fprevious_window (lisp, lisp) { return Qnil; }
-lisp Fdeleted_window_p (lisp) { return Qnil; }
+
+lisp
+Fnext_window (lisp window, lisp minibufp)
+{
+  Window *wp = Window::coerce_to_window (window);
+  if (!minibufp)
+    minibufp = Qnil;
+  Window *next = wp->w_next;
+  if (!next
+      || (!next->w_bufp && minibufp != Qt)
+      || (next->minibuffer_window_p ()
+          && minibufp != Qnil && minibufp != Qt))
+    next = app.active_frame.windows;
+  return next->lwp;
+}
+
+lisp
+Fprevious_window (lisp window, lisp minibufp)
+{
+  Window *wp = Window::coerce_to_window (window);
+  if (!minibufp)
+    minibufp = Qnil;
+  Window *prev = wp->w_prev;
+  if (!prev)
+    prev = Window::minibuffer_window ();
+  if ((!prev->w_bufp && minibufp != Qt)
+      || (prev->minibuffer_window_p ()
+          && minibufp != Qnil && minibufp != Qt))
+    prev = prev->w_prev;
+  return prev->lwp;
+}
+
+lisp
+Fdeleted_window_p (lisp window)
+{
+  check_window (window);
+  return boole (!xwindow_wp (window));
+}
+
 lisp Fpos_not_visible_in_window_p (lisp, lisp) { return Qnil; }
 lisp Fcurrent_window_configuration () { return Qnil; }
 lisp Fset_window_configuration (lisp) { return Qnil; }
 
 // Screen
-lisp Fscreen_height () { return make_fixnum (24); }
-lisp Fscreen_width () { return make_fixnum (80); }
+lisp
+Fscreen_height ()
+{
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+  return make_fixnum (rows);
+}
+
+lisp
+Fscreen_width ()
+{
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+  return make_fixnum (cols);
+}
+
 lisp Frefresh_screen (lisp) { refresh_screen (1); return Qnil; }
 
 // Minibuffer
-lisp Fminibuffer_window () { return Qnil; }
-lisp Fminibuffer_window_p (lisp) { return Qnil; }
-lisp Fminibuffer_buffer (lisp) { return Qnil; }
+lisp
+Fminibuffer_window ()
+{
+  Window *mini = Window::minibuffer_window ();
+  return mini ? mini->lwp : Qnil;
+}
+
+lisp
+Fminibuffer_window_p (lisp window)
+{
+  check_window (window);
+  return boole (xwindow_wp (window) && xwindow_wp (window)->minibuffer_window_p ());
+}
+
+lisp
+Fminibuffer_buffer (lisp window)
+{
+  Window *mini = Window::minibuffer_window ();
+  return (mini && mini->w_bufp) ? mini->w_bufp->lbp : Qnil;
+}
 lisp Fminibuffer_default (lisp buffer)
 {
   return Buffer::coerce_to_buffer (buffer)->lminibuffer_default;

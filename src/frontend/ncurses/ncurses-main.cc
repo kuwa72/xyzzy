@@ -16,6 +16,9 @@
 # define M_PI 3.141592653589793
 #endif
 
+// Flag set by PostQuitMessage (kill-xyzzy) to distinguish from Quit
+volatile int g_quit_message_posted = 0;
+
 #include "lex.h"
 #include "environ.h"
 #include "except.h"
@@ -507,6 +510,9 @@ create_ncurses_windows ()
   getmaxyx (stdscr, rows, cols);
   app.active_frame.size.cx = cols;
   app.active_frame.size.cy = rows;
+
+  // Compute initial window geometry (w_rect)
+  Window::compute_geometry ();
 }
 
 // Set up minimal key bindings in C++ so the editor is usable
@@ -918,13 +924,25 @@ int main (int argc, char **argv)
       slog ("entering command_loop");
 
       // Enter command loop (fetch -> dispatch -> refresh)
-      try
+      // Quit (C-g outside recursive edit) throws nonlocal_jump with
+      // type=toplevel, which exits command_loop. We restart unless
+      // kill-xyzzy (C-x C-c) was invoked (sets g_quit_message_posted).
+      while (1)
         {
-          command_loop ();
-        }
-      catch (nonlocal_jump &)
-        {
-          // Normal exit via C-x C-c throws nonlocal_jump
+          try
+            {
+              command_loop ();
+              break;  // normal exit (lChar_EOF)
+            }
+          catch (nonlocal_jump &)
+            {
+              if (g_quit_message_posted)
+                break;  // kill-xyzzy requested exit
+              // Quit or other error: show message, restart loop
+              nonlocal_data *nld = nonlocal_jump::data ();
+              print_condition (nld);
+              slog ("command_loop restarted after throw");
+            }
         }
 
       slog ("command_loop exited");
