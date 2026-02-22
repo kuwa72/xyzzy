@@ -61,7 +61,7 @@
 
 ----
 
-### src/endian.h
+### src/core/endian.h
 
     Copyright (c) 1987, 1991, 1993
     The Regents of the University of California.  All rights reserved.
@@ -92,7 +92,7 @@
 
 ----
 
-### src/dsfmt/*
+### src/core/dsfmt/*
 
     Copyright (c) 2007, 2008, 2009 Mutsuo Saito, Makoto Matsumoto
     and Hiroshima University.
@@ -129,7 +129,7 @@
 
 ----
 
-### src/md5.h, src/md5c.cc
+### src/core/md5.h, src/core/md5c.cc
 
     Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All
     rights reserved.
@@ -154,7 +154,7 @@
 
 ----
 
-### src/sha1.h, src/sha1.cc
+### src/core/sha1.h, src/core/sha1.cc
 
     SHA-1 in C
     By Steve Reid <steve@edmweb.com>
@@ -162,7 +162,7 @@
 
 ----
 
-### src/sha2.h, src/sha2.cc
+### src/core/sha2.h, src/core/sha2.cc
 
     Version 1.0.0beta1
 
@@ -196,7 +196,7 @@
 
 ----
 
-### src/sockssl.h, src/sockssl.cc
+### src/core/sockssl.h, src/core/sockssl.cc
 
     THIS CODE AND INFORMATION IS PROVIDED 'AS IS' WITHOUT WARRANTY OF
     ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
@@ -206,40 +206,7 @@
 
 ----
 
-### src/zlib/zlib.h, src/zlib/zconf.h, src/zlib/*/zlib.lib
-
-    zlib.h -- interface of the 'zlib' general purpose compression library
-    version 1.2.6, January 29th, 2012
-
-    Copyright (C) 1995-2012 Jean-loup Gailly and Mark Adler
-
-    This software is provided 'as-is', without any express or implied
-    warranty.  In no event will the authors be held liable for any damages
-    arising from the use of this software.
-
-    Permission is granted to anyone to use this software for any purpose,
-    including commercial applications, and to alter it and redistribute it
-    freely, subject to the following restrictions:
-
-    1. The origin of this software must not be misrepresented; you must not
-       claim that you wrote the original software. If you use this software
-       in a product, an acknowledgment in the product documentation would be
-       appreciated but is not required.
-    2. Altered source versions must be plainly marked as such, and must not be
-       misrepresented as being the original software.
-    3. This notice may not be removed or altered from any source distribution.
-
-    Jean-loup Gailly        Mark Adler
-    jloup@gzip.org          madler@alumni.caltech.edu
-
-
-    The data format used by the zlib library is described by RFCs (Request for
-    Comments) 1950 to 1952 in the files http://tools.ietf.org/html/rfc1950
-    (zlib format), rfc1951 (deflate format) and rfc1952 (gzip format).
-
-----
-
-### misc/guess.scm, src/guess.cc
+### misc/guess.scm, src/core/guess.cc
 
     This code is derivative of guess.c of Gauche-0.8.3.
     The following is the original copyright notice.
