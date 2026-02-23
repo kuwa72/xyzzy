@@ -59,6 +59,15 @@ jobs:
         if ($lcFiles.Count -eq 0) { throw "No .lc files generated!" }
         $lcFiles | Select-Object -First 10 | ForEach-Object { Write-Host $_.Name }
 
+    - name: Run unit tests (informational)
+      continue-on-error: true
+      run: |
+        $env:XYZZYHOME = (Get-Location).Path
+        $env:XYZZYINIFILE = ""
+        $env:XYZZYCONFIGPATH = ""
+        Remove-Item -ErrorAction SilentlyContinue build\Release\xyzzy-batch.wxp
+        .\build\Release\xyzzy-batch.exe -q -load misc\run-tests-batch.l
+
     - name: Package
       run: |
         cd build
@@ -114,6 +123,16 @@ jobs:
         echo "Found $count .lc files"
         if [ "$count" -eq 0 ]; then echo "No .lc files generated!"; exit 1; fi
         find lisp -name '*.lc' | head -10
+
+    - name: Run unit tests (informational)
+      continue-on-error: true
+      shell: msys2 {0}
+      run: |
+        export XYZZYHOME=$(pwd)
+        export XYZZYINIFILE=
+        export XYZZYCONFIGPATH=
+        rm -f build/xyzzy-batch.wxp
+        ./build/xyzzy-batch.exe -q -load misc/run-tests-batch.l
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
