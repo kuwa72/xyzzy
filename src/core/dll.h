@@ -135,7 +135,7 @@ xdll_function_arg_size (lisp x)
   return ((ldll_function *)x)->arg_size;
 }
 
-#if defined(_M_ARM64) || defined(__aarch64__)
+#if defined(_M_ARM64) || defined(__aarch64__) || defined(_M_X64) || defined(__x86_64__)
 # define INSN_SIZE 64
 #else
 # define INSN_SIZE 16

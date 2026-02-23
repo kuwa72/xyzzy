@@ -54,7 +54,16 @@
                       (format *standard-output* "  ~A~%" f)
                       (load-test-file f))))
               (condition (e)
-                (format *standard-output* "ERROR loading tests: ~A~%" e))))
+                (format *standard-output* "ERROR loading tests: ~A~%" e)))
+            ;; Also load foreign-test.l (named *-test.l not *-tests.l)
+            (let ((foreign-test (merge-pathnames "unittest/foreign-test.l"
+                                                 (si:system-root))))
+              (handler-case
+                  (progn
+                    (format *standard-output* "  ~A~%" foreign-test)
+                    (load-test-file foreign-test))
+                (condition (e)
+                  (format *standard-output* "ERROR loading foreign-test.l: ~A~%" e)))))
 
           ;; Patch warn to print-and-return rather than signal a condition.
           ;; In batch mode there is no interactive debugger, so unhandled

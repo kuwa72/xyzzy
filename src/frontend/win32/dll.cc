@@ -1039,6 +1039,111 @@ init_c_callable (lisp cc)
   FlushInstructionCache (GetCurrentProcess (), insn, INSN_SIZE);
 }
 
+#elif defined(_M_X64) || defined(__x86_64__)
+
+/*
+  x64 (Microsoft x64 ABI) c_callable stub.
+  Called from the thunk with:
+    RCX = pointer to c_callable lisp object (cc)
+    RDX = pointer to saved register args (int64_t[4], original RCX/RDX/R8/R9)
+  Returns: int64_t result to be returned to Windows.
+*/
+static int64_t
+c_callable_stub_x64 (lisp cc, int64_t *regs)
+{
+  int nargs = xc_callable_nargs (cc);
+  const u_char *at = xc_callable_arg_types (cc);
+
+  lisp largs = Qnil;
+  for (int i = nargs - 1; i >= 0; i--)
+    {
+      lisp v;
+      switch (at[i])
+        {
+        case CTYPE_INT8:   v = make_fixnum ((int8_t)regs[i]);           break;
+        case CTYPE_UINT8:  v = make_fixnum ((uint8_t)regs[i]);          break;
+        case CTYPE_INT16:  v = make_fixnum ((int16_t)regs[i]);          break;
+        case CTYPE_UINT16: v = make_fixnum ((uint16_t)regs[i]);         break;
+        case CTYPE_INT32:  v = make_fixnum ((int32_t)regs[i]);          break;
+        case CTYPE_UINT32: v = make_integer ((int64_t)(uint32_t)regs[i]); break;
+        case CTYPE_INT64:  v = make_integer (regs[i]);                  break;
+        case CTYPE_UINT64: v = make_integer ((uint64_t)regs[i]);        break;
+        default:           v = make_integer (regs[i]);                  break;
+        }
+      largs = xcons (v, largs);
+    }
+
+  protect_gc gcpro (largs);
+  try
+    {
+      lisp result = Ffuncall (xc_callable_function (cc), largs);
+      return cast_to_int64 (result);
+    }
+  catch (nonlocal_jump &)
+    {
+    }
+  return 0;
+}
+
+/*
+  x64 thunk code generated in insn[] (56 bytes):
+
+  Microsoft x64 ABI: first 4 integer args in RCX, RDX, R8, R9.
+  Caller allocates 32-byte shadow space above the return address.
+
+  48 89 4C 24 08   mov [rsp+8],  rcx      // save arg0 to shadow slot 0
+  48 89 54 24 10   mov [rsp+16], rdx      // save arg1 to shadow slot 1
+  4C 89 44 24 18   mov [rsp+24], r8       // save arg2 to shadow slot 2
+  4C 89 4C 24 20   mov [rsp+32], r9       // save arg3 to shadow slot 3
+  48 83 EC 28      sub rsp, 40            // alloc 32-byte shadow + 8 align
+  48 B9 [8-byte]   movabs rcx, cc        // rcx = cc (1st stub arg)
+  48 8D 54 24 30   lea rdx, [rsp+48]     // rdx = &saved_regs[0] (2nd stub arg)
+  48 B8 [8-byte]   movabs rax, stub      // rax = stub address
+  FF D0            call rax
+  48 83 C4 28      add rsp, 40
+  C3               ret
+*/
+
+void
+init_c_callable (lisp cc)
+{
+  uintptr_t cc_addr = (uintptr_t)cc;
+  uintptr_t stub_addr = (uintptr_t)c_callable_stub_x64;
+
+  u_char *insn = xc_callable_insn (cc);
+
+  /* mov [rsp+8], rcx  (5 bytes) */
+  insn[0]=0x48; insn[1]=0x89; insn[2]=0x4C; insn[3]=0x24; insn[4]=0x08;
+  /* mov [rsp+16], rdx  (5 bytes) */
+  insn[5]=0x48; insn[6]=0x89; insn[7]=0x54; insn[8]=0x24; insn[9]=0x10;
+  /* mov [rsp+24], r8  (5 bytes) */
+  insn[10]=0x4C; insn[11]=0x89; insn[12]=0x44; insn[13]=0x24; insn[14]=0x18;
+  /* mov [rsp+32], r9  (5 bytes) */
+  insn[15]=0x4C; insn[16]=0x89; insn[17]=0x4C; insn[18]=0x24; insn[19]=0x20;
+  /* sub rsp, 40  (4 bytes) */
+  insn[20]=0x48; insn[21]=0x83; insn[22]=0xEC; insn[23]=0x28;
+  /* movabs rcx, cc_addr  (10 bytes) */
+  insn[24]=0x48; insn[25]=0xB9;
+  memcpy (&insn[26], &cc_addr, 8);
+  /* lea rdx, [rsp+48]  (5 bytes) */
+  insn[34]=0x48; insn[35]=0x8D; insn[36]=0x54; insn[37]=0x24; insn[38]=0x30;
+  /* movabs rax, stub_addr  (10 bytes) */
+  insn[39]=0x48; insn[40]=0xB8;
+  memcpy (&insn[41], &stub_addr, 8);
+  /* call rax  (2 bytes) */
+  insn[49]=0xFF; insn[50]=0xD0;
+  /* add rsp, 40  (4 bytes) */
+  insn[51]=0x48; insn[52]=0x83; insn[53]=0xC4; insn[54]=0x28;
+  /* ret  (1 byte) */
+  insn[55]=0xC3;
+
+  DWORD o = 0;
+  if (!VirtualProtect (insn, INSN_SIZE, PAGE_EXECUTE_READWRITE, &o))
+    FEsimple_win32_error (GetLastError (), make_fixnum (o));
+
+  FlushInstructionCache (GetCurrentProcess (), insn, INSN_SIZE);
+}
+
 #else
 void init_c_callable (lisp cc) { /* c-callable not supported on this architecture */ }
 #endif
