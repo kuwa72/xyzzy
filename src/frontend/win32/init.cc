@@ -289,6 +289,9 @@ init_env_symbols (const char *config_path, const char *ini_file)
   init_home_dir ();
   init_load_path ();
   init_windows_dir ();
+  // Add :tty to *features* if stdout is connected to a real terminal
+  if (_isatty (_fileno (stdout)))
+    xsymbol_value (Vfeatures) = xcons (Ktty, xsymbol_value (Vfeatures));
 }
 
 #pragma optimize ("g", off)

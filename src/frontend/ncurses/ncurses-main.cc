@@ -476,6 +476,13 @@ init_env_symbols ()
   init_environ ();
   init_home_dir ();
   init_load_path ();
+  // Add :tty to *features* if stdout is connected to a real terminal
+  if (isatty (STDOUT_FILENO))
+    {
+      lisp Ktty_kwd = Fintern (make_string ("tty"),
+                               xsymbol_value (Vkeyword_package));
+      xsymbol_value (Vfeatures) = xcons (Ktty_kwd, xsymbol_value (Vfeatures));
+    }
 }
 
 // Create ncurses-compatible windows (no Win32 HWND)

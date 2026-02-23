@@ -84,6 +84,15 @@ int main (int argc, char **argv)
       xsymbol_value (Vstandard_input) = xsymbol_value (Vterminal_io);
       xsymbol_value (Vstandard_output) = xsymbol_value (Vterminal_io);
 
+      // Initialize *features* and add :tty if stdout is a real terminal
+      xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
+      if (isatty (fileno (stdout)))
+        {
+          lisp Ktty_kwd = Fintern (make_string ("tty"),
+                                   xsymbol_value (Vkeyword_package));
+          xsymbol_value (Vfeatures) = xcons (Ktty_kwd, xsymbol_value (Vfeatures));
+        }
+
       fprintf (stderr, "  streams ready\n");
       fprintf (stderr, "xyzzy-cli ready. Type Lisp expressions:\n");
 

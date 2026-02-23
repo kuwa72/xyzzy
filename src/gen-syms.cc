@@ -1215,6 +1215,7 @@ static symbols kwd[] =
   DEFKWD2 (linux),
   DEFKWD2 (amd64),
   DEFKWD2 (aarch64),
+  DEFKWD2 (tty),
   DEFKWD2 (no-dup),
   DEFKWD2 (case-fold),
   DEFKWD2 (reverse),
