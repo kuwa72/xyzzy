@@ -78,19 +78,22 @@ int main (int argc, char **argv)
       fprintf (stderr, "  basic init done\n");
 
       create_std_streams ();
+      // Seed *features* before init_environ() which cons's OS/arch features on top
+      xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
+      init_environ ();
 
       // CLI: use terminal-io (stdin/stdout file stream) for standard I/O
       // instead of keyboard/status streams which are Win32 GUI specific
       xsymbol_value (Vstandard_input) = xsymbol_value (Vterminal_io);
       xsymbol_value (Vstandard_output) = xsymbol_value (Vterminal_io);
 
-      // Initialize *features* and add :tty if stdout is a real terminal
-      xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
+      // Add :tty to *features* if stdout is a real terminal
       if (isatty (fileno (stdout)))
         {
           lisp Ktty_kwd = Fintern (make_string ("tty"),
                                    xsymbol_value (Vkeyword_package));
-          xsymbol_value (Vfeatures) = xcons (Ktty_kwd, xsymbol_value (Vfeatures));
+          xsymbol_value (Vfeatures) = xcons (Ktty_kwd,
+                                             xsymbol_value (Vfeatures));
         }
 
       fprintf (stderr, "  streams ready\n");
