@@ -670,6 +670,9 @@ Output (*trace-output*):
 (defvar *last-test-list* nil)
 (defvar *test-start-time* nil)
 
+;; Called with (pass fail total) when all tests finish. nil = no hook.
+(defvar *tests-run-finish-hook* nil)
+
 (defun elapsed-seconds ()
   (float (/ (- (get-internal-real-time) *test-start-time*)
             internal-time-units-per-second)))
@@ -837,11 +840,15 @@ Returns list of failures."
            (format out "Total ~D tests: ~:[~D~;~*All~] passed~@[~*, ~A failed~]~%"
                    total all-passed-p pass (not all-passed-p) fail)
            (format out "Total ~,1F seconds~%" (elapsed-seconds))
-           (let ((buffer (buffer-stream-buffer (ssn-report-output))))
-             (pop-to-buffer buffer)
-             (goto-char (point-max))
-             (unless (interactive-p)
-               (refresh-screen))))
+           (handler-case
+               (let ((buffer (buffer-stream-buffer (ssn-report-output))))
+                 (pop-to-buffer buffer)
+                 (goto-char (point-max))
+                 (unless (interactive-p)
+                   (refresh-screen)))
+             (error ()))
+           (when *tests-run-finish-hook*
+             (funcall *tests-run-finish-hook* pass fail total)))
          (while (stop-timer 'continue-run-tests))
          (null (setf *current-session* nil))
          :finish)))
