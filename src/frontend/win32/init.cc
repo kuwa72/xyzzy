@@ -1014,6 +1014,8 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
                 }
             }
           app.kbdq.gime.disable ();
+          if (g_batch_mode)
+            ExitProcess (app.exit_code);
           cleanup_lisp_objects ();
           terminate_normally = 1;
         }

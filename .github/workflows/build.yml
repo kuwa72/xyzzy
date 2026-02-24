@@ -61,6 +61,7 @@ jobs:
 
     - name: Run unit tests (informational)
       continue-on-error: true
+      timeout-minutes: 5
       run: |
         $env:XYZZYHOME = (Get-Location).Path
         $env:XYZZYINIFILE = ""
@@ -126,6 +127,7 @@ jobs:
 
     - name: Run unit tests (informational)
       continue-on-error: true
+      timeout-minutes: 5
       shell: msys2 {0}
       run: |
         export XYZZYHOME=$(pwd)

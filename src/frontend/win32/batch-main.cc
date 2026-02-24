@@ -10,7 +10,7 @@ extern bool g_batch_mode;
 int main ()
 {
   g_batch_mode = true;
-  SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+  SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX | SEM_NOGPFAULTERRORBOX);
   setvbuf (stdout, NULL, _IONBF, 0);
   setvbuf (stderr, NULL, _IONBF, 0);
   int rc = WinMain (GetModuleHandle (NULL), NULL, GetCommandLineA (), SW_HIDE);
