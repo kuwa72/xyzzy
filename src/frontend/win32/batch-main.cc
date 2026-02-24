@@ -2,10 +2,19 @@
 // Calls WinMain with SW_HIDE so the window is created but not shown.
 
 #include <windows.h>
+#include <cstdio>
 
 int PASCAL WinMain (HINSTANCE, HINSTANCE, LPSTR, int);
+extern bool g_batch_mode;
 
 int main ()
 {
-  return WinMain (GetModuleHandle (NULL), NULL, GetCommandLineA (), SW_HIDE);
+  g_batch_mode = true;
+  SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+  setvbuf (stdout, NULL, _IONBF, 0);
+  setvbuf (stderr, NULL, _IONBF, 0);
+  int rc = WinMain (GetModuleHandle (NULL), NULL, GetCommandLineA (), SW_HIDE);
+  fflush (stdout);
+  fflush (stderr);
+  return rc;
 }

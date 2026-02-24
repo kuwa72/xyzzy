@@ -23,6 +23,8 @@
 # define M_PI 3.141592653589793
 #endif
 
+bool g_batch_mode = false;
+
 const wchar_t Application::ToplevelClassName[] = L"xyzzy_toplevel";
 const wchar_t Application::FrameClassName[] = L"  ";
 const wchar_t Application::ClientClassName[] = L"   ";
@@ -586,7 +588,10 @@ init_command_line (int ac)
 void
 report_out_of_memory ()
 {
-  MessageBoxW (0, L"\x30E1\x30E2\x30EA\x304C\x4E0D\x8DB3\x3057\x3066\x3044\x307E\x3059", TitleBarStringW, MB_OK | MB_ICONHAND);
+  if (g_batch_mode)
+    fputs ("out of memory\n", stderr);
+  else
+    MessageBoxW (0, L"\x30E1\x30E2\x30EA\x304C\x4E0D\x8DB3\x3057\x3066\x3044\x307E\x3059", TitleBarStringW, MB_OK | MB_ICONHAND);
 }
 
 static inline int

@@ -66,7 +66,7 @@ Fsi_make_chunk (lisp type, lisp lsize, lisp src_chunk, lisp loffset)
       else
         {
           xchunk_data (chunk) =
-            chunk_ptr ((char *)unsigned_long_value (loffset), lsize);
+            chunk_ptr ((char *)(uintptr_t)coerce_to_int64 (loffset), lsize);
           xchunk_owner (chunk) = Qnil;
         }
     }
@@ -352,7 +352,7 @@ unpack_string_chunk (lisp chunk, lisp loffset, lisp lsize, lisp lzero_term)
 lisp
 unpack_string_pointer (lisp laddress, lisp lsize, lisp lzero_term)
 {
-  char *p = reinterpret_cast <char*> (unsigned_long_value (laddress));
+  char *p = reinterpret_cast <char*> ((uintptr_t)coerce_to_int64 (laddress));
 
   int zero_term = !lzero_term || lzero_term != Qnil;
   if (!lsize || lsize == Qnil)

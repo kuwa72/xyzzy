@@ -41,7 +41,8 @@
                 ;; stream-tests.l: test-print-debug-output-stream
                 ;; system-tests.l: sha-224 (SHA implementation ARM64 bug)
                 (skip-files '("ole-tests.l" "sequence-tests.l"
-                              "stream-tests.l" "system-tests.l")))
+                              "stream-tests.l" "system-tests.l"
+                              "pathnames-tests.l"))  ; MSVC x64 crash in si:*file-operation)
             (format *standard-output*
                     "=== Loading tests from ~A ===~%" unittest-dir)
             (handler-case

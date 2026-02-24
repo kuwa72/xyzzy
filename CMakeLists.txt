@@ -51,7 +51,19 @@ endif()
 find_package(ZLIB)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_SAVE})
 if(NOT ZLIB_FOUND)
-    if(WIN32)
+    if(MSVC)
+        # FetchContent fallback: build zlib from source when not found (e.g. no vcpkg)
+        include(FetchContent)
+        FetchContent_Declare(
+            zlib
+            URL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+            URL_HASH SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        FetchContent_MakeAvailable(zlib)
+        set(ZLIB_INCLUDE_DIRS ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
+        set(ZLIB_LIBRARIES zlibstatic)
+    elseif(WIN32)
         message(FATAL_ERROR "zlib not found. Install with: pacman -S mingw-w64-clang-aarch64-zlib")
     else()
         message(FATAL_ERROR "zlib not found. Install with: sudo apt-get install zlib1g-dev")

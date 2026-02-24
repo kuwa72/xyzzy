@@ -3,6 +3,8 @@
 #include "msgbox.h"
 #include "monitor.h"
 
+extern bool g_batch_mode;
+
 void
 XMessageBox::add_button (UINT id, const char *caption)
 {
@@ -310,6 +312,8 @@ XMessageBox::doit (HWND hwnd)
     default_btn = 0;
   if (nbuttons == 1 && close_id == -1)
     close_id = btn[0].id;
+  if (g_batch_mode)
+    return btn[default_btn].id;
   return DialogBoxParam (hinst, MAKEINTRESOURCE (IDD_MSGBOX),
                          hwnd, WndProc, LPARAM (this));
 }
