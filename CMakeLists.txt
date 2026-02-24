@@ -99,6 +99,7 @@ endif()
 if(MSVC)
     add_compile_options(
         /W3
+        /EHa     # enable SEH-to-C++ exception translation (_set_se_translator)
         /wd4996  # deprecated functions
         /wd4477  # format string type mismatch
         /wd4312  # conversion to pointer of greater size

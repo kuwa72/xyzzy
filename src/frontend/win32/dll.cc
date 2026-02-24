@@ -511,11 +511,12 @@ funcall_dll (lisp fn, lisp arglist)
   /* Non-x86: use function pointer casts.
      The compiler handles calling conventions (ARM64/x64 use register-based ABIs).
      All integer/pointer arguments are passed as int64_t; the callee ignores upper
-     bits for narrower types.  Float/double arguments are not yet supported. */
+     bits for narrower types.  For variadic double arguments, the IEEE 754 bit
+     pattern is passed as int64_t (correct for x64/ARM64 variadic calling conventions
+     where float args go through integer registers). */
 
   int nargs = xdll_function_nargs (fn);
-  if (nargs > 12)
-    FEprogram_error (Edll_not_initialized, fn);
+  int total = nargs;
 
   int64_t a[12] = {};
   const u_char *at = xdll_function_arg_types (fn);
@@ -534,6 +535,35 @@ funcall_dll (lisp fn, lisp arglist)
           a[i] = cast_to_int64 (x);
           break;
         }
+    }
+
+  if (consp (arglist) && xdll_function_vaarg_p (fn))
+    {
+      lisp vaargs = xcar (arglist);
+      check_vaargs (vaargs);
+      for (; consp (vaargs); vaargs = xcdr (vaargs))
+        {
+          if (total >= 12)
+            FEprogram_error (Edll_not_initialized, fn);
+          lisp vaarg = xcar (vaargs);
+          u_char t = check_vaarg_type (xcar (vaarg));
+          lisp val = Fcadr (vaarg);
+          switch (t)
+            {
+            case CTYPE_FLOAT:
+            case CTYPE_DOUBLE:
+              {
+                double d = coerce_to_double_float (val);
+                memcpy (&a[total], &d, sizeof d);
+              }
+              break;
+            default:
+              a[total] = cast_to_int64 (val);
+              break;
+            }
+          total++;
+        }
+      arglist = xcdr (arglist);
     }
 
   if (consp (arglist))
@@ -564,7 +594,7 @@ funcall_dll (lisp fn, lisp arglist)
 
   try
     {
-      switch (nargs)
+      switch (total)
         {
         case 0:  r = ((f0)proc)(); break;
         case 1:  r = ((f1)proc)(a[0]); break;
