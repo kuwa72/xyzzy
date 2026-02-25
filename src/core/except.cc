@@ -56,7 +56,6 @@ EXCEPTION_RECORD Win32Exception::r;
 CONTEXT Win32Exception::c;
 u_int Win32Exception::code;
 
-inline
 Win32Exception::Win32Exception (u_int code_, const EXCEPTION_POINTERS *ep)
 {
   code = code_;

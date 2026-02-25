@@ -345,6 +345,80 @@ push_vaarg (char *stack, lisp vaarg)
   return push_arg (stack, t, Fcadr (vaarg));
 }
 
+#if !defined(_MSC_VER) && !defined(__i386__)
+/* On non-MSVC compilers, _set_se_translator is not available, so
+   catch(Win32Exception&) can't catch SEH exceptions.  Use __try/__except
+   instead (supported by clang with -fms-extensions).
+
+   __try/__except must be in a separate function because it cannot coexist
+   with C++ exception handling or objects with non-trivial destructors.  */
+
+typedef int64_t (*dll_f0)();
+typedef int64_t (*dll_f1)(int64_t);
+typedef int64_t (*dll_f2)(int64_t, int64_t);
+typedef int64_t (*dll_f3)(int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f4)(int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f7)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t);
+typedef int64_t (*dll_f8)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t, int64_t);
+typedef int64_t (*dll_f9)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f10)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*dll_f12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
+static LONG WINAPI
+seh_exception_filter (EXCEPTION_POINTERS *ep)
+{
+  Win32Exception::code = ep->ExceptionRecord->ExceptionCode;
+  Win32Exception::r = *ep->ExceptionRecord;
+  Win32Exception::c = *ep->ContextRecord;
+  return EXCEPTION_EXECUTE_HANDLER;
+}
+
+/* Returns 1 on success, 0 on SEH exception, -1 on invalid arg count. */
+static int
+call_dll_seh (FARPROC proc, int64_t *a, int total, int64_t *result)
+{
+  __try
+    {
+      switch (total)
+        {
+        case 0:  *result = ((dll_f0)proc)(); break;
+        case 1:  *result = ((dll_f1)proc)(a[0]); break;
+        case 2:  *result = ((dll_f2)proc)(a[0], a[1]); break;
+        case 3:  *result = ((dll_f3)proc)(a[0], a[1], a[2]); break;
+        case 4:  *result = ((dll_f4)proc)(a[0], a[1], a[2], a[3]); break;
+        case 5:  *result = ((dll_f5)proc)(a[0], a[1], a[2], a[3], a[4]); break;
+        case 6:  *result = ((dll_f6)proc)(a[0], a[1], a[2], a[3], a[4], a[5]); break;
+        case 7:  *result = ((dll_f7)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+        case 8:  *result = ((dll_f8)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]); break;
+        case 9:  *result = ((dll_f9)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                          a[8]); break;
+        case 10: *result = ((dll_f10)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                           a[8], a[9]); break;
+        case 11: *result = ((dll_f11)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                           a[8], a[9], a[10]); break;
+        case 12: *result = ((dll_f12)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                           a[8], a[9], a[10], a[11]); break;
+        default:
+          return -1;
+        }
+      return 1;
+    }
+  __except (seh_exception_filter (GetExceptionInformation ()))
+    {
+      return 0;
+    }
+}
+#endif /* !_MSC_VER && !__i386__ */
+
 lisp
 funcall_dll (lisp fn, lisp arglist)
 {
@@ -570,8 +644,9 @@ funcall_dll (lisp fn, lisp arglist)
     FEtoo_many_arguments ();
 
   FARPROC proc = xdll_function_proc (fn);
-  int64_t r;
+  int64_t r = 0;
 
+#ifdef _MSC_VER
   typedef int64_t (*f0)();
   typedef int64_t (*f1)(int64_t);
   typedef int64_t (*f2)(int64_t, int64_t);
@@ -623,6 +698,29 @@ funcall_dll (lisp fn, lisp arglist)
       e.throw_lisp_error ();
       throw;
     }
+#else /* !_MSC_VER */
+  {
+    int seh_result = call_dll_seh (proc, a, total, &r);
+    if (seh_result == -1)
+      {
+        FEprogram_error (Edll_not_initialized, fn);
+        return Qnil;
+      }
+    if (seh_result == 0)
+      {
+        /* SEH exception caught.  Convert to Lisp win32-exception condition. */
+        EXCEPTION_POINTERS ep;
+        ep.ExceptionRecord = &Win32Exception::r;
+        ep.ContextRecord = &Win32Exception::c;
+        Win32Exception exc (Win32Exception::code, &ep);
+        exc.throw_lisp_error ();
+        /* TODO: throw_lisp_error returns without throwing for EXCEPTION_BREAKPOINT,
+           EXCEPTION_SINGLE_STEP, EXCEPTION_NONCONTINUABLE_EXCEPTION.  MSVC path
+           re-throws Win32Exception; here we fall through to save_last_error.
+           Unlikely in practice (DLL calls don't trigger breakpoints). */
+      }
+  }
+#endif /* !_MSC_VER */
 
   save_last_error ();
 
