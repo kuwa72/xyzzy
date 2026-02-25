@@ -538,10 +538,10 @@ endif()
 
 # Resource file (windres needs -I, not -iquote, for include paths)
 if(CMAKE_RC_COMPILER)
-    target_sources(xyzzy PRIVATE ${SRC_DIR}/xyzzy.rc)
-    set_source_files_properties(${SRC_DIR}/xyzzy.rc PROPERTIES
+    target_sources(xyzzy PRIVATE ${WIN32_DIR}/xyzzy.rc)
+    set_source_files_properties(${WIN32_DIR}/xyzzy.rc PROPERTIES
         OBJECT_DEPENDS "${CORE_DIR}/resource.h"
-        INCLUDE_DIRECTORIES "${CORE_DIR};${SRC_DIR}")
+        INCLUDE_DIRECTORIES "${CORE_DIR};${WIN32_DIR}")
 endif()
 
 # ============================================================
@@ -564,10 +564,10 @@ else()
     target_link_options(xyzzy-batch PRIVATE /STACK:0x2000000)
 endif()
 if(CMAKE_RC_COMPILER)
-    target_sources(xyzzy-batch PRIVATE ${SRC_DIR}/xyzzy.rc)
-    set_source_files_properties(${SRC_DIR}/xyzzy.rc PROPERTIES
+    target_sources(xyzzy-batch PRIVATE ${WIN32_DIR}/xyzzy.rc)
+    set_source_files_properties(${WIN32_DIR}/xyzzy.rc PROPERTIES
         OBJECT_DEPENDS "${CORE_DIR}/resource.h"
-        INCLUDE_DIRECTORIES "${CORE_DIR};${SRC_DIR}")
+        INCLUDE_DIRECTORIES "${CORE_DIR};${WIN32_DIR}")
 endif()
 
 endif() # WIN32 (end of xyzzy, xyzzy-batch GUI targets)
@@ -658,31 +658,28 @@ endif()
 if(WIN32)
 
 # xyzzycli: Command-line launcher
-add_executable(xyzzycli WIN32 ${SRC_DIR}/xyzzycli.cc)
+add_executable(xyzzycli WIN32 ${WIN32_DIR}/xyzzycli.cc)
 if(CMAKE_RC_COMPILER)
-    target_sources(xyzzycli PRIVATE ${SRC_DIR}/xyzzycli.rc)
+    target_sources(xyzzycli PRIVATE ${WIN32_DIR}/xyzzycli.rc)
+    set_source_files_properties(${WIN32_DIR}/xyzzycli.rc PROPERTIES
+        INCLUDE_DIRECTORIES "${WIN32_DIR}")
 endif()
 target_compile_definitions(xyzzycli PRIVATE UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(xyzzycli PRIVATE ${SRC_DIR} ${CORE_DIR})
+    target_include_directories(xyzzycli PRIVATE ${WIN32_DIR} ${CORE_DIR})
 else()
-    target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}")
+    target_compile_options(xyzzycli PRIVATE "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${CORE_DIR}")
 endif()
 if(NOT MSVC)
     target_link_options(xyzzycli PRIVATE -static)
 endif()
 
 # xyzzyenv: Environment utility
-add_executable(xyzzyenv ${SRC_DIR}/xyzzyenv.cc)
+add_executable(xyzzyenv ${WIN32_DIR}/xyzzyenv.cc)
 if(CMAKE_RC_COMPILER)
-    target_sources(xyzzyenv PRIVATE ${SRC_DIR}/xyzzyenv.rc)
+    target_sources(xyzzyenv PRIVATE ${WIN32_DIR}/xyzzyenv.rc)
 endif()
 target_compile_definitions(xyzzyenv PRIVATE UNICODE _UNICODE)
-if(MSVC)
-    target_include_directories(xyzzyenv PRIVATE ${SRC_DIR} ${CORE_DIR})
-else()
-    target_compile_options(xyzzyenv PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}")
-endif()
 if(NOT MSVC)
     target_link_options(xyzzyenv PRIVATE -static)
 endif()
@@ -690,15 +687,15 @@ endif()
 # Browser.dll: WebBrowser ActiveX plugin (ATL-free, IWebBrowser2)
 add_library(browser SHARED
     ${WIN32_DIR}/Browser.cpp
-    ${SRC_DIR}/xpi.cc
+    ${WIN32_DIR}/xpi.cc
     ${WIN32_DIR}/Browser.def
 )
 target_compile_definitions(browser PRIVATE BROWSER_EXPORTS WIN32 UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(browser PRIVATE ${SRC_DIR} ${WIN32_DIR})
+    target_include_directories(browser PRIVATE ${WIN32_DIR})
 else()
     target_compile_options(browser PRIVATE
-        "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${WIN32_DIR}"
+        "SHELL:-iquote ${WIN32_DIR}"
         -Wno-pragma-pack)
     target_link_options(browser PRIVATE -static)
 endif()
@@ -711,15 +708,15 @@ set_target_properties(browser PROPERTIES
 # TreeView.dll: TreeView common control plugin (MFC-free)
 add_library(treeview SHARED
     ${WIN32_DIR}/TreeView.cpp
-    ${SRC_DIR}/xpi.cc
+    ${WIN32_DIR}/xpi.cc
     ${WIN32_DIR}/TreeView.def
 )
 target_compile_definitions(treeview PRIVATE TREEVIEW_EXPORTS WIN32 UNICODE _UNICODE)
 if(MSVC)
-    target_include_directories(treeview PRIVATE ${SRC_DIR} ${WIN32_DIR})
+    target_include_directories(treeview PRIVATE ${WIN32_DIR})
 else()
     target_compile_options(treeview PRIVATE
-        "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${WIN32_DIR}")
+        "SHELL:-iquote ${WIN32_DIR}")
     target_link_options(treeview PRIVATE -static)
 endif()
 target_link_libraries(treeview PRIVATE comctl32)
