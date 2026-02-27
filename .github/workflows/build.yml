@@ -19,6 +19,11 @@ jobs:
             runner: windows-latest
             vcpkg-triplet: x64-windows-static-md
             artifact: xyzzy-amd64
+          - arch: x86
+            cmake-arch: Win32
+            runner: windows-latest
+            vcpkg-triplet: x86-windows-static-md
+            artifact: xyzzy-x86-msvc
 
     runs-on: ${{ matrix.runner }}
 
@@ -36,7 +41,7 @@ jobs:
 
     - name: Configure CMake
       run: |
-        cmake -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} `
+        cmake -B build -G "Visual Studio 17 2022" -A ${{ matrix.cmake-arch || matrix.arch }} `
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg-triplet }}
 
