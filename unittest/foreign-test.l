@@ -385,13 +385,13 @@
   (c:expand-c-vaargs '((c:int 123)
                        (c:double 1.23)
                        (c:string 0)))
-  => ((:int32 123) (:double 1.23) (:int32 0)))
+  => ((:int32 123) (:double 1.23) (#+64bit :int64 #-64bit :int32 0)))
 
 (deftest vaargs-macro ()
   (c:c-vaargs (c:int 123)
             (c:double 1.23)
             (c:string 0))
-  => ((:int32 123) (:double 1.23) (:int32 0)))
+  => ((:int32 123) (:double 1.23) (#+64bit :int64 #-64bit :int32 0)))
 
 (c:define-c-struct INVALID_VAARGS
   (c:int a))

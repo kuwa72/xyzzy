@@ -61,13 +61,16 @@
                 (condition (e)
                   (format *standard-output* "ERROR loading tests: ~A~%" e)))
               ;; Also load foreign-test.l (named *-test.l not *-tests.l)
-              (let ((foreign-test (merge-pathnames "unittest/foreign-test.l" base-dir)))
-                (handler-case
-                    (progn
-                      (format *standard-output* "  ~A~%" foreign-test)
-                      (load-test-file foreign-test))
-                  (condition (e)
-                    (format *standard-output* "ERROR loading foreign-test.l: ~A~%" e)))))
+              ;; Skip on x86: handle-divide-by-zero causes SEH+inline-asm
+              ;; stack corruption that crashes the process (exit 127).
+              (unless (member :x86 *features*)
+                (let ((foreign-test (merge-pathnames "unittest/foreign-test.l" base-dir)))
+                  (handler-case
+                      (progn
+                        (format *standard-output* "  ~A~%" foreign-test)
+                        (load-test-file foreign-test))
+                    (condition (e)
+                      (format *standard-output* "ERROR loading foreign-test.l: ~A~%" e))))))
 
             ;; Patch warn to print-and-return rather than signal a condition.
             ;; In batch mode there is no interactive debugger, so unhandled
