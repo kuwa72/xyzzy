@@ -361,8 +361,9 @@ seh_exception_filter (EXCEPTION_POINTERS *ep)
 #if defined(__i386__)
 /* x86 (Clang only): __try/__except requires Clang (via -fms-extensions).
    GCC x86 does not support __try/__except; use mingw-w64-i686-clang instead.
-   The function epilogue restores ESP from EBP, so setting ESP = stack_base
-   inside __try is safe: normal return and __except both unwind via EBP. */
+   "esp" in the clobber list tells the compiler that the asm modifies ESP,
+   forcing it to use EBP-based frame pointer for the whole function so that
+   the epilogue (pop ebp; ret) is correct even after ESP is changed. */
 #ifndef __clang__
 #  error "x86 non-MSVC builds require Clang (mingw-w64-i686-clang). GCC x86 is not supported: __try/__except unavailable."
 #endif
@@ -376,7 +377,7 @@ call_dll_seh_x86_int (FARPROC proc, char *stack_base, int64_t *out_r)
         "call *%[func]\n\t"
         : "=A" (*out_r)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "ecx", "memory", "cc"
+        : "ecx", "esp", "memory", "cc"
       );
       return 1;
     }
@@ -396,7 +397,7 @@ call_dll_seh_x86_float (FARPROC proc, char *stack_base, float *out_f)
         "call *%[func]\n\t"
         : "=t" (*out_f)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "eax", "ecx", "edx", "memory", "cc"
+        : "eax", "ecx", "edx", "esp", "memory", "cc"
       );
       return 1;
     }
@@ -416,7 +417,7 @@ call_dll_seh_x86_double (FARPROC proc, char *stack_base, double *out_d)
         "call *%[func]\n\t"
         : "=t" (*out_d)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "eax", "ecx", "edx", "memory", "cc"
+        : "eax", "ecx", "edx", "esp", "memory", "cc"
       );
       return 1;
     }
