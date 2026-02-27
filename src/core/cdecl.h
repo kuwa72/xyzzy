@@ -190,10 +190,16 @@ int assert_failed (const char *, int);
 
 #ifdef _MSC_VER
 # define THREADLOCAL __declspec(thread)
-# define LISP_CALL __stdcall
 #else
 # define THREADLOCAL __thread
-# define LISP_CALL
 #endif
+/* LISP_CALL: calling convention annotation for Lisp primitive functions.
+   The original xyzzy used MSVC's /Gz flag (global __stdcall default) instead
+   of per-function annotations.  We replicate that: /Gz is added to CMakeLists
+   for MSVC x86 builds, so all functions are __stdcall by default, matching the
+   lfunction_proc_* typedefs which use explicit __stdcall.  On x64/ARM64,
+   __stdcall is silently ignored (= __cdecl), so no annotation is needed there.
+   LISP_CALL is kept as empty to avoid redundant per-function annotation. */
+# define LISP_CALL
 
 #endif

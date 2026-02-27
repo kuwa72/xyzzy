@@ -105,6 +105,15 @@ if(MSVC)
         /wd4312  # conversion to pointer of greater size
         /utf-8   # source files are UTF-8
     )
+    # On x86 MSVC, make __stdcall the default calling convention.
+    # The original xyzzy used -Gz in its Makefile CXXFLAGS for the same purpose.
+    # lfunction_proc_* typedefs use explicit __stdcall; /Gz ensures all
+    # function definitions match without per-function annotation.
+    # On x64/ARM64 __stdcall is silently ignored (= __cdecl), so /Gz is harmless
+    # there too, but we only add it on x86 to match the original intent.
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        add_compile_options(/Gz)
+    endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(
         -fms-extensions
