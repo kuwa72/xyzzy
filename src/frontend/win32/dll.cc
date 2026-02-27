@@ -361,9 +361,16 @@ seh_exception_filter (EXCEPTION_POINTERS *ep)
 #if defined(__i386__)
 /* x86 (Clang only): __try/__except requires Clang (via -fms-extensions).
    GCC x86 does not support __try/__except; use mingw-w64-i686-clang instead.
-   "esp" in the clobber list tells the compiler that the asm modifies ESP,
-   forcing it to use EBP-based frame pointer for the whole function so that
-   the epilogue (pop ebp; ret) is correct even after ESP is changed. */
+
+   ESP is set to stack_base so the called DLL function sees its args at
+   [ESP+4].  After the DLL returns (stdcall: callee-cleaned; cdecl: unchanged),
+   ESP is no longer where the compiler expects it.  "esp" in a clobber list
+   is NOT reliably honoured by Clang — the compiler may silently ignore it.
+
+   Instead we explicitly save the original ESP to ESI (a callee-saved register
+   per the Win32 ABI, so the DLL will restore it) and then restore ESP from
+   ESI after the call.  This makes the asm transparent to the compiler's stack
+   tracking so the function epilogue works without requiring a frame pointer. */
 #ifndef __clang__
 #  error "x86 non-MSVC builds require Clang (mingw-w64-i686-clang). GCC x86 is not supported: __try/__except unavailable."
 #endif
@@ -373,11 +380,13 @@ call_dll_seh_x86_int (FARPROC proc, char *stack_base, int64_t *out_r)
   __try
     {
       __asm__ volatile (
-        "movl %[base], %%esp\n\t"
+        "movl %%esp, %%esi\n\t"   /* save ESP (Win32 callee-saved → DLL restores it) */
+        "movl %[base], %%esp\n\t" /* set ESP to arg stack so DLL sees args at [ESP+4] */
         "call *%[func]\n\t"
+        "movl %%esi, %%esp\n\t"   /* restore ESP; compiler tracking now correct */
         : "=A" (*out_r)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "ecx", "esp", "memory", "cc"
+        : "ecx", "esi", "memory", "cc"
       );
       return 1;
     }
@@ -393,11 +402,13 @@ call_dll_seh_x86_float (FARPROC proc, char *stack_base, float *out_f)
   __try
     {
       __asm__ volatile (
+        "movl %%esp, %%esi\n\t"
         "movl %[base], %%esp\n\t"
         "call *%[func]\n\t"
+        "movl %%esi, %%esp\n\t"
         : "=t" (*out_f)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "eax", "ecx", "edx", "esp", "memory", "cc"
+        : "eax", "ecx", "edx", "esi", "memory", "cc"
       );
       return 1;
     }
@@ -413,11 +424,13 @@ call_dll_seh_x86_double (FARPROC proc, char *stack_base, double *out_d)
   __try
     {
       __asm__ volatile (
+        "movl %%esp, %%esi\n\t"
         "movl %[base], %%esp\n\t"
         "call *%[func]\n\t"
+        "movl %%esi, %%esp\n\t"
         : "=t" (*out_d)
         : [base] "r" (stack_base), [func] "r" (proc)
-        : "eax", "ecx", "edx", "esp", "memory", "cc"
+        : "eax", "ecx", "edx", "esi", "memory", "cc"
       );
       return 1;
     }
