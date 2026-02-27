@@ -91,7 +91,8 @@ jobs:
       with:
         msystem: MINGW32
         install: >-
-          mingw-w64-i686-gcc
+          mingw-w64-i686-clang
+          mingw-w64-i686-binutils
           mingw-w64-i686-cmake
           mingw-w64-i686-make
           mingw-w64-i686-zlib
@@ -100,8 +101,8 @@ jobs:
       shell: msys2 {0}
       run: |
         cmake -B build -G "MinGW Makefiles" \
-          -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
           -DCMAKE_RC_COMPILER=windres \
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_BUILD_TYPE=Release

@@ -345,13 +345,88 @@ push_vaarg (char *stack, lisp vaarg)
   return push_arg (stack, t, Fcadr (vaarg));
 }
 
-#if !defined(_MSC_VER) && !defined(__i386__)
-/* On non-MSVC compilers, _set_se_translator is not available, so
-   catch(Win32Exception&) can't catch SEH exceptions.  Use __try/__except
-   instead (supported by clang with -fms-extensions).
-
+#ifndef _MSC_VER
+/* seh_exception_filter: shared by x86 GCC (MinGW32) and non-x86 non-MSVC.
    __try/__except must be in a separate function because it cannot coexist
    with C++ exception handling or objects with non-trivial destructors.  */
+static LONG WINAPI
+seh_exception_filter (EXCEPTION_POINTERS *ep)
+{
+  Win32Exception::code = ep->ExceptionRecord->ExceptionCode;
+  Win32Exception::r = *ep->ExceptionRecord;
+  Win32Exception::c = *ep->ContextRecord;
+  return EXCEPTION_EXECUTE_HANDLER;
+}
+
+#if defined(__i386__)
+/* x86 (Clang only): __try/__except requires Clang (via -fms-extensions).
+   GCC x86 does not support __try/__except; use mingw-w64-i686-clang instead.
+   The function epilogue restores ESP from EBP, so setting ESP = stack_base
+   inside __try is safe: normal return and __except both unwind via EBP. */
+#ifndef __clang__
+#  error "x86 non-MSVC builds require Clang (mingw-w64-i686-clang). GCC x86 is not supported: __try/__except unavailable."
+#endif
+static __attribute__((noinline)) int
+call_dll_seh_x86_int (FARPROC proc, char *stack_base, int64_t *out_r)
+{
+  __try
+    {
+      __asm__ volatile (
+        "movl %[base], %%esp\n\t"
+        "call *%[func]\n\t"
+        : "=A" (*out_r)
+        : [base] "r" (stack_base), [func] "r" (proc)
+        : "ecx", "memory", "cc"
+      );
+      return 1;
+    }
+  __except (seh_exception_filter (GetExceptionInformation ()))
+    {
+      return 0;
+    }
+}
+
+static __attribute__((noinline)) int
+call_dll_seh_x86_float (FARPROC proc, char *stack_base, float *out_f)
+{
+  __try
+    {
+      __asm__ volatile (
+        "movl %[base], %%esp\n\t"
+        "call *%[func]\n\t"
+        : "=t" (*out_f)
+        : [base] "r" (stack_base), [func] "r" (proc)
+        : "eax", "ecx", "edx", "memory", "cc"
+      );
+      return 1;
+    }
+  __except (seh_exception_filter (GetExceptionInformation ()))
+    {
+      return 0;
+    }
+}
+
+static __attribute__((noinline)) int
+call_dll_seh_x86_double (FARPROC proc, char *stack_base, double *out_d)
+{
+  __try
+    {
+      __asm__ volatile (
+        "movl %[base], %%esp\n\t"
+        "call *%[func]\n\t"
+        : "=t" (*out_d)
+        : [base] "r" (stack_base), [func] "r" (proc)
+        : "eax", "ecx", "edx", "memory", "cc"
+      );
+      return 1;
+    }
+  __except (seh_exception_filter (GetExceptionInformation ()))
+    {
+      return 0;
+    }
+}
+
+#else /* !__i386__: non-x86 non-MSVC (clang ARM64/x64) */
 
 typedef int64_t (*dll_f0)();
 typedef int64_t (*dll_f1)(int64_t);
@@ -372,15 +447,6 @@ typedef int64_t (*dll_f11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
                            int64_t, int64_t, int64_t, int64_t, int64_t);
 typedef int64_t (*dll_f12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
                            int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
-
-static LONG WINAPI
-seh_exception_filter (EXCEPTION_POINTERS *ep)
-{
-  Win32Exception::code = ep->ExceptionRecord->ExceptionCode;
-  Win32Exception::r = *ep->ExceptionRecord;
-  Win32Exception::c = *ep->ContextRecord;
-  return EXCEPTION_EXECUTE_HANDLER;
-}
 
 /* Returns 1 on success, 0 on SEH exception, -1 on invalid arg count. */
 static int
@@ -417,7 +483,8 @@ call_dll_seh (FARPROC proc, int64_t *a, int total, int64_t *result)
       return 0;
     }
 }
-#endif /* !_MSC_VER && !__i386__ */
+#endif /* __i386__ */
+#endif /* !_MSC_VER */
 
 lisp
 funcall_dll (lisp fn, lisp arglist)
@@ -459,82 +526,70 @@ funcall_dll (lisp fn, lisp arglist)
     FEtoo_many_arguments ();
 
   FARPROC proc = xdll_function_proc (fn);
+#if defined(__GNUC__) /* true for both GCC and Clang (compat); x86 requires Clang */
+  /* Clang x86: use call_dll_seh_x86_* helpers which use __try/__except.
+     catch(Win32Exception&) does not work for hardware exceptions without
+     MSVC's SEH-based C++ EH; __try/__except uses Windows frame-based SEH.
+     After proc returns (stdcall: RET N cleans args, cdecl: plain RET),
+     ESP is in a different position, but the function epilogue restores
+     ESP from EBP (required for alloca functions). */
+  {
+    u_char rt = xdll_function_return_type (fn);
+    if (rt == CTYPE_FLOAT)
+      {
+        float fresult;
+        if (call_dll_seh_x86_float (proc, stack_base, &fresult))
+          { save_last_error (); return make_single_float (fresult); }
+      }
+    else if (rt == CTYPE_DOUBLE)
+      {
+        double dresult;
+        if (call_dll_seh_x86_double (proc, stack_base, &dresult))
+          { save_last_error (); return make_double_float (dresult); }
+      }
+    else
+      {
+        /* Integer/pointer/void return: value in EAX (32-bit) or EAX:EDX (64-bit). */
+        int64_t r;
+        if (call_dll_seh_x86_int (proc, stack_base, &r))
+          {
+            save_last_error ();
+            switch (rt)
+              {
+              default:
+                assert (0);
+              case CTYPE_VOID:
+                return Qnil;
+              case CTYPE_INT8:
+                return make_fixnum ((char)r);
+              case CTYPE_UINT8:
+                return make_fixnum ((u_char)r);
+              case CTYPE_INT16:
+                return make_fixnum ((short)r);
+              case CTYPE_UINT16:
+                return make_fixnum ((u_short)r);
+              case CTYPE_INT32:
+                return make_fixnum ((long)r);
+              case CTYPE_UINT32:
+                return make_integer ((int64_t)(u_long)r);
+              case CTYPE_INT64:
+                return make_integer (r);
+              case CTYPE_UINT64:
+                return make_integer ((uint64_t)r);
+              }
+          }
+      }
+    /* SEH exception caught: convert to Lisp win32-exception condition. */
+    EXCEPTION_POINTERS ep;
+    ep.ExceptionRecord = &Win32Exception::r;
+    ep.ContextRecord = &Win32Exception::c;
+    Win32Exception exc (Win32Exception::code, &ep);
+    exc.throw_lisp_error ();
+    return Qnil;
+  }
+#else /* MSVC x86: alloca returns exactly ESP, so the trick works directly */
   try
     {
-#if defined(__GNUC__)
-      /* GCC x86: alloca returns a 16-byte aligned pointer that may not be at ESP.
-         The MSVC alloca trick (fill buffer at alloca ptr, then call proc() with
-         no args so it reads from [ESP+4]) fails because ESP != alloca ptr on GCC.
-         Use inline asm to set ESP = stack_base before calling proc, so proc sees
-         the filled arguments at [ESP+4].
-         After proc returns (stdcall: RET N cleans args, cdecl: plain RET),
-         ESP is in a different position, but funcall_dll's epilogue restores
-         ESP from EBP (required for alloca functions). */
-      u_char rt = xdll_function_return_type (fn);
-      if (rt == CTYPE_FLOAT)
-        {
-          float fresult;
-          __asm__ volatile (
-            "movl %[base], %%esp\n\t"
-            "call *%[func]\n\t"
-            : "=t" (fresult)
-            : [base] "r" (stack_base), [func] "r" (proc)
-            : "eax", "ecx", "edx", "memory", "cc"
-          );
-          save_last_error ();
-          return make_single_float (fresult);
-        }
-      else if (rt == CTYPE_DOUBLE)
-        {
-          double dresult;
-          __asm__ volatile (
-            "movl %[base], %%esp\n\t"
-            "call *%[func]\n\t"
-            : "=t" (dresult)
-            : [base] "r" (stack_base), [func] "r" (proc)
-            : "eax", "ecx", "edx", "memory", "cc"
-          );
-          save_last_error ();
-          return make_double_float (dresult);
-        }
-      else
-        {
-          /* Integer/pointer/void return: value in EAX (32-bit) or EAX:EDX (64-bit).
-             Use "=A" to capture the full EAX:EDX pair as int64_t. */
-          int64_t r;
-          __asm__ volatile (
-            "movl %[base], %%esp\n\t"
-            "call *%[func]\n\t"
-            : "=A" (r)
-            : [base] "r" (stack_base), [func] "r" (proc)
-            : "ecx", "memory", "cc"
-          );
-          save_last_error ();
-          switch (rt)
-            {
-            default:
-              assert (0);
-            case CTYPE_VOID:
-              return Qnil;
-            case CTYPE_INT8:
-              return make_fixnum ((char)r);
-            case CTYPE_UINT8:
-              return make_fixnum ((u_char)r);
-            case CTYPE_INT16:
-              return make_fixnum ((short)r);
-            case CTYPE_UINT16:
-              return make_fixnum ((u_short)r);
-            case CTYPE_INT32:
-              return make_fixnum ((long)r);
-            case CTYPE_UINT32:
-              return make_integer ((int64_t)(u_long)r);
-            case CTYPE_INT64:
-              return make_integer (r);
-            case CTYPE_UINT64:
-              return make_integer ((uint64_t)r);
-            }
-        }
-#else /* MSVC: alloca returns exactly ESP, so the trick works directly */
       switch (xdll_function_return_type (fn))
         {
         default:
@@ -574,13 +629,13 @@ funcall_dll (lisp fn, lisp arglist)
         case CTYPE_DOUBLE:
           return make_double_float (call_proc <double> (proc));
         }
-#endif
     }
   catch (Win32Exception &e)
     {
       e.throw_lisp_error ();
       throw;
     }
+#endif /* __GNUC__ */
 #else
   /* Non-x86: use function pointer casts.
      The compiler handles calling conventions (ARM64/x64 use register-based ABIs).
