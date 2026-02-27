@@ -1020,6 +1020,9 @@ init_c_callable (lisp cc)
       insn[0xb] = 0xcc;
       insn[0xc] = 0xcc;
     }
+  /* Flush instruction cache: no-op on native x86/x64, but required on
+     ARM64 Windows emulating x86 so the JIT picks up the new thunk bytes. */
+  FlushInstructionCache (GetCurrentProcess (), insn, INSN_SIZE);
 }
 #elif defined(_M_ARM64) || defined(__aarch64__)
 
