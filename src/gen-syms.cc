@@ -1000,6 +1000,7 @@ static symbols sys[] =
   SI_DEFUN3 (delete-registry-tree, 0, 0, 0),
   SI_DEFUN3 (performance-counter, 0, 0, 0),
   SI_DEFUN3 (dump-image-path, 0, 0, 0),
+  SI_DEFUN3 (system-path, 0, 0, 0),
   DEFCONST2Q (*performance-counter-frequency*),
 
   /* chunk.cc */
@@ -1744,6 +1745,7 @@ static symbols unint[] =
   MAKE_SYMBOL2 (last-status-bar-format),
 
   MAKE_SYMBOL2Q (dump-image-path),
+  MAKE_SYMBOL2Q (system-path),
   MAKE_SYMBOL2 (last-match-string),
 
   MAKE_SYMBOL2 (popup-list-callback),

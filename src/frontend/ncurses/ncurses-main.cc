@@ -462,7 +462,7 @@ init_symbol_value ()
 }
 
 static void
-init_env_symbols ()
+init_env_symbols (const char *argv0)
 {
   // Add :ncurses to *features* for #-ncurses / #+ncurses reader conditionals
   lisp Kncurses = Fintern (make_string ("ncurses"),
@@ -471,6 +471,7 @@ init_env_symbols ()
                                 xcons (Kxyzzy,
                                   xcons (Kieee_floating_point, Qnil)));
   xsymbol_value (Qdump_image_path) = Qnil;
+  xsymbol_value (Qsystem_path) = make_string (argv0);
   init_module_dir ();
   init_current_dir ();
   init_environ ();
@@ -802,7 +803,7 @@ int main (int argc, char **argv)
       init_symbol_value_once ();
       init_condition ();
       init_syntax_spec ();
-      init_env_symbols ();
+      init_env_symbols (argv[0]);
       create_std_streams ();
       init_symbol_value ();
 

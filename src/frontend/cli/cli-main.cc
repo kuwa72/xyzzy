@@ -80,6 +80,7 @@ int main (int argc, char **argv)
       create_std_streams ();
       // Seed *features* before init_environ() which cons's OS/arch features on top
       xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
+      xsymbol_value (Qsystem_path) = make_string (argv[0]);
       init_environ ();
 
       // CLI: use terminal-io (stdin/stdout file stream) for standard I/O

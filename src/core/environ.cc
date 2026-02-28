@@ -1030,3 +1030,9 @@ Fsi_dump_image_path ()
 {
   return xsymbol_value (Qdump_image_path);
 }
+
+lisp
+Fsi_system_path ()
+{
+  return xsymbol_value (Qsystem_path);
+}

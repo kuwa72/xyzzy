@@ -99,6 +99,7 @@ init_module_dir ()
   GetModuleFileNameW (0, wpath, PATH_MAX);
   char path[PATH_MAX];
   WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
+  xsymbol_value (Qsystem_path) = make_string (path);
   char *p = jrindex (path, '\\');
   if (p)
     p[1] = 0;
