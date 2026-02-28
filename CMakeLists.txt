@@ -656,6 +656,14 @@ if(NOT WIN32)
             pthread
         )
         install(TARGETS xyzzy-ncurses RUNTIME DESTINATION bin)
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp
+            FILES_MATCHING PATTERN "*.l" PATTERN "*.lc"
+            PATTERN "wip" EXCLUDE)   # Win32-specific DLL wrappers
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION etc
+            PATTERN "*.bmp" EXCLUDE) # Win32 toolbar bitmaps
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION docs)
+        install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION .)
+        install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
     else()
         message(STATUS "ncursesw not found - skipping xyzzy-ncurses target")
     endif()

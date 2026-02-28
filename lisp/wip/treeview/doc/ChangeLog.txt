@@ -1,0 +1,254 @@
+2006-11-03  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20061103.zip 公開
+
+	* 修正: get-item.l
+        - treeview-get-up-item 関数を修正。
+	  連鎖して treeview-scan-treeview, treeview-isearch-forward,
+	  treeview-isearch-backward などでの逆検索が正常動作に。
+
+2006-10-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20061021.zip 公開 (0.0.1.8)
+
+2006-10-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: sort.l
+	- ソート時(treeview-sort-children-cb-lparam-ascending)に
+	  横スクロールが発生しないように。
+
+	* 修正: winapi.l
+	- export している関数名が誤っていたのを修正。
+	  GetWindowStyle → GetWindowExStyle
+
+2006-03-30  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20060330.zip 公開 (0.0.1.7)
+
+2006-03-28  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: dialog.l
+	- 一部表示が欠けていたのを修正。
+
+2006-01-16  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20060116.zip 公開 (0.0.1.6)
+
+	* 更新: doc/00readme.txt
+
+	* 更新: dialog.l
+	- 文字色 (treeview-data-get 'treeview::color-text)、
+	  背景色 (treeview-data-get 'treeview::color-bk) が適切に記録されて
+	  おらず、かつ、TreeView が起動していない場合に
+	  (treeview-std-dialog) を実行するとエラーになるのを修正。
+
+2005-12-28  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051228.zip 公開 (0.0.1.5)
+
+	* 更新: base.l
+	- *treeview-id* が nil の場合(対象となる TreeView が存在しない場合)
+	  でもエラーを返さないように以下の関数を変更。
+	    treeview-setpos, treeview-get-hwnd, treeview-get-htree
+	  方針統一のために他の関数も同様の修正をする必要があるが、現在は上
+	  記関数のみ更新。
+
+2005-12-14  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051214.zip 公開 (0.0.1.4)
+
+	* 更新: unicode.l
+	- treeview-get-item-text で最後の一文字が欠けるのを修正。
+
+	* 更新: winapi.l
+	- TVHT_ONITEMSTATEICON を定義前に参照していた部分を修正。
+
+2005-12-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051213.zip 公開 (0.0.1.3)
+
+	* 更新: unicode.l
+	- unicode 版の記述を追加。
+	  treeview-get-item, treeview-get-item-state, treeview-get-item-text,
+	  treeview-get-item-data, treeview-set-item, treeview-set-item-state,
+	  treeview-set-item-text, treeview-set-item-data
+
+	* 更新: winapi.l
+	- unicode 用構造体定義の追加
+
+2005-12-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051212.zip 公開 (0.0.1.2)
+
+	* 新規: unicode.l
+	- unicode 文字対応用ファイル。試作段階。
+	  treeview-insert-item のみ unicode 版を記述。
+
+	* 更新: winapi.l
+	- unicode 用構造体定義の追加
+
+2005-12-11  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051211.zip 公開 (0.0.1.1)
+
+	* 更新: defs.l
+        - *treeview-dll-load-path* に $XYZZY/site-lisp/treeview を追加。
+
+2005-11-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20051113.zip 公開 (0.0.1.0)
+
+2005-11-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: doc/00readme.txt
+	- ライセンス条項(修正BSDライセンス)を記載。
+
+	* 更新: 全ファイル
+        - メールアドレスの記述を変更。
+          konata_o@hotmail.com を ohkubo@s53.xrea.com に置換。
+
+	* 更新: 全ファイル
+        - 更新履歴を doc/ChangeLog.txt に統合。
+
+	* 更新: makefile.l
+	- 各種 treeview-make-* 関数実行の前後で (default-directory) の値を
+	  維持するように。
+
+	* 更新: defs.l
+	- *treeview-version* を "0.0.1.0" に。
+
+2005-11-09  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: base.l dialog.l frame-work.l setfont.l
+	- font-weight-manual-p, font-weight での指定を止め、
+	  font-bold のみの指定とするように変更
+
+	* 更新: dialog.l
+        - 文言修正。
+
+2005-11-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: winapi.l
+	- 書き直し。
+
+2005-05-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: treeview-20050517.zip 公開 (0.0.0.1)
+
+	* 更新: 00readme.txt
+	- TreeView.dll ver. 1.03 以降が必要なことを明記。
+
+2005-05-08  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: ベータ版 (treeview-20050508.zip) 公開 (0.0.0.1)
+
+2005-03-29  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: dialog.l
+	- xyzzy 0.2.2.234 対応
+          ・半角カナを全角カナに。
+          ・ダイアログのフォントを "MS UI Gothic" に。
+
+2005-03-02  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: setup.l
+
+	* 更新: frame-work.l
+
+2005-02-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: frame-work.l
+	- treeview-app-bar-del-item treeview-app-bar-add-item
+	  ・'treeview-app-bar が存在しない場合は何もしないように。
+
+2004-10-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: utils.l
+
+2004-10-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: search.l
+
+	* 更新: get-item.l
+
+2004-10-05  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: defs.l
+
+2004-10-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: macro.l
+
+	* 更新: dll.l
+
+2004-09-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: base.l
+
+2004-09-16  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: makefile.l
+
+	* 新規: frame-work.l
+
+	* 新規: setup.l
+
+	* 新規: sort.l
+
+	* 新規: dll.l
+
+	* 新規: winapi.l
+
+2004-09-11  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: macro.l
+
+2004-09-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: dialog.l
+	- ダイアログ作成部分のコード。
+
+2004-09-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: get-item.l
+
+2004-08-31  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: isearch.l
+	- TreeView 上で isearch をするためのコード。
+
+	* 更新: virtual-keys.l
+
+	* 更新: setfont.l
+
+2004-08-19  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: defs.l
+	- user package で各種関数を定義していたが、treeview package に入れ
+	  るように。
+
+2004-06-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: setfont.l
+	- 複数 treeview 対応。
+	- treeview-font-all-del 追加。
+
+	* INFO: treeview ライブラリ作成開始
+	- outline-tree の一部であった TreeView.dll を操作するコード部分を、
+	  treeview ライブラリとして分離。
+	  複数の TreeView に適用可能なライブラリとして作成開始。
+
+2004-06-11  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: search.l
+	- outline-tree の treeview.l を整理し分離。
+
+2004-05-14  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: search-ext.l
+	- outline-tree の treeview.l を整理し分離。
+
+2003-08-29  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: virtual-keys.l
+	- outline-tree の一部として作成。
