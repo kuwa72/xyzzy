@@ -25,6 +25,16 @@ jobs:
     - name: List artifacts
       run: find artifacts -type f | sort
 
+    - name: Rename artifacts with architecture suffix
+      run: |
+        for dir in arm64 amd64 x86-msvc; do
+          for f in artifacts/xyzzy-${dir}/*.zip; do
+            base=$(basename "$f" .zip)
+            mv "$f" "artifacts/xyzzy-${dir}/${base}-${dir}.zip"
+          done
+        done
+        find artifacts -name '*.zip' | sort
+
     - name: Create GitHub Release
       env:
         GH_TOKEN: ${{ github.token }}
