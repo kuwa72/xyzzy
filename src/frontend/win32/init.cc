@@ -76,6 +76,13 @@ Application::~Application ()
 static void
 init_module_dir ()
 {
+  // Always set system-path from the actual executable, regardless of XYZZYHOME
+  wchar_t wpath[PATH_MAX];
+  GetModuleFileNameW (0, wpath, PATH_MAX);
+  char exepath[PATH_MAX];
+  WideCharToMultiByte (932, 0, wpath, -1, exepath, sizeof exepath, 0, 0);
+  xsymbol_value (Qsystem_path) = make_string (exepath);
+
   // Check XYZZYHOME first — allows out-of-tree builds (exe in build/, lisp in source/)
   char *xyzzyhome = getenv ("XYZZYHOME");
   if (xyzzyhome && *xyzzyhome)
@@ -95,15 +102,10 @@ init_module_dir ()
         }
     }
 
-  wchar_t wpath[PATH_MAX];
-  GetModuleFileNameW (0, wpath, PATH_MAX);
-  char path[PATH_MAX];
-  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
-  xsymbol_value (Qsystem_path) = make_string (path);
-  char *p = jrindex (path, '\\');
+  char *p = jrindex (exepath, '\\');
   if (p)
     p[1] = 0;
-  xsymbol_value (Qmodule_dir) = make_path (path);
+  xsymbol_value (Qmodule_dir) = make_path (exepath);
 }
 
 static inline void
