@@ -496,6 +496,11 @@ create_ncurses_windows ()
   wp->lwp = make_window ();
   xwindow_wp (wp->lwp) = wp;
   wp->w_disp_flags = Window::WDF_WINDOW | Window::WDF_MODELINE;
+  // Initialize w_order for 2D grid layout
+  wp->w_order.left = 0;
+  wp->w_order.top = 0;
+  wp->w_order.right = 1;
+  wp->w_order.bottom = 1;
 
   // Create minibuffer window
   Window *mwp = new Window (1, 1);

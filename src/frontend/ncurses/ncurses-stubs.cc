@@ -1539,11 +1539,15 @@ output_glyph (int row, int col, glyph_t g)
 }
 
 // Render one glyph_data row to ncurses screen row.
+// col_offset: starting column on screen (0 for full-width windows).
+// cols: number of columns available for this window's text.
 static void
-render_glyph_row (int row, int cols, const glyph_data *gd)
+render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
 {
-  move (row, 0);
-  clrtoeol ();
+  // Clear this window's area on the row
+  move (row, col_offset);
+  for (int i = 0; i < cols; i++)
+    addch (' ');
 
   if (!gd || gd->gd_len <= 0)
     return;
@@ -1599,13 +1603,13 @@ render_glyph_row (int row, int cols, const glyph_data *gd)
               cchar_t cch;
               wchar_t ws[2] = {(wchar_t)wc, 0};
               setcchar (&cch, ws, attrs, (short)color_pair, NULL);
-              mvadd_wch (row, x, &cch);
+              mvadd_wch (row, col_offset + x, &cch);
               int w = wcwidth ((wchar_t)wc);
               x += (w > 0) ? w : 1;
             }
           else
             {
-              mvaddch (row, x, '?' | attrs);
+              mvaddch (row, col_offset + x, '?' | attrs);
               x++;
             }
           i++;  // skip trail
@@ -1623,15 +1627,16 @@ render_glyph_row (int row, int cols, const glyph_data *gd)
       else
         {
           // Normal single-byte glyph
-          int w = output_glyph (row, x, gt);
+          int w = output_glyph (row, col_offset + x, gt);
           x += (w > 0) ? w : 1;
         }
     }
 }
 
-// Draw modeline for a given window on a given screen row
+// Draw modeline for a given window on a given screen row.
+// col_offset: starting column on screen. cols: modeline width.
 static void
-draw_modeline (Window *wp, int row, int cols)
+draw_modeline (Window *wp, int row, int col_offset, int cols)
 {
   if (cols <= 0)
     return;
@@ -1643,8 +1648,10 @@ draw_modeline (Window *wp, int row, int cols)
   int maxw = (cols < 255) ? cols : 255;
 
   attron (A_REVERSE);
-  move (row, 0);
-  clrtoeol ();
+  // Clear modeline area
+  move (row, col_offset);
+  for (int i = 0; i < cols; i++)
+    addch (' ');
   if (stringp (bp->lbuffer_name))
     {
       const Char *name = xstring_contents (bp->lbuffer_name);
@@ -1673,12 +1680,12 @@ draw_modeline (Window *wp, int row, int cols)
       while (wi < maxw)
         wbuf[wi++] = L'-';
       wbuf[wi] = 0;
-      mvaddnwstr (row, 0, wbuf, wi);
+      mvaddnwstr (row, col_offset, wbuf, wi);
     }
   else
     {
       for (int i = 0; i < maxw; i++)
-        mvaddch (row, i, '-');
+        mvaddch (row, col_offset + i, '-');
     }
   attroff (A_REVERSE);
 }
@@ -2058,20 +2065,27 @@ init_ncurses_colors ()
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
 
-// Render one editing window: fill glyphs, render to screen, draw modeline
+// Render one editing window: fill glyphs, render to screen, draw modeline.
+// total_cols: terminal width (for separator detection).
 static void
-render_window (Window *wp, int cols)
+render_window (Window *wp, int total_cols)
 {
   Buffer *bp = wp->w_bufp;
   if (!bp)
     return;
+
+  int col_offset = wp->w_rect.left;
+  int win_cols = wp->w_rect.right - wp->w_rect.left;
+  int has_separator = (wp->w_rect.right < total_cols) ? 1 : 0;
+  int text_cols = win_cols - has_separator;
+  if (text_cols < 1) text_cols = 1;
 
   int win_top = wp->w_rect.top;
   int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;  // -1 for modeline
   if (text_rows < 1)
     text_rows = 1;
 
-  ncurses_calc_client_size (wp, cols, text_rows);
+  ncurses_calc_client_size (wp, text_cols, text_rows);
   ncurses_reframe (wp);
 
   if (wp->w_glyphs.g_rep)
@@ -2094,13 +2108,14 @@ render_window (Window *wp, int cols)
 
       glyph_data **ng = wp->w_glyphs.g_rep->gr_nglyph;
       for (int y = 0; y < text_rows && y < wp->w_ch_max.cy; y++)
-        render_glyph_row (win_top + y, cols, ng[y]);
+        render_glyph_row (win_top + y, col_offset, text_cols, ng[y]);
 
       for (int y = wp->w_ch_max.cy; y < text_rows; y++)
         {
-          move (win_top + y, 0);
-          clrtoeol ();
-          mvaddch (win_top + y, 0, '~');
+          move (win_top + y, col_offset);
+          for (int i = 0; i < text_cols; i++)
+            addch (' ');
+          mvaddch (win_top + y, col_offset, '~');
         }
 
       glyph_data **tmp = wp->w_glyphs.g_rep->gr_oglyph;
@@ -2109,7 +2124,15 @@ render_window (Window *wp, int cols)
     }
 
   // Draw modeline at bottom of this window's area
-  draw_modeline (wp, wp->w_rect.bottom - 1, cols);
+  draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
+
+  // Draw vertical separator if this window is not at right edge
+  if (has_separator)
+    {
+      int sep_col = wp->w_rect.right - 1;
+      for (int y = wp->w_rect.top; y < wp->w_rect.bottom; y++)
+        mvaddch (y, sep_col, ACS_VLINE);
+    }
 }
 
 void
@@ -2212,9 +2235,10 @@ refresh_screen (int)
           int cy, cx;
           glyph_point_to_screen (sel, &cy, &cx);
           int win_top = sel->w_rect.top;
+          int col_offset = sel->w_rect.left;
           int text_rows = sel->w_rect.bottom - sel->w_rect.top - 1;
           if (cy < text_rows)
-            move (win_top + cy, cx);
+            move (win_top + cy, col_offset + cx);
         }
     }
 
@@ -2282,8 +2306,56 @@ Window::close ()
   app.active_frame.deleted = this;
 }
 
+// Proportionally redistribute sizes when the total changes.
+// o[] has n+1 entries (boundary positions), old_size -> new_size.
+static void
+ncurses_compute_size (int *o, int n, int old_size, int new_size)
+{
+  if (old_size < 0) old_size = 0;
+  if (new_size < 0) new_size = 0;
+  int *const w = (int *)alloca (sizeof *w * n);
+  int i;
+  for (i = 0; i < n; i++)
+    w[i] = o[i + 1] - o[i];
+  int diff_size = new_size - old_size;
+  if (!old_size)
+    {
+      int d = diff_size / n;
+      for (i = 0; i < n; i++)
+        w[i] += d;
+    }
+  else
+    for (i = 0; i < n; i++)
+      w[i] += w[i] * diff_size / old_size;
+
+  int sum = 0;
+  for (i = 0; i < n; i++)
+    {
+      if (w[i] < 0) w[i] = 0;
+      sum += w[i];
+    }
+
+  int d = new_size - sum;
+  if (d > 0)
+    for (; d > 0; d--)
+      w[(new_size + d) % n]++;
+  else
+    for (d = -d; d > 0; d--)
+      w[(new_size + d) % n]--;
+
+  for (o[0] = 0, i = 1; i <= n; i++)
+    {
+      o[i] = o[i - 1] + w[i - 1];
+      if (o[i] < o[i - 1])
+        o[i] = o[i - 1];
+    }
+  for (o[n] = new_size, i = n - 1; i > 0; i--)
+    if (o[i] > o[i + 1])
+      o[i] = o[i + 1];
+}
+
 // Recompute w_rect for all windows based on terminal size.
-// ncurses version: character grid coordinates, horizontal split only.
+// ncurses version: 2D grid layout using w_order, character cell coordinates.
 // Parameters are ignored (Win32 compat signature with defaults in Window.h).
 void
 Window::compute_geometry (const SIZE &, int)
@@ -2301,47 +2373,60 @@ Window::compute_geometry (const SIZE &, int)
   if (!mini)
     return;
 
-  // Count non-minibuffer windows
-  int nwin = 0;
-  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
-    nwin++;
-
-  if (nwin == 0)
-    return;
-
-  // Layout: last row = minibuffer/echo area
-  // Remaining rows divided among windows, each with 1 modeline row
-  int avail = rows - 1;  // subtract minibuffer row
-  int per_win = avail / nwin;
-  int remainder = avail - per_win * nwin;
-
-  int top = 0;
-  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
-    {
-      int h = per_win;
-      if (remainder > 0)
-        {
-          h++;
-          remainder--;
-        }
-      wp->w_rect.left = 0;
-      wp->w_rect.right = cols;
-      wp->w_rect.top = top;
-      wp->w_rect.bottom = top + h;
-      top += h;
-
-      // text rows = total height - 1 (modeline)
-      int text_rows = h - 1;
-      if (text_rows < 1)
-        text_rows = 1;
-      ncurses_calc_client_size (wp, cols, text_rows);
-    }
-
   // Minibuffer gets the last row
   mini->w_rect.left = 0;
   mini->w_rect.right = cols;
   mini->w_rect.top = rows - 1;
   mini->w_rect.bottom = rows;
+
+  // Collect max grid dimensions from w_order
+  long nx = 0, ny = 0;
+  long ow = 0, oh = 0;
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      nx = max (nx, (long)wp->w_order.right);
+      ny = max (ny, (long)wp->w_order.bottom);
+      ow = max (ow, (long)wp->w_rect.right);
+      oh = max (oh, (long)wp->w_rect.bottom);
+    }
+
+  if (nx == 0 || ny == 0)
+    return;
+
+  // Build boundary arrays from current w_rect positions
+  int *const ox = (int *)alloca (sizeof *ox * (nx + 1));
+  int *const oy = (int *)alloca (sizeof *oy * (ny + 1));
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      ox[wp->w_order.left] = wp->w_rect.left;
+      oy[wp->w_order.top] = wp->w_rect.top;
+      ox[wp->w_order.right] = wp->w_rect.right;
+      oy[wp->w_order.bottom] = wp->w_rect.bottom;
+    }
+
+  // Proportionally redistribute to new terminal size
+  int avail_rows = rows - 1;  // subtract minibuffer row
+  ncurses_compute_size (ox, nx, ow, cols);
+  ncurses_compute_size (oy, ny, oh, avail_rows);
+
+  // Apply new positions from grid
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      wp->w_rect.left = ox[wp->w_order.left];
+      wp->w_rect.top = oy[wp->w_order.top];
+      wp->w_rect.right = ox[wp->w_order.right];
+      wp->w_rect.bottom = oy[wp->w_order.bottom];
+
+      // Compute text area: subtract 1 row for modeline,
+      // subtract 1 col for vertical separator if not at right edge
+      int win_cols = wp->w_rect.right - wp->w_rect.left;
+      if (wp->w_rect.right < cols)
+        win_cols--;  // vertical separator
+      int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;
+      if (text_rows < 1) text_rows = 1;
+      if (win_cols < 1) win_cols = 1;
+      ncurses_calc_client_size (wp, win_cols, text_rows);
+    }
 }
 
 void
@@ -2350,13 +2435,66 @@ Window::split (int nlines, int verticalp)
   if (minibuffer_window_p ())
     FEsimple_error (Ecannot_split_minibuffer_window);
 
-  if (verticalp)
-    FEsimple_error (Ecannot_split);  // vertical split not supported yet
+  int h0, h1;
+  int current;
 
-  // Check minimum size: each resulting window needs at least 1 text row + 1 modeline
-  int cur_height = w_rect.bottom - w_rect.top;
-  if (cur_height < 4)  // need at least 2+2 rows for two windows
-    FEsimple_error (Ecannot_split);
+  if (!verticalp)
+    {
+      // Horizontal split (C-x 2): split rows
+      int cur_height = w_rect.bottom - w_rect.top;
+      if (cur_height < 4)
+        FEsimple_error (Ecannot_split);
+
+      if (!nlines)
+        {
+          h0 = w_ech.cy / 2;
+          h1 = w_ech.cy - h0 - 1;
+          current = w_linenum - w_last_top_linenum < h0 ? 0 : 1;
+        }
+      else if (nlines > 0)
+        {
+          h0 = nlines;
+          h1 = w_ech.cy - h0 - 1;
+          current = 0;
+        }
+      else
+        {
+          h1 = -nlines;
+          h0 = w_ech.cy - h1 - 1;
+          current = 1;
+        }
+
+      if (h0 < 1 || h1 < 1)
+        FEsimple_error (Ecannot_split);
+    }
+  else
+    {
+      // Vertical split (C-x 3): split columns
+      // Need at least 10+10 columns (WINDOW_WIDTH_MIN from Win32)
+#define WINDOW_WIDTH_MIN 10
+      if (!nlines)
+        {
+          h0 = w_ech.cx / 2;
+          h1 = w_ech.cx - h0 - 1;
+          current = w_column - w_top_column < h0 ? 0 : 1;
+        }
+      else if (nlines > 0)
+        {
+          h0 = nlines;
+          h1 = w_ech.cx - h0 - 1;
+          current = 0;
+        }
+      else
+        {
+          h1 = -nlines;
+          h0 = w_ech.cx - h1 - 1;
+          current = 1;
+        }
+
+      if (h0 < WINDOW_WIDTH_MIN || h1 < WINDOW_WIDTH_MIN)
+        FEsimple_error (Ecannot_split);
+#undef WINDOW_WIDTH_MIN
+    }
 
   // Create new window as copy
   Window *wp = new Window (*this);
@@ -2368,30 +2506,88 @@ Window::split (int nlines, int verticalp)
   wp->w_prev = this;
   w_next = wp;
 
-  // Determine which window gets the cursor
-  int h0, h1;
-  int current;
-  if (!nlines)
+  Window *mini = minibuffer_window ();
+
+  if (!verticalp)
     {
-      h0 = w_ech.cy / 2;
-      h1 = w_ech.cy - h0 - 1;
-      current = w_linenum - w_last_top_linenum < h0 ? 0 : 1;
-    }
-  else if (nlines > 0)
-    {
-      h0 = nlines;
-      h1 = w_ech.cy - h0 - 1;
-      current = 0;
+      // Horizontal split: divide rows
+      wp->w_rect = w_rect;
+      wp->w_order = w_order;
+
+      int split_row = w_rect.top + (w_rect.bottom - w_rect.top) / 2;
+      w_rect.bottom = split_row;
+      wp->w_rect.top = split_row;
+
+      // Update w_order: insert a new row boundary
+      Window *w;
+      for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+        if (w != wp && w->w_rect.top == wp->w_rect.top)
+          {
+            w_order.bottom = w->w_order.top;
+            wp->w_order.top = w->w_order.top;
+            break;
+          }
+
+      if (!w || w == mini)
+        {
+          int y = 0, o = 0;
+          for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+            if (w->w_rect.top < wp->w_rect.top && w->w_rect.top > y)
+              {
+                y = w->w_rect.top;
+                o = w->w_order.top;
+              }
+          w_order.bottom = o + 1;
+          wp->w_order.top = o + 1;
+          for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+            {
+              if (w != wp && w->w_order.top > o)
+                w->w_order.top++;
+              if (w != this && w->w_order.bottom > o)
+                w->w_order.bottom++;
+            }
+        }
     }
   else
     {
-      h1 = -nlines;
-      h0 = w_ech.cy - h1 - 1;
-      current = 1;
-    }
+      // Vertical split: divide columns
+      wp->w_rect = w_rect;
+      wp->w_order = w_order;
 
-  if (h0 < 1 || h1 < 1)
-    FEsimple_error (Ecannot_split);
+      int split_col = w_rect.left + (w_rect.right - w_rect.left) / 2;
+      w_rect.right = split_col;
+      wp->w_rect.left = split_col;
+
+      // Update w_order: insert a new column boundary
+      Window *w;
+      for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+        if (w != wp && w->w_rect.left == wp->w_rect.left)
+          {
+            w_order.right = w->w_order.left;
+            wp->w_order.left = w->w_order.left;
+            break;
+          }
+
+      if (!w || w == mini)
+        {
+          int x = 0, o = 0;
+          for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+            if (w->w_rect.left < wp->w_rect.left && w->w_rect.left > x)
+              {
+                x = w->w_rect.left;
+                o = w->w_order.left;
+              }
+          w_order.right = o + 1;
+          wp->w_order.left = o + 1;
+          for (w = app.active_frame.windows; w && w != mini; w = w->w_next)
+            {
+              if (w != wp && w->w_order.left > o)
+                w->w_order.left++;
+              if (w != this && w->w_order.right > o)
+                w->w_order.right++;
+            }
+        }
+    }
 
   if (current)
     wp->set_window ();
@@ -2429,6 +2625,12 @@ Window::delete_other_windows ()
   mini->w_prev = this;
   mini->w_next = 0;
 
+  // Reset to single-window grid
+  w_order.left = 0;
+  w_order.top = 0;
+  w_order.right = 1;
+  w_order.bottom = 1;
+
   compute_geometry ();
 }
 
@@ -2443,27 +2645,57 @@ Window::delete_window ()
   if (!w_prev && w_next == mini)
     FEsimple_error (Eonly_one_window);
 
+  // Find a neighbor to absorb this window's space.
+  // Try to find a window that shares an edge and can expand.
+  Window *can = 0;
+
+  // Prefer the previous window (above or left)
+  if (w_prev && w_prev != mini)
+    can = w_prev;
+  else if (w_next && w_next != mini)
+    can = w_next;
+
+  if (can)
+    {
+      // Expand the candidate's w_order to cover this window's grid cells
+      if (can->w_order.top == w_order.top && can->w_order.bottom == w_order.bottom)
+        {
+          // Same row span — horizontal neighbor, absorb columns
+          if (can->w_order.right == w_order.left)
+            can->w_order.right = w_order.right;
+          else if (can->w_order.left == w_order.right)
+            can->w_order.left = w_order.left;
+        }
+      else if (can->w_order.left == w_order.left && can->w_order.right == w_order.right)
+        {
+          // Same column span — vertical neighbor, absorb rows
+          if (can->w_order.bottom == w_order.top)
+            can->w_order.bottom = w_order.bottom;
+          else if (can->w_order.top == w_order.bottom)
+            can->w_order.top = w_order.top;
+        }
+    }
+
   // Unlink from chain
   if (!w_prev)
     {
       // First window: next becomes head
-      Window *can = w_next;
-      can->w_prev = 0;
-      app.active_frame.windows = can;
+      Window *next = w_next;
+      next->w_prev = 0;
+      app.active_frame.windows = next;
       save_buffer_params ();
       close ();
-      can->set_window ();
+      if (can) can->set_window ();
+      else next->set_window ();
     }
   else
     {
-      // Middle or last non-mini window
-      Window *can = w_prev;
-      can->w_next = w_next;
+      w_prev->w_next = w_next;
       if (w_next)
-        w_next->w_prev = can;
+        w_next->w_prev = w_prev;
       save_buffer_params ();
       close ();
-      can->set_window ();
+      if (can) can->set_window ();
     }
 
   compute_geometry ();
@@ -2768,7 +3000,88 @@ Fdelete_other_windows ()
   return Qt;
 }
 
-lisp Fenlarge_window (lisp, lisp) { return Qnil; }
+lisp
+Fenlarge_window (lisp nlines, lisp side)
+{
+  int n = (!nlines || nlines == Qnil) ? 1 : fixnum_value (nlines);
+  int vert = side && side != Qnil;
+  Window *wp = selected_window ();
+  Window *mini = Window::minibuffer_window ();
+
+  if (!n)
+    return Qt;
+
+  if (!vert)
+    {
+      // Horizontal resize: change height
+      // Find neighbor above or below
+      Window *neighbor = 0;
+      for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
+        if (w != wp && w->w_rect.top == wp->w_rect.bottom
+            && w->w_rect.left < wp->w_rect.right
+            && w->w_rect.right > wp->w_rect.left)
+          { neighbor = w; break; }
+      if (!neighbor)
+        for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
+          if (w != wp && w->w_rect.bottom == wp->w_rect.top
+              && w->w_rect.left < wp->w_rect.right
+              && w->w_rect.right > wp->w_rect.left)
+            { neighbor = w; break; }
+      if (!neighbor)
+        FEsimple_error (Ecannot_change_window_size);
+
+      int nh = neighbor->w_rect.bottom - neighbor->w_rect.top - 1 - n;
+      if (nh < 2)
+        FEsimple_error (Ecannot_change_window_size);
+
+      if (neighbor->w_rect.top == wp->w_rect.bottom)
+        {
+          wp->w_rect.bottom += n;
+          neighbor->w_rect.top += n;
+        }
+      else
+        {
+          wp->w_rect.top -= n;
+          neighbor->w_rect.bottom -= n;
+        }
+    }
+  else
+    {
+      // Vertical resize: change width
+      Window *neighbor = 0;
+      for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
+        if (w != wp && w->w_rect.left == wp->w_rect.right
+            && w->w_rect.top < wp->w_rect.bottom
+            && w->w_rect.bottom > wp->w_rect.top)
+          { neighbor = w; break; }
+      if (!neighbor)
+        for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
+          if (w != wp && w->w_rect.right == wp->w_rect.left
+              && w->w_rect.top < wp->w_rect.bottom
+              && w->w_rect.bottom > wp->w_rect.top)
+            { neighbor = w; break; }
+      if (!neighbor)
+        FEsimple_error (Ecannot_change_window_size);
+
+      int nw = neighbor->w_rect.right - neighbor->w_rect.left - n;
+      if (nw < 5)
+        FEsimple_error (Ecannot_change_window_size);
+
+      if (neighbor->w_rect.left == wp->w_rect.right)
+        {
+          wp->w_rect.right += n;
+          neighbor->w_rect.left += n;
+        }
+      else
+        {
+          wp->w_rect.left -= n;
+          neighbor->w_rect.right -= n;
+        }
+    }
+
+  Window::compute_geometry ();
+  return Qt;
+}
 
 lisp
 Fnext_window (lisp window, lisp minibufp)
