@@ -5,6 +5,7 @@ on:
     branches: [ modern, develop ]
   pull_request:
     branches: [ modern, develop ]
+  workflow_call:
 
 jobs:
   build:
