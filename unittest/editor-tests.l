@@ -835,7 +835,7 @@
 (deftest kill-xyzzy-exit-code ()
   (flet ((run-xyzzy-and-kill (&optional (exit-code nil sp))
            (call-process (format nil "~A -e \"(kill-xyzzy ~A)\""
-                                 (merge-pathnames "xyzzy.exe" (si:system-root))
+                                 (si:system-path)
                                  (if sp exit-code ""))
                          :show :minimize
                          :wait t)))
@@ -1274,7 +1274,7 @@
 
 (deftest process-command-line--kill ()
   (call-process (format nil "~A -kill -e \"(kill-xyzzy nil)\""
-                        (merge-pathnames "xyzzy.exe" (si:system-root)))
+                        (si:system-path))
                 :show :minimize
                 :wait t)
   => 0)

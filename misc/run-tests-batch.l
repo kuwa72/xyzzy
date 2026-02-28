@@ -80,6 +80,31 @@
                              args)
                       nil))
 
+            ;; Override eval-in-another-xyzzy subprocess to use the
+            ;; current executable (si:system-path) instead of hardcoded
+            ;; "xyzzy.exe".  This allows subprocess tests to work under
+            ;; xyzzy-batch.exe in CI.
+            (setf (symbol-function 'eval-in-another-xyzzy--make-command-string)
+                  #'(lambda (form options result-filename)
+                      (let ((out (gensym "tmpfile-stream-")))
+                        (format nil "~A ~A -e ~S"
+                                (si:system-path)
+                                options
+                                (let ((*print-circle* t))
+                                  (prin1-to-string
+                                   `(progn
+                                      (with-open-file (,out ,result-filename
+                                                       :direction :output
+                                                       :if-does-not-exist :create)
+                                        (handler-case
+                                            (let ((values (multiple-value-list ,form)))
+                                              (format ,out ":return~%~{~S~%~}" values))
+                                          (error (error)
+                                            (format ,out ":error~%~S" error))))
+                                      (kill-xyzzy))))))))
+            (format *standard-output*
+                    "=== Subprocess tests will use: ~A ===~%" (si:system-path))
+
             ;; Run all tests; catch errors that escape the test framework
             (format *standard-output* "=== Running tests ===~%")
             (handler-case
