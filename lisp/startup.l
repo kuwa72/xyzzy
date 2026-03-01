@@ -23,8 +23,9 @@
 
 #+ncurses
 (progn
-  ;; Suppress completion list display (needs window splitting)
-  (setq ed::*completion-auto-help* nil))
+  ;; Use popup-list for completion display
+  (setq ed::*popup-completion-list-default* t)
+  (setq ed::*minibuffer-popup-completion-list* t))
 
 #+ncurses
 (defun si:*startup ()

@@ -596,9 +596,11 @@ int lv_find_focused_item (HWND) { return -1; }
 void update_buffer_bar () {}
 
 // ============================================================
-// popup.cc stubs
+// popup.cc — ncurses popup list
 // ============================================================
 
+// erase_popup is called from cmdloop.cc after each command.
+// Our popup is modal (cleaned up inside Fpopup_list), so this is a no-op.
 void erase_popup (int, int) {}
 
 // ============================================================
@@ -3744,8 +3746,343 @@ Fset_next_prefix_args (lisp arg, lisp value, lisp c)
 
 // Popup
 lisp Fpopup_string (lisp, lisp, lisp) { return Qnil; }
-lisp Fpopup_list (lisp, lisp, lisp) { return Qnil; }
 lisp Fcontinue_popup () { return Qnil; }
+
+extern volatile int g_need_resize;
+void refresh_screen (int);
+
+lisp
+Fpopup_list (lisp list, lisp callback, lisp lpoint)
+{
+  if (!consp (list))
+    return Qnil;
+
+  // Validate strings and count items
+  int nitems = 0;
+  for (lisp p = list; consp (p); p = xcdr (p))
+    {
+      check_string (xcar (p));
+      nitems++;
+    }
+  if (nitems == 0)
+    return Qnil;
+
+  // Collect strings and compute max display width
+  struct popup_item {
+    const Char *str;
+    int len;
+    int display_width;
+    lisp lstr;
+  };
+  popup_item *items = (popup_item *)alloca (nitems * sizeof (popup_item));
+
+  int max_width = 0;
+  int idx = 0;
+  for (lisp p = list; consp (p); p = xcdr (p), idx++)
+    {
+      lisp s = xcar (p);
+      items[idx].str = xstring_contents (s);
+      items[idx].len = xstring_length (s);
+      items[idx].lstr = s;
+
+      // Compute display width via i2w + wcwidth
+      int w = 0;
+      for (int i = 0; i < items[idx].len; i++)
+        {
+          Char c = items[idx].str[i];
+          if (c < 0x20)
+            continue;
+          else if (c < 0x80)
+            w++;
+          else
+            {
+              ucs2_t wc = i2w (c);
+              int cw = wcwidth ((wchar_t)wc);
+              w += (cw > 0) ? cw : 1;
+            }
+        }
+      items[idx].display_width = w;
+      if (w > max_width)
+        max_width = w;
+    }
+
+  // Compute popup dimensions
+  int term_rows, term_cols;
+  getmaxyx (stdscr, term_rows, term_cols);
+
+  int inner_width = max_width + 2;  // padding
+  if (inner_width < 13)
+    inner_width = 13;
+  if (inner_width > term_cols - 2)
+    inner_width = term_cols - 2;
+  int win_width = inner_width + 2;  // +2 for box borders
+
+  int max_visible = 10;
+  int visible = nitems < max_visible ? nitems : max_visible;
+  int win_height = visible + 2;  // +2 for box borders
+
+  // Compute position: bottom-aligned above last row (minibuffer area)
+  int win_row = term_rows - 1 - win_height;
+  if (win_row < 0)
+    win_row = 0;
+  int win_col = 0;
+
+  // Try to position near cursor in minibuffer
+  Window *sel = selected_window ();
+  if (sel && sel->minibuffer_window_p ())
+    {
+      // Place at left edge of screen, above minibuffer
+      win_col = 0;
+    }
+  else if (sel)
+    {
+      // Position near cursor in editing window
+      int cy, cx;
+      glyph_point_to_screen (sel, &cy, &cx);
+      int abs_y = sel->w_rect.top + cy + 1;  // +1 below cursor
+      int abs_x = sel->w_rect.left + cx;
+
+      // Check if there's room below cursor
+      if (abs_y + win_height <= term_rows - 1)
+        win_row = abs_y;
+      else
+        {
+          // Place above cursor
+          win_row = sel->w_rect.top + cy - win_height;
+          if (win_row < 0)
+            win_row = 0;
+        }
+      win_col = abs_x;
+    }
+
+  // Clamp to screen
+  if (win_col + win_width > term_cols)
+    win_col = term_cols - win_width;
+  if (win_col < 0)
+    win_col = 0;
+  if (win_row + win_height > term_rows)
+    win_row = term_rows - win_height;
+  if (win_row < 0)
+    win_row = 0;
+
+  // Create ncurses window
+  WINDOW *win = newwin (win_height, win_width, win_row, win_col);
+  if (!win)
+    return Qnil;
+
+  keypad (win, TRUE);
+  box (win, 0, 0);
+
+  int sel_idx = 0;
+  int scroll_offset = 0;
+
+  // Draw helper
+  auto draw_items = [&]() {
+    for (int i = 0; i < visible; i++)
+      {
+        int item_idx = scroll_offset + i;
+        wmove (win, i + 1, 1);
+
+        if (item_idx == sel_idx)
+          wattron (win, A_REVERSE);
+
+        // Clear line
+        for (int j = 0; j < inner_width; j++)
+          waddch (win, ' ');
+
+        wmove (win, i + 1, 1);
+
+        // Render string via i2w
+        int col = 0;
+        if (item_idx < nitems)
+          {
+            for (int j = 0; j < items[item_idx].len && col < inner_width; j++)
+              {
+                Char c = items[item_idx].str[j];
+                if (c < 0x20)
+                  continue;
+                else if (c < 0x80)
+                  {
+                    waddch (win, (chtype)c);
+                    col++;
+                  }
+                else
+                  {
+                    ucs2_t wc = i2w (c);
+                    int cw = wcwidth ((wchar_t)wc);
+                    if (cw <= 0) cw = 1;
+                    if (col + cw > inner_width) break;
+                    wchar_t ws[2] = {(wchar_t)wc, 0};
+                    waddnwstr (win, ws, 1);
+                    col += cw;
+                  }
+              }
+          }
+
+        if (item_idx == sel_idx)
+          wattroff (win, A_REVERSE);
+      }
+
+    // Scroll indicators
+    if (scroll_offset > 0)
+      mvwaddch (win, 0, win_width / 2, ACS_UARROW);
+    else
+      mvwaddch (win, 0, win_width / 2, ACS_HLINE);
+
+    if (scroll_offset + visible < nitems)
+      mvwaddch (win, win_height - 1, win_width / 2, ACS_DARROW);
+    else
+      mvwaddch (win, win_height - 1, win_width / 2, ACS_HLINE);
+
+    wrefresh (win);
+  };
+
+  draw_items ();
+
+  // Modal key loop
+  lisp result = Qnil;
+  bool done = false;
+  while (!done)
+    {
+      wint_t wch;
+      int ret = wget_wch (win, &wch);
+
+      if (ret == KEY_CODE_YES)
+        {
+          switch (wch)
+            {
+            case KEY_UP:
+              if (sel_idx > 0)
+                {
+                  sel_idx--;
+                  if (sel_idx < scroll_offset)
+                    scroll_offset = sel_idx;
+                }
+              break;
+            case KEY_DOWN:
+              if (sel_idx < nitems - 1)
+                {
+                  sel_idx++;
+                  if (sel_idx >= scroll_offset + visible)
+                    scroll_offset = sel_idx - visible + 1;
+                }
+              break;
+            case KEY_PPAGE:
+              sel_idx -= visible;
+              if (sel_idx < 0) sel_idx = 0;
+              scroll_offset = sel_idx;
+              break;
+            case KEY_NPAGE:
+              sel_idx += visible;
+              if (sel_idx >= nitems) sel_idx = nitems - 1;
+              scroll_offset = sel_idx - visible + 1;
+              if (scroll_offset < 0) scroll_offset = 0;
+              break;
+            case KEY_RESIZE:
+              g_need_resize = 1;
+              done = true;
+              continue;
+            default:
+              done = true;
+              continue;
+            }
+          draw_items ();
+        }
+      else if (ret == OK)
+        {
+          // Regular character
+          switch (wch)
+            {
+            case '\r':   // Enter
+            case '\n':
+            case '\t':   // Tab
+              // Confirm selection
+              {
+                delwin (win);
+                win = NULL;
+                touchwin (stdscr);
+                refresh_screen (1);
+
+                xsymbol_value (Vpopup_list_callback) = callback;
+                try
+                  {
+                    funcall_1 (callback, items[sel_idx].lstr);
+                  }
+                catch (nonlocal_jump &)
+                  {
+                    print_condition (nonlocal_jump::data ());
+                  }
+                result = Qt;
+                done = true;
+              }
+              continue;
+            case 0x1b:   // Escape
+              done = true;
+              continue;
+            case 0x07:   // C-g
+              done = true;
+              continue;
+            case 0x10:   // C-p
+              if (sel_idx > 0)
+                {
+                  sel_idx--;
+                  if (sel_idx < scroll_offset)
+                    scroll_offset = sel_idx;
+                }
+              break;
+            case 0x0e:   // C-n
+              if (sel_idx < nitems - 1)
+                {
+                  sel_idx++;
+                  if (sel_idx >= scroll_offset + visible)
+                    scroll_offset = sel_idx - visible + 1;
+                }
+              break;
+            case ' ':    // Space — confirm
+              {
+                delwin (win);
+                win = NULL;
+                touchwin (stdscr);
+                refresh_screen (1);
+
+                xsymbol_value (Vpopup_list_callback) = callback;
+                try
+                  {
+                    funcall_1 (callback, items[sel_idx].lstr);
+                  }
+                catch (nonlocal_jump &)
+                  {
+                    print_condition (nonlocal_jump::data ());
+                  }
+                result = Qt;
+                done = true;
+              }
+              continue;
+            default:
+              // Unknown key — cancel and push key back
+              unget_wch (wch);
+              done = true;
+              continue;
+            }
+          draw_items ();
+        }
+      else
+        {
+          // ERR — probably signal or timeout
+          done = true;
+        }
+    }
+
+  // Cleanup (for cancel/escape/error paths)
+  if (win)
+    {
+      delwin (win);
+      touchwin (stdscr);
+      refresh_screen (1);
+    }
+
+  return result;
+}
 
 // Menu
 lisp Fcreate_menu (lisp) { return Qnil; }
