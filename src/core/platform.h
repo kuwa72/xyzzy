@@ -1252,18 +1252,37 @@ inline DWORD GetCurrentThreadId() { return (DWORD)(uintptr_t)pthread_self(); }
 inline DWORD GetLastError() { return (DWORD)errno; }
 inline void SetLastError(DWORD e) { errno = (int)e; }
 
-// File operations (stubs - return failure)
+// File operations — POSIX implementations (HANDLE = (intptr_t)fd)
 inline HANDLE CreateFileA(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE) { return INVALID_HANDLE_VALUE; }
-inline BOOL CloseHandle(HANDLE) { return FALSE; }
+inline BOOL CloseHandle(HANDLE h) {
+  if (h && h != INVALID_HANDLE_VALUE)
+    return ::close((int)(intptr_t)h) == 0;
+  return FALSE;
+}
 inline BOOL DuplicateHandle(HANDLE, HANDLE, HANDLE, HANDLE*, DWORD, BOOL, DWORD) { return FALSE; }
 inline BOOL CreatePipe(HANDLE*, HANDLE*, LPSECURITY_ATTRIBUTES, DWORD) { return FALSE; }
 inline HANDLE CreateFileMappingA(HANDLE, LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR) { return 0; }
 #define CreateFileMapping CreateFileMappingA
 inline void *MapViewOfFile(HANDLE, DWORD, DWORD, DWORD, size_t) { return 0; }
 inline BOOL UnmapViewOfFile(const void*) { return FALSE; }
-inline DWORD GetFileSize(HANDLE, DWORD*) { return (DWORD)-1; }
-inline BOOL ReadFile(HANDLE, void*, DWORD, DWORD*, void*) { return FALSE; }
-inline BOOL WriteFile(HANDLE, const void*, DWORD, DWORD*, void*) { return FALSE; }
+inline DWORD GetFileSize(HANDLE h, DWORD*) {
+  struct stat st;
+  if (h != INVALID_HANDLE_VALUE && fstat((int)(intptr_t)h, &st) == 0)
+    return (DWORD)st.st_size;
+  return (DWORD)-1;
+}
+inline BOOL ReadFile(HANDLE h, void* buf, DWORD n, DWORD* nread, void*) {
+  ssize_t r = ::read((int)(intptr_t)h, buf, n);
+  if (r < 0) return FALSE;
+  if (nread) *nread = (DWORD)r;
+  return TRUE;
+}
+inline BOOL WriteFile(HANDLE h, const void* buf, DWORD n, DWORD* nwritten, void*) {
+  ssize_t r = ::write((int)(intptr_t)h, buf, n);
+  if (r < 0) return FALSE;
+  if (nwritten) *nwritten = (DWORD)r;
+  return TRUE;
+}
 
 // File attributes / find (stubs)
 inline DWORD GetFileAttributesA(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
@@ -1424,8 +1443,20 @@ inline void GetLocalTime(SYSTEMTIME *st) {
 
 // File operations
 inline BOOL GetFileTime(HANDLE, FILETIME*, FILETIME*, FILETIME*) { return FALSE; }
-inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) { return (DWORD)-1; }
-inline BOOL SetEndOfFile(HANDLE) { return FALSE; }
+inline DWORD SetFilePointer(HANDLE h, LONG lo, LONG* hi, DWORD method) {
+  int whence = (method == 0) ? SEEK_SET : (method == 1) ? SEEK_CUR : SEEK_END;
+  off_t offset = (off_t)(unsigned long)lo;
+  if (hi) offset |= (off_t)(*hi) << 32;
+  off_t r = lseek((int)(intptr_t)h, offset, whence);
+  if (r == (off_t)-1) { if (hi) *hi = -1; return (DWORD)-1; }
+  if (hi) *hi = (LONG)(r >> 32);
+  return (DWORD)r;
+}
+inline BOOL SetEndOfFile(HANDLE h) {
+  off_t pos = lseek((int)(intptr_t)h, 0, SEEK_CUR);
+  if (pos == (off_t)-1) return FALSE;
+  return ftruncate((int)(intptr_t)h, pos) == 0;
+}
 inline DWORD GetDriveTypeW(LPCWSTR) { return 0; }
 inline BOOL CopyFileA(LPCSTR, LPCSTR, BOOL) { return FALSE; }
 
