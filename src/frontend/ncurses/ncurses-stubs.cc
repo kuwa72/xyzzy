@@ -562,15 +562,7 @@ minibuffer_read_integer (const Char *prompt, long prompt_length)
   return parse_integer (string, 0, l, 10, 1);
 }
 
-// ============================================================
-// process.cc stubs
-// ============================================================
-
-void read_process_output (WPARAM, LPARAM) {}
-void wait_process_terminate (WPARAM, LPARAM) {}
-int buffer_has_process (const Buffer *) { return 0; }
-int query_kill_subprocesses () { return 1; }
-void process_gc_mark (void (*)(lisp)) {}
+// process.cc: implemented in ncurses-process.cc
 
 // ============================================================
 // menu.cc stubs
@@ -596,12 +588,13 @@ int lv_find_focused_item (HWND) { return -1; }
 void update_buffer_bar () {}
 
 // ============================================================
-// popup.cc — ncurses popup list
+// popup.cc — ncurses popup (erase_popup, Fpopup_string etc. defined
+// below, after #include <ncurses.h>)
 // ============================================================
 
-// erase_popup is called from cmdloop.cc after each command.
-// Our popup is modal (cleaned up inside Fpopup_list), so this is a no-op.
-void erase_popup (int, int) {}
+// Forward declarations — defined after ncurses.h is included
+void erase_popup (int, int);
+void check_popup_timeout ();
 
 // ============================================================
 // disp.cc stubs
@@ -1141,7 +1134,49 @@ int assert_failed (const char *file, int line)
 #include "charset.h"
 #include <ncurses.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <unistd.h>
+
+// ---- popup_string state ----
+static WINDOW *g_popup_win;          // ncurses overlay window (null = hidden)
+static int g_popup_timeout_ms;       // timeout in ms, -1 = infinite
+static struct timeval g_popup_start; // display start time
+static int g_popup_continue;         // set by Fcontinue_popup
+
+void refresh_screen (int);
+
+static void
+do_erase_popup ()
+{
+  if (g_popup_win)
+    {
+      delwin (g_popup_win);
+      g_popup_win = 0;
+      touchwin (stdscr);
+      refresh_screen (1);
+    }
+}
+
+void
+erase_popup (int force, int)
+{
+  if ((force || !g_popup_continue) && g_popup_win)
+    do_erase_popup ();
+  g_popup_continue = 0;
+}
+
+void
+check_popup_timeout ()
+{
+  if (!g_popup_win || g_popup_timeout_ms <= 0)
+    return;
+  struct timeval now;
+  gettimeofday (&now, 0);
+  long elapsed = (now.tv_sec - g_popup_start.tv_sec) * 1000
+                 + (now.tv_usec - g_popup_start.tv_usec) / 1000;
+  if (elapsed >= g_popup_timeout_ms)
+    do_erase_popup ();
+}
 
 XCOLORREF Window::default_xcolors[USER_DEFINABLE_COLORS];
 COLORREF Window::default_colors[WCOLOR_MAX];
@@ -2246,6 +2281,13 @@ refresh_screen (int)
 
   // Flush to terminal
   ::refresh ();
+
+  // Re-display popup_string overlay if visible
+  if (g_popup_win)
+    {
+      touchwin (g_popup_win);
+      wrefresh (g_popup_win);
+    }
 }
 
 void
@@ -2730,7 +2772,7 @@ Fget_buffer_window (lisp buffer, lisp curwin)
   return f ? cwp->lwp : Qnil;
 }
 
-lisp Fprocess_marker (lisp) { return Qnil; }
+// Fprocess_marker: implemented in ncurses-process.cc
 void Buffer::cleanup_waitobj_list () {}
 
 // ============================================================
@@ -3744,9 +3786,185 @@ Fset_next_prefix_args (lisp arg, lisp value, lisp c)
   return Qt;
 }
 
-// Popup
-lisp Fpopup_string (lisp, lisp, lisp) { return Qnil; }
-lisp Fcontinue_popup () { return Qnil; }
+// Popup — non-modal tooltip-like text display
+lisp
+Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
+{
+  g_popup_continue = 0;
+
+  // Parse timeout (seconds → ms, -1 = infinite)
+  int timeout = -1;
+  if (ltimeout && ltimeout != Qnil)
+    timeout = fixnum_value (ltimeout);
+
+  check_string (lstring);
+  const Char *str = xstring_contents (lstring);
+  int slen = xstring_length (lstring);
+
+  // Erase any existing popup
+  do_erase_popup ();
+
+  if (slen == 0)
+    return Qnil;
+
+  // Split into lines at '\n' and compute display widths
+  struct line_info {
+    int start;
+    int len;
+    int display_width;
+  };
+  // Count lines
+  int nlines = 1;
+  for (int i = 0; i < slen; i++)
+    if (str[i] == '\n')
+      nlines++;
+
+  line_info *lines = (line_info *)alloca (nlines * sizeof (line_info));
+  int li = 0;
+  int line_start = 0;
+  int max_width = 0;
+
+  for (int i = 0; i <= slen; i++)
+    {
+      if (i == slen || str[i] == '\n')
+        {
+          lines[li].start = line_start;
+          lines[li].len = i - line_start;
+
+          // Compute display width via i2w + wcwidth
+          int w = 0;
+          for (int j = line_start; j < i; j++)
+            {
+              Char c = str[j];
+              if (c < 0x20)
+                continue;
+              else if (c < 0x80)
+                w++;
+              else
+                {
+                  ucs2_t wc = i2w (c);
+                  int cw = wcwidth ((wchar_t)wc);
+                  w += (cw > 0) ? cw : 1;
+                }
+            }
+          lines[li].display_width = w;
+          if (w > max_width)
+            max_width = w;
+
+          line_start = i + 1;
+          li++;
+        }
+    }
+
+  // Compute popup dimensions (content + box border)
+  int term_rows, term_cols;
+  getmaxyx (stdscr, term_rows, term_cols);
+
+  int inner_width = max_width + 2;  // 1 padding each side
+  if (inner_width > term_cols - 2)
+    inner_width = term_cols - 2;
+  if (inner_width < 1)
+    inner_width = 1;
+  int win_width = inner_width + 2;  // +2 for box borders
+
+  int visible_lines = nlines;
+  if (visible_lines > term_rows - 2)
+    visible_lines = term_rows - 2;
+  if (visible_lines < 1)
+    visible_lines = 1;
+  int win_height = visible_lines + 2;  // +2 for box borders
+
+  // Position: near cursor at lpoint
+  int win_row = 0, win_col = 0;
+  Window *wp = selected_window ();
+  if (wp)
+    {
+      int cy, cx;
+      glyph_point_to_screen (wp, &cy, &cx);
+      int abs_y = wp->w_rect.top + cy + 1;  // below cursor
+      int abs_x = wp->w_rect.left + cx;
+
+      if (abs_y + win_height <= term_rows - 1)
+        win_row = abs_y;
+      else
+        {
+          // Place above cursor
+          win_row = wp->w_rect.top + cy - win_height;
+          if (win_row < 0)
+            win_row = 0;
+        }
+      win_col = abs_x;
+    }
+
+  // Clamp to screen
+  if (win_col + win_width > term_cols)
+    win_col = term_cols - win_width;
+  if (win_col < 0)
+    win_col = 0;
+  if (win_row + win_height > term_rows)
+    win_row = term_rows - win_height;
+  if (win_row < 0)
+    win_row = 0;
+
+  // Create ncurses window
+  WINDOW *win = newwin (win_height, win_width, win_row, win_col);
+  if (!win)
+    return Qnil;
+
+  wattron (win, A_REVERSE);
+  box (win, 0, 0);
+
+  // Draw text lines
+  for (int i = 0; i < visible_lines; i++)
+    {
+      wmove (win, i + 1, 1);
+      // Clear inner area
+      for (int j = 0; j < inner_width; j++)
+        waddch (win, ' ');
+      wmove (win, i + 1, 2);  // 1 border + 1 padding
+
+      int col = 0;
+      for (int j = 0; j < lines[i].len && col < inner_width - 1; j++)
+        {
+          Char c = str[lines[i].start + j];
+          if (c < 0x20)
+            continue;
+          else if (c < 0x80)
+            {
+              waddch (win, (chtype)c);
+              col++;
+            }
+          else
+            {
+              ucs2_t wc = i2w (c);
+              int cw = wcwidth ((wchar_t)wc);
+              if (cw <= 0) cw = 1;
+              if (col + cw > inner_width - 1) break;
+              wchar_t ws[2] = {(wchar_t)wc, 0};
+              waddnwstr (win, ws, 1);
+              col += cw;
+            }
+        }
+    }
+
+  wattroff (win, A_REVERSE);
+  wrefresh (win);
+
+  // Store state
+  g_popup_win = win;
+  g_popup_timeout_ms = (timeout > 0) ? timeout * 1000 : -1;
+  gettimeofday (&g_popup_start, 0);
+  g_popup_continue = 1;
+
+  return Qt;
+}
+
+lisp
+Fcontinue_popup ()
+{
+  g_popup_continue = 1;
+  return Qt;
+}
 
 extern volatile int g_need_resize;
 void refresh_screen (int);
@@ -4128,28 +4346,7 @@ lisp Fpop_ime_composition_string () { return Qnil; }
 lisp Fime_register_word_dialog (lisp, lisp) { return Qnil; }
 lisp Fenable_global_ime (lisp) { return Qnil; }
 
-// Process
-lisp Fmake_process (lisp, lisp) { return Qnil; }
-lisp Fcall_process (lisp, lisp) { return Qnil; }
-lisp Fbuffer_process (lisp) { return Qnil; }
-lisp Fprocess_buffer (lisp) { return Qnil; }
-lisp Fprocess_status (lisp) { return Qnil; }
-lisp Fprocess_exit_code (lisp) { return Qnil; }
-lisp Fprocess_command (lisp) { return Qnil; }
-lisp Fprocess_send_string (lisp, lisp) { return Qnil; }
-lisp Fprocess_filter (lisp) { return Qnil; }
-lisp Fset_process_filter (lisp, lisp) { return Qnil; }
-lisp Fprocess_sentinel (lisp) { return Qnil; }
-lisp Fset_process_sentinel (lisp, lisp) { return Qnil; }
-lisp Fprocess_incode (lisp) { return Qnil; }
-lisp Fset_process_incode (lisp, lisp) { return Qnil; }
-lisp Fprocess_outcode (lisp) { return Qnil; }
-lisp Fset_process_outcode (lisp, lisp) { return Qnil; }
-lisp Fprocess_eol_code (lisp) { return Qnil; }
-lisp Fset_process_eol_code (lisp, lisp) { return Qnil; }
-lisp Fkill_process (lisp) { return Qnil; }
-lisp Fsignal_process (lisp) { return Qnil; }
-lisp Fopen_network_stream (lisp, lisp, lisp, lisp) { return Qnil; }
+// Process: implemented in ncurses-process.cc
 
 // OLE
 lisp Fole_create_object (lisp) { return Qnil; }
@@ -4263,7 +4460,7 @@ lisp Farchiver_dll_version (lisp) { return Qnil; }
 lisp Farchiver_dll_config_dialog (lisp, lisp) { return Qnil; }
 
 // Shell / Shortcut
-lisp Fshell_execute (lisp, lisp, lisp, lisp) { return Qnil; }
+// Fshell_execute: implemented in ncurses-process.cc
 lisp Fcreate_shortcut (lisp, lisp, lisp) { return Qnil; }
 lisp Fresolve_shortcut (lisp) { return Qnil; }
 lisp Feject_media (lisp) { return Qnil; }
@@ -4272,8 +4469,7 @@ lisp Fget_file_info (lisp) { return Qnil; }
 
 // Misc
 lisp Fmain_loop () { command_loop (); return Qnil; }
-lisp Fsit_for (lisp, lisp) { return Qnil; }
-lisp Fsleep_for (lisp) { return Qnil; }
+// Fsit_for/Fsleep_for: implemented in ncurses-process.cc
 lisp Factivate_xyzzy_window (lisp) { return Qnil; }
 lisp Fcount_xyzzy_instance () { return make_fixnum (1); }
 lisp Flist_xyzzy_windows () { return Qnil; }

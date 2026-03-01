@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 
 void refresh_screen (int);
 
@@ -162,6 +163,10 @@ handle_resize (kbd_queue &kbdq)
             (int)app.active_frame.size.cy);
 }
 
+// From ncurses-process.cc: poll processes and collect fds
+void poll_processes ();
+int collect_process_fds (fd_set *fds);
+
 lChar
 kbd_queue::fetch (int wait, int)
 {
@@ -199,49 +204,82 @@ kbd_queue::fetch (int wait, int)
   // (e.g. read-char *keyboard* in universal-argument).
   // We must also always block here.
 
-  // Block on ncurses input (retry on signal interruption / resize)
+  // select()-based event loop: multiplex stdin + process pipe fds
   wint_t wch;
   int ret;
   for (;;)
     {
-      fetchlog ("fetch: waiting on wget_wch...\n");
+      fetchlog ("fetch: waiting on select...\n");
 
-      ret = wget_wch (stdscr, &wch);
+      fd_set rfds;
+      FD_ZERO (&rfds);
+      FD_SET (STDIN_FILENO, &rfds);
+      int maxfd = STDIN_FILENO;
 
-      fetchlog ("fetch: ret=%d wch=%d (0x%x) resize=%d\n",
-                ret, (int)wch, (int)wch, (int)g_need_resize);
+      // Add process fds to the select set
+      int pmax = collect_process_fds (&rfds);
+      if (pmax > maxfd)
+        maxfd = pmax;
 
-      if (ret == ERR)
-        {
-          // SIGWINCH interrupted the read (SA_RESTART is off).
-          // Handle resize now so the screen updates immediately.
-          if (g_need_resize)
-            {
-              handle_resize (*this);
-              refresh_screen (1);
-            }
-          continue;
-        }
+      // 100ms timeout: allows periodic process polling and resize checks
+      struct timeval tv;
+      tv.tv_sec = 0;
+      tv.tv_usec = 100000;
 
-      // KEY_RESIZE: ncurses pseudo-key sent after SIGWINCH.
-      if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
+      int sel = select (maxfd + 1, &rfds, 0, 0, &tv);
+
+      // Handle resize (SIGWINCH sets g_need_resize)
+      if (g_need_resize)
         {
           handle_resize (*this);
-          // Don't call refresh_screen here — handle_resize already
-          // drained KEY_RESIZE, but refresh_screen would call
-          // resizeterm again (via g_need_resize in stubs), which
-          // re-enqueues KEY_RESIZE causing an infinite loop.
-          // The next iteration will either get a real key or ERR.
-          continue;
+          refresh_screen (1);
+          // Check if handle_resize saved a key
+          if (pending != lChar_EOF)
+            {
+              lChar c = pending;
+              pending = lChar_EOF;
+              return c;
+            }
         }
 
-      // Got a real key. If SIGWINCH arrived during the read but
-      // wget_wch returned the key instead of ERR/KEY_RESIZE,
-      // handle the resize before returning.
-      if (g_need_resize)
-        handle_resize (*this);
+      if (sel > 0)
+        {
+          // Poll process output if any process fd is ready
+          if (pmax >= 0)
+            poll_processes ();
 
-      break;
+          // Check if stdin is ready
+          if (FD_ISSET (STDIN_FILENO, &rfds))
+            {
+              // Read key from ncurses in non-blocking mode
+              nodelay (stdscr, TRUE);
+              ret = wget_wch (stdscr, &wch);
+              nodelay (stdscr, FALSE);
+
+              fetchlog ("fetch: ret=%d wch=%d (0x%x)\n",
+                        ret, (int)wch, (int)wch);
+
+              if (ret == ERR)
+                continue;
+
+              if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
+                {
+                  handle_resize (*this);
+                  continue;
+                }
+
+              break;
+            }
+        }
+      else if (sel == 0)
+        {
+          // Timeout — poll processes for termination
+          poll_processes ();
+          // Check if popup_string timeout has elapsed
+          extern void check_popup_timeout ();
+          check_popup_timeout ();
+        }
+      // sel < 0: EINTR from signal, loop around
     }
 
   lChar result = ncurses_key_to_lchar (ret, wch);
@@ -339,6 +377,71 @@ kbd_queue::puts (const char *s, int l)
 void kbd_queue::clear () { head = tail = 0; pending = lChar_EOF; }
 void kbd_queue::close_ime () {}
 void kbd_queue::restore_ime () {}
+
+void
+kbd_queue::sit_for (DWORD timeout)
+{
+  if (kbd_macro || pending != lChar_EOF || head != tail)
+    return;
+  // sit_for: wait for keyboard input or timeout, polling processes
+  long usec = (long)timeout * 1000;
+  while (usec > 0)
+    {
+      fd_set rfds;
+      FD_ZERO (&rfds);
+      FD_SET (STDIN_FILENO, &rfds);
+      int maxfd = STDIN_FILENO;
+      int pmax = collect_process_fds (&rfds);
+      if (pmax > maxfd)
+        maxfd = pmax;
+
+      struct timeval tv;
+      long chunk = (usec > 100000) ? 100000 : usec;
+      tv.tv_sec = chunk / 1000000;
+      tv.tv_usec = chunk % 1000000;
+
+      int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
+      if (ret > 0)
+        {
+          poll_processes ();
+          if (FD_ISSET (STDIN_FILENO, &rfds))
+            return;  // keyboard input arrived
+        }
+      else if (ret == 0)
+        poll_processes ();
+      usec -= chunk;
+    }
+}
+
+void
+kbd_queue::sleep_for (DWORD timeout)
+{
+  long usec = (long)timeout * 1000;
+  while (usec > 0)
+    {
+      fd_set rfds;
+      FD_ZERO (&rfds);
+      int maxfd = -1;
+      int pmax = collect_process_fds (&rfds);
+      if (pmax > maxfd)
+        maxfd = pmax;
+
+      struct timeval tv;
+      long chunk = (usec > 100000) ? 100000 : usec;
+      tv.tv_sec = chunk / 1000000;
+      tv.tv_usec = chunk % 1000000;
+
+      if (maxfd >= 0)
+        {
+          int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
+          if (ret > 0)
+            poll_processes ();
+        }
+      else
+        select (0, 0, 0, 0, &tv);
+      usec -= chunk;
+    }
+}
 int kbd_queue::lookup_kbd_macro (lisp) const { return 0; }
 int kbd_queue::toggle_ime (int, int) { return 0; }
 
