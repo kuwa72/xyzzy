@@ -40,7 +40,7 @@
 (si:*load-library "fill") (gc)
 (si:*load-library "files") (gc)
 (si:*load-library "complete") (gc)
-(si:*load-library "minibuf") (gc)
+#+ncurses (si:*load-library "minibuf.l") #-ncurses (si:*load-library "minibuf") (gc)
 (si:*load-library "history") (gc)
 (si:*load-library "kbdmacro") (gc)
 (si:*load-library "timestmp") (gc)

@@ -258,6 +258,14 @@
 		  (exit-recursive-edit)))
 	   (if (or (file-directory-p file)
 		   (wild-pathname-p file))
+	       #+ncurses
+	       (progn
+		 (delete-region (point-min) (point-max))
+		 (insert file)
+		 (when (file-directory-p file)
+		   (insert "/"))
+		 nil)
+	       #-ncurses
 	       (progn
 		 (toggle-ime nil)
 		 (multiple-value-bind (files result)
