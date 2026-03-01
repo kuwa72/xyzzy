@@ -15,11 +15,12 @@
 	  command-output-send-input command-output-alternate-send-input
 	  process-send-y process-send-n execute-region))
 
-(let ((shell (if (featurep :windows-nt) "cmd.exe" "command.com")))
+(let ((shell (if (featurep :unix) "/bin/sh"
+               (if (featurep :windows-nt) "cmd.exe" "command.com"))))
   (defvar *shell* shell)
   (defvar *eshell* shell))
 
-(defvar *shell-command-option* "/c")
+(defvar *shell-command-option* (if (featurep :unix) "-c" "/c"))
 (defvar *shell-chdir-option-alist*
   '(("cmd.exe" . "/k cd /d \"~A\"")
     ("powershell.exe" . "-NoExit -Command \"cd '~A'\"")
@@ -34,7 +35,9 @@
 
 (defun run-console ()
   (interactive)
-  (launch-application (or *eshell* *shell*)))
+  (if (featurep :unix)
+      (execute-subprocess (or *eshell* *shell*))
+    (launch-application (or *eshell* *shell*))))
 
 (defun run-admin-console ()
   (interactive)
@@ -49,6 +52,9 @@
       (shell-execute path exec-dir params :verb :runas))))
 
 (defun shell-command-line (cmd dir)
+  (when (featurep :unix)
+    (return-from shell-command-line
+      (values (format nil "~A ~A ~A" *shell* *shell-command-option* cmd) dir)))
   (when (and (not (featurep :windows-nt))
 	     (string-match "\\(^\\|[\\/]\\)command\\(\\.com\\)?$" *shell*))
     (let ((sdir (get-short-path-name (append-trail-slash dir))))
@@ -223,10 +229,10 @@
 	(delete t))
     (unwind-protect
 	(progn
-	  (setq batch (make-temp-file-name nil "bat"))
+	  (setq batch (make-temp-file-name nil (if (featurep :unix) "sh" "bat")))
 	  (write-region from to batch)
 	  (let ((buffer (execute-subprocess
-			 (map-slash-to-backslash batch))))
+			 (if (featurep :unix) batch (map-slash-to-backslash batch)))))
 	    (set-process-sentinel (buffer-process buffer)
 				  #'(lambda (proc)
 				      (delete-file batch)))

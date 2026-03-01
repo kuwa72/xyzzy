@@ -46,7 +46,7 @@
 (si:*load-library "timestmp") (gc)
 (si:*load-library "filer") (gc)
 (si:*load-library "search") (gc)
-#-ncurses (si:*load-library "process") (gc)
+(si:*load-library "process") (gc)
 (si:*load-library "register") (gc)
 (si:*load-library "select") (gc)
 (si:*load-library "menu") (gc)
