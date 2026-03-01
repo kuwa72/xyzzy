@@ -151,6 +151,7 @@ public:
   lisp init;
   lisp command;
   lisp tag;
+  lisp name;
 
   ~lwin32_menu ();
 };
@@ -196,6 +197,13 @@ xwin32_menu_command (lisp x)
 {
   assert (win32_menu_p (x));
   return ((lwin32_menu *)x)->command;
+}
+
+inline lisp &
+xwin32_menu_name (lisp x)
+{
+  assert (win32_menu_p (x));
+  return ((lwin32_menu *)x)->name;
 }
 
 void check_popup_menu (lisp lmenu);

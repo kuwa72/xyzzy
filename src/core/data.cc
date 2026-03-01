@@ -680,6 +680,7 @@ gc_mark_object (lisp object)
         case Twin32_menu:
           gc_mark_object (xwin32_menu_init (object));
           gc_mark_object (xwin32_menu_tag (object));
+          gc_mark_object (xwin32_menu_name (object));
           object = xwin32_menu_command (object);
           break;
 

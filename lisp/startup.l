@@ -30,6 +30,7 @@
 #+ncurses
 (defun si:*startup ()
   (trap-errors (ed::init-misc-objects))
+  (ignore-errors (ed::init-app-menus))
   ;; BS/DEL key binding (terminal sends 0x7f for backspace)
   (global-set-key #\DEL 'ed::delete-backward-char-or-selection)
   t)

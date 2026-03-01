@@ -41,6 +41,7 @@ make_win32_menu ()
   p->init = Qnil;
   p->command = Qnil;
   p->tag = Qnil;
+  p->name = Qnil;
   return p;
 }
 

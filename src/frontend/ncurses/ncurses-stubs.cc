@@ -565,13 +565,270 @@ minibuffer_read_integer (const Char *prompt, long prompt_length)
 // process.cc: implemented in ncurses-process.cc
 
 // ============================================================
-// menu.cc stubs
+// menu.cc — ncurses TUI menu implementation
 // ============================================================
 
-int init_menu_flags (lisp) { return 0; }
+#define xwin32_menu_items xwin32_menu_command
+
+#ifndef MF_GRAYED
+#define MF_GRAYED    0x0001
+#define MF_ENABLED   0x0000
+#define MF_CHECKED   0x0008
+#define MF_UNCHECKED 0x0000
+#endif
+
+static u_long used_id[(MENU_ID_RANGE_MAX - MENU_ID_RANGE_MIN) / (sizeof (u_long) * 8)];
+
+static lwin32_menu *
+make_win32_menu ()
+{
+  lwin32_menu *p = ldata <lwin32_menu, Twin32_menu>::lalloc ();
+  p->handle = 0;
+  p->id = 0;
+  p->init = Qnil;
+  p->command = Qnil;
+  p->tag = Qnil;
+  p->name = Qnil;
+  return p;
+}
+
+void
+check_popup_menu (lisp lmenu)
+{
+  check_win32_menu (lmenu);
+  if (!xwin32_menu_handle (lmenu))
+    {
+      if (!xwin32_menu_id (lmenu))
+        FEprogram_error (Euninitialized_menu_item);
+      FEprogram_error (Eis_not_popup_menu);
+    }
+}
+
+static lisp
+create_new_item (int &id, lisp tag, lisp command, lisp init)
+{
+  bitset (used_id, 0);
+  id = find_zero_bit (used_id, numberof (used_id));
+  if (id < 0)
+    {
+      gc (1);
+      id = find_zero_bit (used_id, numberof (used_id));
+      if (id < 0)
+        FEprogram_error (Etoo_many_menu_items);
+    }
+  id += MENU_ID_RANGE_MIN;
+
+  lisp litem = make_win32_menu ();
+  xwin32_menu_id (litem) = id;
+  xwin32_menu_tag (litem) = tag;
+  xwin32_menu_command (litem) = command ? command : Qnil;
+  xwin32_menu_init (litem) = init ? init : Qnil;
+  return litem;
+}
+
+int
+init_menu_flags (lisp item)
+{
+  Window *wp = selected_window ();
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return MF_GRAYED | MF_UNCHECKED;
+  if (symbolp (item))
+    {
+#define MF(X) ((X) ? MF_UNCHECKED | MF_ENABLED : MF_UNCHECKED | MF_GRAYED)
+      if (item == Kmodified)
+        return MF (bp->b_modified);
+      if (item == Kundo)
+        return MF (bp->b_undo && !bp->read_only_p ());
+      if (item == Kredo)
+        return MF (bp->b_redo && !bp->read_only_p ());
+#define SELECTIONP(X) \
+  ((wp->w_selection_type & Buffer::SELECTION_TYPE_MASK) == Buffer::X)
+      if (item == Kany_selection)
+        return MF (wp->w_selection_type != Buffer::SELECTION_VOID);
+      if (item == Kmodify_any_selection)
+        return MF (wp->w_selection_type != Buffer::SELECTION_VOID
+                   && !bp->read_only_p ());
+      if (item == Kselection)
+        return MF (wp->w_selection_type != Buffer::SELECTION_VOID
+                   && !SELECTIONP (SELECTION_RECTANGLE));
+      if (item == Kmodify_selection)
+        return MF (wp->w_selection_type != Buffer::SELECTION_VOID
+                   && !SELECTIONP (SELECTION_RECTANGLE)
+                   && !bp->read_only_p ());
+      if (item == Krectangle)
+        return MF (SELECTIONP (SELECTION_RECTANGLE));
+      if (item == Kmodify_rectangle)
+        return MF (SELECTIONP (SELECTION_RECTANGLE)
+                   && !bp->read_only_p ());
+      if (item == Kclipboard)
+        return MF (!bp->read_only_p ()
+                   && Fclipboard_empty_p () == Qnil);
+#undef MF
+#undef SELECTIONP
+    }
+
+  if (item != Qnil)
+    {
+      lisp result = Qnil;
+      try
+        {
+          result = Ffuncall (item, Qnil);
+        }
+      catch (nonlocal_jump &)
+        {
+        }
+
+      int check = 0, gray = 0;
+      multiple_value::value (0) = result;
+      for (int i = 0; i < multiple_value::count (); i++)
+        {
+          if (multiple_value::value (i) == Kcheck)
+            check = 1;
+          if (multiple_value::value (i) == Kdisable)
+            gray = 1;
+        }
+
+      return ((check ? MF_CHECKED : MF_UNCHECKED)
+              | (gray ? MF_GRAYED : MF_ENABLED));
+    }
+
+  return MF_ENABLED | MF_UNCHECKED;
+}
+
+static int
+init_menu_popup_recursive (lisp lmenu, int enablep)
+{
+  int f = 0;
+  for (lisp p = xwin32_menu_items (lmenu); consp (p); p = xcdr (p))
+    {
+      int flags;
+      lisp item = xcar (p);
+      if (!xwin32_menu_id (item))
+        {
+          if (!xwin32_menu_handle (item))
+            continue;
+          if (init_menu_popup_recursive (item, enablep))
+            flags = MF_ENABLED | MF_UNCHECKED;
+          else
+            flags = MF_GRAYED | MF_UNCHECKED;
+        }
+      else
+        {
+          if (xwin32_menu_init (item) == Kend_macro)
+            flags = (app.kbdq.save_p ()
+                     ? MF_ENABLED | MF_UNCHECKED
+                     : MF_GRAYED | MF_UNCHECKED);
+          else if (enablep)
+            {
+              if (xwin32_menu_init (item) != Qnil)
+                flags = init_menu_flags (xwin32_menu_init (item));
+              else if (xwin32_menu_command (item) == Qnil)
+                flags = MF_GRAYED | MF_UNCHECKED;
+              else
+                flags = MF_ENABLED | MF_UNCHECKED;
+            }
+          else
+            flags = MF_GRAYED | MF_UNCHECKED;
+        }
+      // Store flags temporarily in id's high bits for rendering
+      // Actually, we just store in the init_menu_flags result — the TUI
+      // renderer will call init_menu_flags() directly per item.
+      if ((flags & (MF_ENABLED | MF_GRAYED)) == MF_ENABLED)
+        f = 1;
+    }
+  return f;
+}
+
 void init_menu_popup (WPARAM, LPARAM) {}
-lisp lookup_menu_command (int) { return Qnil; }
-lisp track_popup_menu (lisp, lisp, const POINT *) { return Qnil; }
+
+static lisp
+lookup_menu_command_recursive (lisp lmenu, int id)
+{
+  for (lisp p = xwin32_menu_items (lmenu); consp (p); p = xcdr (p))
+    {
+      lisp x = xcar (p);
+      if (xwin32_menu_id (x) == id)
+        return xwin32_menu_command (x);
+      if (xwin32_menu_handle (x))
+        {
+          x = lookup_menu_command_recursive (x, id);
+          if (x)
+            return x;
+        }
+    }
+  return 0;
+}
+
+lisp
+lookup_menu_command (int id)
+{
+  if (id)
+    {
+      if (win32_menu_p (xsymbol_value (Vtracking_menu)))
+        {
+          lisp x = lookup_menu_command_recursive (xsymbol_value (Vtracking_menu), id);
+          if (x)
+            return x;
+        }
+      if (win32_menu_p (xsymbol_value (Vlast_active_menu)))
+        {
+          lisp x = lookup_menu_command_recursive (xsymbol_value (Vlast_active_menu), id);
+          if (x)
+            return x;
+        }
+    }
+  return Qnil;
+}
+
+static int
+find_tag_position (lisp &lmenu, lisp tag)
+{
+  for (lisp p = xwin32_menu_items (lmenu); consp (p); p = xcdr (p))
+    {
+      lisp x = xcar (p);
+      if (xwin32_menu_tag (x) == tag)
+        return xlist_length (xcdr (p));
+      if (xwin32_menu_handle (x))
+        {
+          int pos = find_tag_position (x, tag);
+          if (pos >= 0)
+            {
+              lmenu = x;
+              return pos;
+            }
+        }
+    }
+  return -1;
+}
+
+static lisp
+get_menu (lisp lmenu, lisp tag, lisp positionp, int &pos)
+{
+  check_popup_menu (lmenu);
+  if (positionp && positionp != Qnil)
+    {
+      pos = fixnum_value (tag);
+      if (pos < 0)
+        FErange_error (tag);
+    }
+  else
+    {
+      pos = find_tag_position (lmenu, tag);
+      if (pos < 0)
+        return Qnil;
+    }
+
+  int l = xlist_length (xwin32_menu_items (lmenu));
+  if (pos >= l)
+    return Qnil;
+
+  l -= pos + 1;
+  return Fnth (make_fixnum (l), xwin32_menu_items (lmenu));
+}
+
+lisp
+track_popup_menu (lisp, lisp, const POINT *) { return Qnil; }
 
 // ============================================================
 // dialogs.cc stubs
@@ -719,8 +976,8 @@ void utimer::gc_mark (void (*)(lisp)) {}
 
 lwin32_menu::~lwin32_menu ()
 {
-  if (handle)
-    DestroyMenu (handle);
+  if (id > MENU_ID_RANGE_MIN && id < MENU_ID_RANGE_MAX)
+    bitclr (used_id, id - MENU_ID_RANGE_MIN);
 }
 
 void lwait_object::cleanup ()
@@ -4302,24 +4559,834 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
   return result;
 }
 
-// Menu
-lisp Fcreate_menu (lisp) { return Qnil; }
-lisp Fcreate_popup_menu (lisp) { return Qnil; }
-lisp Fadd_menu_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fadd_menu_separator (lisp, lisp) { return Qnil; }
-lisp Fadd_popup_menu (lisp, lisp, lisp) { return Qnil; }
-lisp Finsert_menu_item (lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Finsert_menu_separator (lisp, lisp, lisp) { return Qnil; }
-lisp Finsert_popup_menu (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fdelete_menu (lisp, lisp, lisp) { return Qnil; }
-lisp Fcopy_menu_items (lisp, lisp) { return Qnil; }
-lisp Fset_menu (lisp) { return Qnil; }
-lisp Fcurrent_menu (lisp) { return Qnil; }
-lisp Fget_menu (lisp, lisp, lisp) { return Qnil; }
-lisp Fget_menu_position (lisp, lisp) { return Qnil; }
-lisp Fcall_menu (lisp) { return Qnil; }
-lisp Ftrack_popup_menu (lisp, lisp) { return Qnil; }
-lisp Fuse_local_menu (lisp) { return Qnil; }
+// ============================================================
+// Menu — ncurses TUI Lisp functions
+// ============================================================
+
+lisp
+Fcreate_menu (lisp tag)
+{
+  lisp lmenu = make_win32_menu ();
+  xwin32_menu_handle (lmenu) = (HMENU)1;
+  xwin32_menu_tag (lmenu) = tag ? tag : Qnil;
+  return lmenu;
+}
+
+lisp
+Fcreate_popup_menu (lisp tag)
+{
+  lisp lmenu = make_win32_menu ();
+  xwin32_menu_handle (lmenu) = (HMENU)1;
+  xwin32_menu_tag (lmenu) = tag ? tag : Qnil;
+  return lmenu;
+}
+
+lisp
+Fadd_menu_item (lisp lmenu, lisp tag, lisp item, lisp command, lisp init)
+{
+  check_popup_menu (lmenu);
+  if (item != Kclose_box)
+    check_string (item);
+  int id;
+  lisp litem = create_new_item (id, tag, command, init);
+  protect_gc gcpro (litem);
+  if (item != Kclose_box)
+    xwin32_menu_name (litem) = item;
+  xwin32_menu_items (lmenu) = xcons (litem, xwin32_menu_items (lmenu));
+  bitset (used_id, id - MENU_ID_RANGE_MIN);
+  return litem;
+}
+
+lisp
+Fadd_menu_separator (lisp lmenu, lisp tag)
+{
+  check_popup_menu (lmenu);
+  lisp litem = make_win32_menu ();
+  xwin32_menu_tag (litem) = tag ? tag : Qnil;
+  xwin32_menu_items (lmenu) = xcons (litem, xwin32_menu_items (lmenu));
+  return litem;
+}
+
+lisp
+Fadd_popup_menu (lisp lmenu, lisp lpopup, lisp name)
+{
+  check_popup_menu (lmenu);
+  check_string (name);
+  check_popup_menu (lpopup);
+  xwin32_menu_name (lpopup) = name;
+  xwin32_menu_items (lmenu) = xcons (lpopup, xwin32_menu_items (lmenu));
+  return lpopup;
+}
+
+lisp
+Finsert_menu_item (lisp lmenu, lisp position, lisp tag, lisp item,
+                   lisp command, lisp init)
+{
+  check_popup_menu (lmenu);
+  if (item != Kclose_box)
+    check_string (item);
+  int pos = fixnum_value (position);
+  if (pos < 0)
+    FErange_error (position);
+  int id;
+  lisp litem = create_new_item (id, tag, command, init);
+  protect_gc gcpro (litem);
+  if (item != Kclose_box)
+    xwin32_menu_name (litem) = item;
+
+  int l = xlist_length (xwin32_menu_items (lmenu));
+  if (pos >= l)
+    xwin32_menu_items (lmenu) = xcons (litem, xwin32_menu_items (lmenu));
+  else
+    {
+      lisp tem = xcons (litem, Qnil);
+      l -= pos;
+      lisp p;
+      for (p = xwin32_menu_items (lmenu); --l > 0; p = xcdr (p))
+        assert (consp (p));
+      assert (consp (p));
+      xcdr (tem) = xcdr (p);
+      xcdr (p) = tem;
+    }
+  bitset (used_id, id - MENU_ID_RANGE_MIN);
+  return litem;
+}
+
+lisp
+Finsert_menu_separator (lisp lmenu, lisp position, lisp tag)
+{
+  check_popup_menu (lmenu);
+  int pos = fixnum_value (position);
+  if (pos < 0)
+    FErange_error (position);
+  lisp litem = make_win32_menu ();
+  xwin32_menu_tag (litem) = tag ? tag : Qnil;
+
+  int l = xlist_length (xwin32_menu_items (lmenu));
+  if (pos >= l)
+    xwin32_menu_items (lmenu) = xcons (litem, xwin32_menu_items (lmenu));
+  else
+    {
+      lisp tem = xcons (litem, Qnil);
+      l -= pos;
+      lisp p;
+      for (p = xwin32_menu_items (lmenu); --l > 0; p = xcdr (p))
+        assert (consp (p));
+      assert (consp (p));
+      xcdr (tem) = xcdr (p);
+      xcdr (p) = tem;
+    }
+  return litem;
+}
+
+lisp
+Finsert_popup_menu (lisp lmenu, lisp position, lisp lpopup, lisp name)
+{
+  check_popup_menu (lmenu);
+  check_string (name);
+  check_popup_menu (lpopup);
+  int pos = fixnum_value (position);
+  if (pos < 0)
+    FErange_error (position);
+  xwin32_menu_name (lpopup) = name;
+
+  int l = xlist_length (xwin32_menu_items (lmenu));
+  if (pos >= l)
+    xwin32_menu_items (lmenu) = xcons (lpopup, xwin32_menu_items (lmenu));
+  else
+    {
+      lisp tem = xcons (lpopup, Qnil);
+      l -= pos;
+      lisp p;
+      for (p = xwin32_menu_items (lmenu); --l > 0; p = xcdr (p))
+        assert (consp (p));
+      assert (consp (p));
+      xcdr (tem) = xcdr (p);
+      xcdr (p) = tem;
+    }
+  return lpopup;
+}
+
+lisp
+Fdelete_menu (lisp lmenu, lisp tag, lisp positionp)
+{
+  int pos;
+  lisp item = get_menu (lmenu, tag, positionp, pos);
+  if (item != Qnil)
+    delq (item, &xwin32_menu_items (lmenu));
+  return item;
+}
+
+lisp
+Fcopy_menu_items (lisp old_menu, lisp new_menu)
+{
+  check_popup_menu (old_menu);
+  check_popup_menu (new_menu);
+  if (old_menu == new_menu)
+    return new_menu;
+  xwin32_menu_items (new_menu) = Fcopy_list (xwin32_menu_items (old_menu));
+  return new_menu;
+}
+
+lisp
+Fset_menu (lisp lmenu)
+{
+  if (lmenu != Qnil)
+    check_popup_menu (lmenu);
+  xsymbol_value (Vdefault_menu) = lmenu;
+  return lmenu;
+}
+
+lisp
+Fcurrent_menu (lisp buffer)
+{
+  if (!buffer)
+    return (win32_menu_p (selected_buffer ()->lmenu)
+            ? selected_buffer ()->lmenu
+            : xsymbol_value (Vdefault_menu));
+  else if (buffer == Qnil)
+    return xsymbol_value (Vdefault_menu);
+  else
+    return Buffer::coerce_to_buffer (buffer)->lmenu;
+}
+
+lisp
+Fget_menu (lisp lmenu, lisp tag, lisp positionp)
+{
+  int pos;
+  return get_menu (lmenu, tag, positionp, pos);
+}
+
+lisp
+Fget_menu_position (lisp lmenu, lisp tag)
+{
+  check_popup_menu (lmenu);
+  int pos = find_tag_position (lmenu, tag);
+  if (pos < 0)
+    return Qnil;
+  multiple_value::count () = 2;
+  multiple_value::value (1) = lmenu;
+  return make_fixnum (pos);
+}
+
+lisp
+Fuse_local_menu (lisp lmenu)
+{
+  if (lmenu != Qnil)
+    check_popup_menu (lmenu);
+  selected_buffer ()->lmenu = lmenu;
+  return lmenu;
+}
+
+// ---- TUI menu rendering helpers ----
+
+struct menu_entry
+{
+  lisp item;         // lwin32_menu object
+  wchar_t label[256];
+  int label_len;     // character count
+  int display_width; // column width (wcwidth-aware)
+  int accel;         // accelerator char (lowercase), 0 if none
+  int flags;         // MF_GRAYED / MF_CHECKED etc.
+  int is_separator;
+  int is_submenu;
+};
+
+static int
+collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enablep)
+{
+  // Items list is stored in reverse order (prepend). Walk it to count, then
+  // fill entries in display order (reversed).
+  int count = 0;
+  for (lisp p = xwin32_menu_items (lmenu); consp (p); p = xcdr (p))
+    count++;
+  if (count > max_entries)
+    count = max_entries;
+
+  // Fill from the end
+  int idx = count - 1;
+  for (lisp p = xwin32_menu_items (lmenu); consp (p) && idx >= 0; p = xcdr (p), idx--)
+    {
+      lisp x = xcar (p);
+      menu_entry &e = entries[idx];
+      e.item = x;
+      e.label[0] = 0;
+      e.label_len = 0;
+      e.display_width = 0;
+      e.accel = 0;
+      e.flags = MF_ENABLED | MF_UNCHECKED;
+      e.is_separator = 0;
+      e.is_submenu = 0;
+
+      if (!xwin32_menu_id (x) && !xwin32_menu_handle (x))
+        {
+          // Separator
+          e.is_separator = 1;
+          continue;
+        }
+
+      if (xwin32_menu_handle (x))
+        e.is_submenu = 1;
+
+      // Get label from name field
+      lisp name = xwin32_menu_name (x);
+      if (stringp (name))
+        {
+          const Char *src = xstring_contents (name);
+          int slen = xstring_length (name);
+          int di = 0;
+          for (int si = 0; si < slen && di < 254; si++)
+            {
+              if (src[si] == '&')
+                {
+                  // Next char is accelerator
+                  if (si + 1 < slen && src[si + 1] != '&')
+                    {
+                      wchar_t wc = (wchar_t)i2w (src[si + 1]);
+                      e.accel = (wc < 128) ? tolower (wc) : wc;
+                    }
+                  continue; // Skip '&' marker
+                }
+              e.label[di++] = (wchar_t)i2w (src[si]);
+            }
+          e.label[di] = 0;
+          e.label_len = di;
+          int dw = 0;
+          for (int j = 0; j < di; j++)
+            {
+              int cw = wcwidth (e.label[j]);
+              dw += (cw > 0) ? cw : 1;
+            }
+          e.display_width = dw;
+        }
+
+      // Compute flags
+      if (xwin32_menu_id (x))
+        {
+          if (xwin32_menu_init (x) == Kend_macro)
+            e.flags = (app.kbdq.save_p ()
+                       ? MF_ENABLED | MF_UNCHECKED
+                       : MF_GRAYED | MF_UNCHECKED);
+          else if (enablep)
+            {
+              if (xwin32_menu_init (x) != Qnil)
+                e.flags = init_menu_flags (xwin32_menu_init (x));
+              else if (xwin32_menu_command (x) == Qnil)
+                e.flags = MF_GRAYED | MF_UNCHECKED;
+              else
+                e.flags = MF_ENABLED | MF_UNCHECKED;
+            }
+          else
+            e.flags = MF_GRAYED | MF_UNCHECKED;
+        }
+      else if (e.is_submenu)
+        {
+          // Submenu: enabled if any child is enabled
+          suppress_gc sgc;
+          if (init_menu_popup_recursive (x, enablep))
+            e.flags = MF_ENABLED | MF_UNCHECKED;
+          else
+            e.flags = MF_GRAYED | MF_UNCHECKED;
+        }
+    }
+  return count;
+}
+
+static void
+draw_menu_bar_item (int col, const wchar_t *label, int len, int display_width, int selected)
+{
+  attr_t attr = selected ? A_REVERSE : A_NORMAL;
+  attron (attr);
+  mvaddch (0, col, ' ');
+  move (0, col + 1);
+  for (int i = 0; i < len; i++)
+    {
+      cchar_t cc;
+      wchar_t ws[2] = {label[i], 0};
+      setcchar (&cc, ws, attr, 0, NULL);
+      add_wch (&cc);
+    }
+  addch (' ');
+  attroff (attr);
+}
+
+static WINDOW *
+draw_dropdown (int bar_x, menu_entry *entries, int count, int sel, int *widthp)
+{
+  // Compute width using display_width (wcwidth-aware)
+  int max_w = 4;
+  for (int i = 0; i < count; i++)
+    {
+      int w = entries[i].display_width;
+      if (entries[i].is_submenu)
+        w += 2; // space for " >"
+      if (w > max_w)
+        max_w = w;
+    }
+  int box_w = max_w + 4; // 1 border + 1 pad + content + 1 pad + 1 border
+  int box_h = count + 2; // 1 border + items + 1 border
+
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+
+  // Clamp position
+  if (bar_x + box_w > cols)
+    bar_x = cols - box_w;
+  if (bar_x < 0)
+    bar_x = 0;
+  if (box_h > rows - 1)
+    box_h = rows - 1;
+
+  WINDOW *win = newwin (box_h, box_w, 1, bar_x);
+  if (!win)
+    return NULL;
+
+  box (win, 0, 0);
+
+  for (int i = 0; i < count && i + 1 < box_h - 1; i++)
+    {
+      if (entries[i].is_separator)
+        {
+          mvwhline (win, i + 1, 1, ACS_HLINE, box_w - 2);
+          continue;
+        }
+
+      int attr = A_NORMAL;
+      if (i == sel)
+        attr = A_REVERSE;
+      if (entries[i].flags & MF_GRAYED)
+        attr |= A_DIM;
+
+      wattron (win, attr);
+      // Clear the line
+      wmove (win, i + 1, 1);
+      for (int j = 1; j < box_w - 1; j++)
+        waddch (win, ' ');
+
+      // Draw check mark
+      if (entries[i].flags & MF_CHECKED)
+        mvwaddch (win, i + 1, 1, '*');
+      else
+        mvwaddch (win, i + 1, 1, ' ');
+
+      // Draw label
+      wmove (win, i + 1, 2);
+      for (int j = 0; j < entries[i].label_len && j < box_w - 4; j++)
+        {
+          wchar_t wc = entries[i].label[j];
+          cchar_t cc;
+          wchar_t ws[2] = {wc, 0};
+          setcchar (&cc, ws, attr, 0, NULL);
+          wadd_wch (win, &cc);
+        }
+
+      // Submenu indicator
+      if (entries[i].is_submenu)
+        mvwaddch (win, i + 1, box_w - 2, '>');
+
+      wattroff (win, attr);
+    }
+
+  wrefresh (win);
+  if (widthp)
+    *widthp = box_w;
+  return win;
+}
+
+static lisp
+run_menu_modal (lisp menu_root)
+{
+  // Collect top-level bar items
+  menu_entry bar_items[64];
+  int bar_count = collect_menu_items (menu_root, bar_items, 64,
+                                      1);
+  if (bar_count == 0)
+    return Qnil;
+
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+
+  // Save row 0 content
+  cchar_t saved_row0[1024];
+  int save_cols = cols < 1024 ? cols : 1024;
+  for (int i = 0; i < save_cols; i++)
+    mvin_wch (0, i, &saved_row0[i]);
+
+  // Draw menu bar
+  int bar_sel = 0;
+  lisp result = Qnil;
+  WINDOW *dropdown = NULL;
+  menu_entry drop_items[256];
+  int drop_count = 0;
+  int drop_sel = -1;
+  int need_redraw_bar = 1;
+  int need_redraw_drop = 1;
+  int running = 1;
+
+  while (running)
+    {
+      if (need_redraw_bar)
+        {
+          // Clear row 0
+          move (0, 0);
+          clrtoeol ();
+
+          int col = 0;
+          for (int i = 0; i < bar_count; i++)
+            {
+              draw_menu_bar_item (col, bar_items[i].label, bar_items[i].label_len,
+                                  bar_items[i].display_width, i == bar_sel);
+              col += bar_items[i].display_width + 2;
+            }
+          refresh ();
+          need_redraw_bar = 0;
+        }
+
+      if (need_redraw_drop)
+        {
+          if (dropdown)
+            {
+              delwin (dropdown);
+              dropdown = NULL;
+              touchwin (stdscr);
+              refresh ();
+            }
+
+          // Collect items for current bar selection
+          if (bar_items[bar_sel].is_submenu)
+            {
+              drop_count = collect_menu_items (bar_items[bar_sel].item, drop_items, 256,
+                                               1);
+              // Find first non-separator
+              drop_sel = -1;
+              for (int i = 0; i < drop_count; i++)
+                if (!drop_items[i].is_separator
+                    && !(drop_items[i].flags & MF_GRAYED))
+                  {
+                    drop_sel = i;
+                    break;
+                  }
+              if (drop_sel < 0)
+                {
+                  for (int i = 0; i < drop_count; i++)
+                    if (!drop_items[i].is_separator)
+                      {
+                        drop_sel = i;
+                        break;
+                      }
+                }
+
+              // Compute bar_x for this item
+              int bar_x = 0;
+              for (int i = 0; i < bar_sel; i++)
+                bar_x += bar_items[i].display_width + 2;
+
+              int drop_w;
+              dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
+            }
+          else
+            {
+              drop_count = 0;
+              drop_sel = -1;
+            }
+          need_redraw_drop = 0;
+        }
+
+      // Wait for key
+      int ch = getch ();
+      switch (ch)
+        {
+        case KEY_LEFT:
+        case 2: // C-b
+          bar_sel = (bar_sel + bar_count - 1) % bar_count;
+          need_redraw_bar = 1;
+          need_redraw_drop = 1;
+          break;
+
+        case KEY_RIGHT:
+        case 6: // C-f
+          bar_sel = (bar_sel + 1) % bar_count;
+          need_redraw_bar = 1;
+          need_redraw_drop = 1;
+          break;
+
+        case KEY_UP:
+        case 16: // C-p
+          if (drop_count > 0)
+            {
+              int start = drop_sel;
+              do
+                {
+                  drop_sel = (drop_sel + drop_count - 1) % drop_count;
+                }
+              while (drop_items[drop_sel].is_separator && drop_sel != start);
+
+              if (dropdown)
+                {
+                  delwin (dropdown);
+                  int bar_x = 0;
+                  for (int i = 0; i < bar_sel; i++)
+                    bar_x += bar_items[i].display_width + 2;
+                  int drop_w;
+                  touchwin (stdscr);
+                  refresh ();
+                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
+                }
+            }
+          break;
+
+        case KEY_DOWN:
+        case 14: // C-n
+          if (drop_count > 0)
+            {
+              int start = drop_sel;
+              do
+                {
+                  drop_sel = (drop_sel + 1) % drop_count;
+                }
+              while (drop_items[drop_sel].is_separator && drop_sel != start);
+
+              if (dropdown)
+                {
+                  delwin (dropdown);
+                  int bar_x = 0;
+                  for (int i = 0; i < bar_sel; i++)
+                    bar_x += bar_items[i].display_width + 2;
+                  int drop_w;
+                  touchwin (stdscr);
+                  refresh ();
+                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
+                }
+            }
+          break;
+
+        case '\r':
+        case '\n':
+        case KEY_ENTER:
+          if (drop_sel >= 0 && drop_sel < drop_count
+              && !drop_items[drop_sel].is_separator
+              && !(drop_items[drop_sel].flags & MF_GRAYED))
+            {
+              if (drop_items[drop_sel].is_submenu)
+                break; // Nested submenus not yet supported
+              lisp command = xwin32_menu_command (drop_items[drop_sel].item);
+              if (command != Qnil)
+                result = command;
+            }
+          running = 0;
+          break;
+
+        case 27: // ESC
+        case 7:  // C-g
+          running = 0;
+          break;
+
+        default:
+          // Accelerator key handling
+          if (ch > 0 && ch < 256)
+            {
+              int lch = tolower (ch);
+              int matched = 0;
+              // Check dropdown items first
+              if (drop_count > 0)
+                {
+                  for (int i = 0; i < drop_count; i++)
+                    if (drop_items[i].accel == lch
+                        && !drop_items[i].is_separator
+                        && !(drop_items[i].flags & MF_GRAYED))
+                      {
+                        matched = 1;
+                        if (!drop_items[i].is_submenu)
+                          {
+                            lisp command = xwin32_menu_command (drop_items[i].item);
+                            if (command != Qnil)
+                              result = command;
+                            running = 0;
+                          }
+                        break;
+                      }
+                }
+              // Check bar items if dropdown didn't match
+              if (!matched && running)
+                {
+                  for (int i = 0; i < bar_count; i++)
+                    if (bar_items[i].accel == lch && i != bar_sel)
+                      {
+                        bar_sel = i;
+                        need_redraw_bar = 1;
+                        need_redraw_drop = 1;
+                        break;
+                      }
+                }
+            }
+          break;
+        }
+    }
+
+  // Cleanup
+  if (dropdown)
+    {
+      delwin (dropdown);
+      dropdown = NULL;
+    }
+
+  // Restore row 0
+  for (int i = 0; i < save_cols; i++)
+    mvadd_wch (0, i, &saved_row0[i]);
+
+  touchwin (stdscr);
+  refresh_screen (1);
+
+  // Execute command if selected
+  if (result != Qnil)
+    {
+      xsymbol_value (Vthis_command) = result;
+      return Fcommand_execute (result, 0);
+    }
+  return Qnil;
+}
+
+lisp
+Fcall_menu (lisp)
+{
+  lisp lmenu = xsymbol_value (Vdefault_menu);
+  if (!win32_menu_p (lmenu))
+    return Qnil;
+
+  // Check buffer-local menu
+  if (win32_menu_p (selected_buffer ()->lmenu))
+    lmenu = selected_buffer ()->lmenu;
+
+  dynamic_bind dynb (Vlast_active_menu, lmenu);
+  return run_menu_modal (lmenu);
+}
+
+static lisp
+run_popup_modal (lisp lmenu)
+{
+  menu_entry entries[256];
+  int count = collect_menu_items (lmenu, entries, 256, 1);
+  if (count == 0)
+    return Qnil;
+
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+
+  // Get cursor position for popup placement
+  int cur_y, cur_x;
+  getyx (stdscr, cur_y, cur_x);
+
+  // Find first selectable item
+  int sel = -1;
+  for (int i = 0; i < count; i++)
+    if (!entries[i].is_separator && !(entries[i].flags & MF_GRAYED))
+      {
+        sel = i;
+        break;
+      }
+  if (sel < 0)
+    {
+      for (int i = 0; i < count; i++)
+        if (!entries[i].is_separator)
+          {
+            sel = i;
+            break;
+          }
+    }
+
+  int drop_w;
+  WINDOW *win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
+  if (!win)
+    return Qnil;
+
+  lisp result = Qnil;
+  int running = 1;
+
+  while (running)
+    {
+      int ch = getch ();
+      switch (ch)
+        {
+        case KEY_UP:
+        case 16: // C-p
+          if (count > 0)
+            {
+              int start = sel;
+              do
+                sel = (sel + count - 1) % count;
+              while (entries[sel].is_separator && sel != start);
+
+              delwin (win);
+              touchwin (stdscr);
+              refresh ();
+              win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
+            }
+          break;
+
+        case KEY_DOWN:
+        case 14: // C-n
+          if (count > 0)
+            {
+              int start = sel;
+              do
+                sel = (sel + 1) % count;
+              while (entries[sel].is_separator && sel != start);
+
+              delwin (win);
+              touchwin (stdscr);
+              refresh ();
+              win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
+            }
+          break;
+
+        case '\r':
+        case '\n':
+        case KEY_ENTER:
+          if (sel >= 0 && sel < count
+              && !entries[sel].is_separator
+              && !(entries[sel].flags & MF_GRAYED))
+            {
+              if (entries[sel].is_submenu)
+                break;
+              lisp command = xwin32_menu_command (entries[sel].item);
+              if (command != Qnil)
+                result = command;
+            }
+          running = 0;
+          break;
+
+        case 27: // ESC
+        case 7:  // C-g
+          running = 0;
+          break;
+
+        default:
+          break;
+        }
+    }
+
+  if (win)
+    {
+      delwin (win);
+      touchwin (stdscr);
+      refresh_screen (1);
+    }
+
+  if (result != Qnil)
+    {
+      xsymbol_value (Vthis_command) = result;
+      return Fcommand_execute (result, 0);
+    }
+  return Qnil;
+}
+
+lisp
+Ftrack_popup_menu (lisp lmenu, lisp)
+{
+  check_popup_menu (lmenu);
+  dynamic_bind dynb (Vtracking_menu, lmenu);
+  return run_popup_modal (lmenu);
+}
 
 // Dialog
 lisp Fdialog_box (lisp, lisp, lisp) { return Qnil; }
