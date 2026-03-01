@@ -685,6 +685,10 @@ setup_ncurses_keybindings ()
   if (xsymbol_value (Vdefault_input_function) == Qnil
       || xsymbol_value (Vdefault_input_function) == Qunbound)
     xsymbol_value (Vdefault_input_function) = sic;
+
+  // F10: activate menu bar
+  lisp km = xsymbol_value (Vglobal_keymap);
+  Fdefine_key (km, make_char (CCF_F10), Scall_menu);
 }
 
 // Write to log fd (survives SIGTERM since write() is unbuffered)

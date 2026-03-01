@@ -283,6 +283,41 @@ kbd_queue::fetch (int wait, int)
     }
 
   lChar result = ncurses_key_to_lchar (ret, wch);
+
+  // ESC timeout detection: ESC alone (200ms) → CCF_F10 (menu activation)
+  if (result == CC_ESC)
+    {
+      // First check ncurses internal buffer (ESC+key may already be consumed)
+      wint_t next_wch;
+      nodelay (stdscr, TRUE);
+      int next_ret = wget_wch (stdscr, &next_wch);
+      nodelay (stdscr, FALSE);
+
+      if (next_ret != ERR)
+        {
+          // Another character available → ESC is meta prefix
+          // Save it for the next fetch() call
+          pending = ncurses_key_to_lchar (next_ret, next_wch);
+        }
+      else
+        {
+          // Nothing in ncurses buffer. Wait on raw fd for 200ms.
+          fd_set rfds;
+          FD_ZERO (&rfds);
+          FD_SET (STDIN_FILENO, &rfds);
+          struct timeval tv;
+          tv.tv_sec = 0;
+          tv.tv_usec = 200000;  // 200ms
+          int sel = select (STDIN_FILENO + 1, &rfds, 0, 0, &tv);
+          if (sel <= 0)
+            {
+              // Timeout → ESC alone → convert to F10 (menu activation)
+              result = CCF_F10;
+            }
+          // else: next key arrived → ESC is meta prefix, return CC_ESC as-is
+        }
+    }
+
   fetchlog ("fetch: → lChar=0x%lx\n", (unsigned long)result);
   return result;
 }

@@ -2429,6 +2429,8 @@ render_window (Window *wp, int total_cols)
     }
 }
 
+static void draw_persistent_menu_bar ();
+
 void
 refresh_screen (int)
 {
@@ -2470,6 +2472,9 @@ refresh_screen (int)
   Window *mini = Window::minibuffer_window ();
   if (!mini)
     return;
+
+  // Draw persistent menu bar at row 0
+  draw_persistent_menu_bar ();
 
   // Render each non-minibuffer window
   for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
@@ -2706,9 +2711,13 @@ Window::compute_geometry (const SIZE &, int)
     }
 
   // Proportionally redistribute to new terminal size
-  int avail_rows = rows - 1;  // subtract minibuffer row
+  int avail_rows = rows - 2;  // reserve row 0 (menu bar) + last row (minibuffer)
   ncurses_compute_size (ox, nx, ow, cols);
   ncurses_compute_size (oy, ny, oh, avail_rows);
+
+  // Shift all y positions down by 1 to make room for menu bar at row 0
+  for (int i = 0; i <= ny; i++)
+    oy[i] += 1;
 
   // Apply new positions from grid
   for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
@@ -4910,6 +4919,37 @@ draw_menu_bar_item (int col, const wchar_t *label, int len, int display_width, i
   attroff (attr);
 }
 
+static void
+draw_persistent_menu_bar ()
+{
+  int rows, cols;
+  getmaxyx (stdscr, rows, cols);
+
+  // Clear row 0 with reverse video background
+  attron (A_REVERSE);
+  move (0, 0);
+  for (int i = 0; i < cols; i++)
+    addch (' ');
+  attroff (A_REVERSE);
+
+  lisp lmenu = xsymbol_value (Vdefault_menu);
+  if (win32_menu_p (selected_buffer ()->lmenu))
+    lmenu = selected_buffer ()->lmenu;
+  if (!win32_menu_p (lmenu))
+    return;
+
+  menu_entry bar_items[64];
+  int bar_count = collect_menu_items (lmenu, bar_items, 64, 1);
+
+  int col = 0;
+  for (int i = 0; i < bar_count; i++)
+    {
+      draw_menu_bar_item (col, bar_items[i].label, bar_items[i].label_len,
+                          bar_items[i].display_width, 0);
+      col += bar_items[i].display_width + 2;
+    }
+}
+
 static WINDOW *
 draw_dropdown (int bar_x, menu_entry *entries, int count, int sel, int *widthp)
 {
@@ -5003,24 +5043,17 @@ run_menu_modal (lisp menu_root)
   if (bar_count == 0)
     return Qnil;
 
-  int rows, cols;
-  getmaxyx (stdscr, rows, cols);
-
-  // Save row 0 content
-  cchar_t saved_row0[1024];
-  int save_cols = cols < 1024 ? cols : 1024;
-  for (int i = 0; i < save_cols; i++)
-    mvin_wch (0, i, &saved_row0[i]);
-
-  // Draw menu bar
+  // Draw menu bar (persistent bar already visible at row 0)
+  // Start with bar highlighted but no dropdown (like Win32 Alt behavior)
   int bar_sel = 0;
   lisp result = Qnil;
   WINDOW *dropdown = NULL;
   menu_entry drop_items[256];
   int drop_count = 0;
   int drop_sel = -1;
+  int drop_open = 0;   // dropdown not open initially
   int need_redraw_bar = 1;
-  int need_redraw_drop = 1;
+  int need_redraw_drop = 0;  // don't open dropdown on activation
   int running = 1;
 
   while (running)
@@ -5052,37 +5085,45 @@ run_menu_modal (lisp menu_root)
               refresh ();
             }
 
-          // Collect items for current bar selection
-          if (bar_items[bar_sel].is_submenu)
+          if (drop_open)
             {
-              drop_count = collect_menu_items (bar_items[bar_sel].item, drop_items, 256,
-                                               1);
-              // Find first non-separator
-              drop_sel = -1;
-              for (int i = 0; i < drop_count; i++)
-                if (!drop_items[i].is_separator
-                    && !(drop_items[i].flags & MF_GRAYED))
-                  {
-                    drop_sel = i;
-                    break;
-                  }
-              if (drop_sel < 0)
+              // Collect items for current bar selection
+              if (bar_items[bar_sel].is_submenu)
                 {
+                  drop_count = collect_menu_items (bar_items[bar_sel].item, drop_items, 256,
+                                                   1);
+                  // Find first non-separator
+                  drop_sel = -1;
                   for (int i = 0; i < drop_count; i++)
-                    if (!drop_items[i].is_separator)
+                    if (!drop_items[i].is_separator
+                        && !(drop_items[i].flags & MF_GRAYED))
                       {
                         drop_sel = i;
                         break;
                       }
+                  if (drop_sel < 0)
+                    {
+                      for (int i = 0; i < drop_count; i++)
+                        if (!drop_items[i].is_separator)
+                          {
+                            drop_sel = i;
+                            break;
+                          }
+                    }
+
+                  // Compute bar_x for this item
+                  int bar_x = 0;
+                  for (int i = 0; i < bar_sel; i++)
+                    bar_x += bar_items[i].display_width + 2;
+
+                  int drop_w;
+                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
                 }
-
-              // Compute bar_x for this item
-              int bar_x = 0;
-              for (int i = 0; i < bar_sel; i++)
-                bar_x += bar_items[i].display_width + 2;
-
-              int drop_w;
-              dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
+              else
+                {
+                  drop_count = 0;
+                  drop_sel = -1;
+                }
             }
           else
             {
@@ -5100,19 +5141,21 @@ run_menu_modal (lisp menu_root)
         case 2: // C-b
           bar_sel = (bar_sel + bar_count - 1) % bar_count;
           need_redraw_bar = 1;
-          need_redraw_drop = 1;
+          if (drop_open)
+            need_redraw_drop = 1;  // switch dropdown only if already open
           break;
 
         case KEY_RIGHT:
         case 6: // C-f
           bar_sel = (bar_sel + 1) % bar_count;
           need_redraw_bar = 1;
-          need_redraw_drop = 1;
+          if (drop_open)
+            need_redraw_drop = 1;
           break;
 
         case KEY_UP:
         case 16: // C-p
-          if (drop_count > 0)
+          if (drop_open && drop_count > 0)
             {
               int start = drop_sel;
               do
@@ -5137,7 +5180,13 @@ run_menu_modal (lisp menu_root)
 
         case KEY_DOWN:
         case 14: // C-n
-          if (drop_count > 0)
+          if (!drop_open)
+            {
+              // First Down press opens the dropdown
+              drop_open = 1;
+              need_redraw_drop = 1;
+            }
+          else if (drop_count > 0)
             {
               int start = drop_sel;
               do
@@ -5163,17 +5212,25 @@ run_menu_modal (lisp menu_root)
         case '\r':
         case '\n':
         case KEY_ENTER:
-          if (drop_sel >= 0 && drop_sel < drop_count
-              && !drop_items[drop_sel].is_separator
-              && !(drop_items[drop_sel].flags & MF_GRAYED))
+          if (!drop_open)
+            {
+              // Enter on bar item opens the dropdown
+              drop_open = 1;
+              need_redraw_drop = 1;
+            }
+          else if (drop_sel >= 0 && drop_sel < drop_count
+                   && !drop_items[drop_sel].is_separator
+                   && !(drop_items[drop_sel].flags & MF_GRAYED))
             {
               if (drop_items[drop_sel].is_submenu)
                 break; // Nested submenus not yet supported
               lisp command = xwin32_menu_command (drop_items[drop_sel].item);
               if (command != Qnil)
                 result = command;
+              running = 0;
             }
-          running = 0;
+          else
+            running = 0;
           break;
 
         case 27: // ESC
@@ -5187,9 +5244,10 @@ run_menu_modal (lisp menu_root)
             {
               int lch = tolower (ch);
               int matched = 0;
-              // Check dropdown items first
-              if (drop_count > 0)
+
+              if (drop_open && drop_count > 0)
                 {
+                  // Dropdown is open: check dropdown items first
                   for (int i = 0; i < drop_count; i++)
                     if (drop_items[i].accel == lch
                         && !drop_items[i].is_separator
@@ -5206,15 +5264,18 @@ run_menu_modal (lisp menu_root)
                         break;
                       }
                 }
-              // Check bar items if dropdown didn't match
+
+              // Check bar items (always, if dropdown didn't match)
               if (!matched && running)
                 {
                   for (int i = 0; i < bar_count; i++)
-                    if (bar_items[i].accel == lch && i != bar_sel)
+                    if (bar_items[i].accel == lch)
                       {
                         bar_sel = i;
+                        drop_open = 1;  // open dropdown for matched bar item
                         need_redraw_bar = 1;
                         need_redraw_drop = 1;
+                        matched = 1;
                         break;
                       }
                 }
@@ -5229,10 +5290,6 @@ run_menu_modal (lisp menu_root)
       delwin (dropdown);
       dropdown = NULL;
     }
-
-  // Restore row 0
-  for (int i = 0; i < save_cols; i++)
-    mvadd_wch (0, i, &saved_row0[i]);
 
   touchwin (stdscr);
   refresh_screen (1);
