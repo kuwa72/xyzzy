@@ -4799,7 +4799,158 @@ struct menu_entry
   int flags;         // MF_GRAYED / MF_CHECKED etc.
   int is_separator;
   int is_submenu;
+  char keybind[64];  // Emacs-style key binding string (e.g. "C-x C-c")
+  int keybind_width; // display width of keybind string
 };
+
+// Format a single Char as Emacs-style key name. Returns pointer past the written chars.
+static char *
+keyname_emacs (char *p, Char c)
+{
+  int meta = 0;
+
+  if (meta_char_p (c))
+    {
+      meta = 1;
+      c = meta_char_to_char (c);
+    }
+  else if (meta_function_char_p (c))
+    {
+      meta = 1;
+      c = meta_function_to_function (c);
+    }
+
+  if (function_char_p (c))
+    {
+      if (pseudo_ctlchar_p (c))
+        {
+          p = stpcpy (p, "C-");
+          if (meta)
+            p = stpcpy (p, "M-");
+          *p++ = pseudo_ctl2char_table[c & 0xff];
+          *p = 0;
+        }
+      else
+        {
+          if (c & CCF_SHIFT_BIT)
+            p = stpcpy (p, "S-");
+          if (c & CCF_CTRL_BIT)
+            p = stpcpy (p, "C-");
+          if (meta)
+            p = stpcpy (p, "M-");
+          const char *x = function_Char2name (c & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
+          if (x)
+            p = stpcpy (p, x);
+        }
+    }
+  else
+    {
+      const char *x = standard_Char2name (c);
+      if (x)
+        {
+          if (meta)
+            p = stpcpy (p, "M-");
+          p = stpcpy (p, x);
+        }
+      else
+        {
+          if (c < ' ')
+            {
+              p = stpcpy (p, "C-");
+              if (meta)
+                p = stpcpy (p, "M-");
+              *p++ = _char_downcase (c + '@');
+              *p = 0;
+            }
+          else if (c == CC_DEL)
+            {
+              p = stpcpy (p, "C-");
+              if (meta)
+                p = stpcpy (p, "M-");
+              *p++ = '?';
+              *p = 0;
+            }
+          else
+            {
+              if (meta)
+                p = stpcpy (p, "M-");
+              *p++ = (char)c;
+              *p = 0;
+            }
+        }
+    }
+  return p;
+}
+
+// Look up keybindings for menu items (like Win32 modify_menu_string)
+static void
+fill_menu_keybinds (menu_entry *entries, int count)
+{
+  // keybind fields are already zeroed by collect_menu_items.
+  // Wrap in try-catch to avoid crashing the menu if keymap lookup fails.
+  try
+    {
+      Buffer *bp = selected_buffer ();
+      if (!bp)
+        return;
+
+      lisp *map;
+      int nmaps = 0;
+      long n;
+
+      if (safe_fixnum_value (Flist_length (bp->lminor_map), &n) && n > 0)
+        {
+          map = (lisp *)alloca (sizeof *map * (n + 3));
+          map[nmaps++] = Fcurrent_selection_keymap ();
+          for (lisp p = bp->lminor_map; consp (p) && nmaps <= n; nmaps++, p = xcdr (p))
+            map[nmaps] = xcar (p);
+        }
+      else
+        {
+          map = (lisp *)alloca (sizeof *map * 3);
+          map[nmaps++] = Fcurrent_selection_keymap ();
+        }
+      map[nmaps++] = bp->lmap;
+      map[nmaps++] = xsymbol_value (Vglobal_keymap);
+
+      for (int idx = 0; idx < count; idx++)
+        {
+          menu_entry &e = entries[idx];
+
+          if (e.is_separator || e.is_submenu)
+            continue;
+          if (!xwin32_menu_id (e.item)
+              || xwin32_menu_command (e.item) == Qnil
+              || !symbolp (xwin32_menu_command (e.item)))
+            continue;
+
+          for (int i = 0; i < nmaps; i++)
+            {
+              Char b[5];
+              Char *be = lookup_command_keyseq (xwin32_menu_command (e.item),
+                                                map[i], map, i,
+                                                b, b, b + numberof (b));
+              if (be)
+                {
+                  char *p = e.keybind;
+                  char *pe = e.keybind + sizeof (e.keybind) - 1;
+                  for (const Char *k = b; k < be && p < pe - 16; k++)
+                    {
+                      if (k != b)
+                        *p++ = ' ';
+                      p = keyname_emacs (p, *k);
+                    }
+                  *p = 0;
+                  e.keybind_width = (int)strlen (e.keybind);
+                  break;
+                }
+            }
+        }
+    }
+  catch (nonlocal_jump &)
+    {
+    }
+}
 
 #define MAX_SUBMENU_DEPTH 8
 
@@ -4838,6 +4989,8 @@ collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enable
       e.flags = MF_ENABLED | MF_UNCHECKED;
       e.is_separator = 0;
       e.is_submenu = 0;
+      e.keybind[0] = 0;
+      e.keybind_width = 0;
 
       if (!xwin32_menu_id (x) && !xwin32_menu_handle (x))
         {
@@ -4966,15 +5119,19 @@ static WINDOW *
 draw_dropdown (int bar_x, int top_row, menu_entry *entries, int count, int sel, int *widthp)
 {
   // Compute width using display_width (wcwidth-aware)
-  int max_w = 4;
+  int max_label_w = 4;
+  int max_keybind_w = 0;
   for (int i = 0; i < count; i++)
     {
       int w = entries[i].display_width;
       if (entries[i].is_submenu)
         w += 2; // space for " >"
-      if (w > max_w)
-        max_w = w;
+      if (w > max_label_w)
+        max_label_w = w;
+      if (entries[i].keybind_width > max_keybind_w)
+        max_keybind_w = entries[i].keybind_width;
     }
+  int max_w = max_label_w + (max_keybind_w ? max_keybind_w + 2 : 0);
   int box_w = max_w + 4; // 1 border + 1 pad + content + 1 pad + 1 border
   int box_h = count + 2; // 1 border + items + 1 border
 
@@ -5044,6 +5201,13 @@ draw_dropdown (int bar_x, int top_row, menu_entry *entries, int count, int sel, 
       if (entries[i].is_submenu)
         mvwaddch (win, i + 1, box_w - 2, '>');
 
+      // Keybind (right-aligned)
+      if (entries[i].keybind_width > 0)
+        {
+          int kb_col = box_w - 2 - entries[i].keybind_width;
+          mvwaddstr (win, i + 1, kb_col, entries[i].keybind);
+        }
+
       wattroff (win, attr);
     }
 
@@ -5083,6 +5247,7 @@ open_submenu (submenu_level *stack, int depth)
   child.count = collect_menu_items (pe.item, child.items, 256, 1);
   if (child.count == 0)
     return 0;
+  fill_menu_keybinds (child.items, child.count);
   child.sel = find_first_selectable (child.items, child.count);
 
   // Position: right of parent, aligned to parent's selected row
@@ -5158,9 +5323,9 @@ run_menu_modal (lisp menu_root)
   int need_redraw_drop = 0;
   int running = 1;
 
-  // Submenu stack: stack[0] = first dropdown from bar, stack[1..] = nested submenus
-  submenu_level stack[MAX_SUBMENU_DEPTH];
-  memset (stack, 0, sizeof (stack));
+  // Submenu stack: heap-allocated to avoid ~1.2MB stack usage
+  submenu_level *stack = new submenu_level[MAX_SUBMENU_DEPTH];
+  memset (stack, 0, sizeof (submenu_level) * MAX_SUBMENU_DEPTH);
   for (int i = 0; i < MAX_SUBMENU_DEPTH; i++)
     stack[i].sel = -1;
   int depth = 0; // current deepest open level (0 = first dropdown)
@@ -5196,6 +5361,7 @@ run_menu_modal (lisp menu_root)
             {
               submenu_level &lvl = stack[0];
               lvl.count = collect_menu_items (bar_items[bar_sel].item, lvl.items, 256, 1);
+              fill_menu_keybinds (lvl.items, lvl.count);
               lvl.sel = find_first_selectable (lvl.items, lvl.count);
 
               int bar_x = 0;
@@ -5379,6 +5545,7 @@ run_menu_modal (lisp menu_root)
   // Cleanup all open submenus
   for (int d = depth; d >= 0; d--)
     close_submenu (stack, d);
+  delete[] stack;
 
   touchwin (stdscr);
   refresh_screen (1);
@@ -5409,8 +5576,8 @@ Fcall_menu (lisp)
 static lisp
 run_popup_modal (lisp lmenu)
 {
-  submenu_level stack[MAX_SUBMENU_DEPTH];
-  memset (stack, 0, sizeof (stack));
+  submenu_level *stack = new submenu_level[MAX_SUBMENU_DEPTH];
+  memset (stack, 0, sizeof (submenu_level) * MAX_SUBMENU_DEPTH);
   for (int i = 0; i < MAX_SUBMENU_DEPTH; i++)
     stack[i].sel = -1;
   int depth = 0;
@@ -5419,7 +5586,11 @@ run_popup_modal (lisp lmenu)
   submenu_level &root = stack[0];
   root.count = collect_menu_items (lmenu, root.items, 256, 1);
   if (root.count == 0)
-    return Qnil;
+    {
+      delete[] stack;
+      return Qnil;
+    }
+  fill_menu_keybinds (root.items, root.count);
 
   int rows, cols;
   getmaxyx (stdscr, rows, cols);
@@ -5558,6 +5729,7 @@ run_popup_modal (lisp lmenu)
   // Cleanup all levels
   for (int d = depth; d >= 0; d--)
     close_submenu (stack, d);
+  delete[] stack;
 
   touchwin (stdscr);
   refresh_screen (1);
