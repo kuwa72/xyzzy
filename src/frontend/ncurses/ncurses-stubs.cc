@@ -4801,6 +4801,18 @@ struct menu_entry
   int is_submenu;
 };
 
+#define MAX_SUBMENU_DEPTH 8
+
+struct submenu_level
+{
+  WINDOW *win;
+  menu_entry items[256];
+  int count;
+  int sel;
+  int x, y;   // window position (col, row)
+  int width;  // box width
+};
+
 static int
 collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enablep)
 {
@@ -4951,7 +4963,7 @@ draw_persistent_menu_bar ()
 }
 
 static WINDOW *
-draw_dropdown (int bar_x, menu_entry *entries, int count, int sel, int *widthp)
+draw_dropdown (int bar_x, int top_row, menu_entry *entries, int count, int sel, int *widthp)
 {
   // Compute width using display_width (wcwidth-aware)
   int max_w = 4;
@@ -4969,15 +4981,23 @@ draw_dropdown (int bar_x, menu_entry *entries, int count, int sel, int *widthp)
   int rows, cols;
   getmaxyx (stdscr, rows, cols);
 
-  // Clamp position
+  // Clamp horizontal position
   if (bar_x + box_w > cols)
     bar_x = cols - box_w;
   if (bar_x < 0)
     bar_x = 0;
-  if (box_h > rows - 1)
-    box_h = rows - 1;
 
-  WINDOW *win = newwin (box_h, box_w, 1, bar_x);
+  // Clamp vertical position
+  if (top_row + box_h > rows)
+    {
+      top_row = rows - box_h;
+      if (top_row < 0)
+        top_row = 0;
+    }
+  if (top_row + box_h > rows)
+    box_h = rows - top_row;
+
+  WINDOW *win = newwin (box_h, box_w, top_row, bar_x);
   if (!win)
     return NULL;
 
@@ -5033,37 +5053,124 @@ draw_dropdown (int bar_x, menu_entry *entries, int count, int sel, int *widthp)
   return win;
 }
 
+// Find first selectable item in a submenu level
+static int
+find_first_selectable (menu_entry *items, int count)
+{
+  for (int i = 0; i < count; i++)
+    if (!items[i].is_separator && !(items[i].flags & MF_GRAYED))
+      return i;
+  for (int i = 0; i < count; i++)
+    if (!items[i].is_separator)
+      return i;
+  return -1;
+}
+
+// Open a submenu from parent level's selected item
+static int
+open_submenu (submenu_level *stack, int depth)
+{
+  if (depth >= MAX_SUBMENU_DEPTH - 1)
+    return 0;
+  submenu_level &parent = stack[depth];
+  if (parent.sel < 0 || parent.sel >= parent.count)
+    return 0;
+  menu_entry &pe = parent.items[parent.sel];
+  if (!pe.is_submenu)
+    return 0;
+
+  submenu_level &child = stack[depth + 1];
+  child.count = collect_menu_items (pe.item, child.items, 256, 1);
+  if (child.count == 0)
+    return 0;
+  child.sel = find_first_selectable (child.items, child.count);
+
+  // Position: right of parent, aligned to parent's selected row
+  child.x = parent.x + parent.width;
+  child.y = parent.y + parent.sel; // align with parent item row
+
+  child.win = draw_dropdown (child.x, child.y, child.items, child.count,
+                             child.sel, &child.width);
+  return 1;
+}
+
+// Close submenu at given depth
+static void
+close_submenu (submenu_level *stack, int depth)
+{
+  submenu_level &lvl = stack[depth];
+  if (lvl.win)
+    {
+      delwin (lvl.win);
+      lvl.win = NULL;
+    }
+  lvl.count = 0;
+  lvl.sel = -1;
+}
+
+// Redraw a single submenu level
+static void
+redraw_level (submenu_level &lvl)
+{
+  if (lvl.win)
+    {
+      delwin (lvl.win);
+      lvl.win = NULL;
+    }
+  lvl.win = draw_dropdown (lvl.x, lvl.y, lvl.items, lvl.count,
+                           lvl.sel, &lvl.width);
+}
+
+// Close all submenus from depth down to (but not including) keep_depth,
+// then refresh screen and redraw remaining levels
+static void
+close_submenus_above (submenu_level *stack, int &depth, int keep_depth)
+{
+  for (int d = depth; d > keep_depth; d--)
+    close_submenu (stack, d);
+  depth = keep_depth;
+  touchwin (stdscr);
+  refresh ();
+  for (int d = 0; d <= depth; d++)
+    if (stack[d].win)
+      {
+        // Redraw without deleting first — just recreate
+        delwin (stack[d].win);
+        stack[d].win = draw_dropdown (stack[d].x, stack[d].y, stack[d].items,
+                                      stack[d].count, stack[d].sel,
+                                      &stack[d].width);
+      }
+}
+
 static lisp
 run_menu_modal (lisp menu_root)
 {
   // Collect top-level bar items
   menu_entry bar_items[64];
-  int bar_count = collect_menu_items (menu_root, bar_items, 64,
-                                      1);
+  int bar_count = collect_menu_items (menu_root, bar_items, 64, 1);
   if (bar_count == 0)
     return Qnil;
 
-  // Draw menu bar (persistent bar already visible at row 0)
-  // Start with bar highlighted but no dropdown (like Win32 Alt behavior)
   int bar_sel = 0;
   lisp result = Qnil;
-  WINDOW *dropdown = NULL;
-  menu_entry drop_items[256];
-  int drop_count = 0;
-  int drop_sel = -1;
-  int drop_open = 0;   // dropdown not open initially
+  int drop_open = 0;
   int need_redraw_bar = 1;
-  int need_redraw_drop = 0;  // don't open dropdown on activation
+  int need_redraw_drop = 0;
   int running = 1;
+
+  // Submenu stack: stack[0] = first dropdown from bar, stack[1..] = nested submenus
+  submenu_level stack[MAX_SUBMENU_DEPTH];
+  memset (stack, 0, sizeof (stack));
+  for (int i = 0; i < MAX_SUBMENU_DEPTH; i++)
+    stack[i].sel = -1;
+  int depth = 0; // current deepest open level (0 = first dropdown)
 
   while (running)
     {
       if (need_redraw_bar)
         {
-          // Clear row 0
           move (0, 0);
           clrtoeol ();
-
           int col = 0;
           for (int i = 0; i < bar_count; i++)
             {
@@ -5077,104 +5184,93 @@ run_menu_modal (lisp menu_root)
 
       if (need_redraw_drop)
         {
-          if (dropdown)
+          // Close all existing submenus
+          for (int d = depth; d >= 0; d--)
+            close_submenu (stack, d);
+          depth = 0;
+
+          touchwin (stdscr);
+          refresh ();
+
+          if (drop_open && bar_items[bar_sel].is_submenu)
             {
-              delwin (dropdown);
-              dropdown = NULL;
-              touchwin (stdscr);
-              refresh ();
+              submenu_level &lvl = stack[0];
+              lvl.count = collect_menu_items (bar_items[bar_sel].item, lvl.items, 256, 1);
+              lvl.sel = find_first_selectable (lvl.items, lvl.count);
+
+              int bar_x = 0;
+              for (int i = 0; i < bar_sel; i++)
+                bar_x += bar_items[i].display_width + 2;
+
+              lvl.x = bar_x;
+              lvl.y = 1; // just below menu bar
+              lvl.win = draw_dropdown (lvl.x, lvl.y, lvl.items, lvl.count,
+                                       lvl.sel, &lvl.width);
             }
-
-          if (drop_open)
+          else if (!drop_open)
             {
-              // Collect items for current bar selection
-              if (bar_items[bar_sel].is_submenu)
-                {
-                  drop_count = collect_menu_items (bar_items[bar_sel].item, drop_items, 256,
-                                                   1);
-                  // Find first non-separator
-                  drop_sel = -1;
-                  for (int i = 0; i < drop_count; i++)
-                    if (!drop_items[i].is_separator
-                        && !(drop_items[i].flags & MF_GRAYED))
-                      {
-                        drop_sel = i;
-                        break;
-                      }
-                  if (drop_sel < 0)
-                    {
-                      for (int i = 0; i < drop_count; i++)
-                        if (!drop_items[i].is_separator)
-                          {
-                            drop_sel = i;
-                            break;
-                          }
-                    }
-
-                  // Compute bar_x for this item
-                  int bar_x = 0;
-                  for (int i = 0; i < bar_sel; i++)
-                    bar_x += bar_items[i].display_width + 2;
-
-                  int drop_w;
-                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
-                }
-              else
-                {
-                  drop_count = 0;
-                  drop_sel = -1;
-                }
-            }
-          else
-            {
-              drop_count = 0;
-              drop_sel = -1;
+              stack[0].count = 0;
+              stack[0].sel = -1;
             }
           need_redraw_drop = 0;
         }
 
-      // Wait for key
       int ch = getch ();
+      submenu_level &cur = stack[depth];
+
       switch (ch)
         {
         case KEY_LEFT:
         case 2: // C-b
-          bar_sel = (bar_sel + bar_count - 1) % bar_count;
-          need_redraw_bar = 1;
-          if (drop_open)
-            need_redraw_drop = 1;  // switch dropdown only if already open
+          if (drop_open && depth > 0)
+            {
+              // Go back to parent submenu
+              close_submenu (stack, depth);
+              depth--;
+              touchwin (stdscr);
+              refresh ();
+              for (int d = 0; d <= depth; d++)
+                redraw_level (stack[d]);
+            }
+          else
+            {
+              // Move to previous bar item
+              bar_sel = (bar_sel + bar_count - 1) % bar_count;
+              need_redraw_bar = 1;
+              if (drop_open)
+                need_redraw_drop = 1;
+            }
           break;
 
         case KEY_RIGHT:
         case 6: // C-f
-          bar_sel = (bar_sel + 1) % bar_count;
-          need_redraw_bar = 1;
-          if (drop_open)
-            need_redraw_drop = 1;
+          if (drop_open && cur.sel >= 0 && cur.sel < cur.count
+              && cur.items[cur.sel].is_submenu
+              && !(cur.items[cur.sel].flags & MF_GRAYED))
+            {
+              // Open submenu
+              if (open_submenu (stack, depth))
+                depth++;
+            }
+          else
+            {
+              // Move to next bar item
+              bar_sel = (bar_sel + 1) % bar_count;
+              need_redraw_bar = 1;
+              if (drop_open)
+                need_redraw_drop = 1;
+            }
           break;
 
         case KEY_UP:
         case 16: // C-p
-          if (drop_open && drop_count > 0)
+          if (drop_open && cur.count > 0)
             {
-              int start = drop_sel;
+              int start = cur.sel;
               do
-                {
-                  drop_sel = (drop_sel + drop_count - 1) % drop_count;
-                }
-              while (drop_items[drop_sel].is_separator && drop_sel != start);
-
-              if (dropdown)
-                {
-                  delwin (dropdown);
-                  int bar_x = 0;
-                  for (int i = 0; i < bar_sel; i++)
-                    bar_x += bar_items[i].display_width + 2;
-                  int drop_w;
-                  touchwin (stdscr);
-                  refresh ();
-                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
-                }
+                cur.sel = (cur.sel + cur.count - 1) % cur.count;
+              while (cur.items[cur.sel].is_separator && cur.sel != start);
+              redraw_level (cur);
             }
           break;
 
@@ -5182,30 +5278,16 @@ run_menu_modal (lisp menu_root)
         case 14: // C-n
           if (!drop_open)
             {
-              // First Down press opens the dropdown
               drop_open = 1;
               need_redraw_drop = 1;
             }
-          else if (drop_count > 0)
+          else if (cur.count > 0)
             {
-              int start = drop_sel;
+              int start = cur.sel;
               do
-                {
-                  drop_sel = (drop_sel + 1) % drop_count;
-                }
-              while (drop_items[drop_sel].is_separator && drop_sel != start);
-
-              if (dropdown)
-                {
-                  delwin (dropdown);
-                  int bar_x = 0;
-                  for (int i = 0; i < bar_sel; i++)
-                    bar_x += bar_items[i].display_width + 2;
-                  int drop_w;
-                  touchwin (stdscr);
-                  refresh ();
-                  dropdown = draw_dropdown (bar_x, drop_items, drop_count, drop_sel, &drop_w);
-                }
+                cur.sel = (cur.sel + 1) % cur.count;
+              while (cur.items[cur.sel].is_separator && cur.sel != start);
+              redraw_level (cur);
             }
           break;
 
@@ -5214,20 +5296,25 @@ run_menu_modal (lisp menu_root)
         case KEY_ENTER:
           if (!drop_open)
             {
-              // Enter on bar item opens the dropdown
               drop_open = 1;
               need_redraw_drop = 1;
             }
-          else if (drop_sel >= 0 && drop_sel < drop_count
-                   && !drop_items[drop_sel].is_separator
-                   && !(drop_items[drop_sel].flags & MF_GRAYED))
+          else if (cur.sel >= 0 && cur.sel < cur.count
+                   && !cur.items[cur.sel].is_separator
+                   && !(cur.items[cur.sel].flags & MF_GRAYED))
             {
-              if (drop_items[drop_sel].is_submenu)
-                break; // Nested submenus not yet supported
-              lisp command = xwin32_menu_command (drop_items[drop_sel].item);
-              if (command != Qnil)
-                result = command;
-              running = 0;
+              if (cur.items[cur.sel].is_submenu)
+                {
+                  if (open_submenu (stack, depth))
+                    depth++;
+                }
+              else
+                {
+                  lisp command = xwin32_menu_command (cur.items[cur.sel].item);
+                  if (command != Qnil)
+                    result = command;
+                  running = 0;
+                }
             }
           else
             running = 0;
@@ -5239,24 +5326,30 @@ run_menu_modal (lisp menu_root)
           break;
 
         default:
-          // Accelerator key handling
           if (ch > 0 && ch < 256)
             {
               int lch = tolower (ch);
               int matched = 0;
 
-              if (drop_open && drop_count > 0)
+              // Check deepest open level first
+              if (drop_open && cur.count > 0)
                 {
-                  // Dropdown is open: check dropdown items first
-                  for (int i = 0; i < drop_count; i++)
-                    if (drop_items[i].accel == lch
-                        && !drop_items[i].is_separator
-                        && !(drop_items[i].flags & MF_GRAYED))
+                  for (int i = 0; i < cur.count; i++)
+                    if (cur.items[i].accel == lch
+                        && !cur.items[i].is_separator
+                        && !(cur.items[i].flags & MF_GRAYED))
                       {
                         matched = 1;
-                        if (!drop_items[i].is_submenu)
+                        if (cur.items[i].is_submenu)
                           {
-                            lisp command = xwin32_menu_command (drop_items[i].item);
+                            cur.sel = i;
+                            redraw_level (cur);
+                            if (open_submenu (stack, depth))
+                              depth++;
+                          }
+                        else
+                          {
+                            lisp command = xwin32_menu_command (cur.items[i].item);
                             if (command != Qnil)
                               result = command;
                             running = 0;
@@ -5265,14 +5358,13 @@ run_menu_modal (lisp menu_root)
                       }
                 }
 
-              // Check bar items (always, if dropdown didn't match)
               if (!matched && running)
                 {
                   for (int i = 0; i < bar_count; i++)
                     if (bar_items[i].accel == lch)
                       {
                         bar_sel = i;
-                        drop_open = 1;  // open dropdown for matched bar item
+                        drop_open = 1;
                         need_redraw_bar = 1;
                         need_redraw_drop = 1;
                         matched = 1;
@@ -5284,17 +5376,13 @@ run_menu_modal (lisp menu_root)
         }
     }
 
-  // Cleanup
-  if (dropdown)
-    {
-      delwin (dropdown);
-      dropdown = NULL;
-    }
+  // Cleanup all open submenus
+  for (int d = depth; d >= 0; d--)
+    close_submenu (stack, d);
 
   touchwin (stdscr);
   refresh_screen (1);
 
-  // Execute command if selected
   if (result != Qnil)
     {
       xsymbol_value (Vthis_command) = result;
@@ -5321,39 +5409,30 @@ Fcall_menu (lisp)
 static lisp
 run_popup_modal (lisp lmenu)
 {
-  menu_entry entries[256];
-  int count = collect_menu_items (lmenu, entries, 256, 1);
-  if (count == 0)
+  submenu_level stack[MAX_SUBMENU_DEPTH];
+  memset (stack, 0, sizeof (stack));
+  for (int i = 0; i < MAX_SUBMENU_DEPTH; i++)
+    stack[i].sel = -1;
+  int depth = 0;
+
+  // Collect root popup items
+  submenu_level &root = stack[0];
+  root.count = collect_menu_items (lmenu, root.items, 256, 1);
+  if (root.count == 0)
     return Qnil;
 
   int rows, cols;
   getmaxyx (stdscr, rows, cols);
 
-  // Get cursor position for popup placement
   int cur_y, cur_x;
   getyx (stdscr, cur_y, cur_x);
 
-  // Find first selectable item
-  int sel = -1;
-  for (int i = 0; i < count; i++)
-    if (!entries[i].is_separator && !(entries[i].flags & MF_GRAYED))
-      {
-        sel = i;
-        break;
-      }
-  if (sel < 0)
-    {
-      for (int i = 0; i < count; i++)
-        if (!entries[i].is_separator)
-          {
-            sel = i;
-            break;
-          }
-    }
-
-  int drop_w;
-  WINDOW *win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
-  if (!win)
+  root.sel = find_first_selectable (root.items, root.count);
+  root.x = cur_x;
+  root.y = cur_y;
+  root.win = draw_dropdown (root.x, root.y, root.items, root.count,
+                            root.sel, &root.width);
+  if (!root.win)
     return Qnil;
 
   lisp result = Qnil;
@@ -5362,54 +5441,82 @@ run_popup_modal (lisp lmenu)
   while (running)
     {
       int ch = getch ();
+      submenu_level &cur = stack[depth];
+
       switch (ch)
         {
         case KEY_UP:
         case 16: // C-p
-          if (count > 0)
+          if (cur.count > 0)
             {
-              int start = sel;
+              int start = cur.sel;
               do
-                sel = (sel + count - 1) % count;
-              while (entries[sel].is_separator && sel != start);
-
-              delwin (win);
-              touchwin (stdscr);
-              refresh ();
-              win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
+                cur.sel = (cur.sel + cur.count - 1) % cur.count;
+              while (cur.items[cur.sel].is_separator && cur.sel != start);
+              redraw_level (cur);
             }
           break;
 
         case KEY_DOWN:
         case 14: // C-n
-          if (count > 0)
+          if (cur.count > 0)
             {
-              int start = sel;
+              int start = cur.sel;
               do
-                sel = (sel + 1) % count;
-              while (entries[sel].is_separator && sel != start);
+                cur.sel = (cur.sel + 1) % cur.count;
+              while (cur.items[cur.sel].is_separator && cur.sel != start);
+              redraw_level (cur);
+            }
+          break;
 
-              delwin (win);
+        case KEY_RIGHT:
+        case 6: // C-f
+          // Open submenu if selected item is a submenu
+          if (cur.sel >= 0 && cur.sel < cur.count
+              && cur.items[cur.sel].is_submenu
+              && !(cur.items[cur.sel].flags & MF_GRAYED))
+            {
+              if (open_submenu (stack, depth))
+                depth++;
+            }
+          break;
+
+        case KEY_LEFT:
+        case 2: // C-b
+          // Go back to parent if in a submenu
+          if (depth > 0)
+            {
+              close_submenu (stack, depth);
+              depth--;
               touchwin (stdscr);
               refresh ();
-              win = draw_dropdown (cur_x, entries, count, sel, &drop_w);
+              for (int d = 0; d <= depth; d++)
+                redraw_level (stack[d]);
             }
           break;
 
         case '\r':
         case '\n':
         case KEY_ENTER:
-          if (sel >= 0 && sel < count
-              && !entries[sel].is_separator
-              && !(entries[sel].flags & MF_GRAYED))
+          if (cur.sel >= 0 && cur.sel < cur.count
+              && !cur.items[cur.sel].is_separator
+              && !(cur.items[cur.sel].flags & MF_GRAYED))
             {
-              if (entries[sel].is_submenu)
-                break;
-              lisp command = xwin32_menu_command (entries[sel].item);
-              if (command != Qnil)
-                result = command;
+              if (cur.items[cur.sel].is_submenu)
+                {
+                  if (open_submenu (stack, depth))
+                    depth++;
+                }
+              else
+                {
+                  lisp command = xwin32_menu_command (cur.items[cur.sel].item);
+                  if (command != Qnil)
+                    result = command;
+                  running = 0;
+                }
             }
-          running = 0;
+          else
+            running = 0;
           break;
 
         case 27: // ESC
@@ -5418,16 +5525,42 @@ run_popup_modal (lisp lmenu)
           break;
 
         default:
+          // Accelerator key handling
+          if (ch > 0 && ch < 256)
+            {
+              int lch = tolower (ch);
+              for (int i = 0; i < cur.count; i++)
+                if (cur.items[i].accel == lch
+                    && !cur.items[i].is_separator
+                    && !(cur.items[i].flags & MF_GRAYED))
+                  {
+                    if (cur.items[i].is_submenu)
+                      {
+                        cur.sel = i;
+                        redraw_level (cur);
+                        if (open_submenu (stack, depth))
+                          depth++;
+                      }
+                    else
+                      {
+                        lisp command = xwin32_menu_command (cur.items[i].item);
+                        if (command != Qnil)
+                          result = command;
+                        running = 0;
+                      }
+                    break;
+                  }
+            }
           break;
         }
     }
 
-  if (win)
-    {
-      delwin (win);
-      touchwin (stdscr);
-      refresh_screen (1);
-    }
+  // Cleanup all levels
+  for (int d = depth; d >= 0; d--)
+    close_submenu (stack, d);
+
+  touchwin (stdscr);
+  refresh_screen (1);
 
   if (result != Qnil)
     {
