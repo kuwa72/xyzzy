@@ -33,6 +33,14 @@
   (ignore-errors (ed::init-app-menus))
   ;; BS/DEL key binding (terminal sends 0x7f for backspace)
   (global-set-key #\DEL 'ed::delete-backward-char-or-selection)
+  ;; Set *scratch* encoding to match *default-fileio-encoding* (same as Win32 startup)
+  (trap-errors
+    (let ((scratch (find-buffer "*scratch*")))
+      (when scratch
+        (save-excursion
+          (set-buffer scratch)
+          (set-buffer-fileio-encoding *default-fileio-encoding*)
+          (funcall ed::*initial-buffer-mode*)))))
   t)
 
 #-ncurses
