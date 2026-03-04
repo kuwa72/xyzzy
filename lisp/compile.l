@@ -186,6 +186,7 @@
 
 (defun compile-file (filename)
   (with-open-file (is filename :direction :input :if-does-not-exist :error)
+    (si::detect-encoding-from-firstline is)
     (compile-file-1 filename is)))
 
 (defun mc-compile-file (filename &optional encoding)

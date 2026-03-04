@@ -633,6 +633,7 @@ static symbols lsp[] =
   DEFUN3 (input-stream-p, 1, 0, 0),
   DEFUN3 (output-stream-p, 1, 0, 0),
   DEFUN3 (open, 1, 0, FFneed_rest),
+  SI_DEFUN3 (detect-encoding-from-firstline, 1, 0, 0),
   DEFUN3 (file-position, 1, 1, 0),
   DEFUN3 (make-synonym-stream, 1, 0, 0),
   DEFUN3 (make-broadcast-stream, 0, 0, FFneed_rest),

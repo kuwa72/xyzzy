@@ -2,6 +2,8 @@
 #include "ed.h"
 #include "StrBuf.h"
 
+extern void detect_file_encoding (lisp stream);
+
 class Token: public StrBuf
 {
   char buf[1018];
@@ -2115,6 +2117,9 @@ load_file (lisp filename, lisp realname, lisp if_does_not_exist,
       if (stream == Qnil)
         return Qnil;
     }
+
+  if (file_stream_p (stream))
+    detect_file_encoding (stream);
 
   Char buf[PATH_MAX * 2], *b = buf;
   if (verbose)

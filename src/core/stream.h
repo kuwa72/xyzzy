@@ -64,9 +64,11 @@ public:
   char encoding;      // エンコードモード
   enum
     {
-      ENCODE_CANON,   // text(行末変換する)
-      ENCODE_RAW,     // text(行末変換しない)
-      ENCODE_BINARY   // binary
+      ENCODE_CANON,       // text(行末変換する)
+      ENCODE_RAW,         // text(行末変換しない)
+      ENCODE_BINARY,      // binary
+      ENCODE_CANON_UTF8,  // text UTF-8(行末変換する)
+      ENCODE_RAW_UTF8     // text UTF-8(行末変換しない)
     };
 
   ~lstream ();

@@ -1367,6 +1367,60 @@ Fset_stream_encoding (lisp stream, lisp lencoding)
     }
 }
 
+// Detect -*- Encoding: utf-8 -*- or -*- coding: utf-8 -*- on line 1.
+// Called on first read of a file input stream.
+void
+detect_file_encoding (lisp stream)
+{
+  FILE *fp = xfile_stream_input (stream);
+  if (!fp)
+    return;
+  char line1[256];
+  if (!fgets (line1, sizeof line1, fp))
+    {
+      fseek (fp, 0, SEEK_SET);
+      return;
+    }
+  const char *p1 = strstr (line1, "-*-");
+  const char *p2 = p1 ? strstr (p1 + 3, "-*-") : 0;
+  if (p1 && p2)
+    {
+      for (const char *p = p1 + 3; p < p2; p++)
+        {
+          if (strnicmp (p, "encoding:", 9) == 0
+              || strnicmp (p, "coding:", 7) == 0)
+            {
+              const char *v = strchr (p, ':') + 1;
+              while (v < p2 && *v == ' ') v++;
+              if (strnicmp (v, "utf-8", 5) == 0
+                  || strnicmp (v, "utf8", 4) == 0)
+                {
+                  char enc = xfile_stream_encoding (stream);
+                  xfile_stream_encoding (stream) =
+                    (enc == lstream::ENCODE_CANON)
+                    ? lstream::ENCODE_CANON_UTF8
+                    : lstream::ENCODE_RAW_UTF8;
+                }
+              break;
+            }
+        }
+    }
+  fseek (fp, 0, SEEK_SET);
+}
+
+lisp
+Fsi_detect_encoding_from_firstline (lisp stream)
+{
+  check_stream (stream);
+  if (!file_stream_p (stream))
+    FEtype_error (stream, Qstream);
+  detect_file_encoding (stream);
+  char enc = xfile_stream_encoding (stream);
+  if (enc == lstream::ENCODE_CANON_UTF8 || enc == lstream::ENCODE_RAW_UTF8)
+    return Qt;
+  return Qnil;
+}
+
 lChar
 readc_stream (lisp stream)
 {
@@ -1399,15 +1453,90 @@ readc_stream (lisp stream)
             int c = getc (xfile_stream_input (stream));
             if (c == EOF)
               return lChar_EOF;
-            if (xfile_stream_encoding (stream) != lstream::ENCODE_BINARY)
+            char enc = xfile_stream_encoding (stream);
+            if (enc == lstream::ENCODE_CANON_UTF8
+                || enc == lstream::ENCODE_RAW_UTF8)
+              {
+                // UTF-8 decode
+                int nbytes;
+                ucs2_t wc;
+                if (c < 0x80)
+                  wc = c;
+                else if ((c & 0xE0) == 0xC0)
+                  {
+                    nbytes = 1;
+                    wc = c & 0x1F;
+                    goto utf8_cont;
+                  }
+                else if ((c & 0xF0) == 0xE0)
+                  {
+                    nbytes = 2;
+                    wc = c & 0x0F;
+                    goto utf8_cont;
+                  }
+                else if ((c & 0xF8) == 0xF0)
+                  {
+                    // 4-byte: outside BMP, can't map to internal Char
+                    // skip continuation bytes and return '?'
+                    for (int i = 0; i < 3; i++)
+                      {
+                        int cb = getc (xfile_stream_input (stream));
+                        if (cb == EOF || (cb & 0xC0) != 0x80)
+                          {
+                            if (cb != EOF)
+                              ungetc (cb, xfile_stream_input (stream));
+                            break;
+                          }
+                      }
+                    wc = '?';
+                  }
+                else
+                  wc = c; // invalid lead byte, pass through
+
+                if (0)
+                  {
+                  utf8_cont:
+                    for (int i = 0; i < nbytes; i++)
+                      {
+                        int cb = getc (xfile_stream_input (stream));
+                        if (cb == EOF || (cb & 0xC0) != 0x80)
+                          {
+                            if (cb != EOF)
+                              ungetc (cb, xfile_stream_input (stream));
+                            break;
+                          }
+                        wc = (wc << 6) | (cb & 0x3F);
+                      }
+                  }
+
+                // Convert UCS-2 to internal Char
+                Char ic;
+                if (wc < 0x80)
+                  ic = wc;
+                else
+                  ic = w2i (wc);
+
+                // CR/LF handling for canon mode
+                if (enc == lstream::ENCODE_CANON_UTF8 && ic == '\r')
+                  {
+                    int c2 = getc (xfile_stream_input (stream));
+                    if (c2 == '\n')
+                      ic = '\n';
+                    else if (c2 != EOF)
+                      ungetc (c2, xfile_stream_input (stream));
+                  }
+                if (ic == '\n')
+                  xstream_linenum (stream)++;
+                return ic;
+              }
+            if (enc != lstream::ENCODE_BINARY)
               {
                 if (SJISP (c))
                   {
                     int c2 = getc (xfile_stream_input (stream));
                     return c2 == EOF ? c : ((c << 8) | c2);
                   }
-                else if (xfile_stream_encoding (stream) == lstream::ENCODE_CANON
-                         && c == '\r')
+                else if (enc == lstream::ENCODE_CANON && c == '\r')
                   {
                     int c2 = getc (xfile_stream_input (stream));
                     if (c2 == '\n')
