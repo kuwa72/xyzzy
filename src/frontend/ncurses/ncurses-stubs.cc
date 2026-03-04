@@ -2618,7 +2618,7 @@ glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
 
       // Handle line wrap (for fold mode)
       if (bp->b_fold_columns != Buffer::FOLD_NONE
-          && x + 1 + linenum_offset >= cols)
+          && x >= bp->b_fold_columns)
         {
           y++;
           x = 0;
@@ -2683,6 +2683,7 @@ render_window (Window *wp, int total_cols)
     text_rows = 1;
 
   ncurses_calc_client_size (wp, text_cols, text_rows);
+  bp->window_size_changed ();
   ncurses_reframe (wp);
 
   if (wp->w_glyphs.g_rep)
@@ -2755,6 +2756,8 @@ refresh_screen (int)
       app.active_frame.size.cy = rows;
 
       Window::compute_geometry ();
+      for (Buffer *bp = Buffer::b_blist; bp; bp = bp->b_next)
+        bp->window_size_changed ();
       clear ();
       displog ("refresh: resized to %dx%d\n", cols, rows);
     }
