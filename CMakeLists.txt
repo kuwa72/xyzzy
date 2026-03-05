@@ -667,6 +667,7 @@ if(NOT WIN32)
             ${NCURSES_DIR}/ncurses-stubs.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
             ${NCURSES_DIR}/ncurses-process.cc
+            ${NCURSES_DIR}/ncurses-dialog.cc
             ${CLI_DIR}/cli-conf.cc
             ${NCURSES_DIR}/ncurses-symtable-ed.cc
         )
