@@ -2044,6 +2044,26 @@ ncurses_calc_client_size (Window *wp, int width, int height)
     }
 }
 
+// Map xyzzy color index (0-15) to ncurses color number.
+static short
+xyzzy_to_ncurses_color (int idx)
+{
+  return (short)(idx & 7);
+}
+
+// Whether xyzzy color index is a "bright" variant (0-7)
+static int
+xyzzy_color_bright (int idx)
+{
+  return idx < 8;
+}
+
+// Color pair layout:
+//   1-8:   syntax highlighting
+//   16+:   textprop colors, indexed as 16 + fg*16 + bg
+#define TEXTPROP_PAIR_BASE 16
+#define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
+
 // Output a single glyph_t to ncurses at position (row, col).
 // Returns the number of columns consumed (1 for half-width, 2 for full-width).
 static int
@@ -2072,23 +2092,33 @@ output_glyph (int row, int col, glyph_t g)
       return 1;
     }
 
-  // Determine color pair from syntax highlighting
+  // Determine color pair from syntax highlighting or text properties
   int color_pair = 0;
-  if (!(g & GLYPH_TEXTPROP_FG_BIT))
+  if (g & GLYPH_TEXTPROP_FG_BIT)
+    {
+      // Text property colors (set-text-attribute)
+      int fg = (g >> GLYPH_TEXTPROP_FG_SHIFT_BITS) & (GLYPH_TEXTPROP_NCOLORS - 1);
+      int bg = (g >> GLYPH_TEXTPROP_BG_SHIFT_BITS) & (GLYPH_TEXTPROP_NCOLORS - 1);
+      color_pair = TEXTPROP_PAIR (fg, bg);
+      if (color_pair >= COLOR_PAIRS)
+        color_pair = 0;
+      // Bright colors (index 0-7) get A_BOLD
+      if (fg > 0 && xyzzy_color_bright (fg))
+        attrs |= A_BOLD;
+    }
+  else
     {
       glyph_t text_type = g & GLYPH_TEXT_MASK;
-      // Map glyph text types to color pairs
-      // 0 = normal, 1-7 = syntax colors
       switch (text_type)
         {
-        case GLYPH_COMMENT:  color_pair = 1; break;  // green
-        case GLYPH_STRING:   color_pair = 2; break;  // yellow
-        case GLYPH_KEYWORD1: color_pair = 3; break;  // cyan
-        case GLYPH_KEYWORD2: color_pair = 4; break;  // magenta
-        case GLYPH_KEYWORD3: color_pair = 5; break;  // red
-        case GLYPH_TAG:      color_pair = 6; break;  // blue
-        case GLYPH_CTRL:     color_pair = 7; break;  // bright red
-        case GLYPH_LINENUM:  color_pair = 8; break;  // dim
+        case GLYPH_COMMENT:  color_pair = 1; break;
+        case GLYPH_STRING:   color_pair = 2; break;
+        case GLYPH_KEYWORD1: color_pair = 3; break;
+        case GLYPH_KEYWORD2: color_pair = 4; break;
+        case GLYPH_KEYWORD3: color_pair = 5; break;
+        case GLYPH_TAG:      color_pair = 6; break;
+        case GLYPH_CTRL:     color_pair = 7; break;
+        case GLYPH_LINENUM:  color_pair = 8; break;
         default: break;
         }
     }
@@ -2639,8 +2669,9 @@ glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
   *out_x = (x - wp->w_top_column) + 1 + linenum_offset;
 }
 
-// Initialize ncurses color pairs for syntax highlighting
+// Initialize ncurses color pairs for syntax highlighting and text properties
 static int g_colors_initialized = 0;
+
 static void
 init_ncurses_colors ()
 {
@@ -2648,7 +2679,7 @@ init_ncurses_colors ()
     return;
   g_colors_initialized = 1;
 
-  // Color pairs for syntax highlighting
+  // Color pairs for syntax highlighting (1-8)
   init_pair (1, COLOR_GREEN, -1);     // comment
   init_pair (2, COLOR_YELLOW, -1);    // string
   init_pair (3, COLOR_CYAN, -1);      // keyword1
@@ -2657,6 +2688,20 @@ init_ncurses_colors ()
   init_pair (6, COLOR_BLUE, -1);      // tag
   init_pair (7, COLOR_RED, -1);       // ctrl (bright via A_BOLD)
   init_pair (8, COLOR_WHITE, -1);     // linenum (dim via A_DIM)
+
+  // Color pairs for text properties (16-271)
+  // Only initialize combinations that fit within COLOR_PAIRS limit
+  int max_pairs = COLOR_PAIRS;
+  for (int fg = 0; fg < 16; fg++)
+    for (int bg = 0; bg < 16; bg++)
+      {
+        int pair = TEXTPROP_PAIR (fg, bg);
+        if (pair >= max_pairs)
+          break;
+        short ncfg = (fg == 0) ? -1 : xyzzy_to_ncurses_color (fg);
+        short ncbg = (bg == 0) ? -1 : xyzzy_to_ncurses_color (bg);
+        init_pair ((short)pair, ncfg, ncbg);
+      }
 }
 
 // SIGWINCH flag (set in ncurses-main.cc)

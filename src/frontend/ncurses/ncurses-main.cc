@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "Window.h"
+#include "syntaxinfo.h"
 
 #include <locale.h>
 #include <signal.h>
@@ -810,6 +811,7 @@ int main (int argc, char **argv)
       init_symbol_value_once ();
       init_condition ();
       init_syntax_spec ();
+      syntax_state::init_color_table ();
       init_env_symbols (argv[0]);
       create_std_streams ();
       init_symbol_value ();
