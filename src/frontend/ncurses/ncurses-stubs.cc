@@ -17,6 +17,7 @@
 
 Application app;
 char enable_quit::q_enable;
+Frontend *g_frontend;
 
 Application::Application ()
      : mouse (kbdq)
@@ -265,9 +266,11 @@ int get_glyph_width (Char, const glyph_width &) { return 8; }
 // msgbox.cc stubs
 // ============================================================
 
-int MsgBox (HWND, const char *, const char *, UINT style, int)
+int MsgBox (HWND, const char *msg, const char *title, UINT style, int)
 {
-  // For yes/no dialogs, default to "yes" (e.g., kill-xyzzy with modified buffers)
+  if (g_frontend)
+    return g_frontend->message_box (style, msg, title);
+  // Fallback before frontend is initialized
   if ((style & 0x0f) == MB_YESNO)
     return IDYES;
   return IDOK;

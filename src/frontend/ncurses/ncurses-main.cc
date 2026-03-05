@@ -793,199 +793,351 @@ self_test_minibuffer ()
 
 lisp read_minibuffer (const Char *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
 
+// Common Lisp engine initialization (shared by all frontends)
+static void
+init_lisp_engine (const char *argv0)
+{
+  init_ucs2_table ();
+  init_syms ();
+  init_symbol_value_once ();
+  init_condition ();
+  init_syntax_spec ();
+  syntax_state::init_color_table ();
+  init_env_symbols (argv0);
+  create_std_streams ();
+  init_symbol_value ();
+
+  xsymbol_value (Vstandard_input) = xsymbol_value (Vterminal_io);
+  xsymbol_value (Vstandard_output) = xsymbol_value (Vterminal_io);
+}
+
+// Find and load startup.l, returns 1 on success
+static int
+load_startup (void (*slog)(const char *))
+{
+  try
+    {
+      lisp startup_path = Qnil;
+      lisp mod = xsymbol_value (Qmodule_dir);
+      if (mod != Qnil && stringp (mod))
+        {
+          char mpath[PATH_MAX];
+          const Char *ms = xstring_contents (mod);
+          int ml = xstring_length (mod);
+          int i;
+          for (i = 0; i < ml && i < PATH_MAX - 20; i++)
+            mpath[i] = (ms[i] < 0x80) ? (char)ms[i] : '?';
+          mpath[i] = 0;
+          char spath[PATH_MAX];
+          snprintf (spath, sizeof (spath), "%slisp/startup.l", mpath);
+          struct stat st;
+          if (stat (spath, &st) == 0)
+            startup_path = make_string (spath);
+          else
+            {
+              snprintf (spath, sizeof (spath), "%sstartup.l", mpath);
+              if (stat (spath, &st) == 0)
+                startup_path = make_string (spath);
+            }
+          if (slog) slog (spath);
+        }
+      if (slog) slog ("loading startup.l...");
+      Fload (startup_path, xcons (Kverbose, xcons (Qnil, Qnil)));
+      if (slog) slog ("startup.l loaded OK");
+      return 1;
+    }
+  catch (nonlocal_jump &)
+    {
+      if (slog) slog ("startup.l FAILED");
+      nonlocal_data *nld = nonlocal_jump::data ();
+      if (nld->type && symbolp (nld->type))
+        {
+          lisp name = xsymbol_name (nld->type);
+          if (stringp (name))
+            {
+              const Char *s = xstring_contents (name);
+              int l = xstring_length (name);
+              char mb[256];
+              int mi = 0;
+              for (int j = 0; j < l && mi < (int)sizeof (mb) - 2; j++)
+                mb[mi++] = (s[j] < 0x80) ? (char)s[j] : '?';
+              mb[mi] = 0;
+              if (slog) slog (mb);
+            }
+        }
+      return 0;
+    }
+}
+
+// ============================================================
+// NcursesFrontend
+// ============================================================
+
+class NcursesFrontend : public Frontend
+{
+  int m_argc;
+  char **m_argv;
+  int m_self_test;
+  int m_log_fd;
+
+  static void slog_cb (const char *msg)
+  {
+    // Uses /tmp/xyzzy-startup.log
+    static int sfd = -1;
+    if (sfd == -2) return;
+    if (sfd < 0)
+      {
+        sfd = open ("/tmp/xyzzy-startup.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (sfd < 0) { sfd = -2; return; }
+      }
+    struct timespec ts;
+    clock_gettime (CLOCK_MONOTONIC, &ts);
+    char buf[256];
+    int n = snprintf (buf, sizeof (buf), "[%ld.%03ld] %s\n",
+                      (long)ts.tv_sec, ts.tv_nsec / 1000000, msg);
+    ssize_t r __attribute__((unused)) = write (sfd, buf, n);
+  }
+
+public:
+  int init (int argc, char **argv) override
+  {
+    m_argc = argc;
+    m_argv = argv;
+    m_self_test = 0;
+    m_log_fd = -1;
+
+    for (int i = 1; i < argc; i++)
+      if (strcmp (argv[i], "--self-test") == 0)
+        m_self_test = 1;
+
+    // SIGWINCH
+    struct sigaction sa;
+    sa.sa_handler = sigwinch_handler;
+    sigemptyset (&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction (SIGWINCH, &sa, NULL);
+
+    init_lisp_engine (argv[0]);
+
+    // ncurses init
+    initscr ();
+    raw ();
+    noecho ();
+    keypad (stdscr, TRUE);
+    start_color ();
+    use_default_colors ();
+
+    extern void ncurses_mouse_init ();
+    ncurses_mouse_init ();
+
+    create_ncurses_windows ();
+    create_default_buffers ();
+
+    slog_cb ("startup begin");
+
+    // Suppress verbose loading — corrupts ncurses screen
+    xsymbol_value (Vload_verbose) = Qnil;
+
+    int lisp_loaded = load_startup (slog_cb);
+
+    // Re-establish terminal settings after Lisp loading
+    raw ();
+    noecho ();
+    keypad (stdscr, TRUE);
+    slog_cb ("ncurses terminal re-initialized");
+
+    if (!lisp_loaded)
+      {
+        setup_minimal_keybindings ();
+        slog_cb ("using minimal keybindings");
+      }
+    else
+      {
+        setup_ncurses_keybindings ();
+        slog_cb ("using Lisp keybindings");
+      }
+
+    return 0;
+  }
+
+  void cleanup () override
+  {
+    ncurses_cleanup ();
+  }
+
+  int main_loop () override
+  {
+    if (m_self_test)
+      {
+        slog_cb ("self-test mode");
+        self_test_minibuffer ();
+        return 0;
+      }
+
+    slog_cb ("entering command_loop");
+
+    while (1)
+      {
+        try
+          {
+            command_loop ();
+            break;
+          }
+        catch (nonlocal_jump &)
+          {
+            if (g_quit_message_posted)
+              break;
+            nonlocal_data *nld = nonlocal_jump::data ();
+            print_condition (nld);
+            slog_cb ("command_loop restarted after throw");
+          }
+      }
+
+    slog_cb ("command_loop exited");
+    return 0;
+  }
+
+  // refresh_screen: uses base class default (no-op) for now;
+  // the actual ncurses refresh is called directly from command_loop via
+  // the C-linkage refresh_screen() function in ncurses-stubs.cc.
+};
+
+// ============================================================
+// BatchFrontend — headless mode for bytecompile etc.
+// ============================================================
+
+class BatchFrontend : public Frontend
+{
+public:
+  int init (int argc, char **argv) override
+  {
+    init_lisp_engine (argv[0]);
+
+    // Create minimal window/buffer infrastructure
+    // (many Lisp functions assume selected_window() is valid)
+    create_batch_windows ();
+    create_default_buffers ();
+
+    // Set si:*command-line-args* so estartup.l's process-command-line
+    // handles -q, -load, -eval, etc. (same mechanism as Win32 xyzzy-batch)
+    {
+      lisp p = Qnil;
+      // Build list in reverse, skip argv[0] and --batch
+      for (int i = argc - 1; i >= 1; i--)
+        {
+          if (strcmp (argv[i], "--batch") == 0)
+            continue;
+          p = xcons (make_string (argv[i]), p);
+        }
+      xsymbol_value (Vsi_command_line_args) = p;
+    }
+
+    xsymbol_value (Vload_verbose) = Qt;
+
+    return 0;
+  }
+
+  int main_loop () override
+  {
+    // Load startup.l which calls si:*startup → ed::startup →
+    // process-command-line (handles -q, -load, etc.) →
+    // *post-startup-hook* (where bytecompile-batch.l runs)
+    auto blog = [](const char *msg) {
+      fprintf (stderr, "[batch] %s\n", msg);
+    };
+
+    int lisp_loaded = load_startup (blog);
+    if (!lisp_loaded)
+      {
+        // kill-xyzzy throws exit-this-level, which is normal for batch
+        if (g_quit_message_posted)
+          {
+            blog ("batch: exiting via kill-xyzzy");
+            return app.exit_code;
+          }
+        fprintf (stderr, "batch: startup.l failed to load\n");
+        return 1;
+      }
+
+    return app.exit_code;
+  }
+
+private:
+  // Create minimal window infrastructure without ncurses
+  void create_batch_windows ()
+  {
+    Window *wp = new Window (0, 1);
+    wp->lwp = make_window ();
+    xwindow_wp (wp->lwp) = wp;
+    wp->w_disp_flags = Window::WDF_WINDOW | Window::WDF_MODELINE;
+    wp->w_order.left = 0;
+    wp->w_order.top = 0;
+    wp->w_order.right = 1;
+    wp->w_order.bottom = 1;
+
+    Window *mwp = new Window (1, 1);
+    mwp->lwp = make_window ();
+    xwindow_wp (mwp->lwp) = mwp;
+    mwp->w_disp_flags = Window::WDF_WINDOW;
+
+    wp->w_prev = 0;
+    wp->w_next = mwp;
+    mwp->w_prev = wp;
+    mwp->w_next = 0;
+
+    app.active_frame.windows = wp;
+    app.active_frame.selected = wp;
+
+    // Fake terminal size for window geometry
+    app.active_frame.size.cx = 80;
+    app.active_frame.size.cy = 24;
+
+    Window::compute_geometry ();
+  }
+};
+
+// ============================================================
+// main — select frontend based on command-line arguments
+// ============================================================
+
 int main (int argc, char **argv)
 {
   signal (SIGSEGV, crash_handler);
   signal (SIGABRT, crash_handler);
-
-  // SIGWINCH: use sigaction WITHOUT SA_RESTART so that
-  // wget_wch() returns ERR immediately when the terminal is resized.
-  {
-    struct sigaction sa;
-    sa.sa_handler = sigwinch_handler;
-    sigemptyset (&sa.sa_mask);
-    sa.sa_flags = 0;  // no SA_RESTART
-    sigaction (SIGWINCH, &sa, NULL);
-  }
-
-  // ncurses needs locale set before initscr
   setlocale (LC_ALL, "");
 
-  // Lisp engine init
-  init_ucs2_table ();
+  // Determine frontend mode
+  int batch_mode = 0;
+  for (int i = 1; i < argc; i++)
+    if (strcmp (argv[i], "--batch") == 0)
+      batch_mode = 1;
 
+  if (batch_mode)
+    g_frontend = new BatchFrontend ();
+  else
+    g_frontend = new NcursesFrontend ();
+
+  int rc = 0;
   try
     {
-      init_syms ();
-      init_symbol_value_once ();
-      init_condition ();
-      init_syntax_spec ();
-      syntax_state::init_color_table ();
-      init_env_symbols (argv[0]);
-      create_std_streams ();
-      init_symbol_value ();
-
-      xsymbol_value (Vstandard_input) = xsymbol_value (Vterminal_io);
-      xsymbol_value (Vstandard_output) = xsymbol_value (Vterminal_io);
-
-      // ncurses init
-      initscr ();
-      raw ();
-      noecho ();
-      keypad (stdscr, TRUE);
-      start_color ();
-      use_default_colors ();
-
-      // Mouse support
-      extern void ncurses_mouse_init ();
-      ncurses_mouse_init ();
-
-      // Create editor windows and buffers
-      create_ncurses_windows ();
-      create_default_buffers ();
-
-      // Check for self-test mode early (before slow startup.l loading)
-      int self_test = 0;
-      for (int i = 1; i < argc; i++)
-        if (strcmp (argv[i], "--self-test") == 0)
-          self_test = 1;
-
-      // Progress log to /tmp/xyzzy-startup.log
-      int sfd = open ("/tmp/xyzzy-startup.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-      auto slog = [&](const char *msg) {
-        if (sfd >= 0) {
-          struct timespec ts;
-          clock_gettime (CLOCK_MONOTONIC, &ts);
-          char buf[256];
-          int n = snprintf (buf, sizeof (buf), "[%ld.%03ld] %s\n",
-                            (long)ts.tv_sec, ts.tv_nsec / 1000000, msg);
-          ssize_t r __attribute__((unused)) = write (sfd, buf, n);
-        }
-      };
-
-      slog ("startup begin");
-
-      // Suppress verbose loading messages — they write to stdout
-      // which corrupts the ncurses screen.
-      xsymbol_value (Vload_verbose) = Qnil;
-
-      // Load startup.l — use .l (not .lc) since .lc was compiled
-      // without #-ncurses conditionals.
-      int lisp_loaded = 0;
-      try
-        {
-          lisp startup_path = Qnil;
-          lisp mod = xsymbol_value (Qmodule_dir);
-          if (mod != Qnil && stringp (mod))
-            {
-              char mpath[PATH_MAX];
-              const Char *ms = xstring_contents (mod);
-              int ml = xstring_length (mod);
-              int i;
-              for (i = 0; i < ml && i < PATH_MAX - 20; i++)
-                mpath[i] = (ms[i] < 0x80) ? (char)ms[i] : '?';
-              mpath[i] = 0;
-              char spath[PATH_MAX];
-              snprintf (spath, sizeof (spath), "%slisp/startup.l", mpath);
-              struct stat st;
-              if (stat (spath, &st) == 0)
-                startup_path = make_string (spath);
-              else
-                {
-                  snprintf (spath, sizeof (spath), "%sstartup.l", mpath);
-                  if (stat (spath, &st) == 0)
-                    startup_path = make_string (spath);
-                }
-              slog (spath);
-            }
-          slog ("loading startup.l...");
-          Fload (startup_path, xcons (Kverbose, xcons (Qnil, Qnil)));
-          lisp_loaded = 1;
-          slog ("startup.l loaded OK");
-        }
-      catch (nonlocal_jump &)
-        {
-          slog ("startup.l FAILED");
-          nonlocal_data *nld = nonlocal_jump::data ();
-          if (nld->type && symbolp (nld->type))
-            {
-              lisp name = xsymbol_name (nld->type);
-              if (stringp (name))
-                {
-                  const Char *s = xstring_contents (name);
-                  int l = xstring_length (name);
-                  char mb[256];
-                  int mi = 0;
-                  for (int j = 0; j < l && mi < (int)sizeof (mb) - 2; j++)
-                    mb[mi++] = (s[j] < 0x80) ? (char)s[j] : '?';
-                  mb[mi] = 0;
-                  slog (mb);
-                }
-            }
-        }
-
-      // Re-establish ncurses terminal settings after Lisp loading
-      // (file I/O during loading may have disrupted terminal state)
-      raw ();
-      noecho ();
-      keypad (stdscr, TRUE);
-      slog ("ncurses terminal re-initialized");
-
-      if (!lisp_loaded)
-        {
-          setup_minimal_keybindings ();
-          slog ("using minimal keybindings");
-        }
-      else
-        {
-          setup_ncurses_keybindings ();
-          slog ("using Lisp keybindings");
-        }
-
-      if (self_test)
-        {
-          slog ("self-test mode");
-          self_test_minibuffer ();
-          if (sfd >= 0) close (sfd);
-          ncurses_cleanup ();
-          return 0;
-        }
-
-      slog ("entering command_loop");
-
-      // Enter command loop (fetch -> dispatch -> refresh)
-      // Quit (C-g outside recursive edit) throws nonlocal_jump with
-      // type=toplevel, which exits command_loop. We restart unless
-      // kill-xyzzy (C-x C-c) was invoked (sets g_quit_message_posted).
-      while (1)
-        {
-          try
-            {
-              command_loop ();
-              break;  // normal exit (lChar_EOF)
-            }
-          catch (nonlocal_jump &)
-            {
-              if (g_quit_message_posted)
-                break;  // kill-xyzzy requested exit
-              // Quit or other error: show message, restart loop
-              nonlocal_data *nld = nonlocal_jump::data ();
-              print_condition (nld);
-              slog ("command_loop restarted after throw");
-            }
-        }
-
-      slog ("command_loop exited");
-      if (sfd >= 0) close (sfd);
-
-      ncurses_cleanup ();
+      rc = g_frontend->init (argc, argv);
+      if (rc == 0)
+        rc = g_frontend->main_loop ();
+      g_frontend->cleanup ();
     }
   catch (nonlocal_jump &)
     {
-      ncurses_cleanup ();
-      fprintf (stderr, "Fatal error during initialization\n");
-      return 1;
+      g_frontend->cleanup ();
+      if (g_quit_message_posted)
+        rc = app.exit_code;  // kill-xyzzy is normal exit for batch
+      else
+        {
+          fprintf (stderr, "Fatal error during initialization\n");
+          rc = 1;
+        }
     }
 
-  return 0;
+  delete g_frontend;
+  g_frontend = 0;
+  return rc;
 }

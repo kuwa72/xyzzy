@@ -577,4 +577,6 @@ public:
     }
 };
 
+# include "frontend.h"
+
 #endif

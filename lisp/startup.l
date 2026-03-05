@@ -57,6 +57,10 @@
           (set-buffer scratch)
           (set-buffer-fileio-encoding *default-fileio-encoding*)
           (funcall ed::*initial-buffer-mode*)))))
+  ;; Process command-line args (-q, -load, -eval, etc.)
+  ;; Same as ed::startup does for Win32
+  (trap-errors (ed::process-command-line))
+  (trap-errors (run-hooks 'ed::*post-startup-hook*))
   t)
 
 #-ncurses
