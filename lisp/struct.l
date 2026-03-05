@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: SYSTEM -*-
+;;; -*- Mode: Lisp; Package: SYSTEM; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -25,7 +25,7 @@
 	  ((consp desc)
 	   (setq name (car desc))
 	   (unless (symbolp name)
-	     (error "•s³‚ÈƒXƒƒbƒg–¼‚Å‚·: ~S" name))
+	     (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆåã§ã™: ~S" name))
 	   (setq desc (cdr desc))
 	   (when (not (endp desc))
 	     (setq default-init (car desc))
@@ -33,16 +33,16 @@
 	   (do ((d desc (cddr d)))
 	       ((endp d))
 	     (when (endp (cdr d))
-	       (error "•s³‚ÈƒXƒƒbƒg‹Lqq‚Å‚·: ~S" desc))
+	       (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆè¨˜è¿°å­ã§ã™: ~S" desc))
 	     (case (car d)
 	       (:type
 		(setq type (cadr d)))
 	       (:read-only
 		(setq read-only (cadr d)))
 	       (t
-		(error "•s³‚ÈƒXƒƒbƒgƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" (car d))))))
+		(error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" (car d))))))
 	  (t
-	   (error "•s³‚ÈƒXƒƒbƒg‹Lqq‚Å‚·: ~S" desc)))
+	   (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆè¨˜è¿°å­ã§ã™: ~S" desc)))
     (values name default-init type read-only)))
 
 (defun defstruct-parse-options (name options)
@@ -68,7 +68,7 @@
 		 ((null (car v)) (setq conc-name ""))
 		 (t (setq conc-name (string (car v))))))
 	  (:constructor
-	   (cond ((endp v))           ; :constructor w’è‚È‚µ
+	   (cond ((endp v))           ; :constructor æŒ‡å®šãªã—
 		 ((null (car v)))     ; (:constructor)
 		 ((endp (cdr v))      ; (:constructor make-foo)
 		  (push (car v) constructors)
@@ -80,30 +80,30 @@
 	   (cond ((endp v))
 		 ((null (car v)) (setq copier nil))
 		 ((symbolp (car v)) (setq copier (car v)))
-		 (t (error "•s³‚È:copierƒIƒvƒVƒ‡ƒ“ˆø”‚Å‚·: ~S" (car v)))))
+		 (t (error "ä¸æ­£ãª:copierã‚ªãƒ—ã‚·ãƒ§ãƒ³å¼•æ•°ã§ã™: ~S" (car v)))))
 	  (:predicate
 	   (cond ((endp v))
 		 ((null (car v)) (setq predicate nil))
 		 ((symbolp (car v)) (setq predicate (car v)))
-		 (t (error "•s³‚È:predicateƒIƒvƒVƒ‡ƒ“ˆø”‚Å‚·: ~S" (car v)))))
+		 (t (error "ä¸æ­£ãª:predicateã‚ªãƒ—ã‚·ãƒ§ãƒ³å¼•æ•°ã§ã™: ~S" (car v)))))
 	  (:include
 	   (setq include v))
 	  (:print-function
 	   (setq print-function (car v)))
 	  (:type
 	   (unless (consp v)
-	     (error ":typeƒIƒvƒVƒ‡ƒ“‚Éˆø”‚ª‚ ‚è‚Ü‚¹‚ñ"))
+	     (error ":typeã‚ªãƒ—ã‚·ãƒ§ãƒ³ã«å¼•æ•°ãŒã‚ã‚Šã¾ã›ã‚“"))
 	   (setq type (canonicalize-type (car v))))
 	  (:named
 	   (setq named t))
 	  (:initial-offset
 	   (setq initial-offset (car v)))
 	  (t
-	   (error "•s³‚ÈdefstructƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" opt)))))
+	   (error "ä¸æ­£ãªdefstructã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" opt)))))
     (when include
       (let ((def (get (car include) 'structure-definition)))
 	(unless def
-	  (error "~S‚Í\‘¢‘Ì‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" (car include)))
+	  (error "~Sã¯æ§‹é€ ä½“ã§ã¯ã‚ã‚Šã¾ã›ã‚“" (car include)))
 	(setq slots nil)
 	(do ((i (1- (*structure-definition-nslots def)) (1- i)))
 	    ((< i 0))
@@ -115,45 +115,45 @@
 	      (defstruct-parse-slot-option desc)
 	    (let ((odesc (assoc name slots :test #'string=)))
 	      (unless odesc
-		(error "•s³‚ÈƒXƒƒbƒg–¼‚Å‚·: ~A" name))
+		(error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆåã§ã™: ~A" name))
 	      (setf (cadr odesc) default-init)
 	      (cond ((eq type *option-not-specified*))
 		    ((subtypep type (caddr odesc))
 		     (setf (caddr odesc) type))
 		    (t
-		     (error "~S‚Í~S‚Ìsubtype‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" type (caddr odesc))))
+		     (error "~Sã¯~Sã®subtypeã§ã¯ã‚ã‚Šã¾ã›ã‚“" type (caddr odesc))))
 	      (cond ((eq read-only *option-not-specified*))
 		    (read-only
 		     (setf (cadddr odesc) t))
 		    ((cadddr odesc)
-		     (error "~A‚Íread-only‚Å‚·" name))))))
+		     (error "~Aã¯read-onlyã§ã™" name))))))
 	(cond ((null (*structure-definition-type def))
 	       (when type
-		 (error ":typeƒIƒvƒVƒ‡ƒ“‚Íw’è‚Å‚«‚Ü‚¹‚ñ")))
+		 (error ":typeã‚ªãƒ—ã‚·ãƒ§ãƒ³ã¯æŒ‡å®šã§ãã¾ã›ã‚“")))
 	      ((equal (*structure-definition-type def) type))
-	      (t (error "•s³‚È:typeƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" type)))
+	      (t (error "ä¸æ­£ãª:typeã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" type)))
 	(when (and (eq print-function *option-not-specified*)
 		   (not type))
 	  (setq print-function (*structure-definition-print-function def)))
 	(setq include `(get ',(car include) 'structure-definition))))
     (cond (type
 	   (unless (subtypep type 'sequence)
-	     (error "•s³‚È:typeƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" type))
+	     (error "ä¸æ­£ãª:typeã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" type))
 	   (unless (eq print-function *option-not-specified*)
-	     (error ":type‚Æ:print-function‚Í“¯‚Éw’è‚Å‚«‚Ü‚¹‚ñ"))
+	     (error ":typeã¨:print-functionã¯åŒæ™‚ã«æŒ‡å®šã§ãã¾ã›ã‚“"))
 	   (unless (or named
 		       (null predicate)
 		       (eq predicate *option-not-specified*))
-	     (error ":named‚Å‚È‚¢\‘¢‘Ì‚É:predicate‚Íw’è‚Å‚«‚Ü‚¹‚ñ"))
+	     (error ":namedã§ãªã„æ§‹é€ ä½“ã«:predicateã¯æŒ‡å®šã§ãã¾ã›ã‚“"))
 	   (cond ((null initial-offset)
 		  (setq initial-offset 0))
 		 ((and (*fixnump initial-offset)
 		       (>= initial-offset 0)))
 		 (t
-		  (error "•s³‚È:initial-offsetˆø”‚Å‚·: ~S" initial-offset))))
+		  (error "ä¸æ­£ãª:initial-offsetå¼•æ•°ã§ã™: ~S" initial-offset))))
 	  (t
 	   (when initial-offset
-	     (error ":initial-offset‚Í:type‚ª‚È‚¯‚ê‚Îw’è‚Å‚«‚Ü‚¹‚ñ"))))
+	     (error ":initial-offsetã¯:typeãŒãªã‘ã‚Œã°æŒ‡å®šã§ãã¾ã›ã‚“"))))
     (when (eq print-function *option-not-specified*)
       (setq print-function nil))
     (when default-constructor
@@ -178,7 +178,7 @@
       (let ((d (multiple-value-list (defstruct-parse-slot-option desc))))
 	(setf (car d) (intern (symbol-name (car d)) "keyword"))
 	(when (assoc (car d) slots :test #'string=)
-	  (error "ƒXƒƒbƒg~A‚ªd•¡‚µ‚Ä‚¢‚Ü‚·" (car d)))
+	  (error "ã‚¹ãƒ­ãƒƒãƒˆ~AãŒé‡è¤‡ã—ã¦ã„ã¾ã™" (car d)))
 	(when offset
 	  (nconc d (list offset))
 	  (incf offset))
@@ -359,23 +359,23 @@
   (when print-function
     (labels ((rec (pf)
 	       (cond ((si:*closurep pf)
-		      ;; e‚©‚çŒp³‚µ‚½ê‡
+		      ;; è¦ªã‹ã‚‰ç¶™æ‰¿ã—ãŸå ´åˆ
 		      pf)
 		     ((symbolp pf)
-		      ;; :print-function foo ‚Ìê‡
+		      ;; :print-function foo ã®å ´åˆ
 		      `',pf)
 		     ((eq (safe-car pf) 'lambda)
-		      ;; :print-function (lambda (o s p) ...) ‚Ìê‡
+		      ;; :print-function (lambda (o s p) ...) ã®å ´åˆ
 		      `#',pf)
 		     ((eq (safe-car pf) 'function)
-		      ;; :print-function #'foo ‚Ü‚½‚Í
-		      ;; :print-function #'(lambda (o s p) ...) ‚Ìê‡
-		      ;; Œx‚ğo‚µ‚Ä #' ‚ğŠO‚·
-		      (warn ":print-function‚ÉŠÖ”‚ªw’è‚³‚ê‚Ü‚µ‚½B~%~S ‚Ì‘ã‚í‚è‚É ~S ‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢"
+		      ;; :print-function #'foo ã¾ãŸã¯
+		      ;; :print-function #'(lambda (o s p) ...) ã®å ´åˆ
+		      ;; è­¦å‘Šã‚’å‡ºã—ã¦ #' ã‚’å¤–ã™
+		      (warn ":print-functionã«é–¢æ•°ãŒæŒ‡å®šã•ã‚Œã¾ã—ãŸã€‚~%~S ã®ä»£ã‚ã‚Šã« ~S ã‚’æŒ‡å®šã—ã¦ãã ã•ã„"
 			    print-function (cadr pf))
 		      (rec (cadr pf)))
 		     (t
-		      (error "•s³‚È:print-function‚Å‚·: ~S" print-function)))))
+		      (error "ä¸æ­£ãª:print-functionã§ã™: ~S" print-function)))))
       (rec print-function))))
 
 (defun define-structure (name doc conc-name constructors copier predicate
@@ -488,12 +488,12 @@
       (setq options (cdr name-and-options)))
     (when (or (get name 'type-predicate)
 	      (get name 'type-specifier-list))
-      (error "~A‚ÍŒ^w’èq‚Å‚·" name))
+      (error "~Aã¯å‹æŒ‡å®šå­ã§ã™" name))
     (let ((def (get name 'structure-definition)))
       (when (and def
 		 (*structure-definition-p def)
 		 (*structure-definition-read-only-p def))
-	(error "~A‚ÌÄ’è‹`‚Í‚Å‚«‚Ü‚¹‚ñ" name)))
+	(error "~Aã®å†å®šç¾©ã¯ã§ãã¾ã›ã‚“" name)))
     (multiple-value-bind (conc-name constructors copier
 			  predicate include slots print-function type
 			  named initial-offset)
@@ -515,8 +515,8 @@
 (defun *structure-reader (name args)
   (let ((def (get name 'structure-definition)))
     (unless def
-      (error "\‘¢‘Ì‚Å‚Í‚ ‚è‚Ü‚¹‚ñ: ~S" name))
+      (error "æ§‹é€ ä½“ã§ã¯ã‚ã‚Šã¾ã›ã‚“: ~S" name))
     (dolist (x (*structure-definition-constructors def))
       (when (atom x)
 	(return-from *structure-reader (apply x args))))
-    (error "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ª‚ ‚è‚Ü‚¹‚ñ: ~S" name)))
+    (error "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“: ~S" name)))

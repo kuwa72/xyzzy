@@ -686,9 +686,7 @@ setup_ncurses_keybindings ()
       || xsymbol_value (Vdefault_input_function) == Qunbound)
     xsymbol_value (Vdefault_input_function) = sic;
 
-  // F10: activate menu bar
-  lisp km = xsymbol_value (Vglobal_keymap);
-  Fdefine_key (km, make_char (CCF_F10), Scall_menu);
+  // F10/ESC menu activation is set up in startup.l (ed::activate-menu)
 }
 
 // Write to log fd (survives SIGTERM since write() is unbuffered)

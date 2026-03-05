@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 #|
 (progn
   (setq t1 (get-internal-real-time))

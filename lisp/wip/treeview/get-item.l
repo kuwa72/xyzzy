@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; get-item.l --- treeview
 
 ;; Copyright (C) 2001-2006 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -16,45 +16,45 @@
 (in-package "treeview")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; item æ“¾
+;; item å–å¾—
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-get-selected-item ()
-  "Œ»İ‘I‘ğ‚µ‚Ä‚¢‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "ç¾åœ¨é¸æŠã—ã¦ã„ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-selected-item *treeview-id*))
 
 (defun treeview-get-child-item (hitem)
-  "item ‚Ìæ“ªqƒAƒCƒeƒ€‚ğæ“¾B
-q item ‚ª‘¶İ‚µ‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
+  "item ã®å…ˆé ­å­ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚
+å­ item ãŒå­˜åœ¨ã—ãªã„å ´åˆã¯ 0 ã‚’è¿”ã™ã€‚"
   (treeview-dll-get-child-item *treeview-id* hitem))
 (defun treeview-get-next-sibling-item (hitem)
-  "item ‚ÌŸ‚ÌŒZ’íƒAƒCƒeƒ€(‰º‚ÌƒAƒCƒeƒ€)‚ğæ“¾B"
+  "item ã®æ¬¡ã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ (ä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ )ã‚’å–å¾—ã€‚"
   (treeview-dll-get-next-sibling-item *treeview-id* hitem))
 (defun treeview-get-prev-sibling-item (hitem)
-  "item ‚Ì‘O‚ÌŒZ’íƒAƒCƒeƒ€(ã‚ÌƒAƒCƒeƒ€)‚ğæ“¾B"
+  "item ã®å‰ã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ (ä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ )ã‚’å–å¾—ã€‚"
   (treeview-dll-get-prev-sibling-item *treeview-id* hitem))
 (defun treeview-get-parent-item (hitem)
-  "item ‚ÌeƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã®è¦ªã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-parent-item *treeview-id* hitem))
 (defun treeview-get-next-visible-item (hitem)
-  "Ÿ‚Ì•\¦ƒAƒCƒeƒ€‚ğæ“¾B"
+  "æ¬¡ã®è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-next-item *treeview-id* hitem winapi:TVGN_NEXTVISIBLE))
 (defun treeview-get-prev-visible-item (hitem)
-  "‘O‚Ì•\¦ƒAƒCƒeƒ€‚ğæ“¾B"
+  "å‰ã®è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-next-item *treeview-id* hitem winapi:TVGN_PREVIOUSVISIBLE))
 
 (defun treeview-get-root-item ()
-  "treeview ‚Ìˆê”Ôã‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "treeview ã®ä¸€ç•ªä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-root-item *treeview-id*))
 (defun treeview-get-first-visible-item ()
-  "‰æ–Êæ“ª•\¦ƒAƒCƒeƒ€‚ğæ“¾B"
+  "ç”»é¢å…ˆé ­è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-next-item *treeview-id* 0 winapi:TVGN_FIRSTVISIBLE))
 ; (setf (symbol-function 'treeview-get-first-window-visible-item)
 ;       #'treeview-get-first-visible-item)
 (defun treeview-get-last-visible-item ()
-  "“WŠJ‚µ‚Ä‚¢‚é’†‚Å––”ö‚ÌƒAƒCƒeƒ€‚ğæ“¾"
+  "å±•é–‹ã—ã¦ã„ã‚‹ä¸­ã§æœ«å°¾ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—"
   (treeview-dll-get-next-item *treeview-id* 0 winapi:TVGN_LASTVISIBLE))
 (defun treeview-get-last-window-visible-item ()
-  "‰æ–Ê––”ö•\¦ƒAƒCƒeƒ€‚ğæ“¾"
+  "ç”»é¢æœ«å°¾è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—"
   (let (hitem1 hitem2)
     (setq hitem1 (treeview-get-first-visible-item))
     (dotimes (i (1- (treeview-get-visible-count)))
@@ -66,10 +66,10 @@
         hitem2 hitem1)))
 
 ;;----------------------------------------------------------------------------
-;; item æ“¾Šg’£
+;; item å–å¾—æ‹¡å¼µ
 ;;----------------------------------------------------------------------------
 (defun treeview-get-first-sibling-item (hitem)
-  "Å‰‚ÌŒZ’íƒAƒCƒeƒ€(ˆê”Ôã)‚ğæ“¾B"
+  "æœ€åˆã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ (ä¸€ç•ªä¸Š)ã‚’å–å¾—ã€‚"
   (let ((return-hitem hitem))
     (loop
       (setq hitem (treeview-get-prev-sibling-item hitem))
@@ -77,7 +77,7 @@
         (return return-hitem))
       (setq return-hitem hitem))))
 (defun treeview-get-last-sibling-item (hitem)
-  "ÅŒã‚ÌŒZ’íƒAƒCƒeƒ€(ˆê”Ô‰º)‚ğæ“¾B"
+  "æœ€å¾Œã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ (ä¸€ç•ªä¸‹)ã‚’å–å¾—ã€‚"
   (let ((return-hitem hitem))
     (loop
       (setq hitem (treeview-get-next-sibling-item hitem))
@@ -85,7 +85,7 @@
         (return return-hitem))
       (setq return-hitem hitem))))
 (defun treeview-get-youngest-child-item (hitem)
-  "item ‚Ìˆê”Ô‰º‚ÌqƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã®ä¸€ç•ªä¸‹ã®å­ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (unless (and (treeview-hitem-valid-p hitem)
                (treeview-item-has-children-p hitem))
     (return-from treeview-get-youngest-child-item 0))
@@ -97,7 +97,7 @@
         (return return-hitem))
       (setq return-hitem hitem))))
 (defun treeview-get-ancestor-item (hitem)
-  "ˆê”Ôe‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "ä¸€ç•ªè¦ªã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (let ((return-hitem 0))
     (loop
       (setq hitem (treeview-get-parent-item hitem))
@@ -105,7 +105,7 @@
         (return return-hitem))
       (setq return-hitem hitem))))
 (defun treeview-get-descendants-item (hitem)
-  "ˆê”Ô‰º‚ÌqƒAƒCƒeƒ€‚Ìæ“¾‚ğŒJ‚è•Ô‚µ‚½Œ‹‰Ê‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "ä¸€ç•ªä¸‹ã®å­ã‚¢ã‚¤ãƒ†ãƒ ã®å–å¾—ã‚’ç¹°ã‚Šè¿”ã—ãŸçµæœã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (let ((return-hitem 0))
     (loop
       (setq hitem (treeview-get-youngest-child-item hitem))
@@ -113,7 +113,7 @@
         (return return-hitem))
       (setq return-hitem hitem))))
 (defun treeview-get-eldest-descendants-item (hitem)
-  "ˆê”Ôã‚ÌqƒAƒCƒeƒ€‚Ìæ“¾‚ğŒJ‚è•Ô‚µ‚½Œ‹‰Ê‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "ä¸€ç•ªä¸Šã®å­ã‚¢ã‚¤ãƒ†ãƒ ã®å–å¾—ã‚’ç¹°ã‚Šè¿”ã—ãŸçµæœã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (let ((return-hitem 0))
     (loop
       (setq hitem (treeview-get-child-item hitem))
@@ -123,7 +123,7 @@
 (setf (symbol-function 'treeview-get-youngest-descendants-item)
       #'treeview-get-descendants-item)
 (defun treeview-get-up-item (hitem)
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ˆê‚Âã‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãšä¸€ã¤ä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (unless (treeview-hitem-valid-p hitem)
     (return-from treeview-get-up-item 0))
   (let (hitem1 hitem2)
@@ -136,7 +136,7 @@
       hitem1)
      (t 0))))
 (defun treeview-get-down-item (hitem)
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ˆê‚Â‰º‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãšä¸€ã¤ä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (unless (treeview-hitem-valid-p hitem)
     (return-from treeview-get-down-item 0))
   (let (hitem1 hitem2)
@@ -152,7 +152,7 @@
             (return-from treeview-get-down-item hitem2)))
       0))))
 (defun treeview-get-bottom-item ()
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ treeview ‚Ìˆê”Ô‰º‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãš treeview ã®ä¸€ç•ªä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (unless (and (treeview-exist-p)
                (treeview-hitem-valid-p (treeview-get-root-item)))
     (return-from treeview-get-bottom-item 0))
@@ -164,30 +164,30 @@
       hitem1)))
 
 ;;----------------------------------------------------------------------------
-;; ƒJ[ƒ\ƒ‹ƒL[ƒGƒ~ƒ…ƒŒ[ƒg
+;; ã‚«ãƒ¼ã‚½ãƒ«ã‚­ãƒ¼ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆ
 ;;----------------------------------------------------------------------------
 (defun treeview-get-up-key-item (hitem)
-  "item ‚Å Up ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ Up ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (treeview-get-prev-visible-item hitem)))
 (defun treeview-get-down-key-item (hitem)
-  "item ‚Å Down ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ Down ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (treeview-get-next-visible-item hitem)))
 (defun treeview-get-left-key-item (hitem)
-  "item ‚Å Left ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ Left ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (if (treeview-expand-p hitem)
         hitem
       (treeview-get-parent-item hitem))))
 (defun treeview-get-right-key-item (hitem)
-  "item ‚Å Right ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ Right ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (if (treeview-expand-p hitem)
         (treeview-get-child-item hitem)
       hitem)))
 (defun treeview-get-pageup-key-item (hitem)
-  "item ‚Å PageUp ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ PageUp ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (let (next-hitem)
       (dotimes (i (1- (treeview-window-height)))
@@ -197,7 +197,7 @@
           (return)))
       hitem)))
 (defun treeview-get-pagedown-key-item (hitem)
-  "item ‚Å PageDown ƒL[‰Ÿ‰º‚É‘I‘ğ‚·‚éƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã§ PageDown ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã«é¸æŠã™ã‚‹ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (when (treeview-hitem-valid-p hitem)
     (let (next-hitem)
       (dotimes (i (1- (treeview-window-height)))
@@ -208,18 +208,18 @@
       hitem)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; item ‘I‘ğAÀs
+;; item é¸æŠã€å®Ÿè¡Œ
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-select-act-item-1 (hitem item-mover &optional select-only)
-  "item ‚ğ‘I‘ğAÀs‚·‚éÛ‚Ì“à•”ŠÖ”B"
+  "item ã‚’é¸æŠã€å®Ÿè¡Œã™ã‚‹éš›ã®å†…éƒ¨é–¢æ•°ã€‚"
   (let* (func-gen func
          (treeview-recenter (treeview-data-get 'treeview::recenter)) ; t, nil, :line
          (recenter-line (treeview-data-get 'treeview::recenter-line)); 0 origin
-         (scroll-margin (treeview-data-get 'treeview::scroll-margin)); recenter —Dæ
+         (scroll-margin (treeview-data-get 'treeview::scroll-margin)); recenter å„ªå…ˆ
          (selected-hitem (treeview-get-selected-item))
          (current-window-line (treeview-get-window-line selected-hitem))
          need-not-recenter-p)
-    ;; ‘I‘ğ‚·‚é item ‚Ìæ“¾
+    ;; é¸æŠã™ã‚‹ item ã®å–å¾—
     (unless hitem
       (setq hitem (treeview-get-selected-item)))
     (if (and (treeview-hitem-valid-p hitem)
@@ -227,9 +227,9 @@
         (setq hitem (funcall item-mover hitem)))
     (unless (treeview-hitem-valid-p hitem)
       (return-from treeview-select-act-item-1 nil))
-    ;; recenter/scroll-margin Œã‚Ì•\¦s‚ÌŒvZ
+    ;; recenter/scroll-margin å¾Œã®è¡¨ç¤ºè¡Œã®è¨ˆç®—
     (cond
-     ;; sw’è recenter
+     ;; è¡ŒæŒ‡å®š recenter
      ((eq treeview-recenter :line)
       (unless (integerp recenter-line)
         (setq need-not-recenter-p t)))
@@ -241,24 +241,24 @@
       (setq scroll-margin
             (min scroll-margin (truncate (treeview-window-height) 2)))
       (cond
-       ;; “¯ˆêƒm[ƒh‚Ìê‡
+       ;; åŒä¸€ãƒãƒ¼ãƒ‰ã®å ´åˆ
        ((treeview-hitem-equal selected-hitem hitem)
         (when (and (<= scroll-margin current-window-line)
                    (<= current-window-line (- (1- (treeview-window-height)) scroll-margin)))
           (setq need-not-recenter-p t)))
-       ;; ã‚ÉˆÚ“®‚µ‚Ä‚¢‚éê‡
+       ;; ä¸Šã«ç§»å‹•ã—ã¦ã„ã‚‹å ´åˆ
        ((treeview-hitem-greaterp selected-hitem hitem)
         (setq recenter-line scroll-margin)
         (when (>= (treeview-get-window-line hitem) recenter-line)
           (setq need-not-recenter-p t)))
-       ;; ‰º‚ÉˆÚ“®‚µ‚Ä‚¢‚éê‡
+       ;; ä¸‹ã«ç§»å‹•ã—ã¦ã„ã‚‹å ´åˆ
        (t
         (setq recenter-line (- (1- (treeview-window-height)) scroll-margin))
         (when (< (treeview-get-window-line hitem) recenter-line)
           (setq need-not-recenter-p t)))))
      (t
       (setq need-not-recenter-p t)))
-    ;; item ‚Ì‘I‘ğ‚Æ recenter/scroll-margin ‚Å‚ÌƒXƒNƒ[ƒ‹—Ê‚ÌŒvZ/ƒXƒNƒ[ƒ‹
+    ;; item ã®é¸æŠã¨ recenter/scroll-margin ã§ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«é‡ã®è¨ˆç®—/ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
     (if (or need-not-recenter-p
             (and (treeview-item-window-visible-p hitem)
                  (let ((scroll (treeview-recenter-scroll-height hitem recenter-line)))
@@ -266,110 +266,110 @@
                          ((zerop scroll) t)
                          ((plusp scroll) (treeview-window-bottom-p))
                          (t              (treeview-window-top-p))))))
-        ;; ƒXƒNƒ[ƒ‹‚Ì•K—v‚ª‚È‚¢ê‡
+        ;; ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã®å¿…è¦ãŒãªã„å ´åˆ
         (treeview-select-item hitem)
-      ;; ƒXƒNƒ[ƒ‹‚Ì•K—v‚ª‚ ‚éê‡
+      ;; ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã®å¿…è¦ãŒã‚ã‚‹å ´åˆ
       (treeview-suppress-redraw
        (treeview-select-item hitem)
        (treeview-recenter recenter-line)))
-    ;; item ‚ÌÀs
+    ;; item ã®å®Ÿè¡Œ
     (when (and (not select-only)
                (setq func-gen (treeview-data-get 'implicit-func-gen)))
       (when (setq func (funcall func-gen hitem))
         (funcall func)))))
 
 (defun treeview-select-act-item (&optional hitem select-only)
-  "item ‚ğ‘I‘ğAÀsB"
+  "item ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem nil select-only))
 
 (defun treeview-select-act-child-item (&optional hitem select-only)
-  "item ‚Ìæ“ªqƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "item ã®å…ˆé ­å­ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-child-item select-only))
 (defun treeview-select-act-next-sibling-item (&optional hitem select-only)
-  "item ‚ÌŸ‚ÌŒZ’íƒAƒCƒeƒ€ (‰º‚ÌƒAƒCƒeƒ€)‚ğ‘I‘ğAÀsB"
+  "item ã®æ¬¡ã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ  (ä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ )ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-next-sibling-item select-only))
 (defun treeview-select-act-prev-sibling-item (&optional hitem select-only)
-  "item ‚Ì‘O‚ÌŒZ’íƒAƒCƒeƒ€ (ã‚ÌƒAƒCƒeƒ€)‚ğ‘I‘ğAÀsB"
+  "item ã®å‰ã®å…„å¼Ÿã‚¢ã‚¤ãƒ†ãƒ  (ä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ )ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-prev-sibling-item select-only))
 (defun treeview-select-act-parent-item (&optional hitem select-only)
-  "item ‚Ì‘O‚ÌeƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "item ã®å‰ã®è¦ªã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-parent-item select-only))
 (defun treeview-select-act-first-visible-item (&optional hitem select-only)
-  "‰æ–Êæ“ª•\¦ƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "ç”»é¢å…ˆé ­è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-first-visible-item select-only))
 (defun treeview-select-act-last-visible-item (&optional hitem select-only)
-  "“WŠJ‚µ‚Ä‚¢‚é’†‚Å––”ö‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "å±•é–‹ã—ã¦ã„ã‚‹ä¸­ã§æœ«å°¾ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-last-visible-item select-only))
 (defun treeview-select-act-last-window-visible-item (&optional hitem select-only)
-  "‰æ–Ê––”ö•\¦ƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "ç”»é¢æœ«å°¾è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-last-window-visible-item select-only))
 (defun treeview-select-act-next-visible-item (&optional hitem select-only)
-  "Ÿ‚Ì•\¦ƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "æ¬¡ã®è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-next-visible-item select-only))
 (defun treeview-select-act-prev-visible-item (&optional hitem select-only)
-  "‘O‚Ì•\¦ƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "å‰ã®è¡¨ç¤ºã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-prev-visible-item select-only))
 (defun treeview-select-act-root-item (&optional select-only)
-  "treeview ‚Ìˆê”Ôã‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "treeview ã®ä¸€ç•ªä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 (treeview-get-root-item) nil select-only))
 (defun treeview-select-act-youngest-child-item (&optional hitem select-only)
-  "item ‚Ìˆê”Ô‰º‚ÌqƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "item ã®ä¸€ç•ªä¸‹ã®å­ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-youngest-child-item select-only))
 (defun treeview-select-act-ancestor-item (&optional hitem select-only)
-  "ˆê”Ôe‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "ä¸€ç•ªè¦ªã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-ancestor-item select-only))
 (defun treeview-select-act-descendants-item (&optional hitem select-only)
-  "ˆê”Ô‰º‚ÌqƒAƒCƒeƒ€‚Ìæ“¾‚ğŒJ‚è•Ô‚µ‚½Œ‹‰Ê‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "ä¸€ç•ªä¸‹ã®å­ã‚¢ã‚¤ãƒ†ãƒ ã®å–å¾—ã‚’ç¹°ã‚Šè¿”ã—ãŸçµæœã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-descendants-item select-only))
 (defun treeview-select-act-eldest-descendants-item (&optional hitem select-only)
-  "ˆê”Ôã‚ÌqƒAƒCƒeƒ€‚Ìæ“¾‚ğŒJ‚è•Ô‚µ‚½Œ‹‰Ê‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "ä¸€ç•ªä¸Šã®å­ã‚¢ã‚¤ãƒ†ãƒ ã®å–å¾—ã‚’ç¹°ã‚Šè¿”ã—ãŸçµæœã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-eldest-descendants-item select-only))
 (defun treeview-select-act-youngest-descendants-item (&optional hitem select-only)
-  "ˆê”Ô‰º‚ÌqƒAƒCƒeƒ€‚Ìæ“¾‚ğŒJ‚è•Ô‚µ‚½Œ‹‰Ê‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB
-treeview-select-act-descendants-item ‚Æ“¯ˆêB"
+  "ä¸€ç•ªä¸‹ã®å­ã‚¢ã‚¤ãƒ†ãƒ ã®å–å¾—ã‚’ç¹°ã‚Šè¿”ã—ãŸçµæœã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚
+treeview-select-act-descendants-item ã¨åŒä¸€ã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-youngest-descendants-item select-only))
 (defun treeview-select-act-up-item (&optional hitem select-only)
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ˆê‚Âã‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãšä¸€ã¤ä¸Šã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-up-item select-only))
 (defun treeview-select-act-down-item (&optional hitem select-only)
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ˆê‚Â‰º‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãšä¸€ã¤ä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-down-item select-only))
 (defun treeview-select-act-bottom-item (&optional select-only)
-  "•\¦/”ñ•\¦‚ÉŠÖ‚í‚ç‚¸ treeview ‚Ìˆê”Ô‰º‚ÌƒAƒCƒeƒ€‚ğ‘I‘ğAÀsB"
+  "è¡¨ç¤º/éè¡¨ç¤ºã«é–¢ã‚ã‚‰ãš treeview ã®ä¸€ç•ªä¸‹ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 (treeview-get-bottom-item) nil select-only))
 
 ;;----------------------------------------------------------------------------
-;; ƒJ[ƒ\ƒ‹ƒL[ƒGƒ~ƒ…ƒŒ[ƒg
+;; ã‚«ãƒ¼ã‚½ãƒ«ã‚­ãƒ¼ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆ
 ;;----------------------------------------------------------------------------
 (defun treeview-select-act-up-key-item (&optional hitem select-only)
-  "Up ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "Up ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-up-key-item select-only))
 (defun treeview-select-act-down-key-item (&optional hitem select-only)
-  "Down ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "Down ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-down-key-item select-only))
 (defun treeview-select-act-left-key-item (&optional hitem select-only)
-  "Left ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "Left ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (unless hitem
     (setq hitem (treeview-get-selected-item)))
@@ -380,7 +380,7 @@ treeview-select-act-descendants-item ‚Æ“¯ˆêB"
          (treeview-expand-collapse hitem))
        (treeview-select-act-item-1 next-hitem nil select-only)))))
 (defun treeview-select-act-right-key-item (&optional hitem select-only)
-  "Right ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "Right ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (unless hitem
     (setq hitem (treeview-get-selected-item)))
@@ -392,21 +392,21 @@ treeview-select-act-descendants-item ‚Æ“¯ˆêB"
          (treeview-expand-expand hitem))
        (treeview-select-act-item-1 next-hitem nil select-only)))))
 (defun treeview-select-act-pageup-key-item (&optional hitem select-only)
-  "PageUp ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "PageUp ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-pageup-key-item select-only))
 (defun treeview-select-act-pagedown-key-item (&optional hitem select-only)
-  "PageDown ƒL[‰Ÿ‰º‚Ì“®ì‚ğƒGƒ~ƒ…ƒŒ[ƒg‚µA‚»‚ÌŒãƒAƒCƒeƒ€‚ğÀsB"
+  "PageDown ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®å‹•ä½œã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã€ãã®å¾Œã‚¢ã‚¤ãƒ†ãƒ ã‚’å®Ÿè¡Œã€‚"
   (interactive)
   (treeview-select-act-item-1 hitem #'treeview-get-pagedown-key-item select-only))
 
 ;;----------------------------------------------------------------------------
-;; “Áê
+;; ç‰¹æ®Š
 ;;----------------------------------------------------------------------------
 (defvar *treeview-select-act-item-delay-sec* 0.01
-  "treeview-select-act-item-delay —p•Ï”B")
+  "treeview-select-act-item-delay ç”¨å¤‰æ•°ã€‚")
 (defun treeview-select-act-item-delay ()
-  "ˆêu‘Ò‹@‚µAŒ»İ‚ÌƒAƒCƒeƒ€‚ğ‰ü‚ß‚Ä‘I‘ğAÀsB"
+  "ä¸€ç¬å¾…æ©Ÿã—ã€ç¾åœ¨ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’æ”¹ã‚ã¦é¸æŠã€å®Ÿè¡Œã€‚"
   (interactive)
   (let* ((selected-hitem (treeview-get-selected-item))
          (app-id *treeview-app-id*) fn)
@@ -414,7 +414,7 @@ treeview-select-act-descendants-item ‚Æ“¯ˆêB"
                  (with-app (app-id)
                    (let ((hitem (treeview-get-selected-item)))
                      (when (treeview-hitem-valid-p hitem)
-;                       (treeview-select-act-item selected-hitem);•\¦ã‚Ì–â‘è
+;                       (treeview-select-act-item selected-hitem);è¡¨ç¤ºä¸Šã®å•é¡Œ
                        (treeview-select-item selected-hitem)
                        (treeview-select-act-item hitem))))))
     (start-timer *treeview-select-act-item-delay-sec* fn t)))

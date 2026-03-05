@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; unicode.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -17,7 +17,7 @@
 
 (defun treeview-insert-item (text parent &key icon sicon (insertafter winapi:TVI_LAST)
                                   (state 0) (statemask 0) (lparam 0))
-  "treeview ‚É item ‚ğ’Ç‰ÁB(unicode”Å)"
+  "treeview ã« item ã‚’è¿½åŠ ã€‚(unicodeç‰ˆ)"
   (let ((mask winapi:TVIF_TEXT)
         (lpitemex (winapi::make-TVITEMEXW))
         (lpis (winapi::make-TVINSERTSTRUCTW)))
@@ -46,11 +46,11 @@
     (winapi:SendMessage (treeview-get-htree) winapi:TVM_INSERTITEMW 0 lpis)))
 
 (defun treeview-get-item (pitem); TVITEMW*
-  "TVITEM \‘¢‘Ì‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğ“n‚µAitem ‚ğæ“¾B(unicode”Å)"
+  "TVITEM æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ã‚’æ¸¡ã—ã€item ã‚’å–å¾—ã€‚(unicodeç‰ˆ)"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETITEMW 0 pitem))
 
 (defun treeview-get-item-state (hitem statemask)
-  "item ‚Ì state ‚ğæ“¾B(unicode”Å)"
+  "item ã® state ã‚’å–å¾—ã€‚(unicodeç‰ˆ)"
   (let ((pitem (winapi:make-TVITEMW)))
     (si:clear-chunk pitem)
     (setf (winapi:TVITEMW-mask pitem) winapi:TVIF_STATE)
@@ -60,7 +60,7 @@
     (si:unpack-uint32 pitem (c:c-struct-offset-of winapi::TVITEMW winapi::state))))
 
 (defun treeview-get-item-text (hitem &optional (maxlen 1024))
-  "item ‚Ì text ‚ğæ“¾B(unicode”Å)"
+  "item ã® text ã‚’å–å¾—ã€‚(unicodeç‰ˆ)"
   (let ((text (si:make-chunk nil maxlen))
         (pitem (winapi:make-TVITEMW)))
     (si:clear-chunk text)
@@ -74,7 +74,7 @@
                              (si:unpack-string text 0 maxlen nil)))))
 
 (defun treeview-get-item-data (hitem)
-  "item ‚Ì Application ŒÅ—Lƒf[ƒ^‚ğæ“¾B(unicode”Å)"
+  "item ã® Application å›ºæœ‰ãƒ‡ãƒ¼ã‚¿ã‚’å–å¾—ã€‚(unicodeç‰ˆ)"
   (let ((pitem (winapi:make-TVITEMW)))
     (si:clear-chunk pitem)
     (setf (winapi:TVITEMW-mask pitem) winapi:TVIF_PARAM)
@@ -83,7 +83,7 @@
     (si:unpack-int32 pitem (c:c-struct-offset-of winapi::TVITEMW winapi::lParam))))
 
 (defun treeview-set-item (hitem mask text icon sicon state statemask lparam)
-  "item ‚ÉŠeí’l‚ğİ’èB(unicode”Å)"
+  "item ã«å„ç¨®å€¤ã‚’è¨­å®šã€‚(unicodeç‰ˆ)"
   (let ((pitem (winapi:make-TVITEMW)))
     (si:clear-chunk pitem)
     (setf (winapi::TVITEMW-mask pitem) mask)
@@ -99,15 +99,15 @@
     (winapi:SendMessage (treeview-get-htree) winapi:TVM_SETITEMW 0 pitem)))
 
 (defun treeview-set-item-state (hitem state statamask)
-  "item ‚É state ‚ğİ’èB(unicode”Å)"
+  "item ã« state ã‚’è¨­å®šã€‚(unicodeç‰ˆ)"
   (treeview-set-item hitem winapi:TVIF_STATE "" 0 0 state statemask 0))
 
 (defun treeview-set-item-text (hitem text)
-  "item ‚É text ‚ğİ’èB(unicode”Å)"
+  "item ã« text ã‚’è¨­å®šã€‚(unicodeç‰ˆ)"
   (treeview-set-item hitem winapi:TVIF_TEXT text 0 0 0 0 0))
 
 (defun treeview-set-item-data (hitem data)
-  "item ‚É Application ŒÅ—Lƒf[ƒ^‚ğİ’èB(unicode”Å)"
+  "item ã« Application å›ºæœ‰ãƒ‡ãƒ¼ã‚¿ã‚’è¨­å®šã€‚(unicodeç‰ˆ)"
   (treeview-set-item hitem winapi:TVIF_PARAM "" 0 0 0 0 data))
 
 ;;; unicode.l ends here

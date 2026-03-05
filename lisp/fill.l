@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -119,7 +119,7 @@
 				 (concat paragraph-separate
 					 "\\|^"
 					 (regexp-quote fill-prefix)
-					 "[ \tÅ@]*$")
+					 "[ \t„ÄÄ]*$")
 			       paragraph-separate))))
     (while (and (looking-at sep)
 		(forward-line 1)))
@@ -142,21 +142,21 @@
 (defun set-fill-column (&optional (col (current-column)))
   (interactive "p")
   (unless (<= 4 col 30000)
-    (error "ÉtÉBÉãÉJÉâÉÄÇÕ4à»è„30000à»â∫Ç≈Ç∑"))
+    (error "„Éï„Ç£„É´„Ç´„É©„É†„ÅØ4‰ª•‰∏ä30000‰ª•‰∏ã„Åß„Åô"))
   (setq fill-column col)
-  (message "ÉtÉBÉãÉJÉâÉÄÇÕ~dÇ≈Ç∑" fill-column))
+  (message "„Éï„Ç£„É´„Ç´„É©„É†„ÅØ~d„Åß„Åô" fill-column))
 
 (defun set-fill-prefix ()
   (interactive)
   (cond ((bolp)
 	 (setq fill-prefix nil)
-	 (message "fill prefixÇÉNÉäÉAÇµÇ‹ÇµÇΩ"))
+	 (message "fill prefix„Çí„ÇØ„É™„Ç¢„Åó„Åæ„Åó„Åü"))
 	(t
 	 (setq fill-prefix (buffer-substring (point)
 					     (save-excursion
 					       (goto-bol)
 					       (point))))
-	 (message "fill prefixÇÕ\"~a\"Ç≈Ç∑" fill-prefix)))
+	 (message "fill prefix„ÅØ\"~a\"„Åß„Åô" fill-prefix)))
   t)
 
 (define-key esc-map #\q 'fill-paragraph)

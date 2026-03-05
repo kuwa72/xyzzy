@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -523,7 +523,7 @@
 
 (defun transpose-region-1 (start1 end1 start2 end2 dir)
   (and (> end1 start2)
-       (plain-error "ŒğŠ·‚Å‚«‚Ü‚¹‚ñ"))
+       (plain-error "äº¤æ›ã§ãã¾ã›ã‚“"))
   (let ((string1 (buffer-substring start1 end1))
 	(string2 (buffer-substring start2 end2)))
     (delete-region start2 end2)
@@ -791,7 +791,7 @@
 				    (quote-char-read-hex 4 "U+")))))
 		   (setq char (unicode-char code))
 		   (unless char
-		     (error "U+~4,'0x‚Í”ÍˆÍŠO‚Å‚·" code))
+		     (error "U+~4,'0xã¯ç¯„å›²å¤–ã§ã™" code))
 		   char))
 		((eql char #\j)
 		 (iso-code-char (setq code (quote-char-read-hex 4 "JIS X 0208: ")) :jisx0208))
@@ -821,7 +821,7 @@
 		 (code-char (quote-char-read-hex 4 "" t)))
 		(t
 		 char)))
-	(error "~x‚Í”ÍˆÍŠO‚Å‚·" code))))
+	(error "~xã¯ç¯„å›²å¤–ã§ã™" code))))
 
 (defun quote-char (&optional (arg 1))
   (interactive "*p")

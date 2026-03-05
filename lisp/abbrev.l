@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -62,7 +62,7 @@
 
 (defun define-mode-abbrev (name exp)
   (and (null *local-abbrev-table*)
-       (error "Œ»Ý‚ÌƒƒWƒƒ[ƒ‚[ƒh‚É‚áabbrevƒe[ƒuƒ‹‚ª‚ ‚è‚Ü‚¹‚ñ"))
+       (error "ç¾åœ¨ã®ãƒ¡ã‚¸ãƒ£ãƒ¼ãƒ¢ãƒ¼ãƒ‰ã«ã‚ƒabbrevãƒ†ãƒ¼ãƒ–ãƒ«ãŒã‚ã‚Šã¾ã›ã‚“"))
   (define-abbrev *local-abbrev-table* name exp))
 
 (defun abbrev-expansion (abbrev &optional table)
@@ -324,11 +324,11 @@
 			(forward-word (- arg))
 			(point))))))
 	 (name (read-string
-		(format nil "~:[–¢’è‹`‚É‚·‚é~A—ªÌ~;\"~:*~A\"‚Ì~A—ªÌ~]: "
+		(format nil "~:[æœªå®šç¾©ã«ã™ã‚‹~Aç•¥ç§°~;\"~:*~A\"ã®~Aç•¥ç§°~]: "
 			exp type))))
     (when (or (null exp)
 	      (null (abbrev-expansion name table))
-	      (yes-or-no-p "\"~A\"‚Í\"~A\"‚É’è‹`‚³‚ê‚Ä‚¢‚Ü‚·BÄ’è‹`‚·‚é?"
+	      (yes-or-no-p "\"~A\"ã¯\"~A\"ã«å®šç¾©ã•ã‚Œã¦ã„ã¾ã™ã€‚å†å®šç¾©ã™ã‚‹?"
 			   name (abbrev-expansion name table)))
       (define-abbrev table (string-downcase name) exp))))
 
@@ -338,7 +338,7 @@
    (if *only-global-abbrevs*
        *global-abbrev-table*
      (or *local-abbrev-table*
-	 (error "ƒ‚[ƒh‚²‚Æ‚Ìabbrevƒe[ƒuƒ‹‚Í‚ ‚è‚Ü‚¹‚ñ")))
+	 (error "ãƒ¢ãƒ¼ãƒ‰ã”ã¨ã®abbrevãƒ†ãƒ¼ãƒ–ãƒ«ã¯ã‚ã‚Šã¾ã›ã‚“")))
    "Mode" arg))
 
 (defun add-global-abbrev (&optional (arg 1))
@@ -354,10 +354,10 @@
 				   (progn
 				     (forward-word 1)
 				     (setq point (point))))))
-	 (exp (read-string (format nil "~A—ªÌ\"~A\"‚Ì“WŠJ: "
+	 (exp (read-string (format nil "~Aç•¥ç§°\"~A\"ã®å±•é–‹: "
 				   type name))))
     (when (or (not (abbrev-expansion name table))
-	      (yes-or-no-p "\"~A\"‚Í\"~A\"‚É’è‹`‚³‚ê‚Ä‚¢‚Ü‚·BÄ’è‹`‚·‚é? "
+	      (yes-or-no-p "\"~A\"ã¯\"~A\"ã«å®šç¾©ã•ã‚Œã¦ã„ã¾ã™ã€‚å†å®šç¾©ã™ã‚‹? "
 			   name (abbrev-expansion name table)))
       (define-abbrev table (string-downcase name) exp)
       (goto-char point)
@@ -369,7 +369,7 @@
    (if *only-global-abbrevs*
        *global-abbrev-table* 
      (or *local-abbrev-table*
-	 (error "ƒ‚[ƒh‚²‚Æ‚Ìabbrevƒe[ƒuƒ‹‚Í‚ ‚è‚Ü‚¹‚ñ")))
+	 (error "ãƒ¢ãƒ¼ãƒ‰ã”ã¨ã®abbrevãƒ†ãƒ¼ãƒ–ãƒ«ã¯ã‚ã‚Šã¾ã›ã‚“")))
    "Mode" arg))
 
 (defun inverse-add-global-abbrev (&optional (arg 1))
@@ -404,7 +404,7 @@
 		     (progn
 		       (reverse-region point (point))
 		       (refresh-screen)
-		       (yes-no-or-cancel-p "“WŠJ‚µ‚Ü‚·‚©?")))
+		       (yes-no-or-cancel-p "å±•é–‹ã—ã¾ã™ã‹?")))
 		 (expand-abbrev)))
 	(clear-reverse-region))
       t)))

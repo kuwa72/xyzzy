@@ -1,5 +1,5 @@
-;;; -*- Mode: Lisp; Package: BROWSEREX -*-
-;;; browserex.l --- browser.dll g—p‚Ì‚½‚ß‚ÌƒTƒ“ƒvƒ‹
+;;; -*- Mode: Lisp; Package: BROWSEREX ; Encoding: utf-8 -*-
+;;; browserex.l --- browser.dll ä½¿ç”¨ã®ãŸã‚ã®ã‚µãƒ³ãƒ—ãƒ«
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
 
@@ -10,63 +10,63 @@
 
 ;; Description:
 ;;
-;;  satoshi oowada ‚³‚ñ‚ÌŒöŠJ‚³‚ê‚Ä‚¢‚é browser.dll, browser.l ‚Í
-;;  —lX‚È—p“r‚Ég—p‚Å‚«‚é‘å•Ï‘f°‚ç‚µ‚¢‚à‚Ì‚Å‚·B
+;;  satoshi oowada ã•ã‚“ã®å…¬é–‹ã•ã‚Œã¦ã„ã‚‹ browser.dll, browser.l ã¯
+;;  æ§˜ã€…ãªç”¨é€”ã«ä½¿ç”¨ã§ãã‚‹å¤§å¤‰ç´ æ™´ã‚‰ã—ã„ã‚‚ã®ã§ã™ã€‚
 ;;
-;;  browser.l ‚Í browser.dll ‚Ìg—p•û–@‚ÌƒTƒ“ƒvƒ‹ƒtƒ@ƒCƒ‹‚Å‚ ‚èA
-;;  ‚»‚ê‚ğQl‚É‚µ‚Ä browser.dll ‚Ì‘€ì‚ğŠe©‚ª‹Lq‚·‚é‚½‚ß‚Ì‚à‚Ì‚È‚Ì‚ÅA
-;;  ‚»‚Ì‹Lq‚¾‚¯‚Å‚Í browser.dll ‚ğv‚¤‚æ‚¤‚Éˆµ‚¦‚È‚¢‚±‚Æ‚à‚ ‚è‚Ü‚·B
+;;  browser.l ã¯ browser.dll ã®ä½¿ç”¨æ–¹æ³•ã®ã‚µãƒ³ãƒ—ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã§ã‚ã‚Šã€
+;;  ãã‚Œã‚’å‚è€ƒã«ã—ã¦ browser.dll ã®æ“ä½œã‚’å„è‡ªãŒè¨˜è¿°ã™ã‚‹ãŸã‚ã®ã‚‚ã®ãªã®ã§ã€
+;;  ãã®è¨˜è¿°ã ã‘ã§ã¯ browser.dll ã‚’æ€ã†ã‚ˆã†ã«æ‰±ãˆãªã„ã“ã¨ã‚‚ã‚ã‚Šã¾ã™ã€‚
 ;;
-;;  browserex.l ‚Í browser.dll ‚ğå‚É HTML ƒtƒ@ƒCƒ‹‚ÌƒvƒŒƒrƒ…[ƒA‚Æ‚µ‚Ä
-;;  —˜—p‚·‚éÛ‚É•Ö—˜‚Æv‚¦‚é‹@”\‚ğ browser.l, browser.txt, browser.cpp ‚ğ
-;;  Ql‚É‚µ‚Ä‹Lq‚µ‚½A‚à‚¤ˆê‚Â‚ÌƒTƒ“ƒvƒ‹ Lisp ƒtƒ@ƒCƒ‹‚Å‚·B
+;;  browserex.l ã¯ browser.dll ã‚’ä¸»ã« HTML ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã‚¢ã¨ã—ã¦
+;;  åˆ©ç”¨ã™ã‚‹éš›ã«ä¾¿åˆ©ã¨æ€ãˆã‚‹æ©Ÿèƒ½ã‚’ browser.l, browser.txt, browser.cpp ã‚’
+;;  å‚è€ƒã«ã—ã¦è¨˜è¿°ã—ãŸã€ã‚‚ã†ä¸€ã¤ã®ã‚µãƒ³ãƒ—ãƒ« Lisp ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™ã€‚
 ;;
-;;  ‚¢‚Ü‚¢‚½‚¯‚ğ‚³‚ñ‚ÌŒöŠJ‚³‚ê‚Ä‚¢‚é browser.dll Šg’£”Å‚Ì‹@”\‚à—p‚¢‚é‚±‚Æ‚ª
-;;  ‚Å‚«‚é‚æ‚¤‚É‚µ‚Ü‚µ‚½B
-;;  R–{‘×O‚³‚ñ‚ÌŒöŠJ‚³‚ê‚Ä‚¢‚é browser.dll Gecko •Ò‚É‚à‰¼‘Î‰‚µ‚Ä‚¢‚Ü‚·B
+;;  ã„ã¾ã„ãŸã‘ã‚’ã•ã‚“ã®å…¬é–‹ã•ã‚Œã¦ã„ã‚‹ browser.dll æ‹¡å¼µç‰ˆã®æ©Ÿèƒ½ã‚‚ç”¨ã„ã‚‹ã“ã¨ãŒ
+;;  ã§ãã‚‹ã‚ˆã†ã«ã—ã¾ã—ãŸã€‚
+;;  å±±æœ¬æ³°ä¸‰ã•ã‚“ã®å…¬é–‹ã•ã‚Œã¦ã„ã‚‹ browser.dll Gecko ç·¨ã«ã‚‚ä»®å¯¾å¿œã—ã¦ã„ã¾ã™ã€‚
 ;;
 
-;; o—ˆ‚é‚±‚Æ:
+;; å‡ºæ¥ã‚‹ã“ã¨:
 ;;
-;;      E“ü—Í‚³‚ê‚½ URL ‚Ì“à—e‚Ì•\¦
-;;      E•\¦“à—e‚ÌÄ•`‰æ
-;;      EŠJ‚¢‚Ä‚¢‚é‚©‚Ç‚¤‚©‚Ì”»’è
-;;      E•Â‚¶‚é
-;;      E•\¦ŠJniŠJ‚­‚Æ‚«j‚Ì‚İ—LŒø‚È•\¦ˆÊ’uiã‰º¶‰EA‚‚³ or •jw’è
-;;      Exyzzy ã‚Ì•\¦ˆÊ’uiã‰º¶‰Ej‚Ì•ÏX‚Æ‚»‚ÌˆÊ’u‚Ì©“®•Û‘¶
-;;      EƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚Ìƒtƒ@ƒCƒ‹“à—e•\¦
-;;      Eƒtƒ@ƒCƒ‹–¼‚ğ‚½‚È‚¢ƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚Ì“à—e‚ğ
-;;        •¶šƒR[ƒhE‰üsƒR[ƒh‚ğ•Û‚Á‚½‚Ü‚Üƒeƒ“ƒ|ƒ‰ƒŠƒtƒ@ƒCƒ‹‚Éo—Í‚µA
-;;        HTML ƒtƒ@ƒCƒ‹‚Æ‚µ‚Ä•\¦
-;;      EƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚Ìƒtƒ@ƒCƒ‹‚ÌƒfƒBƒŒƒNƒgƒŠ•\¦
-;;      EiƒfƒBƒŒƒNƒgƒŠ•\¦‚ÌƒXƒ^ƒCƒ‹‚Ìw’èj
-;;      Eƒc[ƒ‹ƒo[‚©‚ç‚Ì‘€ì
-;;      Eƒ}ƒEƒX‚Åw’è‚µ‚½ URLAƒ[ƒJƒ‹ƒtƒ@ƒCƒ‹ƒpƒX‚Ì“à—e‚Ì•\¦
-;;      EƒXƒNƒ[ƒ‹
-;;      Eii‚ŞA–ß‚éAƒz[ƒ€‚ÖˆÚ“®AŠJ‚¢‚Ä‚¢‚é URI ‚Ì•\¦j
+;;      ãƒ»å…¥åŠ›ã•ã‚ŒãŸ URL ã®å†…å®¹ã®è¡¨ç¤º
+;;      ãƒ»è¡¨ç¤ºå†…å®¹ã®å†æç”»
+;;      ãƒ»é–‹ã„ã¦ã„ã‚‹ã‹ã©ã†ã‹ã®åˆ¤å®š
+;;      ãƒ»é–‰ã˜ã‚‹
+;;      ãƒ»è¡¨ç¤ºé–‹å§‹æ™‚ï¼ˆé–‹ãã¨ãï¼‰ã®ã¿æœ‰åŠ¹ãªè¡¨ç¤ºä½ç½®ï¼ˆä¸Šä¸‹å·¦å³ã€é«˜ã• or å¹…ï¼‰æŒ‡å®š
+;;      ãƒ»xyzzy ä¸Šã®è¡¨ç¤ºä½ç½®ï¼ˆä¸Šä¸‹å·¦å³ï¼‰ã®å¤‰æ›´ã¨ãã®ä½ç½®ã®è‡ªå‹•ä¿å­˜
+;;      ãƒ»ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã®ãƒ•ã‚¡ã‚¤ãƒ«å†…å®¹è¡¨ç¤º
+;;      ãƒ»ãƒ•ã‚¡ã‚¤ãƒ«åã‚’æŒãŸãªã„ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã®å†…å®¹ã‚’
+;;        æ–‡å­—ã‚³ãƒ¼ãƒ‰ãƒ»æ”¹è¡Œã‚³ãƒ¼ãƒ‰ã‚’ä¿ã£ãŸã¾ã¾ãƒ†ãƒ³ãƒãƒ©ãƒªãƒ•ã‚¡ã‚¤ãƒ«ã«å‡ºåŠ›ã—ã€
+;;        HTML ãƒ•ã‚¡ã‚¤ãƒ«ã¨ã—ã¦è¡¨ç¤º
+;;      ãƒ»ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã®ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªè¡¨ç¤º
+;;      ãƒ»ï¼ˆãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªè¡¨ç¤ºæ™‚ã®ã‚¹ã‚¿ã‚¤ãƒ«ã®æŒ‡å®šï¼‰
+;;      ãƒ»ãƒ„ãƒ¼ãƒ«ãƒãƒ¼ã‹ã‚‰ã®æ“ä½œ
+;;      ãƒ»ãƒã‚¦ã‚¹ã§æŒ‡å®šã—ãŸ URLã€ãƒ­ãƒ¼ã‚«ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã®å†…å®¹ã®è¡¨ç¤º
+;;      ãƒ»ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
+;;      ãƒ»ï¼ˆé€²ã‚€ã€æˆ»ã‚‹ã€ãƒ›ãƒ¼ãƒ ã¸ç§»å‹•ã€é–‹ã„ã¦ã„ã‚‹ URI ã®è¡¨ç¤ºï¼‰
 ;;
 
 ;; Installation:
 ;;
-;;      1. browser.dll, win-window.l ‚ğƒCƒ“ƒXƒg[ƒ‹‚µ‚Ü‚·B
+;;      1. browser.dll, win-window.l ã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¾ã™ã€‚
 ;;
-;;      2. ƒA[ƒJƒCƒu‚ğ“WŠJ‚µ‚Ä browserex.l ‚ğ $XYZZY/site-lisp ‚É
-;;         ƒRƒs[‚µ‚Ü‚·B
-;;         toolbar-browserex.bmp ‚ğ $XYZZY/etc ‚ÉƒRƒs[‚µ‚Ü‚·B
+;;      2. ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã‚’å±•é–‹ã—ã¦ browserex.l ã‚’ $XYZZY/site-lisp ã«
+;;         ã‚³ãƒ”ãƒ¼ã—ã¾ã™ã€‚
+;;         toolbar-browserex.bmp ã‚’ $XYZZY/etc ã«ã‚³ãƒ”ãƒ¼ã—ã¾ã™ã€‚
 ;;
-;;      3. •K—v‚È‚ç‚ÎƒoƒCƒgƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·B
+;;      3. å¿…è¦ãªã‚‰ã°ãƒã‚¤ãƒˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã€‚
 ;;
 ;;              M-x byte-compile-file
 ;;              Byte compile file: $XYZZY/site-lisp/browserex.l
 ;;
-;;      4. ~/.xyzzy ‚Ü‚½‚Í $XYZZY/site-lisp/siteinit.l ‚ÉˆÈ‰º‚ÌƒR[ƒh‚ğ
-;;         ’Ç‰Á‚µ‚Ü‚·B
+;;      4. ~/.xyzzy ã¾ãŸã¯ $XYZZY/site-lisp/siteinit.l ã«ä»¥ä¸‹ã®ã‚³ãƒ¼ãƒ‰ã‚’
+;;         è¿½åŠ ã—ã¾ã™ã€‚
 ;;
 ;;              (require "wip/browserex")
 ;;
-;;      5. •K—v‚È‚ç‚ÎƒL[ƒoƒCƒ“ƒhİ’è‚ÌƒR[ƒh‚ğ’Ç‰Á‚µ‚Ü‚·B
+;;      5. å¿…è¦ãªã‚‰ã°ã‚­ãƒ¼ãƒã‚¤ãƒ³ãƒ‰è¨­å®šã®ã‚³ãƒ¼ãƒ‰ã‚’è¿½åŠ ã—ã¾ã™ã€‚
 ;;
-;;              —áF
+;;              ä¾‹ï¼š
 ;;              (global-set-key #\M-F8 'bx:change-browser)
 ;;              (global-set-key #\M-F9 'bx:navigate-current-buffer)
 ;;              (global-set-key #\M-F10 'bx:navigate-current-buffer-directory)
@@ -83,185 +83,185 @@
 ;;              (global-set-key #\M-Home #'(lambda () (interactive) (bx:browserex-scroll-up :unit :all)))
 ;;              (global-set-key #\M-End #'(lambda () (interactive) (bx:browserex-scroll-down :unit :all)))
 ;;
-;;      6. ã‹L‚Ìİ’è‚ğ”½‰f‚³‚¹‚é‚½‚ß‚ÉAxyzzy ‚ğÄ‹N“®‚µ‚Ü‚·B
-;;         siteinit.l ‚É‹Lq‚µ‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ‚È‚ª‚ç
-;;         xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      6. ä¸Šè¨˜ã®è¨­å®šã‚’åæ˜ ã•ã›ã‚‹ãŸã‚ã«ã€xyzzy ã‚’å†èµ·å‹•ã—ã¾ã™ã€‚
+;;         siteinit.l ã«è¨˜è¿°ã—ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—ãªãŒã‚‰
+;;         xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
-;;      7. •K—v‚È‚ç‚Îƒƒjƒ…[‚Ìu•\¦v¨uƒc[ƒ‹ƒo[v‚É’Ç‰Á‚³‚ê‚Ä‚¢‚é
-;;         uBrowserv‚ğƒ`ƒFƒbƒN‚µAƒc[ƒ‹ƒo[‚ğ•\¦‚µ‚Ü‚·B
+;;      7. å¿…è¦ãªã‚‰ã°ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®ã€Œè¡¨ç¤ºã€â†’ã€Œãƒ„ãƒ¼ãƒ«ãƒãƒ¼ã€ã«è¿½åŠ ã•ã‚Œã¦ã„ã‚‹
+;;         ã€ŒBrowserã€ã‚’ãƒã‚§ãƒƒã‚¯ã—ã€ãƒ„ãƒ¼ãƒ«ãƒãƒ¼ã‚’è¡¨ç¤ºã—ã¾ã™ã€‚
 
 ;; Uninstallation:
 ;;
-;;      1. ESC ESC (browserex::browserex-uninstall) ‚Æƒ^ƒCƒv‚µA
-;;         browserex.l ŠÖ˜A‚Ìî•ñ‚ğ xyzzy ‚©‚çíœ‚µ‚Ü‚·B
+;;      1. ESC ESC (browserex::browserex-uninstall) ã¨ã‚¿ã‚¤ãƒ—ã—ã€
+;;         browserex.l é–¢é€£ã®æƒ…å ±ã‚’ xyzzy ã‹ã‚‰å‰Šé™¤ã—ã¾ã™ã€‚
 ;;
-;;      2. browserex.l ‚ÉŠÖ‚·‚é‹Lq‚ğíœ‚µ‚Ü‚·B
+;;      2. browserex.l ã«é–¢ã™ã‚‹è¨˜è¿°ã‚’å‰Šé™¤ã—ã¾ã™ã€‚
 ;;
-;;      3. siteinit.l ‚É‹Lq‚µ‚Ä‚¢‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ
-;;         ‚È‚ª‚ç xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      3. siteinit.l ã«è¨˜è¿°ã—ã¦ã„ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—
+;;         ãªãŒã‚‰ xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
 
 ;; Changes:
 ;;
 ;;      Sat, 08 Oct 2005 10:03:59 +0900
-;;        Eƒ[ƒ‹ƒAƒhƒŒƒX‚ğ•ÏXB
-;;        Eƒ‰ƒCƒZƒ“ƒXğ€(C³BSDƒ‰ƒCƒZƒ“ƒX)‚ğ‹LÚB
+;;        ãƒ»ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’å¤‰æ›´ã€‚
+;;        ãƒ»ãƒ©ã‚¤ã‚»ãƒ³ã‚¹æ¡é …(ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹)ã‚’è¨˜è¼‰ã€‚
 ;;
 ;;      Sat, 16 Apr 2005 22:46:38 +0900
-;;        Ebrowserex-uninstall ‚ğ interactive ‚Å‚È‚¢ŠÖ”‚É•ÏXB
-;;        Exyzzy 0.2.2.234 ‘Î‰
-;;          - ”¼ŠpƒJƒi‚ğ‘SŠpƒJƒi‚É•ÏXB
-;;        Eƒƒjƒ…[w’èC³B
-;;          - *browserex-menu-position* ‚ğƒqƒXƒgƒŠ•Ï”‚Å‚È‚­‚µ‚½B
-;;            Ë (bx::browserex-uninstall) ‚ğ•]‰¿ŒãÄ‹N“®‚·‚é‚±‚Æ‚Å
-;;               ”½‰f‚³‚ê‚Ü‚·B
-;;          - *browserex-menu-position* ‚Ì‰Šú’l•ÏXB
-;;          - *browserex-menu-name* ‚Ì‰Šú’l•ÏXB
-;;          - ƒvƒƒpƒeƒB[ƒV[ƒg‚Å‚Ì menu ’Ç‰ÁˆÊ’uw’è”p~B
+;;        ãƒ»browserex-uninstall ã‚’ interactive ã§ãªã„é–¢æ•°ã«å¤‰æ›´ã€‚
+;;        ãƒ»xyzzy 0.2.2.234 å¯¾å¿œ
+;;          - åŠè§’ã‚«ãƒŠã‚’å…¨è§’ã‚«ãƒŠã«å¤‰æ›´ã€‚
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼æŒ‡å®šä¿®æ­£ã€‚
+;;          - *browserex-menu-position* ã‚’ãƒ’ã‚¹ãƒˆãƒªå¤‰æ•°ã§ãªãã—ãŸã€‚
+;;            â‡’ (bx::browserex-uninstall) ã‚’è©•ä¾¡å¾Œå†èµ·å‹•ã™ã‚‹ã“ã¨ã§
+;;               åæ˜ ã•ã‚Œã¾ã™ã€‚
+;;          - *browserex-menu-position* ã®åˆæœŸå€¤å¤‰æ›´ã€‚
+;;          - *browserex-menu-name* ã®åˆæœŸå€¤å¤‰æ›´ã€‚
+;;          - ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ãƒ¼ã‚·ãƒ¼ãƒˆã§ã® menu è¿½åŠ ä½ç½®æŒ‡å®šå»ƒæ­¢ã€‚
 ;;
 ;;      Mon, 23 Feb 2004 23:10:39 +0900
-;;        Enavigate ‚É‘Î‚µ‚Ä ~/ ‚ÅŠJn‚·‚é•¶š—ñ‚ğ“n‚µ‚½ê‡
-;;          “WŠJ‚·‚é‚æ‚¤‚ÉB
-;;        Enavigate ‚Å‚Ì interactive “ü—Í‚Å•âŠ®‰Â”\‚ÉB
-;;        E*browserex-history* ‚Ì’Ç‰ÁB
-;;        E*browserex-scheme-list* ’Ç‰ÁB
-;;        E*browser-start-page* ‚ÌƒfƒtƒHƒ‹ƒg’l‚ğ nil ‚ÉB
+;;        ãƒ»navigate ã«å¯¾ã—ã¦ ~/ ã§é–‹å§‹ã™ã‚‹æ–‡å­—åˆ—ã‚’æ¸¡ã—ãŸå ´åˆ
+;;          å±•é–‹ã™ã‚‹ã‚ˆã†ã«ã€‚
+;;        ãƒ»navigate ã§ã® interactive å…¥åŠ›ã§è£œå®Œå¯èƒ½ã«ã€‚
+;;        ãƒ»*browserex-history* ã®è¿½åŠ ã€‚
+;;        ãƒ»*browserex-scheme-list* è¿½åŠ ã€‚
+;;        ãƒ»*browser-start-page* ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’ nil ã«ã€‚
 ;;
 ;;      Tue, 20 Jan 2004 23:43:55 +0900
-;;        EˆîŒ´‚³‚ñ‚Éw“E‚¢‚½‚¾‚¢‚½ƒRƒƒ“ƒg“à typo C³B
-;;        Ewin-window.l ‚ª‚È‚¢ê‡‚Å‚àˆê•”‹@”\‚ªg—p‚Å‚«‚È‚¢‚¾‚¯‚Å
-;;          “®ì‚·‚é‚æ‚¤‚ÉC³B
-;;        Euninstall-browserex ‚ğC³‚Æ‚Æ‚à‚É browserex-uninstall ‚É
-;;          –¼Ì•ÏXB
+;;        ãƒ»ç¨²åŸã•ã‚“ã«æŒ‡æ‘˜ã„ãŸã ã„ãŸã‚³ãƒ¡ãƒ³ãƒˆå†… typo ä¿®æ­£ã€‚
+;;        ãƒ»win-window.l ãŒãªã„å ´åˆã§ã‚‚ä¸€éƒ¨æ©Ÿèƒ½ãŒä½¿ç”¨ã§ããªã„ã ã‘ã§
+;;          å‹•ä½œã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
+;;        ãƒ»uninstall-browserex ã‚’ä¿®æ­£ã¨ã¨ã‚‚ã« browserex-uninstall ã«
+;;          åç§°å¤‰æ›´ã€‚
 ;;
 ;;      Wed, 28 May 2003 10:44:17 +0900
-;;        Eƒƒjƒ…[ŠÖ˜AC³B
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼é–¢é€£ä¿®æ­£ã€‚
 ;;
 ;;      Thu, 22 May 2003 13:15:46 +0900
-;;        Eƒƒjƒ…[ŠÖ˜AƒR[ƒhC³B
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼é–¢é€£ã‚³ãƒ¼ãƒ‰ä¿®æ­£ã€‚
 ;;
 ;;      Fri, 16 May 2003 19:52:28 +0900
-;;        Einsert-browserex-focus-menu-items Šg’£B
+;;        ãƒ»insert-browserex-focus-menu-items æ‹¡å¼µã€‚
 ;;
 ;;      Mon, 05 May 2003 13:47:04 +0900
-;;        Eƒƒjƒ…[ŠÖ˜AƒR[ƒhC³B
-;;        EƒR[ƒh®—B
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼é–¢é€£ã‚³ãƒ¼ãƒ‰ä¿®æ­£ã€‚
+;;        ãƒ»ã‚³ãƒ¼ãƒ‰æ•´ç†ã€‚
 ;;
 ;;      Mon, 05 May 2003 01:00:52 +0900
-;;        Eu‰Šú‰»‚³‚ê‚Ä‚¢‚È‚¢ƒƒjƒ…[‚Å‚·v‚ÆƒGƒ‰[‚ª‚Å‚éê‡‚ª
-;;          ‚ ‚Á‚½‚Ì‚ğC³B
+;;        ãƒ»ã€ŒåˆæœŸåŒ–ã•ã‚Œã¦ã„ãªã„ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã§ã™ã€ã¨ã‚¨ãƒ©ãƒ¼ãŒã§ã‚‹å ´åˆãŒ
+;;          ã‚ã£ãŸã®ã‚’ä¿®æ­£ã€‚
 ;;
 ;;      Fri, 02 May 2003 23:25:56 +0900
-;;        Eƒƒjƒ…[’Ç‰ÁBİ’è‚ÍƒvƒƒpƒeƒB[ƒV[ƒg‚©‚çB
-;;        Euninstall-browserex C³B
-;;        ENetInstaller ‘Î‰B
-;;        E‚»‚Ì‘¼B
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼è¿½åŠ ã€‚è¨­å®šã¯ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ãƒ¼ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€‚
+;;        ãƒ»uninstall-browserex ä¿®æ­£ã€‚
+;;        ãƒ»NetInstaller å¯¾å¿œã€‚
+;;        ãƒ»ãã®ä»–ã€‚
 ;;
 ;;      Sun, 20 Apr 2003 20:59:38 +0900
-;;        Eƒƒjƒ…[‚Ìuƒc[ƒ‹„‹¤’Êİ’èv‚ÉƒvƒƒpƒeƒBƒV[ƒg’Ç‰ÁB
-;;          ”º‚¢Awin-window.l ‚ª•K—v‚ÉB
-;;        ER–{‘×O‚³‚ñ‚Ì Gecko ”Å browser dll ‚É‰¼‘Î‰B
-;;          ”º‚¢ change-browser ’Ç‰ÁB
+;;        ãƒ»ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®ã€Œãƒ„ãƒ¼ãƒ«ï¼å…±é€šè¨­å®šã€ã«ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚·ãƒ¼ãƒˆè¿½åŠ ã€‚
+;;          ä¼´ã„ã€win-window.l ãŒå¿…è¦ã«ã€‚
+;;        ãƒ»å±±æœ¬æ³°ä¸‰ã•ã‚“ã® Gecko ç‰ˆ browser dll ã«ä»®å¯¾å¿œã€‚
+;;          ä¼´ã„ change-browser è¿½åŠ ã€‚
 ;;
 ;;      Mon, 17 Feb 2003 00:56:16 +0900
-;;        Ebrowserex-mouse-menu-popup C³B
-;;          •¡”s‘I‘ğ‚É‰EƒNƒŠƒbƒN‚Åƒƒjƒ…[‚ª•\¦‚³‚ê‚È‚¢ê‡‚ª
-;;          ‘½X‚ ‚è‚Ü‚µ‚½B
+;;        ãƒ»browserex-mouse-menu-popup ä¿®æ­£ã€‚
+;;          è¤‡æ•°è¡Œé¸æŠæ™‚ã«å³ã‚¯ãƒªãƒƒã‚¯ã§ãƒ¡ãƒ‹ãƒ¥ãƒ¼ãŒè¡¨ç¤ºã•ã‚Œãªã„å ´åˆãŒ
+;;          å¤šã€…ã‚ã‚Šã¾ã—ãŸã€‚
 ;;
 ;;      Sat, 19 Oct 2002 12:37:00 +0900
-;;        Eƒ[ƒJƒ‹ƒtƒ@ƒCƒ‹QÆ‚Ì•ÏŠ·
-;;        E‚Æ‚è‚ ‚¦‚¸Œˆ‚ß‚¤‚¿‚È browser.dll Ø‘ÖBchange-browser
-;;          dll ‚Ìƒtƒ@ƒCƒ‹–¼‚Í browser.dll ‚Æ browser_gecko.dll ‚ÉB
+;;        ãƒ»ãƒ­ãƒ¼ã‚«ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«å‚ç…§æ™‚ã®å¤‰æ›
+;;        ãƒ»ã¨ã‚Šã‚ãˆãšæ±ºã‚ã†ã¡ãª browser.dll åˆ‡æ›¿ã€‚change-browser
+;;          dll ã®ãƒ•ã‚¡ã‚¤ãƒ«åã¯ browser.dll ã¨ browser_gecko.dll ã«ã€‚
 ;;
 ;;      Fri, 26 Jul 2002 05:28:32 +0900
-;;        E‘¼‚Ì lisp ƒtƒ@ƒCƒ‹‚Å winapi ƒpƒbƒP[ƒW‚É SetFocus ‚ª’è‹`
-;;          ‚³‚ê‚Ä‚¨‚èA‚©‚Â export ‚³‚ê‚Ä‚¢‚È‚¢ê‡‚É byte-compile
-;;          ‚Å‚«‚È‚­‚È‚Á‚Ä‚¢‚½“_‚ğC³B
-;;        EWin32API ‚É‚Â‚¢‚Ä’†“r”¼’[‚É winapi ƒpƒbƒP[ƒW‚Å’è‹`‚µ‚Ä‚¢‚½
-;;          ‚Ì‚ğAbrowserex ƒpƒbƒP[ƒW‚Å’è‹`‚·‚é‚æ‚¤‚É•ÏXB
+;;        ãƒ»ä»–ã® lisp ãƒ•ã‚¡ã‚¤ãƒ«ã§ winapi ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã« SetFocus ãŒå®šç¾©
+;;          ã•ã‚Œã¦ãŠã‚Šã€ã‹ã¤ export ã•ã‚Œã¦ã„ãªã„å ´åˆã« byte-compile
+;;          ã§ããªããªã£ã¦ã„ãŸç‚¹ã‚’ä¿®æ­£ã€‚
+;;        ãƒ»Win32API ã«ã¤ã„ã¦ä¸­é€”åŠç«¯ã« winapi ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã§å®šç¾©ã—ã¦ã„ãŸ
+;;          ã®ã‚’ã€browserex ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã§å®šç¾©ã™ã‚‹ã‚ˆã†ã«å¤‰æ›´ã€‚
 ;;
 ;;      Tue, 02 Jul 2002 23:06:00 +0900
-;;        Ebrowserex-set-focus-editor, browser ‚ÅƒtƒH[ƒJƒXƒZƒbƒgB
-;;        Ebrowserex-scroll-up, down, left, right ‚ÅƒXƒNƒ[ƒ‹B
+;;        ãƒ»browserex-set-focus-editor, browser ã§ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚»ãƒƒãƒˆã€‚
+;;        ãƒ»browserex-scroll-up, down, left, right ã§ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã€‚
 ;;
 ;;      Tue, 19 Feb 2002 20:52:25 +0900
-;;        E‚¢‚Ü‚¢‚½‚¯‚ğ‚³‚ñ‰ü‘¢”Å browser.dll ‚É‘Î‰B
-;;          ‚»‚Ì‘¼B
+;;        ãƒ»ã„ã¾ã„ãŸã‘ã‚’ã•ã‚“æ”¹é€ ç‰ˆ browser.dll ã«å¯¾å¿œã€‚
+;;          ãã®ä»–ã€‚
 ;;
 ;;      Thu, 17 Jan 2002 22:43:33 +0900
-;;        E$XYZZY/etc ‚É browser.dll ‚ğ’u‚¢‚Ä‚¨‚« siteinit.l ‚É
-;;          browserex.l ‚Ì‹Lq‚ğ‚µ‚Ä‚¢‚é‚Æ browser.dll ‚ğƒ[ƒh
-;;          ‚Å‚«‚È‚¢‚Ì‚ğC³B
-;;        E(bx:browser-dll-pathname) ‚Åƒ[ƒh‚µ‚Ä‚¢‚é dll ‚ÌƒpƒX‚ğ•Ô‚·B
-;;        E(bx:browser-dll-define-function dll) ‚Åg—p‚·‚é dll ‚ğ•ÏXB
-;;        Edll ‚ğƒ[ƒh‚µ‚Ä‚¢‚È‚¢ê‡‚Å‚à (browser-open-p) ‚ª³í“®ì
-;;          ‚·‚é‚æ‚¤‚ÉC³B
+;;        ãƒ»$XYZZY/etc ã« browser.dll ã‚’ç½®ã„ã¦ãŠã siteinit.l ã«
+;;          browserex.l ã®è¨˜è¿°ã‚’ã—ã¦ã„ã‚‹ã¨ browser.dll ã‚’ãƒ­ãƒ¼ãƒ‰
+;;          ã§ããªã„ã®ã‚’ä¿®æ­£ã€‚
+;;        ãƒ»(bx:browser-dll-pathname) ã§ãƒ­ãƒ¼ãƒ‰ã—ã¦ã„ã‚‹ dll ã®ãƒ‘ã‚¹ã‚’è¿”ã™ã€‚
+;;        ãƒ»(bx:browser-dll-define-function dll) ã§ä½¿ç”¨ã™ã‚‹ dll ã‚’å¤‰æ›´ã€‚
+;;        ãƒ»dll ã‚’ãƒ­ãƒ¼ãƒ‰ã—ã¦ã„ãªã„å ´åˆã§ã‚‚ (browser-open-p) ãŒæ­£å¸¸å‹•ä½œ
+;;          ã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;;
 ;;      Sun, 13 Jan 2002 11:10:14 +0900
-;;        Eƒ}ƒEƒX‚Åw’è‚µ‚½ URLAƒ[ƒJƒ‹ƒtƒ@ƒCƒ‹ƒpƒX‚Ì“à—e‚Ì•\¦B
+;;        ãƒ»ãƒã‚¦ã‚¹ã§æŒ‡å®šã—ãŸ URLã€ãƒ­ãƒ¼ã‚«ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã®å†…å®¹ã®è¡¨ç¤ºã€‚
 ;;
 ;;      Tue, 08 Jan 2002 20:26:10 +0900
-;;        Enavigate-current-buffer-directory ‚Ì“®ì‚ğ­‚µ•ÏXB
-;;          ƒtƒ@ƒCƒ‹–¼‚ª‚È‚¢ê‡A"*scratch*" ƒoƒbƒtƒ@‚È‚ç
-;;          (user-homedir-pathname) ‚ğŠJ‚«A‚»‚êˆÈŠO‚È‚ç
-;;          (default-directory) ‚ğŠJ‚«‚Ü‚·B
-;;        EƒtƒHƒ‹ƒ_‚ğŠJ‚­ê‡A‚Ç‚¤‚àÚ×•\¦‚Ö‚ÌƒXƒ^ƒCƒ‹•ÏX‚Í
-;;          ‘¼‚É‚à‘‚µ‚ÄŠëŒ¯‚È‚æ‚¤‚È‚Ì‚ÅALVS_REPORT ‚Í export ‚µ‚È‚¢
-;;          ‚æ‚¤‚É‚µ‚Ü‚µ‚½B
-;;          Ú×•\¦‚ÌƒJƒ‰ƒ€•‚ª‘S•” 0 ‚É‚È‚Á‚Ä‚µ‚Ü‚¤‚æ‚¤‚È‚ñ‚Å‚·‚ªA
-;;          ˆê“x—ñ•‚ğ’¼‚¹‚Î‚»‚ê‚È‚è‚É“®‚¢‚Ä‚­‚ê‚Ä‚é‚æ‚¤‚È‹C‚ª‚µ‚Ü‚·B
-;;        E*browser-syslistview-style-wait*
+;;        ãƒ»navigate-current-buffer-directory ã®å‹•ä½œã‚’å°‘ã—å¤‰æ›´ã€‚
+;;          ãƒ•ã‚¡ã‚¤ãƒ«åãŒãªã„å ´åˆã€"*scratch*" ãƒãƒƒãƒ•ã‚¡ãªã‚‰
+;;          (user-homedir-pathname) ã‚’é–‹ãã€ãã‚Œä»¥å¤–ãªã‚‰
+;;          (default-directory) ã‚’é–‹ãã¾ã™ã€‚
+;;        ãƒ»ãƒ•ã‚©ãƒ«ãƒ€ã‚’é–‹ãå ´åˆã€ã©ã†ã‚‚è©³ç´°è¡¨ç¤ºã¸ã®ã‚¹ã‚¿ã‚¤ãƒ«å¤‰æ›´ã¯
+;;          ä»–ã«ã‚‚å¢—ã—ã¦å±é™ºãªã‚ˆã†ãªã®ã§ã€LVS_REPORT ã¯ export ã—ãªã„
+;;          ã‚ˆã†ã«ã—ã¾ã—ãŸã€‚
+;;          è©³ç´°è¡¨ç¤ºã®ã‚«ãƒ©ãƒ å¹…ãŒå…¨éƒ¨ 0 ã«ãªã£ã¦ã—ã¾ã†ã‚ˆã†ãªã‚“ã§ã™ãŒã€
+;;          ä¸€åº¦åˆ—å¹…ã‚’ç›´ã›ã°ãã‚Œãªã‚Šã«å‹•ã„ã¦ãã‚Œã¦ã‚‹ã‚ˆã†ãªæ°—ãŒã—ã¾ã™ã€‚
+;;        ãƒ»*browser-syslistview-style-wait*
 ;;
 ;;      Mon, 07 Jan 2002 14:13:54 +0900
-;;        Enavigate ‚Ì–ß‚è’l‚ğC³B
-;;        Eset-browser-syslistview-style ‚Ì–ß‚è’l‚ğC³B
-;;        Erotate-browser ‚ğ­‚µC³B
-;;        Enavigate-current-buffer-directory ‚ğC³B
-;;        E‚»‚Ì‘¼B
+;;        ãƒ»navigate ã®æˆ»ã‚Šå€¤ã‚’ä¿®æ­£ã€‚
+;;        ãƒ»set-browser-syslistview-style ã®æˆ»ã‚Šå€¤ã‚’ä¿®æ­£ã€‚
+;;        ãƒ»rotate-browser ã‚’å°‘ã—ä¿®æ­£ã€‚
+;;        ãƒ»navigate-current-buffer-directory ã‚’ä¿®æ­£ã€‚
+;;        ãƒ»ãã®ä»–ã€‚
 ;;
 ;;      Sun, 06 Jan 2002 14:57:30 +0900
-;;        Ebrowser.dll ‚ÌŒŸõƒpƒX‚ğ‘‚â‚µ‚½B
-;;          xyzzy/, xyzzy/etc/, xyzzy/site-lisp/ ‚à’²‚×‚é‚æ‚¤‚É
-;;          ‚È‚è‚Ü‚µ‚½B
+;;        ãƒ»browser.dll ã®æ¤œç´¢ãƒ‘ã‚¹ã‚’å¢—ã‚„ã—ãŸã€‚
+;;          xyzzy/, xyzzy/etc/, xyzzy/site-lisp/ ã‚‚èª¿ã¹ã‚‹ã‚ˆã†ã«
+;;          ãªã‚Šã¾ã—ãŸã€‚
 ;;
 ;;      Sun, 06 Jan 2002 01:47:44 +0900
-;;        E‚©‚È‚è–³—‚â‚è‚È SysListView32 ‚ÌƒXƒ^ƒCƒ‹•ÏXB
-;;          bx:*browser-syslistview-style* ‚É
+;;        ãƒ»ã‹ãªã‚Šç„¡ç†ã‚„ã‚Šãª SysListView32 ã®ã‚¹ã‚¿ã‚¤ãƒ«å¤‰æ›´ã€‚
+;;          bx:*browser-syslistview-style* ã«
 ;;          bx:LVS_SMALLICON, bx:LVS_LIST, bx:LVS_REPORT, bx:LVS_ICON
-;;          ‚Ì‚Ç‚ê‚©‚ğ‘ã“ü‚µ‚Ä‚¨‚¢‚Ä‚­‚¾‚³‚¢B
-;;         u‘å‚«‚¢ƒAƒCƒRƒ“v‚ª•W€‚Ì‚æ‚¤‚È‚Ì‚Å bx:LVS_ICON ‚ÍˆÓ–¡‚ª
-;;          ‚ ‚è‚Ü‚¹‚ñB
+;;          ã®ã©ã‚Œã‹ã‚’ä»£å…¥ã—ã¦ãŠã„ã¦ãã ã•ã„ã€‚
+;;         ã€Œå¤§ãã„ã‚¢ã‚¤ã‚³ãƒ³ã€ãŒæ¨™æº–ã®ã‚ˆã†ãªã®ã§ bx:LVS_ICON ã¯æ„å‘³ãŒ
+;;          ã‚ã‚Šã¾ã›ã‚“ã€‚
 ;;
 ;;      Mon, 31 Dec 2001 05:05:39 +0900
-;;        Ebrowser-wrap.l ‚ğ’P‘Ì‚Å browser.dll ‚Ì
-;;          g—p•û–@ƒTƒ“ƒvƒ‹‚Æ‚È‚é‚æ‚¤‚É‚µ browserex.l ‚É–¼Ì•ÏXB
+;;        ãƒ»browser-wrap.l ã‚’å˜ä½“ã§ browser.dll ã®
+;;          ä½¿ç”¨æ–¹æ³•ã‚µãƒ³ãƒ—ãƒ«ã¨ãªã‚‹ã‚ˆã†ã«ã— browserex.l ã«åç§°å¤‰æ›´ã€‚
 ;;
 
 ;; Memo:
-;;      EƒTƒCƒYw’è‚Ìê‡‚ÍAclose-browser ‚ÉƒTƒCƒY‚ğ‹L˜^‚µ‚È‚¢
-;;      EƒTƒCƒYw’è’Ê‚èƒEƒBƒ“ƒhƒE•\¦‚ğs‚¦‚È‚¢ê‡‚ÍA‘Î‰‚·‚é• or ‚‚³‚ğ
-;;        ‹L˜^‚µAI—¹‚É• or ‚‚³‚ğ•œŒ³‚·‚éB
+;;      ãƒ»ã‚µã‚¤ã‚ºæŒ‡å®šã®å ´åˆã¯ã€close-browser æ™‚ã«ã‚µã‚¤ã‚ºã‚’è¨˜éŒ²ã—ãªã„
+;;      ãƒ»ã‚µã‚¤ã‚ºæŒ‡å®šé€šã‚Šã‚¦ã‚£ãƒ³ãƒ‰ã‚¦è¡¨ç¤ºã‚’è¡Œãˆãªã„å ´åˆã¯ã€å¯¾å¿œã™ã‚‹å¹… or é«˜ã•ã‚’
+;;        è¨˜éŒ²ã—ã€çµ‚äº†æ™‚ã«å¹… or é«˜ã•ã‚’å¾©å…ƒã™ã‚‹ã€‚
 ;;
-;;      EuƒTƒCƒYw’è’Ê‚èƒEƒBƒ“ƒhƒE•\¦‚ğs‚¦‚È‚¢v‚Æ‚ÍB
-;;            [xyzzy‚ÌƒTƒCƒY]
-;;              Ëí‚É ƒTƒCƒYw’è’Ê‚èƒEƒBƒ“ƒhƒE•\¦‚ğs‚¦‚Ä‚¢‚é‚Æ‚İ‚È‚·B
-;;            [xyzzy‚ÌˆÊ’u][ƒGƒfƒBƒ^•”]
-;;              Ë[browser.dll •\¦‘OƒTƒCƒY + w’èƒTƒCƒY] ‚Æ
-;;                [browser.dll •\¦ŒãƒTƒCƒY] ‚ªˆê’v‚µ‚È‚¢ê‡
+;;      ãƒ»ã€Œã‚µã‚¤ã‚ºæŒ‡å®šé€šã‚Šã‚¦ã‚£ãƒ³ãƒ‰ã‚¦è¡¨ç¤ºã‚’è¡Œãˆãªã„ã€ã¨ã¯ã€‚
+;;            [xyzzyã®ã‚µã‚¤ã‚º]
+;;              â‡’å¸¸ã« ã‚µã‚¤ã‚ºæŒ‡å®šé€šã‚Šã‚¦ã‚£ãƒ³ãƒ‰ã‚¦è¡¨ç¤ºã‚’è¡Œãˆã¦ã„ã‚‹ã¨ã¿ãªã™ã€‚
+;;            [xyzzyã®ä½ç½®][ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨]
+;;              â‡’[browser.dll è¡¨ç¤ºå‰ã‚µã‚¤ã‚º + æŒ‡å®šã‚µã‚¤ã‚º] ã¨
+;;                [browser.dll è¡¨ç¤ºå¾Œã‚µã‚¤ã‚º] ãŒä¸€è‡´ã—ãªã„å ´åˆ
 
 ;; Todo:
-;;      Eƒc[ƒ‹ƒo[‚ÌŠeƒ{ƒ^ƒ“‚ÌŠÖ”‚ğw’è‚Å‚«‚é‚æ‚¤‚É‚·‚éB
+;;      ãƒ»ãƒ„ãƒ¼ãƒ«ãƒãƒ¼ã®å„ãƒœã‚¿ãƒ³ã®é–¢æ•°ã‚’æŒ‡å®šã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹ã€‚
 
 ;; Bug:
 ;;
-;;      E‚¢‚Á‚½‚ñƒƒjƒ…[‚Ì––”ö‚É browserex ‚Ìƒƒjƒ…[‚ğ’Ç‰Á‚µ‚½Œã‚É
-;;        ‘¼‚ÌêŠ‚Éƒƒjƒ…[‚ğˆÚ“®‚³‚¹‚æ‚¤‚Æ‚·‚é‚ÆA
-;;        ––”ö‚É browserex ƒƒjƒ…[‚ªc‚éB
+;;      ãƒ»ã„ã£ãŸã‚“ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®æœ«å°¾ã« browserex ã®ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¿½åŠ ã—ãŸå¾Œã«
+;;        ä»–ã®å ´æ‰€ã«ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’ç§»å‹•ã•ã›ã‚ˆã†ã¨ã™ã‚‹ã¨ã€
+;;        æœ«å°¾ã« browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ãŒæ®‹ã‚‹ã€‚
 ;;
 
 ;; Licence:
 ;;
-;;    browserex ‚ÍC³BSDƒ‰ƒCƒZƒ“ƒX‚ÉŠî‚Ã‚¢‚Ä—˜—p‰Â”\‚Å‚·B
+;;    browserex ã¯ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹ã«åŸºã¥ã„ã¦åˆ©ç”¨å¯èƒ½ã§ã™ã€‚
 ;;    <http://www.opensource.org/licenses/bsd-license.php>
 ;;
 ;;
@@ -377,14 +377,14 @@
           browserex-apps-popup
           browser-tool-bar))
 
-;; browser.dll ‚Ì•\¦ˆÊ’u
+;; browser.dll ã®è¡¨ç¤ºä½ç½®
 ;; xpi.h
 (c:*define XPIS_LEFT   0)
 (c:*define XPIS_TOP    1)
 (c:*define XPIS_RIGHT  2)
 (c:*define XPIS_BOTTOM 3)
 
-;; SysListView32 ‚Ì•\¦ƒXƒ^ƒCƒ‹İ’è
+;; SysListView32 ã®è¡¨ç¤ºã‚¹ã‚¿ã‚¤ãƒ«è¨­å®š
 ;; winuser.h
 (c:define GWL_WNDPROC     -4)
 (c:define GWL_HINSTANCE   -6)
@@ -472,84 +472,84 @@
 
 
 ;;; ------------------------------------------------------------------------
-;;; ’è”
+;;; å®šæ•°
 (defconstant *browser-size-default* 200)
 
-;;; ƒ_ƒCƒAƒƒOİ’è•Ï”
+;;; ãƒ€ã‚¤ã‚¢ãƒ­ã‚°è¨­å®šå¤‰æ•°
 ;; DLL
 (define-history-variable *browser-dll-IE* ""
-  "IE ”Å browser dll ‚ÌƒpƒX")
+  "IE ç‰ˆ browser dll ã®ãƒ‘ã‚¹")
 (define-history-variable *browser-dll-Gecko* ""
-  "Gecko ”Å browser dll ‚ÌƒpƒX")
+  "Gecko ç‰ˆ browser dll ã®ãƒ‘ã‚¹")
 (define-history-variable *last-valid-browser-dll* ""
-  "ÅŒã‚Ég—p‚µ‚½ browser dll ‚ÌƒpƒX")
+  "æœ€å¾Œã«ä½¿ç”¨ã—ãŸ browser dll ã®ãƒ‘ã‚¹")
 
-;; Browser.dll •\¦§Œä
+;; Browser.dll è¡¨ç¤ºåˆ¶å¾¡
 (define-history-variable *browser-width* *browser-size-default*
-  "browser.dll ‚ÌƒfƒtƒHƒ‹ƒg•\¦•B*browser-size* ‚æ‚è‚à—DæB")
+  "browser.dll ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè¡¨ç¤ºå¹…ã€‚*browser-size* ã‚ˆã‚Šã‚‚å„ªå…ˆã€‚")
 (define-history-variable *browser-height* *browser-size-default*
-  "browser.dll ‚ÌƒfƒtƒHƒ‹ƒg•\¦‚‚³B*browser-size* ‚æ‚è‚à—DæB")
+  "browser.dll ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè¡¨ç¤ºé«˜ã•ã€‚*browser-size* ã‚ˆã‚Šã‚‚å„ªå…ˆã€‚")
 (define-history-variable *browser-position* XPIS_LEFT
-  "browser.dll ‚ÌƒfƒtƒHƒ‹ƒg•\¦ˆÊ’u")
+  "browser.dll ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè¡¨ç¤ºä½ç½®")
 (define-history-variable *browser-add-window* nil)
 (define-history-variable *browser-save-size* nil)
 
-;; ƒƒjƒ…[
+;; ãƒ¡ãƒ‹ãƒ¥ãƒ¼
 (define-history-variable *browserex-menu-name* "&BX"
-  "browserex ƒƒjƒ…[•¶š—ñ")
+  "browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼æ–‡å­—åˆ—")
 (defvar *browserex-menu-position* 'ed::help)
 (define-history-variable *browserex-set-menu* t)
 (define-history-variable *browserex-set-focus-menu* nil)
 
-;;; ŒöŠJ—p•Ï”
+;;; å…¬é–‹ç”¨å¤‰æ•°
 (defvar *browser-start-page* nil
-  "navigate ‚ÌƒfƒtƒHƒ‹ƒg URL")
+  "navigate ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ URL")
 (defvar *browser-temp-file* (map-backslash-to-slash
                              (merge-pathnames "browser-temp.html"
                                               (or (si:getenv "TEMP")
                                                   (si:getenv "TMP")
                                                   (user-homedir-pathname)
                                                   (si:system-root))))
-  "navigate-current-buffer ‚Å—p‚¢‚éƒeƒ“ƒ|ƒ‰ƒŠƒtƒ@ƒCƒ‹")
+  "navigate-current-buffer ã§ç”¨ã„ã‚‹ãƒ†ãƒ³ãƒãƒ©ãƒªãƒ•ã‚¡ã‚¤ãƒ«")
 (defvar *browser-use-refresh* nil
-  "navigate-current-buffer ‚Å refresh-browser ‚ğg‚¤‚©‚Ç‚¤‚©B
-t ‚É‚·‚é‚Æ refresh ‚ğ—p‚¢‚é(‚»‚ÌÛ‚ÉƒtƒH[ƒJƒX‚ª browser ‘¤‚ÉˆÚ‚é)B")
+  "navigate-current-buffer ã§ refresh-browser ã‚’ä½¿ã†ã‹ã©ã†ã‹ã€‚
+t ã«ã™ã‚‹ã¨ refresh ã‚’ç”¨ã„ã‚‹(ãã®éš›ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ãŒ browser å´ã«ç§»ã‚‹)ã€‚")
 (defvar *browser-syslistview-style* nil
-  "ƒtƒHƒ‹ƒ_•\¦‚Ì SysListView32 ‚ÌƒXƒ^ƒCƒ‹
-LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
+  "ãƒ•ã‚©ãƒ«ãƒ€è¡¨ç¤ºã® SysListView32 ã®ã‚¹ã‚¿ã‚¤ãƒ«
+LVS_ICON LVS_SMALLICON LVS_LIST nil ã®ã„ãšã‚Œã‹")
 (defvar *browser-syslistview-style-wait* 0.01
-  "ƒtƒHƒ‹ƒ_•\¦‚Å SysListView32 ‚ÌƒXƒ^ƒCƒ‹‚ğ•ÏX‚³‚¹‚éÛ‚Ì‘Ò‚¿ŠÔ")
+  "ãƒ•ã‚©ãƒ«ãƒ€è¡¨ç¤ºã§ SysListView32 ã®ã‚¹ã‚¿ã‚¤ãƒ«ã‚’å¤‰æ›´ã•ã›ã‚‹éš›ã®å¾…ã¡æ™‚é–“")
 
-;; mouse menu —p
+;; mouse menu ç”¨
 (defvar *browserex-html-pathname-type* '("shtml" "html" "htm")
-  "HTML ƒtƒ@ƒCƒ‹‚ÌŠg’£q‚ÌƒŠƒXƒg")
+  "HTML ãƒ•ã‚¡ã‚¤ãƒ«ã®æ‹¡å¼µå­ã®ãƒªã‚¹ãƒˆ")
 (defvar *browserex-popup-pathname-type*
   '("shtml" "html" "htm" "mhtml" "mht" "xml" "txt"
     "png" "jpeg" "jpg" "jpe" "jfif" "gif" "bmp")
-  "ƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[‚©‚çŠJ‚­ƒtƒ@ƒCƒ‹‚ÌŠg’£q‚ÌƒŠƒXƒg")
+  "ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‹ã‚‰é–‹ããƒ•ã‚¡ã‚¤ãƒ«ã®æ‹¡å¼µå­ã®ãƒªã‚¹ãƒˆ")
 (defvar *browserex-message-valid-path* t
-  "ƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[‚©‚ç‘Š‘ÎƒpƒX‚ÅŠJ‚­ƒtƒ@ƒCƒ‹‚Ìƒtƒ‹ƒpƒX‚ğ•\¦")
+  "ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‹ã‚‰ç›¸å¯¾ãƒ‘ã‚¹ã§é–‹ããƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ•ãƒ«ãƒ‘ã‚¹ã‚’è¡¨ç¤º")
 
-;;; “à•”—p•Ï”
+;;; å†…éƒ¨ç”¨å¤‰æ•°
 (defvar *browser-size* *browser-size-default*
-  "browser.dll ‚ÌƒfƒtƒHƒ‹ƒg•\¦•A‚Ü‚½‚Í‚‚³B")
+  "browser.dll ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè¡¨ç¤ºå¹…ã€ã¾ãŸã¯é«˜ã•ã€‚")
 (define-history-variable *browserex-history* nil
-  "navigate ‚Å‚ÌƒqƒXƒgƒŠ")
+  "navigate ã§ã®ãƒ’ã‚¹ãƒˆãƒª")
 (defvar *browserex-scheme-list* '("file://" "http://" "ftp://" "https://")
-  "ƒqƒXƒgƒŠ‚É•K‚¸ŠÜ‚ß‚é scheme ƒŠƒXƒg")
+  "ãƒ’ã‚¹ãƒˆãƒªã«å¿…ãšå«ã‚ã‚‹ scheme ãƒªã‚¹ãƒˆ")
 (defvar *browserex-menu* nil
-  "browserex ƒƒjƒ…[")
+  "browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼")
 (defvar *browserex-property-page-no* nil)
 (defvar *browserex-full-path-regexp* (compile-regexp "^[a-z]:[/\\]" t)
-  "ƒtƒ‹ƒpƒX‚Æ”»’f‚·‚é³‹K•\Œ»")
+  "ãƒ•ãƒ«ãƒ‘ã‚¹ã¨åˆ¤æ–­ã™ã‚‹æ­£è¦è¡¨ç¾")
 (defvar *browser-specific-size-p* nil
-  "ƒTƒCƒYw’è‚Å browser.dll ƒEƒBƒ“ƒhƒE‚ğì¬‚µ‚½‚©")
+  "ã‚µã‚¤ã‚ºæŒ‡å®šã§ browser.dll ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’ä½œæˆã—ãŸã‹")
 (defvar *browser-xyzzy-original-height* nil
-  "browser.dll ‚ğ•\¦‚·‚é‘O‚Ì xyzzy ‚Ì‚‚³")
+  "browser.dll ã‚’è¡¨ç¤ºã™ã‚‹å‰ã® xyzzy ã®é«˜ã•")
 (defvar *browser-xyzzy-original-width* nil
-  "browser.dll ‚ğ•\¦‚·‚é‘O‚Ì xyzzy ‚Ì•")
+  "browser.dll ã‚’è¡¨ç¤ºã™ã‚‹å‰ã® xyzzy ã®å¹…")
 (defvar *browser-navigate-url* ""
-  "Œ»İ•\¦‚µ‚Ä‚¢‚éƒpƒX")
+  "ç¾åœ¨è¡¨ç¤ºã—ã¦ã„ã‚‹ãƒ‘ã‚¹")
 (defvar *browser-dll-load-path*
   (list
    (user-homedir-pathname)
@@ -560,15 +560,15 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
    (concat (si:system-root) "etc/")
    (concat (si:system-root) "lisp/wip/")
    "")
-  "browser.dll ‚ÌŒŸõƒpƒX")
+  "browser.dll ã®æ¤œç´¢ãƒ‘ã‚¹")
 
-;; ‚¢‚Ü‚¢ ‚½‚¯‚ğ ‚³‚ñƒo[ƒWƒ‡ƒ“
+;; ã„ã¾ã„ ãŸã‘ã‚’ ã•ã‚“ãƒãƒ¼ã‚¸ãƒ§ãƒ³
 (defvar *browser-string-length* 255
-  "browser.dll ‚ªŠJ‚¢‚Ä‚¢‚é URI ‚ğæ“¾‚·‚éÛ‚ÌÅ‘å•¶š—ñ’·")
+  "browser.dll ãŒé–‹ã„ã¦ã„ã‚‹ URI ã‚’å–å¾—ã™ã‚‹éš›ã®æœ€å¤§æ–‡å­—åˆ—é•·")
 
 ;;; ------------------------------------------------------------------------
 (defun browser-dll-define-function (dll)
-  "browser.dll ‚ğ’¼Ú—p‚¢‚éŠÖ”‚Ì’è‹`"
+  "browser.dll ã‚’ç›´æ¥ç”¨ã„ã‚‹é–¢æ•°ã®å®šç¾©"
   (let* ((dll-exist-p (and (stringp dll)
                            (string/= dll "")
                            (file-exist-p dll)
@@ -583,24 +583,24 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
       (c:define-dll-entry c:int browser-createex (winapi:HWND c:void* c:int winapi:DWORD) fullpath "_createEx@16")
       (c:define-dll-entry c:int browser-navigate (c:char*) fullpath "_navigate@4")
       (c:define-dll-entry c:int browser-refresh () fullpath "_refresh@0")
-      ;; ‚¢‚Ü‚¢ ‚½‚¯‚ğ ‚³‚ñƒo[ƒWƒ‡ƒ“
+      ;; ã„ã¾ã„ ãŸã‘ã‚’ ã•ã‚“ãƒãƒ¼ã‚¸ãƒ§ãƒ³
       (c:define-dll-entry c:int browser-go-back () fullpath "_goBack@0")
       (c:define-dll-entry c:int browser-go-forward () fullpath "_goForward@0")
       (c:define-dll-entry c:int browser-go-home () fullpath "_goHome@0")
       (c:define-dll-entry c:int browser-location (c:int (c:char *)) fullpath "_locationURL@8")
-      ;; DLL ‚ğ‹L˜^
+      ;; DLL ã‚’è¨˜éŒ²
       (setq *last-valid-browser-dll* fullpath))
     (defun browser-dll-pathname ()
-      "g—p‚µ‚Ä‚¢‚é dll ‚ÌƒpƒX‚ğ•Ô‚·"
+      "ä½¿ç”¨ã—ã¦ã„ã‚‹ dll ã®ãƒ‘ã‚¹ã‚’è¿”ã™"
       fullpath)
     (gc)
     dll-exist-p))
 
 (defun browser-open-p ()
-  "browser.dll ‚ğŠJ‚¢‚Ä‚¢‚é‚©"
+  "browser.dll ã‚’é–‹ã„ã¦ã„ã‚‹ã‹"
   (not (handler-case (zerop (browser-gethwnd)) (simple-error (c) t))))
 
-;; history ‚ğ—p‚¢‚½•âŠ®“ü—Í
+;; history ã‚’ç”¨ã„ãŸè£œå®Œå…¥åŠ›
 (dolist (scheme (reverse *browserex-scheme-list*))
   (add-history scheme '*browserex-history*))
 
@@ -610,12 +610,12 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
            'ed::minibuffer-reject-newline) t)
 
 (defun browserex-minibuffer-complete (&optional word)
-  "•âŠ®“ü—Í"
+  "è£œå®Œå…¥åŠ›"
   (interactive "*p")
   (let (url)
     (setq url (buffer-substring (point-min) (point-max)))
     (cond
-     ;; “ü—Í‚È‚µ‚Ìê‡‚ÍƒJƒŒƒ“ƒgƒfƒBƒŒƒNƒgƒŠ
+     ;; å…¥åŠ›ãªã—ã®å ´åˆã¯ã‚«ãƒ¬ãƒ³ãƒˆãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª
      ((string-match "^ *$" url)
       (delete-region (point-min) (point-max))
       (insert "file://")
@@ -625,11 +625,11 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                      word
                      *last-command-char*
                      *minibuffer-popup-completion-list*))
-     ;; scheme “ü—Í‚È‚µ‚Å (ƒoƒbƒN)ƒXƒ‰ƒbƒVƒ…‚ªoŒ»‚µ‚½ê‡‚ÍƒfƒBƒŒƒNƒgƒŠ
+     ;; scheme å…¥åŠ›ãªã—ã§ (ãƒãƒƒã‚¯)ã‚¹ãƒ©ãƒƒã‚·ãƒ¥ãŒå‡ºç¾ã—ãŸå ´åˆã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª
      ((string-match "^[^:]*[/\\]" url)
       (delete-region (point-min) (point-max))
       (insert (append-trail-slash (concat "file://" (namestring url)))))
-     ;; file:// ‚Ìê‡
+     ;; file:// ã®å ´åˆ
      ((string-matchp "^\\(file://\\)\\(.*\\)" url)
       (do-completion (match-end 1) (point-max)
                      :file-name
@@ -637,13 +637,13 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                      word
                      *last-command-char*
                      *minibuffer-popup-completion-list*))
-     ;; ––”ö‚É "../" ‚ª‚ ‚éê‡
+     ;; æœ«å°¾ã« "../" ãŒã‚ã‚‹å ´åˆ
      ((string-match "/[^/]+/\\.\\./$" url)
       (save-excursion
         (goto-bol)
         (scan-buffer "[^/]+/\\.\\./$" :regexp t)
         (delete-region (point) (point-max))))
-     ;; ‚»‚Ì‘¼‚Ìê‡ (history ‚©‚ç•âŠ®)
+     ;; ãã®ä»–ã®å ´åˆ (history ã‹ã‚‰è£œå®Œ)
      (t
       (let ((url-length (length url))
             completion-list)
@@ -671,12 +671,12 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
   (setq *this-command* 'browserex-minibuffer-complete))
 
 (defun browserex-minibuffer-complete-word ()
-  "’PŒê’PˆÊ•âŠ®“ü—Í"
+  "å˜èªå˜ä½è£œå®Œå…¥åŠ›"
   (interactive "*")
   (browserex-minibuffer-complete t))
 
 (defun navigate (url &key position size)
-  "w’è URL ‚ğ browser.dll ‚Å•\¦"
+  "æŒ‡å®š URL ã‚’ browser.dll ã§è¡¨ç¤º"
   (interactive
       (let ((minibuffer-local-map (copy-keymap minibuffer-local-map))
             url)
@@ -690,9 +690,9 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                            :history 'browserex))
         (list url)))
   (unless (browser-open-p)
-    ;; –¾¦“I‚ÈƒTƒCƒYw’è‚©‚ğ‹L˜^
+    ;; æ˜ç¤ºçš„ãªã‚µã‚¤ã‚ºæŒ‡å®šã‹ã‚’è¨˜éŒ²
     (setq *browser-specific-size-p* (if size t nil))
-    ;; browser •\¦ˆÊ’u(ã‰º¶‰E)‚Ì•â³
+    ;; browser è¡¨ç¤ºä½ç½®(ä¸Šä¸‹å·¦å³)ã®è£œæ­£
     (cond
      ((find position (list XPIS_LEFT XPIS_TOP XPIS_RIGHT XPIS_BOTTOM) :test #'eql)
       (setq *browser-position* position))
@@ -701,7 +701,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
      (t
       (setq position XPIS_LEFT)
       (setq *browser-position* XPIS_LEFT)))
-    ;; browser •\¦ƒTƒCƒY‚Ì•â³
+    ;; browser è¡¨ç¤ºã‚µã‚¤ã‚ºã®è£œæ­£
     (unless (integerp size)
       (cond
        ((find position (list XPIS_LEFT XPIS_RIGHT) :test #'eql)
@@ -712,7 +712,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
         (setq size *browser-size*))))
     (unless (and (integerp size) (plusp size))
       (setq size 100))
-    ;; Œ³‚Ì xyzzy ‚Ì‚‚³A•‚ğ‹L˜^
+    ;; å…ƒã® xyzzy ã®é«˜ã•ã€å¹…ã‚’è¨˜éŒ²
     (when (browserex-win-window-p)
       (cond ((find position (list XPIS_LEFT XPIS_RIGHT) :test #'eql)
              (setq *browser-xyzzy-original-width*
@@ -720,17 +720,17 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
             ((find position (list XPIS_TOP XPIS_BOTTOM) :test #'eql)
              (setq *browser-xyzzy-original-height*
                    (win-user::get-wwindow-height (ed:get-window-handle))))))
-    ;; browser •\¦
+    ;; browser è¡¨ç¤º
     (browser-createex (get-window-handle) (si:plugin-arg) size position)
     (when (browserex-win-window-p)
-      ;; xyzzy ‚Ì window ƒTƒCƒYAˆÊ’u‚Ì•â³
+      ;; xyzzy ã® window ã‚µã‚¤ã‚ºã€ä½ç½®ã®è£œæ­£
       (when *browser-add-window*
         (case *browser-add-window*
           (:fix      (win-user::enlarge-xyzzy-by-wwindow-size
                       (browser-gethwnd) *browser-position* nil))
           (:enlarge  (win-user::enlarge-xyzzy-by-wwindow-size
                       (browser-gethwnd) *browser-position* t))))
-      ;; ³í‚É•\¦‚Å‚«‚½ê‡Axyzzy ‚ÌŒ³‚ÌƒTƒCƒY‚Ì‹L˜^‚ğÁ‚·
+      ;; æ­£å¸¸ã«è¡¨ç¤ºã§ããŸå ´åˆã€xyzzy ã®å…ƒã®ã‚µã‚¤ã‚ºã®è¨˜éŒ²ã‚’æ¶ˆã™
       (when (or (null *browser-add-window*)
                 (and (find position (list XPIS_LEFT XPIS_RIGHT) :test #'eql)
                      (= (win-user::get-wwindow-width (ed:get-window-handle))
@@ -741,37 +741,37 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
         (setq *browser-xyzzy-original-height* nil)
         (setq *browser-xyzzy-original-width* nil)))
     (add-hook '*kill-xyzzy-hook* 'close-browser))
-  ;; url •â³
+  ;; url è£œæ­£
   (when (string-match "^~[/\\]" url)
     (setq url (namestring url)))
   (when (string-matchp "^[a-z]:" url)
     (setq url (concat "file:///" url)))
   (setq *browser-navigate-url* url)
-  ;; interactive Às‚Ìê‡Aread-string ©‘Ì‚Å‚Ì history “o˜^‚Æ
-  ;; 2 d‚É‚È‚é‚ªAÀŠQ 0B
+  ;; interactive å®Ÿè¡Œã®å ´åˆã€read-string è‡ªä½“ã§ã® history ç™»éŒ²ã¨
+  ;; 2 é‡ã«ãªã‚‹ãŒã€å®Ÿå®³ 0ã€‚
   (add-history *browser-navigate-url* '*browserex-history*)
   ;; navigate
   (browser-navigate (si:make-string-chunk url))
-  ;; style •ÏX
+  ;; style å¤‰æ›´
   (when (and (not (zerop (get-browser-syslistview-handle)))
              *browser-syslistview-style*)
-    ;; ­‚µ wait ‚µ‚È‚¢‚ÆƒXƒ^ƒCƒ‹‚Ì•ÏX‚ª‚¤‚Ü‚­‚¢‚©‚È‚¢ 
+    ;; å°‘ã— wait ã—ãªã„ã¨ã‚¹ã‚¿ã‚¤ãƒ«ã®å¤‰æ›´ãŒã†ã¾ãã„ã‹ãªã„ 
     (sleep-for *browser-syslistview-style-wait*)
     (set-browser-syslistview-style))
   (start-timer 0.1 'browserex-set-focus-editor t)
   url)
 
 (defun refresh-browser ()
-  "browser.dll ‚Ì•\¦ URL ‚ğÄ•`‰æ"
+  "browser.dll ã®è¡¨ç¤º URL ã‚’å†æç”»"
   (interactive)
   (if (browser-open-p)
       (browser-refresh)))
 
 (defun close-browser ()
-  "browser.dll ‚ğ•Â‚¶‚é"
+  "browser.dll ã‚’é–‰ã˜ã‚‹"
   (interactive)
   (when (browser-open-p)
-    ;; browser ƒTƒCƒY‚Ì•Û‘¶
+    ;; browser ã‚µã‚¤ã‚ºã®ä¿å­˜
     (when (and (browserex-win-window-p)
                *browser-save-size*
                (not *browser-specific-size-p*)
@@ -782,7 +782,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
         (setq *browser-width* (win-user::get-wwindow-width (browser-gethwnd))))
        ((find *browser-position* (list XPIS_TOP XPIS_BOTTOM))
         (setq *browser-height* (win-user::get-wwindow-height (browser-gethwnd))))))
-    ;; xyzzy ‚Ì window ƒTƒCƒYAˆÊ’u‚Ì•â³
+    ;; xyzzy ã® window ã‚µã‚¤ã‚ºã€ä½ç½®ã®è£œæ­£
     (when (browserex-win-window-p)
       (when *browser-add-window*
         (case *browser-add-window*
@@ -790,7 +790,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                       (browser-gethwnd) *browser-position* nil))
           (:enlarge  (win-user::shrink-xyzzy-by-wwindow-size
                       (browser-gethwnd) *browser-position* t)))))
-    ;; •K—v‚È‚çŒ³‚Ì xyzzy ‚Ì‚‚³ or •‚É–ß‚·
+    ;; å¿…è¦ãªã‚‰å…ƒã® xyzzy ã®é«˜ã• or å¹…ã«æˆ»ã™
     (when (browserex-win-window-p)
       (if *browser-xyzzy-original-height*
           (win-user::set-wwindow-height (ed:get-window-handle)
@@ -804,9 +804,9 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     (delete-hook '*kill-xyzzy-hook* 'close-browser)
     nil))
 
-;; ‚¢‚Ü‚¢ ‚½‚¯‚ğ ‚³‚ñƒo[ƒWƒ‡ƒ“
+;; ã„ã¾ã„ ãŸã‘ã‚’ ã•ã‚“ãƒãƒ¼ã‚¸ãƒ§ãƒ³
 (defun go-back-browser ()
-  "browser.dll ‚Å–ß‚é"
+  "browser.dll ã§æˆ»ã‚‹"
   (interactive)
   (when (browser-open-p)
     (browser-go-back)
@@ -815,7 +815,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     ))
 
 (defun go-forward-browser ()
-  "browser.dll ‚Åi‚Ş"
+  "browser.dll ã§é€²ã‚€"
   (interactive)
   (when (browser-open-p)
     (browser-go-forward)
@@ -824,7 +824,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     ))
 
 (defun go-home-browser ()
-  "browser.dll ‚Å IE ‚Ìƒz[ƒ€‚ÉˆÚ“®"
+  "browser.dll ã§ IE ã®ãƒ›ãƒ¼ãƒ ã«ç§»å‹•"
   (interactive)
   (unless (browser-open-p)
     (navigate ""))
@@ -849,7 +849,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
 ;;
 
 (defun rotate-browser ()
-  "browser.dll ‚Ì•\¦ˆÊ’u‚ğ¶ã‰E‰º‚Ì‡‚É•ÏX"
+  "browser.dll ã®è¡¨ç¤ºä½ç½®ã‚’å·¦ä¸Šå³ä¸‹ã®é †ã«å¤‰æ›´"
   (interactive)
   (when (browser-open-p)
     (close-browser)
@@ -869,7 +869,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     (navigate-current-buffer)))
 
 (defun navigate-current-buffer (&key position size temp-file)
-  "ƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚ğ browser.dll ‚Å•\¦"
+  "ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã‚’ browser.dll ã§è¡¨ç¤º"
   (interactive)
   (let ((file (get-buffer-file-name)))
     (if file
@@ -891,13 +891,13 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
         (navigate temp-file :position position :size size)))))
 
 (defun navigate-current-buffer-if-open (&key temp-file)
-  "browser.dll ‚ğŠJ‚¢‚Ä‚¢‚½‚çƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚ğ browser.dll ‚Å•\¦"
+  "browser.dll ã‚’é–‹ã„ã¦ã„ãŸã‚‰ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã‚’ browser.dll ã§è¡¨ç¤º"
   (interactive)
   (if (browser-open-p)
       (navigate-current-buffer :temp-file temp-file)))
 
 (defun navigate-current-buffer-directory (&key position size)
-  "ƒJƒŒƒ“ƒgƒoƒbƒtƒ@‚ÌƒfƒBƒŒƒNƒgƒŠ‚ğ browser.dll ‚Å•\¦"
+  "ã‚«ãƒ¬ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’ browser.dll ã§è¡¨ç¤º"
   (interactive)
   (let* ((file (get-buffer-file-name))
          (dir (or (if file (directory-namestring file))
@@ -907,9 +907,9 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     (if dir
         (navigate dir :position position :size size))))
 
-;;; IE ”Å browser.dll ‚Å‚ÌƒtƒHƒ‹ƒ_•\¦‚Ì•ÏX
+;;; IE ç‰ˆ browser.dll ã§ã®ãƒ•ã‚©ãƒ«ãƒ€è¡¨ç¤ºã®å¤‰æ›´
 (defun get-browser-syslistview-handle ()
-  "browser.dll ‚É‚æ‚é SysListView32 ‚Ì window handle ‚ğ•Ô‚·"
+  "browser.dll ã«ã‚ˆã‚‹ SysListView32 ã® window handle ã‚’è¿”ã™"
   (let (parent-hwnd list-hwnd)
     (setq parent-hwnd
           (FindWindowEx
@@ -933,8 +933,8 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
     list-hwnd))
 
 (defun set-browser-syslistview-style (&optional (style *browser-syslistview-style*))
-  "ƒtƒHƒ‹ƒ_•\¦‚Ì SysListView32 ‚ÌƒXƒ^ƒCƒ‹‚ğİ’è
-ƒXƒ^ƒCƒ‹‚Ì’l‚Ì•ÏX‚ª•sŠ®‘S (WS_VSCROLL, WS_HSCROLL ’l‚Ì•â³‚ª‘«‚è‚È‚¢‚Ì‚©‚à)"
+  "ãƒ•ã‚©ãƒ«ãƒ€è¡¨ç¤ºã® SysListView32 ã®ã‚¹ã‚¿ã‚¤ãƒ«ã‚’è¨­å®š
+ã‚¹ã‚¿ã‚¤ãƒ«ã®å€¤ã®å¤‰æ›´ãŒä¸å®Œå…¨ (WS_VSCROLL, WS_HSCROLL å€¤ã®è£œæ­£ãŒè¶³ã‚Šãªã„ã®ã‹ã‚‚)"
   (when (or (eql style LVS_ICON)
             (eql style LVS_REPORT)
             (eql style LVS_SMALLICON)
@@ -961,7 +961,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
            parent-hwnd 0 (si:make-string-chunk "Internet Explorer_Server") 0))
     ieserver-hwnd))
 
-;; editor, browser ‚ÌƒtƒH[ƒJƒXƒZƒbƒg
+;; editor, browser ã®ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚»ãƒƒãƒˆ
 (defun browserex-set-focus-editor ()
   (interactive)
   (SetFocus (get-window-handle)))
@@ -971,7 +971,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
            (plusp (get-browser-ieserver-handle)))
       (SetFocus (get-browser-ieserver-handle))))
 
-;; ƒXƒNƒ[ƒ‹
+;; ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
 (defun browserex-scroll-up (&key (unit :line) quick)
   (interactive)
   (let ((hwnd (get-browser-ieserver-handle)))
@@ -1046,7 +1046,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
          (SendMessage hwnd WM_KEYDOWN VK_RIGHT 0))))))
 
 (defun change-browser ()
-  "IE ”Å ‚Æ Gecko ”Å ‚Ì browser dll ‚ğØ‚è‘Ö‚¦‚é"
+  "IE ç‰ˆ ã¨ Gecko ç‰ˆ ã® browser dll ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹"
   (interactive)
   (unless (and (stringp *browser-dll-IE*)
                (string/= *browser-dll-IE* "")
@@ -1054,7 +1054,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                (stringp *browser-dll-Gecko*)
                (string/= *browser-dll-Gecko* "")
                (file-exist-p *browser-dll-Gecko*))
-    (message "IE ‚Æ Gecko ‚Ì browser dll ‚ª³‚µ‚­İ’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB")
+    (message "IE ã¨ Gecko ã® browser dll ãŒæ­£ã—ãè¨­å®šã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚")
     (return-from change-browser nil))
   (let ((open-p (browser-open-p)))
     (when (and (stringp *last-valid-browser-dll*)
@@ -1070,60 +1070,60 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
           (navigate-current-buffer))))))
 
 (defun browserex-win-window-p ()
-  "win-window ƒ‰ƒCƒuƒ‰ƒŠ‚ªg—p‚Å‚«‚é‚©"
+  "win-window ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãŒä½¿ç”¨ã§ãã‚‹ã‹"
   (member "win-window" *modules* :test #'string=))
 
-;;; ‹¤’Êİ’è‚Ö’Ç‰Á
+;;; å…±é€šè¨­å®šã¸è¿½åŠ 
 (let (position-alist)
   (setq position-alist
-        `(("ã" . ,XPIS_TOP) ("‰º" . ,XPIS_BOTTOM)
-          ("¶" . ,XPIS_LEFT) ("‰E" . ,XPIS_RIGHT)))
+        `(("ä¸Š" . ,XPIS_TOP) ("ä¸‹" . ,XPIS_BOTTOM)
+          ("å·¦" . ,XPIS_LEFT) ("å³" . ,XPIS_RIGHT)))
   (add-option-prop-page
    'browserex
    `(dialog 0 0 200 190
      (:caption "Browserex")
      (:control
-      ;; win-window —p dummy-trigger
+      ;; win-window ç”¨ dummy-trigger
       (:button dummy-trigger ""                         #x50000009 2000 2000 0 0)
 
       ;;
-      (:static nil         "•\¦ˆÊ’u(&P):"              #x50020000  6 10 45  8)
+      (:static nil         "è¡¨ç¤ºä½ç½®(&P):"              #x50020000  6 10 45  8)
       (:combobox pos       nil                          #x50210843 51  7 40 96)
-      (:static nil         "•\¦•(&W):"                #x50020000  6 24 45  8)
+      (:static nil         "è¡¨ç¤ºå¹…(&W):"                #x50020000  6 24 45  8)
       (:edit width         nil                          #x50812086 51 21 40 14)
       (:spin widthspin     nil                          #x500000b6 91 21  9 14)
-      (:static nil         "•\¦‚‚³(&H):"              #x50020000  6 38 45  8)
+      (:static nil         "è¡¨ç¤ºé«˜ã•(&H):"              #x50020000  6 38 45  8)
       (:edit height        nil                          #x50812086 51 35 40 14)
       (:spin heightspin    nil                          #x500000b6 91 35  9 14)
 
       ;;
-      (:button view-basis "•\¦Šî€"                       #x50020007  98   4  78 48)
-      (:button view-basis-xyzzy-size "xyzzy‚ÌƒTƒCƒY(&X)"   #x50000009 102  12  72 12)
-      (:button view-basis-xyzzy-position "xyzzy‚ÌˆÊ’u(&V)" #x50000009 102  24  72 12)
-      (:button view-basis-editor "ƒGƒfƒBƒ^•”(&E)"          #x50000009 102  36  72 12)
+      (:button view-basis "è¡¨ç¤ºåŸºæº–"                       #x50020007  98   4  78 48)
+      (:button view-basis-xyzzy-size "xyzzyã®ã‚µã‚¤ã‚º(&X)"   #x50000009 102  12  72 12)
+      (:button view-basis-xyzzy-position "xyzzyã®ä½ç½®(&V)" #x50000009 102  24  72 12)
+      (:button view-basis-editor "ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨(&E)"          #x50000009 102  36  72 12)
 
-      (:button save-size  "I—¹ƒTƒCƒY‚ğ•Û‘¶(&S)"         #x50010003   6  54  80 14)
+      (:button save-size  "çµ‚äº†æ™‚ã‚µã‚¤ã‚ºã‚’ä¿å­˜(&S)"         #x50010003   6  54  80 14)
 
-      (:static win-window-msg "(•\¦Šî€/I—¹ƒTƒCƒY\n •Û‘¶‚É‚Í win-window.l\n ‚ª•K—v‚Å‚·)"
+      (:static win-window-msg "(è¡¨ç¤ºåŸºæº–/çµ‚äº†æ™‚ã‚µã‚¤ã‚º\n ä¿å­˜ã«ã¯ win-window.l\n ãŒå¿…è¦ã§ã™)"
        ,(if (browserex-win-window-p) #x40020000 #x50020000)           180  20  80 24)
 
-      (:button nil "DLLƒtƒ@ƒCƒ‹"                           #x50020007   6  70 233 60)
+      (:button nil "DLLãƒ•ã‚¡ã‚¤ãƒ«"                           #x50020007   6  70 233 60)
       (:button ie-select "IE(&I):"                         #x50000009  13  82  54 12)
       (:edit ie nil                                        #x50810480  73  80 130 14)
-      (:button ieref "QÆ..."                             #x50010000 207  80  28 14)
+      (:button ieref "å‚ç…§..."                             #x50010000 207  80  28 14)
 
       (:button gecko-select "Gecko(&G):"                   #x50000009  13  97  54 12)
       (:edit gecko nil                                     #x50810480  73  95 130 14)
-      (:button geckoref "QÆ..."                          #x50010000 207  95  28 14)
+      (:button geckoref "å‚ç…§..."                          #x50010000 207  95  28 14)
 
       (:button unknown-select "Unknown(&U):"               #x50000009  13 112  54 12)
       (:edit unknown nil                                   #x50810C80  73 110 130 14)
 
-      (:button nil "ƒƒjƒ…["                              #x50020007   6 134 233 48)
-      (:button menu "ƒƒjƒ…[‚ğ’Ç‰Á(&M)"                   #x50010003  13 146  80 14)
-      (:static nil "ƒƒjƒ…[•¶š—ñ(&T):"                   #x50020000 100 148  56  8)
+      (:button nil "ãƒ¡ãƒ‹ãƒ¥ãƒ¼"                              #x50020007   6 134 233 48)
+      (:button menu "ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¿½åŠ (&M)"                   #x50010003  13 146  80 14)
+      (:static nil "ãƒ¡ãƒ‹ãƒ¥ãƒ¼æ–‡å­—åˆ—(&T):"                   #x50020000 100 148  56  8)
       (:edit menu-name nil                                 #x50810480 156 146  54 14)
-      (:button focus-menu "uƒEƒBƒ“ƒhƒEvƒƒjƒ…[‚ÉƒtƒH[ƒJƒX—pƒƒjƒ…[‚ğ’Ç‰Á(&F)"
+      (:button focus-menu "ã€Œã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã€ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ç”¨ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¿½åŠ (&F)"
                                                            #x50010003  13 162 170 14)
       ))
    #'(lambda ()
@@ -1171,19 +1171,19 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
       :disable (view-basis view-basis-xyzzy-size view-basis-xyzzy-position
                            view-basis-editor save-size))
 
-    '(width :type integer :min 1 :max 10000 :range-error "1‚©‚ç10000‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢")
+    '(width :type integer :min 1 :max 10000 :range-error "1ã‹ã‚‰10000ã‚’æŒ‡å®šã—ã¦ãã ã•ã„")
     '(widthspin :min 1 :max 10000)
-    '(height :type integer :min 1 :max 10000 :range-error "1‚©‚ç10000‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢")
+    '(height :type integer :min 1 :max 10000 :range-error "1ã‹ã‚‰10000ã‚’æŒ‡å®šã—ã¦ãã ã•ã„")
     '(heightspin :min 1 :max 10000)
     '(ieref :related ie
-      :file-name-dialog (:title "QÆ"
-                         :filter (("DLLƒtƒ@ƒCƒ‹(*.dll)" . "*.dll")
-                                  ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*"))
+      :file-name-dialog (:title "å‚ç…§"
+                         :filter (("DLLãƒ•ã‚¡ã‚¤ãƒ«(*.dll)" . "*.dll")
+                                  ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*"))
                          :must-exist t))
     '(geckoref :related gecko
-      :file-name-dialog (:title "QÆ"
-                         :filter (("DLLƒtƒ@ƒCƒ‹(*.dll)" . "*.dll")
-                                  ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*"))
+      :file-name-dialog (:title "å‚ç…§"
+                         :filter (("DLLãƒ•ã‚¡ã‚¤ãƒ«(*.dll)" . "*.dll")
+                                  ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*"))
                          :must-exist t))
     )
    #'(lambda (data)
@@ -1222,36 +1222,36 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
          ))))
 (setq *browserex-property-page-no* (1- (length ed::*option-prop-page*)))
 (defun browserex-show-property ()
-  "‹¤’Êİ’è‚Ì Browserex ‚ğŠJ‚­"
+  "å…±é€šè¨­å®šã® Browserex ã‚’é–‹ã"
   (interactive)
   (let ((ed::*option-prop-page-no* *browserex-property-page-no*))
     (option-property-sheet)))
 
 ;;; browserex menu
 (defun init-browserex-menu ()
-  "Browserex ƒƒjƒ…[‚ğì¬"
+  "Browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’ä½œæˆ"
   (unless *browserex-menu*
     (setq *browserex-menu* (create-popup-menu 'bx::browserex))
     (add-menu-item *browserex-menu* nil
-                      "•ÒWƒoƒbƒtƒ@‚ÉƒtƒH[ƒJƒX‚ğˆÚ‚·(&E)"
+                      "ç·¨é›†ãƒãƒƒãƒ•ã‚¡ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚’ç§»ã™(&E)"
                       'browserex-set-focus-editor)
     (add-menu-item *browserex-menu* nil
-                      "ƒuƒ‰ƒEƒU‚ÉƒtƒH[ƒJƒX‚ğˆÚ‚·(&R)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚’ç§»ã™(&R)"
                       'browserex-set-focus-browser
                       'tool-bar-update-browser)
     (add-menu-separator *browserex-menu* nil)
     (add-menu-item *browserex-menu* nil
-                      "ƒuƒ‰ƒEƒU‚Å•\¦(&O)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã§è¡¨ç¤º(&O)"
                       'navigate-current-buffer)
     (add-menu-item *browserex-menu* nil
-                      "ƒuƒ‰ƒEƒU‚ÅƒtƒHƒ‹ƒ_‚ğ•\¦(&F)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã§ãƒ•ã‚©ãƒ«ãƒ€ã‚’è¡¨ç¤º(&F)"
                       'navigate-current-buffer-directory)
     (add-menu-item *browserex-menu* nil
-                      "ƒuƒ‰ƒEƒU‚Ì•\¦ˆÊ’u‚ğ•ÏX(&P)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã®è¡¨ç¤ºä½ç½®ã‚’å¤‰æ›´(&P)"
                       'rotate-browser
                       'tool-bar-update-browser)
     (add-menu-item *browserex-menu* nil
-                      "IE <-> Gecko ‚ğØ‘Ö(&A)"
+                      "IE <-> Gecko ã‚’åˆ‡æ›¿(&A)"
                       'change-browser
                       #'(lambda () (or (and (browser-open-p)
                                             (stringp *browser-dll-IE*)
@@ -1260,25 +1260,25 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                                             (string/= *browser-dll-Gecko* ""))
                                        :disable)))
     (add-menu-item *browserex-menu* nil
-                      "ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é(&C)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹(&C)"
                       'close-browser
                       'tool-bar-update-browser)
     (add-menu-separator *browserex-menu* nil)
     (add-menu-item *browserex-menu* nil
-                      "–ß‚é(&B)" 'go-back-browser
+                      "æˆ»ã‚‹(&B)" 'go-back-browser
                       'tool-bar-update-browser)
     (add-menu-item *browserex-menu* nil
-                      "i‚Ş(&F)" 'go-forward-browser
+                      "é€²ã‚€(&F)" 'go-forward-browser
                       'tool-bar-update-browser)
     (add-menu-separator *browserex-menu* nil)
     (add-menu-item *browserex-menu* nil
-                      "İ’è(&Z)..."
+                      "è¨­å®š(&Z)..."
                    'browserex-show-property))
   *browserex-menu*)
 (defun insert-browserex-menu (&key (menu (current-menu))
                                    (position *browserex-menu-position*)
                                    (menu-name *browserex-menu-name*))
-  "browserex ƒƒjƒ…[‚ğ’Ç‰Á"
+  "browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¿½åŠ "
   (unless (menup *browserex-menu*)
     (init-browserex-menu))
   (when (menup menu)
@@ -1292,20 +1292,20 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
      (t
       (add-popup-menu menu *browserex-menu* menu-name)))))
 (defun delete-browserex-menu (&optional (menu (current-menu)))
-  "browserex ƒƒjƒ…[‚ğíœ"
+  "browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’å‰Šé™¤"
   (let (ret)
     (if (menup menu)
         (while (delete-menu menu 'bx::browserex)
           (setq ret t)))
     ret))
 (defun get-browserex-menu-position (&optional (menu (current-menu)))
-  "browserex ƒƒjƒ…[‚ÌˆÊ’u‚ğæ“¾"
+  "browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®ä½ç½®ã‚’å–å¾—"
   (if (menup menu)
       (get-menu-position menu 'bx::browserex)))
 
 ;;; focus menu
 (defun insert-browserex-focus-menu-items (&key menu position head-sep tail-sep)
-  "browserex ƒtƒH[ƒJƒX—pƒƒjƒ…[‚ğ’Ç‰Á"
+  "browserex ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ç”¨ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¿½åŠ "
   (if (and (not (menup menu)) (menup (current-menu)))
       (setq menu (get-menu (current-menu) 'ed::window)))
   (when (menup menu)
@@ -1320,17 +1320,17 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
              (get-menu menu position t))
         (insert-menu-separator menu (incf position) 'bx-focus-separator))
     (insert-menu-item menu (incf position) 'bx-focus-editor
-                      "•ÒWƒoƒbƒtƒ@‚ÉƒtƒH[ƒJƒX‚ğˆÚ‚·(&E)"
+                      "ç·¨é›†ãƒãƒƒãƒ•ã‚¡ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚’ç§»ã™(&E)"
                       'browserex-set-focus-editor)
     (insert-menu-item menu (incf position) 'bx-focus-browserex
-                      "ƒuƒ‰ƒEƒU‚ÉƒtƒH[ƒJƒX‚ğˆÚ‚·(&R)"
+                      "ãƒ–ãƒ©ã‚¦ã‚¶ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚’ç§»ã™(&R)"
                       'browserex-set-focus-browser
                       #'(lambda () (or (bx::browser-open-p) :disable)))
     (if (and tail-sep
              (get-menu menu (incf position) t))
         (insert-menu-separator menu position 'bx-focus-separator))))
 (defun delete-browserex-focus-menu (&optional menu)
-  "browserex ƒtƒH[ƒJƒX—pƒƒjƒ…[‚ğíœ"
+  "browserex ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ç”¨ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’å‰Šé™¤"
   (if (and (not (menup menu)) (menup (current-menu)))
       (setq menu (get-menu (current-menu) 'ed::window)))
   (when (menup menu)
@@ -1373,17 +1373,17 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
       (add-menu-separator menu 'ed::url-sep)
       (add-menu-item menu 'ed::url
                      (concatenate 'string (abbreviate-display-string url 40 t)
-                                  " ‚ğŠJ‚­")
+                                  " ã‚’é–‹ã")
                      #'(lambda ()
                          (interactive)
                          (shell-execute url t)))
       (add-menu-item menu 'browserex-url
                      (concatenate 'string (abbreviate-display-string url 40 t)
-                                  " ‚ğ navigate (&N)")
+                                  " ã‚’ navigate (&N)")
                      #'(lambda ()
                          (interactive)
                          (navigate url))))
-    ;; local file ‚Ì navigate. <BASE href=""> ‚Íl—¶‚µ‚È‚¢
+    ;; local file ã® navigate. <BASE href=""> ã¯è€ƒæ…®ã—ãªã„
     (when (not url)
       (let (relative-path path valid-path
             (buffer-file-name (get-buffer-file-name)))
@@ -1406,24 +1406,24 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                    (progn
                      (skip-chars-forward "-a-zA-Z0-9_/~.#@%&=;+(),'$!:\\")
                      (point)))))))
-        ;; merge-pathnames ‚Åg—p‰Â”\‚ÈÅ‘å•¶š—ñ’·‚Í 496 •¶š‚Ì‚æ‚¤
+        ;; merge-pathnames ã§ä½¿ç”¨å¯èƒ½ãªæœ€å¤§æ–‡å­—åˆ—é•·ã¯ 496 æ–‡å­—ã®ã‚ˆã†
         (if (> (length relative-path) 496)
             (setq relative-path (substring relative-path 0 496)))
         (cond
-         ;; ƒtƒ‹ƒpƒX
+         ;; ãƒ•ãƒ«ãƒ‘ã‚¹
          ((string-match *browserex-full-path-regexp* relative-path)
           (setq path relative-path))
-         ;; ƒlƒbƒgƒ[ƒNƒpƒX‚ÍœŠO
+         ;; ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ãƒ‘ã‚¹ã¯é™¤å¤–
          ((string-match "\\\\" relative-path)
           (setq path ""))
          (t
           (setq path (merge-pathnames relative-path (default-directory)))))
         (cond
          ((string= path ""))
-         ;; ƒtƒ@ƒCƒ‹‚ª‘¶İ‚·‚é
+         ;; ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã™ã‚‹
          ((file-exist-p path)
           (setq valid-path (map-slash-to-backslash path)))
-         ;; ƒŠƒ“ƒNæw’è‚Å HTML ƒtƒ@ƒCƒ‹w’è‚Ìê‡
+         ;; ãƒªãƒ³ã‚¯å…ˆæŒ‡å®šã§ HTML ãƒ•ã‚¡ã‚¤ãƒ«æŒ‡å®šã®å ´åˆ
          ((and
            (string-match
             (concat "^\\(.+\\.\\(?:"
@@ -1438,7 +1438,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
           (setq valid-path (concat (map-slash-to-backslash (match-string 1))
                                    (match-string 2)))
           (setq path (match-string 1)))
-         ;; ƒŠƒ“ƒNæw’è‚ÅAƒJƒŒƒ“ƒgƒtƒ@ƒCƒ‹‚ÅAƒtƒ@ƒCƒ‹–¼‚ª‚ ‚éê‡
+         ;; ãƒªãƒ³ã‚¯å…ˆæŒ‡å®šã§ã€ã‚«ãƒ¬ãƒ³ãƒˆãƒ•ã‚¡ã‚¤ãƒ«ã§ã€ãƒ•ã‚¡ã‚¤ãƒ«åãŒã‚ã‚‹å ´åˆ
          ((and (string-match "^#" relative-path)
                buffer-file-name
                (member (pathname-type buffer-file-name) *browserex-html-pathname-type*
@@ -1457,7 +1457,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
           (add-menu-separator menu 'browserex-url-sep)
           (add-menu-item menu 'browserex-url
                          (concat (abbreviate-display-string relative-path 40 t)
-                                 " ‚ğ navigate (&N)")
+                                 " ã‚’ navigate (&N)")
                          #'(lambda () (interactive) (navigate valid-path))))))
     (track-popup-menu menu (or apps :button2))))
 
@@ -1476,18 +1476,18 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
   (create-tool-bar
    'browser-tool-bar
    (merge-pathnames "toolbar-browserex.bmp" (etc-path))
-   '(("browser ‚Å•\¦" 0 navigate-current-buffer)
-     ("browser ‚ÅƒtƒHƒ‹ƒ_‚ğ•\¦" 1 navigate-current-buffer-directory)
-     ("browser ‚Ì•\¦ˆÊ’u‚ğ•ÏX" 2 rotate-browser tool-bar-update-browser)
-     ("browser ‚ğ•Â‚¶‚é" 3 close-browser tool-bar-update-browser)
+   '(("browser ã§è¡¨ç¤º" 0 navigate-current-buffer)
+     ("browser ã§ãƒ•ã‚©ãƒ«ãƒ€ã‚’è¡¨ç¤º" 1 navigate-current-buffer-directory)
+     ("browser ã®è¡¨ç¤ºä½ç½®ã‚’å¤‰æ›´" 2 rotate-browser tool-bar-update-browser)
+     ("browser ã‚’é–‰ã˜ã‚‹" 3 close-browser tool-bar-update-browser)
      )))
 
-;; tool-bar “o˜^
+;; tool-bar ç™»éŒ²
 (define-command-bar 'browser-tool-bar "Browser(&R)")
 
-;;; startup İ’è
+;;; startup è¨­å®š
 (defun browserex-startup ()
-  ;; browser.dll ƒtƒ@ƒ“ƒNƒVƒ‡ƒ“‚Ì’è‹`
+  ;; browser.dll ãƒ•ã‚¡ãƒ³ã‚¯ã‚·ãƒ§ãƒ³ã®å®šç¾©
   (cond ((and (stringp *last-valid-browser-dll*)
               (string/= *last-valid-browser-dll* "")
               (file-exist-p *last-valid-browser-dll*))
@@ -1508,14 +1508,14 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
                         (file-exist-p (setq dll (merge-pathnames dll-filename dir))))
                (browser-dll-define-function dll)
                (return))))))
-  ;; browserex ƒƒjƒ…[‚Ìì¬
+  ;; browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®ä½œæˆ
   (init-browserex-menu)
-  ;; browserex ƒƒjƒ…[‚Ìİ’è
+  ;; browserex ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®è¨­å®š
   (if *browserex-set-menu*
       (if (menup ed::*app-menu*)
           (insert-browserex-menu)
         (add-hook 'ed::*init-app-menus-hook* 'insert-browserex-menu)))
-  ;; browserex ƒtƒH[ƒJƒXƒƒjƒ…[‚Ìì¬Eİ’è
+  ;; browserex ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®ä½œæˆãƒ»è¨­å®š
   (if *browserex-set-focus-menu*
       (if (menup ed::*app-menu*)
           (insert-browserex-focus-menu-items :head-sep t)
@@ -1524,7 +1524,7 @@ LVS_ICON LVS_SMALLICON LVS_LIST nil ‚Ì‚¢‚¸‚ê‚©")
 
 ;;; uninstall
 (defun browserex-uninstall ()
-  "browserex ‚ÌƒAƒ“ƒCƒ“ƒXƒg[ƒ‹"
+  "browserex ã®ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«"
   (close-browser)
   (delete-browserex-menu)
   (delete-browserex-focus-menu)

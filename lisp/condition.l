@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: SYSTEM -*-
+;;; -*- Mode: Lisp; Package: SYSTEM; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -147,12 +147,12 @@
 	    (reader-error-arguments c))))
 
 (defun *report-no-target-for (c s)
-  (format s "`~S'‚ÌƒLƒƒƒbƒ`ƒƒ‚ğQÆ‚Å‚«‚Ü‚¹‚ñ: ~S"
+  (format s "`~S'ã®ã‚­ãƒ£ãƒƒãƒãƒ£ã‚’å‚ç…§ã§ãã¾ã›ã‚“: ~S"
 	  (no-target-operation c) (no-target-target c)))
 
 (defun *report-file-lost-error (c s)
-  (format s "~A~%”ñí‚ÉŒ¾‚¢‚É‚­‚¢‚±‚Æ‚È‚Ì‚Å‚·‚ª~%ƒtƒ@ƒCƒ‹‚ª‚È‚­‚È‚Á‚¿‚á‚¢‚Ü‚µ‚½
-~A~%‚É•Û‘¶‚µ‚Ä‚ ‚é‚Ì‚Å©—Í‚Å‚È‚ñ‚Æ‚©‚µ‚Ä‚­‚¾‚³‚¢"
+  (format s "~A~%éå¸¸ã«è¨€ã„ã«ãã„ã“ã¨ãªã®ã§ã™ãŒ~%ãƒ•ã‚¡ã‚¤ãƒ«ãŒãªããªã£ã¡ã‚ƒã„ã¾ã—ãŸ
+~A~%ã«ä¿å­˜ã—ã¦ã‚ã‚‹ã®ã§è‡ªåŠ›ã§ãªã‚“ã¨ã‹ã—ã¦ãã ã•ã„"
 	  (file-lost-error-pathname c)
 	  (file-lost-error-lost-pathname c)))
 
@@ -160,7 +160,7 @@
   (format s "~@[~A~%~]~A" (file-error-pathname c) (file-error-datum c)))
 
 (defun *report-target-missing (c s)
-  (format s "`~S'‚ÌƒLƒƒƒbƒ`ƒƒ‚Í—˜—p‰Â”\‚Å‚Í‚ ‚è‚Ü‚¹‚ñ: ~S"
+  (format s "`~S'ã®ã‚­ãƒ£ãƒƒãƒãƒ£ã¯åˆ©ç”¨å¯èƒ½ã§ã¯ã‚ã‚Šã¾ã›ã‚“: ~S"
 	  (no-target-operation c) (no-target-target c)))
 
 (defun *report-simple-condition (c s)
@@ -179,7 +179,7 @@
 	  (socket-error-datum c)))
 
 (defun *report-win32-exception (c s)
-  (format s "Win32—áŠO‚ª”­¶‚µ‚Ü‚µ‚½: ~A (~X) at 0x~X"
+  (format s "Win32ä¾‹å¤–ãŒç™ºç”Ÿã—ã¾ã—ãŸ: ~A (~X) at 0x~X"
 	  (win32-exception-description c)
 	  (win32-exception-code c)
 	  (win32-exception-address c)))
@@ -189,14 +189,14 @@
 	(options (cdr body)))
     (when (or (get name 'type-predicate)
 	      (get name 'type-specifier-list))
-      (error "~A‚ÍŒ^w’èq‚Å‚·" name))
+      (error "~Aã¯å‹æŒ‡å®šå­ã§ã™" name))
     (let ((def (get name 'structure-definition)))
       (when (and def
 		 (*structure-definition-p def)
 		 (*structure-definition-read-only-p def))
-	(error "~A‚ÌÄ’è‹`‚Í‚Å‚«‚Ü‚¹‚ñ" name)))
+	(error "~Aã®å†å®šç¾©ã¯ã§ãã¾ã›ã‚“" name)))
     (unless (subtypep parent-type 'condition)
-      (error "~A‚ÍƒRƒ“ƒfƒBƒVƒ‡ƒ“‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" parent-type))
+      (error "~Aã¯ã‚³ãƒ³ãƒ‡ã‚£ã‚·ãƒ§ãƒ³ã§ã¯ã‚ã‚Šã¾ã›ã‚“" parent-type))
     (let ((parent (get parent-type 'structure-definition))
 	  (doc nil)
 	  (report nil)
@@ -211,7 +211,7 @@
 	  (:important
 	   (setq important (cadr x)))
 	  (t
-	   (error "•s³‚Èdefine-conditionƒIƒvƒVƒ‡ƒ“‚Å‚·: ~A" x))))
+	   (error "ä¸æ­£ãªdefine-conditionã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~A" x))))
       (unless report
 	(setq report (*structure-definition-report parent)))
       (let ((slot-desc
@@ -229,12 +229,12 @@
 			  ((consp x)
 			   (setq name (car x))
 			   (unless (symbolp name)
-			     (error "•s³‚ÈƒXƒƒbƒg–¼‚Å‚·: ~S" name))
+			     (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆåã§ã™: ~S" name))
 			   (setq init (cadr x)))
 			  (t
-			   (error "•s³‚ÈƒXƒƒbƒg‚Å‚·: ~S" x)))
+			   (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆã§ã™: ~S" x)))
 		    (when (assoc name slot-desc :test #'string=)
-		      (error "ƒXƒƒbƒg~A‚ªd•¡‚µ‚Ä‚¢‚Ü‚·" name))
+		      (error "ã‚¹ãƒ­ãƒƒãƒˆ~AãŒé‡è¤‡ã—ã¦ã„ã¾ã™" name))
 		    (setq slot-desc
 			  (nconc slot-desc
 				 (list (list (intern (symbol-name name)
@@ -262,16 +262,16 @@
 (defun make-condition (type &rest args)
   (let ((def (get type 'structure-definition)))
     (unless (and def (subtypep type 'condition))
-      (error "ƒRƒ“ƒfƒBƒVƒ‡ƒ“‚Å‚Í‚ ‚è‚Ü‚¹‚ñ: ~S" type))
+      (error "ã‚³ãƒ³ãƒ‡ã‚£ã‚·ãƒ§ãƒ³ã§ã¯ã‚ã‚Šã¾ã›ã‚“: ~S" type))
     (let ((x (find-if #'atom (*structure-definition-constructors def))))
       (unless x
-	(error "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ª‚ ‚è‚Ü‚¹‚ñ: ~S" type))
+	(error "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“: ~S" type))
       (apply x args))))
 
 (define-condition check-type-error (type-error)
   (string place)
   (:report (lambda (c s)
-	     (format s "`~A'‚Ì’l`~S'‚Í~:[~S~;~:*~A~]‚Å‚Í‚ ‚è‚Ü‚¹‚ñ"
+	     (format s "`~A'ã®å€¤`~S'ã¯~:[~S~;~:*~A~]ã§ã¯ã‚ã‚Šã¾ã›ã‚“"
 		     (check-type-error-place c)
 		     (check-type-error-datum c)
 		     (check-type-error-string c)

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; search.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -15,13 +15,13 @@
 (in-package "treeview")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; treeview ŒŸõ
+;; treeview æ¤œç´¢
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-scan-treeview-hook* #'treeview-select-item
-  "treeview-scan-treeview ‚ÅŒŸõ‚µ‚½ƒAƒCƒeƒ€‚É‘Î‚µ‚ÄÀs‚·‚éŠÖ”")
+  "treeview-scan-treeview ã§æ¤œç´¢ã—ãŸã‚¢ã‚¤ãƒ†ãƒ ã«å¯¾ã—ã¦å®Ÿè¡Œã™ã‚‹é–¢æ•°")
 (defun treeview-scan-treeview (pattern &key hitem no-dup case-fold reverse regexp
                                        part limit)
-  "treeview ‚ÌƒAƒCƒeƒ€‚ğŒŸõ‚·‚éB"
+  "treeview ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’æ¤œç´¢ã™ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let (node-mover text)
       (if reverse
@@ -142,8 +142,8 @@
           (noerror
            nil)
           (t
-;           (plain-error "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")
-           (message "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")
+;           (plain-error "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")
+           (message "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")
            (refresh-screen)
            nil))))
 

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -15,10 +15,10 @@
     (unless dialog-template
       (setq dialog-template
 	    `(dialog 0 0 211 148
-		     (:caption "Ç…Ç¬Ç¢Çƒ")
+		     (:caption "„Å´„Å§„ÅÑ„Å¶")
 		     (:font 9 "MS UI Gothic")
 		     (:control
-		      (:button IDOK "Ç®ÇØ" #x50010001 171 7 33 14)
+		      (:button IDOK "„Åä„Åë" #x50010001 171 7 33 14)
 		      (:static nil nil #x50020003 7 7 18 20)
 		      (:link xyzzy ,(concat "\001xyzzy\002 version "
 					    (software-version-display-string))

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: COMPILER -*-
+;;; -*- Mode: Lisp; Package: COMPILER; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -6,18 +6,18 @@
 (provide "compile")
 
 ;;; OPE-CODES
-;;;  LEXICAL-REF: ƒŒƒLƒVƒJƒ‹•Ï”‚ÌQÆ    (LEXICAL-REF (<SYMBOL> <SPECIAL-P> <REF-CLOSURE-P>))
-;;;  GLOBAL-REF: ƒOƒ[ƒoƒ‹•Ï”‚ÌQÆ     (GLOBAL-REF <SYMBOL>)
-;;;  LEXICAL-SET: ƒŒƒLƒVƒJƒ‹•Ï”‚Ìİ’è    (LEXICAL-SET (<SYMBOL> <SPECIAL-P> <REF-CLOSURE-P>))
-;;;  GLOBAL-SET: ƒOƒ[ƒoƒ‹•Ï”‚Ìİ’è     (GLOBAL-SET <SYMBOL>)
-;;;  CONSTANT: ©ŒÈQÆŒ^                 (CONSTANT <OBJECT>)
-;;;  CALL: ŠÖ”ƒR[ƒ‹                     (CALL <FUNCTION> <NARGS>)
-;;;  DISCARD: ƒXƒ^ƒbƒNƒ|ƒCƒ“ƒ^‚ğ1-        (DISCARD)
+;;;  LEXICAL-REF: ãƒ¬ã‚­ã‚·ã‚«ãƒ«å¤‰æ•°ã®å‚ç…§    (LEXICAL-REF (<SYMBOL> <SPECIAL-P> <REF-CLOSURE-P>))
+;;;  GLOBAL-REF: ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°ã®å‚ç…§     (GLOBAL-REF <SYMBOL>)
+;;;  LEXICAL-SET: ãƒ¬ã‚­ã‚·ã‚«ãƒ«å¤‰æ•°ã®è¨­å®š    (LEXICAL-SET (<SYMBOL> <SPECIAL-P> <REF-CLOSURE-P>))
+;;;  GLOBAL-SET: ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°ã®è¨­å®š     (GLOBAL-SET <SYMBOL>)
+;;;  CONSTANT: è‡ªå·±å‚ç…§å‹                 (CONSTANT <OBJECT>)
+;;;  CALL: é–¢æ•°ã‚³ãƒ¼ãƒ«                     (CALL <FUNCTION> <NARGS>)
+;;;  DISCARD: ã‚¹ã‚¿ãƒƒã‚¯ãƒã‚¤ãƒ³ã‚¿ã‚’1-        (DISCARD)
 ;;;  GOTO:                                (GOTO <TAG>)
-;;;  IF-NIL-GOTO: stack[0]‚ªnil‚È‚ç‚Îgoto (IF-NIL-GOTO <TAG>)
-;;;  IF-NIL-GOTO-AND-POP: stack[0]‚ªnil‚È‚ç‚Îgoto (IF-NIL-GOTO-AND-POP <TAG>)
-;;;  IF-NON-NIL-GOTO: stack[0]‚ªnon-nil‚È‚ç‚Îgoto (IF-NON-NIL-GOTO <TAG>)
-;;;  IF-NON-NIL-GOTO-AND-POP: stack[0]‚ªnon-nil‚È‚ç‚Îgoto (IF-NON-NIL-GOTO-AND-POP <TAG>)
+;;;  IF-NIL-GOTO: stack[0]ãŒnilãªã‚‰ã°goto (IF-NIL-GOTO <TAG>)
+;;;  IF-NIL-GOTO-AND-POP: stack[0]ãŒnilãªã‚‰ã°goto (IF-NIL-GOTO-AND-POP <TAG>)
+;;;  IF-NON-NIL-GOTO: stack[0]ãŒnon-nilãªã‚‰ã°goto (IF-NON-NIL-GOTO <TAG>)
+;;;  IF-NON-NIL-GOTO-AND-POP: stack[0]ãŒnon-nilãªã‚‰ã°goto (IF-NON-NIL-GOTO-AND-POP <TAG>)
 ;;;  LABEL:                                (LABEL <TAG>)
 ;;;  RETURN:                               (RETURN <TAG>)
 ;;;  GO:                                   (GO <TAG>)
@@ -44,9 +44,9 @@
 ;;;  SET - DISCARD              --->  SET-DISCARD
 ;;;  REF - DISCARD              --->  none
 ;;;  CONSTANT - DISCARD         --->  none
-;;;  NULL/NOT NULL/NOT          --->  none(–³ğŒ‚É‚â‚é‚Ì‚Í‚Ü‚¸‚¢? ‚Ü‚¾‚â‚Á‚Ä‚È‚¢‚¯‚Ç)
-;;;  NULL/NOT - IF-NIL-GOTO     ---> IF-NON-NIL-GOTO (—\’è)
-;;;  NULL/NOT - IF-NON-NIL-GOTO ---> IF-NIL-GOTO (—\’è)
+;;;  NULL/NOT NULL/NOT          --->  none(ç„¡æ¡ä»¶ã«ã‚„ã‚‹ã®ã¯ã¾ãšã„? ã¾ã ã‚„ã£ã¦ãªã„ã‘ã©)
+;;;  NULL/NOT - IF-NIL-GOTO     ---> IF-NON-NIL-GOTO (äºˆå®š)
+;;;  NULL/NOT - IF-NON-NIL-GOTO ---> IF-NIL-GOTO (äºˆå®š)
 ;;;  jump optimize
 ;;;  omit unreached code
 ;;;  local return/go            ---> GOTO
@@ -70,42 +70,42 @@
 (in-package "compiler")
 
 (let ()
-  ;; *MACRO-ENVIRONMENT*: defmacro(ƒRƒ“ƒpƒCƒ‹’PˆÊ)‚Æ
-  ;; ƒ[ƒJƒ‹‚ÈŠÖ”Eƒ}ƒNƒ‚ÌƒŠƒXƒg
+  ;; *MACRO-ENVIRONMENT*: defmacro(ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«å˜ä½)ã¨
+  ;; ãƒ­ãƒ¼ã‚«ãƒ«ãªé–¢æ•°ãƒ»ãƒã‚¯ãƒ­ã®ãƒªã‚¹ãƒˆ
   (defvar *macro-environment* nil)
 
-  ;; *SPECIAL-VARIABLES*: ƒXƒyƒVƒƒƒ‹•Ï”‚ÌƒŠƒXƒg(ƒRƒ“ƒpƒCƒ‹’PˆÊ)
+  ;; *SPECIAL-VARIABLES*: ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã®ãƒªã‚¹ãƒˆ(ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«å˜ä½)
   (defvar *special-variables* nil)
 
-  ;; *CONSTANT-VARIABLES*: ’è”•Ï”‚ÌƒŠƒXƒg(ƒRƒ“ƒpƒCƒ‹’PˆÊ)
+  ;; *CONSTANT-VARIABLES*: å®šæ•°å¤‰æ•°ã®ãƒªã‚¹ãƒˆ(ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«å˜ä½)
   ;; (SYMBOL . VALUE)
   (defvar *constant-variables* nil)
 
-  ;; *STACK-DEPTH*: Œ»İ‚ÌƒXƒ^ƒbƒN‚Ì[‚³
+  ;; *STACK-DEPTH*: ç¾åœ¨ã®ã‚¹ã‚¿ãƒƒã‚¯ã®æ·±ã•
   (defvar *stack-depth* 0)
 
-  ;; *STACK-DEPTH-MAX*: Å‘å‚ÌƒXƒ^ƒbƒN‚Ì[‚³
+  ;; *STACK-DEPTH-MAX*: æœ€å¤§ã®ã‚¹ã‚¿ãƒƒã‚¯ã®æ·±ã•
   (defvar *stack-depth-max* 0)
 
-  ;; *VARIABLE-LIST*: ‘©”›•Ï”‚ÌƒŠƒXƒg
+  ;; *VARIABLE-LIST*: æŸç¸›å¤‰æ•°ã®ãƒªã‚¹ãƒˆ
   (defvar *variable-list* nil)
 
-  ;; *BOUND-VARS*: ‘©”›•Ï”‚ÌƒŠƒXƒg
+  ;; *BOUND-VARS*: æŸç¸›å¤‰æ•°ã®ãƒªã‚¹ãƒˆ
   (defvar *bound-vars* nil)
 
   ;; *STACK-FRAME-INDEX*:
   (defvar *stack-frame-index* 0)
 
-  ;; *STACK-FRAME-MAX*: “¯‚É—LŒø‚É‚È‚é‘©”›•Ï”‚ÌŒÂ”‚ÌÅ‘å’l
+  ;; *STACK-FRAME-MAX*: åŒæ™‚ã«æœ‰åŠ¹ã«ãªã‚‹æŸç¸›å¤‰æ•°ã®å€‹æ•°ã®æœ€å¤§å€¤
   (defvar *stack-frame-max* 0)
 
-  ;; *BLOCK-ENVIRONMENT*: blockŠÂ‹«‚ÌƒŠƒXƒg
+  ;; *BLOCK-ENVIRONMENT*: blockç’°å¢ƒã®ãƒªã‚¹ãƒˆ
   (defvar *block-environment* nil)
 
-  ;; *TAGBODY-ENVIRONMENT*: tagbodyŠÂ‹«‚ÌƒŠƒXƒg
+  ;; *TAGBODY-ENVIRONMENT*: tagbodyç’°å¢ƒã®ãƒªã‚¹ãƒˆ
   (defvar *tagbody-environment* nil)
 
-  ;; *INSN-LIST*: ’†ŠÔƒR[ƒh‚ÌƒŠƒXƒg
+  ;; *INSN-LIST*: ä¸­é–“ã‚³ãƒ¼ãƒ‰ã®ãƒªã‚¹ãƒˆ
   (defvar *insn-list* nil)
 
   (defvar *compile-time-too* nil))
@@ -178,7 +178,7 @@
 	(let ((dst (compile-file-pathname src)))
 	  (when (if (file-exist-p dst)
 		    (file-newer-than-file-p src dst)
-		  (and arg (yes-no-or-cancel-p "~A‚ğƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·‚©?" src)))
+		  (and arg (yes-no-or-cancel-p "~Aã‚’ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã‹?" src)))
 	    (funcall compile-fn src)
 	    (setq count (1+ count)))))
       (format t "Total ~[No~:;~:*~d~] file~:*~p compiled~%" count)
@@ -192,7 +192,7 @@
 (defun mc-compile-file (filename &optional encoding)
   (unless (file-exist-p filename)
     (error 'file-not-found
-      :datum "ƒtƒ@ƒCƒ‹‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ"
+      :datum "ãƒ•ã‚¡ã‚¤ãƒ«ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“"
       :pathname filename))
   (let (buffer)
     (unwind-protect
@@ -256,7 +256,7 @@
 	 (when (or (si:closure-variable definition)
 		   (si:closure-function definition)
 		   (si:closure-frame definition))
-	   (error "‹ó‚Å‚È‚¢ŠÂ‹«‚Å’è‹`‚³‚ê‚½ŠÖ”‚ÍƒRƒ“ƒpƒCƒ‹‚Å‚«‚Ü‚¹‚ñ"))
+	   (error "ç©ºã§ãªã„ç’°å¢ƒã§å®šç¾©ã•ã‚ŒãŸé–¢æ•°ã¯ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã¾ã›ã‚“"))
 	 (let ((*macro-environment* nil)
 	       (*special-variables* nil)
 	       (*constant-variables* nil)
@@ -279,7 +279,7 @@
 				nargs))
 			   'function)))))
 	(t
-	 (error "~S‚ÍƒRƒ“ƒpƒCƒ‹‚Å‚«‚Ü‚¹‚ñ" definition)))
+	 (error "~Sã¯ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã¾ã›ã‚“" definition)))
   (if (null name)
       definition
     (progn
@@ -326,7 +326,7 @@
   (incf *stack-depth* l)
   (setq *stack-depth-max* (max *stack-depth* *stack-depth-max*)))
 
-;;; VAR‚ª’è”•Ï”?
+;;; VARãŒå®šæ•°å¤‰æ•°?
 (defun constant-variable-p (var)
   (or (constantp var)
       (assoc var *constant-variables* :test #'eq)))
@@ -336,12 +336,12 @@
 (defmacro bound-var-refered-from-closure-p (x) `(caddr ,x))
 (defmacro bound-var-stack-frame-index (x) `(cadddr ,x))
 
-;;; VAR‚ªƒOƒ[ƒoƒ‹‚ÈƒXƒyƒVƒƒƒ‹•Ï”?
+;;; VARãŒã‚°ãƒ­ãƒ¼ãƒãƒ«ãªã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°?
 (defun global-special-p (var)
   (or (si:*specialp var)
       (member var *special-variables* :test #'eq)))
 
-;;; •Ï”‚ğì‚é: (SYMBOL SPECIALP <closure‚©‚çQÆ‚³‚ê‚½?> <stack frame‚ÌƒCƒ“ƒfƒbƒNƒX>)
+;;; å¤‰æ•°ã‚’ä½œã‚‹: (SYMBOL SPECIALP <closureã‹ã‚‰å‚ç…§ã•ã‚ŒãŸ?> <stack frameã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹>)
 (defun make-variable (var)
   (unless (symbolp var)
     (compile-error "Wrong type argument: ~S" var))
@@ -351,14 +351,14 @@
     (push x *variable-list*)
     x))
 
-;;; •Ï”‚ÉƒXƒ^ƒbƒNƒtƒŒ[ƒ€‚ÌƒCƒ“ƒfƒbƒNƒX‚ğƒZƒbƒg‚·‚é
+;;; å¤‰æ•°ã«ã‚¹ã‚¿ãƒƒã‚¯ãƒ•ãƒ¬ãƒ¼ãƒ ã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã‚’ã‚»ãƒƒãƒˆã™ã‚‹
 (defun make-stack-frame (vars)
   (dolist (var vars)
     (setf (bound-var-stack-frame-index var) *stack-frame-index*)
     (incf *stack-frame-index*))
   (setq *stack-frame-max* (max *stack-frame-max* *stack-frame-index*)))
 
-;;; ƒVƒ“ƒ{ƒ‹VAR‚Ì’l‚ğ“¾‚éB
+;;; ã‚·ãƒ³ãƒœãƒ«VARã®å€¤ã‚’å¾—ã‚‹ã€‚
 (defun compile-varref (var)
   (let ((closurep nil))
     (dolist (l *bound-vars* 'nil)
@@ -384,7 +384,7 @@
 	    (output-insn 'insn-global-ref var)))
       (output-insn 'insn-global-ref var))))
 
-;;; ƒVƒ“ƒ{ƒ‹VAR‚É’l‚ğƒZƒbƒg‚·‚é
+;;; ã‚·ãƒ³ãƒœãƒ«VARã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹
 (defun compile-varset (var)
   (check-type var symbol)
   (cond ((constant-variable-p var)
@@ -404,11 +404,11 @@
 	(t
 	 (output-insn 'insn-global-set var))))
 
-;;; ©ŒÈ•]‰¿ƒtƒH[ƒ€‚ğo—Í
+;;; è‡ªå·±è©•ä¾¡ãƒ•ã‚©ãƒ¼ãƒ ã‚’å‡ºåŠ›
 (defun compile-constant (object)
   (output-insn 'insn-constant object))
 
-;;; ƒXƒyƒVƒƒƒ‹éŒ¾‚³‚ê‚½‘©”›•Ï”‚ğW‚ß‚éB
+;;; ã‚¹ãƒšã‚·ãƒ£ãƒ«å®£è¨€ã•ã‚ŒãŸæŸç¸›å¤‰æ•°ã‚’é›†ã‚ã‚‹ã€‚
 (defun process-declare (decl)
   (let ((decls '())
 	(specials '()))
@@ -431,23 +431,23 @@
 	      (return))))))
     specials))
 
-;;; ƒXƒyƒVƒƒƒ‹éŒ¾‚³‚ê‚½‘©”›•Ï”‚Éƒ}[ƒN‚ğ‚Â‚¯‚éB
+;;; ã‚¹ãƒšã‚·ãƒ£ãƒ«å®£è¨€ã•ã‚ŒãŸæŸç¸›å¤‰æ•°ã«ãƒãƒ¼ã‚¯ã‚’ã¤ã‘ã‚‹ã€‚
 (defun mark-special-vars (specials)
   (dolist (v specials)
     (setf (bound-var-special-p v) 't)))
 
-;;; ƒuƒƒbƒN‚ğŠm—§‚·‚é: (<¯•Êq> <TAG> <closure‚©‚çQÆ‚³‚ê‚½?>)
+;;; ãƒ–ãƒ­ãƒƒã‚¯ã‚’ç¢ºç«‹ã™ã‚‹: (<è­˜åˆ¥å­> <TAG> <closureã‹ã‚‰å‚ç…§ã•ã‚ŒãŸ?>)
 (defun estab-block (name)
   (let ((x (list name (make-tag (gensym "BLOCK")) 'nil)))
     (output-insn 'insn-block x)
     (push x *block-environment*)))
 
-;;; ƒuƒƒbƒN‚ğ‰ğœ‚·‚éB
+;;; ãƒ–ãƒ­ãƒƒã‚¯ã‚’è§£é™¤ã™ã‚‹ã€‚
 (defun unestab-block ()
   (let ((x (pop *block-environment*)))
     (output-label (cadr x))))
 
-;;; NAME‚Éƒ}ƒbƒ`‚·‚éƒuƒƒbƒN‚ÌTAG‚ğ•Ô‚·B
+;;; NAMEã«ãƒãƒƒãƒã™ã‚‹ãƒ–ãƒ­ãƒƒã‚¯ã®TAGã‚’è¿”ã™ã€‚
 (defun find-block (name)
   (let ((closurep nil))
     (dolist (x *block-environment*)
@@ -459,11 +459,11 @@
 	     (return-from find-block (values x closurep))))))
   (compile-error 'no-target :operation 'return-from :target name))
 
-;;; ƒ^ƒO‚ğì‚é (<¯•Êq> <stack-depth> <closure‚©‚çQÆ‚³‚ê‚½?>)
+;;; ã‚¿ã‚°ã‚’ä½œã‚‹ (<è­˜åˆ¥å­> <stack-depth> <closureã‹ã‚‰å‚ç…§ã•ã‚ŒãŸ?>)
 (defun make-tag (&optional (name (gensym "TAG")))
   (list name *stack-depth* 'nil))
 
-;;; NAME‚Éƒ}ƒbƒ`‚·‚étabgody‚ÌTAG‚ğ•Ô‚·B
+;;; NAMEã«ãƒãƒƒãƒã™ã‚‹tabgodyã®TAGã‚’è¿”ã™ã€‚
 (defun find-tagbody (name)
   (let ((closurep nil))
     (dolist (l *tagbody-environment*)
@@ -606,7 +606,7 @@
 	   (cons 'progn f)))
 	((eq (car f) 'eval-when)
 	 (cond ((endp (cdr f))
-		(compile-error "EVAL-WHENƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" f))
+		(compile-error "EVAL-WHENãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" f))
 	       ((or (member :load-toplevel (cadr f) :test #'eq)
 		    (member 'load (cadr f) :test #'eq))
 		(let ((*compile-time-too*
@@ -665,7 +665,7 @@
 	     (compile-form f))
 	   (output-insn 'insn-call 'funcall (length form)))
 	  (t
-	   (compile-error "•s³‚ÈŠÖ”ƒR[ƒ‹‚Å‚·: ~S" form)))))
+	   (compile-error "ä¸æ­£ãªé–¢æ•°ã‚³ãƒ¼ãƒ«ã§ã™: ~S" form)))))
 
 (defun compile-form (form)
   (let ((ostack *stack-depth*))
@@ -732,7 +732,7 @@
 
 (defun compile-let (form)
   (if (endp form)
-      (compile-error "LETƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "LETãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (multiple-value-bind (decl body)
       (lisp::find-declaration (cdr form))
     (let ((*stack-frame-index* *stack-frame-index*)
@@ -765,7 +765,7 @@
 
 ;;;(defun compile-let* (form)
 ;;;  (if (endp form)
-;;;      (compile-error "LET*ƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+;;;      (compile-error "LET*ãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
 ;;;  (multiple-value-bind (decl body)
 ;;;      (lisp::find-declaration (cdr form))
 ;;;    (let ((*stack-frame-index* *stack-frame-index*)
@@ -799,7 +799,7 @@
 
 (defun compile-let* (form)
   (if (endp form)
-      (compile-error "LET*ƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "LET*ãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (multiple-value-bind (decl body)
       (lisp::find-declaration (cdr form))
     (let ((*stack-frame-index* *stack-frame-index*)
@@ -835,7 +835,7 @@
 (defun compile-multiple-value-bind (form)
   (if (or (endp form)
 	  (endp (cdr form)))
-      (compile-error "MULTIPLE-VALUE-BINDƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "MULTIPLE-VALUE-BINDãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (multiple-value-bind (decl body)
       (lisp::find-declaration (cddr form))
     (let ((*stack-frame-index* *stack-frame-index*)
@@ -871,7 +871,7 @@
   (if (or (endp form)
 	  (not (listp form))
 	  (endp (cdr form)))
-      (compile-error "MULTIPLE-VALUE-SETQƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "MULTIPLE-VALUE-SETQãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (compile-form (cadr form))         ; compile values-form
   (output-insn 'insn-multiple-value-set (length (car form)))
   (dolist (var (car form))
@@ -880,7 +880,7 @@
 
 (defun compile-multiple-value-call (form)
   (if (endp form)
-      (compile-error "MULTIPLE-VALUE-CALLƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "MULTIPLE-VALUE-CALLãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (compile-form (car form))
   (compile-form 'nil)
   (dolist (f (cdr form))
@@ -892,7 +892,7 @@
 
 (defun compile-multiple-value-prog1 (form)
   (if (endp form)
-      (compile-error "MULTIPLE-VALUE-PROG1ƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "MULTIPLE-VALUE-PROG1ãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (let ((end-tag (make-tag (gensym "MV-PROG1"))))
     (compile-form (car form))
     (output-insn 'insn-save-multiple-value end-tag)
@@ -923,7 +923,7 @@
 (defun compile-go (form)
   (if (or (endp form)
 	  (not (endp (cdr form))))
-      (compile-error "TAGBODYƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "TAGBODYãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (multiple-value-bind (goal closurep)
       (find-tagbody (car form))
     (if closurep
@@ -935,7 +935,7 @@
 
 (defun compile-block (form)
   (if (endp form)
-      (compile-error "BLOCKƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "BLOCKãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (check-type (car form) symbol)
   (estab-block (car form))
   (compile-progn (cdr form))
@@ -943,7 +943,7 @@
 
 (defun compile-return-from (form)
   (if (endp form)
-      (compile-error "RETURN-FROMƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "RETURN-FROMãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (check-type (car form) symbol)
   (multiple-value-bind (goal closurep)
       (find-block (car form))
@@ -956,7 +956,7 @@
 	  ((endp (cddr form))
 	   (compile-form (cadr form)))
 	  (t
-	   (compile-error "RETURN-FROMƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form)))
+	   (compile-error "RETURN-FROMãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form)))
     (if closurep
 	(output-insn 'insn-return goal)
       (output-insn 'insn-goto (cadr goal)))))
@@ -983,16 +983,16 @@
 	     (compile-form (caddr form))
 	     (output-label donetag)))
 	  (t
-	   (compile-error "IFƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form)))))
+	   (compile-error "IFãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form)))))
 
 (defun compile-quote (form)
   (unless (= (length form) 1)
-    (compile-error "QUOTEƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+    (compile-error "QUOTEãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (compile-constant (car form)))
 
 (defun compile-unwind-protect (form)
   (if (endp form)
-      (compile-error "UNWIND-PROTECTƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "UNWIND-PROTECTãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (let ((ctag (make-tag (gensym "CLEANUP")))
 	(ptag (make-tag (gensym "PROTECT"))))
     (output-insn 'insn-unwind-protect ctag ptag)
@@ -1005,7 +1005,7 @@
 
 (defun compile-catch (form)
   (if (endp form)
-      (compile-error "CATCHƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "CATCHãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (compile-form (car form))
   (decf *stack-depth*)
   (let ((tag (make-tag (gensym "CATCH"))))
@@ -1015,7 +1015,7 @@
 
 (defun compile-throw (form)
   (if (/= (length form) 2)
-      (compile-error "THROWƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "THROWãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   (compile-form (cadr form))
   (compile-form (car form))
   ;;(decf *stack-depth*)
@@ -1023,7 +1023,7 @@
 
 (defun compile-eval-when (form)
   (if (endp form)
-      (compile-error "EVAL-WHENƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+      (compile-error "EVAL-WHENãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   ;;(incf *stack-depth*)
   (if (or (member ':execute (car form) :test #'eq)
 	  (member 'eval (car form) :test #'eq))
@@ -1032,7 +1032,7 @@
 
 (defun compile-function (form)
   (unless (= (length form) 1)
-    (compile-error "FUNCTIONƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" form))
+    (compile-error "FUNCTIONãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" form))
   ;;(incf *stack-depth*)
   (cond ((symbolp (car form))
 	 (let ((f (assoc (car form) *macro-environment* :test #'eq)))
@@ -1053,20 +1053,20 @@
 (defun flet-temp-vars (fnam form)
   (when (or (endp form)
 	    (endp (cdr form)))
-    (compile-error "~AƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" fnam form))
+    (compile-error "~Aãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" fnam form))
   (let ((env-vars '())
 	(bind-forms '()))
     (dolist (def (car form))
       (when (or (endp def)
 		(endp (cdr def)))
-	(compile-error "~AƒtƒH[ƒ€‚ÌŒ`®‚ª•s³‚Å‚·: ~S" fnam def))
+	(compile-error "~Aãƒ•ã‚©ãƒ¼ãƒ ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" fnam def))
       (let ((name (car def))
 	    (body (cdr def)))
 	(unless (symbolp name)
-	  (compile-error "ŠÖ”–¼‚ª•s³‚Å‚·: ~S" name))
+	  (compile-error "é–¢æ•°åãŒä¸æ­£ã§ã™: ~S" name))
 	(when (or (endp body)
 		  (not (listp (car body))))
-	  (compile-error "•s³‚ÈŠÖ”‚Å‚·: ~S" body))
+	  (compile-error "ä¸æ­£ãªé–¢æ•°ã§ã™: ~S" body))
 	(let ((lambda-list (car body)))
 	  (multiple-value-bind (decl body)
 	      (lisp::find-declaration (cdr body))
@@ -1154,7 +1154,7 @@
 (defun remove-nil-insns (insn)
   (mapcan #'(lambda (x) (if x (list x))) insn))
 
-;;; closure‚©‚çQÆ‚³‚ê‚È‚¢let/block/tagbody‚ğíœ‚·‚éB
+;;; closureã‹ã‚‰å‚ç…§ã•ã‚Œãªã„let/block/tagbodyã‚’å‰Šé™¤ã™ã‚‹ã€‚
 (defun remove-local-lexicals (insn)
   (let ((mod nil))
     (do ((i insn (cdr i)))
@@ -1203,7 +1203,7 @@
   (setf (get 'insn-if-non-nil-goto-and-pop 'jump) 't)
   (setf (get 'insn-if-non-nil-goto-and-pop 'goto-and-pop) 't))
 
-;;; ƒWƒƒƒ“ƒv‚ğÅ“K‰»
+;;; ã‚¸ãƒ£ãƒ³ãƒ—ã‚’æœ€é©åŒ–
 (defun optimize-jump (insn)
   (let ((continue 't))
     (while continue
@@ -1212,8 +1212,8 @@
 	  ((endp i))
 	(when (eq (caar i) 'insn-label)
 	  (cond ((eq (caadr i) 'insn-goto)
-		 ;; ƒ‰ƒxƒ‹‚Ì’¼Œã‚ª–³ğŒƒWƒƒƒ“ƒv(A)‚Ì‚Æ‚«A‚»‚Ìƒ‰ƒxƒ‹‚ğQÆ‚µ‚Ä‚¢‚é
-		 ;; ƒWƒƒƒ“ƒv(B)‚ğ–³ğŒƒWƒƒƒ“ƒv(A)‚Ì”ò‚Ñæ‚É•ÏX‚·‚éB
+		 ;; ãƒ©ãƒ™ãƒ«ã®ç›´å¾ŒãŒç„¡æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ã®ã¨ãã€ãã®ãƒ©ãƒ™ãƒ«ã‚’å‚ç…§ã—ã¦ã„ã‚‹
+		 ;; ã‚¸ãƒ£ãƒ³ãƒ—(B)ã‚’ç„¡æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ã®é£›ã³å…ˆã«å¤‰æ›´ã™ã‚‹ã€‚
 		 (let ((label (cadadr i)))
 		   (dolist (j insn)
 		     (when (and (get (car j) 'jump)
@@ -1222,12 +1222,12 @@
 		       (setf (cadr j) label)
 		       (setq continue 't)))))
 		((get (caadr i) 'jump)
-		 ;; ƒ‰ƒxƒ‹‚Ì’¼Œã‚ªğŒƒWƒƒƒ“ƒv(A)‚Ì‚Æ‚«A‚»‚Ìƒ‰ƒxƒ‹‚ğQÆ‚µ‚Ä‚¢‚é“¯ˆê‚Ì
-		 ;; ğŒƒWƒƒƒ“ƒv(B)‚ğğŒƒWƒƒƒ“ƒv(A)‚Ì”ò‚Ñæ‚É•ÏX‚·‚éB
-		 ;; EğŒƒWƒƒƒ“ƒv(A)‚ªgoto-and-pop‚È‚ç‚ÎğŒƒWƒƒƒ“ƒv(B)‚ÌƒIƒyƒR[ƒh‚à
-		 ;;   ğŒƒWƒƒƒ“ƒv(A)‚Æ“¯‚¶‚à‚Ì‚É•ÏX‚·‚éB
-		 ;; EğŒƒWƒƒƒ“ƒv(A)‚ªgoto-and-pop‚Å‚È‚¢‚È‚ç‚ÎğŒƒWƒƒƒ“ƒv(B)‚ªgoto-and-pop
-		 ;;   ‚Å‚È‚¢ê‡‚Ì‚İB
+		 ;; ãƒ©ãƒ™ãƒ«ã®ç›´å¾ŒãŒæ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ã®ã¨ãã€ãã®ãƒ©ãƒ™ãƒ«ã‚’å‚ç…§ã—ã¦ã„ã‚‹åŒä¸€ã®
+		 ;; æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(B)ã‚’æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ã®é£›ã³å…ˆã«å¤‰æ›´ã™ã‚‹ã€‚
+		 ;; ãƒ»æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ãŒgoto-and-popãªã‚‰ã°æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(B)ã®ã‚ªãƒšã‚³ãƒ¼ãƒ‰ã‚‚
+		 ;;   æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ã¨åŒã˜ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã€‚
+		 ;; ãƒ»æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(A)ãŒgoto-and-popã§ãªã„ãªã‚‰ã°æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—(B)ãŒgoto-and-pop
+		 ;;   ã§ãªã„å ´åˆã®ã¿ã€‚
 		 (let* ((ope (caadr i))
 			(label (cadadr i))
 			(ope-if-nil-goto (get ope 'if-nil-goto))
@@ -1245,10 +1245,10 @@
 			      (setf (cadr j) label)
 			      (setq continue 't))))))))))))
 
-  ;; Ÿ‚Ìs‚Ö‚ÌƒWƒƒƒ“ƒv‚ğíœ‚·‚éB
-  ;; ‚½‚¾‚µğŒƒWƒƒƒ“ƒv‚Ìê‡A
-  ;; Egoto-and-pop‚Ìê‡‚Ídiscard‚Ö•ÏX‚·‚éB
-  ;; Egoto-and-pop‚Å‚È‚¢ê‡‚Í‚È‚É‚à‚µ‚È‚¢B
+  ;; æ¬¡ã®è¡Œã¸ã®ã‚¸ãƒ£ãƒ³ãƒ—ã‚’å‰Šé™¤ã™ã‚‹ã€‚
+  ;; ãŸã ã—æ¡ä»¶ã‚¸ãƒ£ãƒ³ãƒ—ã®å ´åˆã€
+  ;; ãƒ»goto-and-popã®å ´åˆã¯discardã¸å¤‰æ›´ã™ã‚‹ã€‚
+  ;; ãƒ»goto-and-popã§ãªã„å ´åˆã¯ãªã«ã‚‚ã—ãªã„ã€‚
   (let ((mod nil))
     (do ((i insn (cdr i)))
 	((endp i))
@@ -1264,7 +1264,7 @@
 	(remove-nil-insns insn)
       insn)))
 
-;;; –¢QÆƒ‰ƒxƒ‹‚ğíœ
+;;; æœªå‚ç…§ãƒ©ãƒ™ãƒ«ã‚’å‰Šé™¤
 (defun remove-unreferenced-label (insn)
   (let ((mod nil))
     (do ((i insn (cdr i)))
@@ -1284,7 +1284,7 @@
   (setf (get 'insn-go 'no-cond-jump) 't)
   (setf (get 'insn-return 'no-cond-jump) 't))
 
-;;; –¢QÆƒR[ƒh‚ğíœ
+;;; æœªå‚ç…§ã‚³ãƒ¼ãƒ‰ã‚’å‰Šé™¤
 (defun remove-unreferenced-code (insn)
   (do ((i insn (cdr i)))
       ((endp i) insn)
@@ -1340,8 +1340,8 @@
 	(remove-nil-insns insn)
       insn)))
 
-;; ’è”‚Ìô‚İ‚İ
-;; •›ì—p‚ª‚È‚­1ˆø”‚Ü‚½‚Í2ˆø”‚Å‘½’l‚ğ•Ô‚³‚È‚¢”’l‰‰ZŠÖ”‚Ì‚İ
+;; å®šæ•°ã®ç•³ã¿è¾¼ã¿
+;; å‰¯ä½œç”¨ãŒãªã1å¼•æ•°ã¾ãŸã¯2å¼•æ•°ã§å¤šå€¤ã‚’è¿”ã•ãªã„æ•°å€¤æ¼”ç®—é–¢æ•°ã®ã¿
 
 (dolist (x '(zerop plusp minusp oddp evenp
 	     = /= < > <= >= + - * /

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -71,15 +71,15 @@
 
 (defvar *mark-dialog-template*
   '(dialog 0 0 260 123
-    (:caption "ƒ}[ƒN")
+    (:caption "ãƒãƒ¼ã‚¯")
     (:font 9 "MS UI Gothic")
     (:control
      (:listbox list nil #x50a10011 4 5 192 114)
-     (:button go "ˆÚ“®(&G)" #x50030001 205 5 52 14)
-     (:button add "’Ç‰Á(&A)" #x50030000 205 22 52 14)
-     (:button delete "íœ(&D)" #x50030000 205 39 52 14)
-     (:button clear "‘Síœ(&L)" #x50030000 205 56 52 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50030000 205 73 52 14))))
+     (:button go "ç§»å‹•(&G)" #x50030001 205 5 52 14)
+     (:button add "è¿½åŠ (&A)" #x50030000 205 22 52 14)
+     (:button delete "å‰Šé™¤(&D)" #x50030000 205 39 52 14)
+     (:button clear "å…¨å‰Šé™¤(&L)" #x50030000 205 56 52 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50030000 205 73 52 14))))
 
 (defun mark-dialog-box ()
   (interactive)

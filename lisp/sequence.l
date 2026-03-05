@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -55,7 +55,7 @@
 				   ((endp (cdaddr ctype))
 				    (cond ((eq (caaddr ctype) '*))
 					  ((= (caaddr ctype) size))
-					  (t (error "Œ^w’èq‚ÌƒTƒCƒY‚Æw’è‚³‚ê‚½ƒTƒCƒY‚ªˆÙ‚È‚è‚Ü‚·"))))
+					  (t (error "å‹æŒ‡å®šå­ã®ã‚µã‚¤ã‚ºã¨æŒ‡å®šã•ã‚ŒãŸã‚µã‚¤ã‚ºãŒç•°ãªã‚Šã¾ã™"))))
 				   (t nil))))
 		       (t
 			(error 'bad-type-specifier :datum type)))
@@ -232,7 +232,7 @@
 
 (defun seq-testfn (olditem test test-not)
   (and test test-not
-       (error ":test‚Æ:test-not‚ª—¼•ûw’è‚³‚ê‚Ä‚¢‚Ü‚·"))
+       (error ":testã¨:test-notãŒä¸¡æ–¹æŒ‡å®šã•ã‚Œã¦ã„ã¾ã™"))
   (cond (test
 	 #'(lambda (x) (funcall test olditem x)))
 	(test-not
@@ -306,7 +306,7 @@
   (with-sequence-start-end start1 end1 sequence1
     (with-sequence-start-end start2 end2 sequence2
       (and test test-not
-	   (error ":test‚Æ:test-not‚ª—¼•ûw’è‚³‚ê‚Ä‚¢‚Ü‚·"))
+	   (error ":testã¨:test-notãŒä¸¡æ–¹æŒ‡å®šã•ã‚Œã¦ã„ã¾ã™"))
       (if test-not
 	  (setq test #'(lambda (x y) (not (funcall test-not x y))))
 	(unless test

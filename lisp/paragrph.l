@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -17,8 +17,8 @@
 (or (boundp 'fill-prefix)
     (setq fill-prefix nil))
 
-(defvar-local paragraph-start "^[ \t\f\nÅ@]")
-(defvar-local paragraph-separate "^[ \t\fÅ@]*$")
+(defvar-local paragraph-start "^[ \t\f\n„ÄÄ]")
+(defvar-local paragraph-separate "^[ \t\f„ÄÄ]*$")
 
 (defun forward-paragraph (&optional (arg 1))
   (interactive "p")
@@ -29,7 +29,7 @@
 	 (paragraph-separate (compile-regexp (if fill-prefix-regexp
 						 (concat paragraph-separate
 							 "\\|^"
-							 fill-prefix-regexp "[ \tÅ@]*$")
+							 fill-prefix-regexp "[ \t„ÄÄ]*$")
 					       paragraph-separate))))
     (or (zerop arg)
 	(goto-bol))

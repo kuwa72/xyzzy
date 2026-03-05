@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; defs.l --- treeview
 
 ;; Copyright (C) 2001-2006 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -38,39 +38,39 @@
    (merge-pathnames "lisp/wip" (si:system-root))
    (merge-pathnames "lisp/wip/treeview" (si:system-root))
    "")
-  "TreeView.dll ŒŸõƒpƒX")
+  "TreeView.dll æ¤œç´¢ãƒ‘ã‚¹")
 
 (defvar *treeview-id* nil
-  "Œ»İ‚Ì‘€ì‘ÎÛ treeview-id (’¼Ú’l‚Ìİ’è‚Í‹Ö~)")
+  "ç¾åœ¨ã®æ“ä½œå¯¾è±¡ treeview-id (ç›´æ¥å€¤ã®è¨­å®šã¯ç¦æ­¢)")
 (defvar *treeview-last-id* nil
-  "ÅŒã‚Ì‘€ì‘ÎÛ treeview-id (’¼Ú’l‚Ìİ’è‚Í‹Ö~)")
+  "æœ€å¾Œã®æ“ä½œå¯¾è±¡ treeview-id (ç›´æ¥å€¤ã®è¨­å®šã¯ç¦æ­¢)")
 (defvar *treeview-app-id* nil
-  "Œ»İ‚Ì‘€ì‘ÎÛ app-id (’¼Ú’l‚Ìİ’è‚Í‹Ö~)")
+  "ç¾åœ¨ã®æ“ä½œå¯¾è±¡ app-id (ç›´æ¥å€¤ã®è¨­å®šã¯ç¦æ­¢)")
 (defvar *treeview-last-app-id* nil
-  "ÅŒã‚Ì‘€ì‘ÎÛ app-id (’¼Ú’l‚Ìİ’è‚Í‹Ö~)")
+  "æœ€å¾Œã®æ“ä½œå¯¾è±¡ app-id (ç›´æ¥å€¤ã®è¨­å®šã¯ç¦æ­¢)")
 (defvar *treeview-app-to-treeview-hash* (make-hash-table :test #'eql))
 (defvar *treeview-treeview-to-app-hash* (make-hash-table :test #'eql))
-(defvar *treeview-app-id-list* nil "app-id ‚ÌƒŠƒXƒg")
-(defvar *treeview-data-hash* (make-hash-table :test #'eql) "app-id ‚ÉŠÖ˜A‚·‚éƒf[ƒ^")
+(defvar *treeview-app-id-list* nil "app-id ã®ãƒªã‚¹ãƒˆ")
+(defvar *treeview-data-hash* (make-hash-table :test #'eql) "app-id ã«é–¢é€£ã™ã‚‹ãƒ‡ãƒ¼ã‚¿")
 (defvar *treeview-data-reference-hash* (make-hash-table :test #'eql)
-  "app-id ‚ÉŠÖ˜A‚·‚éƒf[ƒ^‚ğ“o˜^‚·‚é symbol")
+  "app-id ã«é–¢é€£ã™ã‚‹ãƒ‡ãƒ¼ã‚¿ã‚’ç™»éŒ²ã™ã‚‹ symbol")
 
 (defun treeview-register-history-variables ()
   (register-history-variable *treeview-history-variable-list*))
 
 (defun treeview-unregister-history-variables ()
-  "treeview ŠÖ˜AƒqƒXƒgƒŠ‚Ìíœ"
-  ;; –¾¦“I‚Éw’è‚µ‚½ƒqƒXƒgƒŠ‚ğíœ
+  "treeview é–¢é€£ãƒ’ã‚¹ãƒˆãƒªã®å‰Šé™¤"
+  ;; æ˜ç¤ºçš„ã«æŒ‡å®šã—ãŸãƒ’ã‚¹ãƒˆãƒªã‚’å‰Šé™¤
   (dolist (variable *treeview-history-variable-list*)
     (unregister-history-variable variable))
-  ;; treeview ƒpƒbƒP[ƒW‚ÌƒqƒXƒgƒŠ‚ğ‘Síœ
+  ;; treeview ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã®ãƒ’ã‚¹ãƒˆãƒªã‚’å…¨å‰Šé™¤
   (let ((package (find-package "treeview")))
     (dolist (x (copy-list ed::*history-variable-list*))
       (if (eq (symbol-package x) package)
           (unregister-history-variable x)))))
 
 (defun treeview-uninstall ()
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚ÌƒAƒ“ƒCƒ“ƒXƒg[ƒ‹"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«"
   (interactive)
   (run-hooks '*treeview-uninstall-hook*)
   (treeview-unregister-history-variables))

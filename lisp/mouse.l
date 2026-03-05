@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -226,7 +226,7 @@
       (add-menu-separator menu 'url-sep)
       (add-menu-item menu 'url
 		     (concatenate 'string (abbreviate-display-string url 40 t)
-				  " ‚ğŠJ‚­")
+				  " ã‚’é–‹ã")
 		     #'(lambda ()
 			 (interactive)
 			 (shell-execute url t))))

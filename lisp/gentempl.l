@@ -1,17 +1,18 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; NAME
 ;;;	  convert-dialog-template, convert-dialog-template-buffer
 ;;;
 ;;; SYNOPSIS
-;;;	  ���\�[�X�X�N���v�g(*.rc)���� xyzzy �� dialog-box �Ŏg�p�ł���
-;;;	�`���̃R�[�h���ł����グ�܂��B
+;;;	  リソーススクリプト(*.rc)から xyzzy の dialog-box で使用できる
+;;;	形式のコードをでっち上げます。
 ;;;
 ;;; DESCRIPTION
-;;;	  Developper Studio ���̃_�C�A���O�G�f�B�^�� *.rc �t�@�C�������A
-;;;	IDD_... DIALOG ... END �̕�����؂�o���Ă����ɐH�킹��ƁA
-;;;	dialog-box �̌`���̃��X�g���o�b�t�@�ɏo�͂��܂��B
+;;;	  Developper Studio 等のダイアログエディタで *.rc ファイルを作り、
+;;;	IDD_... DIALOG ... END の部分を切り出してこいつに食わせると、
+;;;	dialog-box の形式のリストをバッファに出力します。
 ;;;
 ;;; BUGS
-;;;	  ��肪�Ă��Ɓ[�Ȃ̂ŁA����Ȃ�ɂ��������Ȃ��B
+;;;	  作りがてけとーなので、それなりにしか動かない。
 ;;;
 
 (in-package "editor")

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; base.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -10,11 +10,11 @@
 
 ;; Description:
 ;;
-;;  ‘€ì‘ÎÛ‚Ì treeview-id ‚Ö‚Ì‘€ì‚ğs‚¤‚æ‚¤‚Éİ’è‚µ‚½ŠÖ”ŒQ‚Ì‹LqB
-;;  å‚ÉAˆÈ‰º‚Ì 2 “_‚ğs‚Á‚Ä‚¢‚éB
-;;    Edll.l ‚Å‹Lq‚³‚ê‚½utreeview-id ‚ğ–¾¦“I‚Éw’è‚µ‚½ŒÄ‚Ño‚µv‚ğ
-;;      treeview-id ‚ğ“n‚³‚È‚­‚Ä‚æ‚¢‚æ‚¤‚Éƒ‰ƒbƒsƒ“ƒOB
-;;    Ewinapi ŒÄ‚Ño‚µ‚ğƒ‰ƒbƒsƒ“ƒOB
+;;  æ“ä½œå¯¾è±¡ã® treeview-id ã¸ã®æ“ä½œã‚’è¡Œã†ã‚ˆã†ã«è¨­å®šã—ãŸé–¢æ•°ç¾¤ã®è¨˜è¿°ã€‚
+;;  ä¸»ã«ã€ä»¥ä¸‹ã® 2 ç‚¹ã‚’è¡Œã£ã¦ã„ã‚‹ã€‚
+;;    ãƒ»dll.l ã§è¨˜è¿°ã•ã‚ŒãŸã€Œtreeview-id ã‚’æ˜ç¤ºçš„ã«æŒ‡å®šã—ãŸå‘¼ã³å‡ºã—ã€ã‚’
+;;      treeview-id ã‚’æ¸¡ã•ãªãã¦ã‚ˆã„ã‚ˆã†ã«ãƒ©ãƒƒãƒ”ãƒ³ã‚°ã€‚
+;;    ãƒ»winapi å‘¼ã³å‡ºã—ã‚’ãƒ©ãƒƒãƒ”ãƒ³ã‚°ã€‚
 ;;
 
 ;;; Code:
@@ -27,52 +27,52 @@
 (in-package "treeview")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Application ”F¯—p ID
+;; Application èªè­˜ç”¨ ID
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-app-id-register (app-id)
-  "app-id ‚Ì“o˜^"
+  "app-id ã®ç™»éŒ²"
   (unless (treeview-app-id-registered-p app-id)
     (pushnew app-id *treeview-app-id-list*)
     (setf (gethash app-id *treeview-app-to-treeview-hash*) nil)
     t))
 (defun treeview-app-id-unregister (app-id)
-  "app-id ‚Ìíœ"
+  "app-id ã®å‰Šé™¤"
   (when (treeview-app-id-registered-p app-id)
     (setq *treeview-app-id-list* (delete app-id *treeview-app-id-list*))
     (remhash app-id *treeview-app-to-treeview-hash*)
     (treeview-data-del-all)
     t))
 (defun treeview-app-id-registered-p (app-id)
-  "app-id ‚ª“o˜^‚³‚ê‚Ä‚¢‚é‚©"
+  "app-id ãŒç™»éŒ²ã•ã‚Œã¦ã„ã‚‹ã‹"
   (multiple-value-bind (val exist)
       (gethash app-id *treeview-app-to-treeview-hash*)
     exist))
 (defun treeview-app-id-set-treeview-id (app-id treeview-id)
-  "app-id ‚Æ treeview-id ‚ğŠÖ˜A•t‚¯‚é"
+  "app-id ã¨ treeview-id ã‚’é–¢é€£ä»˜ã‘ã‚‹"
   (treeview-app-id-register app-id)
   (unless (gethash app-id *treeview-app-to-treeview-hash*)
     (setf (gethash app-id *treeview-app-to-treeview-hash*) treeview-id)
     (setf (gethash treeview-id *treeview-treeview-to-app-hash*) app-id)))
 (defun treeview-app-id-unset-treeview-id (app-id)
-  "app-id ‚Æ treeview-id ‚ÌŠÖŒW‚ğ–³Œø‰»‚·‚é"
+  "app-id ã¨ treeview-id ã®é–¢ä¿‚ã‚’ç„¡åŠ¹åŒ–ã™ã‚‹"
   (let ((treeview-id (gethash app-id *treeview-app-to-treeview-hash*)))
     (when treeview-id
       (remhash app-id *treeview-app-to-treeview-hash*)
       (remhash treeview-id *treeview-treeview-to-app-hash*)
       treeview-id)))
 (defun treeview-app-id-get-treeview-id (app-id)
-  "app-id ‚©‚ç treeview-id ‚ğæ“¾‚·‚é"
+  "app-id ã‹ã‚‰ treeview-id ã‚’å–å¾—ã™ã‚‹"
   (gethash app-id *treeview-app-to-treeview-hash*))
 (defun treeview-treeview-id-get-app-id (treeview-id)
-  "treeview-id ‚©‚ç app-id ‚ğæ“¾‚·‚é"
+  "treeview-id ã‹ã‚‰ app-id ã‚’å–å¾—ã™ã‚‹"
   (gethash treeview-id *treeview-treeview-to-app-hash*))
 
 (defun treeview-get-active-app-id ()
-  "ƒAƒNƒeƒBƒuó‘Ô‚Ì app-id ‚ğæ“¾"
+  "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–çŠ¶æ…‹ã® app-id ã‚’å–å¾—"
   (treeview-treeview-id-get-app-id (treeview-get-active-treeview-id)))
 
 (defun treeview-get-treeview-id-list ()
-  "“o˜^‚³‚ê‚Ä‚¢‚é treeview-id ‚ÌƒŠƒXƒg‚ğæ“¾"
+  "ç™»éŒ²ã•ã‚Œã¦ã„ã‚‹ treeview-id ã®ãƒªã‚¹ãƒˆã‚’å–å¾—"
   (let (treeview-id treeview-id-list)
     (dolist (app-id *treeview-app-id-list*)
       (when (setq treeview-id (treeview-app-id-get-treeview-id app-id))
@@ -80,11 +80,11 @@
     (nreverse treeview-id-list)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; treeview (app) –ˆ data ŠÇ—
+;; treeview (app) æ¯ data ç®¡ç†
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #|
-¡2005.02.16 “_‚Å‚Ì tag î•ñ
- “à•”g—p
+â– 2005.02.16 æ™‚ç‚¹ã§ã® tag æƒ…å ±
+â–¡å†…éƒ¨ä½¿ç”¨
 <base>
 treeview::window-position
 treeview::open-window-size
@@ -101,7 +101,7 @@ treeview::suppress-redraw-count
 <setfont>
 treeview::hfont
 
- ŠO•”g—p (ƒ†[ƒU‚É‚æ‚éİ’è)
+â–¡å¤–éƒ¨ä½¿ç”¨ (ãƒ¦ãƒ¼ã‚¶ã«ã‚ˆã‚‹è¨­å®š)
 <dialog>
 treeview::window-width
 treeview::window-height
@@ -134,30 +134,30 @@ treeview::recenter
 treeview::recenter-line
 treeview::scroll-margin
 
- “à•”/ŠO•”‚Å‹¤‚Ég—p
+â–¡å†…éƒ¨/å¤–éƒ¨ã§å…±ã«ä½¿ç”¨
 treeview::window-width
 treeview::window-height
 
 |#
 (defun treeview-data-reference-set (tag symbol)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é•Ï”‚Ì symbol ‚ğİ’è‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹å¤‰æ•°ã® symbol ã‚’è¨­å®šã™ã‚‹"
   (let (hash)
     (unless (setq hash (gethash *treeview-app-id* *treeview-data-reference-hash*))
       (setq hash (make-hash-table :test #'equal))
       (setf (gethash *treeview-app-id* *treeview-data-reference-hash*) hash))
     (setf (gethash tag hash) symbol)))
 (defun treeview-data-reference-get (tag)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é•Ï”‚Ì symbol ‚ğæ“¾‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹å¤‰æ•°ã® symbol ã‚’å–å¾—ã™ã‚‹"
   (let ((hash (gethash *treeview-app-id* *treeview-data-reference-hash*)))
     (when hash
       (gethash tag hash))))
 (defun treeview-data-reference-del (tag)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é•Ï”‚Ì symbol ‚ğ‰ğœ‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹å¤‰æ•°ã® symbol ã‚’è§£é™¤ã™ã‚‹"
   (let ((hash (gethash *treeview-app-id* *treeview-data-reference-hash*)))
     (when hash
       (remhash tag hash))))
 (defun treeview-data-reference-enum ()
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚Æ‘Î‰‚·‚é•Ï”‚Ì symbol ‚ÌƒyƒA‚Ìˆê——‚ğ•Ô‚·"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã¨å¯¾å¿œã™ã‚‹å¤‰æ•°ã® symbol ã®ãƒšã‚¢ã®ä¸€è¦§ã‚’è¿”ã™"
   (let (hash lst)
     (when (setq hash (gethash *treeview-app-id* *treeview-data-reference-hash*))
       (maphash #'(lambda (key data)
@@ -166,7 +166,7 @@ treeview::window-height
     (sort lst #'string< :key #'(lambda (x) (string (car x))))))
 
 (defun treeview-data-set (tag value)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é value ‚ğİ’è‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹ value ã‚’è¨­å®šã™ã‚‹"
   (let ((reference-symbol (treeview-data-reference-get tag))
         (hash (gethash *treeview-app-id* *treeview-data-hash*)))
     (unless hash
@@ -178,7 +178,7 @@ treeview::window-height
           (set reference-symbol value))
       (setf (gethash tag hash) value))))
 (defun treeview-data-get (tag &optional default)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é value ‚ğæ“¾‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹ value ã‚’å–å¾—ã™ã‚‹"
   (let ((reference-symbol (treeview-data-reference-get tag))
         hash)
     (if reference-symbol
@@ -191,7 +191,7 @@ treeview::window-height
             (gethash tag hash default)
           (values default nil))))))
 (defun treeview-data-del (tag)
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚É‘Î‰‚·‚é value ‚ğíœ‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã«å¯¾å¿œã™ã‚‹ value ã‚’å‰Šé™¤ã™ã‚‹"
   (let ((reference-symbol (treeview-data-reference-get tag))
         (hash (gethash *treeview-app-id* *treeview-data-hash*)))
     (when reference-symbol
@@ -199,11 +199,11 @@ treeview::window-height
     (when hash
       (remhash tag hash))))
 (defun treeview-data-del-all ()
-  "Œ»İ‚Ì app-id ‚ÅA‘S‚Ä‚ÌAtag ‚É‘Î‰‚·‚é•Ï”‚Ì symbol, value ‚ğíœ‚·‚é"
+  "ç¾åœ¨ã® app-id ã§ã€å…¨ã¦ã®ã€tag ã«å¯¾å¿œã™ã‚‹å¤‰æ•°ã® symbol, value ã‚’å‰Šé™¤ã™ã‚‹"
   (remhash *treeview-app-id* *treeview-data-reference-hash*)
   (remhash *treeview-app-id* *treeview-data-hash*))
 (defun treeview-data-enum ()
-  "Œ»İ‚Ì app-id ‚ÅAtag ‚Æ‘Î‰‚·‚é value ‚ÌƒyƒA‚Ìˆê——‚ğ•Ô‚·"
+  "ç¾åœ¨ã® app-id ã§ã€tag ã¨å¯¾å¿œã™ã‚‹ value ã®ãƒšã‚¢ã®ä¸€è¦§ã‚’è¿”ã™"
   (let (hash lst)
     (when (setq hash (gethash *treeview-app-id* *treeview-data-reference-hash*))
       (maphash #'(lambda (key data)
@@ -217,24 +217,24 @@ treeview::window-height
     (sort lst #'string< :key #'(lambda (x) (string (car x))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; å‚É dll wrap/Šg’£
+;; ä¸»ã« dll wrap/æ‹¡å¼µ
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-exist-p ()
-  "treeview ‚ª‘¶İ‚·‚é‚©
-    nil: ‘¶İ‚µ‚È‚¢
-non-nil: ‘¶İ‚·‚é"
+  "treeview ãŒå­˜åœ¨ã™ã‚‹ã‹
+    nil: å­˜åœ¨ã—ãªã„
+non-nil: å­˜åœ¨ã™ã‚‹"
   (and (not (or (null *treeview-id*) (eql *treeview-id* 0)))
        (not (zerop (treeview-get-hwnd)))))
 
 (defun treeview-create (app-id)
-  "treeview ‚ğì¬‚·‚é"
+  "treeview ã‚’ä½œæˆã™ã‚‹"
   (when (treeview-app-id-get-treeview-id app-id)
     (return-from treeview-create nil))
   (treeview-create-1 app-id
                      (treeview-dll-create (get-window-handle) (si:plugin-arg))
                      XPIS_LEFT))
 (defun treeview-create-ex (app-id &optional (size 400) (pos XPIS_LEFT))
-  "treeview ‚ğƒTƒCƒYAˆÊ’u‚ğw’è‚µ‚Äì¬‚·‚é"
+  "treeview ã‚’ã‚µã‚¤ã‚ºã€ä½ç½®ã‚’æŒ‡å®šã—ã¦ä½œæˆã™ã‚‹"
   (when (treeview-app-id-get-treeview-id app-id)
     (return-from treeview-create-ex nil))
   (treeview-create-1 app-id
@@ -242,7 +242,7 @@ non-nil: ‘¶İ‚·‚é"
                                              (si:plugin-arg) size pos)
                      pos))
 (defun treeview-create-1 (app-id treeview-id pos)
-  "treeview ‚ğì¬‚·‚é‚½‚ß‚Ì“à•”ŠÖ”"
+  "treeview ã‚’ä½œæˆã™ã‚‹ãŸã‚ã®å†…éƒ¨é–¢æ•°"
   (treeview-app-id-set-treeview-id app-id treeview-id)
   (with-app (app-id)
     (treeview-data-set 'treeview::window-position pos)
@@ -270,7 +270,7 @@ non-nil: ‘¶İ‚·‚é"
     (treeview-app-bar-add-item app-id (treeview-open-p)))
   treeview-id)
 (defun treeview-delete ()
-  "treeview ‚ğíœ‚·‚é"
+  "treeview ã‚’å‰Šé™¤ã™ã‚‹"
   (treeview-data-save-window-size)
   (treeview-data-save-style)
   (treeview-effect-window-display-style-on-delete)
@@ -280,24 +280,24 @@ non-nil: ‘¶İ‚·‚é"
   (treeview-app-bar-del-item *treeview-app-id*)
   (treeview-app-id-unset-treeview-id *treeview-app-id*))
 (defun treeview-get-hwnd ()
-  "treeview ‚Ì hwnd ‚ğæ“¾‚·‚é(ŠO‘¤‚ÌƒEƒBƒ“ƒhƒE)"
-  ;; treeview-exist-p ‚É‚Ä treeview-get-hwnd ‚ğg—p‚µ‚Ä‚¢‚é‚½‚ß
-  ;; *treeview-id* ‚Å”»’è
+  "treeview ã® hwnd ã‚’å–å¾—ã™ã‚‹(å¤–å´ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦)"
+  ;; treeview-exist-p ã«ã¦ treeview-get-hwnd ã‚’ä½¿ç”¨ã—ã¦ã„ã‚‹ãŸã‚
+  ;; *treeview-id* ã§åˆ¤å®š
   (when *treeview-id*  
     (treeview-dll-get-hwnd *treeview-id*)))
 (defun treeview-get-htree ()
-  "treeview ‚Ì htree ‚Ì hwnd ‚ğæ“¾‚·‚é(“à‘¤‚ÌƒEƒBƒ“ƒhƒE)"
-  ;; treeview-get-hwnd ‚Æ‚Ì‘ÎÌ«‚ğl—¶w’è *treeview-id* ‚Å”»’è
+  "treeview ã® htree ã® hwnd ã‚’å–å¾—ã™ã‚‹(å†…å´ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦)"
+  ;; treeview-get-hwnd ã¨ã®å¯¾ç§°æ€§ã‚’è€ƒæ…®æŒ‡å®š *treeview-id* ã§åˆ¤å®š
   (when *treeview-id*
     (treeview-dll-get-htree *treeview-id*)))
 (defun treeview-modify-style (remove add flags)
-  "treeview ‚Ì sytle ‚ğ•ÏX‚·‚é"
+  "treeview ã® sytle ã‚’å¤‰æ›´ã™ã‚‹"
   (treeview-dll-modify-style *treeview-id* remove add flags))
 (defun treeview-setsize (size min max step)
-  "treeview ‚Ì size ‚ğİ’è‚·‚é"
+  "treeview ã® size ã‚’è¨­å®šã™ã‚‹"
   (treeview-dll-setsize *treeview-id* size min max step))
 (defun treeview-setpos (pos)
-  "treeview ‚ÌˆÊ’u(ã‰º¶‰E)‚ğİ’è‚·‚é"
+  "treeview ã®ä½ç½®(ä¸Šä¸‹å·¦å³)ã‚’è¨­å®šã™ã‚‹"
   (treeview-data-save-window-size)
   (treeview-data-set 'treeview::window-position pos)
   (when (treeview-exist-p)
@@ -309,56 +309,56 @@ non-nil: ‘¶İ‚·‚é"
      (treeview-recenter))))
 
 (defun treeview-get-count ()
-  "treeview ‚Ì item ‚Ì”‚ğæ“¾B"
+  "treeview ã® item ã®æ•°ã‚’å–å¾—ã€‚"
   (treeview-dll-get-count *treeview-id*))
 (defun treeview-get-next-item (hitem code)
-  "item ‚ÌŸ‚ÌƒAƒCƒeƒ€‚ğæ“¾B"
+  "item ã®æ¬¡ã®ã‚¢ã‚¤ãƒ†ãƒ ã‚’å–å¾—ã€‚"
   (treeview-dll-get-next-item *treeview-id* hitem code))
 (defun treeview-get-indent ()
-  "treeview ‚Ì item ‚Ì indent •‚ğæ“¾B"
+  "treeview ã® item ã® indent å¹…ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETINDENT 0 0))
 (defun treeview-set-indent (indent)
-  "treeview ‚Ì item ‚Ì indent •‚ğİ’èB
-ˆø” indent ‚É®”ˆÈŠO‚ª—^‚¦‚ç‚ê‚½ê‡‚Í 0 ‚Æ‚İ‚È‚µAtreeview ‚Ì
-ƒfƒtƒHƒ‹ƒgƒCƒ“ƒfƒ“ƒg•‚É–ß‚·"
+  "treeview ã® item ã® indent å¹…ã‚’è¨­å®šã€‚
+å¼•æ•° indent ã«æ•´æ•°ä»¥å¤–ãŒä¸ãˆã‚‰ã‚ŒãŸå ´åˆã¯ 0 ã¨ã¿ãªã—ã€treeview ã®
+ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚¤ãƒ³ãƒ‡ãƒ³ãƒˆå¹…ã«æˆ»ã™"
   (unless (integerp indent)
     (setq indent 0))
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_SETINDENT indent 0))
 (defun treeview-item-has-children (hitem)
-  "hitem ‚ªq item ‚ğ‚Á‚Ä‚¢‚é‚©‚ğæ“¾B(1 or 0)
-qitem‚ğ‚Á‚Ä‚¢‚éê‡‚Í 1A‚Á‚Ä‚¢‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
+  "hitem ãŒå­ item ã‚’æŒã£ã¦ã„ã‚‹ã‹ã‚’å–å¾—ã€‚(1 or 0)
+å­itemã‚’æŒã£ã¦ã„ã‚‹å ´åˆã¯ 1ã€æŒã£ã¦ã„ãªã„å ´åˆã¯ 0 ã‚’è¿”ã™ã€‚"
   (treeview-dll-item-has-children *treeview-id* hitem))
 (defun treeview-item-has-children-p (hitem)
-  "hitem ‚ªq item ‚ğ‚Á‚Ä‚¢‚é‚©‚ğæ“¾B(t or nil)"
+  "hitem ãŒå­ item ã‚’æŒã£ã¦ã„ã‚‹ã‹ã‚’å–å¾—ã€‚(t or nil)"
   (not (zerop (treeview-item-has-children hitem))))
 (defun treeview-get-item (pitem); TVITEM*
-  "TVITEM \‘¢‘Ì‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğ“n‚µAitem ‚ğæ“¾B"
+  "TVITEM æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ã‚’æ¸¡ã—ã€item ã‚’å–å¾—ã€‚"
   (treeview-dll-get-item *treeview-id* pitem))
 (defun treeview-set-item (hitem mask text icon sicon state statemask lparam)
-  "item ‚ÉŠeí’l‚ğİ’èB"
+  "item ã«å„ç¨®å€¤ã‚’è¨­å®šã€‚"
   (treeview-dll-set-item *treeview-id* hitem mask (si:make-string-chunk text) icon sicon state statemask lparam))
 (defun treeview-get-item-state (hitem statemask)
-  "item ‚Ì state ‚ğæ“¾B"
+  "item ã® state ã‚’å–å¾—ã€‚"
   (treeview-dll-get-item-state *treeview-id* hitem statemask))
 (defun treeview-set-item-state (hitem state statamask)
-  "item ‚É state ‚ğİ’èB"
+  "item ã« state ã‚’è¨­å®šã€‚"
   (treeview-dll-set-item-state *treeview-id* hitem state statemask))
 (defun treeview-get-item-text (hitem &optional (maxlen 256))
-  "item ‚Ì text ‚ğæ“¾B"
+  "item ã® text ã‚’å–å¾—ã€‚"
   (let ((text (si:make-chunk nil maxlen)))
     (treeview-dll-get-item-text *treeview-id* hitem text maxlen)
     (si:unpack-string text 0)))
 (defun treeview-set-item-text (hitem text)
-  "item ‚É text ‚ğİ’èB"
+  "item ã« text ã‚’è¨­å®šã€‚"
   (treeview-dll-set-item-text *treeview-id* hitem (si:make-string-chunk text)))
 (defun treeview-get-item-data (hitem)
-  "item ‚Ì Application ŒÅ—Lƒf[ƒ^‚ğæ“¾B"
+  "item ã® Application å›ºæœ‰ãƒ‡ãƒ¼ã‚¿ã‚’å–å¾—ã€‚"
   (treeview-dll-get-item-data *treeview-id* hitem))
 (defun treeview-set-item-data (hitem data)
-  "item ‚É Application ŒÅ—Lƒf[ƒ^‚ğİ’èB"
+  "item ã« Application å›ºæœ‰ãƒ‡ãƒ¼ã‚¿ã‚’è¨­å®šã€‚"
   (treeview-dll-set-item-data *treeview-id* hitem data))
 (defun treeview-get-item-rect (hitem &optional textonly)
-  "item ‚ÌÀ•W‚ğæ“¾B(À•W‡˜‚Í ¶ã‰E‰º)"
+  "item ã®åº§æ¨™ã‚’å–å¾—ã€‚(åº§æ¨™é †åºã¯ å·¦ä¸Šå³ä¸‹)"
   (let ((wr (winapi:make-RECT)))
     (if (or (null textonly) (equal textonly 0))
         (setq textonly 0)
@@ -371,14 +371,14 @@ non-nil: ‘¶İ‚·‚é"
           (winapi:RECT-bottom wr))))
 
 (defun treeview-get-visible-count ()
-  "treeview ‚Éc‚É•\¦‰Â”\‚È item ‚Ì”‚ğæ“¾B"
+  "treeview ã«ç¸¦ã«è¡¨ç¤ºå¯èƒ½ãª item ã®æ•°ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETVISIBLECOUNT 0 0))
 
 (defun treeview-get-bk-color ()
-  "treeview ‚Ì”wŒiF(BBGGRR)‚ğæ“¾B"
+  "treeview ã®èƒŒæ™¯è‰²(BBGGRR)ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETBKCOLOR 0 0))
 (defun treeview-set-bk-color (color)
-  "treeview ‚Ì”wŒiF(BBGGRR)‚ğİ’èB"
+  "treeview ã®èƒŒæ™¯è‰²(BBGGRR)ã‚’è¨­å®šã€‚"
   (cond
    ((eq color t)
     (setq color winapi:CLR_DEFAULT))
@@ -389,19 +389,19 @@ non-nil: ‘¶İ‚·‚é"
     (winapi:RedrawWindow (treeview-get-htree) 0 0
                          (logior winapi:RDW_INVALIDATE winapi:RDW_ALLCHILDREN winapi:RDW_UPDATENOW))))
 (defun treeview-get-item-height ()
-  "item ‚Ì‚‚³‚ğæ“¾B"
+  "item ã®é«˜ã•ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETITEMHEIGHT 0 0))
 (defun treeview-set-item-height (height)
-  "item ‚Ì‚‚³‚ğİ’èB"
+  "item ã®é«˜ã•ã‚’è¨­å®šã€‚"
   (unless (integerp height)
     (setq height -1))
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_SETITEMHEIGHT height 0))
 
 (defun treeview-get-text-color ()
-  "treeview ‚Ì•¶šF(BBGGRR)‚ğæ“¾B"
+  "treeview ã®æ–‡å­—è‰²(BBGGRR)ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETTEXTCOLOR 0 0))
 (defun treeview-set-text-color (color)
-  "treeview ‚Ì•¶šF(BBGGRR)‚ğİ’èB"
+  "treeview ã®æ–‡å­—è‰²(BBGGRR)ã‚’è¨­å®šã€‚"
   (cond
    ((eq color t)
     (setq color winapi:CLR_DEFAULT))
@@ -412,7 +412,7 @@ non-nil: ‘¶İ‚·‚é"
     (winapi:RedrawWindow (treeview-get-htree) 0 0
                          (logior winapi:RDW_INVALIDATE winapi:RDW_ALLCHILDREN winapi:RDW_UPDATENOW))))
 (defun treeview-set-insert-mark (hitem &optional (after 1))
-  "treeview ‚É insert-mark ‚ğİ’èB"
+  "treeview ã« insert-mark ã‚’è¨­å®šã€‚"
   (unless (treeview-hitem-valid-p hitem)
     (setq hitem 0))
   (if (or (eq after nil) (and (integerp after) (zerop after)))
@@ -420,10 +420,10 @@ non-nil: ‘¶İ‚·‚é"
     (setq after 1))
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_SETINSERTMARK after hitem))
 (defun treeview-get-insert-mark-color ()
-  "treeview ‚Ì insert-mark ‚ÌF(BBGGRR)‚ğæ“¾B"
+  "treeview ã® insert-mark ã®è‰²(BBGGRR)ã‚’å–å¾—ã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETINSERTMARKCOLOR 0 0))
 (defun treeview-set-insert-mark-color (color)
-  "treeview ‚Ì insert-mark ‚ÌF(BBGGRR)‚ğİ’èB"
+  "treeview ã® insert-mark ã®è‰²(BBGGRR)ã‚’è¨­å®šã€‚"
   (cond
    ((eq color t)
     (setq color winapi:CLR_DEFAULT))
@@ -435,7 +435,7 @@ non-nil: ‘¶İ‚·‚é"
                          (logior winapi:RDW_INVALIDATE winapi:RDW_ALLCHILDREN winapi:RDW_UPDATENOW))))
 (defun treeview-insert-item (text parent &key icon sicon (insertafter winapi:TVI_LAST)
                                   (state 0) (statemask 0) (lparam 0))
-  "treeview ‚É item ‚ğ’Ç‰ÁB"
+  "treeview ã« item ã‚’è¿½åŠ ã€‚"
   (let ((mask winapi:TVIF_TEXT))
     (if (null icon)
         (setq icon 0)
@@ -446,32 +446,32 @@ non-nil: ‘¶İ‚·‚é"
     (treeview-dll-insert-item
      *treeview-id* mask (si:make-string-chunk text) icon sicon state statemask lparam parent insertafter)))
 (defun treeview-delete-item (hitem)
-  "treeview ‚©‚ç item ‚ğíœB"
+  "treeview ã‹ã‚‰ item ã‚’å‰Šé™¤ã€‚"
   (treeview-dll-delete-item *treeview-id* hitem))
 (defun treeview-delete-all-items ()
-  "treeview ‚©‚ç‘S‚Ä‚Ì item ‚ğíœB"
+  "treeview ã‹ã‚‰å…¨ã¦ã® item ã‚’å‰Šé™¤ã€‚"
   (treeview-dll-delete-all-items *treeview-id*))
 (defun treeview-expand (hitem code)
-  "item ‚ÌŠJ•Âó‘Ô‚ğİ’èB"
+  "item ã®é–‹é–‰çŠ¶æ…‹ã‚’è¨­å®šã€‚"
   (treeview-dll-expand *treeview-id* hitem code))
 (defun treeview-select (hitem code)
-  "item ‚ğAw’è‚³‚ê‚½ code ‚Ì•û–@‚Å‘I‘ğB"
+  "item ã‚’ã€æŒ‡å®šã•ã‚ŒãŸ code ã®æ–¹æ³•ã§é¸æŠã€‚"
   (treeview-dll-select *treeview-id* hitem code))
 (defun treeview-select-item (hitem)
-  "item ‚ğ‘I‘ğB"
+  "item ã‚’é¸æŠã€‚"
   (treeview-dll-select *treeview-id* hitem winapi:TVGN_CARET))
 (defun treeview-select-drop-target (hitem)
-  "ƒhƒ‰ƒbƒOƒAƒ“ƒhƒhƒƒbƒv‘€ì‚Ìƒ^[ƒQƒbƒg‚Æ‚µ‚Ä item ‚ğÄ•`‰æB"
+  "ãƒ‰ãƒ©ãƒƒã‚°ã‚¢ãƒ³ãƒ‰ãƒ‰ãƒ­ãƒƒãƒ—æ“ä½œã®ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã¨ã—ã¦ item ã‚’å†æç”»ã€‚"
   (treeview-dll-select *treeview-id* hitem winapi:TVGN_DROPHILITE))
 (defun treeview-select-set-first-visible (hitem)
-  "item ‚ğAÅ‰‚Ì‰Â‹‚ÌƒAƒCƒeƒ€‚Æ‚µ‚Ä‘I‘ğB"
+  "item ã‚’ã€æœ€åˆã®å¯è¦–ã®ã‚¢ã‚¤ãƒ†ãƒ ã¨ã—ã¦é¸æŠã€‚"
   (treeview-dll-select *treeview-id* hitem winapi:TVGN_FIRSTVISIBLE))
 (defun treeview-edit-label (hitem)
-  "item ‚ÌƒeƒLƒXƒg‚ğƒCƒ“ƒvƒŒƒCƒX•ÒWB"
+  "item ã®ãƒ†ã‚­ã‚¹ãƒˆã‚’ã‚¤ãƒ³ãƒ—ãƒ¬ã‚¤ã‚¹ç·¨é›†ã€‚"
   (treeview-dll-edit-label *treeview-id* hitem))
 (defun treeview-hittest ()
-  "Œ»İ‚ÌƒJ[ƒ\ƒ‹ˆÊ’u‚É‚ ‚é item ‚ğæ“¾B
-item ‚ª‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
+  "ç¾åœ¨ã®ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®ã«ã‚ã‚‹ item ã‚’å–å¾—ã€‚
+item ãŒãªã„å ´åˆã¯ 0 ã‚’è¿”ã™ã€‚"
   (let ((tvhittestinfo (winapi:make-TVHITTESTINFO))
         (po (winapi::make-POINT))
         (wr (winapi::make-RECT)))
@@ -483,13 +483,13 @@ item ‚ª‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
           (- (winapi::POINT-y po) (winapi::RECT-top wr)))
     (winapi:SendMessage (treeview-get-htree) winapi:TVM_HITTEST 0 tvhittestinfo)))
 (defun treeview-sort-children (hitem)
-  "w’è item ‚Ìq item ‚ğ text ‡‚Éƒ\[ƒgB"
+  "æŒ‡å®š item ã®å­ item ã‚’ text é †ã«ã‚½ãƒ¼ãƒˆã€‚"
   (treeview-dll-sort-children *treeview-id* hitem))
 (defun treeview-ensure-visible (hitem)
-  "e item ‚Ì“WŠJAtreeview ‚ÌƒXƒNƒ[ƒ‹‚ğs‚¢ item ‚ğ•\¦B"
+  "è¦ª item ã®å±•é–‹ã€treeview ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã‚’è¡Œã„ item ã‚’è¡¨ç¤ºã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_ENSUREVISIBLE 0 hitem))
 (defun treeview-sort-children-cb (psort)
-  "TVSORTCB \‘¢‘Ì‚Ö‚Ìƒ|ƒCƒ“ƒ^‚ğ“n‚µA”CˆÓ‚Ì•û–@‚Å item ‚ğƒ\[ƒgB"
+  "TVSORTCB æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ã‚’æ¸¡ã—ã€ä»»æ„ã®æ–¹æ³•ã§ item ã‚’ã‚½ãƒ¼ãƒˆã€‚"
   (winapi:SendMessage (treeview-get-htree) winapi:TVM_SORTCHILDRENCB 0 psort))
 
 ;;
@@ -497,28 +497,28 @@ item ‚ª‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
   (c:defun-c-callable c:void treeview-click-callback-imp ((winapi:HTREEITEM hitem))
     (funcall callback hitem))
   (defun treeview-click-callback (fn)
-    "treeview ã‚Å¶ƒNƒŠƒbƒN‚ÌƒR[ƒ‹ƒoƒbƒNŠÖ”‚ğİ’èB"
+    "treeview ä¸Šã§å·¦ã‚¯ãƒªãƒƒã‚¯æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã‚’è¨­å®šã€‚"
     (setq callback fn)
     (not (zerop (treeview-dll-set-click-callback *treeview-id* #'treeview-click-callback-imp)))))
 (let (callback)
   (c:defun-c-callable c:void treeview-dblclk-callback-imp ((winapi:HTREEITEM hitem))
     (funcall callback hitem))
   (defun treeview-dblclk-callback (fn)
-    "treeview ã‚Å¶ƒ_ƒuƒ‹ƒNƒŠƒbƒN‚ÌƒR[ƒ‹ƒoƒbƒNŠÖ”‚ğİ’èB"
+    "treeview ä¸Šã§å·¦ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã‚’è¨­å®šã€‚"
     (setq callback fn)
     (not (zerop (treeview-dll-set-dblclk-callback *treeview-id* #'treeview-dblclk-callback-imp)))))
 (let (callback)
   (c:defun-c-callable c:void treeview-rclick-callback-imp ((winapi:HTREEITEM hitem))
     (funcall callback hitem))
   (defun treeview-rclick-callback (fn)
-    "treeview ã‚Å‰EƒNƒŠƒbƒN‚ÌƒR[ƒ‹ƒoƒbƒNŠÖ”‚ğİ’èB"
+    "treeview ä¸Šã§å³ã‚¯ãƒªãƒƒã‚¯æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã‚’è¨­å®šã€‚"
     (setq callback fn)
     (not (zerop (treeview-dll-set-rclick-callback *treeview-id* #'treeview-rclick-callback-imp)))))
 (let (callback)
   (c:defun-c-callable c:void treeview-keydown-callback-imp ((winapi:HTREEITEM hitem) (winapi:WORD vkey) (winapi:UINT flag))
     (funcall callback hitem vkey flag))
   (defun treeview-keydown-callback (fn)
-    "treeview ã‚ÅƒL[‰Ÿ‰º‚ÌƒR[ƒ‹ƒoƒbƒNŠÖ”‚ğİ’èB"
+    "treeview ä¸Šã§ã‚­ãƒ¼æŠ¼ä¸‹æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã‚’è¨­å®šã€‚"
     (setq callback fn)
     (not (zerop (treeview-dll-set-keydown-callback *treeview-id* #'treeview-keydown-callback-imp)))))
 #|
@@ -534,49 +534,49 @@ item ‚ª‚È‚¢ê‡‚Í 0 ‚ğ•Ô‚·B"
   (c:defun-c-callable c:void treeview-edit-label-callback-imp ((winapi:HTREEITEM hitem) (winapi:LPCTSTR text))
     (funcall callback hitem (si:unpack-string (si:make-chunk nil maxlen nil text) 0)))
   (defun treeview-edit-label-callback (fn)
-    "treeview ã‚Å item ‚ÌƒeƒLƒXƒg•ÒW‚ÌƒR[ƒ‹ƒoƒbƒNŠÖ”‚ğİ’èB"
+    "treeview ä¸Šã§ item ã®ãƒ†ã‚­ã‚¹ãƒˆç·¨é›†æ™‚ã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã‚’è¨­å®šã€‚"
     (setq callback fn)
     (not (zerop (treeview-dll-set-edit-label-callback *treeview-id* #'treeview-edit-label-callback-imp)))))
 
 ;;
 (defun treeview-add-file-icon (filepath)
-  "treeview ‚ÉƒAƒCƒRƒ“‚ğ“o˜^B"
+  "treeview ã«ã‚¢ã‚¤ã‚³ãƒ³ã‚’ç™»éŒ²ã€‚"
   (treeview-dll-add-file-icon *treeview-id* (si:make-string-chunk filepath)))
 (defun treeview-set-item-icon (hitem icon sicon)
-  "item ‚ÉƒAƒCƒRƒ“‚ğİ’èB"
+  "item ã«ã‚¢ã‚¤ã‚³ãƒ³ã‚’è¨­å®šã€‚"
   (if (null icon)
       (setq icon 0))
   (if (null sicon)
       (setq sicon 0))
   (treeview-dll-set-item *treeview-id* hitem (logior winapi:TVIF_IMAGE winapi:TVIF_SELECTEDIMAGE) 0 icon sicon 0 0 0))
 (defun treeview-remove-icon (icon)
-  "treeview ‚©‚çƒAƒCƒRƒ“‚ğíœB"
+  "treeview ã‹ã‚‰ã‚¢ã‚¤ã‚³ãƒ³ã‚’å‰Šé™¤ã€‚"
   (treeview-dll-remove-icon *treeview-id* icon))
 (defun treeview-remove-all-icons ()
-  "treeview ‚©‚ç‘S‚Ä‚ÌƒAƒCƒRƒ“‚ğíœB"
+  "treeview ã‹ã‚‰å…¨ã¦ã®ã‚¢ã‚¤ã‚³ãƒ³ã‚’å‰Šé™¤ã€‚"
   (treeview-dll-remove-all-icons *treeview-id*))
 (defun treeview-simple-track-popup-menu (menu-format)
-  "treeview ‚Åƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[‚ğ•\¦B(g—p”ñ„§)"
+  "treeview ã§ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¡¨ç¤ºã€‚(ä½¿ç”¨éæ¨å¥¨)"
   (treeview-dll-simple-track-popup-menu (si:make-string-chunk menu-format)))
 (defun treeview-disable-char-jump (&optional (disable t))
-  "treeview ã‚Å‰p”šƒL[‚ğ‰Ÿ‰º‚µ‚½Û‚É item ‚ÖƒWƒƒƒ“ƒv‚·‚é‹““®‚ğ—}~B"
+  "treeview ä¸Šã§è‹±æ•°å­—ã‚­ãƒ¼ã‚’æŠ¼ä¸‹ã—ãŸéš›ã« item ã¸ã‚¸ãƒ£ãƒ³ãƒ—ã™ã‚‹æŒ™å‹•ã‚’æŠ‘æ­¢ã€‚"
   (treeview-dll-disable-char-jump *treeview-id* (if disable 1 0)))
 
 ;; ----------------------------------------------------------------------
-;; ’Ç‰Á
+;; è¿½åŠ 
 (defvar *treeview-expand-expand-pre-hook* nil
-  "treeview-expand-expand ‚Å item “WŠJ‘O‚Ì hook")
+  "treeview-expand-expand ã§ item å±•é–‹å‰ã® hook")
 (defvar *treeview-expand-expand-hook* nil
-  "treeview-expand-expand ‚Å item “WŠJŒã‚Ìhook")
+  "treeview-expand-expand ã§ item å±•é–‹å¾Œã®hook")
 (defun treeview-expand-p (hitem)
-  "item ‚ª“WŠJ‚µ‚Ä‚¢‚é‚©B
-“WŠJ non-nilB”ñ“WŠJ nilB"
+  "item ãŒå±•é–‹ã—ã¦ã„ã‚‹ã‹ã€‚
+å±•é–‹æ™‚ non-nilã€‚éå±•é–‹æ™‚ nilã€‚"
   (not (zerop (logand winapi:TVIS_EXPANDED (treeview-dll-get-item-state *treeview-id* hitem 0)))))
 (defun treeview-expand-expand (hitem &key sibling child visible (depth t))
-  "item ‚ğ“WŠJB
-DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
-       t          ‘S‚Ä“WŠJ
-       <integer>  w’èŠK‘w”“WŠJ (â‘Î’l‚Å‚Í‚È‚­‘Š‘Î’l)"
+  "item ã‚’å±•é–‹ã€‚
+DEPTH: CHILD æŒ‡å®šãŒã‚ã‚‹å ´åˆã€ä½•éšå±¤ expand ã™ã‚‹ã‹ã‚’æŒ‡å®š
+       t          å…¨ã¦å±•é–‹
+       <integer>  æŒ‡å®šéšå±¤æ•°å±•é–‹ (çµ¶å¯¾å€¤ã§ã¯ãªãç›¸å¯¾å€¤)"
   (labels ((treeview-expand-expand-child (hitem depth)
              (when (or (eq depth t)
                        (and (integerp depth) (<= 0 (decf depth))))
@@ -610,7 +610,7 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
   (if visible
       (treeview-ensure-visible hitem)))
 (defun treeview-expand-collapse (hitem &key sibling child visible)
-  "item ‚ğ•Â‚¶‚éB"
+  "item ã‚’é–‰ã˜ã‚‹ã€‚"
   (labels ((treeview-expand-collapse-child (hitem)
              (let (child-hitem)
                (treeview-dll-expand *treeview-id* hitem winapi:TVE_COLLAPSE)
@@ -634,9 +634,9 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
   (if visible
       (treeview-ensure-visible hitem)))
 (defun treeview-expand-toggle (hitem &key sibling child visible)
-  "item ‚ÌŠJ•Âó‘Ô‚ğƒgƒOƒ‹B
-©g‚ªq item ‚ğ‚½‚È‚¢ê‡‚ÍAq item ‚ğ‚Â’·ŒZ item ‚Ìó‘Ô‚É‚æ‚Á‚Ä
-ŠJ•Â‚·‚éó‘Ô‚ğƒgƒOƒ‹‚·‚éB"
+  "item ã®é–‹é–‰çŠ¶æ…‹ã‚’ãƒˆã‚°ãƒ«ã€‚
+è‡ªèº«ãŒå­ item ã‚’æŒãŸãªã„å ´åˆã¯ã€å­ item ã‚’æŒã¤é•·å…„ item ã®çŠ¶æ…‹ã«ã‚ˆã£ã¦
+é–‹é–‰ã™ã‚‹çŠ¶æ…‹ã‚’ãƒˆã‚°ãƒ«ã™ã‚‹ã€‚"
   (let ((h1 hitem) h2 flag)
     (if (treeview-hitem-equal h1 winapi:TVGN_ROOT)
         (setq h1 (treeview-get-child-item h1)))
@@ -654,18 +654,18 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-close-hook* nil
-  "treeview-close ÀsŒã‚Ì hook")
+  "treeview-close å®Ÿè¡Œå¾Œã® hook")
 (defvar *treeview-open-hook* nil
-  "treeview-open ÀsŒã‚Ì hook")
+  "treeview-open å®Ÿè¡Œå¾Œã® hook")
 (defvar *treeview-window-size-min* 5
-  "treeview-close ‚Ì window size")
+  "treeview-close æ™‚ã® window size")
 (defvar *treeview-window-size-threshold* 20
-  "treeview ‚ª close ‚µ‚Ä‚¢‚é‚ÆŒ©‚È‚· size ‚Ìè‡’l")
+  "treeview ãŒ close ã—ã¦ã„ã‚‹ã¨è¦‹ãªã™ size ã®é–¾å€¤")
 (defvar *treeview-window-size-default* 200
-  "treeview-open ‚ÌÅ¬ window size")
+  "treeview-open æ™‚ã®æœ€å° window size")
 
 (defun treeview-close-p ()
-  "treeview ‚ª•Â‚¶‚Ä‚¢‚é‚©B"
+  "treeview ãŒé–‰ã˜ã¦ã„ã‚‹ã‹ã€‚"
   (when (treeview-exist-p)
     (treeview-data-save-window-size)
     (cond
@@ -674,10 +674,10 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
      (t
       (<= (treeview-data-get 'treeview::window-height) *treeview-window-size-threshold*)))))
 (defun treeview-open-p ()
-  "treeview ‚ªŠJ‚¢‚Ä‚¢‚é‚©B"
+  "treeview ãŒé–‹ã„ã¦ã„ã‚‹ã‹ã€‚"
   (if (treeview-exist-p) (not (treeview-close-p))))
 (defun treeview-close ()
-  "treeview ‚ğ•Â‚¶‚éB"
+  "treeview ã‚’é–‰ã˜ã‚‹ã€‚"
   (interactive)
   (when (treeview-exist-p)
     (treeview-data-save-window-size)
@@ -689,10 +689,10 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
     (treeview-setsize *treeview-window-size-min* *treeview-window-size-min* 10000 1))
   (run-hooks '*treeview-close-hook*))
 (defun treeview-open ()
-  "treeview ‚ğŠJ‚­B"
+  "treeview ã‚’é–‹ãã€‚"
   (interactive)
   (when (treeview-exist-p)
-    ;; Œ»İ‚ÌƒEƒBƒ“ƒhƒEƒTƒCƒY‚ğ‹L˜^
+    ;; ç¾åœ¨ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚ºã‚’è¨˜éŒ²
     (treeview-data-save-window-size)
     (let (window-size)
       (cond
@@ -700,38 +700,38 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
         (setq window-size (treeview-data-get 'treeview::window-width)))
        (t
         (setq window-size (treeview-data-get 'treeview::window-height))))
-      ;; Œ»İ‚ÌƒEƒBƒ“ƒhƒEƒTƒCƒY‚ªè‡’l‚æ‚è’á‚¢(‹·‚¢)ê‡
+      ;; ç¾åœ¨ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚ºãŒé–¾å€¤ã‚ˆã‚Šä½ã„(ç‹­ã„)å ´åˆ
       (when (or (not (integerp window-size))
                 (>= *treeview-window-size-threshold* window-size))
         (setq window-size (treeview-data-get 'treeview::open-window-size))
-        ;; treeview-close ‚ÌƒEƒBƒ“ƒhƒEƒTƒCƒY‚ªè‡’l‚æ‚è’á‚¢(‹·‚¢)ê‡
+        ;; treeview-close æ™‚ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚ºãŒé–¾å€¤ã‚ˆã‚Šä½ã„(ç‹­ã„)å ´åˆ
         (when (or (not (integerp window-size))
                   (>= *treeview-window-size-threshold* window-size))
-          ;; ƒfƒtƒHƒ‹ƒg’l
+          ;; ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤
           (setq window-size *treeview-window-size-default*)))
       (treeview-setsize window-size *treeview-window-size-min* 10000 1)))
   (run-hooks '*treeview-open-hook*))
 (defun treeview-toggle-open ()
-  "treeview ‚ÌŠJ•Â‚ğƒgƒOƒ‹B"
+  "treeview ã®é–‹é–‰ã‚’ãƒˆã‚°ãƒ«ã€‚"
   (interactive)
   (when (treeview-exist-p)
     (if (treeview-close-p)
         (treeview-open) (treeview-close))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ”»’èEó‘Ôæ“¾
+;; åˆ¤å®šãƒ»çŠ¶æ…‹å–å¾—
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-hitem-valid-p (hitem)
-  "item ‚ª non-nil ‚©‚Â ”ñ 0 ‚Å‚ ‚é‚©B"
+  "item ãŒ non-nil ã‹ã¤ é 0 ã§ã‚ã‚‹ã‹ã€‚"
   (and hitem (not (eql hitem 0))))
 (defun treeview-hitem-equal (hitem1 hitem2)
-  "item ‚ª“™‚µ‚¢‚©B"
+  "item ãŒç­‰ã—ã„ã‹ã€‚"
   (eql hitem1 hitem2))
 (defun treeview-hitem-not-equal (hitem1 hitem2)
-  "item ‚ª“™‚µ‚­‚È‚¢‚©B"
+  "item ãŒç­‰ã—ããªã„ã‹ã€‚"
   (not (treeview-hitem-equal hitem1 hitem2)))
 (defun treeview-hitem-lessp (hitem1 hitem2)
-  "hitem1 ‚ª hitem2 ‚æ‚è‚àã•”‚É‘¶İ‚·‚é‚©B"
+  "hitem1 ãŒ hitem2 ã‚ˆã‚Šã‚‚ä¸Šéƒ¨ã«å­˜åœ¨ã™ã‚‹ã‹ã€‚"
   (let (hitems1 hitems2 hitem)
     (when (and (treeview-exist-p)
                (treeview-hitem-valid-p hitem1)
@@ -763,17 +763,17 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
           (setq hitem (treeview-get-next-sibling-item hitem)))
         nil)))))
 (defun treeview-hitem-greaterp (hitem1 hitem2)
-  "hitem1 ‚ª hitem2 ‚æ‚è‚à‰º•”‚É‘¶İ‚·‚é‚©B"
+  "hitem1 ãŒ hitem2 ã‚ˆã‚Šã‚‚ä¸‹éƒ¨ã«å­˜åœ¨ã™ã‚‹ã‹ã€‚"
   (treeview-hitem-lessp hitem2 hitem1))
 (defun treeview-hitem-not-lessp (hitem1 hitem2)
-  "hitem1 ‚ª hitem2 ‚æ‚è‚àã•”‚É‚Í‘¶İ‚µ‚È‚¢‚©B"
+  "hitem1 ãŒ hitem2 ã‚ˆã‚Šã‚‚ä¸Šéƒ¨ã«ã¯å­˜åœ¨ã—ãªã„ã‹ã€‚"
   (not (treeview-hitem-lessp hitem1 hitem2)))
 (defun treeview-hitem-not-greaterp (hitem1 hitem2)
-  "hitem1 ‚ª hitem2 ‚æ‚è‚à‰º•”‚É‚Í‘¶İ‚µ‚È‚¢‚©B"
+  "hitem1 ãŒ hitem2 ã‚ˆã‚Šã‚‚ä¸‹éƒ¨ã«ã¯å­˜åœ¨ã—ãªã„ã‹ã€‚"
   (not (treeview-hitem-greaterp hitem1 hitem2)))
 
 (defun treeview-get-depth (hitem)
-  "item ‚ÌŠK‘wƒŒƒxƒ‹‚ğæ“¾B(1 origin)"
+  "item ã®éšå±¤ãƒ¬ãƒ™ãƒ«ã‚’å–å¾—ã€‚(1 origin)"
   (let ((depth 0))
     (when (and (treeview-exist-p)
                (treeview-hitem-valid-p hitem))
@@ -788,7 +788,7 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
 ;; window
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-set-redraw (arg)
-  "treeview ‚ÌÄ•`‰æ‚ÌŠJn/—}§‚ğİ’èB"
+  "treeview ã®å†æç”»ã®é–‹å§‹/æŠ‘åˆ¶ã‚’è¨­å®šã€‚"
   (let ((WM_SETREDRAW #x000B) (TRUE 1) (FALSE 0))
     (if (and arg (not (and (numberp arg) (zerop arg))))
         (setq arg TRUE)
@@ -796,17 +796,17 @@ DEPTH: CHILD w’è‚ª‚ ‚éê‡A‰½ŠK‘w expand ‚·‚é‚©‚ğw’è
     (winapi:SendMessage (treeview-get-htree) WM_SETREDRAW arg 0)))
 
 (defun treeview-window-height ()
-  "treeview ‚Éc‚É•\¦‰Â”\‚È item ‚Ì”‚ğæ“¾B
-treeview-get-visible-count ‚Æ“¯ˆêB"
+  "treeview ã«ç¸¦ã«è¡¨ç¤ºå¯èƒ½ãª item ã®æ•°ã‚’å–å¾—ã€‚
+treeview-get-visible-count ã¨åŒä¸€ã€‚"
   (treeview-get-visible-count))
 (defun treeview-get-window-line (&optional (hitem (treeview-get-selected-item)))
-  "item ‚Ì window s”Ô† (0 origin)"
+  "item ã® window è¡Œç•ªå· (0 origin)"
   (if (treeview-exist-p)
       (car (multiple-value-list
             (truncate (nth 1 (treeview-get-item-rect hitem))
                       (treeview-get-item-height))))))
 (defun treeview-item-visible-p (hitem)
-  "item ‚ª“WŠJ•\¦‚µ‚Ä‚¢‚é‚©B"
+  "item ãŒå±•é–‹è¡¨ç¤ºã—ã¦ã„ã‚‹ã‹ã€‚"
   (let (parent-hitem)
     (and (treeview-hitem-valid-p hitem)
          (loop
@@ -817,22 +817,22 @@ treeview-get-visible-count ‚Æ“¯ˆêB"
                (setq hitem parent-hitem)
              (return nil))))))
 (defun treeview-item-window-visible-p (hitem)
-  "item ‚ª window “à‚É•\¦‚³‚ê‚Ä‚¢‚é‚©B"
+  "item ãŒ window å†…ã«è¡¨ç¤ºã•ã‚Œã¦ã„ã‚‹ã‹ã€‚"
   (and (treeview-item-visible-p hitem)
        (< -1 (treeview-get-window-line hitem) (treeview-window-height))))
 (defun treeview-window-top-p ()
-  "treeview window ‚ªˆê”Ôã‚ÉƒXƒNƒ[ƒ‹‚µ‚Ä‚¢‚é‚©B"
+  "treeview window ãŒä¸€ç•ªä¸Šã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã—ã¦ã„ã‚‹ã‹ã€‚"
   (when (treeview-exist-p)
     (treeview-hitem-equal (treeview-get-first-visible-item)
                           (treeview-get-root-item))))
 (defun treeview-window-bottom-p ()
-  "treeview window ‚ªˆê”Ô‰º‚ÉƒXƒNƒ[ƒ‹‚µ‚Ä‚¢‚é‚©B"
+  "treeview window ãŒä¸€ç•ªä¸‹ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã—ã¦ã„ã‚‹ã‹ã€‚"
   (when (treeview-exist-p)
     (treeview-hitem-equal (treeview-get-last-window-visible-item)
                           (treeview-get-last-visible-item))))
 (defun treeview-scroll-window (arg)
-  "treeview window ‚ğc•ûŒü‚ÉƒXƒNƒ[ƒ‹B
-arg ‚É—^‚¦‚ç‚ê‚½®”‚Ì item ŒÂ”•ª‰º•ûŒü‚ÉƒXƒNƒ[ƒ‹‚·‚éB"
+  "treeview window ã‚’ç¸¦æ–¹å‘ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã€‚
+arg ã«ä¸ãˆã‚‰ã‚ŒãŸæ•´æ•°ã® item å€‹æ•°åˆ†ä¸‹æ–¹å‘ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã™ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let ((hwnd (treeview-get-htree)))
       (when (integerp arg)
@@ -842,12 +842,12 @@ arg ‚É—^‚¦‚ç‚ê‚½®”‚Ì item ŒÂ”•ª‰º•ûŒü‚ÉƒXƒNƒ[ƒ‹‚·‚éB"
           (dotimes (i (- arg))
             (winapi:SendMessage hwnd winapi:WM_VSCROLL winapi:SB_LINEUP 0)))))))
 (defun treeview-recenter (&optional arg)
-  "treeview window ‚ğc•ûŒü‚ÉƒXƒNƒ[ƒ‹‚µ‚Ä‰æ–Êã‚Ì•\¦ˆÊ’u‚ğ’²®‚·‚éB"
+  "treeview window ã‚’ç¸¦æ–¹å‘ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã—ã¦ç”»é¢ä¸Šã®è¡¨ç¤ºä½ç½®ã‚’èª¿æ•´ã™ã‚‹ã€‚"
   (interactive "p")
   (treeview-scroll-window
    (treeview-recenter-scroll-height (treeview-get-selected-item) arg)))
 (defun treeview-recenter-scroll-height (&optional hitem arg)
-  "treeview-recenter ‚É•K—v‚ÈƒXƒNƒ[ƒ‹—Ê‚ğæ“¾B"
+  "treeview-recenter ã«å¿…è¦ãªã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«é‡ã‚’å–å¾—ã€‚"
   (when (treeview-item-visible-p hitem)
     (- (treeview-get-window-line hitem)
        (if arg
@@ -857,7 +857,7 @@ arg ‚É—^‚¦‚ç‚ê‚½®”‚Ì item ŒÂ”•ª‰º•ûŒü‚ÉƒXƒNƒ[ƒ‹‚·‚éB"
          (truncate (treeview-window-height) 2)))))
 
 (defun treeview-hscroll-window (arg)
-  "treeview window ‚ğ‰¡•ûŒü‚ÉƒXƒNƒ[ƒ‹B"
+  "treeview window ã‚’æ¨ªæ–¹å‘ã«ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã€‚"
   (when (treeview-exist-p)
     (let ((hwnd (treeview-get-htree)))
       (when (integerp arg)
@@ -867,39 +867,39 @@ arg ‚É—^‚¦‚ç‚ê‚½®”‚Ì item ŒÂ”•ª‰º•ûŒü‚ÉƒXƒNƒ[ƒ‹‚·‚éB"
           (dotimes (i (- arg))
             (winapi:SendMessage hwnd winapi:WM_HSCROLL winapi:SB_LINELEFT 0)))))))
 (defun treeview-hscroll-window-left ()
-  "treeview window ‚ğ¶’[‚Ü‚ÅƒXƒNƒ[ƒ‹B"
+  "treeview window ã‚’å·¦ç«¯ã¾ã§ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã€‚"
   (interactive)
   (when (treeview-exist-p)
     (let ((hwnd (treeview-get-htree)))
       (winapi:SendMessage hwnd winapi:WM_HSCROLL winapi:SB_LEFT 0))))
 (defun treeview-hscroll-window-right ()
-  "treeview window ‚ğ‰E’[‚Ü‚ÅƒXƒNƒ[ƒ‹B"
+  "treeview window ã‚’å³ç«¯ã¾ã§ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã€‚"
   (interactive)
   (when (treeview-exist-p)
     (let ((hwnd (treeview-get-htree)))
       (winapi:SendMessage hwnd winapi:WM_HSCROLL winapi:SB_RIGHT 0))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ƒtƒH[ƒJƒX
+;; ãƒ•ã‚©ãƒ¼ã‚«ã‚¹
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-focus-editor-pre-hook* nil
-  "treeview-focus-editor ‚ÅƒGƒfƒBƒ^•”‚ğƒtƒH[ƒJƒX‚·‚é‘O‚Ì hook")
+  "treeview-focus-editor ã§ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã™ã‚‹å‰ã® hook")
 (defvar *treeview-focus-editor-hook* nil
-  "treeview-focus-editor ‚ÅƒGƒfƒBƒ^•”‚ğƒtƒH[ƒJƒX‚µ‚½Œã‚Ì hook")
+  "treeview-focus-editor ã§ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã—ãŸå¾Œã® hook")
 (defun treeview-focus-editor ()
-  "ƒGƒfƒBƒ^•”‚ğƒtƒH[ƒJƒX‚·‚éB"
+  "ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã™ã‚‹ã€‚"
   (interactive)
   (with-app ((treeview-get-active-app-id) t)
     (run-hooks '*treeview-focus-editor-pre-hook*)
     (winapi:SetFocus (get-window-handle))
     (run-hooks '*treeview-focus-editor-hook*)))
 (defvar *treeview-focus-treeview-pre-hook* nil
-  "treeview-focus-treeview ‚Å treeview ‚ğƒtƒH[ƒJƒX‚·‚é‘O‚Ì hook")
+  "treeview-focus-treeview ã§ treeview ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã™ã‚‹å‰ã® hook")
 (defvar *treeview-focus-treeview-hook* nil
-  "treeview-focus-treeview ‚Å treeview ‚ğƒtƒH[ƒJƒX‚µ‚½Œã‚Ì hook")
+  "treeview-focus-treeview ã§ treeview ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã—ãŸå¾Œã® hook")
 (defun treeview-focus-treeview (&optional app-id)
-  "treeview ‚ğƒtƒH[ƒJƒX‚·‚éB
-treeview ‚ğƒtƒH[ƒJƒX‚·‚éê‡‚ÍA‚±‚Ì function ‚ğ—p‚¢‚é‚æ‚¤‚ÉB"
+  "treeview ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã™ã‚‹ã€‚
+treeview ã‚’ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã™ã‚‹å ´åˆã¯ã€ã“ã® function ã‚’ç”¨ã„ã‚‹ã‚ˆã†ã«ã€‚"
   (interactive)
   (with-app ((or app-id *treeview-app-id*
                  (treeview-get-active-app-id)
@@ -911,11 +911,11 @@ treeview ‚ğƒtƒH[ƒJƒX‚·‚éê‡‚ÍA‚±‚Ì function ‚ğ—p‚¢‚é‚æ‚¤‚ÉB"
                  (car *treeview-app-id-list*)) t)
     (run-hooks '*treeview-focus-treeview-pre-hook*)
     (when (treeview-exist-p)
-      ;; ƒtƒH[ƒJƒX
+      ;; ãƒ•ã‚©ãƒ¼ã‚«ã‚¹
       (winapi:SetFocus (treeview-get-hwnd))
-      ;; treeview-app-bar ‚Ì‘I‘ğƒ^ƒuXV
+      ;; treeview-app-bar ã®é¸æŠã‚¿ãƒ–æ›´æ–°
       (tab-bar-select-item 'treeview-app-bar *treeview-app-id*)
-      ;; ”r‘¼“I open ˆ—
+      ;; æ’ä»–çš„ open å‡¦ç†
       (let ((active-app-id *treeview-app-id*)
             (exclusive-open-group (treeview-data-get 'treeview::exclusive-open-group)))
         (when exclusive-open-group
@@ -930,11 +930,11 @@ treeview ‚ğƒtƒH[ƒJƒX‚·‚éê‡‚ÍA‚±‚Ì function ‚ğ—p‚¢‚é‚æ‚¤‚ÉB"
     (run-hooks '*treeview-focus-treeview-hook*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; •¡” item ‚Ö‚Ìˆ—
+;; è¤‡æ•° item ã¸ã®å‡¦ç†
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-get-item-tree (hitem)
-  "item ˆÈ‰º‚Ì item-tree ‚ğæ“¾‚·‚éB
-root ‚©‚ç’²‚×‚éê‡‚Í hitem ‚É‚Í 0(winapi::TVGN_ROOT) ‚ğw’è‚·‚éB"
+  "item ä»¥ä¸‹ã® item-tree ã‚’å–å¾—ã™ã‚‹ã€‚
+root ã‹ã‚‰èª¿ã¹ã‚‹å ´åˆã¯ hitem ã«ã¯ 0(winapi::TVGN_ROOT) ã‚’æŒ‡å®šã™ã‚‹ã€‚"
   (let (child-hitem (tree (list hitem)))
     (when (treeview-item-has-children-p hitem)
       (setq child-hitem (treeview-get-child-item hitem))
@@ -944,7 +944,7 @@ root ‚©‚ç’²‚×‚éê‡‚Í hitem ‚É‚Í 0(winapi::TVGN_ROOT) ‚ğw’è‚·‚éB"
     (nreverse tree)))
 
 (defun treeview-map-item-tree (item-tree func)
-  "item-tree ‚Ì‚»‚ê‚¼‚ê‚Ì item ‚É‘Î‚µ‚Ä func ‚ğÀs‚µ‚½Œ‹‰Ê‚Ì tree ‚ğæ“¾B"
+  "item-tree ã®ãã‚Œãã‚Œã® item ã«å¯¾ã—ã¦ func ã‚’å®Ÿè¡Œã—ãŸçµæœã® tree ã‚’å–å¾—ã€‚"
   (when item-tree
     (let (tree)
       (setq tree (list (funcall func (car item-tree))))
@@ -953,7 +953,7 @@ root ‚©‚ç’²‚×‚éê‡‚Í hitem ‚É‚Í 0(winapi::TVGN_ROOT) ‚ğw’è‚·‚éB"
       (nreverse tree))))
 
 (defun treeview-get-ancestor-item-list (hitem)
-  "©g‚ğŠÜ‚Ş‘S‚Ä‚Ìe item ‚ÌƒŠƒXƒg‚ğAe‚©‚çq‚ÉŒü‚©‚¤‡‚Åæ“¾B"
+  "è‡ªèº«ã‚’å«ã‚€å…¨ã¦ã®è¦ª item ã®ãƒªã‚¹ãƒˆã‚’ã€è¦ªã‹ã‚‰å­ã«å‘ã‹ã†é †ã§å–å¾—ã€‚"
   (let (lst)
     (while (treeview-hitem-valid-p hitem)
       (push hitem lst)
@@ -961,10 +961,10 @@ root ‚©‚ç’²‚×‚éê‡‚Í hitem ‚É‚Í 0(winapi::TVGN_ROOT) ‚ğw’è‚·‚éB"
     (nreverse lst)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; §Œä\‘¢ (Ä‹A, ‚»‚Ì‘¼)
+;; åˆ¶å¾¡æ§‹é€  (å†å¸°, ãã®ä»–)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-funcall-recursive-tree-bottom-up (hitem func)
-  "q¨e‚Ì‡‚ÅA©g‚ğŠÜ‚İ item ˆÈ‰º‚Ì item ‘S‚Ä‚É func ‚ğÀsB"
+  "å­â†’è¦ªã®é †ã§ã€è‡ªèº«ã‚’å«ã¿ item ä»¥ä¸‹ã® item å…¨ã¦ã« func ã‚’å®Ÿè¡Œã€‚"
   (labels ((recursive-call (hitem)
              (let (child-hitem)
                (when (treeview-item-has-children-p hitem)
@@ -976,8 +976,8 @@ root ‚©‚ç’²‚×‚éê‡‚Í hitem ‚É‚Í 0(winapi::TVGN_ROOT) ‚ğw’è‚·‚éB"
     (when (treeview-hitem-valid-p hitem)
       (recursive-call hitem))))
 (defun treeview-funcall-recursive-tree-top-down (hitem func)
-  "e¨q‚Ì‡‚ÅA©g‚ğŠÜ‚İ item ˆÈ‰º‚Ì item ‘S‚Ä‚É func ‚ğÀsB
-func ‚ª nil ‚ğ•Ô‚µ‚½ê‡‚»‚Ìqƒm[ƒh‚Íˆ—‚µ‚È‚¢B"
+  "è¦ªâ†’å­ã®é †ã§ã€è‡ªèº«ã‚’å«ã¿ item ä»¥ä¸‹ã® item å…¨ã¦ã« func ã‚’å®Ÿè¡Œã€‚
+func ãŒ nil ã‚’è¿”ã—ãŸå ´åˆãã®å­ãƒãƒ¼ãƒ‰ã¯å‡¦ç†ã—ãªã„ã€‚"
   (labels ((recursive-call (hitem)
              (when (and (funcall func hitem)
                         (treeview-item-has-children-p hitem))
@@ -991,7 +991,7 @@ func ‚ª nil ‚ğ•Ô‚µ‚½ê‡‚»‚Ìqƒm[ƒh‚Íˆ—‚µ‚È‚¢B"
     (when (treeview-hitem-valid-p hitem)
       (recursive-call hitem))))
 (defun treeview-funcall-recursive-subtree-bottom-up (hitem func)
-  "q¨e‚Ì‡‚ÅA©g‚ğŠÜ‚Ü‚¸ item ‚æ‚è‰º‚Ì item ‘S‚Ä‚É func ‚ğÀsB"
+  "å­â†’è¦ªã®é †ã§ã€è‡ªèº«ã‚’å«ã¾ãš item ã‚ˆã‚Šä¸‹ã® item å…¨ã¦ã« func ã‚’å®Ÿè¡Œã€‚"
   (labels ((recursive-call (hitem)
              (let (child-hitem)
                (when (treeview-item-has-children-p hitem)
@@ -1005,8 +1005,8 @@ func ‚ª nil ‚ğ•Ô‚µ‚½ê‡‚»‚Ìqƒm[ƒh‚Íˆ—‚µ‚È‚¢B"
     (when (treeview-hitem-valid-p hitem)
       (recursive-call hitem))))
 (defun treeview-funcall-recursive-subtree-top-down (hitem func)
-  "e¨q‚Ì‡‚ÅA©g‚ğŠÜ‚Ü‚¸ item ‚æ‚è‰º‚Ì item ‘S‚Ä‚É func ‚ğÀsB
-func ‚ª nil ‚ğ•Ô‚µ‚½ê‡‚»‚Ìqƒm[ƒh‚Íˆ—‚µ‚È‚¢B"
+  "è¦ªâ†’å­ã®é †ã§ã€è‡ªèº«ã‚’å«ã¾ãš item ã‚ˆã‚Šä¸‹ã® item å…¨ã¦ã« func ã‚’å®Ÿè¡Œã€‚
+func ãŒ nil ã‚’è¿”ã—ãŸå ´åˆãã®å­ãƒãƒ¼ãƒ‰ã¯å‡¦ç†ã—ãªã„ã€‚"
   (labels ((recursive-call (hitem)
              (when (treeview-item-has-children-p hitem)
                (let (child-hitem)
@@ -1020,7 +1020,7 @@ func ‚ª nil ‚ğ•Ô‚µ‚½ê‡‚»‚Ìqƒm[ƒh‚Íˆ—‚µ‚È‚¢B"
     (when (treeview-hitem-valid-p hitem)
       (recursive-call hitem))))
 (defun treeview-funcall-continue-up (hitem func)
-  "q¨e‚Ì‡‚ÅA©g‚ğŠÜ‚İ item ‚©‚çã‚Ì item ‘S‚Ä‚É func ‚ğÀsB"
+  "å­â†’è¦ªã®é †ã§ã€è‡ªèº«ã‚’å«ã¿ item ã‹ã‚‰ä¸Šã® item å…¨ã¦ã« func ã‚’å®Ÿè¡Œã€‚"
   (while (treeview-hitem-valid-p hitem)
     (setq hitem
           (prog1

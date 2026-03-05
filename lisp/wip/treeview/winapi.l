@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: WINAPI -*-
+;;; -*- Mode: Lisp; Package: WINAPI ; Encoding: utf-8 -*-
 ;;; winapi.l --- treeview
 
 ;; Copyright (C) 2001-2006 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -336,7 +336,7 @@ corresponds to the lParam member of this structure.
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; êF
+;; Ëâ≤
 (*define CLR_NONE                #xFFFFFFFF)
 (*define CLR_DEFAULT             #xFF000000)
 

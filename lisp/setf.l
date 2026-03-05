@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -23,7 +23,7 @@
 	 '(setf ,access-fn))
     (let ((doc (find-documentation (cddr forms))))
       (unless (= (list-length (cadr forms)) 1)
-	(error "Ši”[•Ï”‚ª‚ ‚è‚Ü‚¹‚ñ"))
+	(error "æ ¼ç´å¤‰æ•°ãŒã‚ã‚Šã¾ã›ã‚“"))
       `(eval-when (:compile-toplevel :load-toplevel :execute)
 	 (si:*putprop ',access-fn ',forms 'setf-lambda)
 	 (remprop ',access-fn 'setf-method)
@@ -58,12 +58,12 @@
 	     (values nil nil (list store) (list 'setq form store) form)))
 	  ((or (not (consp form))
 	       (not (symbolp (car form))))
-	   (error "~S‚Ìsetfƒƒ\ƒbƒh‚Í‚ ‚è‚Ü‚¹‚ñ" form))
+	   (error "~Sã®setfãƒ¡ã‚½ãƒƒãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“" form))
 	  ((si:*find-in-environment form env)
 	   ;(setq tem (assoc (car form) env))
 	   (setq tem (macroexpand-1 form env))
 	   (if (eq tem form)
-	       (error "~S‚Ìsetfƒƒ\ƒbƒh‚Í‚ ‚è‚Ü‚¹‚ñ" form))
+	       (error "~Sã®setfãƒ¡ã‚½ãƒƒãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“" form))
 	   (get-setf-method-multiple-value tem env))
 	  ((get (car form) 'setf-method)
 	   (apply (get (car form) 'setf-method) env (cdr form)))
@@ -85,16 +85,16 @@
 		(macro-function (car form)))
 	   (setq tem (macroexpand-1 form env))
 	   (if (eq tem form)
-	       (error "~S‚Ìsetfƒƒ\ƒbƒh‚Í‚ ‚è‚Ü‚¹‚ñ" form))
+	       (error "~Sã®setfãƒ¡ã‚½ãƒƒãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“" form))
 	   (get-setf-method-multiple-value tem env))
 	  (t
-	   (error "setfƒtƒH[ƒ€‚ğ“WŠJ‚Å‚«‚Ü‚¹‚ñ: ~S." form)))))
+	   (error "setfãƒ•ã‚©ãƒ¼ãƒ ã‚’å±•é–‹ã§ãã¾ã›ã‚“: ~S." form)))))
 
 (defun get-setf-method (form &optional env)
   (multiple-value-bind (vars vals stores store-form access-form)
       (get-setf-method-multiple-value form env)
     (unless (= (list-length stores) 1)
-      (error "•¡”‚ÌŠi”[•Ï”‚ª‚ ‚è‚Ü‚·"))
+      (error "è¤‡æ•°ã®æ ¼ç´å¤‰æ•°ãŒã‚ã‚Šã¾ã™"))
     (values vars vals stores store-form access-form)))
 
 (defun optimize-setf-method (vars vals stores store-form access-form newvalues)
@@ -170,14 +170,14 @@
        (result '()))
       ((endp al) (nreverse result))
     (if (endp (cdr al))
-	(error "~S: •s³‚ÈsetfƒtƒH[ƒ€‚Å‚·" al))
+	(error "~S: ä¸æ­£ãªsetfãƒ•ã‚©ãƒ¼ãƒ ã§ã™" al))
     (setq result (cons (setf-expand-1 (car al) (cadr al) env) result))))
 
 (defmacro setf (&rest args &environment env)
   (cond ((endp args)
 	 'nil)
 	((endp (cdr args))
-	 (error "~S: •s³‚ÈsetfƒtƒH[ƒ€‚Å‚·" args))
+	 (error "~S: ä¸æ­£ãªsetfãƒ•ã‚©ãƒ¼ãƒ ã§ã™" args))
 	((endp (cddr args))
 	 (setf-expand-1 (car args) (cadr args) env))
 	(t (cons 'progn (setf-expand args env)))))
@@ -186,7 +186,7 @@
   (cond ((endp args)
 	 'nil)
 	((endp (cdr args))
-	 (error "~S: •s³‚ÈpsetfƒtƒH[ƒ€‚Å‚·" args))
+	 (error "~S: ä¸æ­£ãªpsetfãƒ•ã‚©ãƒ¼ãƒ ã§ã™" args))
 	((endp (cddr args))
 	 `(progn
 	    ,(setf-expand-1 (car args) (cadr args) env)
@@ -200,7 +200,7 @@
 		 ,@(nreverse store-forms)
 		 nil))
 	   (when (endp (cdr x))
-	     (error "~S: •s³‚ÈpsetfƒtƒH[ƒ€‚Å‚·" args))
+	     (error "~S: ä¸æ­£ãªpsetfãƒ•ã‚©ãƒ¼ãƒ ã§ã™" args))
 	   (multiple-value-bind (vars vals stores store-form access-form)
 	       (get-setf-method (car x) env)
 	     (push store-form store-forms)
@@ -448,7 +448,7 @@
 	       (eq (car fn) 'function)
 	       (symbolp (cadr fn))
 	       (null (cddr fn)))
-    (error "~S‚Ìsetfƒƒ\ƒbƒh‚ğæ“¾‚Å‚«‚Ü‚¹‚ñ" fn))
+    (error "~Sã®setfãƒ¡ã‚½ãƒƒãƒ‰ã‚’å–å¾—ã§ãã¾ã›ã‚“" fn))
   (multiple-value-bind (vars vals stores store-form access-form)
       (get-setf-method (cons (cadr fn) rest) env)
     (cond ((eq (car (last store-form)) (car (last vars)))
@@ -463,4 +463,4 @@
                                    (list ,(car (last store-form)))))
                    `(apply #',(cadr fn) ,@(cdr access-form))))
           (t
-	   (error "~S‚Ìsetfƒƒ\ƒbƒh‚ğæ“¾‚Å‚«‚Ü‚¹‚ñ" fn)))))
+	   (error "~Sã®setfãƒ¡ã‚½ãƒƒãƒ‰ã‚’å–å¾—ã§ãã¾ã›ã‚“" fn)))))

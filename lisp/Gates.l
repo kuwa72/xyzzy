@@ -1,10 +1,10 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
 
 ;;;
-;;; Windows 風キーバインドサンプル
+;;; Windows 鬚ｨ繧ｭ繝ｼ繝舌う繝ｳ繝峨し繝ｳ繝励Ν
 ;;;
 
 (provide "Gates")

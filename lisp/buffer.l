@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -64,7 +64,7 @@
   (set-buffer-modified-p nil)
   (when (and (interactive-p)
 	     (null *executing-macro*))
-    (message "•ÏXƒtƒ‰ƒO‚ğƒNƒŠƒA‚µ‚Ü‚µ‚½")))
+    (message "å¤‰æ›´ãƒ•ãƒ©ã‚°ã‚’ã‚¯ãƒªã‚¢ã—ã¾ã—ãŸ")))
 
 (defun toggle-read-only (&optional (arg nil sv))
   (interactive "p")
@@ -83,7 +83,7 @@
       (null verify-visited-file-modtime)
       (verify-visited-file-modtime buffer)
       (and (or (eq verify-visited-file-modtime ':auto)
-	       (yes-or-no-p "’N‚©‚ªŸè‚Éƒtƒ@ƒCƒ‹‚ğ‘‚«Š·‚¦‚Ä‚¢‚Ü‚·B\nƒfƒBƒXƒN‚©‚ç“Ç‚İ’¼‚·?"))
+	       (yes-or-no-p "èª°ã‹ãŒå‹æ‰‹ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ›¸ãæ›ãˆã¦ã„ã¾ã™ã€‚\nãƒ‡ã‚£ã‚¹ã‚¯ã‹ã‚‰èª­ã¿ç›´ã™?"))
 	   (revert-buffer)))
   buffer)
 
@@ -104,11 +104,11 @@
     (and buffer (switch-to-buffer buffer))))
 
 (defun rename (filename &optional nowarn)
-  (interactive "Frename: " :title0 "ƒtƒ@ƒCƒ‹–¼‚Ì•ÏX")
+  (interactive "Frename: " :title0 "ãƒ•ã‚¡ã‚¤ãƒ«åã®å¤‰æ›´")
   (setq filename (namestring filename))
   (when (or (not (file-exist-p filename))
 	    nowarn
-	    (no-or-yes-p "~a‚ÍŠù‚É‘¶İ‚µ‚Ü‚·BƒŠƒl[ƒ€‚µ‚Ü‚·‚©?" filename))
+	    (no-or-yes-p "~aã¯æ—¢ã«å­˜åœ¨ã—ã¾ã™ã€‚ãƒªãƒãƒ¼ãƒ ã—ã¾ã™ã‹?" filename))
     (set-buffer-file-name filename)
     (rename-buffer (file-namestring filename))
     (when need-not-save
@@ -123,7 +123,7 @@
 		       (set-buffer buffer)
 		       (run-hook-with-args-while-success '*query-kill-buffer-hook*))))
 	      (and (need-buffer-save-p buffer)
-		   (not (no-or-yes-p "~s‚Í•ÏX‚³‚ê‚Ä‚¢‚Ü‚·B•ÏX“à—e‚ğ”jŠü‚µ‚Ü‚·‚©?" buffer))))
+		   (not (no-or-yes-p "~sã¯å¤‰æ›´ã•ã‚Œã¦ã„ã¾ã™ã€‚å¤‰æ›´å†…å®¹ã‚’ç ´æ£„ã—ã¾ã™ã‹?" buffer))))
     (delete-buffer buffer)))
 
 (defun kill-selected-buffer ()
@@ -140,7 +140,7 @@
 (defun revert-buffer-normal ()
   (let ((opoint (point)))
     (or (file-visited-p)
-        (error "ƒtƒ@ƒCƒ‹–¼‚ª‚ ‚è‚Ü‚¹‚ñB"))
+        (error "ãƒ•ã‚¡ã‚¤ãƒ«åãŒã‚ã‚Šã¾ã›ã‚“ã€‚"))
     (when (let ((buffer-read-only nil))
 	    (declare (special buffer-read-only))
 	    (let* ((filename (get-buffer-file-name))
@@ -219,10 +219,10 @@
 			  (t
 			   (refresh-screen)
 			   (case (message-box
-				  (format nil "~A\n\n’N‚©‚ªŸè‚Éƒtƒ@ƒCƒ‹‚ğ•ÏX‚µ‚Ä‚¢‚Ü‚·BƒfƒBƒXƒN‚©‚ç“Ç‚İ’¼‚µ‚Ü‚·‚©?"
+				  (format nil "~A\n\nèª°ã‹ãŒå‹æ‰‹ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å¤‰æ›´ã—ã¦ã„ã¾ã™ã€‚ãƒ‡ã‚£ã‚¹ã‚¯ã‹ã‚‰èª­ã¿ç›´ã—ã¾ã™ã‹?"
 					  (get-buffer-file-name buffer))
 				  nil '(:yes-no-cancel :question :button1)
-				  :button4 "‚¢‚¿‚¢‚¿‚¤‚´‚¢(&A)")
+				  :button4 "ã„ã¡ã„ã¡ã†ã–ã„(&A)")
 			     (:yes t)
 			     (:no nil)
 			     (:button4 (setq no-query :yes) t)
@@ -272,7 +272,7 @@
 			  #'read-buffer-name))
 
 #|
-;; ˆÈ‰º‚ğ .xyzzy ‚É‘‚¢‚Ä‚¨‚¯‚Î emacs •—‚Ìƒoƒbƒtƒ@–¼w’è‚ª‚Å‚«‚éB
+;; ä»¥ä¸‹ã‚’ .xyzzy ã«æ›¸ã„ã¦ãŠã‘ã° emacs é¢¨ã®ãƒãƒƒãƒ•ã‚¡åæŒ‡å®šãŒã§ãã‚‹ã€‚
 (pushnew '(#\B . emacs-interactive-buffer-name)
 	 *interactive-specifier-alist* :test #'equal)
 (pushnew '(#\b . emacs-interactive-exist-buffer-name)

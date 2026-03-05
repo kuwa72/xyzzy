@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; macro.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -15,13 +15,13 @@
 (in-package "treeview")
 
 (defmacro with-treeview ((treeview-id) &body body)
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ“à‚Å‚Ì‚İ—p‚¢‚é"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªå†…ã§ã®ã¿ç”¨ã„ã‚‹"
   `(let ((*treeview-id* ,treeview-id))
      ,@body))
 (setf (get 'with-treeview 'ed:lisp-indent-hook) 1)
 
 (defmacro with-app ((app-id &optional save-last-app-id-p) &body body)
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠŠO‚©‚ç—p‚¢‚é"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªå¤–ã‹ã‚‰ç”¨ã„ã‚‹"
   `(let ((app-id ,app-id)
          (save-last-app-id-p ,save-last-app-id-p))
      (multiple-value-prog1
@@ -41,7 +41,7 @@
 (setf (get 'with-app 'ed:lisp-indent-hook) 1)
 
 (defmacro treeview-on-treeview (&rest body)
-  "treeview ã‚©‚ç editor ‚ÌƒRƒ}ƒ“ƒh‚ğÀs‚·‚é"
+  "treeview ä¸Šã‹ã‚‰ editor ã®ã‚³ãƒãƒ³ãƒ‰ã‚’å®Ÿè¡Œã™ã‚‹"
   `(unwind-protect
        (progn
          (treeview-focus-editor)
@@ -52,7 +52,7 @@
        (refresh-screen))))
 
 (defmacro treeview-make-tv-command (&rest commands)
-  "treeview —pƒRƒ}ƒ“ƒh‚Ìì¬"
+  "treeview ç”¨ã‚³ãƒãƒ³ãƒ‰ã®ä½œæˆ"
   (let* ((main-command (car commands))
          (sub-functions (cdr commands))
          (name (intern (concatenate 'string (symbol-name main-command) "-on-treeview"))))
@@ -67,7 +67,7 @@
        ',name)))
 
 (defmacro treeview-suppress-redraw (&rest body)
-  "Ä•`‰æ‚ğ—}§"
+  "å†æç”»ã‚’æŠ‘åˆ¶"
   `(unwind-protect
        (progn
          (treeview-data-set 'treeview::suppress-redraw-count

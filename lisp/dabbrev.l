@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -200,7 +200,7 @@
 	       (setq direction 0)))))
     (unless *last-dabbrevs-text-location*
       (goto-char end)
-      (plain-error "Ç»Ç¢ÇÊÇÒ"))
+      (plain-error "„Å™„ÅÑ„Çà„Çì"))
     (cond ((funcall eq *last-dabbrevs-text* lasttext))
 	  ((funcall eq *last-dabbrevs-text* *dabbrevs-first-text*)
 	   (message "Wrapped"))
@@ -278,4 +278,4 @@
 	(clear-message))
       (if matches
 	  (popup-completion-list (sort matches #'string-lessp) start end)
-	(plain-error "Ç»Ç¢ÇÊÇÒ")))))
+	(plain-error "„Å™„ÅÑ„Çà„Çì")))))

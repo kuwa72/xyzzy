@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 
 (defconstant *ftp-preliminary* 1)
 (defconstant *ftp-complete* 2)

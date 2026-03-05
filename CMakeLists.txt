@@ -258,7 +258,7 @@ add_custom_command(
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
     COMMAND $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
-    DEPENDS gen-src1
+    DEPENDS gen-src1 ${SRC_DIR}/gen-syms.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating symbol tables"
 )

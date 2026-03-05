@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: USER -*-
+;;; -*- Mode: Lisp; Package: USER ; Encoding: utf-8 -*-
 ;;; makefile.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>

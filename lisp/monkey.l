@@ -1,35 +1,36 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; -*-Lisp-*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
 
-;; ƒ‰ƒxƒ‹‚Ì”‚ğ12ŒÂ‚Éİ’è(4, 5, 8, 10, 12, 15‚Ì‚Ç‚ê‚©)
+;; ãƒ©ãƒ™ãƒ«ã®æ•°ã‚’12å€‹ã«è¨­å®š(4, 5, 8, 10, 12, 15ã®ã©ã‚Œã‹)
 (set-number-of-function-bar-labels 12)
 
-;; ƒ‰ƒxƒ‹‚Ì•¶š‚ğİ’è
-(set-function-bar-label #\F1 "VCƒwƒ‹ƒv")
-(set-function-bar-label #\F2 "ƒoƒbƒtƒ@")
+;; ãƒ©ãƒ™ãƒ«ã®æ–‡å­—ã‚’è¨­å®š
+(set-function-bar-label #\F1 "VCãƒ˜ãƒ«ãƒ—")
+(set-function-bar-label #\F2 "ãƒãƒƒãƒ•ã‚¡")
 (set-function-bar-label #\F3 "InfoView")
-(set-function-bar-label #\F4 "ƒ^ƒOƒWƒƒƒ“ƒv")
-(set-function-bar-label #\F5 "ŸŒŸõ/‰º")
-(set-function-bar-label #\F6 "sƒuƒƒbƒN")
-(set-function-bar-label #\F7 "íœ")
-(set-function-bar-label #\F8 "ƒRƒs[")
-(set-function-bar-label #\F9 "ƒy[ƒXƒg")
-(set-function-bar-label #\F10 "ƒGƒ‰[")
-(set-function-bar-label #\F11 "ŸƒGƒ‰[")
+(set-function-bar-label #\F4 "ã‚¿ã‚°ã‚¸ãƒ£ãƒ³ãƒ—")
+(set-function-bar-label #\F5 "æ¬¡æ¤œç´¢/ä¸‹")
+(set-function-bar-label #\F6 "è¡Œãƒ–ãƒ­ãƒƒã‚¯")
+(set-function-bar-label #\F7 "å‰Šé™¤")
+(set-function-bar-label #\F8 "ã‚³ãƒ”ãƒ¼")
+(set-function-bar-label #\F9 "ãƒšãƒ¼ã‚¹ãƒˆ")
+(set-function-bar-label #\F10 "ã‚¨ãƒ©ãƒ¼")
+(set-function-bar-label #\F11 "æ¬¡ã‚¨ãƒ©ãƒ¼")
 (set-function-bar-label #\F12 "Redo")
 
 ;; Shift+?
-(set-function-bar-label #\S-F5 "ŸŒŸõ/ã")
-(set-function-bar-label #\S-F6 "•¶šƒuƒƒbƒN")
-(set-function-bar-label #\S-F9 "‹éŒ`ƒy[ƒXƒg")
+(set-function-bar-label #\S-F5 "æ¬¡æ¤œç´¢/ä¸Š")
+(set-function-bar-label #\S-F6 "æ–‡å­—ãƒ–ãƒ­ãƒƒã‚¯")
+(set-function-bar-label #\S-F9 "çŸ©å½¢ãƒšãƒ¼ã‚¹ãƒˆ")
 
 ;; Control+?
-(set-function-bar-label #\C-F1 "ƒwƒ‹ƒv")
-(set-function-bar-label #\C-F2 "ƒ}[ƒN")
+(set-function-bar-label #\C-F1 "ãƒ˜ãƒ«ãƒ—")
+(set-function-bar-label #\C-F2 "ãƒãƒ¼ã‚¯")
 
-;; ‚¨‚Ü‚¯
+;; ãŠã¾ã‘
 ;; Shift+Control+?
 (set-function-bar-label #\S-C-F1 "S-C-F1")
 ;; Alt+?
@@ -41,5 +42,5 @@
 ;; Alt+Control+Control+?
 (set-function-bar-label #\S-C-M-F5 "S-M-C-F5")
 
-;; nil‚ÅÁ‚¦‚é
+;; nilã§æ¶ˆãˆã‚‹
 (set-function-bar-label #\M-F2 nil)

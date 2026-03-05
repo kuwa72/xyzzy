@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -21,7 +21,7 @@
 
 (defun get-text-font (lang)
   (or (cdr (assoc lang (get-text-fontset)))
-      (error "•s³‚È•¶šƒZƒbƒg‚Å‚·: ~S" lang)))
+      (error "ä¸æ­£ãªæ–‡å­—ã‚»ãƒƒãƒˆã§ã™: ~S" lang)))
 
 (defun set-text-font (lang &key face size size-pixel-p)
   (let ((font (get-text-font lang)))
@@ -70,7 +70,7 @@
 			 (:medium 2)
 			 (:large 3)
 			 (:x-large 4)
-			 (t (error "•s³‚È•¶šƒTƒCƒY‚Å‚·: ~S" size))
+			 (t (error "ä¸æ­£ãªæ–‡å­—ã‚µã‚¤ã‚ºã§ã™: ~S" size))
 			 ))))
       (set-text-fontset fontset)))
 

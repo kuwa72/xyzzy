@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -37,9 +37,9 @@
 	   (switch-to-buffer (marker-buffer val))
 	   (goto-char val))
 	  ((null val)
-	   (error "���W�X�^~A���ݒ肳��Ă��܂���" r))
+	   (error "レジスタ~Aが設定されていません" r))
 	  (t
-	   (error "���W�X�^�Ƀ}�[�J�������Ă��܂���")))))
+	   (error "レジスタにマーカが入っていません")))))
 
 (defun insert-register (r)
   (interactive "cInsert register: ")
@@ -51,9 +51,9 @@
 	  ((stringp val)
 	   (insert val))
 	  ((null val)
-	   (error "���W�X�^~A���ݒ肳��Ă��܂���" r))
+	   (error "レジスタ~Aが設定されていません" r))
 	  (t
-	   (error "���W�X�^�Ƀe�L�X�g�������Ă��܂���")))))
+	   (error "レジスタにテキストが入っていません")))))
 
 (defun copy-to-register (r start end &optional delete)
   (interactive "cCopy to register: \nr\nP")
@@ -66,7 +66,7 @@
   (interactive "cAppend to register: \nr\nP")
   (let ((val (get-register r)))
     (unless (stringp val)
-      (error "���W�X�^�Ƀe�L�X�g�������Ă��܂���"))
+      (error "レジスタにテキストが入っていません"))
     (set-register r (concat val (buffer-substring start end)))
     (if delete
 	(delete-region start end))
@@ -76,7 +76,7 @@
   (interactive "cAppend to register: \nr\nP")
   (let ((val (get-register r)))
     (unless (stringp val)
-      (error "���W�X�^�Ƀe�L�X�g�������Ă��܂���"))
+      (error "レジスタにテキストが入っていません"))
     (set-register r (concat (buffer-substring start end) val))
     (if delete
 	(delete-region start end))
@@ -101,9 +101,9 @@
 		(eq (car val) 'window-configuration))
 	   (set-window-configuration val))
 	  ((null val)
-	   (error "���W�X�^~A���ݒ肳��Ă��܂���" r))
+	   (error "レジスタ~Aが設定されていません" r))
 	  (t
-	   (error "���W�X�^��Window-configuration�������Ă��܂���")))))
+	   (error "レジスタにWindow-configurationが入っていません")))))
 
 (defun view-register (r)
   (interactive "cView register: ")

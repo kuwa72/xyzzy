@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR ; Encoding: utf-8 -*-
 ;;; color.l
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -10,63 +10,63 @@
 
 ;; Description:
 ;;
-;;  COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒgA‘€ìŠÖ”‚Ì’ñ‹ŸB
+;;  COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆã€æ“ä½œé–¢æ•°ã®æä¾›ã€‚
 ;;
 
 ;; Installation:
 ;;
-;;      1. ƒA[ƒJƒCƒu‚ğ“WŠJ‚µ‚Ä color.l ‚ğ $XYZZY/site-lisp ‚É
-;;         ƒRƒs[‚µ‚Ü‚·B
+;;      1. ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã‚’å±•é–‹ã—ã¦ color.l ã‚’ $XYZZY/site-lisp ã«
+;;         ã‚³ãƒ”ãƒ¼ã—ã¾ã™ã€‚
 ;;
-;;      2. •K—v‚È‚ç‚ÎƒoƒCƒgƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·B
+;;      2. å¿…è¦ãªã‚‰ã°ãƒã‚¤ãƒˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã€‚
 ;;
 ;;              M-x byte-compile-file
 ;;              Byte compile file: $XYZZY/site-lisp/color.l
 ;;
-;;      3. ~/.xyzzy ‚Ü‚½‚Í $XYZZY/site-lisp/siteinit.l ‚ÉˆÈ‰º‚ÌƒR[ƒh‚ğ
-;;         ’Ç‰Á‚µ‚Ü‚·B
+;;      3. ~/.xyzzy ã¾ãŸã¯ $XYZZY/site-lisp/siteinit.l ã«ä»¥ä¸‹ã®ã‚³ãƒ¼ãƒ‰ã‚’
+;;         è¿½åŠ ã—ã¾ã™ã€‚
 ;;
 ;;              (require "wip/color")
 ;;
-;;      4. ã‹L‚Ìİ’è‚ğ”½‰f‚³‚¹‚é‚½‚ß‚ÉAxyzzy ‚ğÄ‹N“®‚µ‚Ü‚·B
-;;         siteinit.l ‚É‹Lq‚µ‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ‚È‚ª‚ç
-;;         xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      4. ä¸Šè¨˜ã®è¨­å®šã‚’åæ˜ ã•ã›ã‚‹ãŸã‚ã«ã€xyzzy ã‚’å†èµ·å‹•ã—ã¾ã™ã€‚
+;;         siteinit.l ã«è¨˜è¿°ã—ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—ãªãŒã‚‰
+;;         xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
 
 ;; Uninstallation:
 ;;
-;;      1. color.l ‚ÉŠÖ‚·‚é‹Lq‚ğíœ‚µ‚Ü‚·B
+;;      1. color.l ã«é–¢ã™ã‚‹è¨˜è¿°ã‚’å‰Šé™¤ã—ã¾ã™ã€‚
 ;;
-;;      2. siteinit.l ‚É‹Lq‚µ‚Ä‚¢‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ
-;;         ‚È‚ª‚ç xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      2. siteinit.l ã«è¨˜è¿°ã—ã¦ã„ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—
+;;         ãªãŒã‚‰ xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
 
 ;; Usage:
 ;;
-;;      color.l ‚ğ•K—v‚Æ‚·‚éƒR[ƒh‚ğ•]‰¿(ƒ[ƒh)‚·‚é‘O‚É require ‚·‚éB
+;;      color.l ã‚’å¿…è¦ã¨ã™ã‚‹ã‚³ãƒ¼ãƒ‰ã‚’è©•ä¾¡(ãƒ­ãƒ¼ãƒ‰)ã™ã‚‹å‰ã« require ã™ã‚‹ã€‚
 ;;
 
 ;; Changes:
 ;;
 ;;      Thu, 06 Oct 2005 22:29:23 +0900
-;;        Eƒ‰ƒCƒZƒ“ƒXğ€(C³BSDƒ‰ƒCƒZƒ“ƒX)‚ğ‹LÚB
+;;        ãƒ»ãƒ©ã‚¤ã‚»ãƒ³ã‚¹æ¡é …(ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹)ã‚’è¨˜è¼‰ã€‚
 ;;
 ;;      Mon, 23 May 2005 00:05:10 +0900
-;;        Exyzzy 0.2.2.234 ‘Î‰
-;;          - "‚l‚r ‚oƒSƒVƒbƒN" Ë "MS UI Gothic"
-;;          - ”¼ŠpƒJƒi‚ğ‘SŠpƒJƒi‚É•ÏXB
+;;        ãƒ»xyzzy 0.2.2.234 å¯¾å¿œ
+;;          - "ï¼­ï¼³ ï¼°ã‚´ã‚·ãƒƒã‚¯" â‡’ "MS UI Gothic"
+;;          - åŠè§’ã‚«ãƒŠã‚’å…¨è§’ã‚«ãƒŠã«å¤‰æ›´ã€‚
 ;;
 ;;      Tue, 22 Feb 2005 00:28:21 +0900
-;;        E*color-xyzzy-colors-name-display-name-alist* ‚ğ
-;;          *color-xyzzy-colors-alist* ‚É–¼Ì•ÏX
+;;        ãƒ»*color-xyzzy-colors-name-display-name-alist* ã‚’
+;;          *color-xyzzy-colors-alist* ã«åç§°å¤‰æ›´
 ;;
 ;;      Thu, 21 Aug 2003 01:49:06 +0900
-;;        Eì¬
+;;        ãƒ»ä½œæˆ
 ;;
 
 ;; Licence:
 ;;
-;;    color ‚ÍC³BSDƒ‰ƒCƒZƒ“ƒX‚ÉŠî‚Ã‚¢‚Ä—˜—p‰Â”\‚Å‚·B
+;;    color ã¯ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹ã«åŸºã¥ã„ã¦åˆ©ç”¨å¯èƒ½ã§ã™ã€‚
 ;;    <http://www.opensource.org/licenses/bsd-license.php>
 ;;
 ;;
@@ -195,22 +195,22 @@ GetSysColor(
           *color-all-colors-name-alist*))
 
 (defun color-bgr2rgb (bgr)
-  "BGR ‚Ì”’l‚ğ RGB ‚Ì”’l‚É•ÏŠ·"
+  "BGR ã®æ•°å€¤ã‚’ RGB ã®æ•°å€¤ã«å¤‰æ›"
   (let ((b (floor (mod bgr #x1000000) #x10000))
         (g (floor (mod bgr #x10000) #x100))
         (r (mod bgr #x100)))
     (+ (* r #x10000) (* g #x100) b)))
 (defun color-rgb2bgr (rgb)
-  "RGB ‚Ì”’l‚ğ BGR ‚Ì”’l‚É•ÏŠ·"
+  "RGB ã®æ•°å€¤ã‚’ BGR ã®æ•°å€¤ã«å¤‰æ›"
   (color-bgr2rgb rgb))
 (defun color-code2str (code)
-  "”’l‚ğ 000000 ` FFFFFF ‚Ì•¶š—ñ‚É•ÏŠ·"
+  "æ•°å€¤ã‚’ 000000 ï½ FFFFFF ã®æ–‡å­—åˆ—ã«å¤‰æ›"
   (let ((x (floor (mod code #x1000000) #x10000))
         (y (floor (mod code #x10000) #x100))
         (z (mod code #x100)))
     (format nil "~:@(~{~2,'0X~}~)" (list x y z))))
 (defun color-str2code (str)
-  "000000 ` FFFFFF ‚Ì•¶š—ñ‚ğ”’l‚É•ÏŠ·"
+  "000000 ï½ FFFFFF ã®æ–‡å­—åˆ—ã‚’æ•°å€¤ã«å¤‰æ›"
   (when (string-matchp
          "\\([0-9a-f]\\{2\\}\\)\\([0-9a-f]\\{2\\}\\)\\([0-9a-f]\\{2\\}\\)" str)
     (let ((x (parse-integer (match-string 1) :radix 16))
@@ -218,12 +218,12 @@ GetSysColor(
           (z (parse-integer (match-string 3) :radix 16)))
       (+ (* x #x10000) (* y #x100) z))))
 (defun color-code2name (code &optional name-code-alist)
-  "RGB ‚Ì”’l‚ğ‘Î‰‚·‚éF–¼‚É•ÏŠ·"
+  "RGB ã®æ•°å€¤ã‚’å¯¾å¿œã™ã‚‹è‰²åã«å¤‰æ›"
   (unless name-code-alist
     (setq name-code-alist ed::*color-X11R6-name-alist*))
   (car (find code name-code-alist :key #'cdr :test #'eql)))
 (defun color-name2code (name &optional name-code-alist)
-  "F–¼‚ğ‘Î‰‚·‚é RGB ‚Ì”’l‚É•ÏŠ·"
+  "è‰²åã‚’å¯¾å¿œã™ã‚‹ RGB ã®æ•°å€¤ã«å¤‰æ›"
   (unless name-code-alist
     (setq name-code-alist ed::*color-X11R6-name-alist*))
   (cdr (find name name-code-alist :key #'car :test #'string-equal)))
@@ -982,20 +982,20 @@ GetSysColor(
     ("light green"            . #x90ee90) ; 144 238 144
     ("LightGreen"             . #x90ee90) ; 144 238 144
     )
-  "X11R6 ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "X11R6 ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 
 (defvar *color-X11R6-unique-name-alist* nil
-  "*color-X11R6-name-alist* ‚©‚ç•Ê–¼‚Ì COLOR-NAME ‚ğœŠO‚µ‚½‘Î‰ƒŠƒXƒg")
+  "*color-X11R6-name-alist* ã‹ã‚‰åˆ¥åã® COLOR-NAME ã‚’é™¤å¤–ã—ãŸå¯¾å¿œãƒªã‚¹ãƒˆ")
 (defun color-get-X11R6-unique-name-alist (&optional (gray t) space)
-  "•Ê–¼‚ğœŠO‚µ‚½ X11R6 ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰‚ğ¶¬B
-*color-X11R6-unique-name-alist* ‚É’l‚ğƒZƒbƒg‚·‚éB
-ˆø”F
+  "åˆ¥åã‚’é™¤å¤–ã—ãŸ X11R6 ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œã‚’ç”Ÿæˆã€‚
+*color-X11R6-unique-name-alist* ã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã€‚
+å¼•æ•°ï¼š
   GRAY
-    t   : gray ‚ğŠÜ‚Ş–¼‘O‚ğc‚·
-    nil : grey ‚ğŠÜ‚Ş–¼‘O‚ğc‚·
+    t   : gray ã‚’å«ã‚€åå‰ã‚’æ®‹ã™
+    nil : grey ã‚’å«ã‚€åå‰ã‚’æ®‹ã™
   SPACE
-    t   : ‹ó”’‚ğŠÜ‚Ş–¼‘O‚ğc‚·
-    nil : ‹ó”’‚ğŠÜ‚Ü‚È‚¢–¼‘O‚ğc‚·"
+    t   : ç©ºç™½ã‚’å«ã‚€åå‰ã‚’æ®‹ã™
+    nil : ç©ºç™½ã‚’å«ã¾ãªã„åå‰ã‚’æ®‹ã™"
   (flet ((color-get-X11R6-unique-name-alist-1 (name-list)
            (when (> (length name-list) 1)
              (let (tmp-name-list)
@@ -1050,7 +1050,7 @@ GetSysColor(
     ("Blue"                    . #x0000ff)
     ("Teal"                    . #x008080)
     ("Aqua"                    . #x00ffff))
-  "HTML3.2/4.0 ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "HTML3.2/4.0 ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 
 (defvar *color-Mozilla/MSIE-name-alist*
   '(("AliceBlue"               . #xf0f8ff)
@@ -1193,46 +1193,46 @@ GetSysColor(
     ("WhiteSmoke"              . #xf5f5f5)
     ("Yellow"                  . #xffff00)
     ("YellowGreen"             . #x9acd32))
-  "Mozilla/MSIE ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "Mozilla/MSIE ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 
 (defvar *color-discrepancy-X11R6-and-Mozilla/MSIE-name-list*
   '("Gray"
     "Green"
     "Maroon"
     "Purple")
-  "X11R6 ‚Æ Mozilla/MSIE ‚Å RGB’l ‚ÌˆÙ‚È‚é COLOR-NAME ‚ÌƒŠƒXƒg")
+  "X11R6 ã¨ Mozilla/MSIE ã§ RGBå€¤ ã®ç•°ãªã‚‹ COLOR-NAME ã®ãƒªã‚¹ãƒˆ")
 
 (defvar *color-system-colors-id-xyzzy-name-alist*
-  `((,winapi::COLOR_SCROLLBAR           . "ƒXƒNƒ[ƒ‹ƒo[")
-    (,winapi::COLOR_BACKGROUND          . "ƒfƒXƒNƒgƒbƒv")
-    (,winapi::COLOR_ACTIVECAPTION       . "ƒAƒNƒeƒBƒuƒ^ƒCƒgƒ‹ƒo[")
-    (,winapi::COLOR_INACTIVECAPTION     . "”ñƒAƒNƒeƒBƒuƒ^ƒCƒgƒ‹ƒo[")
-    (,winapi::COLOR_MENU                . "ƒƒjƒ…[‚Ì”wŒi")
-    (,winapi::COLOR_WINDOW              . "ƒEƒBƒ“ƒhƒE‚Ì”wŒi")
-    (,winapi::COLOR_WINDOWFRAME         . "ƒEƒBƒ“ƒhƒE‚Ì˜g")
-    (,winapi::COLOR_MENUTEXT            . "ƒƒjƒ…[‚Ì•¶š")
-    (,winapi::COLOR_WINDOWTEXT          . "ƒEƒBƒ“ƒhƒE‚Ì•¶š")
-    (,winapi::COLOR_CAPTIONTEXT         . "ƒAƒNƒeƒBƒuƒ^ƒCƒgƒ‹‚Ì•¶š")
-    (,winapi::COLOR_ACTIVEBORDER        . "ƒAƒNƒeƒBƒuƒEƒBƒ“ƒhƒE‚Ì‹«ŠE")
-    (,winapi::COLOR_INACTIVEBORDER      . "”ñƒAƒNƒeƒBƒuƒEƒBƒ“ƒhƒE‚Ì‹«ŠE")
-    (,winapi::COLOR_APPWORKSPACE        . "ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ì‹Æˆæ")
-    (,winapi::COLOR_HIGHLIGHT           . "‘I‘ğ€–Ú‚Ì”wŒi")
-    (,winapi::COLOR_HIGHLIGHTTEXT       . "‘I‘ğ€–Ú‚Ì•¶š")
-    (,winapi::COLOR_BTNFACE             . "3DƒIƒuƒWƒFƒNƒg‚Ì•\–Ê")
-    (,winapi::COLOR_BTNSHADOW           . "3DƒIƒuƒWƒFƒNƒg‚Ì‰e")
-    (,winapi::COLOR_GRAYTEXT            . "ŠDF‚Ì•¶š")
-    (,winapi::COLOR_BTNTEXT             . "3DƒIƒuƒWƒFƒNƒg‚Ì•¶š")
-    (,winapi::COLOR_INACTIVECAPTIONTEXT . "”ñƒAƒNƒeƒBƒuƒ^ƒCƒgƒ‹‚Ì•¶š")
-    (,winapi::COLOR_BTNHILIGHT          . "3DƒIƒuƒWƒFƒNƒg‚ÌƒeƒJƒŠ"))
-  "SYSTEM COLOR-ID ‚Æ xyzzy ‚Å‚Ì SYSTEM COLOR-NAME ‚Ì‘Î‰ƒŠƒXƒg")
+  `((,winapi::COLOR_SCROLLBAR           . "ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ãƒãƒ¼")
+    (,winapi::COLOR_BACKGROUND          . "ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—")
+    (,winapi::COLOR_ACTIVECAPTION       . "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¿ã‚¤ãƒˆãƒ«ãƒãƒ¼")
+    (,winapi::COLOR_INACTIVECAPTION     . "éã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¿ã‚¤ãƒˆãƒ«ãƒãƒ¼")
+    (,winapi::COLOR_MENU                . "ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®èƒŒæ™¯")
+    (,winapi::COLOR_WINDOW              . "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®èƒŒæ™¯")
+    (,winapi::COLOR_WINDOWFRAME         . "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®æ ")
+    (,winapi::COLOR_MENUTEXT            . "ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã®æ–‡å­—")
+    (,winapi::COLOR_WINDOWTEXT          . "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®æ–‡å­—")
+    (,winapi::COLOR_CAPTIONTEXT         . "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¿ã‚¤ãƒˆãƒ«ã®æ–‡å­—")
+    (,winapi::COLOR_ACTIVEBORDER        . "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®å¢ƒç•Œ")
+    (,winapi::COLOR_INACTIVEBORDER      . "éã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®å¢ƒç•Œ")
+    (,winapi::COLOR_APPWORKSPACE        . "ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ä½œæ¥­åŸŸ")
+    (,winapi::COLOR_HIGHLIGHT           . "é¸æŠé …ç›®ã®èƒŒæ™¯")
+    (,winapi::COLOR_HIGHLIGHTTEXT       . "é¸æŠé …ç›®ã®æ–‡å­—")
+    (,winapi::COLOR_BTNFACE             . "3Dã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®è¡¨é¢")
+    (,winapi::COLOR_BTNSHADOW           . "3Dã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®å½±")
+    (,winapi::COLOR_GRAYTEXT            . "ç°è‰²ã®æ–‡å­—")
+    (,winapi::COLOR_BTNTEXT             . "3Dã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®æ–‡å­—")
+    (,winapi::COLOR_INACTIVECAPTIONTEXT . "éã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã‚¿ã‚¤ãƒˆãƒ«ã®æ–‡å­—")
+    (,winapi::COLOR_BTNHILIGHT          . "3Dã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ãƒ†ã‚«ãƒª"))
+  "SYSTEM COLOR-ID ã¨ xyzzy ã§ã® SYSTEM COLOR-NAME ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 (defvar *color-system-colors-id-alist* nil
-  "SYSTEM COLOR-ID ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "SYSTEM COLOR-ID ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 (defvar *color-system-colors-xyzzy-name-alist* nil
-  "xyzzy ‚Å‚Ì SYSTEM COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "xyzzy ã§ã® SYSTEM COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 (defun color-get-system-colors ()
-  "SYSTEM COLOR-ID ‚Æ RGB’l ‚Ì‘Î‰A‚ğ¶¬B
-*color-system-colors-id-alist*, *color-system-colors-xyzzy-name-alist* ‚É
-’l‚ğƒZƒbƒg‚·‚éB"
+  "SYSTEM COLOR-ID ã¨ RGBå€¤ ã®å¯¾å¿œã€ã‚’ç”Ÿæˆã€‚
+*color-system-colors-id-alist*, *color-system-colors-xyzzy-name-alist* ã«
+å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã€‚"
   (let (id xyzzy-name code colors-id-alist colors-name-alist)
     (dolist (x *color-system-colors-id-xyzzy-name-alist*)
       (setq id (car x))
@@ -1247,98 +1247,98 @@ GetSysColor(
 
 (defvar *color-xyzzy-colors-alist*
   ;; name                           display-name             default
-  '(("[Colors]textColor"            "•¶šF"                 winapi::COLOR_WINDOWTEXT)
-    ("[Colors]backColor"            "”wŒiF"                 winapi::COLOR_WINDOW)
-    ("[Colors]ctlColor"             "§Œä•¶š"               #x808000)
-    ("[Colors]selectionTextColor"   "‘I‘ğ•¶šF"             winapi::COLOR_HIGHLIGHTTEXT)
-    ("[Colors]selectionBackColor"   "‘I‘ğ”wŒiF"             winapi::COLOR_HIGHLIGHT)
-    ("[Colors]kwdColor1"            "ƒL[ƒ[ƒh1"            #x0000ff)
-    ("[Colors]kwdColor2"            "ƒL[ƒ[ƒh2"            #x004000)
-    ("[Colors]kwdColor3"            "ƒL[ƒ[ƒh3"            #x800080)
-    ("[Colors]stringColor"          "•¶š—ñ"                 #x004000)
-    ("[Colors]commentColor"         "ƒRƒƒ“ƒg"               #x008000)
-    ("[Colors]tagColor"             "ƒ^ƒO"                   #x404000)
-    ("[Colors]cursorColor"          "sƒJ[ƒ\ƒ‹"             #x800080)
-    ("[Colors]caretColor"           "ƒLƒƒƒŒƒbƒg"             #x000000)
-    ("[Colors]imeCaretColor"        "IMEƒLƒƒƒŒƒbƒg"          #x800000)
-    ("[Colors]linenum"              "s”Ô†"                 winapi::COLOR_WINDOWTEXT)
-    ("[Colors]reverse"              "ƒjƒZ”½“]F"             winapi::COLOR_BACKGROUND)
-    ("[Colors]unselectedModeLineFg" "ƒ‚[ƒhs•¶šF"         winapi::COLOR_BTNTEXT)
-    ("[Colors]unselectedModeLineBg" "ƒ‚[ƒhs”wŒiF"         winapi::COLOR_BTNFACE)
-    ("[Colors]modeLineFg"           "‘I‘ğƒ‚[ƒhs•¶šF"     winapi::COLOR_BTNHILIGHT)
-    ("[Colors]modeLineBg"           "‘I‘ğƒ‚[ƒhs”wŒiF"     winapi::COLOR_BTNTEXT)
-    ("[Filer]textColor"             "ƒtƒ@ƒCƒ‰•¶šF"         winapi::COLOR_WINDOWTEXT)
-    ("[Filer]backColor"             "ƒtƒ@ƒCƒ‰”wŒiF"         winapi::COLOR_WINDOW)
-    ("[Filer]highlightTextColor"    "ƒtƒ@ƒCƒ‰‘I‘ğ•¶šF"     winapi::COLOR_HIGHLIGHTTEXT)
-    ("[Filer]highlightBackColor"    "ƒtƒ@ƒCƒ‰‘I‘ğ”wŒiF"     winapi::COLOR_HIGHLIGHT)
-    ("[Filer]cursorColor"           "ƒtƒ@ƒCƒ‰ƒJ[ƒ\ƒ‹F"     #xc000c0)
-    ("[Colors]buftabSelFg"          "‘I‘ğƒoƒbƒtƒ@ƒ^ƒu•¶šF" winapi::COLOR_BTNTEXT)
-    ("[Colors]buftabSelBg"          "‘I‘ğƒoƒbƒtƒ@ƒ^ƒu”wŒiF" winapi::COLOR_BTNFACE)
-    ("[Colors]buftabDispFg"         "•\¦ƒoƒbƒtƒ@ƒ^ƒu•¶šF" winapi::COLOR_BTNTEXT)
-    ("[Colors]buftabDispBg"         "•\¦ƒoƒbƒtƒ@ƒ^ƒu”wŒiF" winapi::COLOR_BTNFACE)
-    ("[Colors]buftabFg"             "ƒoƒbƒtƒ@ƒ^ƒu•¶šF"     winapi::COLOR_BTNTEXT)
-    ("[Colors]buftabBg"             "ƒoƒbƒtƒ@ƒ^ƒu”wŒiF"     winapi::COLOR_BTNFACE)
-    ("[Colors]tabSelFg"             "‘I‘ğƒ^ƒu•¶šF"         winapi::COLOR_BTNTEXT)
-    ("[Colors]tabSelBg"             "‘I‘ğƒ^ƒu”wŒiF"         winapi::COLOR_BTNFACE)
-    ("[Colors]tabFg"                "ƒ^ƒu•¶šF"             winapi::COLOR_BTNTEXT)
-    ("[Colors]tabBg"                "ƒ^ƒu”wŒiF"             winapi::COLOR_BTNFACE)
-    ("[Colors]fg1"                  "•¶š1"                  #xff0000)
-    ("[Colors]fg2"                  "•¶š2"                  #x00ff00)
-    ("[Colors]fg3"                  "•¶š3"                  #xffff00)
-    ("[Colors]fg4"                  "•¶š4"                  #x0000ff)
-    ("[Colors]fg5"                  "•¶š5"                  #xff00ff)
-    ("[Colors]fg6"                  "•¶š6"                  #x00ffff)
-    ("[Colors]fg7"                  "•¶š7"                  #xffffff)
-    ("[Colors]fg8"                  "•¶š8"                  #x000000)
-    ("[Colors]fg9"                  "•¶š9"                  #x800000)
-    ("[Colors]fg10"                 "•¶š10"                 #x008000)
-    ("[Colors]fg11"                 "•¶š11"                 #x808000)
-    ("[Colors]fg12"                 "•¶š12"                 #x000080)
-    ("[Colors]fg13"                 "•¶š13"                 #x800080)
-    ("[Colors]fg14"                 "•¶š14"                 #x008080)
-    ("[Colors]fg15"                 "•¶š15"                 #x808080)
-    ("[Colors]bg1"                  "”wŒi1"                  #xff0000)
-    ("[Colors]bg2"                  "”wŒi2"                  #x00ff00)
-    ("[Colors]bg3"                  "”wŒi3"                  #xffff00)
-    ("[Colors]bg4"                  "”wŒi4"                  #x0000ff)
-    ("[Colors]bg5"                  "”wŒi5"                  #xff00ff)
-    ("[Colors]bg6"                  "”wŒi6"                  #x00ffff)
-    ("[Colors]bg7"                  "”wŒi7"                  #xffffff)
-    ("[Colors]bg8"                  "”wŒi8"                  #x000000)
-    ("[Colors]bg9"                  "”wŒi9"                  #x800000)
-    ("[Colors]bg10"                 "”wŒi10"                 #x008000)
-    ("[Colors]bg11"                 "”wŒi11"                 #x808000)
-    ("[Colors]bg12"                 "”wŒi12"                 #x000080)
-    ("[Colors]bg13"                 "”wŒi13"                 #x800080)
-    ("[Colors]bg14"                 "”wŒi14"                 #x008080)
-    ("[Colors]bg15"                 "”wŒi15"                 #x808080)
+  '(("[Colors]textColor"            "æ–‡å­—è‰²"                 winapi::COLOR_WINDOWTEXT)
+    ("[Colors]backColor"            "èƒŒæ™¯è‰²"                 winapi::COLOR_WINDOW)
+    ("[Colors]ctlColor"             "åˆ¶å¾¡æ–‡å­—"               #x808000)
+    ("[Colors]selectionTextColor"   "é¸æŠæ–‡å­—è‰²"             winapi::COLOR_HIGHLIGHTTEXT)
+    ("[Colors]selectionBackColor"   "é¸æŠèƒŒæ™¯è‰²"             winapi::COLOR_HIGHLIGHT)
+    ("[Colors]kwdColor1"            "ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰1"            #x0000ff)
+    ("[Colors]kwdColor2"            "ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰2"            #x004000)
+    ("[Colors]kwdColor3"            "ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰3"            #x800080)
+    ("[Colors]stringColor"          "æ–‡å­—åˆ—"                 #x004000)
+    ("[Colors]commentColor"         "ã‚³ãƒ¡ãƒ³ãƒˆ"               #x008000)
+    ("[Colors]tagColor"             "ã‚¿ã‚°"                   #x404000)
+    ("[Colors]cursorColor"          "è¡Œã‚«ãƒ¼ã‚½ãƒ«"             #x800080)
+    ("[Colors]caretColor"           "ã‚­ãƒ£ãƒ¬ãƒƒãƒˆ"             #x000000)
+    ("[Colors]imeCaretColor"        "IMEã‚­ãƒ£ãƒ¬ãƒƒãƒˆ"          #x800000)
+    ("[Colors]linenum"              "è¡Œç•ªå·"                 winapi::COLOR_WINDOWTEXT)
+    ("[Colors]reverse"              "ãƒ‹ã‚»åè»¢è‰²"             winapi::COLOR_BACKGROUND)
+    ("[Colors]unselectedModeLineFg" "ãƒ¢ãƒ¼ãƒ‰è¡Œæ–‡å­—è‰²"         winapi::COLOR_BTNTEXT)
+    ("[Colors]unselectedModeLineBg" "ãƒ¢ãƒ¼ãƒ‰è¡ŒèƒŒæ™¯è‰²"         winapi::COLOR_BTNFACE)
+    ("[Colors]modeLineFg"           "é¸æŠãƒ¢ãƒ¼ãƒ‰è¡Œæ–‡å­—è‰²"     winapi::COLOR_BTNHILIGHT)
+    ("[Colors]modeLineBg"           "é¸æŠãƒ¢ãƒ¼ãƒ‰è¡ŒèƒŒæ™¯è‰²"     winapi::COLOR_BTNTEXT)
+    ("[Filer]textColor"             "ãƒ•ã‚¡ã‚¤ãƒ©æ–‡å­—è‰²"         winapi::COLOR_WINDOWTEXT)
+    ("[Filer]backColor"             "ãƒ•ã‚¡ã‚¤ãƒ©èƒŒæ™¯è‰²"         winapi::COLOR_WINDOW)
+    ("[Filer]highlightTextColor"    "ãƒ•ã‚¡ã‚¤ãƒ©é¸æŠæ–‡å­—è‰²"     winapi::COLOR_HIGHLIGHTTEXT)
+    ("[Filer]highlightBackColor"    "ãƒ•ã‚¡ã‚¤ãƒ©é¸æŠèƒŒæ™¯è‰²"     winapi::COLOR_HIGHLIGHT)
+    ("[Filer]cursorColor"           "ãƒ•ã‚¡ã‚¤ãƒ©ã‚«ãƒ¼ã‚½ãƒ«è‰²"     #xc000c0)
+    ("[Colors]buftabSelFg"          "é¸æŠãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–æ–‡å­—è‰²" winapi::COLOR_BTNTEXT)
+    ("[Colors]buftabSelBg"          "é¸æŠãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–èƒŒæ™¯è‰²" winapi::COLOR_BTNFACE)
+    ("[Colors]buftabDispFg"         "è¡¨ç¤ºãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–æ–‡å­—è‰²" winapi::COLOR_BTNTEXT)
+    ("[Colors]buftabDispBg"         "è¡¨ç¤ºãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–èƒŒæ™¯è‰²" winapi::COLOR_BTNFACE)
+    ("[Colors]buftabFg"             "ãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–æ–‡å­—è‰²"     winapi::COLOR_BTNTEXT)
+    ("[Colors]buftabBg"             "ãƒãƒƒãƒ•ã‚¡ã‚¿ãƒ–èƒŒæ™¯è‰²"     winapi::COLOR_BTNFACE)
+    ("[Colors]tabSelFg"             "é¸æŠã‚¿ãƒ–æ–‡å­—è‰²"         winapi::COLOR_BTNTEXT)
+    ("[Colors]tabSelBg"             "é¸æŠã‚¿ãƒ–èƒŒæ™¯è‰²"         winapi::COLOR_BTNFACE)
+    ("[Colors]tabFg"                "ã‚¿ãƒ–æ–‡å­—è‰²"             winapi::COLOR_BTNTEXT)
+    ("[Colors]tabBg"                "ã‚¿ãƒ–èƒŒæ™¯è‰²"             winapi::COLOR_BTNFACE)
+    ("[Colors]fg1"                  "æ–‡å­—1"                  #xff0000)
+    ("[Colors]fg2"                  "æ–‡å­—2"                  #x00ff00)
+    ("[Colors]fg3"                  "æ–‡å­—3"                  #xffff00)
+    ("[Colors]fg4"                  "æ–‡å­—4"                  #x0000ff)
+    ("[Colors]fg5"                  "æ–‡å­—5"                  #xff00ff)
+    ("[Colors]fg6"                  "æ–‡å­—6"                  #x00ffff)
+    ("[Colors]fg7"                  "æ–‡å­—7"                  #xffffff)
+    ("[Colors]fg8"                  "æ–‡å­—8"                  #x000000)
+    ("[Colors]fg9"                  "æ–‡å­—9"                  #x800000)
+    ("[Colors]fg10"                 "æ–‡å­—10"                 #x008000)
+    ("[Colors]fg11"                 "æ–‡å­—11"                 #x808000)
+    ("[Colors]fg12"                 "æ–‡å­—12"                 #x000080)
+    ("[Colors]fg13"                 "æ–‡å­—13"                 #x800080)
+    ("[Colors]fg14"                 "æ–‡å­—14"                 #x008080)
+    ("[Colors]fg15"                 "æ–‡å­—15"                 #x808080)
+    ("[Colors]bg1"                  "èƒŒæ™¯1"                  #xff0000)
+    ("[Colors]bg2"                  "èƒŒæ™¯2"                  #x00ff00)
+    ("[Colors]bg3"                  "èƒŒæ™¯3"                  #xffff00)
+    ("[Colors]bg4"                  "èƒŒæ™¯4"                  #x0000ff)
+    ("[Colors]bg5"                  "èƒŒæ™¯5"                  #xff00ff)
+    ("[Colors]bg6"                  "èƒŒæ™¯6"                  #x00ffff)
+    ("[Colors]bg7"                  "èƒŒæ™¯7"                  #xffffff)
+    ("[Colors]bg8"                  "èƒŒæ™¯8"                  #x000000)
+    ("[Colors]bg9"                  "èƒŒæ™¯9"                  #x800000)
+    ("[Colors]bg10"                 "èƒŒæ™¯10"                 #x008000)
+    ("[Colors]bg11"                 "èƒŒæ™¯11"                 #x808000)
+    ("[Colors]bg12"                 "èƒŒæ™¯12"                 #x000080)
+    ("[Colors]bg13"                 "èƒŒæ™¯13"                 #x800080)
+    ("[Colors]bg14"                 "èƒŒæ™¯14"                 #x008080)
+    ("[Colors]bg15"                 "èƒŒæ™¯15"                 #x808080)
     ;;
 #|
-    ("[Colors]custColor0"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[0"       #xffffff)
-    ("[Colors]custColor1"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[1"       #xffffff)
-    ("[Colors]custColor2"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[2"       #xffffff)
-    ("[Colors]custColor3"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[3"       #xffffff)
-    ("[Colors]custColor4"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[4"       #xffffff)
-    ("[Colors]custColor5"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[5"       #xffffff)
-    ("[Colors]custColor6"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[6"       #xffffff)
-    ("[Colors]custColor7"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[7"       #xffffff)
-    ("[Colors]custColor8"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[8"       #xffffff)
-    ("[Colors]custColor9"           "?ƒJƒXƒ^ƒ€ƒJƒ‰[9"       #xffffff)
-    ("[Colors]custColor10"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[10"      #xffffff)
-    ("[Colors]custColor11"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[11"      #xffffff)
-    ("[Colors]custColor12"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[12"      #xffffff)
-    ("[Colors]custColor13"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[13"      #xffffff)
-    ("[Colors]custColor14"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[14"      #xffffff)
-    ("[Colors]custColor15"          "?ƒJƒXƒ^ƒ€ƒJƒ‰[15"      #xffffff)
+    ("[Colors]custColor0"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼0"       #xffffff)
+    ("[Colors]custColor1"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼1"       #xffffff)
+    ("[Colors]custColor2"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼2"       #xffffff)
+    ("[Colors]custColor3"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼3"       #xffffff)
+    ("[Colors]custColor4"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼4"       #xffffff)
+    ("[Colors]custColor5"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼5"       #xffffff)
+    ("[Colors]custColor6"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼6"       #xffffff)
+    ("[Colors]custColor7"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼7"       #xffffff)
+    ("[Colors]custColor8"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼8"       #xffffff)
+    ("[Colors]custColor9"           "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼9"       #xffffff)
+    ("[Colors]custColor10"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼10"      #xffffff)
+    ("[Colors]custColor11"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼11"      #xffffff)
+    ("[Colors]custColor12"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼12"      #xffffff)
+    ("[Colors]custColor13"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼13"      #xffffff)
+    ("[Colors]custColor14"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼14"      #xffffff)
+    ("[Colors]custColor15"          "?ã‚«ã‚¹ã‚¿ãƒ ã‚«ãƒ©ãƒ¼15"      #xffffff)
 |#
     )
-  "xyzzy ‚ÌFî•ñ‚ğæ“¾‚·‚é‚½‚ß‚É•K—v‚È“à•”î•ñ")
+  "xyzzy ã®è‰²æƒ…å ±ã‚’å–å¾—ã™ã‚‹ãŸã‚ã«å¿…è¦ãªå†…éƒ¨æƒ…å ±")
 
 (defvar *color-xyzzy-colors-name-alist* nil
-  "xyzzy ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg")
+  "xyzzy ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ")
 (defun color-get-xyzzy-colors ()
-  "xyzzy ‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg‚ğ¶¬B
-*color-xyzzy-colors-name-alist* ‚É’l‚ğƒZƒbƒg‚·‚éB"
+  "xyzzy ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆã‚’ç”Ÿæˆã€‚
+*color-xyzzy-colors-name-alist* ã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã€‚"
   (let ((ini (si:make-string-chunk
               (map-slash-to-backslash (merge-pathnames "xyzzy.ini" (user-config-path)))))
         colors-name-alist bgr-str bgr system-color-id default-value)
@@ -1378,12 +1378,12 @@ GetSysColor(
 (color-get-xyzzy-colors)
 
 (defvar *color-all-colors-name-alist* nil
-  "Šeí•û®‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg
-cons •”‚ª nil ‚Ì—v‘f‚ÍAdØ‚è•¶š—ñ•\¦—p")
+  "å„ç¨®æ–¹å¼ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆ
+cons éƒ¨ãŒ nil ã®è¦ç´ ã¯ã€ä»•åˆ‡ã‚Šæ–‡å­—åˆ—è¡¨ç¤ºç”¨")
 (defun color-get-all-colors-name-alist ()
-  "Šeí•û®‚Å‚Ì COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ƒŠƒXƒg‚ğ¶¬B
-*color-all-colors-name-alist* ‚É’l‚ğƒZƒbƒg‚·‚éB
-COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ˆÈŠO‚ÉAí—Ş‚ÌdØ‚è•¶š—ñ‚àŠÜ‚ŞB"
+  "å„ç¨®æ–¹å¼ã§ã® COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œãƒªã‚¹ãƒˆã‚’ç”Ÿæˆã€‚
+*color-all-colors-name-alist* ã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã€‚
+COLOR-NAME ã¨ RGBå€¤ ã®å¯¾å¿œä»¥å¤–ã«ã€ç¨®é¡ã®ä»•åˆ‡ã‚Šæ–‡å­—åˆ—ã‚‚å«ã‚€ã€‚"
   (let (all-alist alist name color code)
     ;; XYZZY
     (setq alist *color-xyzzy-colors-name-alist*)
@@ -1419,17 +1419,17 @@ COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ˆÈŠO‚ÉAí—Ş‚ÌdØ‚è•¶š—ñ‚àŠÜ‚ŞB"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun color-code-dialog-box ()
-  "‘I‘ğ‚³‚ê‚½ X11R6 ‚Ì COLOR-NAME ‚É‘Î‰‚·‚é RGB’l ‚ğ“ü—Í‚·‚éƒ_ƒCƒAƒƒOƒ{ƒbƒNƒX"
+  "é¸æŠã•ã‚ŒãŸ X11R6 ã® COLOR-NAME ã«å¯¾å¿œã™ã‚‹ RGBå€¤ ã‚’å…¥åŠ›ã™ã‚‹ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ãƒœãƒƒã‚¯ã‚¹"
   (interactive "*")
   (let (code)
     (multiple-value-bind (result data)
         (dialog-box '(dialog 0 0 186 162
-                      (:caption "ƒJƒ‰[ƒR[ƒh‚Ì“ü—Í")
+                      (:caption "ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã®å…¥åŠ›")
                       (:font 9 "MS UI Gothic")
                       (:control
                        (:listbox list nil #x50b10111 7 7 116 148)
                        (:button IDOK "OK" #x50010001 129 7 50 14)
-                       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 129 24 50 14)))
+                       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 129 24 50 14)))
                     `((list . ,*color-X11R6-name-alist*))
                     '((list :column (10 30) :must-match t :enable (IDOK))))
       (when result
@@ -1438,17 +1438,17 @@ COLOR-NAME ‚Æ RGB’l ‚Ì‘Î‰ˆÈŠO‚ÉAí—Ş‚ÌdØ‚è•¶š—ñ‚àŠÜ‚ŞB"
             (insert (color-code2str code)))))))
 
 (defun color-code-all-dialog-box ()
-  "‘I‘ğ‚³‚ê‚½Šeí COLOR-NAME ‚É‘Î‰‚·‚é RGB’l ‚ğ“ü—Í‚·‚éƒ_ƒCƒAƒƒOƒ{ƒbƒNƒX"
+  "é¸æŠã•ã‚ŒãŸå„ç¨® COLOR-NAME ã«å¯¾å¿œã™ã‚‹ RGBå€¤ ã‚’å…¥åŠ›ã™ã‚‹ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ãƒœãƒƒã‚¯ã‚¹"
   (interactive "*")
   (let (code)
     (multiple-value-bind (result data)
         (dialog-box '(dialog 0 0 186 162
-                      (:caption "ƒJƒ‰[ƒR[ƒh‚Ì“ü—Í")
+                      (:caption "ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã®å…¥åŠ›")
                       (:font 9 "MS UI Gothic")
                       (:control
                        (:listbox list nil #x50b10111 7 7 116 148)
                        (:button IDOK "OK" #x50010001 129 7 50 14)
-                       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 129 24 50 14)))
+                       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 129 24 50 14)))
                     `((list . ,*color-all-colors-name-alist*))
                     '((list :column (10 30) :must-match t :enable (IDOK))))
       (when result

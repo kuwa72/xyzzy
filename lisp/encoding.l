@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -61,107 +61,107 @@
 	  insert-internal-char-table insert-unicode-char-table))
 
 (defvar *encoding-euc-jp*
-  (make-iso2022-encoding "euc-jp" "“ú–{Œê(EUC-JP)"
+  (make-iso2022-encoding "euc-jp" "æ—¥æœ¬èª(EUC-JP)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :no-escape t :cjk :jp))
 
 (defvar *encoding-euc-jp-open*
-  (make-iso2022-encoding "eucjp-open" "“ú–{Œê(EUC-JP:OSF/JVC)"
+  (make-iso2022-encoding "eucjp-open" "æ—¥æœ¬èª(EUC-JP:OSF/JVC)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :no-escape t :cjk :jp :vender :osfjvc))
 
 (defvar *encoding-euc-jp-necext*
-  (make-iso2022-encoding "eucjp-necext" "“ú–{Œê(EUC-JP:NEC-EXT)"
+  (make-iso2022-encoding "eucjp-necext" "æ—¥æœ¬èª(EUC-JP:NEC-EXT)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :no-escape t :cjk :jp :vender :necext))
 
 (defvar *encoding-euc-jp-ibmext*
-  (make-iso2022-encoding "eucjp-ibmext" "“ú–{Œê(EUC-JP:IBM-EXT)"
+  (make-iso2022-encoding "eucjp-ibmext" "æ—¥æœ¬èª(EUC-JP:IBM-EXT)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :no-escape t :cjk :jp :vender :ibmext))
 
 (defvar *encoding-iso-8bit-jp*
-  (make-iso2022-encoding "iso-8bit-jp" "“ú–{Œê(ISO 8bit with ESC)"
+  (make-iso2022-encoding "iso-8bit-jp" "æ—¥æœ¬èª(ISO 8bit with ESC)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :ascii-eol t :ascii-control t :short-form t))
 
 (defvar *encoding-iso-8bit-jp-open*
-  (make-iso2022-encoding "iso-8bit-jp-open" "“ú–{Œê(ISO 8bit with ESC:OSF/JVC)"
+  (make-iso2022-encoding "iso-8bit-jp-open" "æ—¥æœ¬èª(ISO 8bit with ESC:OSF/JVC)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :ascii-eol t :ascii-control t :short-form t :vender :osfjvc))
 
 (defvar *encoding-iso-8bit-jp-necext*
-  (make-iso2022-encoding "iso-8bit-jp-necext" "“ú–{Œê(ISO 8bit with ESC:NEC-EXT)"
+  (make-iso2022-encoding "iso-8bit-jp-necext" "æ—¥æœ¬èª(ISO 8bit with ESC:NEC-EXT)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :ascii-eol t :ascii-control t :short-form t :vender :necext))
 
 (defvar *encoding-iso-8bit-jp-ibmext*
-  (make-iso2022-encoding "iso-8bit-jp-ibmext" "“ú–{Œê(ISO 8bit with ESC:IBM-EXT)"
+  (make-iso2022-encoding "iso-8bit-jp-ibmext" "æ—¥æœ¬èª(ISO 8bit with ESC:IBM-EXT)"
 			 :g0 :us-ascii :g1 :jisx0208 :g2 :jisx0201-kana :g3 :jisx0212
 			 :ascii-eol t :ascii-control t :short-form t :vender :ibmext))
 
 (defvar *encoding-jis*
-  (make-iso2022-encoding "jis" "“ú–{Œê(ISO-2022-JP)"
+  (make-iso2022-encoding "jis" "æ—¥æœ¬èª(ISO-2022-JP)"
 			 :g0 :us-ascii :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :cjk :jp))
 
 (defvar *encoding-jis-open*
-  (make-iso2022-encoding "jis-open" "“ú–{Œê(ISO-2022-JP:OSF/JVC)"
+  (make-iso2022-encoding "jis-open" "æ—¥æœ¬èª(ISO-2022-JP:OSF/JVC)"
 			 :g0 :us-ascii :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :cjk :jp :vender :osfjvc))
 
 (defvar *encoding-jis-necext*
-  (make-iso2022-encoding "jis-necext" "“ú–{Œê(ISO-2022-JP:NEC-EXT)"
+  (make-iso2022-encoding "jis-necext" "æ—¥æœ¬èª(ISO-2022-JP:NEC-EXT)"
 			 :g0 :us-ascii :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :cjk :jp :vender :necext))
 
 (defvar *encoding-jis-ibmext*
-  (make-iso2022-encoding "jis-ibmext" "“ú–{Œê(ISO-2022-JP:IBM-EXT)"
+  (make-iso2022-encoding "jis-ibmext" "æ—¥æœ¬èª(ISO-2022-JP:IBM-EXT)"
 			 :g0 :us-ascii :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :cjk :jp :vender :ibmext))
 
 (defvar *encoding-iso-2022-jp-2*
-  (make-iso2022-encoding "iso2022jp2" "“ú–{Œê(ISO-2022-JP-2)"
+  (make-iso2022-encoding "iso2022jp2" "æ—¥æœ¬èª(ISO-2022-JP-2)"
 			 :g0 :us-ascii :g2 '(nil :iso8859-1 :iso8859-7)
 			 :ascii-eol t :ascii-control t :7bits t :short-form t))
 
 (defvar *encoding-iso-2022-jp-2-open*
-  (make-iso2022-encoding "iso2022jp2-open" "“ú–{Œê(ISO-2022-JP-2:OSF/JVC)"
+  (make-iso2022-encoding "iso2022jp2-open" "æ—¥æœ¬èª(ISO-2022-JP-2:OSF/JVC)"
 			 :g0 :us-ascii :g2 '(nil :iso8859-1 :iso8859-7)
 			 :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :vender :osfjvc))
 
 (defvar *encoding-iso-2022-jp-2-necext*
-  (make-iso2022-encoding "iso2022jp2-necext" "“ú–{Œê(ISO-2022-JP-2:NEC-EXT)"
+  (make-iso2022-encoding "iso2022jp2-necext" "æ—¥æœ¬èª(ISO-2022-JP-2:NEC-EXT)"
 			 :g0 :us-ascii :g2 '(nil :iso8859-1 :iso8859-7)
 			 :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :vender :necext))
 
 (defvar *encoding-iso-2022-jp-2-ibmext*
-  (make-iso2022-encoding "iso2022jp2-ibmext" "“ú–{Œê(ISO-2022-JP-2:IBM-EXT)"
+  (make-iso2022-encoding "iso2022jp2-ibmext" "æ—¥æœ¬èª(ISO-2022-JP-2:IBM-EXT)"
 			 :g0 :us-ascii :g2 '(nil :iso8859-1 :iso8859-7)
 			 :ascii-eol t :ascii-control t :7bits t
 			 :short-form t :vender :ibmext))
 
 (defvar *encoding-jis-sio*
-  (make-iso2022-encoding "jis-sio" "“ú–{Œê(JIS - SO/SI)"
+  (make-iso2022-encoding "jis-sio" "æ—¥æœ¬èª(JIS - SO/SI)"
 			 :g0 :us-ascii :g1 :jisx0201-kana :ascii-eol t :ascii-control t
 			 :7bits t :locking-shift t :short-form t :cjk :jp))
 
 (defvar *encoding-jis8*
-  (make-iso2022-encoding "jis8" "“ú–{Œê(JIS8)"
+  (make-iso2022-encoding "jis8" "æ—¥æœ¬èª(JIS8)"
 			 :g0 :us-ascii :g1 :jisx0201-kana :ascii-eol t :ascii-control t
 			 :short-form t :cjk :jp))
 
 (defvar *encoding-big5*
-  (make-big5-encoding "big5" "’†‘Œê(Big-5)"))
+  (make-big5-encoding "big5" "ä¸­å›½èª(Big-5)"))
 
 (defvar *encoding-euc-gb*
-  (make-iso2022-encoding "euc-gb" "’†‘Œê(GB2312)"
+  (make-iso2022-encoding "euc-gb" "ä¸­å›½èª(GB2312)"
 			 :g0 :us-ascii :g1 :gb2312 :no-escape t :cjk :cn-gb))
 
 (defvar *encoding-iso-2022-cn*
-  (make-iso2022-encoding "iso2022cn" "’†‘Œê(ISO-2022-CN)"
+  (make-iso2022-encoding "iso2022cn" "ä¸­å›½èª(ISO-2022-CN)"
 			 :g0 :us-ascii :g1 '(nil :gb2312 :cns11643-1)
 			 :g2 '(nil :cns11643-2) :g3 '(nil)
 			 :ascii-eol t :ascii-control nil
@@ -169,60 +169,60 @@
 			 :use-cns11643 t :cjk :cn))
 
 (defvar *encoding-iso-8bit-cn*
-  (make-iso2022-encoding "iso-8bit-cn" "’†‘Œê(ISO 8bit with ESC)"
+  (make-iso2022-encoding "iso-8bit-cn" "ä¸­å›½èª(ISO 8bit with ESC)"
 			 :g0 :us-ascii :g1 :gb2312 :use-cns11643 t
 			 :ascii-eol t :ascii-control t :short-form t))
 
 (defvar *encoding-euc-kr*
-  (make-iso2022-encoding "euc-kr" "ŠØ‘Œê(EUC-KR)"
+  (make-iso2022-encoding "euc-kr" "éŸ“å›½èª(EUC-KR)"
 			 :g0 :us-ascii :g1 :ksc5601 :no-escape t :cjk :kr))
 
 (defvar *encoding-iso-2022-kr*
-  (make-iso2022-encoding "iso2022kr" "ŠØ‘Œê(ISO-2022-KR)"
+  (make-iso2022-encoding "iso2022kr" "éŸ“å›½èª(ISO-2022-KR)"
 			 :g0 :us-ascii :g1 '(nil :ksc5601) :ascii-eol t :ascii-control t
 			 :7bits t :locking-shift t :short-form t :cjk :kr))
 
 (defvar *encoding-iso-8bit-kr*
-  (make-iso2022-encoding "iso-8bit-kr" "ŠØ‘Œê(ISO 8bit with ESC)"
+  (make-iso2022-encoding "iso-8bit-kr" "éŸ“å›½èª(ISO 8bit with ESC)"
 			 :g0 :us-ascii :g1 :ksc5601
 			 :ascii-eol t :ascii-control t :short-form t))
 
 (defvar *encoding-iso-8859-1*
-  (make-iso8859-encoding "iso-latin1" "‰¢•Ä(ISO-8859-1)" :iso8859-1))
+  (make-iso8859-encoding "iso-latin1" "æ¬§ç±³(ISO-8859-1)" :iso8859-1))
 (defvar *encoding-iso-8859-2*
-  (make-iso8859-encoding "iso-latin2" "’†‰¢(ISO-8859-2)" :iso8859-2))
+  (make-iso8859-encoding "iso-latin2" "ä¸­æ¬§(ISO-8859-2)" :iso8859-2))
 (defvar *encoding-iso-8859-3*
   (make-iso8859-encoding "iso-latin3" "ISO-8859-3" :iso8859-3))
 (defvar *encoding-iso-8859-4*
   (make-iso8859-encoding "iso-latin4" "ISO-8859-4" :iso8859-4))
 (defvar *encoding-iso-8859-5*
-  (make-iso8859-encoding "iso-cyrillic" "ƒLƒŠƒ‹•¶š(ISO-8859-5)" :iso8859-5))
+  (make-iso8859-encoding "iso-cyrillic" "ã‚­ãƒªãƒ«æ–‡å­—(ISO-8859-5)" :iso8859-5))
 (defvar *encoding-iso-8859-7*
-  (make-iso8859-encoding "iso-greek" "ƒMƒŠƒVƒAŒê(ISO-8859-7)" :iso8859-7))
+  (make-iso8859-encoding "iso-greek" "ã‚®ãƒªã‚·ã‚¢èª(ISO-8859-7)" :iso8859-7))
 (defvar *encoding-iso-8859-9*
-  (make-iso8859-encoding "iso-latin5" "ƒgƒ‹ƒRŒê(ISO-8859-9)" :iso8859-9))
+  (make-iso8859-encoding "iso-latin5" "ãƒˆãƒ«ã‚³èª(ISO-8859-9)" :iso8859-9))
 (defvar *encoding-iso-8859-10*
-  (make-iso8859-encoding "iso-latin6" "–k‰¢(ISO-8859-10)" :iso8859-10))
+  (make-iso8859-encoding "iso-latin6" "åŒ—æ¬§(ISO-8859-10)" :iso8859-10))
 (defvar *encoding-iso-8859-13*
-  (make-iso8859-encoding "iso-baltic" "ƒoƒ‹ƒgŒ¾Œê(ISO-8859-13)" :iso8859-13))
+  (make-iso8859-encoding "iso-baltic" "ãƒãƒ«ãƒˆè¨€èª(ISO-8859-13)" :iso8859-13))
 
 (defvar *encoding-windows-latin1*
-  (make-windows-codepage-encoding "win-latin1" "‰¢•Ä(Windows 1252)" 1252))
+  (make-windows-codepage-encoding "win-latin1" "æ¬§ç±³(Windows 1252)" 1252))
 (defvar *encoding-windows-latin2*
-  (make-windows-codepage-encoding "win-latin2" "’†‰¢(Windows 1250)" 1250))
+  (make-windows-codepage-encoding "win-latin2" "ä¸­æ¬§(Windows 1250)" 1250))
 (defvar *encoding-windows-cyrillic*
-  (make-windows-codepage-encoding "win-cyrillic" "ƒLƒŠƒ‹•¶š(Windows 1251)" 1251))
+  (make-windows-codepage-encoding "win-cyrillic" "ã‚­ãƒªãƒ«æ–‡å­—(Windows 1251)" 1251))
 (defvar *encoding-windows-greek*
-  (make-windows-codepage-encoding "win-greek" "ƒMƒŠƒVƒAŒê(Windows 1253)" 1253))
+  (make-windows-codepage-encoding "win-greek" "ã‚®ãƒªã‚·ã‚¢èª(Windows 1253)" 1253))
 (defvar *encoding-windows-turkish*
-  (make-windows-codepage-encoding "win-turkish" "ƒgƒ‹ƒRŒê(Windows 1254)" 1254))
+  (make-windows-codepage-encoding "win-turkish" "ãƒˆãƒ«ã‚³èª(Windows 1254)" 1254))
 (defvar *encoding-windows-baltic*
-  (make-windows-codepage-encoding "win-baltic" "ƒoƒ‹ƒgŒ¾Œê(Windows 1257)" 1257))
+  (make-windows-codepage-encoding "win-baltic" "ãƒãƒ«ãƒˆè¨€èª(Windows 1257)" 1257))
 
 (defvar *encoding-koi8r*
-  (make-windows-codepage-encoding "koi8r" "ƒLƒŠƒ‹•¶š(KOI8-R)" 878))
+  (make-windows-codepage-encoding "koi8r" "ã‚­ãƒªãƒ«æ–‡å­—(KOI8-R)" 878))
 (defvar *encoding-koi8u*
-  (make-windows-codepage-encoding "koi8u" "ƒLƒŠƒ‹•¶š(KOI8-U)" 100878))
+  (make-windows-codepage-encoding "koi8u" "ã‚­ãƒªãƒ«æ–‡å­—(KOI8-U)" 100878))
 
 (defvar *encoding-utf16*
   (make-utf16-encoding "utf16" "Unicode (UTF-16)"
@@ -594,7 +594,7 @@
 
 (defvar *char-encoding-tree*
   `(,*encoding-auto*
-    ("“ú–{Œê" . (,*encoding-sjis*
+    ("æ—¥æœ¬èª" . (,*encoding-sjis*
 		 ,*encoding-jis*
 		 ,*encoding-euc-jp*
 		 ,*encoding-iso-2022-jp-2*
@@ -613,7 +613,7 @@
 		 ,*encoding-iso-8bit-jp-ibmext*
 		 ,*encoding-jis-sio*
 		 ,*encoding-jis8*))
-    ("’†‘Œê" . (,*encoding-euc-gb*
+    ("ä¸­å›½èª" . (,*encoding-euc-gb*
 		 ,*encoding-big5*
 		 ,*encoding-iso-2022-cn*
 		 ,*encoding-iso-8bit-cn*
@@ -644,7 +644,7 @@
 				    ,*encoding-utf8n-cn*
 				    ,*encoding-utf7-cn*
 				    ,*encoding-utf5-cn*))))
-    ("ŠØ‘Œê" . (,*encoding-euc-kr*
+    ("éŸ“å›½èª" . (,*encoding-euc-kr*
 		 ,*encoding-iso-2022-kr*
 		 ,*encoding-iso-8bit-kr*
 		 ("Unicode" . (,*encoding-utf16-kr*
@@ -656,7 +656,7 @@
 			       ,*encoding-utf8n-kr*
 			       ,*encoding-utf7-kr*
 			       ,*encoding-utf5-kr*))))
-    ("‰¢•Ä" . (,*encoding-iso-8859-1*
+    ("æ¬§ç±³" . (,*encoding-iso-8859-1*
 	       ,*encoding-windows-latin1*
 	       ,*encoding-iso-8859-2*
 	       ,*encoding-windows-latin2*

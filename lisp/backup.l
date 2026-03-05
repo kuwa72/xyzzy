@@ -1,153 +1,153 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
 
 #|
 
-�o�b�N�A�b�v�t�@�C���̍쐬����D�݂̏ꏊ�ɕύX���܂��B
-(require "backup") ��������ŁA�ȉ��̕ϐ����D�݂̒l�ɐݒ肵�Ă��������B
+バックアップファイルの作成先を好みの場所に変更します。
+(require "backup") をした上で、以下の変数を好みの値に設定してください。
 
 
 *backup-directory*
-�o�b�N�A�b�v�t�@�C�����쐬����f�B���N�g�����w�肷��B
+バックアップファイルを作成するディレクトリを指定する。
 
 *hierarchic-backup-directory*
-�o�b�N�A�b�v�f�B���N�g���̊K�w���@�邩?
+バックアップディレクトリの階層を掘るか?
 
 *auto-save-to-backup-directory*
-nil�łȂ���΁A�����Z�[�u�t�@�C���������Ŏw�肷��o�b�N�A�b�v�f�B���N�g
-���ɕۑ�����(�f�t�H���g��nil)
+nilでなければ、自動セーブファイルをここで指定するバックアップディレクト
+リに保存する(デフォルトはnil)
 
 
-*backup-directory*�ɐݒ�ł���l�͈ȉ��̒ʂ�B
+*backup-directory*に設定できる値は以下の通り。
 
- 1 nil (�f�t�H���g)
- 2 ������
- 3 ���X�g
- 4 �֐�
+ 1 nil (デフォルト)
+ 2 文字列
+ 3 リスト
+ 4 関数
 
-�����Ƃ��������͖ʓ|�Ȃ̂ŏȗ��B������ė������āB
+ちゃんとした説明は面倒なので省略。例を見て理解して。
 
 1 (setq *backup-directory* nil)
 
-  �ۑ�����t�@�C���Ɠ����f�B���N�g���Ƀo�b�N�A�b�v�t�@�C�����쐬�����B
-  �܂�A�]���ʂ�B
+  保存するファイルと同じディレクトリにバックアップファイルが作成される。
+  つまり、従来通り。
 
 2.1 (setq *backup-directory* "c:/backup-files/")
     (setq *hierarchic-backup-directory* nil)
 
-  ���̏ꍇ�A���ׂẴo�b�N�A�b�v�t�@�C���� c:/backup-files/ �̉��ɍ쐬�����B
+  この場合、すべてのバックアップファイルは c:/backup-files/ の下に作成される。
 
 2.2 (setq *backup-directory* "c:/backup-files/")
     (setq *hierarchic-backup-directory* t)
 
-  c:/foo/bar.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files/c/foo/
-  c:/foo/bar/baz.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files/c/foo/bar/
-  d:/foo/bar.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files/d/foo/
-  //foo/bar/baz/qux.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files/foo/bar/baz/
-  �ɂ��ꂼ��쐬�����B
+  c:/foo/bar.txt のバックアップファイルは c:/backup-files/c/foo/
+  c:/foo/bar/baz.txt のバックアップファイルは c:/backup-files/c/foo/bar/
+  d:/foo/bar.txt のバックアップファイルは c:/backup-files/d/foo/
+  //foo/bar/baz/qux.txt のバックアップファイルは c:/backup-files/foo/bar/baz/
+  にそれぞれ作成される。
 
 2.3 (setq *backup-directory* "BACKUP")
 
-  *backup-directory* �� '/' ���܂܂Ȃ��ꍇ�A
-  c:/foo/bar.txt �̃o�b�N�A�b�v�t�@�C���� c:/foo/BACKUP/
-  c:/foo/bar/baz.txt �̃o�b�N�A�b�v�t�@�C���� c:/foo/bar/BACKUP/
-  �ɂ��ꂼ��쐬�����B
+  *backup-directory* が '/' を含まない場合、
+  c:/foo/bar.txt のバックアップファイルは c:/foo/BACKUP/
+  c:/foo/bar/baz.txt のバックアップファイルは c:/foo/bar/BACKUP/
+  にそれぞれ作成される。
 
-  *hierarchic-backup-directory* �̒l�͊֌W�Ȃ��B
+  *hierarchic-backup-directory* の値は関係ない。
 
-  (setq *backup-directory* "../BACKUP") �̂悤�ȏꍇ�́A'/' ���܂�ł���
-  �̂� 2.1 �܂��� 2.2 �ƂȂ�B
+  (setq *backup-directory* "../BACKUP") のような場合は、'/' を含んでいる
+  ので 2.1 または 2.2 となる。
 
 3.1 (setq *backup-directory*
 	  '(("c:/foo/" . "c:/backup-files-c/")
 	    ("d:/bar/" . "c:/backup-files-d/")))
     (setq *hierarchic-backup-directory* nil)
 
-  c:/foo/bar.txt, c:/foo/bar/baz.txt ���Ac:/foo/ �Ŏn�܂�t�@�C���́A���ׂ�
-  c:/backup-files-c/ �̉��ɍ쐬����A
-  d:/bar/baz.txt, d:/bar/baz/qux.txt ���Ad:/bar/ �Ŏn�܂�t�@�C���́A���ׂ�
-  c:/backup-files-d/ �̉��ɍ쐬�����B
-  ����ȊO�̃t�@�C���́A�ۑ�����t�@�C���Ɠ����f�B���N�g���ɍ쐬�����B
+  c:/foo/bar.txt, c:/foo/bar/baz.txt 等、c:/foo/ で始まるファイルは、すべて
+  c:/backup-files-c/ の下に作成され、
+  d:/bar/baz.txt, d:/bar/baz/qux.txt 等、d:/bar/ で始まるファイルは、すべて
+  c:/backup-files-d/ の下に作成される。
+  それ以外のファイルは、保存するファイルと同じディレクトリに作成される。
 
 3.2 (setq *backup-directory*
 	  '(("c:/foo/" . "c:/backup-files-c/")
 	    ("d:/bar/" . "c:/backup-files-d/")))
     (setq *hierarchic-backup-directory* t)
 
-  c:/foo/bar.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files-c/
-, c:/foo/bar/baz.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files-c/bar/
-  d:/bar/baz.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files-d/
-  d:/bar/baz/qux.txt �̃o�b�N�A�b�v�t�@�C���� c:/backup-files-d/baz/
-  �ɂ��ꂼ��쐬�����B
-  ����ȊO�̃t�@�C���́A�ۑ�����t�@�C���Ɠ����f�B���N�g���ɍ쐬�����B
+  c:/foo/bar.txt のバックアップファイルは c:/backup-files-c/
+, c:/foo/bar/baz.txt のバックアップファイルは c:/backup-files-c/bar/
+  d:/bar/baz.txt のバックアップファイルは c:/backup-files-d/
+  d:/bar/baz/qux.txt のバックアップファイルは c:/backup-files-d/baz/
+  にそれぞれ作成される。
+  それ以外のファイルは、保存するファイルと同じディレクトリに作成される。
 
-3.3 3.1, 3.2 ����
+3.3 3.1, 3.2 共通
 
-3.3.1 ���X�g�Ɉ�v���Ȃ��t�@�C���̃o�b�N�A�b�v����w�肷��ꍇ�́A
+3.3.1 リストに一致しないファイルのバックアップ先を指定する場合は、
 
     (setq *backup-directory*
 	  '(("c:/foo/" . "c:/backup-files-c/")
 	    ("d:/bar/" . "c:/backup-files-d/")
 	    ("" . "c:/common-backup/")))
 
-  �Ƃ���� OK�B
+  とすれば OK。
 
-3.3.2 �f�B���N�g����\�킷�ꍇ�́A������ '/' ��t����B
+3.3.2 ディレクトリを表わす場合は、末尾に '/' を付ける。
 
   ("c:/foo" . "c:/backup-files/")
 
-  �Ǝw�肵���ꍇ�Ac:/foo/bar.txt �����łȂ��Ac:/food/drink.txt �ɂ��A
-  c:/foot/ball.txt �ɂ��}�b�`���邱�Ƃɒ��ӁB
-  �������Ac:/fool.txt �ɂ̓}�b�`���Ȃ��B
+  と指定した場合、c:/foo/bar.txt だけでなく、c:/food/drink.txt にも、
+  c:/foot/ball.txt にもマッチすることに注意。
+  ただし、c:/fool.txt にはマッチしない。
 
-3.3.3 ���X�g�͍�����]�������B
+3.3.3 リストは左から評価される。
 
     (setq *backup-directory*
 	  '(("c:/foo/" . "c:/backup-files-foo/")
 	    ("c:/foo/bar/" . "c:/backup-files-fubar/")))
 
-  �̏ꍇ�Ac:/foo/bar/baz.txt �� c:/foo/ �Ƀ}�b�`����B
+  の場合、c:/foo/bar/baz.txt は c:/foo/ にマッチする。
 
     (setq *backup-directory*
 	  '(("c:/foo/bar/" . "c:/backup-files-fubar/")
 	    ("c:/foo/" . "c:/backup-files-foo/")))
 
-  �Ƃ���̂��g�B
+  とするのが吉。
 
-  ���l�ɁA
+  同様に、
 
     (setq *backup-directory*
 	  '(("" . "c:/common-backup/")
 	    ("c:/foo/" . "c:/backup-files-c/")
 	    ("d:/bar/" . "c:/backup-files-d/")))
 
-  �́A���ׂ� c:/common-backup/ �Ƀo�b�N�A�b�v����Ă܂��B
+  は、すべて c:/common-backup/ にバックアップされてまう。
 
-3.3.4 �o�b�N�A�b�v�悪 nil �Ȃ�A�ۑ�����t�@�C���Ɠ����f�B���N�g���ɍ�
-      �������B
+3.3.4 バックアップ先が nil なら、保存するファイルと同じディレクトリに作
+      成される。
 
     (setq *backup-directory*
 	  '(("c:/foo/")
 	    ("d:/bar/" . "c:/backup-files-d/")
 	    ("" . "c:/common-backup/")))
 
-���̏ꍇ�Ac:/foo/ �Ƀ}�b�`����t�@�C���̃o�b�N�A�b�v�t�@�C���́A�����f�B
-���N�g���ɍ쐬�����B
+この場合、c:/foo/ にマッチするファイルのバックアップファイルは、同じディ
+レクトリに作成される。
 
-4 �֐�
-  �t�@�C�����������Ƃ��� funcall �\�Ȋ֐��łȂ���΂Ȃ�Ȃ��B
-  �߂�l�� nil �̏ꍇ�́A�ۑ�����t�@�C���Ɠ����f�B���N�g���ɍ쐬�����B
-  �߂�l�� nil �łȂ��ꍇ�A������łȂ���΂Ȃ炸�A2 �Ɠ��l�ɏ��������B
+4 関数
+  ファイル名を引数とする funcall 可能な関数でなければならない。
+  戻り値が nil の場合は、保存するファイルと同じディレクトリに作成される。
+  戻り値が nil でない場合、文字列でなければならず、2 と同様に処理される。
 
-��1) �p�X�̋�؂�� '\' �͎󂯕t���Ȃ��B�K�� '/' ���g�p���邱�ƁB
-��2) �Ԉ�����ݒ������ƁA�t�@�C���̃Z�[�u���ł��Ȃ��Ȃ�̂ŋC�����ĂˁB
-     �����A�ǂ����悤���Ȃ��Ȃ�����A
+注1) パスの区切りに '\' は受け付けない。必ず '/' を使用すること。
+注2) 間違った設定をすると、ファイルのセーブができなくなるので気をつけてね。
+     もし、どうしようもなくなったら、
 
      (setq *backup-directory* nil)
 
-     ��]�����邩�Awrite-file ���œ�����B
+     を評価するか、write-file 等で逃げる。
 
 |#
 

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -45,7 +45,7 @@
 
 (define-condition no-window-error (range-error)
   ()
-  (:report (lambda (c s) (format s "他にウィンドウがありません")))
+  (:report (lambda (c s) (format s "莉悶↓繧ｦ繧｣繝ｳ繝峨え縺後≠繧翫∪縺帙ｓ")))
   (:important nil))
 
 (defun count-windows (&optional minibuf)

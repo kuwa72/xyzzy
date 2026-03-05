@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -39,7 +39,7 @@
 	   (*color-page-enable-dir-p* (cdr colors))
 	   (*color-page-enable-subdir-p* (and colors (consp (car colors)) (cdar colors))))
       (multiple-value-setq (result *local-option-prop-page-no*)
-	(property-sheet sheet "ƒ[ƒJƒ‹İ’è" *local-option-prop-page-no*))
+	(property-sheet sheet "ãƒ­ãƒ¼ã‚«ãƒ«è¨­å®š" *local-option-prop-page-no*))
       (dolist (r result)
 	(let ((f (get (car r) 'local-prop-result)))
 	  (when f
@@ -110,15 +110,15 @@
 (add-local-option-prop-page
  'lock
  '(dialog 0 0 163 113
-   (:caption "”r‘¼§Œä")
+   (:caption "æ’ä»–åˆ¶å¾¡")
    (:control
-    (:button nil "”r‘¼§Œä" #x50000007 7 7 149 60)
-    (:button no "‚µ‚È‚¢(&N)" #x50030009 15 22 43 10)
-    (:button yes "‚·‚é(&Y)" #x50000009 15 36 55 10)
-    (:button edit "•ÒW‚µ‚Ä‚é‚Æ‚«‚¾‚¯(&E)" #x50000009 15 50 79 10)
-    (:button way "ƒƒbƒN‚Ì•û–@" #x50000007 7 71 149 35)
-    (:button share "‹¤—LƒƒbƒN(&S)" #x50030009 15 87 55 10)
-    (:button exclusive "”r‘¼ƒƒbƒN(&E)" #x50000009 84 87 55 10)))
+    (:button nil "æ’ä»–åˆ¶å¾¡" #x50000007 7 7 149 60)
+    (:button no "ã—ãªã„(&N)" #x50030009 15 22 43 10)
+    (:button yes "ã™ã‚‹(&Y)" #x50000009 15 36 55 10)
+    (:button edit "ç·¨é›†ã—ã¦ã‚‹ã¨ãã ã‘(&E)" #x50000009 15 50 79 10)
+    (:button way "ãƒ­ãƒƒã‚¯ã®æ–¹æ³•" #x50000007 7 71 149 35)
+    (:button share "å…±æœ‰ãƒ­ãƒƒã‚¯(&S)" #x50030009 15 87 55 10)
+    (:button exclusive "æ’ä»–ãƒ­ãƒƒã‚¯(&E)" #x50000009 84 87 55 10)))
  #'(lambda ()
      (list (cons 'no (null lock-file))
 	   (cons 'yes (and lock-file (not (eq lock-file :edit))))
@@ -150,7 +150,7 @@
 	   (handler-case
 	       (when (eq (lock-file) :shared)
 		 (setq buffer-read-only t)
-		 (message "~a‚Í‘¼‚ÌƒvƒƒZƒX‚ªã‘‚«‹Ö~‚ÅŠJ‚¢‚Ä‚¢‚Ü‚·"
+		 (message "~aã¯ä»–ã®ãƒ—ãƒ­ã‚»ã‚¹ãŒä¸Šæ›¸ãç¦æ­¢ã§é–‹ã„ã¦ã„ã¾ã™"
 			  (get-buffer-file-name)))
 	     (file-error (c)
 	       (setq buffer-read-only t)
@@ -159,33 +159,33 @@
 (add-local-option-prop-page
  'misc
  '(dialog 0 0 213 165
-   (:caption "‚à‚ë‚à‚ë")
+   (:caption "ã‚‚ã‚ã‚‚ã‚")
    (:control
-    (:static nil "•¶šƒGƒ“ƒR[ƒfƒBƒ“ƒO(&E):" #x50020000 8 7 71 8)
+    (:static nil "æ–‡å­—ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°(&E):" #x50020000 8 7 71 8)
     (:combobox encoding nil #x50210003 7 18 112 139)
-    (:button nil "‰üsƒR[ƒh" #x50000007 7 37 56 60)
+    (:button nil "æ”¹è¡Œã‚³ãƒ¼ãƒ‰" #x50000007 7 37 56 60)
     (:button dos "CR+LF(&D)" #x50030009 11 50 45 10)
     (:button unix "LF(&X)" #x50000009 11 66 32 10)
     (:button mac "CR(&Y)" #x50000009 11 82 34 10)
-    (:button nil "ƒ^ƒu‚Ì•" #x50000007 66 37 63 60)
-    (:button deftab "ƒfƒtƒHƒ‹ƒg(&O)" #x50030009 71 49 55 10)
-    (:button localtab "ƒ[ƒJƒ‹(&L):" #x50000009 71 65 50 10)
+    (:button nil "ã‚¿ãƒ–ã®å¹…" #x50000007 66 37 63 60)
+    (:button deftab "ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ(&O)" #x50030009 71 49 55 10)
+    (:button localtab "ãƒ­ãƒ¼ã‚«ãƒ«(&L):" #x50000009 71 65 50 10)
     (:edit tab nil #x50830086 80 78 40 14)
     (:spin tabspin nil #x500000b6 114 85 10 14)
-    (:button nil "ƒeƒLƒXƒg‚ÌÜ‚è•Ô‚µ" #x50000007 133 21 75 76)
-    (:button foldno "‚µ‚È‚¢(&F)" #x50030009 137 34 42 10)
-    (:button foldwin "ƒEƒBƒ“ƒhƒE‚Ì•(&W)" #x50000009 137 49 67 10)
-    (:button foldcol "ˆÊ’uw’è(&C):" #x50000009 137 65 54 10)
+    (:button nil "ãƒ†ã‚­ã‚¹ãƒˆã®æŠ˜ã‚Šè¿”ã—" #x50000007 133 21 75 76)
+    (:button foldno "ã—ãªã„(&F)" #x50030009 137 34 42 10)
+    (:button foldwin "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®å¹…(&W)" #x50000009 137 49 67 10)
+    (:button foldcol "ä½ç½®æŒ‡å®š(&C):" #x50000009 137 65 54 10)
     (:edit column nil #x50810086 147 78 40 14)
     (:spin colspin nil #x500000b6 183 77 9 14)
-    (:static nil "ƒAƒ“ƒhƒD‚Ì‰ñ”(&U):" #x50020000 9 106 60 8)
+    (:static nil "ã‚¢ãƒ³ãƒ‰ã‚¥ã®å›æ•°(&U):" #x50020000 9 106 60 8)
     (:edit undo nil #x50810086 69 102 39 14)
     (:spin undospin nil #x500000b6 106 102 9 14)
-    (:button autosave "©“®ƒZ[ƒu‚·‚é(&A)" #x50010003 7 123 77 10)
-    (:button readonly "‘‚«‚İ‹Ö~(&R)" #x50010003 106 123 77 10)
-    (:button newline "s”Ô†‚Í•\¦s(&N)" #x50010003 7 136 86 10)
-    (:button indenttab "ƒCƒ“ƒfƒ“ƒg‚Éƒ^ƒu‚ğg‚¤(&T)" #x50010003 106 136 88 10)
-    (:button noneedsave "•Û‘¶‚µ‚Ä‚È‚­‚Ä‚à•¶‹å‚ğŒ¾‚í‚È‚¢(&V)" #x50010003 7 149 133 10)))
+    (:button autosave "è‡ªå‹•ã‚»ãƒ¼ãƒ–ã™ã‚‹(&A)" #x50010003 7 123 77 10)
+    (:button readonly "æ›¸ãè¾¼ã¿ç¦æ­¢(&R)" #x50010003 106 123 77 10)
+    (:button newline "è¡Œç•ªå·ã¯è¡¨ç¤ºè¡Œ(&N)" #x50010003 7 136 86 10)
+    (:button indenttab "ã‚¤ãƒ³ãƒ‡ãƒ³ãƒˆã«ã‚¿ãƒ–ã‚’ä½¿ã†(&T)" #x50010003 106 136 88 10)
+    (:button noneedsave "ä¿å­˜ã—ã¦ãªãã¦ã‚‚æ–‡å¥ã‚’è¨€ã‚ãªã„(&V)" #x50010003 7 149 133 10)))
  #'(lambda ()
      (let ((eol (buffer-eol-code)))
        (multiple-value-bind (tab localtab)
@@ -214,16 +214,16 @@
 	       (cons 'indenttab indent-tabs-mode)))))
  '((encoding :index t)
    (undospin :min 0 :max 10000)
-   (undo :min 0 :range-error "0ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢"
-	 :type integer :type-error "”’l‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢")
+   (undo :min 0 :range-error "0ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„"
+	 :type integer :type-error "æ•°å€¤ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„")
    (colspin :min 4 :max 30000)
    (column :type integer :min 4 :max 30000
-	   :range-error "Ü‚è•Ô‚µ‚Í4‚©‚ç30000‚Å‚·"
-	   :type-error "”’l‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢")
+	   :range-error "æŠ˜ã‚Šè¿”ã—ã¯4ã‹ã‚‰30000ã§ã™"
+	   :type-error "æ•°å€¤ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„")
    (tabspin :min 1 :max 32)
    (tab :type integer :min 1 :max 32
-	:range-error "1‚©‚ç32‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢"
-	:type-error "”’l‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢"))
+	:range-error "1ã‹ã‚‰32ã‚’æŒ‡å®šã—ã¦ãã ã•ã„"
+	:type-error "æ•°å€¤ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„"))
  #'(lambda (data)
      (let ((n (cdr (assoc 'encoding data))))
        (when n

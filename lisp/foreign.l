@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: FOREIGN -*-
+;;; -*- Mode: Lisp; Package: FOREIGN; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -38,18 +38,18 @@
 
     (defstruct (c-type-definition
 		(:conc-name "ctypedef-"))
-      type     ; Œ^‚ğ‚ ‚ç‚í‚·ƒVƒ“ƒ{ƒ‹
-      size     ; Œ^‚ÌƒTƒCƒY
-      slots    ; \‘¢‘Ì‚È‚çc-structure-slot‚ÌƒŠƒXƒg
-      accessor ; ƒAƒNƒZƒT
+      type     ; å‹ã‚’ã‚ã‚‰ã‚ã™ã‚·ãƒ³ãƒœãƒ«
+      size     ; å‹ã®ã‚µã‚¤ã‚º
+      slots    ; æ§‹é€ ä½“ãªã‚‰c-structure-slotã®ãƒªã‚¹ãƒˆ
+      accessor ; ã‚¢ã‚¯ã‚»ã‚µ
     )
 
     (defstruct (c-structure-slot
 		(:conc-name cslot-))
-      name     ; ƒXƒƒbƒg–¼
-      type     ; Œ^(c-type-definition)
-      offset   ; \‘¢‘Ì‚Ìæ“ª‚©‚ç‚ÌƒIƒtƒZƒbƒg
-      size     ; ƒoƒCƒg”
+      name     ; ã‚¹ãƒ­ãƒƒãƒˆå
+      type     ; å‹(c-type-definition)
+      offset   ; æ§‹é€ ä½“ã®å…ˆé ­ã‹ã‚‰ã®ã‚ªãƒ•ã‚»ãƒƒãƒˆ
+      size     ; ãƒã‚¤ãƒˆæ•°
     )
 
     (dolist (x '((:void 0 nil)
@@ -85,14 +85,14 @@
   (defun expand-c-type (type)
     (let ((x (c-typespec-p type)))
       (unless x
-	(error "~A‚ÍŒ^w’èq‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" type))
+	(error "~Aã¯å‹æŒ‡å®šå­ã§ã¯ã‚ã‚Šã¾ã›ã‚“" type))
       x))
 
   (defun **define-c-type (type decl export)
     (let ((x (get decl 'c-type-specifier)))
       (when x
 	(unless (eq x (expand-c-type type))
-	  (error "~A‚Í‚·‚Å‚ÉéŒ¾‚³‚ê‚Ä‚¢‚Ü‚·" decl))
+	  (error "~Aã¯ã™ã§ã«å®£è¨€ã•ã‚Œã¦ã„ã¾ã™" decl))
 	(return-from **define-c-type nil)))
     (setf (get decl 'c-type-specifier)
 	  (expand-c-type type))
@@ -140,15 +140,15 @@
 (defun c-argument-type (type)
   (setq type (expand-c-type type))
   (when (zerop (ctypedef-size type))
-    (error ":voidŒ^ˆø”‚ÍƒTƒ|[ƒg‚µ‚Ä‚¢‚Ü‚¹‚ñ"))
+    (error ":voidå‹å¼•æ•°ã¯ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ã¾ã›ã‚“"))
   (when (ctypedef-slots type)
-    (error "\‘¢‘Ì‚Ì’l“n‚µ‚ÍƒTƒ|[ƒg‚µ‚Ä‚¢‚Ü‚¹‚ñ: ~A" (ctypedef-type type)))
+    (error "æ§‹é€ ä½“ã®å€¤æ¸¡ã—ã¯ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ã¾ã›ã‚“: ~A" (ctypedef-type type)))
   (ctypedef-type type))
 
 (defun c-vaarg-p (types)
   (let ((rests (member '&rest types)))
     (when (and rests (cdr rests))
-      (error "&rest‚ªÅŒã‚Ì‹å‚Å‚Í‚ ‚è‚Ü‚¹‚ñ"))
+      (error "&restãŒæœ€å¾Œã®å¥ã§ã¯ã‚ã‚Šã¾ã›ã‚“"))
     (not (null rests))))
 
 (defun c-argument-types (types)
@@ -158,12 +158,12 @@
   (mapcar #'(lambda (vaarg)
 	      (unless (and (listp vaarg)
 			   (= (length vaarg) 2))
-		(error "•s³‚È‰Â•Ï’·ˆø”‚Å‚·: ~S" vaargs))
+		(error "ä¸æ­£ãªå¯å¤‰é•·å¼•æ•°ã§ã™: ~S" vaargs))
 	      (handler-case
 		  (list (c-argument-type (car vaarg))
 			(cadr vaarg))
 		(error (c)
-		  (error "•s³‚È‰Â•Ï’·ˆø”‚Å‚·: ~S" vaargs))))
+		  (error "ä¸æ­£ãªå¯å¤‰é•·å¼•æ•°ã§ã™: ~S" vaargs))))
 	  vaargs))
 
 (defmacro c-vaargs (&rest vaargs)
@@ -175,7 +175,7 @@
 (defun c-return-type (type)
   (setq type (expand-c-type type))
   (when (ctypedef-slots type)
-    (error "\‘¢‘Ì‚Ì–ß‚è’l‚ÍƒTƒ|[ƒg‚µ‚Ä‚¢‚Ü‚¹‚ñ: ~A" (ctypedef-type type)))
+    (error "æ§‹é€ ä½“ã®æˆ»ã‚Šå€¤ã¯ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ã¾ã›ã‚“: ~A" (ctypedef-type type)))
   (ctypedef-type type))
 
 (setf (get 'define-dll-entry 'ed:lisp-indent-hook) 'defun)
@@ -188,7 +188,7 @@
 			  :stdcall)))
       (when (and (c-vaarg-p args)
 		 (eq convention :stdcall))
-	(error "stdcallŒÄ‚Ño‚µ‹K–ñ‚Ìê‡A‰Â•Ï’·ˆø”‚Í—˜—p‚Å‚«‚Ü‚¹‚ñ")))
+	(error "stdcallå‘¼ã³å‡ºã—è¦ç´„ã®å ´åˆã€å¯å¤‰é•·å¼•æ•°ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“")))
     `(defun ,name (&rest args)
        (setf (symbol-function ',name)
 	     (si:make-c-function (si:load-dll-module ,dll-name)
@@ -261,42 +261,42 @@
 (defun define-c-struct-expand (name slots export)
   (check-type name symbol)
   (when (endp slots)
-    (error "\‘¢‘Ì‚Ìƒƒ“ƒo‚ª‚ ‚è‚Ü‚¹‚ñ: ~A" name))
+    (error "æ§‹é€ ä½“ã®ãƒ¡ãƒ³ãƒãŒã‚ã‚Šã¾ã›ã‚“: ~A" name))
   (let ((offset 0)
 	(struct-align nil))
     (let ((slotdef
 	   (mapcar #'(lambda (slot)
 		       (let (type pointerp dims name size)
 			 (when (endp slot)
-			   (error "•s³‚ÈƒXƒƒbƒg‚ÌŒ`®‚Å‚·"))
+			   (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆã®å½¢å¼ã§ã™"))
 			 (setq type (expand-c-type (car slot)))
 			 (pop slot)
 			 (when (endp slot)
-			   (error "•s³‚ÈƒXƒƒbƒg‚ÌŒ`®‚Å‚·"))
+			   (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆã®å½¢å¼ã§ã™"))
 			 (when (eq (car slot) '*)
 			   (setq type (expand-c-type #+:64bit ':int64 #-:64bit ':int32))
 			   (pop slot)
 			   (when (endp slot)
-			     (error "•s³‚ÈƒXƒƒbƒg‚ÌŒ`®‚Å‚·")))
+			     (error "ä¸æ­£ãªã‚¹ãƒ­ãƒƒãƒˆã®å½¢å¼ã§ã™")))
 			 (setq size (ctypedef-size type))
 			 (unless struct-align
 			   (setq struct-align (min size *c-structure-packing-align*)))
 			 (when (zerop size)
-			   (error ":voidŒ^‚Í\‘¢‘Ì‚Ìƒƒ“ƒo‚É‚Íg—p‚Å‚«‚Ü‚¹‚ñ"))
+			   (error ":voidå‹ã¯æ§‹é€ ä½“ã®ãƒ¡ãƒ³ãƒã«ã¯ä½¿ç”¨ã§ãã¾ã›ã‚“"))
 			 (setq name (car slot))
 			 (unless (symbolp name)
-			   (error "ƒXƒƒbƒg–¼‚ÍƒVƒ“ƒ{ƒ‹‚Å‚·: ~A" name))
+			   (error "ã‚¹ãƒ­ãƒƒãƒˆåã¯ã‚·ãƒ³ãƒœãƒ«ã§ã™: ~A" name))
 			 (pop slot)
 			 (unless (endp slot)
 			   (setq dims (car slot))
 			   (when (symbolp dims)
 			     (setq dims (symbol-value dims)))
 			   (unless (integerp dims)
-			     (error "”z—ñ‚Ì’·‚³‚Í®”‚Å‚·: ~A" dims))
+			     (error "é…åˆ—ã®é•·ã•ã¯æ•´æ•°ã§ã™: ~A" dims))
 			   (when (<= dims 0)
-			     (error "•s³‚È”z—ñ‚Ì’·‚³‚Å‚·: ~A" dims))
+			     (error "ä¸æ­£ãªé…åˆ—ã®é•·ã•ã§ã™: ~A" dims))
 			   (unless (endp (cdr slot))
-			     (error "ƒXƒƒbƒg‚Ìˆø”‚ª‘½‚·‚¬‚Ü‚·")))
+			     (error "ã‚¹ãƒ­ãƒƒãƒˆã®å¼•æ•°ãŒå¤šã™ãã¾ã™")))
 			 (let ((align (min size *c-structure-packing-align*)))
 			   (setq offset (* (ceiling offset align) align))
 			   (setq size (if dims (* dims size) size))
@@ -360,23 +360,23 @@
 (defmacro c-struct-size-of (struct &optional (slot nil sv))
   (let ((type (expand-c-type struct)))
     (unless (ctypedef-slots type)
-      (error "~A‚Í\‘¢‘Ì‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" type))
+      (error "~Aã¯æ§‹é€ ä½“ã§ã¯ã‚ã‚Šã¾ã›ã‚“" type))
     (if sv
 	(let ((slotdef (find slot (ctypedef-slots type)
 			     :test #'eq :key #'cslot-name)))
 	  (unless slotdef
-	    (error "~A‚Í~A‚Ìƒƒ“ƒo‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" slot type))
+	    (error "~Aã¯~Aã®ãƒ¡ãƒ³ãƒã§ã¯ã‚ã‚Šã¾ã›ã‚“" slot type))
 	  (cslot-size slotdef))
       (ctypedef-size type))))
 
 (defmacro c-struct-offset-of (struct slot)
   (let ((type (expand-c-type struct)))
     (unless (ctypedef-slots type)
-      (error "~A‚Í\‘¢‘Ì‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" type))
+      (error "~Aã¯æ§‹é€ ä½“ã§ã¯ã‚ã‚Šã¾ã›ã‚“" type))
     (let ((slotdef (find slot (ctypedef-slots type)
 			 :test #'eq :key #'cslot-name)))
       (unless slotdef
-	(error "~A‚Í~A‚Ìƒƒ“ƒo‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" slot type))
+	(error "~Aã¯~Aã®ãƒ¡ãƒ³ãƒã§ã¯ã‚ã‚Šã¾ã›ã‚“" slot type))
       (cslot-offset slotdef))))
 
 (setf (get 'define 'ed:lisp-indent-hook) 'defun)

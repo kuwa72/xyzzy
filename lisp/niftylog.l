@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -20,17 +20,17 @@
   (let ((menu (copy-menu-items *app-menu* (create-menu))))
     (insert-popup-menu menu (get-menu-position menu 'search)
 		       (define-popup-menu
-			 (:item nil "ƒƒbƒZ[ƒW‚ğ“Ç‚ñ‚¾‚±‚Æ‚É‚·‚é(&R)"
+			 (:item nil "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’èª­ã‚“ã ã“ã¨ã«ã™ã‚‹(&R)"
 			  'log-read-article)
-			 (:item nil "ƒƒbƒZ[ƒW‚ğ“Ç‚ñ‚Å‚È‚¢‚±‚Æ‚É‚·‚é(&N)"
+			 (:item nil "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’èª­ã‚“ã§ãªã„ã“ã¨ã«ã™ã‚‹(&N)"
 			  'log-unread-article)
-			 (:item nil "ƒXƒŒƒbƒh‚ğ“Ç‚ñ‚¾‚±‚Æ‚É‚·‚é(&T)"
+			 (:item nil "ã‚¹ãƒ¬ãƒƒãƒ‰ã‚’èª­ã‚“ã ã“ã¨ã«ã™ã‚‹(&T)"
 			  'log-read-thread)
-			 (:item nil "ƒXƒŒƒbƒh‚ğ“Ç‚ñ‚Å‚È‚¢‚±‚Æ‚É‚·‚é(&H)"
+			 (:item nil "ã‚¹ãƒ¬ãƒƒãƒ‰ã‚’èª­ã‚“ã§ãªã„ã“ã¨ã«ã™ã‚‹(&H)"
 			  'log-unread-thread)
-			 (:item nil "ƒjƒ…[ƒXƒOƒ‹[ƒv‚ğ“Ç‚ñ‚¾‚±‚Æ‚É‚·‚é(&G)")
-			 (:item nil "ƒjƒ…[ƒXƒOƒ‹[ƒv‚ğ“Ç‚ñ‚Å‚È‚¢‚±‚Æ‚É‚·‚é(&P)"))
-		       "ƒƒbƒZ[ƒW(&M)")
+			 (:item nil "ãƒ‹ãƒ¥ãƒ¼ã‚¹ã‚°ãƒ«ãƒ¼ãƒ—ã‚’èª­ã‚“ã ã“ã¨ã«ã™ã‚‹(&G)")
+			 (:item nil "ãƒ‹ãƒ¥ãƒ¼ã‚¹ã‚°ãƒ«ãƒ¼ãƒ—ã‚’èª­ã‚“ã§ãªã„ã“ã¨ã«ã™ã‚‹(&P)"))
+		       "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸(&M)")
     menu))
 
 (defvar *nifty-forum-header-regexp-1*
@@ -39,7 +39,7 @@
 
 (defvar *nifty-forum-header-regexp-2*
   (compile-regexp
-   "^|\\(‰ï‹cº\\([ 0-9][0-9]\\)  .+\\)”­Œ¾” :[0-9]+ –¢“Ç :[0-9]+|"))
+   "^ï¼\\(ä¼šè­°å®¤\\([ 0-9][0-9]\\)  .+\\)ç™ºè¨€æ•° :[0-9]+ æœªèª­ :[0-9]+ï¼"))
 
 (defvar *nifty-article-header-regexp*
   (compile-regexp
@@ -122,7 +122,7 @@
 						   *nifty-article-header-regexp-lead*
 						   (cadr newsgroup)
 						   *nifty-article-header-regexp-trail*)))
-		    (comment (compile-regexp (concat "  \\(" digits "\\)‚Ö‚ÌƒRƒƒ“ƒg")))
+		    (comment (compile-regexp (concat "  \\(" digits "\\)ã¸ã®ã‚³ãƒ¡ãƒ³ãƒˆ")))
 		    (last nil))
 		(while (scan-buffer regex :limit limit)
 		  (let* ((read-mark (when (looking-back *log-read-mark*)
@@ -187,7 +187,7 @@
     (unless (and (zerop level)
 		 (log-parent header))
       (setf (log-header header) (buffer-stream-point *standard-output*))
-      (format t "~:[ ~;*~] ~V,'0D ~A ~A ~@[~V,1@T„¯~]~A~%"
+      (format t "~:[ ~;*~] ~V,'0D ~A ~A ~@[~V,1@Tâ”—~]~A~%"
 	      (log-read header)
 	      ndigits (log-number header) (log-id header) (log-handle header)
 	      (unless (zerop level) level) (log-title header))
@@ -230,7 +230,7 @@
     t))
 
 (defun view-nifty-log (files)
-  (interactive "lƒƒOƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ: " :title0 "ƒƒOƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ")
+  (interactive "lãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿è¾¼ã¿: " :title0 "ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿è¾¼ã¿")
   (setq *newsgroup-list* nil)
   (log-process-files (if (listp files) files (list files))))
 
@@ -364,7 +364,7 @@
 	(goto-char (selection-mark)))
       (while (progn
 	       (goto-column 34)
-	       (and (looking-at " +„¯")
+	       (and (looking-at " +â”—")
 		    (forward-line -1))))
       (while (progn
 	       (save-excursion
@@ -372,7 +372,7 @@
 	       (and (forward-line 1)
 		    (progn
 		      (goto-column 34)
-		      (looking-at " +„¯")))))
+		      (looking-at " +â”—")))))
       t)))
 
 (defun log-unread-thread ()

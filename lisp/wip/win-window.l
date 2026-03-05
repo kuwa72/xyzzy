@@ -1,5 +1,5 @@
-;;; -*- Mode: Lisp; Package: WIN-USER -*-
-;;; win-window.l --- win-window ‚Ì‘€ì
+;;; -*- Mode: Lisp; Package: WIN-USER ; Encoding: utf-8 -*-
+;;; win-window.l --- win-window ã®æ“ä½œ
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
 
@@ -10,53 +10,53 @@
 
 ;; Description:
 ;;
-;;  Windows ‚Ì Window ‚ğ‘€ì‚µ‚Ü‚·B
+;;  Windows ã® Window ã‚’æ“ä½œã—ã¾ã™ã€‚
 ;;
 
 ;; Installation:
 ;;
-;;      1. ƒA[ƒJƒCƒu‚ğ“WŠJ‚µ‚Ä win-window.l ‚ğ $XYZZY/site-lisp ‚É
-;;         ƒRƒs[‚µ‚Ü‚·B
+;;      1. ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ã‚’å±•é–‹ã—ã¦ win-window.l ã‚’ $XYZZY/site-lisp ã«
+;;         ã‚³ãƒ”ãƒ¼ã—ã¾ã™ã€‚
 ;;
-;;      2. ƒoƒCƒgƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·B
+;;      2. ãƒã‚¤ãƒˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã€‚
 ;;
 ;;              M-x byte-compile-file
 ;;              Byte compile file: $XYZZY/site-lisp/win-window.l
 ;;
-;;      3. ~/.xyzzy ‚Ü‚½‚Í $XYZZY/site-lisp/siteinit.l ‚ÉˆÈ‰º‚ÌƒR[ƒh‚ğ
-;;         ’Ç‰Á‚µ‚Ü‚·B
+;;      3. ~/.xyzzy ã¾ãŸã¯ $XYZZY/site-lisp/siteinit.l ã«ä»¥ä¸‹ã®ã‚³ãƒ¼ãƒ‰ã‚’
+;;         è¿½åŠ ã—ã¾ã™ã€‚
 ;;
 ;;              (require "wip/win-window")
 ;;
-;;      4. ã‹L‚Ìİ’è‚ğ”½‰f‚³‚¹‚é‚½‚ß‚ÉAxyzzy ‚ğÄ‹N“®‚µ‚Ü‚·B
-;;         siteinit.l ‚É‹Lq‚µ‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ‚È‚ª‚ç
-;;         xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      4. ä¸Šè¨˜ã®è¨­å®šã‚’åæ˜ ã•ã›ã‚‹ãŸã‚ã«ã€xyzzy ã‚’å†èµ·å‹•ã—ã¾ã™ã€‚
+;;         siteinit.l ã«è¨˜è¿°ã—ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—ãªãŒã‚‰
+;;         xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
 
 ;; Uninstallation:
 ;;
-;;      1. win-window.l ‚ÉŠÖ‚·‚é‹Lq‚ğíœ‚µ‚Ü‚·B
+;;      1. win-window.l ã«é–¢ã™ã‚‹è¨˜è¿°ã‚’å‰Šé™¤ã—ã¾ã™ã€‚
 ;;
-;;      2. siteinit.l ‚É‹Lq‚µ‚Ä‚¢‚½ê‡‚Í Ctrl ƒL[‚Æ Shift ƒL[‚ğ‰Ÿ‚µ
-;;         ‚È‚ª‚ç xyzzy ‚ğÄ‹N“®‚µAƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğÄ\’z‚µ‚Ü‚·B
+;;      2. siteinit.l ã«è¨˜è¿°ã—ã¦ã„ãŸå ´åˆã¯ Ctrl ã‚­ãƒ¼ã¨ Shift ã‚­ãƒ¼ã‚’æŠ¼ã—
+;;         ãªãŒã‚‰ xyzzy ã‚’å†èµ·å‹•ã—ã€ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å†æ§‹ç¯‰ã—ã¾ã™ã€‚
 ;;
 
 ;; Changes:
 ;;
 ;;      Sat, 08 Oct 2005 14:34:12 +0900
-;;        Eƒ[ƒ‹ƒAƒhƒŒƒX‚ğ•ÏXB
-;;        Eƒ‰ƒCƒZƒ“ƒXğ€(C³BSDƒ‰ƒCƒZƒ“ƒX)‚ğ‹LÚB
+;;        ãƒ»ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’å¤‰æ›´ã€‚
+;;        ãƒ»ãƒ©ã‚¤ã‚»ãƒ³ã‚¹æ¡é …(ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹)ã‚’è¨˜è¼‰ã€‚
 ;;
 ;;      Fri, 28 May 2004 10:23:27 +0900
-;;        EGetWindowRect, IsZoomed ‚Ì–ß‚è’l‚ÌŒ^‚ğ int -> BOOL ‚É•ÏX
+;;        ãƒ»GetWindowRect, IsZoomed ã®æˆ»ã‚Šå€¤ã®å‹ã‚’ int -> BOOL ã«å¤‰æ›´
 ;;
 ;;      Sat, 03 May 2003 04:26:39 +0900
-;;        E‰”Åì¬B
+;;        ãƒ»åˆç‰ˆä½œæˆã€‚
 ;;
 
 ;; Licence:
 ;;
-;;    win-window ‚ÍC³BSDƒ‰ƒCƒZƒ“ƒX‚ÉŠî‚Ã‚¢‚Ä—˜—p‰Â”\‚Å‚·B
+;;    win-window ã¯ä¿®æ­£BSDãƒ©ã‚¤ã‚»ãƒ³ã‚¹ã«åŸºã¥ã„ã¦åˆ©ç”¨å¯èƒ½ã§ã™ã€‚
 ;;    <http://www.opensource.org/licenses/bsd-license.php>
 ;;
 ;;

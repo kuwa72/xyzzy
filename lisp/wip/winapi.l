@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: WINAPI -*-
+;;; -*- Mode: Lisp; Package: WINAPI; Encoding: utf-8 -*-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "foreign"))

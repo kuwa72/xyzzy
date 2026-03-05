@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: SYSTEM -*-
+;;; -*- Mode: Lisp; Package: SYSTEM; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -491,7 +491,7 @@
      (unless (if (atom (caddr type))
 		 (eql (caddr type) 1)
 	       (endp (cdaddr type)))
-       (error "�x�N�^�ȊO�̔z��ɕϊ��ł��܂���"))
+       (error "ベクタ以外の配列に変換できません"))
      (concatenate type object))
     (character (character object))
     (float (float object))
@@ -513,9 +513,9 @@
 		 (eq (car object) 'lambda))
 	    (eval (list 'function object)))
 	   (t
-	    (error "~S��function�ւ̌^�ϊ��̓T�|�[�g����Ă��܂���" object))))
+	    (error "~Sのfunctionへの型変換はサポートされていません" object))))
     (t
-     (error "~S��~S�ւ̌^�ϊ��̓T�|�[�g����Ă��܂���"
+     (error "~Sの~Sへの型変換はサポートされていません"
        object (if (null (cdr type)) (car type) type)))))
 
 (defun proclaim (decl-spec)

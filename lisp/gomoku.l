@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; Gomoku game between you and GNU Emacs.  Last modified on 13 Sep 1988
 ;;;
 ;;; Written by Ph. Schnoebelen (phs@lifia.imag.fr), 1987, 1988
@@ -622,42 +623,42 @@ that DVAL has been added on SQUARE."
       (setq gomoku-number-of-wins (1+ gomoku-number-of-wins))
       (setq message
 	    (cond ((< gomoku-number-of-moves 20)
-		   "�シ��!!")
+		   "弱すぎ!!")
 		  (gomoku-human-refused-draw
-		   "�����炠�̎���߂Ƃ���悩�����̂�")
+		   "だからあの時やめときゃよかったのに")
 		  (gomoku-human-took-back
-		   "�u�҂����v�����̂ɕ����Ă���")
+		   "「待った」したのに負けてやんの")
 		  ((not gomoku-emacs-played-first)
-		   "���ŕ����Ă���b���ɂȂ���")
+		   "先手で負けてちゃ話しにならんな")
 		  ((and (zerop gomoku-number-of-losses)
 			(zerop gomoku-number-of-draws)
 			(> gomoku-number-of-wins 1))
-		   "���\��ꂽ")
+		   "結構疲れた")
 		  (t
-		   "�킵�̏���"))))
+		   "わしの勝ち"))))
      ((eq result 'human-won)
       (setq gomoku-number-of-losses (1+ gomoku-number-of-losses))
       (setq message
 	    (cond
 	     (gomoku-human-took-back
-	      "���́u�҂����v�͂Ȃ���")
+	      "次は「待った」はなしね")
 	     (gomoku-emacs-played-first
-	      "�����꒚�s��?")
+	      "もう一丁行く?")
 	     (t
-	      "���͐��ł�点��"))))
+	      "次は先手でやらせて"))))
      ((eq result 'human-resigned)
       (setq gomoku-number-of-wins (1+ gomoku-number-of-wins))
-      (setq message "��������������킵�̏���"))
+      (setq message "試合放棄だからわしの勝ち"))
      ((eq result 'nobody-won)
       (setq gomoku-number-of-draws (1+ gomoku-number-of-draws))
       (setq message
 	    (cond
 	     (gomoku-human-took-back
-	      "���������B���́u�҂����v�͂Ȃ���")
+	      "引き分け。次は「待った」はなしね")
 	     (gomoku-emacs-played-first
-	      "���������B���������")
+	      "引き分け。もう一回やろ")
 	     (t
-	      "���������B���x�͐��ł�点��"))))
+	      "引き分け。今度は先手でやらせろ"))))
      ((eq result 'draw-agreed)
       (setq gomoku-number-of-draws (1+ gomoku-number-of-draws))
       (setq message

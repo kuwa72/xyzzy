@@ -2118,7 +2118,12 @@ load_file (lisp filename, lisp realname, lisp if_does_not_exist,
         return Qnil;
     }
 
-  if (file_stream_p (stream))
+  // Detect encoding marker only for .l source files, not .lc bytecode
+  if (file_stream_p (stream)
+      && stringp (filename)
+      && !(xstring_length (filename) >= 3
+           && streq (xstring_contents (filename) + xstring_length (filename) - 3,
+                     3, ".lc")))
     detect_file_encoding (stream);
 
   Char buf[PATH_MAX * 2], *b = buf;

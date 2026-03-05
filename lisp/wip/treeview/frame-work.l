@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; frame-work.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -22,18 +22,18 @@
 ;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-nop (&optional hitem)
-  "‰½‚à‚µ‚È‚¢ˆ—B"
+  "ä½•ã‚‚ã—ãªã„å‡¦ç†ã€‚"
   (interactive)
   nil)
 
 (defun treeview-message (fmt &rest args)
-  "display-name ‚ğæ“ª‚É‚Â‚¯‚½ message ‚ğo—ÍB"
+  "display-name ã‚’å…ˆé ­ã«ã¤ã‘ãŸ message ã‚’å‡ºåŠ›ã€‚"
   (apply #'message
          (concat (treeview-data-get 'treeview::display-name "TreeView") ": "
                  fmt) args))
 
 (defun treeview-minibuffer-prompt (fmt &rest args)
-  "display-name ‚ğæ“ª‚É‚Â‚¯‚½ minibuffer-prompt ‚ğo—ÍB"
+  "display-name ã‚’å…ˆé ­ã«ã¤ã‘ãŸ minibuffer-prompt ã‚’å‡ºåŠ›ã€‚"
   (apply #'minibuffer-prompt
          (concat (treeview-data-get 'treeview::display-name "TreeView") ": "
                  fmt) args))
@@ -42,7 +42,7 @@
 ;; treeview-id
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-get-active-treeview-id ()
-  "Œ»İƒAƒNƒeƒBƒu‚È treeview ‚Ì treeview-id ‚ğ•Ô‚·B"
+  "ç¾åœ¨ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãª treeview ã® treeview-id ã‚’è¿”ã™ã€‚"
   (let ((htree (winapi::GetFocus)))
     (dolist (treeview-id (treeview-get-treeview-id-list))
       (with-treeview (treeview-id)
@@ -50,13 +50,13 @@
           (return-from treeview-get-active-treeview-id treeview-id))))))
 
 (defun treeview-get-mouse-htree ()
-  "Œ»İƒ}ƒEƒX‚Ìæ‚Á‚Ä‚¢‚é treeview ‚Ì htree ‚ğ•Ô‚·B"
+  "ç¾åœ¨ãƒã‚¦ã‚¹ã®ä¹—ã£ã¦ã„ã‚‹ treeview ã® htree ã‚’è¿”ã™ã€‚"
   (let ((po (winapi:make-POINT)))
     (winapi:GetCursorPos po)
     (winapi:WindowFromPoint (winapi:POINT-x po) (winapi:POINT-y po))))
 
 (defun treeview-get-mouse-treeview-id ()
-  "Œ»İƒ}ƒEƒX‚Ìæ‚Á‚Ä‚¢‚é treeview ‚Ì treeview-id ‚ğ•Ô‚·B"
+  "ç¾åœ¨ãƒã‚¦ã‚¹ã®ä¹—ã£ã¦ã„ã‚‹ treeview ã® treeview-id ã‚’è¿”ã™ã€‚"
   (let ((htree (treeview-get-mouse-htree)))
     (dolist (treeview-id (treeview-get-treeview-id-list))
       (with-treeview (treeview-id)
@@ -64,11 +64,11 @@
           (return-from treeview-get-mouse-treeview-id treeview-id))))))
 
 (defun treeview-get-treeview-id ()
-  "Œ»İA‚à‚µ‚­‚Í’¼‹ß‚Ì treeview-id ‚ğ•Ô‚·B"
+  "ç¾åœ¨ã€ã‚‚ã—ãã¯ç›´è¿‘ã® treeview-id ã‚’è¿”ã™ã€‚"
   (or *treeview-id* *treeview-last-id* 0))
 
 (defun treeview-get-any-treeview-id ()
-  "“KØ‚Æv‚¦‚é—Dæ“x‚ÅA‚È‚ñ‚ç‚©‚Ì treeview-id ‚ğ•Ô‚·B"
+  "é©åˆ‡ã¨æ€ãˆã‚‹å„ªå…ˆåº¦ã§ã€ãªã‚“ã‚‰ã‹ã® treeview-id ã‚’è¿”ã™ã€‚"
   (or *treeview-id*
       *treeview-last-id*
       (treeview-get-active-treeview-id)
@@ -80,11 +80,11 @@
 ;; keymap
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-fix-map* nil
-  "treeview keymap (ƒfƒtƒHƒ‹ƒg“®ì‘Îô) (ƒTƒ“ƒvƒ‹)B
-treeview ƒ‰ƒCƒuƒ‰ƒŠ“à‚Å‚Íg—p‚µ‚Ä‚¢‚È‚¢‚ªAƒ‰ƒCƒuƒ‰ƒŠ‚ğg—p‚·‚é‘¤‚©‚ç
-copy-keymap Œ³‚Æ‚µ‚Ä—p‚¢‚ç‚ê‚é‚±‚Æ‚ğ‘z’è‚µ‚Ä—pˆÓ‚µ‚Ä‚¢‚éB")
+  "treeview keymap (ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå‹•ä½œå¯¾ç­–) (ã‚µãƒ³ãƒ—ãƒ«)ã€‚
+treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªå†…ã§ã¯ä½¿ç”¨ã—ã¦ã„ãªã„ãŒã€ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’ä½¿ç”¨ã™ã‚‹å´ã‹ã‚‰
+copy-keymap å…ƒã¨ã—ã¦ç”¨ã„ã‚‰ã‚Œã‚‹ã“ã¨ã‚’æƒ³å®šã—ã¦ç”¨æ„ã—ã¦ã„ã‚‹ã€‚")
 (unless *treeview-fix-map*
-  ;; ƒL[ƒoƒCƒ“ƒh•ÏX•s‰Â
+  ;; ã‚­ãƒ¼ãƒã‚¤ãƒ³ãƒ‰å¤‰æ›´ä¸å¯
   (setq *treeview-fix-map* (make-sparse-keymap))
   (define-key *treeview-fix-map* #\SPC          'treeview-nop)
 ;  (define-key *treeview-fix-map* #\Up           'treeview-select-node-delay)
@@ -121,9 +121,9 @@ copy-keymap Œ³‚Æ‚µ‚Ä—p‚¢‚ç‚ê‚é‚±‚Æ‚ğ‘z’è‚µ‚Ä—pˆÓ‚µ‚Ä‚¢‚éB")
   (define-key *treeview-fix-map* #\S-C-End      'treeview-nop))
 
 (defvar *treeview-map* nil
- "treeview keymap (ƒTƒ“ƒvƒ‹)B
-treeview ƒ‰ƒCƒuƒ‰ƒŠ“à‚Å‚Íg—p‚µ‚Ä‚¢‚È‚¢‚ªAƒ‰ƒCƒuƒ‰ƒŠ‚ğg—p‚·‚é‘¤‚©‚ç
-copy-keymap Œ³‚Æ‚µ‚Ä—p‚¢‚ç‚ê‚é‚±‚Æ‚ğ‘z’è‚µ‚Ä—pˆÓ‚µ‚Ä‚¢‚éB")
+ "treeview keymap (ã‚µãƒ³ãƒ—ãƒ«)ã€‚
+treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªå†…ã§ã¯ä½¿ç”¨ã—ã¦ã„ãªã„ãŒã€ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’ä½¿ç”¨ã™ã‚‹å´ã‹ã‚‰
+copy-keymap å…ƒã¨ã—ã¦ç”¨ã„ã‚‰ã‚Œã‚‹ã“ã¨ã‚’æƒ³å®šã—ã¦ç”¨æ„ã—ã¦ã„ã‚‹ã€‚")
 (unless *treeview-map*
   (setq *treeview-map* (make-keymap))
   ;;
@@ -152,10 +152,10 @@ copy-keymap Œ³‚Æ‚µ‚Ä—p‚¢‚ç‚ê‚é‚±‚Æ‚ğ‘z’è‚µ‚Ä—pˆÓ‚µ‚Ä‚¢‚éB")
   ;;
   (define-key *treeview-map* '(#\C-x #\?) 'treeview-describe-key-briefly))
 
-;; TreeView ‚ª•¡”‘¶İ‚µ‚Ä‚àAcall-back function ‚Í‚Ğ‚Æ‚Â‚µ‚©İ’è‚Å‚«‚È‚¢‚©H
+;; TreeView ãŒè¤‡æ•°å­˜åœ¨ã—ã¦ã‚‚ã€call-back function ã¯ã²ã¨ã¤ã—ã‹è¨­å®šã§ããªã„ã‹ï¼Ÿ
 (defun treeview-set-std-keydown-callback ()
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚Å•W€“I‚É—p‚¢‚é keydown-callbackB
-keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã§æ¨™æº–çš„ã«ç”¨ã„ã‚‹ keydown-callbackã€‚
+keydown-callback ã‚’ä»–ã®ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã“ã¨ã¯æƒ³å®šã—ã¦ã„ãªã„ã€‚"
   (let (fix-keymap-symbol keymap-symbol key x)
     (treeview-keydown-callback
      #'(lambda (hitem vkey flag)
@@ -169,7 +169,7 @@ keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
              (run-hooks 'ed::*pre-command-hook*)
              (setq x (lookup-keymap (symbol-value fix-keymap-symbol) key))
              (if x
-                 ;; fix-keymap ‚ÉŠY“–
+                 ;; fix-keymap ã«è©²å½“
                  (progn
                    (treeview-data-set 'treeview::keydown-callback-keymap nil)
                    (treeview-data-set 'treeview::keydown-callback-key-str "")
@@ -179,7 +179,7 @@ keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
                      (setq ed::*this-command* x)
                      (call-interactively x)
                      (run-hooks 'ed::*post-command-hook*)))
-               ;; fix-keymap ‚É”ñŠY“–
+               ;; fix-keymap ã«éè©²å½“
                (progn
                  (setq x (lookup-keymap (treeview-data-get 'treeview::keydown-callback-keymap) key))
                  (if (keymapp x)
@@ -210,9 +210,9 @@ keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 
 (require "keymap")
 (defun treeview-describe-bindings ()
-  "treeview ƒEƒBƒ“ƒhƒE‚Å‚ÌƒL[ƒoƒCƒ“ƒfƒBƒ“ƒOˆê——‚ğ•\¦‚·‚éB
-uŒÅ’èƒoƒCƒ“ƒfƒBƒ“ƒOvuƒoƒCƒ“ƒfƒBƒ“ƒOvuƒCƒ“ƒNƒŠƒƒ“ƒ^ƒ‹ƒT[ƒ`ƒoƒCƒ“ƒfƒB
-ƒ“ƒOv‚Ì 3 í—Ş‚ğ•\¦‚·‚éB"
+  "treeview ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã§ã®ã‚­ãƒ¼ãƒã‚¤ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ä¸€è¦§ã‚’è¡¨ç¤ºã™ã‚‹ã€‚
+ã€Œå›ºå®šãƒã‚¤ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ã€ã€Œãƒã‚¤ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ã€ã€Œã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ã‚¿ãƒ«ã‚µãƒ¼ãƒãƒã‚¤ãƒ³ãƒ‡ã‚£
+ãƒ³ã‚°ã€ã® 3 ç¨®é¡ã‚’è¡¨ç¤ºã™ã‚‹ã€‚"
   (interactive)
   (let ((shadow nil)
         (fix-keymap (symbol-value (treeview-data-get 'treeview::fix-keymap-symbol)))
@@ -234,9 +234,9 @@ keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
       (refresh-screen)
       (treeview-message "Building binding list...done"))))
 
-;; ƒwƒ‹ƒv (help.l)
+;; ãƒ˜ãƒ«ãƒ— (help.l)
 (defun treeview-describe-key-briefly (key &optional arg)
-  "treeview ƒEƒBƒ“ƒhƒE‚Å‚ÌAw’è‚³‚ê‚½ƒL[‚ÌƒoƒCƒ“ƒhî•ñ‚ğ•\¦‚·‚éB"
+  "treeview ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã§ã®ã€æŒ‡å®šã•ã‚ŒãŸã‚­ãƒ¼ã®ãƒã‚¤ãƒ³ãƒ‰æƒ…å ±ã‚’è¡¨ç¤ºã™ã‚‹ã€‚"
   (interactive
       (list
        (let (key one-key (keymap (symbol-value (treeview-data-get 'treeview::keymap-symbol))) x (key-str ""))
@@ -283,21 +283,21 @@ keydown-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; mouse
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; click ‚Ìˆ—‚ªI—¹‚µ‚Ä‚©‚ç rclick ‚ª“®ì‚·‚é‚æ‚¤‚É
+;; click ã®å‡¦ç†ãŒçµ‚äº†ã—ã¦ã‹ã‚‰ rclick ãŒå‹•ä½œã™ã‚‹ã‚ˆã†ã«
 (defvar *treeview-interval-click* 0.01
-  "treeview ã‚Å¶ƒNƒŠƒbƒN“®ì‚³‚¹‚é‚½‚ß‚Ì interval ƒ^ƒCƒ€B")
+  "treeview ä¸Šã§å·¦ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã•ã›ã‚‹ãŸã‚ã® interval ã‚¿ã‚¤ãƒ ã€‚")
 (defvar *treeview-interval-dblclk* 0.01
-  "treeview ã‚Å¶ƒ_ƒuƒ‹ƒNƒŠƒbƒN“®ì‚³‚¹‚é‚½‚ß‚Ì interval ƒ^ƒCƒ€B")
+  "treeview ä¸Šã§å·¦ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã•ã›ã‚‹ãŸã‚ã® interval ã‚¿ã‚¤ãƒ ã€‚")
 (defvar *treeview-interval-rclick* 0.1
-  "treeview ã‚Å‰EƒNƒŠƒbƒN“®ì‚³‚¹‚é‚½‚ß‚Ì interval ƒ^ƒCƒ€B
-‰EƒNƒŠƒbƒN‚ÉAˆÃ–Ù“I‚Éæ‚É¶ƒNƒŠƒbƒN“®ì‚ğ‚³‚¹‚é‚½‚ß‚ÉA
-*treeview-interval-rclick* ‚Ì’l‚ÍA*treeview-interval-click*A
-*treeview-interval-dblclk* ‚æ‚è‚à‚ ‚é’ö“x‘å‚«‚¢’l(’·‚¢ interval)‚Å‚È‚¯‚ê‚Î
-‚È‚ç‚È‚¢B")
+  "treeview ä¸Šã§å³ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã•ã›ã‚‹ãŸã‚ã® interval ã‚¿ã‚¤ãƒ ã€‚
+å³ã‚¯ãƒªãƒƒã‚¯æ™‚ã«ã€æš—é»™çš„ã«å…ˆã«å·¦ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã‚’ã•ã›ã‚‹ãŸã‚ã«ã€
+*treeview-interval-rclick* ã®å€¤ã¯ã€*treeview-interval-click*ã€
+*treeview-interval-dblclk* ã‚ˆã‚Šã‚‚ã‚ã‚‹ç¨‹åº¦å¤§ãã„å€¤(é•·ã„ interval)ã§ãªã‘ã‚Œã°
+ãªã‚‰ãªã„ã€‚")
 
 (defun click (&optional x y)
-  "ƒ}ƒEƒXˆÊ’u‚É‘Î‚µ‚Ä¶ƒNƒŠƒbƒN“®ì‚ğ”­¶‚³‚¹‚éB
-xyzzy ã‚ÉŒÀ‚ç‚¸AƒNƒŠƒbƒN“®ì‚Í”­¶‚·‚éB"
+  "ãƒã‚¦ã‚¹ä½ç½®ã«å¯¾ã—ã¦å·¦ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã‚’ç™ºç”Ÿã•ã›ã‚‹ã€‚
+xyzzy ä¸Šã«é™ã‚‰ãšã€ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã¯ç™ºç”Ÿã™ã‚‹ã€‚"
   (let ((po (winapi::make-POINT)))
     (winapi::GetCursorPos po)
     (when (or x y)
@@ -311,14 +311,14 @@ xyzzy ã‚ÉŒÀ‚ç‚¸AƒNƒŠƒbƒN“®ì‚Í”­¶‚·‚éB"
     (refresh-screen)))
 
 (defun treeview-set-std-click-callback ()
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚Å•W€“I‚É—p‚¢‚é ¶ƒNƒŠƒbƒNƒR[ƒ‹ƒoƒbƒNŠÖ”B
-‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã§æ¨™æº–çš„ã«ç”¨ã„ã‚‹ å·¦ã‚¯ãƒªãƒƒã‚¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã€‚
+ä»–ã®ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã“ã¨ã¯æƒ³å®šã—ã¦ã„ãªã„ã€‚"
   (let (pre-time pre-hitem time)
     (treeview-click-callback
      #'(lambda (hitem)
          (setq time (get-internal-real-time))
          (with-app ((treeview-treeview-id-get-app-id (treeview-get-mouse-treeview-id)))
-           ;; treeview ƒtƒH[ƒJƒX‚ğæ‚És‚¤
+           ;; treeview ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã‚’å…ˆã«è¡Œã†
            (treeview-focus-treeview)
            (setq hitem (treeview-hittest))
            (when (treeview-hitem-valid-p hitem)
@@ -329,8 +329,8 @@ xyzzy ã‚ÉŒÀ‚ç‚¸AƒNƒŠƒbƒN“®ì‚Í”­¶‚·‚éB"
                (stop-timer func)
                (start-timer *treeview-interval-click* func t))))))))
 (defun treeview-set-std-dblclk-callback ()
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚Å•W€“I‚É—p‚¢‚é ¶ƒ_ƒuƒ‹ƒNƒŠƒbƒNƒR[ƒ‹ƒoƒbƒNŠÖ”B
-‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã§æ¨™æº–çš„ã«ç”¨ã„ã‚‹ å·¦ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã€‚
+ä»–ã®ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã“ã¨ã¯æƒ³å®šã—ã¦ã„ãªã„ã€‚"
   (treeview-dblclk-callback
    #'(lambda (hitem)
        (with-app ((treeview-treeview-id-get-app-id (treeview-get-mouse-treeview-id)))
@@ -343,13 +343,13 @@ xyzzy ã‚ÉŒÀ‚ç‚¸AƒNƒŠƒbƒN“®ì‚Í”­¶‚·‚éB"
              (stop-timer func)
              (start-timer *treeview-interval-dblclk* func t)))))))
 (defun treeview-set-std-rclick-callback ()
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚Å•W€“I‚É—p‚¢‚é ‰EƒNƒŠƒbƒNƒR[ƒ‹ƒoƒbƒNŠÖ”B
-‰EƒNƒŠƒbƒN‚³‚ê‚½ê‡‚É‚ÍA¶ƒNƒŠƒbƒN‚ğ”­¶‚³‚¹Aæ‚É¶ƒNƒŠƒbƒNˆ—‚ğs‚¢A
-‚»‚ÌŒã‰EƒNƒŠƒbƒN“®ì‚Æ‚µ‚Äƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[‚ğ•\¦‚·‚éB
-treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã§æ¨™æº–çš„ã«ç”¨ã„ã‚‹ å³ã‚¯ãƒªãƒƒã‚¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ã€‚
+å³ã‚¯ãƒªãƒƒã‚¯ã•ã‚ŒãŸå ´åˆã«ã¯ã€å·¦ã‚¯ãƒªãƒƒã‚¯ã‚’ç™ºç”Ÿã•ã›ã€å…ˆã«å·¦ã‚¯ãƒªãƒƒã‚¯æ™‚å‡¦ç†ã‚’è¡Œã„ã€
+ãã®å¾Œå³ã‚¯ãƒªãƒƒã‚¯å‹•ä½œã¨ã—ã¦ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’è¡¨ç¤ºã™ã‚‹ã€‚
+treeview-set-std-rclick-callback ã‚’ä»–ã®ã‚‚ã®ã«å¤‰æ›´ã™ã‚‹ã“ã¨ã¯æƒ³å®šã—ã¦ã„ãªã„ã€‚"
   (treeview-rclick-callback
    #'(lambda (hitem)
-       ; ¶ƒNƒŠƒbƒN‚ğ‚Ü‚¸”­¶‚³‚¹Aˆ—‚ğs‚¤
+       ; å·¦ã‚¯ãƒªãƒƒã‚¯ã‚’ã¾ãšç™ºç”Ÿã•ã›ã€å‡¦ç†ã‚’è¡Œã†
        (click)
        (with-app ((treeview-treeview-id-get-app-id (treeview-get-mouse-treeview-id)))
          (setq hitem (treeview-hittest))
@@ -367,8 +367,8 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; menu
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-std-track-popup-menu (&optional hitem)
-  "treeview ƒ‰ƒCƒuƒ‰ƒŠ‚Å•W€“I‚É—p‚¢‚éƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[ƒRƒ}ƒ“ƒhB
-‰EƒNƒŠƒbƒNƒR[ƒ‹ƒoƒbƒNŠÖ”“à‚©‚çŒÄ‚Î‚ê‚éB"
+  "treeview ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã§æ¨™æº–çš„ã«ç”¨ã„ã‚‹ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚³ãƒãƒ³ãƒ‰ã€‚
+å³ã‚¯ãƒªãƒƒã‚¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°å†…ã‹ã‚‰å‘¼ã°ã‚Œã‚‹ã€‚"
   (interactive)
   (with-app ((treeview-treeview-id-get-app-id (treeview-get-treeview-id)))
     (unless hitem
@@ -379,26 +379,26 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
         (track-popup-menu popup-menu)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; treeview ”z’uˆÊ’u•ÏX
+;; treeview é…ç½®ä½ç½®å¤‰æ›´
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-setpos-top ()
-  "treeview ‚ÌˆÊ’u‚ğã‚Éİ’è‚·‚éB"
+  "treeview ã®ä½ç½®ã‚’ä¸Šã«è¨­å®šã™ã‚‹ã€‚"
   (interactive)
   (treeview-setpos XPIS_TOP))
 (defun treeview-setpos-bottom ()
-  "treeview ‚ÌˆÊ’u‚ğ‰º‚Éİ’è‚·‚éB"
+  "treeview ã®ä½ç½®ã‚’ä¸‹ã«è¨­å®šã™ã‚‹ã€‚"
   (interactive)
   (treeview-setpos XPIS_BOTTOM))
 (defun treeview-setpos-left ()
-  "treeview ‚ÌˆÊ’u‚ğ¶‚Éİ’è‚·‚éB"
+  "treeview ã®ä½ç½®ã‚’å·¦ã«è¨­å®šã™ã‚‹ã€‚"
   (interactive)
   (treeview-setpos XPIS_LEFT))
 (defun treeview-setpos-right ()
-  "treeview ‚ÌˆÊ’u‚ğ‰E‚Éİ’è‚·‚éB"
+  "treeview ã®ä½ç½®ã‚’å³ã«è¨­å®šã™ã‚‹ã€‚"
   (interactive)
   (treeview-setpos XPIS_RIGHT))
 (defun treeview-setpos-rotate ()
-  "treeview ‚ÌˆÊ’u‚ğ¶ã‰E‰º‚Ì‡‚É•ÏX‚·‚éB"
+  "treeview ã®ä½ç½®ã‚’å·¦ä¸Šå³ä¸‹ã®é †ã«å¤‰æ›´ã™ã‚‹ã€‚"
   (interactive)
   (let ((pos-list (list XPIS_LEFT XPIS_TOP XPIS_RIGHT XPIS_BOTTOM)) pos)
     (setq pos (cadr (member (treeview-data-get 'treeview::window-position) pos-list)))
@@ -407,25 +407,25 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
     (treeview-setpos pos)))
 
 (defun treeview-popup-menu-position ()
-  "Œ»İ‚Ì app-id ‚Ì treeview ‚ÌˆÊ’u‚ğ•ÏX‚·‚éƒ|ƒbƒvƒAƒbƒvƒƒjƒ…[‚ğ¶¬‚·‚éB"
+  "ç¾åœ¨ã® app-id ã® treeview ã®ä½ç½®ã‚’å¤‰æ›´ã™ã‚‹ãƒãƒƒãƒ—ã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼ã‚’ç”Ÿæˆã™ã‚‹ã€‚"
   (let ((menu (create-popup-menu 'position))
         (app-id *treeview-app-id*))
-    (add-menu-item menu 'treeview-setpos-top "ã(&T)"
+    (add-menu-item menu 'treeview-setpos-top "ä¸Š(&T)"
      #'(lambda () (interactive) (with-app (app-id) (treeview-setpos-top)))
      #'(lambda ()
          (with-app (app-id)
            (and (eql (treeview-data-get 'treeview::window-position) XPIS_TOP) :check))))
-    (add-menu-item menu 'treeview-setpos-bottom "‰º(&B)"
+    (add-menu-item menu 'treeview-setpos-bottom "ä¸‹(&B)"
      #'(lambda () (interactive) (with-app (app-id) (treeview-setpos-bottom)))
      #'(lambda ()
          (with-app (app-id)
            (and (eql (treeview-data-get 'treeview::window-position) XPIS_BOTTOM) :check))))
-    (add-menu-item menu 'treeview-setpos-left "¶(&L)"
+    (add-menu-item menu 'treeview-setpos-left "å·¦(&L)"
      #'(lambda () (interactive) (with-app (app-id) (treeview-setpos-left)))
      #'(lambda ()
          (with-app (app-id)
            (and (eql (treeview-data-get 'treeview::window-position) XPIS_LEFT) :check))))
-    (add-menu-item menu 'treeview-setpos-right "‰E(&R)"
+    (add-menu-item menu 'treeview-setpos-right "å³(&R)"
      #'(lambda () (interactive) (with-app (app-id) (treeview-setpos-right)))
      #'(lambda ()
          (with-app (app-id)
@@ -436,8 +436,8 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; window size
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-data-save-window-size ()
-  "treeview ‚Ì window ƒTƒCƒY‚ğ•Û‘¶‚·‚éB
-ˆÊ’u‚ªã‰º‚Ìê‡‚Í‚‚³‚ğA¶‰E‚Ìê‡‚Í•‚ğ•Û‘¶‚·‚éB"
+  "treeview ã® window ã‚µã‚¤ã‚ºã‚’ä¿å­˜ã™ã‚‹ã€‚
+ä½ç½®ãŒä¸Šä¸‹ã®å ´åˆã¯é«˜ã•ã‚’ã€å·¦å³ã®å ´åˆã¯å¹…ã‚’ä¿å­˜ã™ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let ((pos (treeview-data-get 'treeview::window-position)))
       (cond
@@ -449,7 +449,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
                            (win-user::get-wwindow-height (treeview-get-hwnd))))))))
 
 (defun treeview-data-load-window-size ()
-  "treeview ‚Ì window ƒTƒCƒY‚ğA•Û‘¶‚µ‚Ä‚¨‚¢‚½ƒTƒCƒY‚É]‚¢•ÏX‚·‚éB"
+  "treeview ã® window ã‚µã‚¤ã‚ºã‚’ã€ä¿å­˜ã—ã¦ãŠã„ãŸã‚µã‚¤ã‚ºã«å¾“ã„å¤‰æ›´ã™ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let ((pos (treeview-data-get 'treeview::window-position)))
       (cond
@@ -466,7 +466,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; window display style
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-effect-window-display-style-on-create ()
-  "treeview ì¬ xyzzy ‚Ì“à•”‚É‚»‚Ì‚Ü‚Ü•\¦‚µ‚È‚¢ê‡‚Ì‚½‚ß‚Ì window §ŒäB"
+  "treeview ä½œæˆæ™‚ xyzzy ã®å†…éƒ¨ã«ãã®ã¾ã¾è¡¨ç¤ºã—ãªã„å ´åˆã®ãŸã‚ã® window åˆ¶å¾¡ã€‚"
   (when (treeview-exist-p)
     (case (treeview-data-get 'treeview::window-display-style)
       (:xyzzy-position
@@ -481,7 +481,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
         nil)))))
 
 (defun treeview-effect-window-display-style-on-delete ()
-  "xyzzy ‚Ì“à•”‚É‚»‚Ì‚Ü‚Ü•\¦‚µ‚Ä‚¢‚È‚¢ê‡‚Ì treeview ‚ğíœ window §ŒäB"
+  "xyzzy ã®å†…éƒ¨ã«ãã®ã¾ã¾è¡¨ç¤ºã—ã¦ã„ãªã„å ´åˆã® treeview ã‚’å‰Šé™¤æ™‚ window åˆ¶å¾¡ã€‚"
   (when (treeview-exist-p)
     (case (treeview-data-get 'treeview::window-display-style)
       (:xyzzy-position
@@ -499,7 +499,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; color
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-data-load-color ()
-  "İ’è‚©‚ç•¶šFE”wŒiF‚ğæ“¾‚µAtreeview ‚É”½‰f‚³‚¹‚éB"
+  "è¨­å®šã‹ã‚‰æ–‡å­—è‰²ãƒ»èƒŒæ™¯è‰²ã‚’å–å¾—ã—ã€treeview ã«åæ˜ ã•ã›ã‚‹ã€‚"
   (let (rgb color-name)
     (when (treeview-exist-p)
       ;; text-color
@@ -531,7 +531,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; font
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-data-load-font ()
-  "İ’è‚©‚çƒtƒHƒ“ƒgİ’è‚ğæ“¾‚µAtreeview ‚É”½‰f‚³‚¹‚éB"
+  "è¨­å®šã‹ã‚‰ãƒ•ã‚©ãƒ³ãƒˆè¨­å®šã‚’å–å¾—ã—ã€treeview ã«åæ˜ ã•ã›ã‚‹ã€‚"
   (when (treeview-exist-p)
     (treeview-font-set
      :font-facename (and (treeview-data-get 'treeview::font-facename-manual-p)
@@ -548,26 +548,26 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-style-list*
   ;  SYMBOL                     REV TAG                            LABEL
-  '((winapi:TVS_HASBUTTONS      nil treeview::style-hasbuttons     "ÎŞÀİ‚ğ•\¦(&N)")
-    (winapi:TVS_HASLINES        nil treeview::style-haslines       "×²İ‚ğ•\¦(&L)")
-    (winapi:TVS_LINESATROOT     nil treeview::style-linesatroot    "×²İEÎŞÀİ‚ğÙ°Ä‚©‚ç•\¦(&R)")
-    (winapi:TVS_EDITLABELS      nil treeview::style-editlabels     "×ÍŞÙ•ÒW‰Â”\(&E)")
-    (winapi:TVS_DISABLEDRAGDROP   t treeview::style-enabledragdrop "ÄŞ×¯¸Ş±İÄŞÄŞÛ¯Ìß‰Â(&D)")
-    (winapi:TVS_SHOWSELALWAYS   nil treeview::style-showselalways  "¾Ù‚ğí‚É‘I‘ğ•\¦(&A)")
-    (winapi:TVS_RTLREADING      nil treeview::style-rtlreading     "‰E‚©‚ç¶‚É•\¦(&U)")
-    (winapi:TVS_NOTOOLTIPS        t treeview::style-tooltips       "Â°ÙÁ¯Ìß‚ğ•\¦(&S)")
-    (winapi:TVS_CHECKBOXES      nil treeview::style-checkboxes     "Áª¯¸ÎŞ¯¸½‚ğ•\¦(&C)")
-    (winapi:TVS_TRACKSELECT     nil treeview::style-trackselect    "Ä×¯¸¾Ú¸Ä(&T)")
-    (winapi:TVS_SINGLEEXPAND    nil treeview::style-singleexpand   "ˆê‚Â‚Ì‚İ“WŠJ(&G)")
-    (winapi:TVS_INFOTIP         nil treeview::style-infotip        "Â°ÙÁ¯Ìßî•ñæ“¾(&I)")
-    (winapi:TVS_FULLROWSELECT   nil treeview::style-fullrowselect  "ˆês‘I‘ğ•\¦(×²İ•\¦–³Œø)(&O)")
-    (winapi:TVS_NOSCROLL          t treeview::style-scroll         "c½¸Û°Ù(&V)")
-    (winapi:TVS_NONEVENHEIGHT   nil treeview::style-nonevenheight  "¾Ù–ˆ‚Ì‚‚³‚Ìİ’è(&F)")
-    (winapi:TVS_NOHSCROLL         t treeview::style-hscroll        "‰¡½¸Û°Ù(&H)"))
-  "treeview ‚ÌƒXƒ^ƒCƒ‹‚Ì•Û‘¶A“K—p‚ÌÀ{A‚¨‚æ‚ÑAİ’èƒ_ƒCƒAƒƒO‚Ì‚½‚ß‚Ìî•ñB")
+  '((winapi:TVS_HASBUTTONS      nil treeview::style-hasbuttons     "ï¾ï¾ï¾€ï¾ã‚’è¡¨ç¤º(&N)")
+    (winapi:TVS_HASLINES        nil treeview::style-haslines       "ï¾—ï½²ï¾ã‚’è¡¨ç¤º(&L)")
+    (winapi:TVS_LINESATROOT     nil treeview::style-linesatroot    "ï¾—ï½²ï¾ãƒ»ï¾ï¾ï¾€ï¾ã‚’ï¾™ï½°ï¾„ã‹ã‚‰è¡¨ç¤º(&R)")
+    (winapi:TVS_EDITLABELS      nil treeview::style-editlabels     "ï¾—ï¾ï¾ï¾™ç·¨é›†å¯èƒ½(&E)")
+    (winapi:TVS_DISABLEDRAGDROP   t treeview::style-enabledragdrop "ï¾„ï¾ï¾—ï½¯ï½¸ï¾ï½±ï¾ï¾„ï¾ï¾„ï¾ï¾›ï½¯ï¾Œï¾Ÿå¯(&D)")
+    (winapi:TVS_SHOWSELALWAYS   nil treeview::style-showselalways  "ï½¾ï¾™ã‚’å¸¸ã«é¸æŠè¡¨ç¤º(&A)")
+    (winapi:TVS_RTLREADING      nil treeview::style-rtlreading     "å³ã‹ã‚‰å·¦ã«è¡¨ç¤º(&U)")
+    (winapi:TVS_NOTOOLTIPS        t treeview::style-tooltips       "ï¾‚ï½°ï¾™ï¾ï½¯ï¾Œï¾Ÿã‚’è¡¨ç¤º(&S)")
+    (winapi:TVS_CHECKBOXES      nil treeview::style-checkboxes     "ï¾ï½ªï½¯ï½¸ï¾ï¾ï½¯ï½¸ï½½ã‚’è¡¨ç¤º(&C)")
+    (winapi:TVS_TRACKSELECT     nil treeview::style-trackselect    "ï¾„ï¾—ï½¯ï½¸ï½¾ï¾šï½¸ï¾„(&T)")
+    (winapi:TVS_SINGLEEXPAND    nil treeview::style-singleexpand   "ä¸€ã¤ã®ã¿å±•é–‹(&G)")
+    (winapi:TVS_INFOTIP         nil treeview::style-infotip        "ï¾‚ï½°ï¾™ï¾ï½¯ï¾Œï¾Ÿæƒ…å ±å–å¾—(&I)")
+    (winapi:TVS_FULLROWSELECT   nil treeview::style-fullrowselect  "ä¸€è¡Œé¸æŠè¡¨ç¤º(ï¾—ï½²ï¾è¡¨ç¤ºæ™‚ç„¡åŠ¹)(&O)")
+    (winapi:TVS_NOSCROLL          t treeview::style-scroll         "ç¸¦ï½½ï½¸ï¾›ï½°ï¾™(&V)")
+    (winapi:TVS_NONEVENHEIGHT   nil treeview::style-nonevenheight  "ï½¾ï¾™æ¯ã®é«˜ã•ã®è¨­å®š(&F)")
+    (winapi:TVS_NOHSCROLL         t treeview::style-hscroll        "æ¨ªï½½ï½¸ï¾›ï½°ï¾™(&H)"))
+  "treeview ã®ã‚¹ã‚¿ã‚¤ãƒ«ã®ä¿å­˜ã€é©ç”¨ã®å®Ÿæ–½ã€ãŠã‚ˆã³ã€è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã®ãŸã‚ã®æƒ…å ±ã€‚")
 
 (defun treeview-data-save-style ()
-  "treeview ‚©‚çŒ»İ‚Ì sytle İ’è‚ğæ“¾‚µA•Û‘¶‚·‚éB"
+  "treeview ã‹ã‚‰ç¾åœ¨ã® sytle è¨­å®šã‚’å–å¾—ã—ã€ä¿å­˜ã™ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let ((current-style (winapi:GetWindowStyle (treeview-get-htree)))
           symbol rev tag label)
@@ -579,7 +579,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
             (treeview-data-set tag (if rev nil t))))))))
 
 (defun treeview-data-load-style ()
-  "İ’è‚©‚ç style İ’è‚ğæ“¾‚µAtreeview ‚É”½‰f‚³‚¹‚éB"
+  "è¨­å®šã‹ã‚‰ style è¨­å®šã‚’å–å¾—ã—ã€treeview ã«åæ˜ ã•ã›ã‚‹ã€‚"
   (when (treeview-exist-p)
     (let ((current-style (winapi:GetWindowStyle (treeview-get-htree)))
           symbol rev tag label val)
@@ -601,7 +601,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; indent
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-data-load-indent ()
-  "İ’è‚©‚çƒCƒ“ƒfƒ“ƒgİ’è‚ğæ“¾‚µAtreeview ‚É”½‰f‚³‚¹‚éB"
+  "è¨­å®šã‹ã‚‰ã‚¤ãƒ³ãƒ‡ãƒ³ãƒˆè¨­å®šã‚’å–å¾—ã—ã€treeview ã«åæ˜ ã•ã›ã‚‹ã€‚"
   (when (treeview-exist-p)
     (if (treeview-data-get 'treeview::indent-manual-p)
         (if (integerp (treeview-data-get 'treeview::indent))
@@ -612,7 +612,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 ;; item-height
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-data-load-item-height ()
-  "İ’è‚©‚çƒAƒCƒeƒ€‚Ì‚‚³İ’è‚ğæ“¾‚µAtreeview ‚É”½‰f‚³‚¹‚éB"
+  "è¨­å®šã‹ã‚‰ã‚¢ã‚¤ãƒ†ãƒ ã®é«˜ã•è¨­å®šã‚’å–å¾—ã—ã€treeview ã«åæ˜ ã•ã›ã‚‹ã€‚"
   (when (treeview-exist-p)
     (if (treeview-data-get 'treeview::item-height-manual-p)
         (if (integerp (treeview-data-get 'treeview::item-height))
@@ -620,19 +620,19 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
       (treeview-set-item-height -1))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; window ˆÚ“®
+;; window ç§»å‹•
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar *treeview-other-window-pre-hook* nil
-  "treeview-other-window ‘O hook")
+  "treeview-other-window å‰ hook")
 (defvar *treeview-other-window-hook* nil
-  "treeview-other-window Œã hook")
+  "treeview-other-window å¾Œ hook")
 (defun treeview-other-treeview-window (&optional (arg 1 f) no-error)
-  "treeview ƒEƒBƒ“ƒhƒE‚Ì‚İ‚ğ‘ÎÛ‚Æ‚µ‚Ä other-window “®ì‚ğs‚¤B"
+  "treeview ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®ã¿ã‚’å¯¾è±¡ã¨ã—ã¦ other-window å‹•ä½œã‚’è¡Œã†ã€‚"
   (interactive "p")
   (treeview-other-window arg no-error t))
 
 (defun treeview-other-window (&optional (arg 1 f) no-error treeview-only)
-  "treeview ƒEƒBƒ“ƒhƒE‚ğŠÜ‚ß‚Ä other-window “®ì‚ğs‚¤B"
+  "treeview ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’å«ã‚ã¦ other-window å‹•ä½œã‚’è¡Œã†ã€‚"
   (interactive "p")
   (run-hooks '*treeview-other-window-pre-hook*)
   (let* ((first-window (car (caaddr (current-window-configuration))))
@@ -672,15 +672,15 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
       (and f (not no-error)
            (error 'range-error :datum arg)))
     (if (windowp target)
-        ;; target ‚ª (xyzzy ‚Å‚Ì) window ‚Ìê‡
+        ;; target ãŒ (xyzzy ã§ã®) window ã®å ´åˆ
         (progn
           (treeview-focus-editor)
           (set-window target)
           (refresh-screen))
-      ;; target ‚ª hwnd ‚Ìê‡
+      ;; target ãŒ hwnd ã®å ´åˆ
       (progn
-        ;; hwnd ‚ğæ“¾‚µ‚Ä‚¢‚é‚ªAtreeview-focus-treeview ‚ğ—p‚¢‚é‚½‚ß‚É
-        ;; ‚ ‚¦‚Ä‘Î‰‚·‚é treeview-id ‚ğæ“¾‚µ‚È‚¨‚·‚±‚Æ‚É‚·‚é
+        ;; hwnd ã‚’å–å¾—ã—ã¦ã„ã‚‹ãŒã€treeview-focus-treeview ã‚’ç”¨ã„ã‚‹ãŸã‚ã«
+        ;; ã‚ãˆã¦å¯¾å¿œã™ã‚‹ treeview-id ã‚’å–å¾—ã—ãªãŠã™ã“ã¨ã«ã™ã‚‹
         (with-app ((treeview-treeview-id-get-app-id
                     (dolist (treeview-id (treeview-get-treeview-id-list))
                       (with-treeview (treeview-id)
@@ -691,26 +691,26 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
   (run-hooks '*treeview-other-window-hook*))
 
 (defun treeview-move-previous-window (&optional (arg 1 f))
-  "treeview ƒEƒBƒ“ƒhƒE‚ğŠÜ‚ß‚Ä move-previous-window “®ì‚ğs‚¤B"
+  "treeview ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’å«ã‚ã¦ move-previous-window å‹•ä½œã‚’è¡Œã†ã€‚"
   (interactive "p")
   (treeview-other-window (- arg) (null f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Ä•`‰æ
+;; å†æç”»
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-refresh-treeview ()
-  "treeview ‚ğÄ•`‰æ‚·‚éB"
+  "treeview ã‚’å†æç”»ã™ã‚‹ã€‚"
   (winapi:InvalidateRect (treeview-get-hwnd) 0 0))
 
 (defun treeview-refresh-screen-force ()
-  "‰æ–Ê‘S‘Ì‚ğÄ•`‰æ‚·‚éB"
+  "ç”»é¢å…¨ä½“ã‚’å†æç”»ã™ã‚‹ã€‚"
   (winapi:InvalidateRect 0 0 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; tab-bar
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-app-bar ()
-  "treeview ƒ^ƒuƒo[‚ğ•\¦‚·‚éB"
+  "treeview ã‚¿ãƒ–ãƒãƒ¼ã‚’è¡¨ç¤ºã™ã‚‹ã€‚"
   (create-tab-bar 'treeview-app-bar
                   'treeview-app-bar-func)
   (mapc #'(lambda (app-id)
@@ -723,7 +723,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
 (define-command-bar 'treeview-app-bar "TreeView(&T)")
 
 (defun treeview-app-bar-func (app-id)
-  "treeview ƒ^ƒuƒo[‚ğ‘I‘ğ‚µ‚½Û‚Ìˆ—B"
+  "treeview ã‚¿ãƒ–ãƒãƒ¼ã‚’é¸æŠã—ãŸéš›ã®å‡¦ç†ã€‚"
   (let ((treeview-active-p (treeview-get-active-app-id)))
     (with-app (app-id)
       (treeview-focus-treeview)
@@ -731,7 +731,7 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
         (focus-tool-bar)))))
 
 (defun treeview-app-bar-add-item (&optional app-id select)
-  "treeview ƒ^ƒuƒo[ŠÇ—‰º‚É treeview ‚ğ’Ç‰Á‚·‚éB"
+  "treeview ã‚¿ãƒ–ãƒãƒ¼ç®¡ç†ä¸‹ã« treeview ã‚’è¿½åŠ ã™ã‚‹ã€‚"
   (unless (tool-bar-exist-p 'treeview-app-bar)
     (treeview-app-bar))
   (unless app-id
@@ -748,27 +748,27 @@ treeview-set-std-rclick-callback ‚ğ‘¼‚Ì‚à‚Ì‚É•ÏX‚·‚é‚±‚Æ‚Í‘z’è‚µ‚Ä‚¢‚È‚¢B"
     (tab-bar-select-item 'treeview-app-bar app-id))
   (refresh-screen))
 (defun treeview-app-bar-del-item (&optional app-id)
-  "treeview ƒ^ƒuƒo[ŠÇ—‰º‚©‚ç treeview ‚ğíœ‚·‚éB"
+  "treeview ã‚¿ãƒ–ãƒãƒ¼ç®¡ç†ä¸‹ã‹ã‚‰ treeview ã‚’å‰Šé™¤ã™ã‚‹ã€‚"
   (unless (tool-bar-exist-p 'treeview-app-bar)
     (treeview-app-bar))
   (unless app-id
     (setq app-id *treeview-app-id*))
   (tab-bar-delete-item 'treeview-app-bar app-id)
-  ;; ‰½ŒÌ‚©”»‚ç‚È‚¢‚ªTABƒo[‚ÉƒSƒ~‚ªc‚éê‡‚ª‚ ‚é‚Ì‚ÅˆÈ‰º‚àŒŸ“¢
+  ;; ä½•æ•…ã‹åˆ¤ã‚‰ãªã„ãŒTABãƒãƒ¼ã«ã‚´ãƒŸãŒæ®‹ã‚‹å ´åˆãŒã‚ã‚‹ã®ã§ä»¥ä¸‹ã‚‚æ¤œè¨
 ;;  (while (tab-bar-delete-item 'treeview-app-bar app-id)
 ;;    t)
   (refresh-screen))
 (defun treeview-app-bar-delete ()
-  "treeview ƒ^ƒuƒo[‚ğíœ‚·‚éB"
+  "treeview ã‚¿ãƒ–ãƒãƒ¼ã‚’å‰Šé™¤ã™ã‚‹ã€‚"
   (delete-command-bar 'treeview-app-bar))
 (add-hook '*treeview-uninstall-hook* 'treeview-app-bar-delete)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun treeview-operation-on-kill-xyzzy ()
-  "xyzzy I—¹‚ÉÀs‚·‚é treeview ˆ—B
-EƒEƒBƒ“ƒhƒEƒTƒCƒYİ’è‚Ì•Û‘¶
-EŠeíƒf[ƒ^‚Ì•Û‘¶
-Exyzzy ƒEƒBƒ“ƒhƒEˆÊ’uAƒTƒCƒY‚ÌC³"
+  "xyzzy çµ‚äº†æ™‚ã«å®Ÿè¡Œã™ã‚‹ treeview å‡¦ç†ã€‚
+ãƒ»ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚ºè¨­å®šã®ä¿å­˜
+ãƒ»å„ç¨®ãƒ‡ãƒ¼ã‚¿ã®ä¿å­˜
+ãƒ»xyzzy ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ä½ç½®ã€ã‚µã‚¤ã‚ºã®ä¿®æ­£"
   (maphash
    #'(lambda (app-id treeview-id)
        (with-app (app-id)

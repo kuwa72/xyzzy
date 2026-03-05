@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -26,12 +26,12 @@
 	  *list-function-modified* (buffer-modified-count)))
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 286 162
-		    (:caption "ä÷êî(ÇæÇ¢ÇΩÇ¢)àÍóó")
+		    (:caption "Èñ¢Êï∞(„Å†„ÅÑ„Åü„ÅÑ)‰∏ÄË¶ß")
 		    (:font 9 "MS UI Gothic")
 		    (:control
 		     (:listbox list nil #x50b10111 7 7 216 148)
 		     (:button IDOK "OK" #x50010001 229 7 50 14)
-		     (:button IDCANCEL "ÉLÉÉÉìÉZÉã" #x50010000 229 24 50 14)))
+		     (:button IDCANCEL "„Ç≠„É£„É≥„Çª„É´" #x50010000 229 24 50 14)))
 		  (list (cons 'list *list-function-list*)
 			(cons 'list *list-function-selected*)
 		  )

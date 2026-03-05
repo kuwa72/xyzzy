@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -377,7 +377,7 @@
   (set-kinsoku-shorten-limit *kinsoku-shorten-limit*)
   (when (and *use-global-ime*
 	     (not (ignore-errors (enable-global-ime t))))
-    (warn "Global IMEは使用できません")))
+    (warn "Global IME縺ｯ菴ｿ逕ｨ縺ｧ縺阪∪縺帙ｓ")))
 
 (export 'require-mouse-move)
 (defun require-mouse-move (f) f)
@@ -394,7 +394,7 @@
   (let ((ofn (symbol-function fn)))
     (si:*load-library file)
     (when (eq ofn (symbol-function fn))
-      (error "オートロードが失敗しました"))
+      (error "繧ｪ繝ｼ繝医Ο繝ｼ繝峨′螟ｱ謨励＠縺ｾ縺励◆"))
     (cond (macrop
 	   (macroexpand (cons fn args)))
 	  (interactive-p
@@ -419,7 +419,7 @@
   (let ((ofn (symbol-function fn)))
     (mc-load-library file :encoding encoding)
     (when (eq ofn (symbol-function fn))
-      (error "オートロードが失敗しました"))
+      (error "繧ｪ繝ｼ繝医Ο繝ｼ繝峨′螟ｱ謨励＠縺ｾ縺励◆"))
     (cond (macrop
 	   (macroexpand (cons fn args)))
 	  (interactive-p
@@ -505,7 +505,7 @@
 		 (ed:read-char-encoding "Encoding: "))))
   (unless (file-exist-p filename)
     (error 'file-not-found
-      :datum "ファイルが見つかりません"
+      :datum "繝輔ぃ繧､繝ｫ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ"
       :pathname filename))
   (let (buffer
 	(loading (if (ed:string-matchp "\\.lc$" filename)
@@ -537,7 +537,7 @@
 	   nil)
 	  (t
 	   (error 'file-not-found
-	     :datum "ファイルが見つかりません"
+	     :datum "繝輔ぃ繧､繝ｫ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ"
 	     :pathname filename)))))
 
 (defvar *bypass-step* nil)

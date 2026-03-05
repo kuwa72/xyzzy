@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 ;; Conway's `Life' for GNU Emacs
 ;; Copyright (C) 1988 Free Software Foundation, Inc.
 ;; Contributed by Kyle Jones, talos!kjones@uunet.uu.net
@@ -249,7 +250,7 @@
   (goto-line life-window-start)
 ;  (recenter 0)
 ;  (clear-message-line)
-  (message "C-g‚ğ‰Ÿ‚¹‚ÎI‚í‚é")
+  (message "C-gã‚’æŠ¼ã›ã°çµ‚ã‚ã‚‹")
 ;  (refresh-screen)
   (sit-for sleeptime))
 

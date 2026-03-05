@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -44,71 +44,71 @@
 
   (setq *dictionary-popup-menu*
 	(define-popup-menu ':dictionary-popup
-	  (:item :tag-command "˜a‰p(&J)"
+	  (:item :tag-command "å’Œè‹±(&J)"
 	   'lookup-j2e-dictionary-selection)
-	  (:item :tag-command "“Ç‚İ(&R)"
+	  (:item :tag-command "èª­ã¿(&R)"
 	   'lookup-reading-dictionary-selection)
-	  (:item :tag-command "‰p˜a(&E)"
+	  (:item :tag-command "è‹±å’Œ(&E)"
 	   'lookup-e2j-dictionary-selection)
-	  (:item :tag-command "nŒê(&I)"
+	  (:item :tag-command "ç†Ÿèª(&I)"
 	   'lookup-idiom-dictionary-selection)
 	  (:sep :above-edict-mode)
-	  (:item :tag-command "«‘ˆø‚«ƒ‚[ƒh(&D)"
+	  (:item :tag-command "è¾æ›¸å¼•ããƒ¢ãƒ¼ãƒ‰(&D)"
 	   'edict-mode
 	   #'(lambda () (if edict-mode :check)))))
 
   (setq *paste-rectangle-popup-menu*
 	(define-popup-menu ':paste-rectangle-popup
-	  (:item :tag-command "‘}“ü(&I)"
+	  (:item :tag-command "æŒ¿å…¥(&I)"
 	   'yank-rectangle
 	   #'(lambda () (unless *rectangle-kill-buffer* :disable)))
-	  (:item :tag-command "ã‘‚«(&O)"
+	  (:item :tag-command "ä¸Šæ›¸ã(&O)"
 	   'overwrite-rectangle
 	   #'(lambda () (unless *rectangle-kill-buffer* :disable)))
-	  (:item :tag-command "s––‚Ö’Ç‰Á(&A)"
+	  (:item :tag-command "è¡Œæœ«ã¸è¿½åŠ (&A)"
 	   'append-rectangle
 	   #'(lambda () (unless *rectangle-kill-buffer* :disable)))
-	  (:item :tag-command "•¶š—ñ‚É‚µ‚Ä‘}“ü(&R)"
+	  (:item :tag-command "æ–‡å­—åˆ—ã«ã—ã¦æŒ¿å…¥(&R)"
 	   'yank-rectangle-as-region
 	   #'(lambda () (unless *rectangle-kill-buffer* :disable)))))
 
   (setq *app-popup-menu*
 	(define-popup-menu
-	  (:item :tag-command "Ø‚èæ‚è(&T)"
+	  (:item :tag-command "åˆ‡ã‚Šå–ã‚Š(&T)"
 	   'kill-selection-to-clipboard :modify-any-selection)
-	  (:item :tag-command "ƒRƒs[(&C)"
+	  (:item :tag-command "ã‚³ãƒ”ãƒ¼(&C)"
 	   'copy-selection-to-clipboard :any-selection)
-	  (:item :tag-command "“\‚è•t‚¯(&P)"
+	  (:item :tag-command "è²¼ã‚Šä»˜ã‘(&P)"
 	   'paste-from-clipboard :clipboard)
-	  (:item :tag-command "“\‚è•t‚¯ - ‹éŒ`(&G)"
+	  (:item :tag-command "è²¼ã‚Šä»˜ã‘ - çŸ©å½¢(&G)"
 	   'paste-rectangle-from-clipboard :clipboard)
-	  (:menu nil "ƒNƒŠƒbƒvƒ{[ƒhƒGƒ“ƒR[ƒfƒBƒ“ƒO(&E)"
+	  (:menu nil "ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°(&E)"
 	   *clipboard-char-encoding-popup-menu*)
-	  (:item :tag-command "íœ(&D)"
+	  (:item :tag-command "å‰Šé™¤(&D)"
 	   'delete-selection :modify-any-selection)
-	  (:item :tag-command "‘S‚Ä‚ğ‘I‘ğ(&A)"
+	  (:item :tag-command "å…¨ã¦ã‚’é¸æŠ(&A)"
 	   'selection-whole-buffer)
 	  (:sep :above-dictionary-popup-menu)
-	  (:menu nil "«‘(&I)"
+	  (:menu nil "è¾æ›¸(&I)"
 	   *dictionary-popup-menu*)
-	  (:menu nil "‹éŒ`“\‚è•t‚¯(&R)"
+	  (:menu nil "çŸ©å½¢è²¼ã‚Šä»˜ã‘(&R)"
 	   *paste-rectangle-popup-menu*)))
 
   (setq *app-rectangle-popup-menu*
 	(define-popup-menu
-	  (:item :tag-command "Ø‚èæ‚è(&T)"
+	  (:item :tag-command "åˆ‡ã‚Šå–ã‚Š(&T)"
 	   'kill-rectangle-selection :modify-rectangle)
-	  (:item :tag-command "ƒRƒs[(&C)"
+	  (:item :tag-command "ã‚³ãƒ”ãƒ¼(&C)"
 	   'copy-rectangle-selection :rectangle)
-	  (:menu nil "“\‚è•t‚¯(&P)"
+	  (:menu nil "è²¼ã‚Šä»˜ã‘(&P)"
 	   *paste-rectangle-popup-menu*)
-	  (:item :tag-command "íœ(&D)"
+	  (:item :tag-command "å‰Šé™¤(&D)"
 	   'delete-rectangle-selection :modify-rectangle)
-	  (:item :tag-command "ƒNƒŠƒA(&R)"
+	  (:item :tag-command "ã‚¯ãƒªã‚¢(&R)"
 	   'clear-rectangle-selection :modify-rectangle)
-	  (:item :tag-command "‹ó”’‚ğ‘}“ü(&O)"
+	  (:item :tag-command "ç©ºç™½ã‚’æŒ¿å…¥(&O)"
 	   'open-rectangle-selection :modify-rectangle)
-	  (:item :tag-command "•¶š—ñ‚Å’u‚«Š·‚¦(&S)"
+	  (:item :tag-command "æ–‡å­—åˆ—ã§ç½®ãæ›ãˆ(&S)"
 	   'string-rectangle-selection :modify-rectangle)))
 
   (or *command-bar-popup-menu*
@@ -121,270 +121,270 @@
 
   (setq *app-menu*
 	(define-menu
-	  (:popup 'file "ƒtƒ@ƒCƒ‹(&F)"
-	   (:item :tag-command "V‹Kì¬(&N)"
+	  (:popup 'file "ãƒ•ã‚¡ã‚¤ãƒ«(&F)"
+	   (:item :tag-command "æ–°è¦ä½œæˆ(&N)"
 	    'new-file)
-	   (:item :tag-command "ŠJ‚­(&O)..."
+	   (:item :tag-command "é–‹ã(&O)..."
 	    'open-file-dialog)
-	   (:item :tag-command "•Â‚¶‚é(&C)"
+	   (:item :tag-command "é–‰ã˜ã‚‹(&C)"
 	    'close-selected-buffer
 	    #'(lambda ()
 		(if (= (count-buffers) 1) :disable)))
-	   (:item :tag-command "ã‘‚«•Û‘¶(&S)"
+	   (:item :tag-command "ä¸Šæ›¸ãä¿å­˜(&S)"
 	    'save-buffer-dialog :modified)
-	   (:item :tag-command "–¼‘O‚ğ•t‚¯‚Ä•Û‘¶(&A)..."
+	   (:item :tag-command "åå‰ã‚’ä»˜ã‘ã¦ä¿å­˜(&A)..."
 	    'save-as-dialog)
-	   (:item :tag-command "ƒtƒ@ƒCƒ‹‚Ì‘}“ü(&I)..."
+	   (:item :tag-command "ãƒ•ã‚¡ã‚¤ãƒ«ã®æŒ¿å…¥(&I)..."
 	    'insert-file-dialog)
-	   (:item :tag-command "–¼‘O‚Ì•ÏX(&R)..."
+	   (:item :tag-command "åå‰ã®å¤‰æ›´(&R)..."
 	    'rename-dialog)
-	   (:item :tag-command "‘S‚Ä•Û‘¶(&V)"
+	   (:item :tag-command "å…¨ã¦ä¿å­˜(&V)"
 	    'save-all-buffers)
 	   (:sep :above-session)
-	   (:item :tag-command "ƒZƒbƒVƒ‡ƒ“‚ğŠJ‚­(&D)..."
+	   (:item :tag-command "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã‚’é–‹ã(&D)..."
 	    'open-session-dialog)
-	   (:item :tag-command "ƒZƒbƒVƒ‡ƒ“‚Ì•Û‘¶(&W)..."
+	   (:item :tag-command "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã®ä¿å­˜(&W)..."
 	    'save-session-dialog)
-	   (:item :tag-command "ƒZƒbƒVƒ‡ƒ“‚Ì©“®•Û‘¶(&T)"
+	   (:item :tag-command "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã®è‡ªå‹•ä¿å­˜(&T)"
 	    'toggle-session-auto-save
 	    'update-session-auto-save-ui)
-	   (:item :tag-command "ƒZƒbƒVƒ‡ƒ“‚ğ•Â‚¶‚é(&Y)"
+	   (:item :tag-command "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã‚’é–‰ã˜ã‚‹(&Y)"
 	    'close-session-dialog)
 	   (:sep :above-print)
-	   (:item :tag-command "ˆóü(&P)..."
+	   (:item :tag-command "å°åˆ·(&P)..."
 	    'print-selected-buffer-dialog)
 	   (:sep :above-recent)
-	   (:menu nil "Å‹ßg‚Á‚½ƒtƒ@ƒCƒ‹(&F)"
+	   (:menu nil "æœ€è¿‘ä½¿ã£ãŸãƒ•ã‚¡ã‚¤ãƒ«(&F)"
 	    *recent-file-popup-menu*)
-	   (:menu nil "Å‹ßg‚Á‚½ƒZƒbƒVƒ‡ƒ“(&L)"
+	   (:menu nil "æœ€è¿‘ä½¿ã£ãŸã‚»ãƒƒã‚·ãƒ§ãƒ³(&L)"
 	    *recent-session-popup-menu*)
 	   (:sep :above-kill-xyzzy)
-	   (:item :tag-command "•Û‘¶‚µ‚ÄI—¹(&E)"
+	   (:item :tag-command "ä¿å­˜ã—ã¦çµ‚äº†(&E)"
 	    'save-all-buffers-kill-xyzzy)
-	   (:item :tag-command "I—¹(&X)"
+	   (:item :tag-command "çµ‚äº†(&X)"
 	    'kill-xyzzy))
-	  (:popup 'edit "•ÒW(&E)"
-	   (:item :tag-command "Œ³‚É–ß‚·(&U)"
+	  (:popup 'edit "ç·¨é›†(&E)"
+	   (:item :tag-command "å…ƒã«æˆ»ã™(&U)"
 	    'undo :undo)
-	   (:item :tag-command "‚â‚Á‚Ï‚èŒ³‚É–ß‚³‚È‚¢(&R)"
+	   (:item :tag-command "ã‚„ã£ã±ã‚Šå…ƒã«æˆ»ã•ãªã„(&R)"
 	    'redo :redo)
 	   (:sep :above-selection)
-	   (:item :tag-command "Ø‚èæ‚è(&T)"
+	   (:item :tag-command "åˆ‡ã‚Šå–ã‚Š(&T)"
 	    'kill-selection-to-clipboard :modify-any-selection)
-	   (:item :tag-command "ƒRƒs[(&C)"
+	   (:item :tag-command "ã‚³ãƒ”ãƒ¼(&C)"
 	    'copy-selection-to-clipboard :any-selection)
-	   (:item :tag-command "“\‚è•t‚¯(&P)"
+	   (:item :tag-command "è²¼ã‚Šä»˜ã‘(&P)"
 	    'paste-from-clipboard :clipboard)
-	   (:item :tag-command "“\‚è•t‚¯ - ‹éŒ`(&G)"
+	   (:item :tag-command "è²¼ã‚Šä»˜ã‘ - çŸ©å½¢(&G)"
 	    'paste-rectangle-from-clipboard :clipboard)
-	   (:menu nil "ƒNƒŠƒbƒvƒ{[ƒhƒGƒ“ƒR[ƒfƒBƒ“ƒO(&E)"
+	   (:menu nil "ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°(&E)"
 	    *clipboard-char-encoding-popup-menu*)
-	   (:item :tag-command "íœ(&L)"
+	   (:item :tag-command "å‰Šé™¤(&L)"
 	    'delete-selection :modify-any-selection)
-	   (:item :tag-command "‘S‚Ä‚ğ‘I‘ğ(&S)"
+	   (:item :tag-command "å…¨ã¦ã‚’é¸æŠ(&S)"
 	    'selection-whole-buffer)
 	   (:sep :above-rectangle)
-	   (:menu nil "‹éŒ`(&N)"
+	   (:menu nil "çŸ©å½¢(&N)"
 	    *app-rectangle-popup-menu*)
-	   (:popup :convert-popup "•ÏŠ·(&V)"
-	    (:item :tag-command "‘å•¶š(&U)"
+	   (:popup :convert-popup "å¤‰æ›(&V)"
+	    (:item :tag-command "å¤§æ–‡å­—(&U)"
 	     'upcase-selection :selection)
-	    (:item :tag-command "¬•¶š(&L)"
+	    (:item :tag-command "å°æ–‡å­—(&L)"
 	     'downcase-selection :selection)
-	    (:item :tag-command "’PŒê‚Ìæ“ª‚ğ‘å•¶š(&C)"
+	    (:item :tag-command "å˜èªã®å…ˆé ­ã‚’å¤§æ–‡å­—(&C)"
 	     'capitalize-selection :selection)
 	    (:sep :above-space-tab)
-	    (:item :tag-command "ƒXƒy[ƒX -> ƒ^ƒu(&T)"
+	    (:item :tag-command "ã‚¹ãƒšãƒ¼ã‚¹ -> ã‚¿ãƒ–(&T)"
 	     'tabify-selection :selection)
-	    (:item :tag-command "ƒ^ƒu -> ƒXƒy[ƒX(&S)"
+	    (:item :tag-command "ã‚¿ãƒ– -> ã‚¹ãƒšãƒ¼ã‚¹(&S)"
 	     'untabify-selection :selection)
 	    (:sep :above-full->half)
-	    (:popup :full->half-popup "‘SŠp -> ”¼Šp(&H)"
-	     (:item :tag-command "‚·‚×‚Ä(&A)"
+	    (:popup :full->half-popup "å…¨è§’ -> åŠè§’(&H)"
+	     (:item :tag-command "ã™ã¹ã¦(&A)"
 	      'map-all-to-half-width-selection :selection)
-	     (:item :tag-command "‰p”E‚Ğ‚ç‚ª‚ÈEƒJƒ^ƒJƒi(&S)"
+	     (:item :tag-command "è‹±æ•°ãƒ»ã²ã‚‰ãŒãªãƒ»ã‚«ã‚¿ã‚«ãƒŠ(&S)"
 	      'map-to-half-width-selection :selection)
-	     (:item :tag-command "‰p”E‚Ğ‚ç‚ª‚È(&R)"
+	     (:item :tag-command "è‹±æ•°ãƒ»ã²ã‚‰ãŒãª(&R)"
 	      'map-ascii-and-hiragana-to-half-width-selection :selection)
-	     (:item :tag-command "‰p”EƒJƒ^ƒJƒi(&T)"
+	     (:item :tag-command "è‹±æ•°ãƒ»ã‚«ã‚¿ã‚«ãƒŠ(&T)"
 	      'map-ascii-and-katakana-to-half-width-selection :selection)
-	     (:item :tag-command "‰p”(&N)"
+	     (:item :tag-command "è‹±æ•°(&N)"
 	      'map-ascii-to-half-width-selection :selection)
-	     (:item :tag-command "‚Ğ‚ç‚ª‚È(&H)"
+	     (:item :tag-command "ã²ã‚‰ãŒãª(&H)"
 	      'map-hiragana-to-half-width-selection :selection)
-	     (:item :tag-command "ƒJƒ^ƒJƒi(&K)"
+	     (:item :tag-command "ã‚«ã‚¿ã‚«ãƒŠ(&K)"
 	      'map-katakana-to-half-width-selection :selection)
-	     (:item :tag-command "ƒMƒŠƒVƒA•¶š(&G)"
+	     (:item :tag-command "ã‚®ãƒªã‚·ã‚¢æ–‡å­—(&G)"
 	      'map-greek-to-half-width-selection :selection)
-	     (:item :tag-command "ƒLƒŠƒ‹•¶š(&C)"
+	     (:item :tag-command "ã‚­ãƒªãƒ«æ–‡å­—(&C)"
 	      'map-cyrillic-to-half-width-selection :selection))
-	    (:popup :half->full-popup "”¼Šp -> ‘SŠp(&Z)"
-	     (:item :tag-command "‚·‚×‚Ä(¶Å -> ‚Ğ‚ç‚ª‚È)(&A)"
+	    (:popup :half->full-popup "åŠè§’ -> å…¨è§’(&Z)"
+	     (:item :tag-command "ã™ã¹ã¦(ï½¶ï¾… -> ã²ã‚‰ãŒãª)(&A)"
 	      'map-all-to-full-width-hiragana-selection :selection)
-	     (:item :tag-command "‚·‚×‚Ä(¶Å -> ƒJƒ^ƒJƒi)(&L)"
+	     (:item :tag-command "ã™ã¹ã¦(ï½¶ï¾… -> ã‚«ã‚¿ã‚«ãƒŠ)(&L)"
 	      'map-all-to-full-width-katakana-selection :selection)
-	     (:item :tag-command "‰p”E¶Å(¶Å -> ‚Ğ‚ç‚ª‚È)(&R)"
+	     (:item :tag-command "è‹±æ•°ãƒ»ï½¶ï¾…(ï½¶ï¾… -> ã²ã‚‰ãŒãª)(&R)"
 	      'map-to-full-width-hiragana-selection :selection)
-	     (:item :tag-command "‰p”E¶Å(¶Å -> ƒJƒ^ƒJƒi)(&T)"
+	     (:item :tag-command "è‹±æ•°ãƒ»ï½¶ï¾…(ï½¶ï¾… -> ã‚«ã‚¿ã‚«ãƒŠ)(&T)"
 	      'map-to-full-width-katakana-selection :selection)
-	     (:item :tag-command "‰p”(&N)"
+	     (:item :tag-command "è‹±æ•°(&N)"
 	      'map-ascii-to-full-width-selection :selection)
-	     (:item :tag-command "¶Å -> ‚Ğ‚ç‚ª‚È(&H)"
+	     (:item :tag-command "ï½¶ï¾… -> ã²ã‚‰ãŒãª(&H)"
 	      'map-kana-to-full-width-hiragana-selection :selection)
-	     (:item :tag-command "¶Å -> ƒJƒ^ƒJƒi(&K)"
+	     (:item :tag-command "ï½¶ï¾… -> ã‚«ã‚¿ã‚«ãƒŠ(&K)"
 	      'map-kana-to-full-width-katakana-selection :selection)
-	     (:item :tag-command "ƒMƒŠƒVƒA•¶š(&G)"
+	     (:item :tag-command "ã‚®ãƒªã‚·ã‚¢æ–‡å­—(&G)"
 	      'map-greek-to-full-width-selection :selection)
-	     (:item :tag-command "ƒLƒŠƒ‹•¶š(&C)"
+	     (:item :tag-command "ã‚­ãƒªãƒ«æ–‡å­—(&C)"
 	      'map-cyrillic-to-full-width-selection :selection))
-	    (:popup :char-encoding-popup "Š¿šƒR[ƒh(&K)"
-	     (:item :tag-command "©“®”»’è(&A)"
+	    (:popup :char-encoding-popup "æ¼¢å­—ã‚³ãƒ¼ãƒ‰(&K)"
+	     (:item :tag-command "è‡ªå‹•åˆ¤å®š(&A)"
 	      'map-char-encoding-selection :selection)
-	     (:item :tag-command "JIS‚©‚ç(&J)"
+	     (:item :tag-command "JISã‹ã‚‰(&J)"
 	      'map-jis-selection :selection)
-	     (:item :tag-command "EUC‚©‚ç(&E)"
+	     (:item :tag-command "EUCã‹ã‚‰(&E)"
 	      'map-euc-selection :selection)))
-	   (:popup :paragraph-popup "’i—(&H)"
-	    (:item :tag-command "‘O‚Ì’i—(&B)"
+	   (:popup :paragraph-popup "æ®µè½(&H)"
+	    (:item :tag-command "å‰ã®æ®µè½(&B)"
 	     'backward-paragraph)
-	    (:item :tag-command "Ÿ‚Ì’i—(&F)"
+	    (:item :tag-command "æ¬¡ã®æ®µè½(&F)"
 	     'forward-paragraph)
-	    (:item :tag-command "‘I‘ğ(&S)"
+	    (:item :tag-command "é¸æŠ(&S)"
 	     'selection-paragraph)
-	    (:item :tag-command "íœ(&L)"
+	    (:item :tag-command "å‰Šé™¤(&L)"
 	     'kill-paragraph)
-	    (:item :tag-command "“ü‚ê‘Ö‚¦(&T)"
+	    (:item :tag-command "å…¥ã‚Œæ›¿ãˆ(&T)"
 	     'transpose-paragraphs)
-	    (:item :tag-command "‹l‚ß‚İ(&I)"
+	    (:item :tag-command "è©°ã‚è¾¼ã¿(&I)"
 	     'fill-paragraph))
 	   (:sep :above-not-modified)
-	   (:item :tag-command "•ÏXƒ}[ƒN‚ğÁ‚·(&M)"
+	   (:item :tag-command "å¤‰æ›´ãƒãƒ¼ã‚¯ã‚’æ¶ˆã™(&M)"
 	    'not-modified :modified)
-	   (:item :tag-command "Å‰‚©‚ç‚â‚è’¼‚µ(&O)"
+	   (:item :tag-command "æœ€åˆã‹ã‚‰ã‚„ã‚Šç›´ã—(&O)"
 	    'revert-buffer))
-	  (:popup 'search "ŒŸõ(&S)"
-	   (:item :tag-command "ŒŸõ(&F)..."
+	  (:popup 'search "æ¤œç´¢(&S)"
+	   (:item :tag-command "æ¤œç´¢(&F)..."
 	    'search-dialog)
-	   (:item :tag-command "Ÿ‚ğŒŸõ(&N)"
+	   (:item :tag-command "æ¬¡ã‚’æ¤œç´¢(&N)"
 	    'repeat-forward-search
 	    #'(lambda () (or *last-search-p* :disable)))
-	   (:item :tag-command "‘O‚ğŒŸõ(&P)"
+	   (:item :tag-command "å‰ã‚’æ¤œç´¢(&P)"
 	    'repeat-backward-search
 	    #'(lambda () (or *last-search-p* :disable)))
-	   (:item :tag-command "’uŠ·(&R)..."
+	   (:item :tag-command "ç½®æ›(&R)..."
 	    'replace-dialog)
-	   (:item :tag-command "ˆê’v‚·‚é•¶š—ñ‚ğ”‚¦‚é(&C)..."
+	   (:item :tag-command "ä¸€è‡´ã™ã‚‹æ–‡å­—åˆ—ã‚’æ•°ãˆã‚‹(&C)..."
 	    'count-matches-dialog)
 	   (:sep :above-first-error)
-	   (:item :tag-command "Å‰‚Ìƒ^ƒO(&I)"
+	   (:item :tag-command "æœ€åˆã®ã‚¿ã‚°(&I)"
 	    'first-error)
-	   (:item :tag-command "Ÿ‚Ìƒ^ƒO(&E)"
+	   (:item :tag-command "æ¬¡ã®ã‚¿ã‚°(&E)"
 	    'next-error)
 	   (:sep :above-goto-line)
-	   (:item :tag-command "w’ès(&J)..."
+	   (:item :tag-command "æŒ‡å®šè¡Œ(&J)..."
 	    'goto-line-dialog)
-	   (:item :tag-command "ƒtƒ@ƒCƒ‹‚Ìæ“ª(&T)"
+	   (:item :tag-command "ãƒ•ã‚¡ã‚¤ãƒ«ã®å…ˆé ­(&T)"
 	    'beginning-of-buffer)
-	   (:item :tag-command "ƒtƒ@ƒCƒ‹‚ÌÅŒã(&B)"
+	   (:item :tag-command "ãƒ•ã‚¡ã‚¤ãƒ«ã®æœ€å¾Œ(&B)"
 	    'end-of-buffer)
-	   (:item :tag-command "ƒ}[ƒN(&M)..."
+	   (:item :tag-command "ãƒãƒ¼ã‚¯(&M)..."
 	    'mark-dialog-box)
-	   (:item :tag-command "ŠÖ”‚Ìæ“ª(&D)"
+	   (:item :tag-command "é–¢æ•°ã®å…ˆé ­(&D)"
 	    'beginning-of-defun)
-	   (:item :tag-command "ŠÖ”‚ÌÅŒã(&U)"
+	   (:item :tag-command "é–¢æ•°ã®æœ€å¾Œ(&U)"
 	    'end-of-defun)
 	   (:sep :above-gresreg)
 	   (:item :tag-command "Gresreg(&S)..."
 	    'gresreg-dialog)
 	   (:item :tag-command "Grep(&G)..."
 	    'grep-dialog))
-	  (:popup 'view "•\¦(&V)"
-	   (:item :tag-command "Ü‚è•Ô‚³‚È‚¢(&N)"
+	  (:popup 'view "è¡¨ç¤º(&V)"
+	   (:item :tag-command "æŠ˜ã‚Šè¿”ã•ãªã„(&N)"
 	    'set-buffer-fold-type-none
 	    'set-buffer-fold-type-none-update)
-	   (:item :tag-command "w’èˆÊ’u‚ÅÜ‚è•Ô‚·(&C)"
+	   (:item :tag-command "æŒ‡å®šä½ç½®ã§æŠ˜ã‚Šè¿”ã™(&C)"
 	    'set-buffer-fold-type-column
 	    'set-buffer-fold-type-column-update)
-	   (:item :tag-command "ƒEƒBƒ“ƒhƒE•‚ÅÜ‚è•Ô‚·(&W)"
+	   (:item :tag-command "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦å¹…ã§æŠ˜ã‚Šè¿”ã™(&W)"
 	    'set-buffer-fold-type-window
 	    'set-buffer-fold-type-window-update)
 	   (:sep :above-command-bar)
-	   (:menu nil "ƒc[ƒ‹ƒo[(&Q)" *command-bar-popup-menu*)
+	   (:menu nil "ãƒ„ãƒ¼ãƒ«ãƒãƒ¼(&Q)" *command-bar-popup-menu*)
 	   (:sep :above-font-size)
-	   (:popup nil "•¶š‚ÌƒTƒCƒY(&X)"
-	    (:item :tag-command "•¶š‚ğ‘å‚«‚­(&I)"
+	   (:popup nil "æ–‡å­—ã®ã‚µã‚¤ã‚º(&X)"
+	    (:item :tag-command "æ–‡å­—ã‚’å¤§ãã(&I)"
 	     'increase-text-font-size)
-	    (:item :tag-command "•¶š‚ğ¬‚³‚­(&O)"
+	    (:item :tag-command "æ–‡å­—ã‚’å°ã•ã(&O)"
 	     'decrease-text-font-size)
 	    (:sep :above-set-text-font-x-large)
-	    (:item :tag-command "Å‘å(&G)"
+	    (:item :tag-command "æœ€å¤§(&G)"
 	     #'(lambda () (interactive) (set-text-font-size :x-large))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :x-large) :check)))
-	    (:item :tag-command "‘å(&L)"
+	    (:item :tag-command "å¤§(&L)"
 	     #'(lambda () (interactive) (set-text-font-size :large))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :large) :check)))
-	    (:item :tag-command "’†(&M)"
+	    (:item :tag-command "ä¸­(&M)"
 	     #'(lambda () (interactive) (set-text-font-size :medium))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :medium) :check)))
-	    (:item :tag-command "¬(&S)"
+	    (:item :tag-command "å°(&S)"
 	     #'(lambda () (interactive) (set-text-font-size :small))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :small) :check)))
-	    (:item :tag-command "Å¬(&A)"
+	    (:item :tag-command "æœ€å°(&A)"
 	     #'(lambda () (interactive) (set-text-font-size :x-small))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :x-small) :check))))
 	   (:sep :above-frame)
-	   (:item :tag-command "V‚µ‚¢ƒtƒŒ[ƒ€(&F)"
+	   (:item :tag-command "æ–°ã—ã„ãƒ•ãƒ¬ãƒ¼ãƒ (&F)"
 	    'new-pseudo-frame 'new-pseudo-frame-menu-update)
-	   (:item :tag-command "Œ»İ‚ÌƒtƒŒ[ƒ€‚ğ•Â‚¶‚é(&D)"
+	   (:item :tag-command "ç¾åœ¨ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’é–‰ã˜ã‚‹(&D)"
 	    'delete-pseudo-frame 'pseudo-frame-menu-update)
-	   (:item :tag-command "Ÿ‚ÌƒtƒŒ[ƒ€(&T)"
+	   (:item :tag-command "æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ (&T)"
 	    'other-pseudo-frame 'pseudo-frame-menu-update)
-	   (:item :tag-command "‘O‚ÌƒtƒŒ[ƒ€(&R)"
+	   (:item :tag-command "å‰ã®ãƒ•ãƒ¬ãƒ¼ãƒ (&R)"
 	    'previous-pseudo-frame 'pseudo-frame-menu-update))
-	  (:popup 'window "ƒEƒBƒ“ƒhƒE(&W)"
-	   (:item :tag-command "‰¡‚É•ªŠ„(&S)"
+	  (:popup 'window "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦(&W)"
+	   (:item :tag-command "æ¨ªã«åˆ†å‰²(&S)"
 	    'split-window 'split-window-menu-update)
-	   (:item :tag-command "c‚É•ªŠ„(&V)"
+	   (:item :tag-command "ç¸¦ã«åˆ†å‰²(&V)"
 	    'split-window-vertically 'split-window-menu-update)
-	   (:item :tag-command "‘¼‚ÌƒEƒBƒ“ƒhƒE‚ğ•Â‚¶‚é(&O)"
+	   (:item :tag-command "ä»–ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’é–‰ã˜ã‚‹(&O)"
 	    'delete-other-windows 'close-window-menu-update)
-	   (:item :tag-command "Œ»İ‚ÌƒEƒBƒ“ƒhƒE‚ğ•Â‚¶‚é(&C)"
+	   (:item :tag-command "ç¾åœ¨ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’é–‰ã˜ã‚‹(&C)"
 	    'delete-window 'close-window-menu-update)
-	   (:item :tag-command "Ÿ‚ÌƒEƒBƒ“ƒhƒE(&N)"
+	   (:item :tag-command "æ¬¡ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦(&N)"
 	    'other-window 'move-window-menu-update)
-	   (:item :tag-command "‘O‚ÌƒEƒBƒ“ƒhƒE(&P)"
+	   (:item :tag-command "å‰ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦(&P)"
 	    'move-previous-window 'move-window-menu-update)
 	   (:sep :above-next-xyzzy)
-	   (:item :tag-command "Ÿ‚Ìxyzzy(&X)"
+	   (:item :tag-command "æ¬¡ã®xyzzy(&X)"
 	    'next-xyzzy-window
 	    #'(lambda () (if (< (count-xyzzy-instance) 2) :disable)))
-	   (:item :tag-command "‘O‚Ìxyzzy(&Y)"
+	   (:item :tag-command "å‰ã®xyzzy(&Y)"
 	    'previous-xyzzy-window
 	    #'(lambda () (if (< (count-xyzzy-instance) 2) :disable)))
-	   (:item :tag-command "xyzzy‘I‘ğ(&Z)..."
+	   (:item :tag-command "xyzzyé¸æŠ(&Z)..."
 	    'select-xyzzy
 	    #'(lambda () (if (< (count-xyzzy-instance) 2) :disable)))
 	   (:sep :above-select-buffer)
-	   (:item :tag-command "ƒoƒbƒtƒ@‘I‘ğ(&B)..."
+	   (:item :tag-command "ãƒãƒƒãƒ•ã‚¡é¸æŠ(&B)..."
 	    'select-buffer))
 
-	  (:popup 'tools "ƒc[ƒ‹(&T)"
-	   (:item :tag-command "ƒRƒ“ƒ\[ƒ‹ƒvƒƒOƒ‰ƒ€‚ğ”ñ“¯Šú‚ÅÀs(&A)..."
+	  (:popup 'tools "ãƒ„ãƒ¼ãƒ«(&T)"
+	   (:item :tag-command "ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã‚’éåŒæœŸã§å®Ÿè¡Œ(&A)..."
 	    'execute-subprocess-dialog)
-	   (:item :tag-command "”ñ“¯ŠúƒvƒƒOƒ‰ƒ€‚ğ€‚È‚·(&K)"
+	   (:item :tag-command "éåŒæœŸãƒ—ãƒ­ã‚°ãƒ©ãƒ ã‚’æ­»ãªã™(&K)"
 	    'kill-subprocess
 	    #'(lambda ()
 		(let ((proc (buffer-process (selected-buffer))))
 		  (unless (and proc
 			       (eq (process-status proc) :run))
 		    :disable))))
-	   (:item :tag-command "ƒRƒ“ƒ\[ƒ‹ƒvƒƒOƒ‰ƒ€‚ÌÀs(&P)..."
+	   (:item :tag-command "ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®å®Ÿè¡Œ(&P)..."
 	    'pipe-command-dialog)
-	   (:item :tag-command "WindowsƒvƒƒOƒ‰ƒ€‚ÌÀs(&W)..."
+	   (:item :tag-command "Windowsãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®å®Ÿè¡Œ(&W)..."
 	    'launch-application-dialog)
 	   (:item :tag-command (if (featurep :windows-nt)
-				   "NTƒvƒƒ“ƒvƒg(&D)"
-				 "DOSƒvƒƒ“ƒvƒg(&D)")
+				   "NTãƒ—ãƒ­ãƒ³ãƒ—ãƒˆ(&D)"
+				 "DOSãƒ—ãƒ­ãƒ³ãƒ—ãƒˆ(&D)")
 	    #'(lambda ()
 		(interactive)
 		(if (and (featurep :windows-vista)
@@ -393,32 +393,32 @@
 		    (run-admin-console)
 		  (run-console))))
 	   (:sep :above-kbd-macro)
-	   (:item :tag-command "ƒL[ƒ{[ƒhƒ}ƒNƒ‹L˜^ŠJn(&S)"
+	   (:item :tag-command "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­è¨˜éŒ²é–‹å§‹(&S)"
 	    'start-kbd-macro)
-	   (:item :tag-command "ƒL[ƒ{[ƒhƒ}ƒNƒ‹L˜^I—¹(&E)"
+	   (:item :tag-command "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­è¨˜éŒ²çµ‚äº†(&E)"
 	    'end-kbd-macro
 	    :end-macro)
-	   (:item :tag-command "ƒL[ƒ{[ƒhƒ}ƒNƒÀs(&X)"
+	   (:item :tag-command "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­å®Ÿè¡Œ(&X)"
 	    'call-last-kbd-macro
 	    #'(lambda () (if (null *last-kbd-macro*) :disable)))
-	   (:popup :kbd-macro-popup "ƒL[ƒ{[ƒhƒ}ƒNƒ‚¨‚Ü‚¯(&O)"
-	    (:item :tag-command "•Û‘¶(&V)..."
+	   (:popup :kbd-macro-popup "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ãŠã¾ã‘(&O)"
+	    (:item :tag-command "ä¿å­˜(&V)..."
 	     'save-last-kbd-macro
 	     #'(lambda () (if (null *last-kbd-macro*) :disable)))
-	    (:item :tag-command "“Ç‚İ‚İ(&L)..."
+	    (:item :tag-command "èª­ã¿è¾¼ã¿(&L)..."
 	     'load-kbd-macro)
-	    (:item :tag-command "ƒtƒ@ƒCƒ‹‚Ö•Û‘¶(&S)..."
+	    (:item :tag-command "ãƒ•ã‚¡ã‚¤ãƒ«ã¸ä¿å­˜(&S)..."
 	     'save-kbd-macro-to-file))
 	   (:sep :above-property-sheet)
-	   (:item :tag-command "‹¤’Êİ’è(&C)..."
+	   (:item :tag-command "å…±é€šè¨­å®š(&C)..."
 	    'option-property-sheet)
-	   (:item :tag-command "ƒ[ƒJƒ‹İ’è(&L)..."
+	   (:item :tag-command "ãƒ­ãƒ¼ã‚«ãƒ«è¨­å®š(&L)..."
 	    'local-option-property-sheet)
 	   (:sep :above-box-drawings)
-	   (:item :tag-command "Œrüƒ‚[ƒh(&R)"
+	   (:item :tag-command "ç½«ç·šãƒ¢ãƒ¼ãƒ‰(&R)"
 	    'box-drawings-mode
 	    #'(lambda () (if *box-drawings-mode* :check)))
-	   (:item :tag-command "‘¾‚¢Œrü(&T)"
+	   (:item :tag-command "å¤ªã„ç½«ç·š(&T)"
 	    'box-drawings-toggle-line-type
 	    #'(lambda ()
 		(values (unless *box-drawings-mode*
@@ -426,63 +426,63 @@
 			(if (eq *box-drawings-line-type* '*box-drawings-thick-line*)
 			    :check))))
 	   (:sep :above-insert-date)
-	   (:item :tag-command "“ú•t‚Æ‚Ì‘}“ü(&M)..."
+	   (:item :tag-command "æ—¥ä»˜ã¨æ™‚åˆ»ã®æŒ¿å…¥(&M)..."
 	    'insert-date-string)
-	   (:item :tag-command "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬(&N)..."
+	   (:item :tag-command "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆ(&N)..."
 	    'create-xyzzy-shortcut-dialog)
-	   (:item :tag-command "ƒtƒ@ƒCƒ‰(&F)..."
+	   (:item :tag-command "ãƒ•ã‚¡ã‚¤ãƒ©(&F)..."
 	    'open-filer)
-	   (:menu nil "«‘(&I)"
+	   (:menu nil "è¾æ›¸(&I)"
 	    *dictionary-popup-menu*)
 	   (:sep :above-make-tags)
-	   (:item :tag-command "TAGSƒtƒ@ƒCƒ‹‚Ìì¬(&G)..."
+	   (:item :tag-command "TAGSãƒ•ã‚¡ã‚¤ãƒ«ã®ä½œæˆ(&G)..."
 	    'make-tags-file-dialog)
-	   (:item :tag-command "ƒ^ƒOƒWƒƒƒ“ƒv(&J)"
+	   (:item :tag-command "ã‚¿ã‚°ã‚¸ãƒ£ãƒ³ãƒ—(&J)"
 	    'jump-tag
 	    #'(lambda () (unless (and tags-find-target tags-find-point) :disable)))
-	   (:item :tag-command "ƒ_ƒCƒŒƒNƒgƒ^ƒOƒWƒƒƒ“ƒv(&U)"
+	   (:item :tag-command "ãƒ€ã‚¤ãƒ¬ã‚¯ãƒˆã‚¿ã‚°ã‚¸ãƒ£ãƒ³ãƒ—(&U)"
 	    'direct-tag-jump
 	    #'(lambda () (unless (and tags-find-target tags-find-point) :disable)))
-	   (:item :tag-command "ƒoƒbƒNƒ^ƒOƒWƒƒƒ“ƒv(&B)"
+	   (:item :tag-command "ãƒãƒƒã‚¯ã‚¿ã‚°ã‚¸ãƒ£ãƒ³ãƒ—(&B)"
 	    'back-tag-jump
 	    #'(lambda () (if (null *global-mark-list*) :disable)))
 	   (:sep :|above-(>_<)|)
 	   (:popup :|(>_<)-popup| "(>&_<)"
-	    (:item :tag-command "ƒjƒtƒeƒB‚ÌƒƒO‚ğ“Ç‚Ş(&N)"
+	    (:item :tag-command "ãƒ‹ãƒ•ãƒ†ã‚£ã®ãƒ­ã‚°ã‚’èª­ã‚€(&N)"
 	     'view-nifty-log)
-	    (:item :tag-command "“d‘ì(&T)"
+	    (:item :tag-command "é›»å“(&T)"
 	     'calc)
-	    (:item :tag-command "ƒJƒŒƒ“ƒ_[(&A)"
+	    (:item :tag-command "ã‚«ãƒ¬ãƒ³ãƒ€ãƒ¼(&A)"
 	     'calendar)
-	    (:item :tag-command "ƒnƒmƒC‚Ì“ƒ(&H)"
+	    (:item :tag-command "ãƒãƒã‚¤ã®å¡”(&H)"
 	     'hanoi)
-	    (:item :tag-command "ŒÜ–Ú(&G)"
+	    (:item :tag-command "äº”ç›®(&G)"
 	     'gomoku)
-	    (:item :tag-command "ƒ‰ƒCƒt(&L)"
+	    (:item :tag-command "ãƒ©ã‚¤ãƒ•(&L)"
 	     'life)
-	    (:item :tag-command "C‹Èü(&C)"
+	    (:item :tag-command "Cæ›²ç·š(&C)"
 	     'c-curve)
-	    (:item :tag-command "ƒhƒ‰ƒSƒ“‹Èü(&R)"
+	    (:item :tag-command "ãƒ‰ãƒ©ã‚´ãƒ³æ›²ç·š(&R)"
 	     'dragon-curve)))
-	  (:popup 'help "ƒwƒ‹ƒv(&?)"
-	   (:item :tag-command "ƒL[Š„‚è“–‚Äˆê——(&K)"
+	  (:popup 'help "ãƒ˜ãƒ«ãƒ—(&?)"
+	   (:item :tag-command "ã‚­ãƒ¼å‰²ã‚Šå½“ã¦ä¸€è¦§(&K)"
 	    'describe-bindings)
-	   (:item :tag-command "Å‹ß“ü—Í‚µ‚½ƒL[(&L)"
+	   (:item :tag-command "æœ€è¿‘å…¥åŠ›ã—ãŸã‚­ãƒ¼(&L)"
 	    'view-lossage)
 	   (:sep :above-about)
-	   (:item :tag-command "‚É‚Â‚¢‚Ä(&A)..."
+	   (:item :tag-command "ã«ã¤ã„ã¦(&A)..."
 	    'about-dialog))))
 
   (setq *buffer-bar-context-menu*
 	(define-popup-menu
-	  (:item 'close "•Â‚¶‚é(&C)"
+	  (:item 'close "é–‰ã˜ã‚‹(&C)"
 	   #'(lambda ()
 	       (interactive)
 	       (kill-buffer *buffer-bar-context-menu-buffer*)))))
 
   (setq *pseudo-frame-bar-context-menu*
 	(define-popup-menu
-	  (:item 'close "•Â‚¶‚é(&C)"
+	  (:item 'close "é–‰ã˜ã‚‹(&C)"
 	   #'(lambda ()
 	       (interactive)
 	       (delete-pseudo-frame *pseudo-frame-bar-context-menu-frame*)))))

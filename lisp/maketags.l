@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -85,19 +85,19 @@
 
 (defvar *make-tags-file-dialog-template*
   '(dialog 0 0 226 81
-    (:caption "ƒ^ƒOƒtƒ@ƒCƒ‹‚ğì‚é")
+    (:caption "ã‚¿ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ä½œã‚‹")
     (:font 9 "MS UI Gothic")
     (:control
-     (:static nil "ƒ\[ƒXƒfƒBƒŒƒNƒgƒŠ(&S):" #x50020000 7 7 58 8)
+     (:static nil "ã‚½ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&S):" #x50020000 7 7 58 8)
      (:edit src nil #x50810080 7 19 148 14)
-     (:button subdir "‚Â‚¢‚Å‚ÉƒTƒuƒfƒBƒŒƒNƒgƒŠ‚à(&U)" #x50010003 7 48 102 10)
-     (:static nil "ŒŸõ‚·‚éŠK‘w‚Ì[‚³(&D):" #x50020000 9 63 80 8)
+     (:button subdir "ã¤ã„ã§ã«ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚(&U)" #x50010003 7 48 102 10)
+     (:static nil "æ¤œç´¢ã™ã‚‹éšå±¤ã®æ·±ã•(&D):" #x50020000 9 63 80 8)
      (:edit depth nil #x50810086 89 60 36 14)
      (:spin depthspin "Spin1" #x500000b6 119 55 9 14)
-     (:static nil "(0‚Í–³§ŒÀ)" #x50020000 129 63 48 8)
+     (:static nil "(0ã¯ç„¡åˆ¶é™)" #x50020000 129 63 48 8)
      (:button IDOK "OK" #x50010001 169 7 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 169 24 50 14)
-     (:button ref "QÆ(&R)..." #x50010000 169 41 50 14))))
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 169 24 50 14)
+     (:button ref "å‚ç…§(&R)..." #x50010000 169 41 50 14))))
 
 (define-history-variable *make-tags-file-depth* 0)
 (define-history-variable *make-tags-file-subdir* nil)
@@ -116,12 +116,12 @@
 			      (if *make-tags-file-subdir*
 				  *make-tags-file-depth*
 				0)))
-		  '((src :non-null "ƒ\[ƒXƒfƒBƒŒƒNƒgƒŠ‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))
+		  '((src :non-null "ã‚½ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))
 		    (depth :type integer :min 0 :max 10000
-			   :range-error "ŠK‘w‚Ì[‚³0ˆÈã‚Å‚·"
-			   :type-error "”’l‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢")
+			   :range-error "éšå±¤ã®æ·±ã•0ä»¥ä¸Šã§ã™"
+			   :type-error "æ•°å€¤ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„")
 		    (depthspin :min 0 :max 10000)
-		    (ref :related src :directory-name-dialog (:title "QÆ"))))
+		    (ref :related src :directory-name-dialog (:title "å‚ç…§"))))
     (when result
       (setq *make-tags-file-subdir* (cdr (assoc 'subdir data)))
       (setq *make-tags-file-depth* (cdr (assoc 'depth data)))

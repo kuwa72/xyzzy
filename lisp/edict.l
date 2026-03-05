@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -118,7 +118,7 @@
   (let* ((s (buffer-substring from to))
 	 (r (lookup-dictionary *edict-dictionary-path* "xyzzydic" dic s)))
     (unless r
-      (plain-error "ìoò^Ç≥ÇÍÇƒÇ¢Ç‹ÇπÇÒ: ~A" s))
+      (plain-error "ÁôªÈå≤„Åï„Çå„Å¶„ÅÑ„Åæ„Åõ„Çì: ~A" s))
     (let ((buffer (selected-buffer)))
       (with-output-to-temp-buffer ("*dictionary*" t)
 	(long-operation
@@ -155,7 +155,7 @@
 	(push (cons string r) rl))
       (setq rl (edict-analogize-conjugation-1 string rl))
       (unless rl
-	(plain-error "ìoò^Ç≥ÇÍÇƒÇ¢Ç‹ÇπÇÒ: ~A" string))
+	(plain-error "ÁôªÈå≤„Åï„Çå„Å¶„ÅÑ„Åæ„Åõ„Çì: ~A" string))
       (let ((buffer (selected-buffer)))
 	(with-output-to-temp-buffer ("*dictionary*" t)
 	  (dolist (x (nreverse rl))
@@ -229,7 +229,7 @@
 					     (format so "~A:~%~%  ~{~A~^, ~}~@[~%~%~]"
 						     (caar x) (cdar x) (cdr x))))
 					 beg)
-			 (popup-string "å©Ç¬Ç©ÇËÇ‹Ç÷ÇÒ" beg)))
+			 (popup-string "Ë¶ã„Å§„Åã„Çä„Åæ„Å∏„Çì" beg)))
 		   (popup-string (format nil "~A:~%~%~{~A~^, ~}" s r) beg)))))))))
 
 (defun edict-mouse-lookup-conjugation ()

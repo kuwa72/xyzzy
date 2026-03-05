@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -18,7 +18,7 @@
 (defun start-kbd-macro (&optional arg)
   (interactive "p")
   (when (kbd-macro-saving-p)
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Ì’è‹`’†‚Å‚·"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®å®šç¾©ä¸­ã§ã™"))
   (start-save-kbd-macro)
   (when (and arg *last-kbd-macro*)
     (command-execute *last-kbd-macro*)))
@@ -26,7 +26,7 @@
 (defun end-kbd-macro (&optional arg)
   (interactive "p")
   (unless (kbd-macro-saving-p)
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í’è‹`‚µ‚Ä‚¢‚Ü‚¹‚ñ"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯å®šç¾©ã—ã¦ã„ã¾ã›ã‚“"))
   (setq *last-kbd-macro* (stop-save-kbd-macro))
   (when (zerop (length *last-kbd-macro*))
     (setq *last-kbd-macro* nil))
@@ -36,37 +36,37 @@
 (defun call-last-kbd-macro (&optional (arg 1))
   (interactive "p")
   (when *executing-macro*
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í‚·‚Å‚ÉÀs’†‚Å‚·"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯ã™ã§ã«å®Ÿè¡Œä¸­ã§ã™"))
   (when (kbd-macro-saving-p)
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Ì’è‹`’†‚Å‚·"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®å®šç¾©ä¸­ã§ã™"))
   (unless *last-kbd-macro*
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í–¢’è‹`‚Å‚·"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯æœªå®šç¾©ã§ã™"))
   (let ((*executing-macro* t)
 	(*prefix-value* arg))
     (command-execute *last-kbd-macro*)))
 
 (defun name-last-kbd-macro (name)
-  (interactive "sƒ}ƒNƒ‚É‚Â‚¯‚é–¼‘O‚ğ“ü‚ê‚Ä: ")
+  (interactive "sãƒã‚¯ãƒ­ã«ã¤ã‘ã‚‹åå‰ã‚’å…¥ã‚Œã¦: ")
   (unless *last-kbd-macro*
-    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í’è‹`‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ"))
+    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯å®šç¾©ã•ã‚Œã¦ã„ã¾ã›ã‚“"))
   (when (zerop (length name))
-    (error "–¼‘O‚ğ“ü‚ê‚Ä‚Á‚ÄŒ¾‚Á‚½‚Á‚µ‚å"))
+    (error "åå‰ã‚’å…¥ã‚Œã¦ã£ã¦è¨€ã£ãŸã£ã—ã‚‡"))
   (let ((symbol (intern name "user")))
     (when (fboundp symbol)
       (let ((def (symbol-function symbol)))
 	(unless (stringp def)
-	  (error "~a‚ÍƒL[ƒ{[ƒhƒ}ƒNƒ‚Å‚È‚¢‚à‚Ì‚ª’è‹`‚³‚ê‚Ä‚¢‚Ü‚·" name))
-	(unless (y-or-n-p "~a‚ÌƒL[ƒ{[ƒhƒ}ƒNƒ’è‹`‚ğ’u‚«Š·‚¦‚Ü‚·‚©?" name)
+	  (error "~aã¯ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã§ãªã„ã‚‚ã®ãŒå®šç¾©ã•ã‚Œã¦ã„ã¾ã™" name))
+	(unless (y-or-n-p "~aã®ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­å®šç¾©ã‚’ç½®ãæ›ãˆã¾ã™ã‹?" name)
 	  (return-from name-last-kbd-macro nil))))
     (setf (symbol-function symbol) *last-kbd-macro*)))
 
 (defun insert-kbd-macro (command)
   (interactive "*CInsert kbd macro: ")
   (unless (fboundp command)
-    (error "~a‚ÍƒRƒ}ƒ“ƒh‚ª’è‹`‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ" command))
+    (error "~aã¯ã‚³ãƒãƒ³ãƒ‰ãŒå®šç¾©ã•ã‚Œã¦ã„ã¾ã›ã‚“" command))
   (let ((def (symbol-function command)))
     (unless (stringp def)
-      (error "~a‚ÍƒL[ƒ{[ƒhƒ}ƒNƒ‚Å‚È‚¢‚à‚Ì‚ª’è‹`‚³‚ê‚Ä‚¢‚Ü‚·" command))
+      (error "~aã¯ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã§ãªã„ã‚‚ã®ãŒå®šç¾©ã•ã‚Œã¦ã„ã¾ã™" command))
     (insert (format nil "(setf (symbol-function '~S)\n      ~S)\n"
 		    command def))))
 
@@ -78,12 +78,12 @@
     (multiple-value-bind (result data)
 	(dialog-box
 	 '(dialog 0 0 187 135
-	   (:caption "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Ì•Û‘¶")
+	   (:caption "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®ä¿å­˜")
 	   (:font 9 "MS UI Gothic")
 	   (:control
 	    (:combobox combo nil #x50210501 7 7 119 121)
 	    (:button IDOK "OK" #x50010001 130 7 50 14)
-	    (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 130 24 50 14)))
+	    (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 130 24 50 14)))
 	 (list (cons 'combo (mapcar #'car *saved-kbd-macro-alist*)))
 	 '((combo :non-null t :enable (IDOK))))
       (when result
@@ -98,14 +98,14 @@
   (multiple-value-bind (result data)
       (dialog-box
        '(dialog 0 0 187 135
-	 (:caption "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Ì“Ç‚İ‚İ")
+	 (:caption "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®èª­ã¿è¾¼ã¿")
 	 (:font 9 "MS UI Gothic")
 	 (:control
 	  (:listbox list nil #x50a10113 7 7 119 121)
-	  (:button load "“Ç‚İ‚İ(&L)" #x50010001 130 7 50 14)
-	  (:button exec "Às(&E)" #x50010000 130 24 50 14)
-	  (:button remove "íœ(&D)" #x50010000 130 41 50 14)
-	  (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 130 58 50 14)))
+	  (:button load "èª­ã¿è¾¼ã¿(&L)" #x50010001 130 7 50 14)
+	  (:button exec "å®Ÿè¡Œ(&E)" #x50010000 130 24 50 14)
+	  (:button remove "å‰Šé™¤(&D)" #x50010000 130 41 50 14)
+	  (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 130 58 50 14)))
        (list (cons 'list *saved-kbd-macro-alist*))
        '((list :must-match t :enable (load exec remove))))
     (let ((selected (cdr (assoc 'list data))))
@@ -120,9 +120,9 @@
 
 (defun save-kbd-macro-to-file ()
   (interactive)
-  (let ((filename (file-name-dialog :title "ƒL[ƒ{[ƒhƒ}ƒNƒ‚ğ•Û‘¶"
-				    :filter '(("Lispƒtƒ@ƒCƒ‹(*.l;*.lisp)" . "*.l;*.lisp")
-					      ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*")))))
+  (let ((filename (file-name-dialog :title "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã‚’ä¿å­˜"
+				    :filter '(("Lispãƒ•ã‚¡ã‚¤ãƒ«(*.l;*.lisp)" . "*.l;*.lisp")
+					      ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*")))))
     (when filename
       (with-open-file (s filename
 			 :direction :output

@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; -*-Lisp-*-
 ;;;
 ;;; This file is part of xyzzy.

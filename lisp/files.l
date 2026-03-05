@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -56,10 +56,10 @@
   (if (or nowarn
 	  (verify-visited-file-modtime buffer)
 	  (cond ((not (file-exist-p filename))
-		 (error "ƒtƒ@ƒCƒ‹‚ªíœ‚³‚ê‚Ä‚¢‚Ü‚·" filename))
+		 (error "ãƒ•ã‚¡ã‚¤ãƒ«ãŒå‰Šé™¤ã•ã‚Œã¦ã„ã¾ã™" filename))
 		((yes-or-no-p (if (buffer-modified-p buffer)
-				  "’N‚©‚ªŸè‚Éƒtƒ@ƒCƒ‹‚ğ•ÏX‚µ‚Ä‚¢‚Ü‚·B\n•ÏX“à—e‚ğ”jŠü‚µ‚ÄƒfƒBƒXƒN‚©‚ç“Ç‚İ‚È‚¨‚µ‚Ü‚·‚©?"
-				"’N‚©‚ªŸè‚Éƒtƒ@ƒCƒ‹‚ğ•ÏX‚µ‚Ä‚¢‚Ü‚·B\nƒfƒBƒXƒN‚©‚ç“Ç‚İ‚È‚¨‚µ‚Ü‚·‚©?"))
+				  "èª°ã‹ãŒå‹æ‰‹ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å¤‰æ›´ã—ã¦ã„ã¾ã™ã€‚\nå¤‰æ›´å†…å®¹ã‚’ç ´æ£„ã—ã¦ãƒ‡ã‚£ã‚¹ã‚¯ã‹ã‚‰èª­ã¿ãªãŠã—ã¾ã™ã‹?"
+				"èª°ã‹ãŒå‹æ‰‹ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å¤‰æ›´ã—ã¦ã„ã¾ã™ã€‚\nãƒ‡ã‚£ã‚¹ã‚¯ã‹ã‚‰èª­ã¿ãªãŠã—ã¾ã™ã‹?"))
 		 (save-excursion
 		   (set-buffer buffer)
 		   (when eol-code
@@ -74,13 +74,13 @@
   (cond ((file-writable-p filename)
 	 (unless nomsg
 	   (if buffer-read-only
-	       (message "~a‚Í‘¼‚ÌƒvƒƒZƒX‚ªã‘‚«‹Ö~‚ÅŠJ‚¢‚Ä‚¢‚Ü‚·B~ds“Ç‚İ‚İ‚Ü‚µ‚½"
+	       (message "~aã¯ä»–ã®ãƒ—ãƒ­ã‚»ã‚¹ãŒä¸Šæ›¸ãç¦æ­¢ã§é–‹ã„ã¦ã„ã¾ã™ã€‚~dè¡Œèª­ã¿è¾¼ã¿ã¾ã—ãŸ"
 			filename nlines)
-	     (message "~ds“Ç‚İ‚İ‚Ü‚µ‚½" nlines))))
+	     (message "~dè¡Œèª­ã¿è¾¼ã¿ã¾ã—ãŸ" nlines))))
 	(t
 	 (setq buffer-read-only t)
 	 (or nomsg
-	     (message "~a‚Í‘‚«‚İ‹Ö~ƒtƒ@ƒCƒ‹‚Å‚·B~ds“Ç‚İ‚İ‚Ü‚µ‚½"
+	     (message "~aã¯æ›¸ãè¾¼ã¿ç¦æ­¢ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™ã€‚~dè¡Œèª­ã¿è¾¼ã¿ã¾ã—ãŸ"
 		      filename nlines)))))
 
 (defun find-file-readin (filename nowarn nomsg)
@@ -97,7 +97,7 @@
 	   (unless noerror
 	     (set-buffer-truncated-p t)
 	     (or nowarn
-		 (message-box (format nil "~a‚Íƒƒ‚ƒŠ‚ª‘«‚è‚È‚­‚Ä‘S•”“Ç‚İ‚ß‚Ü‚¹‚ñ‚Å‚µ‚½B"
+		 (message-box (format nil "~aã¯ãƒ¡ãƒ¢ãƒªãŒè¶³ã‚Šãªãã¦å…¨éƒ¨èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚"
 				      filename)
 			      nil '(:exclamation))))
 	   (find-file-lock-file)
@@ -106,7 +106,7 @@
 	(t
 	 (clear-visited-file-modtime)
 	 (or nomsg
-	     (message "V‚µ‚¢ƒtƒ@ƒCƒ‹‚Å‚·"))
+	     (message "æ–°ã—ã„ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™"))
 	 nil)))
 
 (defun find-file-scan-params ()
@@ -242,11 +242,11 @@
   (if (file-exist-p filename)
       (setq filename (truename filename)))
   (when (special-file-p filename)
-    (error "~a‚ÍƒfƒoƒCƒXƒtƒ@ƒCƒ‹‚Å‚·" filename))
+    (error "~aã¯ãƒ‡ãƒã‚¤ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™" filename))
   (when (file-directory-p filename)
-    (error "~a‚ÍƒfƒBƒŒƒNƒgƒŠ‚Å‚·" filename))
+    (error "~aã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã§ã™" filename))
   (unless (valid-path-p filename)
-    (error "~a\nƒtƒ@ƒCƒ‹‚Ü‚½‚ÍƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" filename))
+    (error "~a\nãƒ•ã‚¡ã‚¤ãƒ«ã¾ãŸã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" filename))
   (let ((buffer (get-file-buffer filename)))
     (if buffer
 	(unwind-protect
@@ -319,17 +319,17 @@
   (let ((*expected-fileio-encoding* (or encoding *expected-fileio-encoding*)))
     (declare (special *expected-fileio-encoding*))
     (when buffer-read-only
-      (error "‘‚«‚İ‹Ö~ƒoƒbƒtƒ@‚Å‚·"))
+      (error "æ›¸ãè¾¼ã¿ç¦æ­¢ãƒãƒƒãƒ•ã‚¡ã§ã™"))
     (setq filename (namestring filename))
     (when (special-file-p filename)
-      (error "~a‚ÍƒfƒoƒCƒXƒtƒ@ƒCƒ‹‚Å‚·" filename))
+      (error "~aã¯ãƒ‡ãƒã‚¤ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™" filename))
     (when (file-directory-p filename)
-      (error "~a‚ÍƒfƒBƒŒƒNƒgƒŠ‚Å‚·" filename))
+      (error "~aã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã§ã™" filename))
     (unless (and (valid-path-p filename)
 		 (file-exist-p filename))
-      (error "~a\nƒtƒ@ƒCƒ‹‚Ü‚½‚ÍƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" filename))
+      (error "~a\nãƒ•ã‚¡ã‚¤ãƒ«ã¾ãŸã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" filename))
     (when (and (need-buffer-save-p (selected-buffer))
-	       (not (no-or-yes-p "ƒoƒbƒtƒ@‚ª•ÏX‚³‚ê‚Ä‚¢‚Ü‚·B•ÏX“à—e‚ğ”jŠü‚µ‚Ü‚·‚©?")))
+	       (not (no-or-yes-p "ãƒãƒƒãƒ•ã‚¡ãŒå¤‰æ›´ã•ã‚Œã¦ã„ã¾ã™ã€‚å¤‰æ›´å†…å®¹ã‚’ç ´æ£„ã—ã¾ã™ã‹?")))
       (return-from read-file nil))
     (erase-buffer (selected-buffer))
     (or nomsg
@@ -337,10 +337,10 @@
     (multiple-value-bind (nlines noerror)
 	(insert-file-contents filename t)
       (unless noerror
-	(warn "~a\nƒƒ‚ƒŠ‚ª‘«‚è‚È‚­‚Ä‚·‚×‚Ä“Ç‚İ‚ß‚Ü‚¹‚ñ‚Å‚µ‚½" filename)
+	(warn "~a\nãƒ¡ãƒ¢ãƒªãŒè¶³ã‚Šãªãã¦ã™ã¹ã¦èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸ" filename)
 	(set-buffer-truncated-p t))
       (or nomsg
-	  (message "~ds“Ç‚İ‚İ‚Ü‚µ‚½" nlines))
+	  (message "~dè¡Œèª­ã¿è¾¼ã¿ã¾ã—ãŸ" nlines))
       nlines)))
 
 (defun insert-file (filename &optional encoding)
@@ -349,12 +349,12 @@
     (declare (special *expected-fileio-encoding*))
     (setq filename (namestring filename))
     (when (special-file-p filename)
-      (error "~a‚ÍƒfƒoƒCƒXƒtƒ@ƒCƒ‹‚Å‚·" filename))
+      (error "~aã¯ãƒ‡ãƒã‚¤ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™" filename))
     (when (file-directory-p filename)
-      (error "~a‚ÍƒfƒBƒŒƒNƒgƒŠ‚Å‚·" filename))
+      (error "~aã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã§ã™" filename))
     (unless (and (valid-path-p filename)
 		 (file-exist-p filename))
-      (error "~a\nƒtƒ@ƒCƒ‹‚Ü‚½‚ÍƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" filename))
+      (error "~a\nãƒ•ã‚¡ã‚¤ãƒ«ã¾ãŸã¯ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" filename))
     (insert-file-contents filename)))
 
 (defun save-some-buffers (&optional verbose (fn #'write-file))
@@ -368,18 +368,18 @@
 	    (if (not (file-visited-p))
 		(progn
 		  (refresh-screen)
-		  (if (yes-no-or-cancel-p "~a‚ğƒZ[ƒu‚µ‚Ü‚·‚©?" buffer)
+		  (if (yes-no-or-cancel-p "~aã‚’ã‚»ãƒ¼ãƒ–ã—ã¾ã™ã‹?" buffer)
 		      (when (call-interactively fn)
 			(setq count (1+ count)))
 		    (not-modified)))
 	      (when (or (not verbose)
 			(progn
 			  (refresh-screen)
-			  (yes-no-or-cancel-p "~a~%‚ğƒZ[ƒu‚µ‚Ü‚·‚©?"
+			  (yes-no-or-cancel-p "~a~%ã‚’ã‚»ãƒ¼ãƒ–ã—ã¾ã™ã‹?"
 					      (get-buffer-file-name))))
 		(save-buffer)
 		(setq count (1+ count)))))))
-      (message "~dŒÂ‚Ìƒtƒ@ƒCƒ‹‚ğƒZ[ƒu‚µ‚Ü‚µ‚½" count))))
+      (message "~då€‹ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ã‚»ãƒ¼ãƒ–ã—ã¾ã—ãŸ" count))))
 
 (defun save-buffers-kill-xyzzy (&optional verbose)
   (interactive "p")
@@ -452,7 +452,7 @@
 		 (setq file (merge-pathnames (substitute-string filename "^[/\\]" "") dir))
 		 (extract-archive arcname dir filename)
 		 (unless (file-exist-p file)
-		   (error "~a~%‚È‚ñ‚©’m‚ç‚ñ‚¯‚Ç‰ğ“€‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½" file))
+		   (error "~a~%ãªã‚“ã‹çŸ¥ã‚‰ã‚“ã‘ã©è§£å‡ã§ãã¾ã›ã‚“ã§ã—ãŸ" file))
 		 (prog1
 		     (find-file file)
 		   (set-default-directory (directory-namestring arcname))

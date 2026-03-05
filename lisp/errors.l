@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -51,7 +51,7 @@
 (defvar *error-regexp-list*
   (list
    (list (compile-regexp "^\\(.+\\)[ \t]*(\\([0-9]+\\))") 1 2)
-   (list (compile-regexp "^\\(.+\\)[:F][ \t]*\\([0-9]+\\)\\([:F \t]\\|$\\)") 1 2)
+   (list (compile-regexp "^\\(.+\\)[:ï¼š][ \t]*\\([0-9]+\\)\\([:ï¼š \t]\\|$\\)") 1 2)
    (list (compile-regexp "^[^ \n]+ \\(.+\\) \\([0-9]+\\):") 1 2)
    (list (compile-regexp "^[^ \n]+ [^ \n]+ \\(.+\\) \\([0-9]+\\):") 1 2)))
 
@@ -92,7 +92,7 @@
 #|
 (defvar *error-regexp*
   (compile-regexp
-   "^[ \t]*\\(.+\\)[:F][ \t]*\\([0-9]+\\)\\([:F \t]\\|$\\)\\|^\\(.+\\)[ \t]*(\\([0-9]+\\))"))
+   "^[ \t]*\\(.+\\)[:ï¼š][ \t]*\\([0-9]+\\)\\([:ï¼š \t]\\|$\\)\\|^\\(.+\\)[ \t]*(\\([0-9]+\\))"))
 
 (defun error-regexp-regnum ()
   (if (match-beginning 1) (values 1 2) (values 4 5)))
@@ -223,7 +223,7 @@
   (if (goto-error nil)
       t
     (progn
-      (message "ƒGƒ‰[‚Í‚ ‚è‚Ü‚¹‚ñ")
+      (message "ã‚¨ãƒ©ãƒ¼ã¯ã‚ã‚Šã¾ã›ã‚“")
       nil)))
 
 (defun next-error (&optional arg)
@@ -238,11 +238,12 @@
 	    (goto-error t))
 	  t
 	(progn
-	  (message "‚±‚êˆÈãƒGƒ‰[‚Í‚ ‚è‚Ü‚¹‚ñ")
+	  (message "ã“ã‚Œä»¥ä¸Šã‚¨ãƒ©ãƒ¼ã¯ã‚ã‚Šã¾ã›ã‚“")
 	  nil))
     (if (first-error nil t)
-	(message "‚±‚êˆÈãƒGƒ‰[‚Í‚È‚¢‚Á‚Â‚Á‚Ä‚ñ‚¾‚ë‚¤‚ª‚±‚ÌƒoƒJƒ`ƒ“‚ª!"))))
+	(message "ã“ã‚Œä»¥ä¸Šã‚¨ãƒ©ãƒ¼ã¯ãªã„ã£ã¤ã£ã¦ã‚“ã ã‚ã†ãŒã“ã®ãƒã‚«ãƒãƒ³ãŒ!"))))
 
+#-ncurses
 (global-set-key #\F10 'first-error)
 (global-set-key #\F11 'next-error)
 (define-key ctl-x-map #\` 'next-error)

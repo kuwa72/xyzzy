@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -78,7 +78,7 @@
 				(goto-char (point-min))
 				(scan-buffer *hide-ifdef-cpp-error-regexp* :regexp t))
 			      (match-string 0)
-			    "‰½‚©’m‚ç‚ñ‚¯‚Çcpp‚ªƒGƒ‰[")))))
+			    "ä½•ã‹çŸ¥ã‚‰ã‚“ã‘ã©cppãŒã‚¨ãƒ©ãƒ¼")))))
       (when temp
 	(delete-file temp)))))
 

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -28,7 +28,7 @@
 	   (delete-region p1 p2)
 	   (insert (convert-encoding-to-internal encoding string)))
 	  ((interactive-p)
-	   (message "�G���R�[�f�B���O������ł��܂���")))
+	   (message "エンコーディングが判定できません")))
     t))
 
 (defun map-sjis-region (p1 p2)
@@ -114,7 +114,7 @@
 				  (pop-ime-composition-string)
 				(get-ime-composition-string))))
 		       (unless d
-			 (plain-error "�܂��ϊ����ĂȂ��ł���?"))
+			 (plain-error "まだ変換してないでしょ?"))
 		       (when (and (not nodelete)
 				  (looking-back (car d)))
 			 (delete-region (point)
@@ -129,7 +129,7 @@
   (interactive)
   (let ((d (pop-ime-composition-string)))
     (unless d
-      (plain-error "�܂��ϊ����ĂȂ��ł���?"))
+      (plain-error "まだ変換してないでしょ?"))
     (when (looking-back (car d))
       (delete-region (point)
 		     (progn

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;

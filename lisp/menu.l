@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -21,14 +21,14 @@
 			`(add-menu-separator #1# ,(cadr i)))
 		       ((eq (car i) :popup)
 			(when (< (length i) 3)
-			  (error ":popup‚ÌŒ`Ž®‚ª•s³‚Å‚·: ~S" i))
+			  (error ":popupã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" i))
 			`(add-popup-menu #1# ,(define-menu-expand (cadr i)
 								  nil
 								  (cdddr i))
 					 ,(caddr i)))
 		       ((eq (car i) :item)
 			(when (< (length i) 3)
-			  (error ":item‚ÌŒ`Ž®‚ª•s³‚Å‚·: ~S" i))
+			  (error ":itemã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" i))
 			`(add-menu-item #1# ,(if (eq (cadr i) ':tag-command)
 						 (let ((command (cadddr i)))
 						   (and (eq (safe-car command) 'quote)
@@ -38,10 +38,10 @@
 					,@(cddr i)))
 		       ((eq (car i) :menu)
 			(when (< (length i) 3)
-			  (error ":menu‚ÌŒ`Ž®‚ª•s³‚Å‚·: ~S" i))
+			  (error ":menuã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" i))
 			`(add-popup-menu #1# ,(cadddr i) ,(caddr i)))
 		       (t
-			(error "–¢ƒTƒ|[ƒg‚ÌƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" (car i))))
+			(error "æœªã‚µãƒãƒ¼ãƒˆã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" (car i))))
 		 result))
 	 (nreverse result))
      #1#))

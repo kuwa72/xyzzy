@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -47,10 +47,10 @@
 	       (recenter)
 	       (refresh-screen))
 	      (t
-	       (message "(RET)Œp‘±, (C-g)’†~, (s)‘O‚Ö, (r)Œã‚ë‚Ö"))))))
+	       (message "(RET)ç¶™ç¶š, (C-g)ä¸­æ­¢, (s)å‰ã¸, (r)å¾Œã‚ã¸"))))))
   (hide-match)
   (or noerror
-      (plain-error "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")))
+      (plain-error "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")))
 
 (defun search-forward-continuously (pattern &optional noerror)
   (interactive "sSearch forward: "

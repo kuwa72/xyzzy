@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; sort.l --- treeview
 
 ;; Copyright (C) 2001-2006 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -33,11 +33,11 @@
                                  (winapi:GetWindowStyle (treeview-get-htree))))))
     (setf (winapi::TVSORTCB-hParent tv-sort-cb) hitem)
     (setf (winapi::TVSORTCB-lpfnCompare tv-sort-cb) #'win-user::treeview-compare-lparam-ascending-proc)
-    ;; ‰¡ƒXƒNƒ[ƒ‹’â~
+    ;; æ¨ªã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«åœæ­¢
     (treeview-modify-style 0 winapi:TVS_NOHSCROLL 0)
 ;    (setf (winapi::TVSORTCB-lParam tv-sort-cb) 0)
     (treeview-sort-children-cb tv-sort-cb)
-    ;; ‰¡ƒXƒNƒ[ƒ‹İ’è‚ğŒ³‚É–ß‚·
+    ;; æ¨ªã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«è¨­å®šã‚’å…ƒã«æˆ»ã™
     (when hscrollp
       (treeview::treeview-modify-style winapi:TVS_NOHSCROLL 0 0))))
 

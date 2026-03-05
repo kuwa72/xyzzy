@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; dll.l --- treeview
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -40,7 +40,7 @@
 (c:*define XPIS_GROUP   #x40)
 
 (defun treeview-dll-define-function (dll)
-  "treeview.dll ‚ğ’¼Ú—p‚¢‚éŠÖ”‚Ì’è‹`"
+  "treeview.dll ã‚’ç›´æ¥ç”¨ã„ã‚‹é–¢æ•°ã®å®šç¾©"
   (let* ((dll-exist-p (and (file-exist-p dll)
                            (not (file-directory-p dll))))
          (fullpath (if dll-exist-p (truename dll) dll)))
@@ -100,7 +100,7 @@
     ;; GetInsertMarkColor
     ;; SetInsertMarkColor
 
-    ;; ‘€ì
+    ;; æ“ä½œ
     (c:define-dll-entry winapi:HTREEITEM treeview-dll-insert-item
       (c:int winapi:UINT winapi:LPCTSTR c:int c:int winapi:UINT winapi:UINT winapi:LPARAM winapi:HTREEITEM winapi:HTREEITEM) dll "InsertItem")
     (c:define-dll-entry winapi:BOOL treeview-dll-delete-item (c:int winapi:HTREEITEM) dll "DeleteItem")
@@ -130,12 +130,12 @@
     (c:define-dll-entry winapi:BOOL treeview-dll-remove-icon (c:int c:int) dll "RemoveIcon")
     (c:define-dll-entry winapi:BOOL treeview-dll-remove-all-icons (c:int) dll "RemoveAllIcons")
 
-    ;; ‚»‚Ì‘¼
+    ;; ãã®ä»–
     (c:define-dll-entry winapi:BOOL treeview-dll-disable-char-jump (c:int winapi:BOOL) dll "DisableCharJump")
     (c:define-dll-entry c:int treeview-dll-simple-track-popup-menu (winapi:LPCTSTR) dll "SimpleTrackPopupMenu")
 
     (defun treeview-dll-pathname ()
-      "g—p‚µ‚Ä‚¢‚é dll ‚ÌƒpƒX‚ğ•Ô‚·"
+      "ä½¿ç”¨ã—ã¦ã„ã‚‹ dll ã®ãƒ‘ã‚¹ã‚’è¿”ã™"
       fullpath)
     (gc)
     dll-exist-p))

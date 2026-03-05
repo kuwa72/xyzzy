@@ -1,9 +1,9 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
 
-;;; Author: ˆíŒ©‚³‚ñ(henmi@synform.co.jp)
+;;; Author: é€¸è¦‹ã•ã‚“(henmi@synform.co.jp)
 
 (provide "css-mode")
 
@@ -85,7 +85,7 @@
   (set-syntax-string *css-mode-syntax-table* #\')
 ;  (set-syntax-escape *css-mode-syntax-table* #\\)
   (set-syntax-symbol *css-mode-syntax-table* #\_)
-  (set-syntax-symbol *css-mode-syntax-table* #\-)  ;’Ç‰Á
+  (set-syntax-symbol *css-mode-syntax-table* #\-)  ;è¿½åŠ 
   (set-syntax-symbol *css-mode-syntax-table* #\#)
   (set-syntax-match *css-mode-syntax-table* #\( #\))
   (set-syntax-match *css-mode-syntax-table* #\{ #\})
@@ -126,12 +126,12 @@
   (setq mode-name (css-mode-name))
   (use-keymap *css-mode-map*)
   (use-syntax-table *css-mode-syntax-table*)
-#|  ;; ƒ^ƒOEƒWƒƒƒ“ƒv
+#|  ;; ã‚¿ã‚°ãƒ»ã‚¸ãƒ£ãƒ³ãƒ—
   (make-local-variable 'tags-find-target)
   (setq tags-find-target #'tags-find-css-target)
   (make-local-variable 'tags-find-point)
   (setq tags-find-point #'tags-find-css-point) |#
-  ;; ƒL[ƒ[ƒhƒtƒ@ƒCƒ‹
+  ;; ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ãƒ•ã‚¡ã‚¤ãƒ«
   (and (css-keyword-file)
        (null (css-keyword-hash-table))
        (setf (css-keyword-hash-table)

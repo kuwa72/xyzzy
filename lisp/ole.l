@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -102,7 +102,7 @@
 (defsetf ole-method* (obj prop args named-args) (x)
   `(progn
      (when ,named-args
-       (error "名前付き引数のsetfはサポートしていません"))
+       (error "蜷榊燕莉倥″蠑墓焚縺ｮsetf縺ｯ繧ｵ繝昴�ｼ繝医＠縺ｦ縺�縺ｾ縺帙ｓ"))
      (ole-putprop ,obj ,prop ,x ,@args)
      ,x))
 

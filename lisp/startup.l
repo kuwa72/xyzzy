@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; -*-Lisp-*-
 ;;;
 ;;; This file is part of xyzzy.
@@ -33,6 +34,12 @@
   (ignore-errors (ed::init-app-menus))
   ;; BS/DEL key binding (terminal sends 0x7f for backspace)
   (global-set-key #\DEL 'ed::delete-backward-char-or-selection)
+  ;; F10: activate menu bar (call-menu requires an arg on Win32,
+  ;; so wrap it as an interactive command for ncurses keybinding)
+  (defun ed::activate-menu ()
+    (interactive)
+    (call-menu 0))
+  (global-set-key #\F10 'ed::activate-menu)
   ;; Set *scratch* encoding to match *default-fileio-encoding* (same as Win32 startup)
   (trap-errors
     (let ((scratch (find-buffer "*scratch*")))

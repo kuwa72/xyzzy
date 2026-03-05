@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -62,10 +62,10 @@
 	 (goto-matched-parenthesis))
 	((looking-for "}")
 	 (unless (scan-buffer "{" :reverse t)
-	   (message "ˆê’v‚·‚éŠ‡ŒÊ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")))
+	   (message "ä¸€è‡´ã™ã‚‹æ‹¬å¼§ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")))
 	((looking-for "{")
 	 (unless (scan-buffer "}")
-	   (message "ˆê’v‚·‚éŠ‡ŒÊ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")))
+	   (message "ä¸€è‡´ã™ã‚‹æ‹¬å¼§ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")))
 	(t
 	 (let ((pos (save-excursion
 		      (let ((tail (progn
@@ -78,7 +78,7 @@
 			       (if (forward-identifier "end" "begin" t)
 				   (point)
 				 (progn
-				   (message "ˆê’v‚·‚éend‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")
+				   (message "ä¸€è‡´ã™ã‚‹endãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")
 				   nil)))
 			      ((and (looking-for "end" t)
 				    (= (- tail (point)) 3))
@@ -86,7 +86,7 @@
 			       (if (backward-identifier "begin" "end" t)
 				   (point)
 				 (progn
-				   (message "ˆê’v‚·‚ébegin‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")
+				   (message "ä¸€è‡´ã™ã‚‹beginãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")
 				   nil))))))))
 	   (when pos
 	     (goto-char pos))))))

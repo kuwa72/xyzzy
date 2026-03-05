@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -6,28 +6,28 @@
 ;;;
 ;;; format-date
 ;;;
-;;; a: ’Z‚¢Œ`®‚Ì—j“ú
-;;; A: ’·‚¢Œ`®‚Ì—j“ú
-;;; b: ’Z‚¢Œ`®‚ÌŒ
-;;; B: ’·‚¢Œ`®‚ÌŒ
-;;; d: “ú(00`31)                     # (0`31)
-;;; e: ˜a—ï‚Ì”N(01`)                 # (1`)
-;;; E: ˜a—ï‚Ì”N(Œ³, 02`)             # (Œ³, 2`)
-;;; g: Œ³†(–¾¡,‘å³,º˜a,•½¬,—ß˜a) # (–¾,‘å,º,•½,—ß)
-;;; G: Œ³†(M, T, S, H, R)
-;;; H: (00`23)                     # (0`23)
-;;; I: 12ŠÔ‚Ì(01`12)             # (1`12)
-;;; i: Internet Time(000`999)
-;;; m: Œ(01`12)                     # (1`12)
-;;; M: •ª(00`59)                     # (0`59)
-;;; p: Œß‘O/ŒßŒã
+;;; a: çŸ­ã„å½¢å¼ã®æ›œæ—¥
+;;; A: é•·ã„å½¢å¼ã®æ›œæ—¥
+;;; b: çŸ­ã„å½¢å¼ã®æœˆ
+;;; B: é•·ã„å½¢å¼ã®æœˆ
+;;; d: æ—¥(00ï½31)                     # (0ï½31)
+;;; e: å’Œæš¦ã®å¹´(01ï½)                 # (1ï½)
+;;; E: å’Œæš¦ã®å¹´(å…ƒ, 02ï½)             # (å…ƒ, 2ï½)
+;;; g: å…ƒå·(æ˜æ²»,å¤§æ­£,æ˜­å’Œ,å¹³æˆ,ä»¤å’Œ) # (æ˜,å¤§,æ˜­,å¹³,ä»¤)
+;;; G: å…ƒå·(M, T, S, H, R)
+;;; H: æ™‚(00ï½23)                     # (0ï½23)
+;;; I: 12æ™‚é–“ã®æ™‚(01ï½12)             # (1ï½12)
+;;; i: Internet Time(000ï½999)
+;;; m: æœˆ(01ï½12)                     # (1ï½12)
+;;; M: åˆ†(00ï½59)                     # (0ï½59)
+;;; p: åˆå‰/åˆå¾Œ
 ;;; P: AM/PM                          # am/pm
-;;; S: •b(00`59)                     # (0`59)
-;;; v: —j“ú(“ú–{Œê)
-;;; y: ”N(2Œ…)
-;;; Y: ”N(4Œ…)
-;;; z: ƒ^ƒCƒ€ƒ][ƒ“–¼(JST-9)
-;;; Z: ƒ^ƒCƒ€ƒ][ƒ“(+0900)            # (+09:00)
+;;; S: ç§’(00ï½59)                     # (0ï½59)
+;;; v: æ›œæ—¥(æ—¥æœ¬èª)
+;;; y: å¹´(2æ¡)
+;;; Y: å¹´(4æ¡)
+;;; z: ã‚¿ã‚¤ãƒ ã‚¾ãƒ¼ãƒ³å(JST-9)
+;;; Z: ã‚¿ã‚¤ãƒ ã‚¾ãƒ¼ãƒ³(+0900)            # (+09:00)
 
 (provide "timestmp")
 
@@ -42,7 +42,7 @@
 (defconstant *full-weekday-names*
   #("Monday" "Tuesday" "Wednesday" "Thursday" "Friday" "Saturday" "Sunday"))
 
-(defconstant *japanese-weekday-names* "Œ‰Î…–Ø‹à“y“ú")
+(defconstant *japanese-weekday-names* "æœˆç«æ°´æœ¨é‡‘åœŸæ—¥")
 
 (defconstant *abbreviated-month-names*
   #("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
@@ -53,14 +53,14 @@
 
 (defvar *timezone-name* "JST")
 
-;; Œ³†‚Æ¼—ï‚Ì‘Î‰•\(‚½‚Ô‚ñ‡‚Á‚Ä‚é)
+;; å…ƒå·ã¨è¥¿æš¦ã®å¯¾å¿œè¡¨(ãŸã¶ã‚“åˆã£ã¦ã‚‹)
 (defconstant *japanese-era-list*
-  '(("—ß˜a" "R" 2019 5 1)
-    ("•½¬" "H" 1989 1 8)
-    ("º˜a" "S" 1926 12 25)
-    ("‘å³" "T" 1912 7 30)
-    ;; Common Lisp‚Å‚ÍGMT1900”N‚æ‚è‘O‚Í‘¶İ‚µ‚È‚¢
-    ;; ("–¾¡" "M" 1868 5 9)
+  '(("ä»¤å’Œ" "R" 2019 5 1)
+    ("å¹³æˆ" "H" 1989 1 8)
+    ("æ˜­å’Œ" "S" 1926 12 25)
+    ("å¤§æ­£" "T" 1912 7 30)
+    ;; Common Lispã§ã¯GMT1900å¹´ã‚ˆã‚Šå‰ã¯å­˜åœ¨ã—ãªã„
+    ;; ("æ˜æ²»" "M" 1868 5 9)
    ))
 
 (defconstant *japanese-era*
@@ -74,7 +74,7 @@
   (let ((x (find universal-time *japanese-era* :test #'>= :key #'car)))
     (if x
 	(cons (+ (- year (cadr x)) 1) (cddr x))
-      (list (- year 1867) "–¾¡" "M")  ; ‚¢‚Ü‚¢‚¿
+      (list (- year 1867) "æ˜æ²»" "M")  ; ã„ã¾ã„ã¡
     )))
 
 (defun format-date (s fmt &optional universal-time)
@@ -119,7 +119,7 @@
 		      (unless jp
 			(setq jp (get-japanese-era universal-time year)))
 		      (if (= (car jp) 1)
-			  (princ "Œ³" s)
+			  (princ "å…ƒ" s)
 			(format s fmtd (car jp))))
 		     (#\g
 		      (unless jp
@@ -142,7 +142,7 @@
 		     (#\M
 		      (format s fmtd min))
 		     (#\p
-		      (princ (if (< hour 12) "Œß‘O" "ŒßŒã") s))
+		      (princ (if (< hour 12) "åˆå‰" "åˆå¾Œ") s))
 		     (#\P
 		      (if pound
 			  (princ (if (< hour 12) "am" "pm") s)
@@ -184,17 +184,17 @@
     "%d %b %y"
     "%y/%m/%d"
     "%y-%m-%d"
-    "%g%#e”N%#mŒ%#d“ú %v—j“ú"
-    "%g%#e”N%#mŒ%#d“ú"
-    "%Y”N%#mŒ%#d“ú(%v)"
-    "%Y”N%#mŒ%#d“ú"
-    "%y”N%#mŒ%#d“ú(%v)"
-    "%y”N%#mŒ%#d“ú"
+    "%g%#eå¹´%#mæœˆ%#dæ—¥ %væ›œæ—¥"
+    "%g%#eå¹´%#mæœˆ%#dæ—¥"
+    "%Yå¹´%#mæœˆ%#dæ—¥(%v)"
+    "%Yå¹´%#mæœˆ%#dæ—¥"
+    "%yå¹´%#mæœˆ%#dæ—¥(%v)"
+    "%yå¹´%#mæœˆ%#dæ—¥"
     " %H:%M:%S"
     " %#H:%M:%S"
     " %#I:%M:%S %P"
-    " %#H%#M•ª%#S•b"
-    " %p%#I%#M•ª%#S•b"
+    " %#Hæ™‚%#Måˆ†%#Sç§’"
+    " %p%#Iæ™‚%#Måˆ†%#Sç§’"
     "@%i"
     ))
 
@@ -205,12 +205,12 @@
   (interactive "*")
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 260 120
-		    (:caption "“ú•t‚Æ")
+		    (:caption "æ—¥ä»˜ã¨æ™‚åˆ»")
 		    (:font 9 "MS UI Gothic")
 		    (:control
 		     (:listbox list nil #x50a10001 4 5 192 114)
 		     (:button IDOK "OK" #x50030001 205 5 52 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50030000 205 22 52 14)))
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50030000 205 22 52 14)))
 		  (list (cons 'list (mapcar #'format-date-string *date-formats*)))
 		  '((list :must-match t :enable (IDOK))))
     (when result

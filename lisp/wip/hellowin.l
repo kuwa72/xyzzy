@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: WIN-USER -*-
+;;; -*- Mode: Lisp; Package: WIN-USER; Encoding: utf-8 -*-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "wip/winapi"))
@@ -10,7 +10,7 @@
 (defun on-paint (hwnd hdc)
   (let* ((r (make-RECT))
 	 (sz (make-SIZE))
-	 (text (si:make-string-chunk "‚Í‚ë` ‚¤‚¢‚ñ‚Ç`‚¸"))
+	 (text (si:make-string-chunk "ã¯ã‚ï½ ã†ã„ã‚“ã©ï½ãš"))
 	 (l (- (si:chunk-size text) 1))
 	 ofont)
     (let ((lf (make-LOGFONT)))
@@ -20,7 +20,7 @@
       (setf (LOGFONT-lfCharSet lf) SHIFTJIS_CHARSET)
       ;; strcpy (lf.lfFaceName, "...")
       (si:pack-string lf (c-struct-offset-of LOGFONT winapi::lfFaceName)
-		      "‚l‚r ‚oƒSƒVƒbƒN")
+		      "ï¼­ï¼³ ï¼°ã‚´ã‚·ãƒƒã‚¯")
       (setq ofont (SelectObject hdc (CreateFontIndirect lf))))
     (GetClientRect hwnd r)
     (GetTextExtentPoint32 hdc text l sz)
@@ -30,9 +30,9 @@
 		0 0 text l 0)
     (DeleteObject (SelectObject hdc ofont))))
 
-;; •¡”‰ñ•]‰¿‚·‚é‚ÆAˆÈ‘O‚É RegisterClass ‚µ‚½ WndProc ‚ª GC ‚³‚ê‚Ä‚È‚­
-;; ‚È‚Á‚Ä‚µ‚Ü‚¤B
-;; Ä’è‹`‚·‚éê‡‚Í UnregisterClass ‚·‚é‚©Axyzzy ‚ğ—§‚¿‚ ‚°’¼‚·B
+;; è¤‡æ•°å›è©•ä¾¡ã™ã‚‹ã¨ã€ä»¥å‰ã« RegisterClass ã—ãŸ WndProc ãŒ GC ã•ã‚Œã¦ãªã
+;; ãªã£ã¦ã—ã¾ã†ã€‚
+;; å†å®šç¾©ã™ã‚‹å ´åˆã¯ UnregisterClass ã™ã‚‹ã‹ã€xyzzy ã‚’ç«‹ã¡ã‚ã’ç›´ã™ã€‚
 (unless (fboundp 'hello-windows-wndproc)
   (defun-c-callable LRESULT hello-windows-wndproc
     ((HWND hwnd) (UINT msg) (WPARAM wparam) (LPARAM lparam))
@@ -73,8 +73,8 @@
 	  (break-loop nil))
       (declare (special break-loop))
       #|
-      ;; ‚±‚±‚ÅƒƒCƒ“ƒ‹[ƒv‚ğ‚Ü‚í‚µ‚Ä‚à‚¢‚¢‚ñ‚¾‚ªA
-      ;; editor‘¤‚Å‰½‚ào—ˆ‚È‚­‚È‚Á‚Ä‚µ‚Ü‚¤‚Ì‚Å
+      ;; ã“ã“ã§ãƒ¡ã‚¤ãƒ³ãƒ«ãƒ¼ãƒ—ã‚’ã¾ã‚ã—ã¦ã‚‚ã„ã„ã‚“ã ãŒã€
+      ;; editorå´ã§ä½•ã‚‚å‡ºæ¥ãªããªã£ã¦ã—ã¾ã†ã®ã§
       (while (not break-loop)
 	(GetMessage msg 0 0 0)
 	(TranslateMessage msg)

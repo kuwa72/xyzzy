@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -81,11 +81,11 @@
 (setq *drag-and-drop-auto-activate* t)
 
 (defvar *file-dialog-filter*
-  '(("ƒeƒLƒXƒgƒtƒ@ƒCƒ‹(*.txt;*.doc;*.log)" . "*.txt;*.doc;*.log")
+  '(("ãƒ†ã‚­ã‚¹ãƒˆãƒ•ã‚¡ã‚¤ãƒ«(*.txt;*.doc;*.log)" . "*.txt;*.doc;*.log")
     ("C/C++(*.c;*.cpp;*.cxx;*.h)" . "*.c;*.cpp;*.cxx;*.cc;*.h;*.hxx")
     ("Lisp(*.l;*.lisp)" . "*.l;*.lisp")
     ("HTML(*.htm;*.html)" . "*.htm;*.html")
-    ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*")))
+    ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*")))
 
 (defvar *file-dialog-filter-index* 5)
 
@@ -102,9 +102,9 @@
 
 (defvar *kinsoku-mode* 15)
 (defvar *kinsoku-bol-chars*
-  "!),.:;?]}¡£¤¥ŞßABCDEFGHIJKLRSTUXfhjlnprtvxz„â")
+  "!),.:;?]}ï½¡ï½£ï½¤ï½¥ï¾ï¾Ÿã€ã€‚ï¼Œï¼ãƒ»ï¼šï¼›ï¼Ÿï¼ã‚›ã‚œÂ´ãƒ½ãƒ¾ã‚ã‚ã€…â€™â€ï¼‰ã€•ï¼½ï½ã€‰ã€‹ã€ã€ã€‘ï¼â‰«")
 (defvar *kinsoku-eol-chars*
-  "([{¢Megikmoqsuwyƒá")
+  "([{ï½¢ï½€â€˜â€œï¼ˆã€”ï¼»ï½›ã€ˆã€Šã€Œã€ã€ï¼œâ‰ª")
 (defvar *kinsoku-extend-limit* 3)
 (defvar *kinsoku-shorten-limit* 10)
 (defvar *fill-kinsoku-mode* 15)

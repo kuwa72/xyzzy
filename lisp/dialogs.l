@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -28,19 +28,19 @@
 
 (defvar *search-dialog-template*
   '(dialog 0 0 242 95
-    (:caption "•¶š—ñ‚ÌŒŸõ")
+    (:caption "æ–‡å­—åˆ—ã®æ¤œç´¢")
     (:font 9 "MS UI Gothic")
     (:control
-     (:static nil "ŒŸõ(&S):" #x50020000 7 10 28 8)
+     (:static nil "æ¤œç´¢(&S):" #x50020000 7 10 28 8)
      (:combobox search nil #x50210842 39 8 140 96)
-     (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 39 27 96 10)
-     (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 39 40 83 10)
-     (:button regexp "³‹K•\Œ»(&E)" #x50010003 39 53 52 10)
-     (:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 39 66 107 10)
-     (:button wrap "Œ©‚Â‚©‚ç‚È‚¯‚ê‚Î–ß‚Á‚ÄŒŸõ(&V)" #x50010003 39 79 101 10)
-     (:button backward "ãŒŸõ(&P)" #x50010000 185 7 50 14)
-     (:button forward "‰ºŒŸõ(&N)" #x50010001 185 24 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 185 41 50 14))))
+     (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 39 27 96 10)
+     (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 39 40 83 10)
+     (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 39 53 52 10)
+     (:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 39 66 107 10)
+     (:button wrap "è¦‹ã¤ã‹ã‚‰ãªã‘ã‚Œã°æˆ»ã£ã¦æ¤œç´¢(&V)" #x50010003 39 79 101 10)
+     (:button backward "ä¸Šæ¤œç´¢(&P)" #x50010000 185 7 50 14)
+     (:button forward "ä¸‹æ¤œç´¢(&N)" #x50010001 185 24 50 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 185 41 50 14))))
 
 (defun search-dialog ()
   (interactive)
@@ -62,7 +62,7 @@
 			  (cons 'escseq *understand-escape-sequences*)
 			  (cons 'wrap *wrap-search*))
 		    '((word :disable (regexp))
-		      (search :non-null "ŒŸõ•¶š—ñ‚ğ“ü—Í‚µ‚Ä" :enable (forward backward)))))
+		      (search :non-null "æ¤œç´¢æ–‡å­—åˆ—ã‚’å…¥åŠ›ã—ã¦" :enable (forward backward)))))
     (when result
       (let ((string (cdr (assoc 'search data))))
 	(when string
@@ -84,21 +84,21 @@
 
 (defvar *replace-dialog-template*
   '(dialog 0 0 242 115
-    (:caption "•¶š—ñ‚Ì’uŠ·")
+    (:caption "æ–‡å­—åˆ—ã®ç½®æ›")
     (:font 9 "MS UI Gothic")
     (:control
-     (:static nil "ŒŸõ(&S):" #x50020000 7 10 32 8)
+     (:static nil "æ¤œç´¢(&S):" #x50020000 7 10 32 8)
      (:combobox search nil #x50210842 39 7 140 96)
-     (:static nil "’uŠ·(&R):" #x50020000 7 29 32 8)
+     (:static nil "ç½®æ›(&R):" #x50020000 7 29 32 8)
      (:combobox replace nil #x50210842 39 26 140 96)
-     (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 39 46 113 10)
-     (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 39 59 97 10)
-     (:button regexp "³‹K•\Œ»(&E)" #x50010003 39 72 63 10)
-     (:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 39 85 113 10)
-     (:button whole "ƒoƒbƒtƒ@‚Ìæ“ª‚©‚ç(&O)" #x50010003 39 98 89 10)
-     (:button query "Šm”F‚ ‚è(&Q)" #x50010001 185 7 50 14)
-     (:button all "‘S‚Ä’uŠ·(&A)" #x50010000 185 24 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 185 41 50 14))))
+     (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 39 46 113 10)
+     (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 39 59 97 10)
+     (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 39 72 63 10)
+     (:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 39 85 113 10)
+     (:button whole "ãƒãƒƒãƒ•ã‚¡ã®å…ˆé ­ã‹ã‚‰(&O)" #x50010003 39 98 89 10)
+     (:button query "ç¢ºèªã‚ã‚Š(&Q)" #x50010001 185 7 50 14)
+     (:button all "å…¨ã¦ç½®æ›(&A)" #x50010000 185 24 50 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 185 41 50 14))))
 
 (defun replace-dialog ()
   (interactive)
@@ -130,7 +130,7 @@
 				  replace))
 			  (cons 'escseq *understand-escape-sequences*))
 		    '((word :disable (regexp))
-		      (search :non-null "ŒŸõ•¶š—ñ‚ğ“ü—Í‚µ‚Ä" :enable (query all)))))
+		      (search :non-null "æ¤œç´¢æ–‡å­—åˆ—ã‚’å…¥åŠ›ã—ã¦" :enable (query all)))))
     (when result
       (let ((search (cdr (assoc 'search data)))
 	    (replace (cdr (assoc 'replace data))))
@@ -163,17 +163,17 @@
 
 (defvar *count-matches-dialog-template*
   '(dialog 0 0 242 84
-    (:caption "ˆê’v‚·‚é•¶š—ñ‚ğ”‚¦‚é")
+    (:caption "ä¸€è‡´ã™ã‚‹æ–‡å­—åˆ—ã‚’æ•°ãˆã‚‹")
     (:font 9 "MS UI Gothic")
     (:control
-     (:static nil "ŒŸõ(&S):" #x50020000 7 10 31 8)
+     (:static nil "æ¤œç´¢(&S):" #x50020000 7 10 31 8)
      (:combobox search nil #x50210842 39 8 140 96)
-     (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 39 27 113 10)
-     (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 39 40 100 10)
-     (:button regexp "³‹K•\Œ»(&E)" #x50010003 39 53 55 10)
-     (:button insert "Œ‹‰Ê‚ğ‘}“ü‚·‚é(&I)" #x50010003 39 66 105 10)
-     (:button IDOK "ŒŸõ(&P)" #x50010001 185 7 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 185 24 50 14))))
+     (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 39 27 113 10)
+     (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 39 40 100 10)
+     (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 39 53 55 10)
+     (:button insert "çµæœã‚’æŒ¿å…¥ã™ã‚‹(&I)" #x50010003 39 66 105 10)
+     (:button IDOK "æ¤œç´¢(&P)" #x50010001 185 7 50 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 185 24 50 14))))
 
 (defun count-matches-dialog ()
   (interactive)
@@ -189,7 +189,7 @@
 					      *last-search-regexp*
 					    *last-search-string*))))
 		  '((word :disable (regexp))
-		    (search :non-null "ŒŸõ•¶š—ñ‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		    (search :non-null "æ¤œç´¢æ–‡å­—åˆ—ã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
       (let ((string (cdr (assoc 'search data))))
 	(when string
@@ -201,28 +201,28 @@
 	    (if (cdr (assoc 'insert data))
 		(insert (format nil "~D" count))
 	      (if (zerop count)
-		  (msgbox "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")
-		(msgbox "~DŒÂ‚Ì•¶š—ñ‚ª‚ ‚è‚Ü‚·" count)))))))))
+		  (msgbox "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")
+		(msgbox "~Då€‹ã®æ–‡å­—åˆ—ãŒã‚ã‚Šã¾ã™" count)))))))))
 
 (defun goto-line-dialog ()
   (interactive)
   (multiple-value-bind (result data)
       (dialog-box
        `(dialog 0 0 156 61
-		(:caption "w’ès‚ÖˆÚ“®")
+		(:caption "æŒ‡å®šè¡Œã¸ç§»å‹•")
 		(:font 9 "MS UI Gothic")
 		(:control
-		 (:static nil "s”Ô†(&L):" #x50020000 7 16 40 8)
+		 (:static nil "è¡Œç•ªå·(&L):" #x50020000 7 16 40 8)
 		 (:edit line nil #x50810086 49 12 40 14)
-		 (:button disp "•\¦s‚¾‚·(&D)"
+		 (:button disp "è¡¨ç¤ºè¡Œã ã™(&D)"
 		  ,(if (integerp (buffer-fold-width)) #x50010003 #x58010003)
 		  11 44 58 10)
-		 (:button IDOK "ˆÚ“®(&G)" #x50010001 99 7 50 14)
-		 (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 99 24 50 14)))
+		 (:button IDOK "ç§»å‹•(&G)" #x50010001 99 7 50 14)
+		 (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 99 24 50 14)))
        '((disp . t))
        '((line :enable (IDOK) :type integer :min 1 :non-null t
-	       :type-error "s”Ô†‚ğ“ü—Í‚µ‚Ä‚µ‚¾‚³‚¢"
-	       :range-error "1ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢")))
+	       :type-error "è¡Œç•ªå·ã‚’å…¥åŠ›ã—ã¦ã—ã ã•ã„"
+	       :range-error "1ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„")))
     (when result
       (if (cdr (assoc 'disp data))
 	  (goto-virtual-line (cdr (assoc 'line data)))
@@ -252,7 +252,7 @@
 (defun close-and-open-file-dialog ()
   (interactive)
   (when (kill-buffer (selected-buffer))
-    (open-file-dialog "•Â‚¶‚ÄŠJ‚­" nil)))
+    (open-file-dialog "é–‰ã˜ã¦é–‹ã" nil)))
 
 (defun save-as-dialog ()
   (interactive)
@@ -283,7 +283,7 @@
   (interactive)
   (cond ((not (need-buffer-save-p (selected-buffer)))
 	 (kill-buffer (selected-buffer)))
-	((yes-no-or-cancel-p "~a‚ğ•Û‘¶‚µ‚Ü‚·‚©?" (selected-buffer))
+	((yes-no-or-cancel-p "~aã‚’ä¿å­˜ã—ã¾ã™ã‹?" (selected-buffer))
 	 (if (save-buffer-dialog)
 	     (kill-buffer (selected-buffer))))
 	(t
@@ -293,7 +293,7 @@
 (defun insert-file-dialog ()
   (interactive "*")
   (multiple-value-bind (file index encoding eol-code)
-      (file-name-dialog :title "ƒtƒ@ƒCƒ‹‚Ì‘}“ü"
+      (file-name-dialog :title "ãƒ•ã‚¡ã‚¤ãƒ«ã®æŒ¿å…¥"
 			:filter *file-dialog-filter*
 			:filter-index *file-dialog-filter-index*
 			:must-exist t
@@ -309,7 +309,7 @@
 (defun rename-dialog ()
   (interactive)
   (multiple-value-bind (file index)
-      (file-name-dialog :title "–¼‘O‚Ì•ÏX" :save t
+      (file-name-dialog :title "åå‰ã®å¤‰æ›´" :save t
 			:filter *file-dialog-filter*
 			:filter-index *file-dialog-filter-index*
 			:overwrite t :hide-read-only t)
@@ -325,19 +325,19 @@
 			   (:caption ,title)
 			   (:font 9 "MS UI Gothic")
 			   (:control
-			    (:static nil "ƒRƒ}ƒ“ƒhƒ‰ƒCƒ“(&C):" #x50020000 7 7 48 8)
+			    (:static nil "ã‚³ãƒãƒ³ãƒ‰ãƒ©ã‚¤ãƒ³(&C):" #x50020000 7 7 48 8)
 			    (:combobox cmd nil #x50210042 7 19 166 62)
 			    (:button IDOK "OK" #x50010001 180 7 50 14)
-			    (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 180 24 50 14)
-			    (:button ref "QÆ(&R)..." #x50010000 180 41 50 14)))
+			    (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 180 24 50 14)
+			    (:button ref "å‚ç…§(&R)..." #x50010000 180 41 50 14)))
 		  (list (cons 'cmd *minibuffer-execute-history*)
 			(cons 'cmd (or init-cmd "")))
-		  '((cmd :non-null "Às‚·‚éƒRƒ}ƒ“ƒh‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢" :enable (IDOK))
+		  '((cmd :non-null "å®Ÿè¡Œã™ã‚‹ã‚³ãƒãƒ³ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„" :enable (IDOK))
 		    (ref :related cmd
-			 :file-name-dialog (:title "QÆ"
-					    :filter (("Àsƒtƒ@ƒCƒ‹(*.exe;*.com;*.cmd;*.bat;*.pif)"
+			 :file-name-dialog (:title "å‚ç…§"
+					    :filter (("å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«(*.exe;*.com;*.cmd;*.bat;*.pif)"
 						      . "*.exe;*.com;*.cmd;*.bat;*.pif")
-						     ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*"))
+						     ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*"))
 					    :must-exist t))))
     (when result
       (let ((cmd (cdr (assoc 'cmd data))))
@@ -346,15 +346,15 @@
 
 (defun execute-subprocess-dialog (&optional init-cmd)
   (interactive)
-  (execute-process-dialog #'execute-subprocess "”ñ“¯ŠúƒvƒƒOƒ‰ƒ€‚ÌÀs" init-cmd))
+  (execute-process-dialog #'execute-subprocess "éåŒæœŸãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®å®Ÿè¡Œ" init-cmd))
 
 (defun pipe-command-dialog (&optional init-cmd)
   (interactive)
-  (execute-process-dialog #'pipe-command "ƒRƒ“ƒ\[ƒ‹ƒvƒƒOƒ‰ƒ€‚ÌÀs" init-cmd))
+  (execute-process-dialog #'pipe-command "ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®å®Ÿè¡Œ" init-cmd))
 
 (defun launch-application-dialog (&optional init-cmd)
   (interactive)
-  (execute-process-dialog #'launch-application "WindowsƒvƒƒOƒ‰ƒ€‚ÌÀs" init-cmd))
+  (execute-process-dialog #'launch-application "Windowsãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®å®Ÿè¡Œ" init-cmd))
 
 (defun print-selected-buffer ()
   (interactive)
@@ -369,11 +369,11 @@
   (interactive)
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 186 162
-		    (:caption "§ŒäƒR[ƒh‚Ì“ü—Í")
+		    (:caption "åˆ¶å¾¡ã‚³ãƒ¼ãƒ‰ã®å…¥åŠ›")
 		    (:font 9 "MS UI Gothic")
 		    (:control
 		     (:button IDOK "OK" #x50010001 129 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 129 24 50 14)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 129 24 50 14)
 		     (:listbox list nil #x50b10111 7 7 116 148)))
 		  '((list . ((#\C-@ "0" "NUL" "null")
 			     (#\C-a "1" "SOH" "start of heading")
@@ -417,12 +417,12 @@
   (let ((list (list-xyzzy-windows)))
     (multiple-value-bind (result data)
 	(dialog-box '(dialog 0 0 219 131
-		      (:caption "xyzzy‚Ì‘I‘ğ")
+		      (:caption "xyzzyã®é¸æŠ")
 		      (:font 9 "MS UI Gothic")
 		      (:control
 		       (:listbox list nil #x50b10101 7 7 205 97)
 		       (:button IDOK "OK" #x50010001 107 110 50 14)
-		       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 162 110 50 14)))
+		       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 162 110 50 14)))
 		    (list (cons 'list (mapcar #'cdr list)))
 		    '((list :must-match t :enable (IDOK))))
       (when result
@@ -434,20 +434,20 @@
   (interactive)
   (multiple-value-bind (result data)
       (dialog-box `(dialog 0 0 200 120
-		    (:caption "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬")
+		    (:caption "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆ")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:button nil "ƒvƒƒOƒ‰ƒ€:" #x50000007 7 7 186 30)
+		     (:button nil "ãƒ—ãƒ­ã‚°ãƒ©ãƒ :" #x50000007 7 7 186 30)
 		     (:button xyzzycli-exe "xyzzycli.exe (&C)" #x50030009 12 20 80 10)
 		     (:button xyzzy-exe "xyzzy.exe (&X)" #x50000009 102 20 80 10)
-		     (:button nil "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬æ:" #x50000007 7 46 186 45)
-		     (:button :desktop "ƒfƒXƒNƒgƒbƒv (&D)" #x50010003 12 59 80 10)
-		     (:button :send-to "‘—‚é (&T)" #x50010003 102 59 80 10)
-		     (:button :programs "ƒvƒƒOƒ‰ƒ€ƒƒjƒ…[ (&P)" #x50010003 12 72 80 10)
+		     (:button nil "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆå…ˆ:" #x50000007 7 46 186 45)
+		     (:button :desktop "ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ— (&D)" #x50010003 12 59 80 10)
+		     (:button :send-to "é€ã‚‹ (&T)" #x50010003 102 59 80 10)
+		     (:button :programs "ãƒ—ãƒ­ã‚°ãƒ©ãƒ ãƒ¡ãƒ‹ãƒ¥ãƒ¼ (&P)" #x50010003 12 72 80 10)
 		     ,@(unless (featurep :windows-7)
-			 `((:button :start-menu "ƒXƒ^[ƒgƒƒjƒ…[ (&S)" #x50010003 102 72 80 10)))
+			 `((:button :start-menu "ã‚¹ã‚¿ãƒ¼ãƒˆãƒ¡ãƒ‹ãƒ¥ãƒ¼ (&S)" #x50010003 102 72 80 10)))
 		     (:button IDOK "OK" #x50010001 88 100 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 144 100 50 14)))
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 144 100 50 14)))
 		  '((xyzzycli-exe . t))
 		  nil)
     (when result
@@ -466,5 +466,5 @@
 		(push k dests)
 		)))
 	  (when dests
-	    (message "~A‚ÌƒVƒ‡[ƒgƒJƒbƒg‚ğ~{~A~^A~}‚Éì¬‚µ‚Ü‚µ‚½B" program dests))
+	    (message "~Aã®ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚’~{~A~^ã€~}ã«ä½œæˆã—ã¾ã—ãŸã€‚" program dests))
 	  )))))

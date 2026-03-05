@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: WINAPI -*-
+;;; -*- Mode: Lisp; Package: WINAPI ; Encoding: utf-8 -*-
 ;;; virtual-keys.l --- Virtual Keys, Standard Set
 
 ;; Copyright (C) 2001-2005 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -19,10 +19,10 @@
 (in-package "winapi")
 
 ;; winuser.h
-(*define VK_LBUTTON        #x01); ƒ}ƒEƒX¶ƒ{ƒ^ƒ“
-(*define VK_RBUTTON        #x02); ƒ}ƒEƒX‰Eƒ{ƒ^ƒ“
+(*define VK_LBUTTON        #x01); ãƒžã‚¦ã‚¹å·¦ãƒœã‚¿ãƒ³
+(*define VK_RBUTTON        #x02); ãƒžã‚¦ã‚¹å³ãƒœã‚¿ãƒ³
 (*define VK_CANCEL         #x03); Ctrl-Break
-(*define VK_MBUTTON        #x04); ƒ}ƒEƒX’†‰›ƒ{ƒ^ƒ“
+(*define VK_MBUTTON        #x04); ãƒžã‚¦ã‚¹ä¸­å¤®ãƒœã‚¿ãƒ³
 
 (*define VK_XBUTTON1       #x05);
 (*define VK_XBUTTON2       #x06);
@@ -34,7 +34,7 @@
 
 ; #x0A - #x0B reserved
 
-(*define VK_CLEAR          #x0C); NumLock ‚ðŠO‚µ‚½ó‘Ô‚Ìƒeƒ“ƒL[5
+(*define VK_CLEAR          #x0C); NumLock ã‚’å¤–ã—ãŸçŠ¶æ…‹ã®ãƒ†ãƒ³ã‚­ãƒ¼5
 (*define VK_RETURN         #x0D); Enter
 
 (*define VK_SHIFT          #x10); Shift
@@ -63,10 +63,10 @@
 (*define VK_NEXT           #x22); Page Down
 (*define VK_END            #x23); End
 (*define VK_HOME           #x24); Home
-(*define VK_LEFT           #x25); ¶•ûŒüƒL[
-(*define VK_UP             #x26); ã•ûŒüƒL[
-(*define VK_RIGHT          #x27); ‰E•ûŒüƒL[
-(*define VK_DOWN           #x28); ‰º•ûŒüƒL[
+(*define VK_LEFT           #x25); å·¦æ–¹å‘ã‚­ãƒ¼
+(*define VK_UP             #x26); ä¸Šæ–¹å‘ã‚­ãƒ¼
+(*define VK_RIGHT          #x27); å³æ–¹å‘ã‚­ãƒ¼
+(*define VK_DOWN           #x28); ä¸‹æ–¹å‘ã‚­ãƒ¼
 (*define VK_SELECT         #x29)
 (*define VK_PRINT          #x2A)
 (*define VK_EXECUTE        #x2B)
@@ -115,30 +115,30 @@
 (*define VK_Y              #x59) ; (char-code #\Y)
 (*define VK_Z              #x5A) ; (char-code #\Z)
 
-(*define VK_LWIN           #x5B); ¶ Windows ƒL[
-(*define VK_RWIN           #x5C); ‰E Windows ƒL[
-(*define VK_APPS           #x5D); ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ƒL[
+(*define VK_LWIN           #x5B); å·¦ Windows ã‚­ãƒ¼
+(*define VK_RWIN           #x5C); å³ Windows ã‚­ãƒ¼
+(*define VK_APPS           #x5D); ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã‚­ãƒ¼
 
 ; #x5E : reserved
 
 (*define VK_SLEEP          #x5F)
 
-(*define VK_NUMPAD0        #x60); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 0
-(*define VK_NUMPAD1        #x61); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 1
-(*define VK_NUMPAD2        #x62); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 2
-(*define VK_NUMPAD3        #x63); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 3
-(*define VK_NUMPAD4        #x64); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 4
-(*define VK_NUMPAD5        #x65); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 5
-(*define VK_NUMPAD6        #x66); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 6
-(*define VK_NUMPAD7        #x67); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 7
-(*define VK_NUMPAD8        #x68); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 8
-(*define VK_NUMPAD9        #x69); NumLock ƒIƒ“ + ƒeƒ“ƒL[ 9
-(*define VK_MULTIPLY       #x6A); ƒeƒ“ƒL[ *
-(*define VK_ADD            #x6B); ƒeƒ“ƒL[ +
-(*define VK_SEPARATOR      #x6C); ƒeƒ“ƒL[‚Ì Separator ƒL[ ƒeƒ“ƒL[‚Ì , ƒL[
-(*define VK_SUBTRACT       #x6D); ƒeƒ“ƒL[ -
-(*define VK_DECIMAL        #x6E); ƒeƒ“ƒL[ .
-(*define VK_DIVIDE         #x6F); ƒeƒ“ƒL[ /
+(*define VK_NUMPAD0        #x60); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 0
+(*define VK_NUMPAD1        #x61); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 1
+(*define VK_NUMPAD2        #x62); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 2
+(*define VK_NUMPAD3        #x63); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 3
+(*define VK_NUMPAD4        #x64); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 4
+(*define VK_NUMPAD5        #x65); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 5
+(*define VK_NUMPAD6        #x66); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 6
+(*define VK_NUMPAD7        #x67); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 7
+(*define VK_NUMPAD8        #x68); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 8
+(*define VK_NUMPAD9        #x69); NumLock ã‚ªãƒ³ + ãƒ†ãƒ³ã‚­ãƒ¼ 9
+(*define VK_MULTIPLY       #x6A); ãƒ†ãƒ³ã‚­ãƒ¼ *
+(*define VK_ADD            #x6B); ãƒ†ãƒ³ã‚­ãƒ¼ +
+(*define VK_SEPARATOR      #x6C); ãƒ†ãƒ³ã‚­ãƒ¼ã® Separator ã‚­ãƒ¼ ãƒ†ãƒ³ã‚­ãƒ¼ã® , ã‚­ãƒ¼
+(*define VK_SUBTRACT       #x6D); ãƒ†ãƒ³ã‚­ãƒ¼ -
+(*define VK_DECIMAL        #x6E); ãƒ†ãƒ³ã‚­ãƒ¼ .
+(*define VK_DIVIDE         #x6F); ãƒ†ãƒ³ã‚­ãƒ¼ /
 (*define VK_F1             #x70); F1
 (*define VK_F2             #x71); F2
 (*define VK_F3             #x72); F3
@@ -181,12 +181,12 @@
 
 ; #x97 - #x9F : unassigned
 
-(*define VK_LSHIFT         #xA0); WinNT ¶ Shift ƒL[
-(*define VK_RSHIFT         #xA1); WinNT ‰E Shift ƒL[
-(*define VK_LCONTROL       #xA2); WinNT ¶ Ctrl ƒL[
-(*define VK_RCONTROL       #xA3); WinNT ‰E Ctrl ƒL[
-(*define VK_LMENU          #xA4); WinNT ¶ Alt ƒL[
-(*define VK_RMENU          #xA5); WinNT ¶ Alt ƒL[
+(*define VK_LSHIFT         #xA0); WinNT å·¦ Shift ã‚­ãƒ¼
+(*define VK_RSHIFT         #xA1); WinNT å³ Shift ã‚­ãƒ¼
+(*define VK_LCONTROL       #xA2); WinNT å·¦ Ctrl ã‚­ãƒ¼
+(*define VK_RCONTROL       #xA3); WinNT å³ Ctrl ã‚­ãƒ¼
+(*define VK_LMENU          #xA4); WinNT å·¦ Alt ã‚­ãƒ¼
+(*define VK_RMENU          #xA5); WinNT å·¦ Alt ã‚­ãƒ¼
 
 ; #if(_WIN32_WINNT >= 0x0500)
 (*define VK_BROWSER_BACK        #xA6)
@@ -239,7 +239,7 @@
 (*define VK_ICO_00         #xE4); 00 key on ICO
 
 ; #if(WINVER >= 0x0400)
-(*define VK_PROCESSKEY     #xE5); WINVER 0x400 ˆÈã‚Å’è‹`
+(*define VK_PROCESSKEY     #xE5); WINVER 0x400 ä»¥ä¸Šã§å®šç¾©
 ; #endif /* WINVER >= 0x0400 */
 
 (*define VK_ICO_CLEAR      #xE6)

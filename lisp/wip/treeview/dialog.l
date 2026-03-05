@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: TREEVIEW -*-
+;;; -*- Mode: Lisp; Package: TREEVIEW ; Encoding: utf-8 -*-
 ;;; dialog.l --- treeview
 
 ;; Copyright (C) 2001-2006 OHKUBO Hiroshi <ohkubo@s53.xrea.com>
@@ -24,62 +24,62 @@
          dialog-base-side dialog-side
          dialog-base-height dialog-height
          controls controls-initializers controls-handlers
-         (position-alist `(("ã" . ,XPIS_TOP) ("‰º" . ,XPIS_BOTTOM)
-                           ("¶" . ,XPIS_LEFT) ("‰E" . ,XPIS_RIGHT)))
-         (color-name-alist (append '(("ƒ†[ƒUİ’è" . nil))
+         (position-alist `(("ä¸Š" . ,XPIS_TOP) ("ä¸‹" . ,XPIS_BOTTOM)
+                           ("å·¦" . ,XPIS_LEFT) ("å³" . ,XPIS_RIGHT)))
+         (color-name-alist (append '(("ãƒ¦ãƒ¼ã‚¶è¨­å®š" . nil))
                                    ed::*color-all-colors-name-alist*))
          (color-name-list (mapcar #'car color-name-alist))
          )
     (treeview-data-save-window-size)
     (treeview-data-save-style)
 
-    ;; ƒEƒBƒ“ƒhƒE
+    ;; ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦
     (setq dialog-base-side 4)
     (setq dialog-base-height 4)
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "ƒEƒBƒ“ƒhƒE"
+    (push `(:button nil "ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦"
             #x50020007 ,dialog-base-side ,dialog-height 94 56) controls)
     (incf dialog-height 9)
-    (push `(:static nil "•\¦ˆÊ’u(&P):" #x50020000
+    (push `(:static nil "è¡¨ç¤ºä½ç½®(&P):" #x50020000
             ,(+ dialog-base-side 4) ,(+ dialog-height 3) 45  8) controls)
     (push `(:combobox pos nil           #x50210843
             ,(+ dialog-base-side 49) ,dialog-height 40 96) controls)
     (incf dialog-height 14)
-    (push `(:static nil "•\¦•(&W):"   #x50020000
+    (push `(:static nil "è¡¨ç¤ºå¹…(&W):"   #x50020000
             ,(+ dialog-base-side 4) ,(+ dialog-height 3) 45  8) controls)
     (push `(:edit width nil             #x50812086
             ,(+ dialog-base-side 49) ,dialog-height 40 14) controls)
     (push `(:spin widthspin nil         #x500000b6
             ,(+ dialog-base-side 89) ,dialog-height  9 14) controls)
     (incf dialog-height 14)
-    (push `(:static nil "•\¦‚‚³(&H):" #x50020000
+    (push `(:static nil "è¡¨ç¤ºé«˜ã•(&H):" #x50020000
             ,(+ dialog-base-side 4) ,(+ dialog-height 3) 45  8) controls)
     (push `(:edit height nil            #x50812086
             ,(+ dialog-base-side 49) ,dialog-height 40 14) controls)
     (push `(:spin heightspin nil        #x500000b6
             ,(+ dialog-base-side 89) ,dialog-height  9 14) controls)
 
-    ;; •\¦Šî€
+    ;; è¡¨ç¤ºåŸºæº–
     (setq dialog-base-side 102)
     (setq dialog-base-height 4)
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "•\¦•û–@"                                #x50020007
+    (push `(:button nil "è¡¨ç¤ºæ–¹æ³•"                                #x50020007
             ,dialog-base-side ,dialog-height 144 56) controls)
     (incf dialog-height 11)
-    (push `(:button display-style-xyzzy-size "“à•”‚É•\¦(&X)"     #x50000009
+    (push `(:button display-style-xyzzy-size "å†…éƒ¨ã«è¡¨ç¤º(&X)"     #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 116 12) controls)
     (incf dialog-height 12)
-    (push `(:button display-style-xyzzy-position "ŠO•”‚É•\¦(xyzzy‚ÌˆÊ’uŒÅ’è)(&V)" #x50000009
+    (push `(:button display-style-xyzzy-position "å¤–éƒ¨ã«è¡¨ç¤º(xyzzyã®ä½ç½®å›ºå®š)(&V)" #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 116 12) controls)
     (incf dialog-height 12)
-    (push `(:button display-style-fixed-editor "ŠO•”‚É•\¦(ƒGƒfƒBƒ^•”‚ÌˆÊ’uŒÅ’è)(&E)" #x50000009
+    (push `(:button display-style-fixed-editor "å¤–éƒ¨ã«è¡¨ç¤º(ã‚¨ãƒ‡ã‚£ã‚¿éƒ¨ã®ä½ç½®å›ºå®š)(&E)" #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 116 12) controls)
 
-    ;; ƒtƒHƒ“ƒg
+    ;; ãƒ•ã‚©ãƒ³ãƒˆ
     (setq dialog-base-side 4)
     (setq dialog-base-height 62)
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "ƒtƒHƒ“ƒg"                       #x50020007
+    (push `(:button nil "ãƒ•ã‚©ãƒ³ãƒˆ"                       #x50020007
             ,dialog-base-side ,dialog-height 104 72) controls)
     (incf dialog-height 9)
     (push `(:button font-facename-manual  "(&1):"        #x50010003
@@ -87,30 +87,30 @@
     (push `(:combobox font-facename       nil            #x50210843
             ,(+ dialog-base-side 24) ,dialog-height 76 112) controls)
     (incf dialog-height 15)
-    (push `(:button font-height-manual    "‚‚³(&2):"    #x50010003
+    (push `(:button font-height-manual    "é«˜ã•(&2):"    #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 42 14) controls)
     (push `(:edit   font-height           nil            #x50812086
             ,(+ dialog-base-side 46) ,dialog-height 54 14) controls)
     (push `(:spin   font-height-spin      nil            #x500000b6
             ,(+ dialog-base-side 91) ,dialog-height 9 14) controls)
     (incf dialog-height 15)
-    (push `(:button font-bold             "‘¾š(&3)"    #x50010003
+    (push `(:button font-bold             "å¤ªå­—(&3)"    #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 40 14) controls)
     (incf dialog-height 15)
-    (push `(:button font-italic           "Î‘Ì(&4)"     #x50010003
+    (push `(:button font-italic           "æ–œä½“(&4)"     #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 40 14) controls)
     (decf dialog-height 15)
-    (push `(:button font-underline        "‰ºü(&5)"     #x50010003
+    (push `(:button font-underline        "ä¸‹ç·š(&5)"     #x50010003
             ,(+ dialog-base-side 54) ,dialog-height 40 14) controls)
 
-    ;; F
+    ;; è‰²
     (setq dialog-base-side 112)
     (setq dialog-base-height 62)
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "F"                                    #x50020007
+    (push `(:button nil "è‰²"                                    #x50020007
             ,dialog-base-side ,dialog-height 134 72) controls)
     (incf dialog-height 9)
-    (push `(:button text-color-manual "•¶šF(&F):"             #x50010003
+    (push `(:button text-color-manual "æ–‡å­—è‰²(&F):"             #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 40 14) controls)
     (push `(:combobox text-color-name nil                       #x50210843
             ,(+ dialog-base-side 49) ,dialog-height 81 112) controls)
@@ -130,7 +130,7 @@
     (push `(:spin text-color-B-spin nil                         #x500000b6
             ,(+ dialog-base-side 103) ,dialog-height  9 14) controls)
     (incf dialog-height 16)
-    (push `(:button bk-color-manual "”wŒiF(&B):"               #x50010003
+    (push `(:button bk-color-manual "èƒŒæ™¯è‰²(&B):"               #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 40 14) controls)
     (push `(:combobox bk-color-name nil                         #x50210843
             ,(+ dialog-base-side 49) ,dialog-height 81 112) controls)
@@ -150,39 +150,39 @@
     (push `(:spin bk-color-B-spin nil                         #x500000b6
             ,(+ dialog-base-side 103) ,dialog-height  9 14) controls)
 
-    ;; ƒXƒ^ƒCƒ‹
+    ;; ã‚¹ã‚¿ã‚¤ãƒ«
     (setq dialog-base-side 4)
     (setq dialog-base-height 136)
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "ƒXƒ^ƒCƒ‹"                              #x50020007
+    (push `(:button nil "ã‚¹ã‚¿ã‚¤ãƒ«"                              #x50020007
             ,dialog-base-side ,dialog-height 242 94) controls)
     (incf dialog-height 8)
-    (push `(:button hasbuttons    "ƒ{ƒ^ƒ“‚ğ•\¦(&N)"            #x50010003
+    (push `(:button hasbuttons    "ãƒœã‚¿ãƒ³ã‚’è¡¨ç¤º(&N)"            #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 78 14) controls)
     (incf dialog-height 12)
-    (push `(:button haslines      "ƒ‰ƒCƒ“‚ğ•\¦(&L)"            #x50010003
+    (push `(:button haslines      "ãƒ©ã‚¤ãƒ³ã‚’è¡¨ç¤º(&L)"            #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 78 14) controls)
     (incf dialog-height 12)
-    (push `(:button linesatroot   "ƒ‰ƒCƒ“Eƒ{ƒ^ƒ“‚ğƒ‹[ƒg‚©‚ç•\¦(&R)" #x50010003
+    (push `(:button linesatroot   "ãƒ©ã‚¤ãƒ³ãƒ»ãƒœã‚¿ãƒ³ã‚’ãƒ«ãƒ¼ãƒˆã‹ã‚‰è¡¨ç¤º(&R)" #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 100 14) controls)
     (incf dialog-height 12)
-    (push `(:button checkboxes    "ƒ`ƒFƒbƒNƒ{ƒbƒNƒX‚ğ•\¦(&C)"  #x50010003
+    (push `(:button checkboxes    "ãƒã‚§ãƒƒã‚¯ãƒœãƒƒã‚¯ã‚¹ã‚’è¡¨ç¤º(&C)"  #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 78 14) controls)
     (setq dialog-height (+ dialog-base-height 8))
-    (push `(:button tooltips      "ƒc[ƒ‹ƒ`ƒbƒv‚ğ•\¦(&S)"      #x50010003
+    (push `(:button tooltips      "ãƒ„ãƒ¼ãƒ«ãƒãƒƒãƒ—ã‚’è¡¨ç¤º(&S)"      #x50010003
             ,(+ dialog-base-side 106) ,dialog-height 70 14) controls)
     (incf dialog-height 12)
-    (push `(:button trackselect   "ƒgƒ‰ƒbƒNƒZƒŒƒNƒg(&T)"        #x50010003
+    (push `(:button trackselect   "ãƒˆãƒ©ãƒƒã‚¯ã‚»ãƒ¬ã‚¯ãƒˆ(&T)"        #x50010003
             ,(+ dialog-base-side 106) ,dialog-height 70 14) controls)
     (incf dialog-height 12)
-    (push `(:button fullrowselect "ˆês‘I‘ğ•\¦*(&O)"           #x50010003
+    (push `(:button fullrowselect "ä¸€è¡Œé¸æŠè¡¨ç¤º*(&O)"           #x50010003
             ,(+ dialog-base-side 106) ,dialog-height 70 14) controls)
     (incf dialog-height 14)
-    (push `(:static nil "(* ƒ‰ƒCƒ“•\¦‚Í–³Œø)"                #x50020000
+    (push `(:static nil "(* ãƒ©ã‚¤ãƒ³è¡¨ç¤ºæ™‚ã¯ç„¡åŠ¹)"                #x50020000
             ,(+ dialog-base-side 108) ,dialog-height 66 8) controls)
     ;
     (setq dialog-height (+ dialog-base-height 8))
-    (push `(:button indent-manual "ƒCƒ“ƒfƒ“ƒg—Ê(&J):"           #x50010003
+    (push `(:button indent-manual "ã‚¤ãƒ³ãƒ‡ãƒ³ãƒˆé‡(&J):"           #x50010003
             ,(+ dialog-base-side 178) ,dialog-height 58 14) controls)
     (incf dialog-height 14)
     (push `(:edit   indent nil                                  #x50812086
@@ -191,7 +191,7 @@
             ,(+ dialog-base-side 232) ,dialog-height 9 14) controls)
     ;
     (incf dialog-height 20)
-    (push `(:button item-height-manual "‚‚³(&K):"              #x50010003
+    (push `(:button item-height-manual "é«˜ã•(&K):"              #x50010003
             ,(+ dialog-base-side 178) ,dialog-height 58 14) controls)
     (incf dialog-height 14)
     (push `(:edit   item-height nil                             #x50812086
@@ -200,31 +200,31 @@
             ,(+ dialog-base-side 232) ,dialog-height 9 14) controls)
     ;
     (incf dialog-height 4)
-    (push `(:button icon          "ƒAƒCƒRƒ“‚ğ•\¦(&I)"          #x50010003
+    (push `(:button icon          "ã‚¢ã‚¤ã‚³ãƒ³ã‚’è¡¨ç¤º(&I)"          #x50010003
             ,(+ dialog-base-side 4) ,dialog-height 64 14) controls)
     (incf dialog-height 14)
-    (push `(:static nil           "ƒAƒCƒRƒ“ƒfƒBƒŒƒNƒgƒŠ(&D):"   #x50020000
+    (push `(:static nil           "ã‚¢ã‚¤ã‚³ãƒ³ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&D):"   #x50020000
             ,(+ dialog-base-side 4) ,(+ dialog-height 2) 68 8) controls)
     (push `(:edit icon-dir nil                                  #x50810480
             ,(+ dialog-base-side 64) ,dialog-height 126 14) controls)
-    (push `(:button icon-ref      "QÆ..."                     #x50010000
+    (push `(:button icon-ref      "å‚ç…§..."                     #x50010000
             ,(+ dialog-base-side 194) ,dialog-height 28 14) controls)
 
-    ;; ƒXƒNƒ[ƒ‹
+    ;; ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
     (setq dialog-base-side 4)
     (setq dialog-base-height 232)
     ; recenter
     (setq dialog-height dialog-base-height)
-    (push `(:button nil "•\¦s (recenter) (&U)"                #x50020007
+    (push `(:button nil "è¡¨ç¤ºè¡Œ (recenter) (&U)"                #x50020007
             ,dialog-base-side ,dialog-height 112 52) controls)
     (incf dialog-height 10)
-    (push `(:button recenter-nil  "§Œä‚µ‚È‚¢(&/)"              #x50000009
+    (push `(:button recenter-nil  "åˆ¶å¾¡ã—ãªã„(&/)"              #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 60 12) controls)
     (incf dialog-height 12)
-    (push `(:button recenter-t    "ƒZƒ“ƒ^[(&*)"                #x50000009
+    (push `(:button recenter-t    "ã‚»ãƒ³ã‚¿ãƒ¼(&*)"                #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 60 12) controls)
     (incf dialog-height 12)
-    (push `(:button recenter-line "ƒ}[ƒWƒ“sw’è(&#)"          #x50000009
+    (push `(:button recenter-line "ãƒãƒ¼ã‚¸ãƒ³è¡ŒæŒ‡å®š(&#)"          #x50000009
             ,(+ dialog-base-side 4) ,dialog-height 60 12) controls)
     (push `(:edit recenter-line-num nil                         #x50812086
             ,(+ dialog-base-side 66) ,dialog-height 40 12) controls)
@@ -233,10 +233,10 @@
     ; scroll-margin
     (setq dialog-height dialog-base-height)
     (setq dialog-base-side 118)
-    (push `(:button nil "ƒXƒNƒ[ƒ‹ƒ}[ƒWƒ“(&M)"                #x50020007
+    (push `(:button nil "ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ãƒãƒ¼ã‚¸ãƒ³(&M)"                #x50020007
             ,dialog-base-side ,dialog-height  66 52) controls)
     (incf dialog-height 10)
-    (push `(:static nil "(* •\¦s —Dæ)"             #x50020000
+    (push `(:static nil "(* è¡¨ç¤ºè¡Œ å„ªå…ˆ)"             #x50020000
             ,(+ dialog-base-side 6) ,dialog-height 50 8) controls)
     (incf dialog-height 24)
     (push `(:edit scroll-margin nil                             #x50812086
@@ -244,18 +244,18 @@
     (push `(:spin scroll-margin-spin nil                        #x500000b6
             ,(+ dialog-base-side 14) ,dialog-height 9 12) controls)
 
-    ;; ƒ{ƒ^ƒ“
+    ;; ãƒœã‚¿ãƒ³
     (setq dialog-base-side 4)
     (setq dialog-base-height 290)
     (setq dialog-height dialog-base-height)
     (push `(:button IDOK "OK"  #x50010001
             ,(+ dialog-base-side 135) ,dialog-height 50 14) controls)
-    (push `(:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000
+    (push `(:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000
             ,(+ dialog-base-side 189) ,dialog-height 50 14) controls)
     
     (setq controls (nreverse controls))
     ;; ----------------------------------------
-    ;; controls-initializers ‚Ì¶¬
+    ;; controls-initializers ã®ç”Ÿæˆ
     (let* (position-index
            (font-facename-list (treeview-font-facename-list-get))
            font-facename-index text-color-name-index bk-color-name-index)
@@ -263,7 +263,7 @@
                                (position XPIS_LEFT (mapcar 'cdr position-alist))))
       (setq font-facename-index
             (or (position (treeview-data-get 'treeview::font-facename) font-facename-list :test #'equal)
-                (position "‚l‚r ‚oƒSƒVƒbƒN" font-facename-list :test 'string=)
+                (position "ï¼­ï¼³ ï¼°ã‚´ã‚·ãƒƒã‚¯" font-facename-list :test 'string=)
                 (position "System" font-facename-list :test 'string=)
                 0))
 
@@ -290,21 +290,21 @@
       ;; text-color
       (let (rgb index)
         (cond
-         ;; RGB ’l
+         ;; RGB å€¤
          ((numberp (treeview-data-get 'treeview::color-text))
           (setq text-color-name-index 0)
           (setq rgb (treeview-data-get 'treeview::color-text)))
-         ;; COLOR NAME •¶š—ñ
+         ;; COLOR NAME æ–‡å­—åˆ—
          ((and (stringp (treeview-data-get 'treeview::color-text))
                (setq index (position (treeview-data-get 'treeview::color-text) color-name-list :test 'string=))
                (cdr (nth index color-name-alist)))
           (setq text-color-name-index index)
           (setq rgb (cdr (nth index color-name-alist))))
-         ;; TreeView ‚©‚çæ“¾
+         ;; TreeView ã‹ã‚‰å–å¾—
          ((and (treeview-exist-p) (plusp (treeview-get-text-color)))
           (setq text-color-name-index 0)
           (setq rgb (ed::color-bgr2rgb (treeview-get-text-color))))
-         ;; ƒfƒtƒHƒ‹ƒg
+         ;; ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ
          (t
           (setq text-color-name-index 0)
           (setq rgb #x000000)))
@@ -318,21 +318,21 @@
       ;; bk-color
       (let (rgb index)
         (cond
-         ;; RGB ’l
+         ;; RGB å€¤
          ((numberp (treeview-data-get 'treeview::color-bk))
           (setq bk-color-name-index 0)
           (setq rgb (treeview-data-get 'treeview::color-bk)))
-         ;; COLOR NAME •¶š—ñ
+         ;; COLOR NAME æ–‡å­—åˆ—
          ((and (stringp (treeview-data-get 'treeview::color-bk))
                (setq index (position (treeview-data-get 'treeview::color-bk) color-name-list :test 'string=))
                (cdr (nth index color-name-alist)))
           (setq bk-color-name-index index)
           (setq rgb (cdr (nth index color-name-alist))))
-         ;; TreeView ‚©‚çæ“¾
+         ;; TreeView ã‹ã‚‰å–å¾—
          ((and (treeview-exist-p) (plusp (treeview-get-bk-color)))
           (setq bk-color-name-index 0)
           (setq rgb (ed::color-bgr2rgb (treeview-get-bk-color))))
-         ;; ƒfƒtƒHƒ‹ƒg
+         ;; ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ
          (t
           (setq bk-color-name-index 0)
           (setq rgb #xFFFFFF)))
@@ -397,36 +397,36 @@
     (setq controls-initializers (nreverse controls-initializers))
     ;; ----------------------------------------
 
-    (push '(width :type integer :min 1 :max 10000 :range-error "1‚©‚ç10000‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(width :type integer :min 1 :max 10000 :range-error "1ã‹ã‚‰10000ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(widthspin :min 1 :max 10000) controls-handlers)
-    (push '(height :type integer :min 1 :max 10000 :range-error "1‚©‚ç10000‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(height :type integer :min 1 :max 10000 :range-error "1ã‹ã‚‰10000ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(heightspin :min 1 :max 10000) controls-handlers)
 
-    (push '(text-color-R :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(text-color-R :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(text-color-R-spin :min 0 :max 255) controls-handlers)
-    (push '(text-color-G :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(text-color-G :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(text-color-G-spin :min 0 :max 255) controls-handlers)
-    (push '(text-color-B :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(text-color-B :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(text-color-B-spin :min 0 :max 255) controls-handlers)
 
-    (push '(bk-color-R :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(bk-color-R :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(bk-color-R-spin :min 0 :max 255) controls-handlers)
-    (push '(bk-color-G :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(bk-color-G :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(bk-color-G-spin :min 0 :max 255) controls-handlers)
-    (push '(bk-color-B :type integer :min 0 :max 255 :range-error "0‚©‚ç255‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(bk-color-B :type integer :min 0 :max 255 :range-error "0ã‹ã‚‰255ã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(bk-color-B-spin :min 0 :max 255) controls-handlers)
 
-    (push '(indent :type integer :min 1 :max 10000 :range-error "1ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(indent :type integer :min 1 :max 10000 :range-error "1ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(indent-spin :type integer :min 1 :max 10000) controls-handlers)
-    (push '(item-height :type integer :min 1 :max 10000 :range-error "1ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(item-height :type integer :min 1 :max 10000 :range-error "1ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(item-height-spin :type integer :min 1 :max 10000) controls-handlers)
-    (push '(icon-ref :related icon-dir :directory-name-dialog (:title "ƒAƒCƒRƒ“ƒfƒBƒŒƒNƒgƒŠ")) controls-handlers)
-    (push '(font-height :type integer :min 1 :max 10000 :range-error "1ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(icon-ref :related icon-dir :directory-name-dialog (:title "ã‚¢ã‚¤ã‚³ãƒ³ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª")) controls-handlers)
+    (push '(font-height :type integer :min 1 :max 10000 :range-error "1ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(font-height-spin :type integer :min 1 :max 10000) controls-handlers)
 
-    (push '(recenter-line-num :type integer :min 0 :max 10000 :range-error "0ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(recenter-line-num :type integer :min 0 :max 10000 :range-error "0ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(recenter-spin :type integer :min 0 :max 10000) controls-handlers)
-    (push '(scroll-margin :type integer :min 0 :max 10000 :range-error "0ˆÈã‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢") controls-handlers)
+    (push '(scroll-margin :type integer :min 0 :max 10000 :range-error "0ä»¥ä¸Šã‚’æŒ‡å®šã—ã¦ãã ã•ã„") controls-handlers)
     (push '(scroll-margin-spin :type integer :min 0 :max 10000) controls-handlers)
 
     (setq controls-handlers (nreverse controls-handlers))
@@ -434,7 +434,7 @@
     ;; ----------------------------------------
     (setq dialog-template
           `(dialog 0 0 250 308
-                   (:caption ,(concat (treeview-data-get 'treeview::display-name) " : TreeView İ’è"))
+                   (:caption ,(concat (treeview-data-get 'treeview::display-name) " : TreeView è¨­å®š"))
                    (:font 9  "MS UI Gothic")
                    (:control
                     ,@controls)))
@@ -476,14 +476,14 @@
                (color-name (elt color-name-list index))
                bgr r g b)
           (cond
-           ;; ƒ†[ƒUİ’è (index == 0)
+           ;; ãƒ¦ãƒ¼ã‚¶è¨­å®š (index == 0)
            ((= index 0)
             (setq r (cdr (assoc 'text-color-R data)))
             (setq g (cdr (assoc 'text-color-G data)))
             (setq b (cdr (assoc 'text-color-B data)))
             (setq bgr (+ (* b #x10000) (* g #x100) r))
             (treeview-data-set 'treeview::color-text (ed::color-bgr2rgb bgr)))
-           ;; —LŒø‚È COLOR NAME •¶š—ñ
+           ;; æœ‰åŠ¹ãª COLOR NAME æ–‡å­—åˆ—
            ((cdr (assoc color-name color-name-alist :test 'string=))
             (setq bgr (ed::color-rgb2bgr (cdr (assoc color-name color-name-alist :test 'string=))))
             (treeview-data-set 'treeview::color-text color-name))))
@@ -494,14 +494,14 @@
                (color-name (elt color-name-list index))
                bgr r g b)
           (cond
-           ;; ƒ†[ƒUİ’è (index == 0)
+           ;; ãƒ¦ãƒ¼ã‚¶è¨­å®š (index == 0)
            ((= index 0)
             (setq r (cdr (assoc 'bk-color-R data)))
             (setq g (cdr (assoc 'bk-color-G data)))
             (setq b (cdr (assoc 'bk-color-B data)))
             (setq bgr (+ (* b #x10000) (* g #x100) r))
             (treeview-data-set 'treeview::color-bk (ed::color-bgr2rgb bgr)))
-           ;; —LŒø‚È COLOR NAME •¶š—ñ
+           ;; æœ‰åŠ¹ãª COLOR NAME æ–‡å­—åˆ—
            ((cdr (assoc color-name color-name-alist :test 'string=))
             (setq bgr (ed::color-rgb2bgr (cdr (assoc color-name color-name-alist :test 'string=))))
             (treeview-data-set 'treeview::color-bk color-name))))

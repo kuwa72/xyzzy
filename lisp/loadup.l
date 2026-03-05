@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 ;;; -*-Lisp-*-
 ;;;
 ;;; This file is part of xyzzy.
@@ -60,7 +61,7 @@
 (si:*load-library "c-mode") (gc)
 (si:*load-library "cc-mode") (gc)
 (si:*load-library "textmode") (gc)
-(si:*load-library "errors") (gc)
+#+ncurses (si:*load-library "errors.l") #-ncurses (si:*load-library "errors") (gc)
 (si:*load-library "grep") (gc)
 (si:*load-library "buf-menu") (gc)
 (si:*load-library "optprop") (gc)

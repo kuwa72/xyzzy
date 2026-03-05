@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -57,12 +57,12 @@
     (while (not (eobp))
       (delete-region (point)
 		     (progn
-		       (skip-chars-forward " \tÅ@")
+		       (skip-chars-forward " \t„ÄÄ")
 		       (point)))
       (goto-eol)
       (delete-region (point)
 		     (progn
-		       (skip-chars-backward " \tÅ@")
+		       (skip-chars-backward " \t„ÄÄ")
 		       (point)))
       (let ((n (truncate (- fill-column (current-column)) 2)))
 	(when (plusp n)

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -52,7 +52,7 @@
   (setq dir (append-trail-slash dir))
   (let ((file (merge-pathnames *tags-file-name* dir)))
     (unless (file-exist-p file)
-      (error "~A‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" *tags-file-name*))
+      (error "~AãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" *tags-file-name*))
     (let ((buffer (create-new-buffer " *TAGS*")))
       (save-excursion
 	(set-buffer buffer)
@@ -109,12 +109,12 @@
 
 (defvar *select-tags-entry-dialog-template*
   '(dialog 0 0 254 107
-    (:caption "ƒ^ƒOƒWƒƒƒ“ƒv")
+    (:caption "ã‚¿ã‚°ã‚¸ãƒ£ãƒ³ãƒ—")
     (:font 9 "MS UI Gothic")
     (:control
      (:listbox list nil #x50b10001 2 3 188 103)
-     (:button IDOK "ˆÚ“®(&G)" #x50030001 198 7 52 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50030000 198 27 52 14))))
+     (:button IDOK "ç§»å‹•(&G)" #x50030001 198 7 52 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50030000 198 27 52 14))))
 
 (defun select-tags-entry-dialog (list buffer)
   (let ((entries (make-select-tags-entries list)))
@@ -172,7 +172,7 @@
 					 (tags-find-entry-1 nil name type case-insensitive))
 				     '(structure function nil))))))
 	(cond ((null found)
-	       (message "~:[~*~;~:*~A~A~]~A‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ"
+	       (message "~:[~*~;~:*~A~A~]~AãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“"
 			class tags-class-method-separator name)
 	       (return-from tags-find-entry nil))
 	      ((null (cdr found))

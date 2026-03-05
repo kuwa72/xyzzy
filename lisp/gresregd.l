@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -32,7 +32,7 @@
 (defun gresreg-process (pattern replacement file dir query save)
   (let ((dirlist (if (consp dir) (glob-expand-list dir) (glob-expand dir))))
     (unless dirlist
-      (error "~A~%ƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" dir))
+      (error "~A~%ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" dir))
     (when *gresreg-regexp-search*
       (setq pattern (compile-regexp pattern *gresreg-case-fold-search*)))
     (let ((count 0)
@@ -69,7 +69,7 @@
 				   (delete-buffer (selected-buffer))))))
 		nil))
 	(quit))
-      (message "~DŒÂ‚Ì•¶š—ñ‚ğ’uŠ·‚µ‚Ü‚µ‚½" count))))
+      (message "~Då€‹ã®æ–‡å­—åˆ—ã‚’ç½®æ›ã—ã¾ã—ãŸ" count))))
 
 (defun gresreg-dialog-1 (template dirlist)
   (let ((pattern (selection-start-end (start end)
@@ -103,8 +103,8 @@
 		    `((word :disable (regexp))
 		      (file :disable ,no-dirs)
 		      (file-static :disable ,no-dirs)
-		      (pat :non-null "ŒŸõ•¶š—ñ‚ğ“ü—Í‚µ‚Ä" :enable (query all))
-		      (ref :related dir :directory-name-dialog (:title "QÆ"))))
+		      (pat :non-null "æ¤œç´¢æ–‡å­—åˆ—ã‚’å…¥åŠ›ã—ã¦" :enable (query all))
+		      (ref :related dir :directory-name-dialog (:title "å‚ç…§"))))
       (when result
 	(let ((pattern (cdr (assoc 'pat data)))
 	      (replacement (cdr (assoc 'rep data)))
@@ -138,22 +138,22 @@
 		      (:caption "Gresreg")
 		      (:font 9 "MS UI Gothic")
 		      (:control
-		       (:static nil "ŒŸõ(&S):" #x50020000 7 10 42 8)
+		       (:static nil "æ¤œç´¢(&S):" #x50020000 7 10 42 8)
 		       (:combobox pat nil #x50210042 50 8 157 96)
-		       (:static nil "’uŠ·(&R):" #x50020000 7 27 42 8)
+		       (:static nil "ç½®æ›(&R):" #x50020000 7 27 42 8)
 		       (:combobox rep nil #x50210042 50 25 157 96)
-		       (:static nil "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 44 42 8)
+		       (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 44 42 8)
 		       (:combobox file nil #x50210042 50 42 157 96)
-		       (:static nil "ƒfƒBƒŒƒNƒgƒŠ(&D):" #x50020000 7 62 42 8)
+		       (:static nil "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&D):" #x50020000 7 62 42 8)
 		       (:combobox dir nil #x50210042 50 59 157 96)
-		       (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 50 77 113 10)
-		       (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 50 90 100 10)
-		       (:button regexp "³‹K•\Œ»(&E)" #x50010003 50 103 62 10)
-		       (:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 50 116 105 10)
-		       (:button subdir "‚Â‚¢‚Å‚ÉƒTƒuƒfƒBƒŒƒNƒgƒŠ‚à(&U)" #x50010003 50 129 103 10)
-		       (:button save "Ÿè‚ÉƒZ[ƒu‚µ‚ë(&V)" #x50010003 50 142 79 10)
-		       (:button query "Šm”F‚ ‚è(&Q)" #x50010001 214 7 50 14)
-		       (:button all "‘S‚Ä’uŠ·(&A)" #x50010000 214 24 50 14)
-		       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 214 42 50 14)
-		       (:button ref "QÆ(&N)..." #x50010000 214 59 50 14)))
+		       (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 50 77 113 10)
+		       (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 50 90 100 10)
+		       (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 50 103 62 10)
+		       (:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 50 116 105 10)
+		       (:button subdir "ã¤ã„ã§ã«ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚(&U)" #x50010003 50 129 103 10)
+		       (:button save "å‹æ‰‹ã«ã‚»ãƒ¼ãƒ–ã—ã‚(&V)" #x50010003 50 142 79 10)
+		       (:button query "ç¢ºèªã‚ã‚Š(&Q)" #x50010001 214 7 50 14)
+		       (:button all "å…¨ã¦ç½®æ›(&A)" #x50010000 214 24 50 14)
+		       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 214 42 50 14)
+		       (:button ref "å‚ç…§(&N)..." #x50010000 214 59 50 14)))
 		    nil))

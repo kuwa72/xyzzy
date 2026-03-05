@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -14,7 +14,7 @@
 (defun in-package-1 (name)
   (let ((package (find-package name)))
     (unless package
-      (error "ƒpƒbƒP[ƒW‚ª‘¶İ‚µ‚Ü‚¹‚ñ: ~S" name))
+      (error "ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ãŒå­˜åœ¨ã—ã¾ã›ã‚“: ~S" name))
     (setq *package* package)))
 
 (defmacro in-package (name)
@@ -24,7 +24,7 @@
 (defun coerce-to-package (x)
   (let ((p (find-package x)))
     (unless p
-      (error "ƒpƒbƒP[ƒW‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ: ~S" x))
+      (error "ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“: ~S" x))
     p))
 
 (defun string-or-symbol (x)
@@ -38,7 +38,7 @@
 	 (fn #'(lambda (x)
 		(let ((o (gethash x h)))
 		  (when o
-		    (error "~S‚Æ~S‚Å~A‚ª2‰ñˆÈãw’è‚³‚ê‚Ä‚¢‚Ü‚·" o option x)))
+		    (error "~Sã¨~Sã§~AãŒ2å›ä»¥ä¸ŠæŒ‡å®šã•ã‚Œã¦ã„ã¾ã™" o option x)))
 		(setf (gethash x h) option))))
     (setq option :shadow)
     (mapc fn shadow)
@@ -65,7 +65,7 @@
 	      (find-symbol n p)
 	    (unless (or (eq f :internal)
 			(eq f :external))
-	      (error "~S‚ÉƒVƒ“ƒ{ƒ‹~A‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" p n))
+	      (error "~Sã«ã‚·ãƒ³ãƒœãƒ«~AãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" p n))
 	    (push s syms)))))))
 
 (defun defpackage-parse-options (package options)
@@ -82,7 +82,7 @@
 	documentation)
     (dolist (opt options)
       (unless (consp opt)
-	(error "defpackage‚ÌƒIƒvƒVƒ‡ƒ“‚ÌŒ`®‚ª•s³‚Å‚·: ~S" opt))
+	(error "defpackageã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã®å½¢å¼ãŒä¸æ­£ã§ã™: ~S" opt))
       (let ((x (car opt))
 	    (to-string #'(lambda (x)
 			  (setq nsymbols (+ nsymbols 1))
@@ -92,7 +92,7 @@
 						 (setq x (string-or-symbol x))
 						 (let ((p (find-package x)))
 						   (when (and p (not (eq p package)))
-						     (error "“¯‚¶–¼‘O‚ÌƒpƒbƒP[ƒW‚ª‘¶İ‚µ‚Ü‚·: ~S" x)))
+						     (error "åŒã˜åå‰ã®ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ãŒå­˜åœ¨ã—ã¾ã™: ~S" x)))
 						 x)
 					      (cdr opt))
 				      nicknames)))
@@ -123,7 +123,7 @@
 	      ((eq x :documentation)
 	       (setq documentation (cadr opt)))
 	      (t
-	       (error "–¢ƒTƒ|[ƒg‚ÌƒIƒvƒVƒ‡ƒ“‚Å‚·: ~S" x)))))
+	       (error "æœªã‚µãƒãƒ¼ãƒˆã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™: ~S" x)))))
     (defpackage-check-dups nsymbols shadow shadowing-import-from import-from intern export)
     (values nicknames
 	    shadow
@@ -270,7 +270,7 @@
 (defmacro with-package-iterator ((mname package-list &rest symbol-type)
 				 &body body)
   (when (endp symbol-type)
-    (error "symbol-type‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ"))
+    (error "symbol-typeãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“"))
   (let ((internal nil)
 	(external nil)
 	(inherited nil)
@@ -286,7 +286,7 @@
 	(:internal (setq internal t))
 	(:external (setq external t))
 	(:inherited (setq inherited t))
-	(t (error "–¢’è‹`‚ÌƒVƒ“ƒ{ƒ‹ƒ^ƒCƒv‚Å‚·: ~S" x))))
+	(t (error "æœªå®šç¾©ã®ã‚·ãƒ³ãƒœãƒ«ã‚¿ã‚¤ãƒ—ã§ã™: ~S" x))))
     `(let ((,vl nil)
 	   (,packages ,package-list))
        (when (atom ,packages)

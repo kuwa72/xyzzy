@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -43,7 +43,7 @@
   (interactive)
   (let ((path (si:search-path (or *eshell* *shell*) nil ".exe")))
     (unless path
-      (error "shell偑尒偮偐傝傑偣傫: ~A" (or *eshell* *shell*)))
+      (error "shell銇岃銇ゃ亱銈娿伨銇涖倱: ~A" (or *eshell* *shell*)))
     (let* ((exec-dir (map-slash-to-backslash (default-directory)))
 	   (params (let ((fmt (cdr (assoc (file-namestring path) *shell-chdir-option-alist*
 					  :test #'string-equal))))
@@ -115,7 +115,7 @@
 (defun filter-buffer (cmd)
   (interactive "*e# " :history0 'execute)
   (when (and (need-buffer-save-p (selected-buffer))
-	     (not (no-or-yes-p "僶僢僼傽偑曄峏偝傟偰偄傑偡丅曄峏撪梕傪攋婞偟傑偡偐?")))
+	     (not (no-or-yes-p "銉愩儍銉曘偂銇屽鏇淬仌銈屻仸銇勩伨銇欍�傚鏇村唴瀹广倰鐮存銇椼伨銇欍亱?")))
     (return-from filter-buffer nil))
   (let ((tem (make-temp-file-name)))
     (write-file tem t)
@@ -209,7 +209,7 @@
 			     (setq proc (buffer-process buffer))
 			     (not (and proc (eq (process-status proc) :run)))))))
 		     (t
-		      (if (yes-or-no-p "偡偱偵僒僽僾儘僙僗傪幚峴拞偱偡丅巰側偡?")
+		      (if (yes-or-no-p "銇欍仹銇偟銉栥儣銉偦銈广倰瀹熻涓仹銇欍�傛銇仚?")
 			  (signal-process proc)
 			(return-from execute-subprocess nil))
 		      (sit-for 1))))
@@ -246,13 +246,13 @@
   (let ((proc (buffer-process (selected-buffer))))
     (if (and proc (eq (process-status proc) :run))
 	(signal-process proc)
-      (error "僒僽僾儘僙僗偼側偄偱"))))
+      (error "銈点儢銉椼儹銈汇偣銇仾銇勩仹"))))
 
 (defun process-send-y-or-n (s)
   (let ((proc (buffer-process (selected-buffer))))
     (if (and proc (eq (process-status proc) :run))
 	(process-send-string proc s)
-      (error "僒僽僾儘僙僗偼側偄偱"))))
+      (error "銈点儢銉椼儹銈汇偣銇仾銇勩仹"))))
 
 (defun process-send-y ()
   (interactive)

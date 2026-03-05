@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -198,7 +198,7 @@
 	     (load path :if-does-not-exist nil :verbose nil :print nil))))
     (mapcar #'register-history-variable vars))
   (save-history-file)
-  (when (yes-or-no-p "ƒo[ƒWƒ‡ƒ“ƒAƒbƒvŒãA‚¨‰‚Ì‹N“®‚Å‚·‚Ë?
-İ’è’l‚ğƒtƒ@ƒCƒ‹‚É•Û‘¶‚µ‚Ü‚µ‚½(‚½‚Ô‚ñ)B
-ŒÃ‚¢ƒŒƒWƒXƒgƒŠ‚Ì“à—e‚ğíœ‚µ‚Ü‚·‚©?")
+  (when (yes-or-no-p "ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã‚¢ãƒƒãƒ—å¾Œã€ãŠåˆã®èµ·å‹•ã§ã™ã­?
+è¨­å®šå€¤ã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã—ã¾ã—ãŸ(ãŸã¶ã‚“)ã€‚
+å¤ã„ãƒ¬ã‚¸ã‚¹ãƒˆãƒªã®å†…å®¹ã‚’å‰Šé™¤ã—ã¾ã™ã‹?")
     (si::delete-registry-tree)))

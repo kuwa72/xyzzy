@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -104,7 +104,7 @@
 	  (noerror
 	   nil)
 	  (t
-	   (plain-error "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")))))
+	   (plain-error "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")))))
 
 (defun search-forward (pattern &optional noerror)
   (interactive "sSearch forward: "
@@ -243,8 +243,8 @@
 	    (recenter))
 	  (refresh-screen)
 	  (message (if (eq def 'help)
-		       "(y)’uŠ·, (n)ƒXƒLƒbƒv, (!)c‚è‘S•”, (u)ƒAƒ“ƒhƒD, (C-g)’†~, (.)’†~‚µ‚Ä–ß‚é"
-		     "’uŠ·‚·‚é?"))
+		       "(y)ç½®æ›, (n)ã‚¹ã‚­ãƒƒãƒ—, (!)æ®‹ã‚Šå…¨éƒ¨, (u)ã‚¢ãƒ³ãƒ‰ã‚¥, (C-g)ä¸­æ­¢, (.)ä¸­æ­¢ã—ã¦æˆ»ã‚‹"
+		     "ç½®æ›ã™ã‚‹?"))
 	  (setq def (lookup-keymap *query-replace-map* (read-char *keyboard*) t))
 	  (when (cond ((eq def 'act)
 		       t)
@@ -292,10 +292,10 @@
       (and (eq def 'quit)
 	   (quit))
       (and not-found
-	   (error "•¶š—ñ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ")))
+	   (error "æ–‡å­—åˆ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“")))
     (when (and interactive-p
 	       (null *executing-macro*))
-      (message "~dŒÂ’uŠ·‚µ‚Ü‚µ‚½" count))
+      (message "~då€‹ç½®æ›ã—ã¾ã—ãŸ" count))
     count))
 
 (defun replace-string (pattern replacement &optional noerror)
@@ -342,7 +342,7 @@
 	(incf count)
 	(setq f t)))
     (or nomsg
-	(message "~dŒÂ‚Ì•¶š—ñ‚ª‚ ‚è‚Ü‚·" count))
+	(message "~då€‹ã®æ–‡å­—åˆ—ãŒã‚ã‚Šã¾ã™" count))
     count))
 
 (defun cfs2dialog (x)

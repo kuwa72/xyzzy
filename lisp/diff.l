@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -241,7 +241,7 @@
 		     (set-buffer diff-buffer)
 		     (multiple-value-setq (q1 q2)
 		       (find-text-attribute tag))))
-	(plain-error "Ç»Ç¢Ç¡Ç∑"))
+	(plain-error "„Å™„ÅÑ„Å£„Åô"))
       (when diff-new-file-p
 	(rotatef old-buffer new-buffer)
 	(rotatef p1 q1)
@@ -308,7 +308,7 @@
 		  (diff-mode old-buffer old-file new-buffer mode nil)
 		  (diff-mode new-buffer new-file old-buffer mode t)
 		  (diff-view diffs old-buffer new-buffer))
-	      (msgbox "à·Ç¢ÇÕÇ†ÇËÇ‹ÇπÇÒ"))))
+	      (msgbox "ÈÅï„ÅÑ„ÅØ„ÅÇ„Çä„Åæ„Åõ„Çì"))))
       (and buffer
 	   (delete-buffer buffer))))
   t)
@@ -323,7 +323,7 @@
 		 (save-excursion
 		   (set-buffer diff-buffer)
 		   (setq p2 (find-text-attribute tag))))
-      (plain-error "Ç»Ç¢Ç¡Ç∑"))
+      (plain-error "„Å™„ÅÑ„Å£„Åô"))
     (diff-update p1 p2)))
 
 (defun diff-backward ()

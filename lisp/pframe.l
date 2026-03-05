@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -51,7 +51,7 @@
   (when (window-buffer (minibuffer-window))
     (when (tool-bar-exist-p 'pseudo-frame-bar)
       (tab-bar-select-item 'pseudo-frame-bar *current-pseudo-frame*))
-    (plain-error "ƒ~ƒjƒoƒbƒtƒ@•\¦’†‚Í‚Å‚«‚Ü‚¹‚ñ")))
+    (plain-error "ãƒŸãƒ‹ãƒãƒƒãƒ•ã‚¡è¡¨ç¤ºä¸­ã¯ã§ãã¾ã›ã‚“")))
 
 (defun unique-pseudo-frame-name ()
   (let ((i *pseudo-frame-counter*))
@@ -84,7 +84,7 @@
 (defun create-pseudo-frame (name &optional save-p selected-fn deleted-fn)
   (pseudo-frame-check-minibuffer)
   (when (find-pseudo-frame name)
-    (error "~A‚Í‚·‚Å‚É‘¶İ‚µ‚Ü‚·" name))
+    (error "~Aã¯ã™ã§ã«å­˜åœ¨ã—ã¾ã™" name))
   (save-current-pseudo-frame)
   (delete-other-windows)
   (let ((frame (create-pseudo-frame-1 name save-p selected-fn deleted-fn)))
@@ -118,19 +118,19 @@
 				      (mapcar #'pseudo-frame-name *pseudo-frame-list*)
 				      :must-match t)))
   (select-pseudo-frame (or (find-pseudo-frame name)
-			   (error "~a‚ÍƒtƒŒ[ƒ€‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" name))))
+			   (error "~aã¯ãƒ•ãƒ¬ãƒ¼ãƒ ã§ã¯ã‚ã‚Šã¾ã›ã‚“" name))))
 
 (defun pseudo-frame-selector ()
   (interactive)
   (multiple-value-bind (result data)
       (let ((l (sort (mapcar #'pseudo-frame-name *pseudo-frame-list*) #'string<)))
 	(dialog-box '(dialog 0 0 153 115
-		      (:caption "ƒtƒŒ[ƒ€‘I‘ğ")
+		      (:caption "ãƒ•ãƒ¬ãƒ¼ãƒ é¸æŠ")
 		      (:font 9 "MS UI Gothic")
 		      (:control
 		       (:listbox list nil #x50a10101 7 7 85 101)
 		       (:button IDOK "OK" #x50010001 96 7 50 14)
-		       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 96 24 50 14)))
+		       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 96 24 50 14)))
 		    `((list . ,l)
 		      (list . ,(position (pseudo-frame-name (selected-pseudo-frame)) l :test #'string=)))
 		    nil))
@@ -180,7 +180,7 @@
 
 (defun set-pseudo-frame-name (frame name)
   (when (find-pseudo-frame name)
-    (error "~A‚Í‚·‚Å‚É‘¶İ‚µ‚Ü‚·" name))
+    (error "~Aã¯ã™ã§ã«å­˜åœ¨ã—ã¾ã™" name))
   (when (and (tool-bar-exist-p 'pseudo-frame-bar)
 	     (tab-bar-modify-item 'pseudo-frame-bar frame name))
     (setf (pseudo-frame-name frame) name)))
@@ -252,7 +252,7 @@
   (when *pseudo-frame-bar-context-menu-handler*
     (funcall *pseudo-frame-bar-context-menu-handler* frame)))
 
-(define-command-bar 'pseudo-frame-bar "ƒtƒŒ[ƒ€(&F)")
+(define-command-bar 'pseudo-frame-bar "ãƒ•ãƒ¬ãƒ¼ãƒ (&F)")
 
 (defvar ctl-x-6-map (make-sparse-keymap))
 (setf (symbol-function 'ctl-x-6-prefix) ctl-x-6-map)

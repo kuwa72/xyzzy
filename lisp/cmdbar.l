@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -148,8 +148,8 @@
 (add-hook '*save-history-hook* #'save-command-bar-info)
 (add-hook '*load-history-hook* #'load-command-bar-info)
 
-(define-command-bar 'std-tool-bar "•W€(&S)")
-(define-command-bar 'buffer-bar "ƒoƒbƒtƒ@(&B)")
+(define-command-bar 'std-tool-bar "æ¨™æº–(&S)")
+(define-command-bar 'buffer-bar "ãƒãƒƒãƒ•ã‚¡(&B)")
 
 (setf (symbol-function 'buffer-bar) #'create-buffer-bar)
 
@@ -160,30 +160,30 @@
   (create-tool-bar
    'std-tool-bar
    (merge-pathnames "toolbar.bmp" (etc-path))
-   '(("V‹Kì¬" 24 new-file)
-     ("ŠJ‚­" 22 open-file-dialog)
-     ("ã‘‚«•Û‘¶" 20 save-buffer-dialog :modified)
-     ("‘S‚Ä•Û‘¶" 75 save-all-buffers)
+   '(("æ–°è¦ä½œæˆ" 24 new-file)
+     ("é–‹ã" 22 open-file-dialog)
+     ("ä¸Šæ›¸ãä¿å­˜" 20 save-buffer-dialog :modified)
+     ("å…¨ã¦ä¿å­˜" 75 save-all-buffers)
      :sep
-     ("ˆóü" 29 print-selected-buffer-dialog)
+     ("å°åˆ·" 29 print-selected-buffer-dialog)
      :sep
-     ("Ø‚èæ‚è" 7 kill-selection-to-clipboard :modify-any-selection)
-     ("ƒRƒs[" 9 copy-selection-to-clipboard :any-selection)
-     ("“\‚è•t‚¯" 2 paste-from-clipboard :clipboard)
+     ("åˆ‡ã‚Šå–ã‚Š" 7 kill-selection-to-clipboard :modify-any-selection)
+     ("ã‚³ãƒ”ãƒ¼" 9 copy-selection-to-clipboard :any-selection)
+     ("è²¼ã‚Šä»˜ã‘" 2 paste-from-clipboard :clipboard)
      :sep
-     ("Œ³‚É–ß‚·" 0 undo :undo)
-     ("‚â‚Á‚Ï‚èŒ³‚É–ß‚³‚È‚¢" 1 redo :redo)
+     ("å…ƒã«æˆ»ã™" 0 undo :undo)
+     ("ã‚„ã£ã±ã‚Šå…ƒã«æˆ»ã•ãªã„" 1 redo :redo)
      :sep
-     ("ŒŸõ" 5 search-dialog)
-     ("‘O‚ğŒŸõ" 3 repeat-backward-search tool-bar-update-search)
-     ("Ÿ‚ğŒŸõ" 4 repeat-forward-search tool-bar-update-search)
+     ("æ¤œç´¢" 5 search-dialog)
+     ("å‰ã‚’æ¤œç´¢" 3 repeat-backward-search tool-bar-update-search)
+     ("æ¬¡ã‚’æ¤œç´¢" 4 repeat-forward-search tool-bar-update-search)
      :sep
      ("grep" 74 grep-dialog)
      :sep
-     ("Ü‚è•Ô‚³‚È‚¢" 76
+     ("æŠ˜ã‚Šè¿”ã•ãªã„" 76
       set-buffer-fold-type-none set-buffer-fold-type-none-update)
-     ("w’èˆÊ’u‚ÅÜ‚è•Ô‚·" 77
+     ("æŒ‡å®šä½ç½®ã§æŠ˜ã‚Šè¿”ã™" 77
       set-buffer-fold-type-column set-buffer-fold-type-column-update)
-     ("ƒEƒBƒ“ƒhƒE•‚ÅÜ‚è•Ô‚·" 78
+     ("ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦å¹…ã§æŠ˜ã‚Šè¿”ã™" 78
       set-buffer-fold-type-window set-buffer-fold-type-window-update)
     )))

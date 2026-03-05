@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -47,13 +47,13 @@
 (defconstant calc::pi pi)
 (defconstant calc::e (exp 1.0d0))
 
-(defconstant calc::�l���A�F���A���ׂĂ̓��� 42)
-(defconstant calc::�����A�F���A���̂��ׂĂɑ΂��铚��
-  calc::�l���A�F���A���ׂĂ̓���)
-(defconstant calc::�����A�F���A�����Ė����ɂ��Ă̓���
-  calc::�l���A�F���A���ׂĂ̓���)
-(defconstant calc::�����A�F���A�����Ė����ɂ��Ă̋��ɂ̋^��̓���
-  calc::�l���A�F���A���ׂĂ̓���)
+(defconstant calc::人生、宇宙、すべての答え 42)
+(defconstant calc::生命、宇宙、そのすべてに対する答え
+  calc::人生、宇宙、すべての答え)
+(defconstant calc::生命、宇宙、そして万物についての答え
+  calc::人生、宇宙、すべての答え)
+(defconstant calc::生命、宇宙、そして万物についての究極の疑問の答え
+  calc::人生、宇宙、すべての答え)
 
 (setf (symbol-function 'calc::gcd) #'gcd)
 (setf (symbol-function 'calc::lcm) #'lcm)

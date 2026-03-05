@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -77,7 +77,7 @@
   (unwind-protect
       (let ((dirlist (if (consp dir) (glob-expand-list dir) (glob-expand dir))))
 	(unless dirlist
-	  (error "~A~%ƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" dir))
+	  (error "~A~%ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" dir))
 	(scan-files-setup (glob-common-path dirlist)
 			  buffer temp scanner)
 	(run-hook-with-args '*before-grepd-hook* pattern)
@@ -188,7 +188,7 @@
   (let* ((dirlist (if (consp dir) (glob-expand-list dir) (glob-expand dir)))
 	 (commonl (glob-common-length dirlist)))
     (unless dirlist
-      (error "~A~%ƒfƒBƒŒƒNƒgƒŠ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ" dir))
+      (error "~A~%ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" dir))
     (scan-files-setup (subseq (car dirlist) 0 commonl)
 		      buffer temp scanner)
     (async-grep-mode)
@@ -210,7 +210,7 @@
       (when (save-excursion
 	      (set-buffer buffer)
 	      async-grep-timer-callback)
-	(if (yes-or-no-p "grep‚Í‚·‚Å‚É“®ì’†‚Å‚·B€‚È‚·?")
+	(if (yes-or-no-p "grepã¯ã™ã§ã«å‹•ä½œä¸­ã§ã™ã€‚æ­»ãªã™?")
 	    (save-excursion
 	      (set-buffer buffer)
 	      (stop-async-grep))
@@ -258,8 +258,8 @@
 		      (file-static :disable ,no-dirs)
 		      (subdir :disable ,no-dirs)
 		      (word :disable (regexp))
-		      (pat :non-null "ŒŸõ•¶š—ñ‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))
-		      (ref :related dir :directory-name-dialog (:title "QÆ"))))
+		      (pat :non-null "æ¤œç´¢æ–‡å­—åˆ—ã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))
+		      (ref :related dir :directory-name-dialog (:title "å‚ç…§"))))
       (when result
 	(let ((pattern (cdr (assoc 'pat data)))
 	      (file (or (cdr (assoc 'file data)) "*"))
@@ -289,20 +289,20 @@
 		   (:caption "Grep")
 		   (:font 9 "MS UI Gothic")
 		   (:control
-		    (:static nil "ƒpƒ^[ƒ“(&P):" #x50020000 7 10 42 8)
+		    (:static nil "ãƒ‘ã‚¿ãƒ¼ãƒ³(&P):" #x50020000 7 10 42 8)
 		    (:combobox pat nil #x50210042 51 8 157 96)
-		    (:static nil "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 27 42 8)
+		    (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 27 42 8)
 		    (:combobox file nil #x50210042 51 25 157 96)
-		    (:static nil "ƒfƒBƒŒƒNƒgƒŠ(&D):" #x50020000 7 45 42 8)
+		    (:static nil "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&D):" #x50020000 7 45 42 8)
 		    (:combobox dir nil #x50210042 51 42 157 96)
-		    (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 51 61 105 10)
-		    (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 51 74 92 10)
-		    (:button regexp "³‹K•\Œ»(&E)" #x50010003 51 87 58 10)
-		    (:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 51 100 106 10)
-		    (:button subdir "‚Â‚¢‚Å‚ÉƒTƒuƒfƒBƒŒƒNƒgƒŠ‚à(&U)" #x50010003 51 113 95 10)
-		    (:button async "”ñ“¯Šú‚Ågrep(&A)" #x50010003 51 126 65 10)
-		    (:button name "ƒtƒ@ƒCƒ‹–¼‚¾‚¯o—Í(&O)" #x50010003 51 139 87 10)
-		    (:button IDOK "ŒŸõ(&S)" #x50010001 214 7 50 14)
-		    (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 214 24 50 14)
-		    (:button ref "QÆ(&R)..." #x50010000 214 41 50 14)))
+		    (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 51 61 105 10)
+		    (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 51 74 92 10)
+		    (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 51 87 58 10)
+		    (:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 51 100 106 10)
+		    (:button subdir "ã¤ã„ã§ã«ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚(&U)" #x50010003 51 113 95 10)
+		    (:button async "éåŒæœŸã§grep(&A)" #x50010003 51 126 65 10)
+		    (:button name "ãƒ•ã‚¡ã‚¤ãƒ«åã ã‘å‡ºåŠ›(&O)" #x50010003 51 139 87 10)
+		    (:button IDOK "æ¤œç´¢(&S)" #x50010001 214 7 50 14)
+		    (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 214 24 50 14)
+		    (:button ref "å‚ç…§(&R)..." #x50010000 214 41 50 14)))
 		 nil))

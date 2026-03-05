@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -69,5 +69,5 @@
 				       (perform-replace pattern replacement
 							query regexpp nil t)))))))))
 	(quit))
-      (message "~DŒÂ‚Ì•¶š—ñ‚ğ’uŠ·‚µ‚Ü‚µ‚½" count))))
+      (message "~Då€‹ã®æ–‡å­—åˆ—ã‚’ç½®æ›ã—ã¾ã—ãŸ" count))))
 

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -33,7 +33,7 @@
     (and ics-p (incf x))
     (and displaced-to (incf x))
     (when (> x 1)
-      (error ":initial-element, :initial-contents, :displaced-to‚Í“¯‚Éw’è‚Å‚«‚Ü‚¹‚ñ"))))
+      (error ":initial-element, :initial-contents, :displaced-toã¯åŒæ™‚ã«æŒ‡å®šã§ãã¾ã›ã‚“"))))
 
 (defun make-vector (length &key
 			   (element-type t)
@@ -68,7 +68,7 @@
 	 (setq element-type (upgraded-array-element-type element-type))
 	 (check-array-initialize-option ies-p ics-p displaced-to)
 	 (when fill-pointer
-	   (error ":fill-pointer‚ÍƒxƒNƒ^ˆÈŠO‚É‚Íw’è‚Å‚«‚Ü‚¹‚ñ"))
+	   (error ":fill-pointerã¯ãƒ™ã‚¯ã‚¿ä»¥å¤–ã«ã¯æŒ‡å®šã§ãã¾ã›ã‚“"))
 	 (let ((array (si:*make-array dimensions element-type
 				      initial-element adjustable
 				      displaced-to displaced-index-offset)))
@@ -106,7 +106,7 @@
 (defun array-in-bounds-p (array &rest subscripts)
   (let ((r (array-rank array)))
     (when (/= r (length subscripts))
-      (error "subscripts‚ÌŒÂ”‚ª”z—ñ‚Ìƒ‰ƒ“ƒN‚ÆˆÙ‚È‚è‚Ü‚·: ~S" subscripts))
+      (error "subscriptsã®å€‹æ•°ãŒé…åˆ—ã®ãƒ©ãƒ³ã‚¯ã¨ç•°ãªã‚Šã¾ã™: ~S" subscripts))
     (do ((i 0 (1+ i))
 	 (s subscripts (cdr s)))
 	((= i r) t)
@@ -124,7 +124,7 @@
 		     displaced-to
 		     displaced-index-offset)
   (when (/= (length dimensions) (array-rank old-array))
-    (error "”z—ñ‚Ìƒ‰ƒ“ƒN‚ªˆÙ‚È‚è‚Ü‚·"))
+    (error "é…åˆ—ã®ãƒ©ãƒ³ã‚¯ãŒç•°ãªã‚Šã¾ã™"))
   (unless ets-p
     (push (array-element-type old-array) rest)
     (push :element-type rest))
@@ -133,13 +133,13 @@
     (push :adjustable rest))
   (cond (fps-p
 	 (unless (array-has-fill-pointer-p old-array)
-	   (error "ƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚ğ‚½‚È‚¢”z—ñ‚ÉƒtƒBƒ‹ƒ|ƒCƒ“ƒ^‚ªw’è‚³‚ê‚Ü‚µ‚½")))
+	   (error "ãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ã‚’æŒãŸãªã„é…åˆ—ã«ãƒ•ã‚£ãƒ«ãƒã‚¤ãƒ³ã‚¿ãŒæŒ‡å®šã•ã‚Œã¾ã—ãŸ")))
 	(t
 	 (when (array-has-fill-pointer-p old-array)
 	   (push (fill-pointer old-array) rest)
 	   (push :fill-pointer rest))))
   (when (eq old-array displaced-to)
-    (error "©•ª©g‚ğ‹¤—L‚·‚é‚±‚Æ‚Í‚Å‚«‚Ü‚¹‚ñ"))
+    (error "è‡ªåˆ†è‡ªèº«ã‚’å…±æœ‰ã™ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“"))
   (let ((new-array (apply #'make-array dimensions rest)))
     (or ics-p displaced-to
 	(copy-array-partially old-array new-array))

@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -145,7 +145,7 @@
   (setq filename (namestring filename))
   (unless (or nowarn
 	      (not (file-exist-p filename))
-	      (yes-or-no-p "~A~%‚Í‚·‚Å‚É‘¶İ‚µ‚Ü‚·Bã‘‚«‚µ‚Ü‚·‚©?"
+	      (yes-or-no-p "~A~%ã¯ã™ã§ã«å­˜åœ¨ã—ã¾ã™ã€‚ä¸Šæ›¸ãã—ã¾ã™ã‹?"
 			   filename))
     (quit))
   (write-session-file filename)
@@ -193,7 +193,7 @@
 		     :direction :input
 		     :if-does-not-exist :error)
     (unless (equal (read-line s nil) ";;; xyzzy session file.")
-      (error "ƒZƒbƒVƒ‡ƒ“ƒtƒ@ƒCƒ‹‚Å‚Í‚ ‚è‚Ü‚¹‚ñ")))
+      (error "ã‚»ãƒƒã‚·ãƒ§ãƒ³ãƒ•ã‚¡ã‚¤ãƒ«ã§ã¯ã‚ã‚Šã¾ã›ã‚“")))
   (unwind-protect
       (progn
 	(or not-close
@@ -205,12 +205,12 @@
   t)
 
 (defvar *session-dialog-filter*
-  '(("ƒZƒbƒVƒ‡ƒ“ƒtƒ@ƒCƒ‹(*.ssn)" . "*.ssn")
-    ("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹(*.*)" . "*.*")))
+  '(("ã‚»ãƒƒã‚·ãƒ§ãƒ³ãƒ•ã‚¡ã‚¤ãƒ«(*.ssn)" . "*.ssn")
+    ("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«(*.*)" . "*.*")))
 
 (defun open-session-dialog ()
   (interactive)
-  (let ((file (file-name-dialog :title "ƒZƒbƒVƒ‡ƒ“‚ğŠJ‚­"
+  (let ((file (file-name-dialog :title "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã‚’é–‹ã"
 				:initial-directory (session-directory)
 				:filter *session-dialog-filter*
 				:extension "ssn")))
@@ -222,7 +222,7 @@
 (defun save-session-dialog ()
   (interactive)
   (let ((file (file-name-dialog :save t
-				:title "ƒZƒbƒVƒ‡ƒ“‚Ì•Û‘¶"
+				:title "ã‚»ãƒƒã‚·ãƒ§ãƒ³ã®ä¿å­˜"
 				:initial-directory (session-directory)
 				:filter *session-dialog-filter*
 				:extension "ssn"

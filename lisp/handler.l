@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: LISP -*-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -14,7 +14,7 @@
 
 (defmacro handler-bind (bindings &body body)
   (when (notevery #'(lambda (x) (and (listp x) (= (length x) 2))) bindings)
-    (error "•s³‚ÈƒRƒ“ƒfƒBƒVƒ‡ƒ“ƒnƒ“ƒhƒ‰ƒtƒH[ƒ€‚Å‚·"))
+    (error "ä¸æ­£ãªã‚³ãƒ³ãƒ‡ã‚£ã‚·ãƒ§ãƒ³ãƒãƒ³ãƒ‰ãƒ©ãƒ•ã‚©ãƒ¼ãƒ ã§ã™"))
   `(let ((si:*condition-handlers* (cons (list ,@(mapcar #'(lambda (x) `(cons ',(car x) ,(cadr x)))
 							bindings))
 					si:*condition-handlers*)))
@@ -26,7 +26,7 @@
   (let ((no-error (assoc ':no-error cases)))
     (cond (no-error
 	   (unless (eq (caar (last cases)) ':no-error)
-	     (error ":no-error‚ªÅŒã‚Ì‹å‚Å‚Í‚ ‚è‚Ü‚¹‚ñ"))
+	     (error ":no-errorãŒæœ€å¾Œã®å¥ã§ã¯ã‚ã‚Šã¾ã›ã‚“"))
 	   `(block #1=#:error-return
 	      (multiple-value-call #'(lambda ,@(cdr no-error))
 		(block #2=#:normal-return

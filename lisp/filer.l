@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;;
 ;;; This file is part of xyzzy.
 ;;;
@@ -40,23 +40,23 @@
 	  filer-delete-mask *filer-delete-mask-list*))
 
 (setq *filer-guide-text*
-      '("A:‘®«  C:ƒRƒs[  D:íœ  E:‰ğ“€  F:ŒŸõ  J:DIRˆÚ“®  \
-K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
-	"R:–¼‘O•ÏX  S:DIR??  T:ƒVƒ‡[ƒgƒJƒbƒg  U:DIRƒTƒCƒY  V:ƒŠƒXƒg  X:Às  .:ƒ}ƒXƒN  \
-/:ƒ}[ƒN  *:load  Home:ƒgƒOƒ‹  S-Home:ƒNƒŠƒA  End:ƒŠƒ[ƒh  F3:Às"))
+      '("A:å±æ€§  C:ã‚³ãƒ”ãƒ¼  D:å‰Šé™¤  E:è§£å‡  F:æ¤œç´¢  J:DIRç§»å‹•  \
+K:mkdir  L:ãƒ‰ãƒ©ã‚¤ãƒ–  M:ç§»å‹•  N:ãƒ•ã‚¡ã‚¤ãƒ«å  O:åœ§ç¸®  P:DIR??"
+	"R:åå‰å¤‰æ›´  S:DIR??  T:ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆ  U:DIRã‚µã‚¤ã‚º  V:ãƒªã‚¹ãƒˆ  X:å®Ÿè¡Œ  .:ãƒã‚¹ã‚¯  \
+/:ãƒãƒ¼ã‚¯  *:load  Home:ãƒˆã‚°ãƒ«  S-Home:ã‚¯ãƒªã‚¢  End:ãƒªãƒ­ãƒ¼ãƒ‰  F3:å®Ÿè¡Œ"))
 
 (defvar *filer-path-masks*
-  '(("‚·‚×‚Ä‚Ìƒtƒ@ƒCƒ‹" "*")
-    ("ƒhƒLƒ…ƒƒ“ƒg" "*.doc" "*.txt" "*.man" "*readme*")
+  '(("ã™ã¹ã¦ã®ãƒ•ã‚¡ã‚¤ãƒ«" "*")
+    ("ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆ" "*.doc" "*.txt" "*.man" "*readme*")
     ("C/C++" "*.c" "*.h" "*.cpp" "*.cxx" "*.cc" "*.inl")
     ("Lisp" "*.l" "*.el" "*.lsp" "*.lisp")
     ("Visual Basic" "*.bas" "*.frm" "*.vbp")
-    ("Àsƒtƒ@ƒCƒ‹" "*.exe" "*.com" "*.bat" "*.pif")
-    ("ƒA[ƒJƒCƒu" . ("*.lzh" "*.zip" "*.arj" "*.tar" "*.bz2" "*.gz"
+    ("å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«" "*.exe" "*.com" "*.bat" "*.pif")
+    ("ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–" . ("*.lzh" "*.zip" "*.arj" "*.tar" "*.bz2" "*.gz"
 		 "*.Z" "*.tbz" "*.taz" "*.tgz" "*.cab" "*.rar"
 		 "*.gza" "*.bza" "*.yz1" "*.7z" "*.lzma" "*.xz"))
-    ("ƒoƒbƒNƒAƒbƒv" "*~" "*.bak")
-    ("©“®ƒZ[ƒu" "#*#")))
+    ("ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—" "*~" "*.bak")
+    ("è‡ªå‹•ã‚»ãƒ¼ãƒ–" "#*#")))
 
 (defvar *filer-directories*
   '(("msdev/include" . "c:/msdev/include")
@@ -65,12 +65,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     ("NT" . "c:/winnt40")
     ("tmp" . "d:/tmp")))
 
-;; İ’è•û–@‚Í *filer-directories* ‚Æ‚¾‚¢‚½‚¢“¯‚¶
+;; è¨­å®šæ–¹æ³•ã¯ *filer-directories* ã¨ã ã„ãŸã„åŒã˜
 (defvar *filer-send-to-list* nil)
 
 (defvar *filer-delete-mask-list*
-  '(("ƒoƒbƒNƒAƒbƒv" "*~" "*.bak")
-    ("©“®ƒZ[ƒu" "#*#")))
+  '(("ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—" "*~" "*.bak")
+    ("è‡ªå‹•ã‚»ãƒ¼ãƒ–" "#*#")))
 
 (define-history-variable *filer-archive-directory-history* nil)
 
@@ -230,19 +230,19 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 
 (defvar *filer-path-mask-dialog-template*
   '(dialog 0 0 219 135
-    (:caption "ƒpƒXƒ}ƒXƒN")
+    (:caption "ãƒ‘ã‚¹ãƒã‚¹ã‚¯")
     (:font 9 "MS UI Gothic")
     (:control
      (:listbox list nil #x50a10111 7 7 150 104)
-     (:static nil "ƒ}ƒXƒN(&M):" #x50020000 7 118 27 8)
+     (:static nil "ãƒã‚¹ã‚¯(&M):" #x50020000 7 118 27 8)
      (:edit mask nil #x50810080 38 115 119 14)
      (:button IDOK "OK" #x50010001 162 7 50 14)
-     (:button both "—¼•û‚Ì‘‹(&B)" #x50010000 162 24 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 162 41 50 14))))
+     (:button both "ä¸¡æ–¹ã®çª“(&B)" #x50010000 162 24 50 14)
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 162 41 50 14))))
 
 (defun filer-set-path-mask ()
   (multiple-value-bind (result data)
-      (let ((default '("ƒfƒtƒHƒ‹ƒg")))
+      (let ((default '("ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ")))
 	(dialog-box *filer-path-mask-dialog-template*
 		    `((list . ,(cons default *filer-path-masks*))
 		      (list . ,default))
@@ -263,14 +263,14 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 
 (defvar *filer-mark-mask-dialog-template*
   '(dialog 0 0 219 135
-    (:caption "‚Ü‚Æ‚ß‚Äƒ}[ƒN")
+    (:caption "ã¾ã¨ã‚ã¦ãƒãƒ¼ã‚¯")
     (:font 9 "MS UI Gothic")
     (:control
      (:listbox list nil #x50a10111 7 7 150 104)
-     (:static nil "ƒ}ƒXƒN(&M):" #x50020000 7 118 27 8)
+     (:static nil "ãƒã‚¹ã‚¯(&M):" #x50020000 7 118 27 8)
      (:edit mask nil #x50810080 38 115 119 14)
      (:button IDOK "OK" #x50010001 162 7 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 162 24 50 14))))
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 162 24 50 14))))
 
 (defun filer-mark-path-mask ()
   (multiple-value-bind (result data)
@@ -287,19 +287,19 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 
 (defvar *filer-jump-directory-dialog-template*
   '(dialog 0 0 219 135
-    (:caption "ƒfƒBƒŒƒNƒgƒŠˆÚ“®")
+    (:caption "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªç§»å‹•")
     (:font 9 "MS UI Gothic")
     (:control
      (:listbox list nil #x50b10111 7 7 150 104)
-     (:static nil "ƒpƒX(&P):" #x50020000 7 118 22 8)
+     (:static nil "ãƒ‘ã‚¹(&P):" #x50020000 7 118 22 8)
      (:edit path nil #x50810080 38 115 119 14)
      (:button IDOK "OK" #x50010001 162 7 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 162 24 50 14))))
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 162 24 50 14))))
 
 (defun filer-jump-directory ()
   (multiple-value-bind (result data)
       (dialog-box *filer-jump-directory-dialog-template*
-		  `((list ("(ƒJƒŒƒ“ƒgƒfƒBƒŒƒNƒgƒŠ)" . ,(default-directory))
+		  `((list ("(ã‚«ãƒ¬ãƒ³ãƒˆãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª)" . ,(default-directory))
 			  ,@*filer-directories*
 			  ,@(mapcar #'(lambda (x) (cons x x))
 				    *filer-directory-history*)))
@@ -335,36 +335,36 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     (multiple-value-bind (result data)
 	(dialog-box
 	 '(dialog 0 0 235 153
-	   (:caption "“¯–¼ƒtƒ@ƒCƒ‹‚ÌŠm”F")
+	   (:caption "åŒåãƒ•ã‚¡ã‚¤ãƒ«ã®ç¢ºèª")
 	   (:font 9 "MS UI Gothic")
 	   (:control
 	    (:button text nil #x50000007 7 7 166 55)
-	    (:button yes "‚·‚é(&Y)" #x50000009 15 20 37 10)
-	    (:button no "‚µ‚È‚¢(&S)" #x50000009 15 32 42 10)
-	    (:button newer "“ú•t‚ªV‚µ‚¯‚ê‚Î(&N)" #x50000009 15 44 84 10)
-	    (:button all "‚¢‚¿‚¢‚¿•·‚­‚È(&A)" #x50010003 15 67 66 10)
+	    (:button yes "ã™ã‚‹(&Y)" #x50000009 15 20 37 10)
+	    (:button no "ã—ãªã„(&S)" #x50000009 15 32 42 10)
+	    (:button newer "æ—¥ä»˜ãŒæ–°ã—ã‘ã‚Œã°(&N)" #x50000009 15 44 84 10)
+	    (:button all "ã„ã¡ã„ã¡èããª(&A)" #x50010003 15 67 66 10)
 	    (:static from1 nil #x50020080 7 85 220 8)
 	    (:static from2 nil #x50020080 13 95 214 8)
-	    (:static nil "ƒTƒCƒY:" #x50020080 13 105 19 8)
+	    (:static nil "ã‚µã‚¤ã‚º:" #x50020080 13 105 19 8)
 	    (:static fromsize nil #x50020080 40 105 52 8)
-	    (:static nil "XV“ú:" #x50020080 113 105 30 8)
+	    (:static nil "æ›´æ–°æ—¥æ™‚:" #x50020080 113 105 30 8)
 	    (:static fromdate nil #x50020080 149 105 60 8)
 	    (:static to1 nil #x50020080 7 117 220 8)
 	    (:static to2 nil #x50020080 13 126 214 8)
-	    (:static nil "ƒTƒCƒY:" #x50020080 13 135 19 8)
+	    (:static nil "ã‚µã‚¤ã‚º:" #x50020080 13 135 19 8)
 	    (:static tosize nil #x50020080 40 135 52 8)
-	    (:static nil "XV“ú:" #x50020080 113 135 30 8)
+	    (:static nil "æ›´æ–°æ—¥æ™‚:" #x50020080 113 135 30 8)
 	    (:static todate nil #x50020080 149 135 60 8)
 	    (:button IDOK "OK" #x50010001 177 7 50 14)
-	    (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 177 26 50 14)))
+	    (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 177 26 50 14)))
 	 (list
-	  (cons 'text (concat "“¯‚¶–¼‘O‚Ìƒtƒ@ƒCƒ‹‚ª‚·‚Å‚É‘¶İ‚µ‚Ü‚·B"
-			      op "‚·‚é?"))
-	  (cons 'from1 (concat op "Œ³:"))
+	  (cons 'text (concat "åŒã˜åå‰ã®ãƒ•ã‚¡ã‚¤ãƒ«ãŒã™ã§ã«å­˜åœ¨ã—ã¾ã™ã€‚"
+			      op "ã™ã‚‹?"))
+	  (cons 'from1 (concat op "å…ƒ:"))
 	  (cons 'from2 from-file)
 	  (cons 'fromsize (bytes from-file))
 	  (cons 'fromdate (date from-file))
-	  (cons 'to1 (concat op "æ:"))
+	  (cons 'to1 (concat op "å…ˆ:"))
 	  (cons 'to2 to-file)
 	  (cons 'tosize (bytes to-file))
 	  (cons 'todate (date to-file))
@@ -389,17 +389,17 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-ask-read-only-file (file op)
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 215 77
-		    (:caption "‘‚«‚İ‹Ö~ƒtƒ@ƒCƒ‹‚ÌŠm”F")
+		    (:caption "æ›¸ãè¾¼ã¿ç¦æ­¢ãƒ•ã‚¡ã‚¤ãƒ«ã®ç¢ºèª")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "‘‚İ‹Ö~ƒtƒ@ƒCƒ‹‚Å‚·B‹­§“I‚Éã‘‚«‚µ‚Ü‚·‚©?" #x50020000 7 7 146 8)
+		     (:static nil "æ›¸è¾¼ã¿ç¦æ­¢ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™ã€‚å¼·åˆ¶çš„ã«ä¸Šæ›¸ãã—ã¾ã™ã‹?" #x50020000 7 7 146 8)
 		     (:static to nil #x50020080 7 31 144 8)
 		     (:static file nil #x50020080 7 41 144 8)
-		     (:button IDOK "‚Í‚¢(&Y)" #x50010000 153 7 55 14)
-		     (:button IDCANCEL "‚¢‚¢‚¦(&N)" #x50010001 153 24 55 14)
-		     (:button all "‚·‚×‚Äã‘‚«(&A)" #x50010000 153 41 55 14)))
+		     (:button IDOK "ã¯ã„(&Y)" #x50010000 153 7 55 14)
+		     (:button IDCANCEL "ã„ã„ãˆ(&N)" #x50010001 153 24 55 14)
+		     (:button all "ã™ã¹ã¦ä¸Šæ›¸ã(&A)" #x50010000 153 41 55 14)))
 		  (list (cons 'file file)
-			(cons 'to (concat op "æ:")))
+			(cons 'to (concat op "å…ˆ:")))
 		  nil)
     (cond ((eq result 'IDOK)
 	   :force)
@@ -424,7 +424,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	all)
     (tagbody
       retry
-      (message "~A ‚©‚ç ~A ‚ÖƒRƒs[’†..." from-file to-file)
+      (message "~A ã‹ã‚‰ ~A ã¸ã‚³ãƒ”ãƒ¼ä¸­..." from-file to-file)
       (do-events)
       (handler-case (copy-file from-file to-file
 			       :if-exists ie
@@ -432,13 +432,13 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 			       :copy-attributes t)
 	(file-exists ()
 	  (multiple-value-setq (ie all)
-	    (filer-ask-same-name-file from-file to-file "ƒRƒs["))
+	    (filer-ask-same-name-file from-file to-file "ã‚³ãƒ”ãƒ¼"))
 	  (when all
 	    (setq if-exists ie))
 	  (unless (eq ie ':skip)
 	    (go retry)))
 	(access-denied ()
-	  (setq iad (filer-ask-read-only-file to-file "ƒRƒs["))
+	  (setq iad (filer-ask-read-only-file to-file "ã‚³ãƒ”ãƒ¼"))
 	  (when (eq iad ':all)
 	    (setq iad ':force)
 	    (setq if-access-denied ':force))
@@ -471,7 +471,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	    (iad if-access-denied))
 	(tagbody
 	  retry
-	  (message "~A ‚©‚ç ~A ‚ÖˆÚ“®’†..." file to-file)
+	  (message "~A ã‹ã‚‰ ~A ã¸ç§»å‹•ä¸­..." file to-file)
 	  (do-events)
 	  (handler-case (rename-file file to-file
 				     :if-exists ie
@@ -479,7 +479,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	    (file-exists ()
 	      (let (all)
 		(multiple-value-setq (ie all)
-		  (filer-ask-same-name-file file to-file "ˆÚ“®"))
+		  (filer-ask-same-name-file file to-file "ç§»å‹•"))
 		(when all
 		  (setq if-exists ie))
 		(unless (eq ie ':skip)
@@ -491,7 +491,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 				    to-file (length file))
 		     (ignore-errors (delete-directory file)))
 		    (t
-		     (setq iad (filer-ask-read-only-file to-file "ˆÚ“®"))
+		     (setq iad (filer-ask-read-only-file to-file "ç§»å‹•"))
 		     (when (eq iad ':all)
 		       (setq iad ':force)
 		       (setq if-access-denied ':force))
@@ -524,8 +524,8 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		   (push file files)))
 	       (when (and files
 			  (or (null *filer-query-before-process*)
-			      (yes-or-no-p "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ğ~%~A~%‚É~A‚µ‚Ü‚·‚©‚¢?"
-					   to (if mv "ˆÚ“®" "ƒRƒs["))))
+			      (yes-or-no-p "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã‚’~%~A~%ã«~Aã—ã¾ã™ã‹ã„?"
+					   to (if mv "ç§»å‹•" "ã‚³ãƒ”ãƒ¼"))))
 		 (funcall fn (nreverse files) to (length from))))))
       (filer-clear-all-marks))
     (message "done.")))
@@ -545,18 +545,18 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-get-copy-file-name (name)
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 215 71
-		    (:caption "•Ê–¼‚ÅƒRƒs[")
+		    (:caption "åˆ¥åã§ã‚³ãƒ”ãƒ¼")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "V‚µ‚¢ƒtƒ@ƒCƒ‹–¼(&N):" #x50020000 7 38 55 8)
+		     (:static nil "æ–°ã—ã„ãƒ•ã‚¡ã‚¤ãƒ«å(&N):" #x50020000 7 38 55 8)
 		     (:edit new nil #x50810080 7 48 144 14)
 		     (:button IDOK "OK" #x50010001 153 7 55 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 153 24 55 14)
-		     (:static nil "Œ³‚Ìƒtƒ@ƒCƒ‹–¼(&O):" #x50020000 7 7 50 8)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 153 24 55 14)
+		     (:static nil "å…ƒã®ãƒ•ã‚¡ã‚¤ãƒ«å(&O):" #x50020000 7 7 50 8)
 		     (:edit old nil #x50810880 7 17 144 14)))
 		  (list (cons 'new (concat name "~"))
 			(cons 'old name))
-		  '((new :non-null "V‚µ‚¢ƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		  '((new :non-null "æ–°ã—ã„ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
       (cdr (assoc 'new data)))))
 
@@ -565,7 +565,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	new-file)
     (when old-file
       (when (file-directory-p old-file)
-	(error "ƒfƒBƒŒƒNƒgƒŠ‚Í‚Ü‚¾‚Å‚«‚Ä‚È‚¢"))
+	(error "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã¯ã¾ã ã§ãã¦ãªã„"))
       (setq new-file (filer-get-copy-file-name (file-namestring old-file)))
       (when new-file
 	(let ((if-exists :error)
@@ -590,22 +590,22 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	   (filer-do-copy files dest (length src)))
 	  ((eq effect :link)
 	   (dolist (file files)
-	     (message "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬’†: ~A..." file)
+	     (message "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆä¸­: ~A..." file)
 	     (create-shortcut file dest))))))
 
 (defun filer-ask-delete-read-only-file (file)
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 219 79
-		    (:caption "ƒtƒ@ƒCƒ‹íœ‚ÌŠm”F")
+		    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«å‰Šé™¤ã®ç¢ºèª")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:button IDCANCEL "‚¢‚¢‚¦(&N)" #x50010000 161 23 50 14)
-		     (:button all "‚Ë‚±‚»‚¬(&A)" #x50010000 161 39 50 14)
-		     (:button quit "’†~(&Q)" #x50010000 161 55 50 14)
-		     (:static nil "‘‚İ‹Ö~ƒtƒ@ƒCƒ‹‚Å‚·B‹­§“I‚Éíœ‚µ‚Ü‚·‚©?" #x50020000 7 7 144 8)
-		     (:static nil "íœ‚·‚éƒtƒ@ƒCƒ‹:" #x50020080 7 24 46 8)
+		     (:button IDCANCEL "ã„ã„ãˆ(&N)" #x50010000 161 23 50 14)
+		     (:button all "ã­ã“ãã(&A)" #x50010000 161 39 50 14)
+		     (:button quit "ä¸­æ­¢(&Q)" #x50010000 161 55 50 14)
+		     (:static nil "æ›¸è¾¼ã¿ç¦æ­¢ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™ã€‚å¼·åˆ¶çš„ã«å‰Šé™¤ã—ã¾ã™ã‹?" #x50020000 7 7 144 8)
+		     (:static nil "å‰Šé™¤ã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«:" #x50020080 7 24 46 8)
 		     (:static file nil #x50020080 7 35 150 8)
-		     (:button IDOK "‚Í‚¢(&Y)" #x50010001 161 7 50 14)))
+		     (:button IDOK "ã¯ã„(&Y)" #x50010001 161 7 50 14)))
 		  (list (cons 'file file))
 		  nil)
     (cond ((eq result 'IDOK)
@@ -629,7 +629,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 				(delete-directory file :if-access-denied iad)))
 			   ((eq delete-non-empty-directory 'never))
 			   ((or (eq delete-non-empty-directory :force)
-				(yes-or-no-p "ƒfƒBƒŒƒNƒgƒŠ~%~A~%‚ğíœ‚µ‚Ü‚·‚©?" file))
+				(yes-or-no-p "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª~%~A~%ã‚’å‰Šé™¤ã—ã¾ã™ã‹?" file))
 			    (when (eq delete-non-empty-directory :first-time)
 			      (setq delete-non-empty-directory :force))
 			    (filer-do-delete files)
@@ -643,12 +643,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		   (let ((name (file-namestring file)))
 		     (dolist (mask *filer-delete-mask*)
 		       (when (pathname-match-p name mask)
-			 (message "~A ‚ğíœ’†..." file)
+			 (message "~A ã‚’å‰Šé™¤ä¸­..." file)
 			 (delete-file file :if-access-denied iad
 				      :recycle *filer-use-recycle-bin*)
 			 (return)))))
 		  (t
-		   (message "~A ‚ğíœ’†..." file)
+		   (message "~A ã‚’å‰Šé™¤ä¸­..." file)
 		   (delete-file file :if-access-denied iad
 				:recycle *filer-use-recycle-bin*)))
 	  (access-denied ()
@@ -668,12 +668,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 
 (defun filer-query-delete (files)
   (eq (dialog-box '(dialog 0 0 254 115
-		    (:caption "íœ‚ÌŠm”F")
+		    (:caption "å‰Šé™¤ã®ç¢ºèª")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:button IDOK "‚Í‚¢(&Y)" #x50010001 197 7 50 14)
-		     (:button IDCANCEL "‚¢‚¢‚¦(&N)" #x50010000 197 24 50 14)
-		     (:static IDC_STATIC "ˆÈ‰º‚Ìƒtƒ@ƒCƒ‹‚ğíœ‚µ‚Ü‚·‚©?" #x50020000 7 7 85 8)
+		     (:button IDOK "ã¯ã„(&Y)" #x50010001 197 7 50 14)
+		     (:button IDCANCEL "ã„ã„ãˆ(&N)" #x50010000 197 24 50 14)
+		     (:static IDC_STATIC "ä»¥ä¸‹ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‰Šé™¤ã—ã¾ã™ã‹?" #x50020000 7 7 85 8)
 		     (:listbox list nil #x50a10101 7 17 186 91)))
 		  (list (cons 'list files))
 		  nil)
@@ -686,10 +686,10 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		 (or *filer-use-shell-file-operation*
 		     (if *filer-query-delete-precisely*
 			 (filer-query-delete marks)
-		       (yes-or-no-p "~A" (concat "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ğíœ‚µ‚Ü‚Á‚¹"
+		       (yes-or-no-p "~A" (concat "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‰Šé™¤ã—ã¾ã£ã›"
 						 (and *filer-delete-mask*
 						      (filer-delete-mask-string *filer-delete-mask*
-										"\níœƒ}ƒXƒN: ")))))))
+										"\nå‰Šé™¤ãƒã‚¹ã‚¯: ")))))))
 	(filer-subscribe-to-reload (filer-get-directory) t)
 	(if *filer-use-shell-file-operation*
 	    (filer-do-delete-by-shell marks)
@@ -708,14 +708,14 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-delete-mask ()
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 220 135
-		    (:caption "íœƒ}ƒXƒN")
+		    (:caption "å‰Šé™¤ãƒã‚¹ã‚¯")
 		    (:font 9 "MS UI Gothic")
 		    (:control
 		     (:listbox list nil #x50a10111 7 7 150 104)
-		     (:static nil "ƒ}ƒXƒN(&M):" #x50020000 7 118 27 8)
+		     (:static nil "ãƒã‚¹ã‚¯(&M):" #x50020000 7 118 27 8)
 		     (:combobox mask nil #x50210002 38 115 119 88)
 		     (:button IDOK "OK" #x50010001 162 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 162 24 50 14)))
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 162 24 50 14)))
 		  `((list . ,*filer-delete-mask-list*)
 		    (mask . ,*filer-delete-mask-history*)
 		    (mask . ,(filer-delete-mask-string *filer-delete-mask*)))
@@ -744,25 +744,25 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 
 (defvar *filer-attributes-dialog-template*
   '(dialog 0 0 275 113
-    (:caption "ƒtƒ@ƒCƒ‹‚Ì‘®«")
+    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«ã®å±æ€§")
     (:font 9 "MS UI Gothic")
     (:control
-     (:button nil "ƒtƒ@ƒCƒ‹‚Ì‘®«(&B)" #x50000007 7 7 74 83)
-     (:button readonly "“Ç‚İæ‚èê—p(&R)" #x50010006 14 19 63 10)
-     (:button hidden "‰B‚µƒtƒ@ƒCƒ‹(&H)" #x50010006 14 33 57 10)
-     (:button archive "ƒA[ƒJƒCƒu(&A)" #x50010006 14 47 51 10)
-     (:button system "ƒVƒXƒeƒ€(&S)" #x50010006 14 61 46 10)
-     (:button compressed "ˆ³k(&C)" #x50010006 14 75 39 10)
-     (:button nil "XV“ú(&M)" #x50000007 86 7 127 83)
-     (:button date-nil "•ÏX‚µ‚È‚¢(&N)" #x50030009 93 20 55 10)
-     (:button date-now "Œ»İ(&W)" #x50000009 93 34 53 10)
-     (:button date-0 "¡“ú‚Ì&0" #x50000009 93 48 46 10)
-     (:button date-12 "¡“ú‚Ì&12" #x50000009 93 62 49 10)
-     (:button date-spec "w’è(&P)" #x50000009 93 76 52 10)
+     (:button nil "ãƒ•ã‚¡ã‚¤ãƒ«ã®å±æ€§(&B)" #x50000007 7 7 74 83)
+     (:button readonly "èª­ã¿å–ã‚Šå°‚ç”¨(&R)" #x50010006 14 19 63 10)
+     (:button hidden "éš ã—ãƒ•ã‚¡ã‚¤ãƒ«(&H)" #x50010006 14 33 57 10)
+     (:button archive "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–(&A)" #x50010006 14 47 51 10)
+     (:button system "ã‚·ã‚¹ãƒ†ãƒ (&S)" #x50010006 14 61 46 10)
+     (:button compressed "åœ§ç¸®(&C)" #x50010006 14 75 39 10)
+     (:button nil "æ›´æ–°æ—¥æ™‚(&M)" #x50000007 86 7 127 83)
+     (:button date-nil "å¤‰æ›´ã—ãªã„(&N)" #x50030009 93 20 55 10)
+     (:button date-now "ç¾åœ¨æ™‚åˆ»(&W)" #x50000009 93 34 53 10)
+     (:button date-0 "ä»Šæ—¥ã®&0æ™‚" #x50000009 93 48 46 10)
+     (:button date-12 "ä»Šæ—¥ã®&12æ™‚" #x50000009 93 62 49 10)
+     (:button date-spec "æ™‚åˆ»æŒ‡å®š(&P)" #x50000009 93 76 52 10)
      (:edit date nil #x50830080 147 73 62 14)
-     (:button subdir "ƒTƒuƒfƒBƒŒƒNƒgƒŠ‚Ìƒtƒ@ƒCƒ‹‚à’u‚«Š·‚¦‚é(&D)" #x50030003 7 96 123 10)
+     (:button subdir "ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚‚ç½®ãæ›ãˆã‚‹(&D)" #x50030003 7 96 123 10)
      (:button IDOK "OK" #x50010001 218 7 50 14)
-     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 218 24 50 14))))
+     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 218 24 50 14))))
 
 (defun filer-modify-attributes-dialog (and ior)
   (multiple-value-bind (sec min hour day mon year)
@@ -865,15 +865,15 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
   (let ((curdir (filer-get-directory)))
     (multiple-value-bind (result data)
 	(dialog-box '(dialog 0 0 231 87
-		      (:caption "ƒfƒBƒŒƒNƒgƒŠ‚Ìì¬")
+		      (:caption "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã®ä½œæˆ")
 		      (:font 9 "MS UI Gothic")
 		      (:control
-		       (:static nil "ì¬‚·‚éƒfƒBƒŒƒNƒgƒŠ(&N):" #x50020000 7 38 64 8)
+		       (:static nil "ä½œæˆã™ã‚‹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&N):" #x50020000 7 38 64 8)
 		       (:edit newdir nil #x50810080 7 47 162 14)
-		       (:button move "V‚µ‚¢ƒfƒBƒŒƒNƒgƒŠ‚ÉˆÚ“®(&M)" #x50010003 7 70 90 10)
+		       (:button move "æ–°ã—ã„ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã«ç§»å‹•(&M)" #x50010003 7 70 90 10)
 		       (:button IDOK "OK" #x50010001 174 7 50 14)
-		       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 174 24 50 14)
-		       (:static nil "ƒJƒŒƒ“ƒgƒfƒBƒŒƒNƒgƒŠ(&C):" #x50020000 7 7 59 8)
+		       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 174 24 50 14)
+		       (:static nil "ã‚«ãƒ¬ãƒ³ãƒˆãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&C):" #x50020000 7 7 59 8)
 		       (:edit curdir nil #x50810880 7 16 162 14)))
 		    (list (cons 'curdir curdir)
 			  '(move . t))
@@ -894,7 +894,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	(filer-subscribe-to-reload dir t)
 	(dolist (file files)
 	  (when (or (null *filer-query-before-process*)
-		    (yes-or-no-p "ƒA[ƒJƒCƒuƒtƒ@ƒCƒ‹~%~A~%‚ğ~%~A~%‚É‰ğ“€‚µ‚Ü‚·‚©?"
+		    (yes-or-no-p "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ãƒ•ã‚¡ã‚¤ãƒ«~%~A~%ã‚’~%~A~%ã«è§£å‡ã—ã¾ã™ã‹?"
 				 file dir))
 	    (extract-archive file dir)))
 	(filer-clear-all-marks)))))
@@ -905,25 +905,25 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-get-archive-name ()
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 251 95
-		    (:caption "ƒtƒ@ƒCƒ‹‚Ìˆ³k")
+		    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«ã®åœ§ç¸®")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "ƒtƒ@ƒCƒ‹–¼(&N):" #x50020000 7 64 38 8)
+		     (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&N):" #x50020000 7 64 38 8)
 		     (:edit name nil #x50810080 7 74 160 14)
 		     (:button IDOK "OK" #x50010001 194 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 194 24 50 14)
-		     (:static nil "ì¬‚·‚éƒfƒBƒŒƒNƒgƒŠ(&D):" #x50020000 8 7 64 8)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 194 24 50 14)
+		     (:static nil "ä½œæˆã™ã‚‹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&D):" #x50020000 8 7 64 8)
 		     (:combobox dir nil #x50210102 8 18 160 85)
-		     (:button ref "QÆ..." #x50010000 169 17 22 14)
-		     (:static nil "Šî€ƒfƒBƒŒƒNƒgƒŠ(&B):" #x50020000 7 35 53 8)
+		     (:button ref "å‚ç…§..." #x50010000 169 17 22 14)
+		     (:static nil "åŸºæº–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª(&B):" #x50020000 7 35 53 8)
 		     (:edit base nil #x50810080 7 45 160 14)
-		     (:button baseref "QÆ..." #x50010000 169 45 22 14)))
+		     (:button baseref "å‚ç…§..." #x50010000 169 45 22 14)))
 		  (list (cons 'dir (filer-get-directory))
 			(cons 'dir *filer-archive-directory-history*)
 			(cons 'base (filer-get-directory)))
-		  '((name :non-null "ƒA[ƒJƒCƒuƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢" :enable (IDOK))
-		    (ref :related dir :directory-name-dialog (:title "QÆ"))
-		    (baseref :related base :directory-name-dialog (:title "QÆ"))))
+		  '((name :non-null "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦ãã ã•ã„" :enable (IDOK))
+		    (ref :related dir :directory-name-dialog (:title "å‚ç…§"))
+		    (baseref :related base :directory-name-dialog (:title "å‚ç…§"))))
     (when result
       (let* ((dir (cdr (assoc 'dir data)))
 	     (file (merge-pathnames (cdr (assoc 'name data)) dir)))
@@ -977,7 +977,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     (cond ((null file)
 	   (filer-get-current-file v))
 	  ((cdr file)
-	   (error "•¡”ƒtƒ@ƒCƒ‹‚Íw’è‚Å‚¯‚ñ"))
+	   (error "è¤‡æ•°ãƒ•ã‚¡ã‚¤ãƒ«ã¯æŒ‡å®šã§ã‘ã‚“"))
 	  (t
 	   (car file)))))
 
@@ -987,12 +987,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
       (multiple-value-bind (result data)
 	  (dialog-box
 	   `(dialog 0 0 273 237
-		    (:caption ,(concat (file-namestring file) "‚Ì’†g"))
+		    (:caption ,(concat (file-namestring file) "ã®ä¸­èº«"))
 		    (:font 9 "MS UI Gothic")
 		    (:control
 		     (:listbox list nil #x50b10911 7 7 259 202)
-		     (:button IDOK "ŠJ‚­" #x50010001 158 216 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 216 216 50 14)))
+		     (:button IDOK "é–‹ã" #x50010001 158 216 50 14)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 216 216 50 14)))
 	   (list (cons 'list
 		       (long-operation
 			 (mapcar #'(lambda (x)
@@ -1015,7 +1015,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-shell-execute ()
   (let ((file (filer-get-current-file)))
     (when (or (null *filer-query-before-process*)
-	      (yes-or-no-p "~A~%‚ğÀs‚µ‚Ü‚·‚©?" file))
+	      (yes-or-no-p "~A~%ã‚’å®Ÿè¡Œã—ã¾ã™ã‹?" file))
       (filer-forward-line 1)
       (shell-execute file (filer-get-directory)))))
 
@@ -1027,18 +1027,18 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-get-rename-file (name)
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 209 67
-		    (:caption "–¼‘O‚Ì•ÏX")
+		    (:caption "åå‰ã®å¤‰æ›´")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "V‚µ‚¢ƒtƒ@ƒCƒ‹–¼(&N):" #x50020000 7 35 55 8)
+		     (:static nil "æ–°ã—ã„ãƒ•ã‚¡ã‚¤ãƒ«å(&N):" #x50020000 7 35 55 8)
 		     (:edit new nil #x50810080 7 45 140 14)
 		     (:button IDOK "OK" #x50010001 152 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 152 24 50 14)
-		     (:static nil "Œ³‚Ìƒtƒ@ƒCƒ‹–¼(&O):" #x50020000 7 7 50 8)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 152 24 50 14)
+		     (:static nil "å…ƒã®ãƒ•ã‚¡ã‚¤ãƒ«å(&O):" #x50020000 7 7 50 8)
 		     (:edit old nil #x50810880 7 17 140 14)))
 		  (list (cons 'new name)
 			(cons 'old name))
-		  '((new :non-null "V‚µ‚¢ƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		  '((new :non-null "æ–°ã—ã„ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
       (cdr (assoc 'new data)))))
 
@@ -1052,15 +1052,15 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     (loop
       (multiple-value-bind (result data)
 	  (dialog-box '(dialog 0 0 189 79
-			(:caption "ˆê‹C‚ÉƒŠƒl[ƒ€")
+			(:caption "ä¸€æ°—ã«ãƒªãƒãƒ¼ãƒ ")
 			(:font 9 "MS UI Gothic")
 			(:control
-			 (:static nil "•ÏX‘Oƒtƒ@ƒCƒ‹–¼(³‹K•\Œ»)(&P):" #x50020000 7 7 90 8)
+			 (:static nil "å¤‰æ›´å‰ãƒ•ã‚¡ã‚¤ãƒ«å(æ­£è¦è¡¨ç¾)(&P):" #x50020000 7 7 90 8)
 			 (:combobox from nil #x50210042 7 17 119 73)
-			 (:static nil "•ÏXŒãƒtƒ@ƒCƒ‹–¼(&R):" #x50020000 7 37 58 8)
+			 (:static nil "å¤‰æ›´å¾Œãƒ•ã‚¡ã‚¤ãƒ«å(&R):" #x50020000 7 37 58 8)
 			 (:combobox to nil #x50210042 7 47 119 73)
 			 (:button IDOK "OK" #x50010001 132 7 50 14)
-			 (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 132 24 50 14)))
+			 (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 132 24 50 14)))
 		      (list (cons 'from *filer-rename-regexp-from-history*)
 			    (cons 'to *filer-rename-regexp-to-history*)
 			    (cons 'from from)
@@ -1082,13 +1082,13 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 			       files)))
 	  (setq result (dialog-box
 			'(dialog 0 0 235 151
-			  (:caption "‚æ‚ë‚µ?")
+			  (:caption "ã‚ˆã‚ã—?")
 			  (:font 9 "MS UI Gothic")
 			  (:control
 			   (:listbox list nil #x50b10103 7 7 165 137)
 			   (:button IDOK "OK" #x50010001 178 7 50 14)
-			   (:button reinput "‚à‚¢‚Á‚©‚¢(&R)" #x50010000 178 24 50 14)
-			   (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 178 41 50 14)))
+			   (:button reinput "ã‚‚ã„ã£ã‹ã„(&R)" #x50010000 178 24 50 14)
+			   (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 178 41 50 14)))
 			(list (cons 'list
 				    (mapcar #'(lambda (x)
 						(format nil "~A -> ~A"
@@ -1126,7 +1126,7 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	     (setq files (acons old (merge-pathnames new (filer-get-directory)) nil)))))
     (filer-subscribe-to-reload (filer-get-directory))
     (mapc #'(lambda (x)
-	      (message "~A ‚©‚ç ~A ‚ÖƒŠƒl[ƒ€..." (car x) (cdr x))
+	      (message "~A ã‹ã‚‰ ~A ã¸ãƒªãƒãƒ¼ãƒ ..." (car x) (cdr x))
 	      (do-events)
 	      (rename-file (car x) (cdr x))
 	      (filer-subscribe-to-reload (directory-namestring (cdr x))))
@@ -1146,23 +1146,23 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-search ()
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 251 73
-		    (:caption "ƒtƒ@ƒCƒ‹‚ÌŒŸõ")
+		    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«ã®æ¤œç´¢")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 28 37 8)
+		     (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 28 37 8)
 		     (:combobox name nil #x50210042 47 25 143 85)
 		     (:button IDOK "OK" #x50010001 194 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 194 24 50 14)
-		     (:button ref "QÆ(&R)..." #x50010000 194 41 50 14)
-		     (:static nil "’T‚·êŠ(&D):" #x50020000 7 11 39 8)
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 194 24 50 14)
+		     (:button ref "å‚ç…§(&R)..." #x50010000 194 41 50 14)
+		     (:static nil "æ¢ã™å ´æ‰€(&D):" #x50020000 7 11 39 8)
 		     (:combobox dir nil #x50210002 47 7 143 85)))
 		  (list (cons 'dir *filer-search-directory-history*)
 			(cons 'name *filer-search-pattern-history*)
 			(cons 'dir (filer-get-directory)))
-		  '((ref :related dir :directory-name-dialog (:title "QÆ"))
-		    (name :non-null "ƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		  '((ref :related dir :directory-name-dialog (:title "å‚ç…§"))
+		    (name :non-null "ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
-      (message "ŒŸõ’†...")
+      (message "æ¤œç´¢ä¸­...")
       (let ((pattern (cdr (assoc 'name data)))
 	    (directory (merge-pathnames (cdr (assoc 'dir data))
 					(filer-get-directory))))
@@ -1175,11 +1175,11 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	  (cond (found
 		 (multiple-value-setq (result data)
 		   (dialog-box '(dialog 0 0 279 204
-				 (:caption "ŒŸõŒ‹‰Ê")
+				 (:caption "æ¤œç´¢çµæœ")
 				 (:font 9 "MS UI Gothic")
 				 (:control
 				  (:listbox list nil #x50b10111 7 7 265 176)
-				  (:button copy "Œ‹‰Ê‚ğƒRƒs[(&C)" #x50010000 168 187 50 14)
+				  (:button copy "çµæœã‚’ã‚³ãƒ”ãƒ¼(&C)" #x50010000 168 187 50 14)
 				  (:button IDOK "OK" #x50010001 222 187 50 14)))
 			       (list (cons 'list (mapcar #'list found)))
 			       '((list :column (256)))))
@@ -1194,20 +1194,20 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		       ((eq result 'copy)
 			(copy-to-clipboard (format nil "~{~A~%~}" found)))))
 		(t
-		 (error "~{~A~^, ~}:~%Œ©‚Â‚©‚è‚Ü‚¹‚ñ" pattern))))))))
+		 (error "~{~A~^, ~}:~%è¦‹ã¤ã‹ã‚Šã¾ã›ã‚“" pattern))))))))
 
 (defun filer-search-name ()
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 231 57
-		    (:caption "ƒtƒ@ƒCƒ‹‚ğ’T‚·‚æ")
+		    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ¢ã™ã‚ˆ")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 7 37 8)
+		     (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 7 37 8)
 		     (:combobox name nil #x50210002 7 19 162 88)
 		     (:button IDOK "OK" #x50010001 174 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 174 24 50 14)))
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 174 24 50 14)))
 		  (list (cons 'name *minibuffer-file-name-history*))
-		  '((name :non-null "ƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		  '((name :non-null "ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
       (let ((name (cdr (assoc 'name data))))
 	(unless (zerop (length name))
@@ -1217,9 +1217,9 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
   (let ((files (filer-get-mark-files)))
     (when (and files
 	       (or (null *filer-query-before-process*)
-		   (yes-or-no-p "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ÌƒVƒ‡[ƒgƒJƒbƒg‚ğƒfƒXƒNƒgƒbƒv‚Éì¬‚µ‚Ü‚·‚©?")))
+		   (yes-or-no-p "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚’ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—ã«ä½œæˆã—ã¾ã™ã‹?")))
       (dolist (file files)
-	(message "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬’†: ~A..." file)
+	(message "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆä¸­: ~A..." file)
 	(create-shortcut-to-desktop file))))
   (filer-clear-all-marks)
   (message "done."))
@@ -1229,11 +1229,11 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 	(files (filer-get-mark-files)))
     (when (and files
 	       (or (null *filer-query-before-process*)
-		   (yes-or-no-p "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ÌƒVƒ‡[ƒgƒJƒbƒg‚ğ~%~A~%‚Éì¬‚µ‚Ü‚·‚©?"
+		   (yes-or-no-p "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã‚’~%~A~%ã«ä½œæˆã—ã¾ã™ã‹?"
 				dest)))
       (filer-subscribe-to-reload dest)
       (dolist (file files)
-	(message "ƒVƒ‡[ƒgƒJƒbƒg‚Ìì¬’†: ~A..." file)
+	(message "ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã®ä½œæˆä¸­: ~A..." file)
 	(create-shortcut file dest)))
     (filer-clear-all-marks)
     (message "done.")))
@@ -1241,15 +1241,15 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 (defun filer-input-file-name ()
   (multiple-value-bind (result data)
       (dialog-box '(dialog 0 0 231 57
-		    (:caption "ƒtƒ@ƒCƒ‹–¼")
+		    (:caption "ãƒ•ã‚¡ã‚¤ãƒ«å")
 		    (:font 9 "MS UI Gothic")
 		    (:control
-		     (:static nil "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 7 37 8)
+		     (:static nil "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 7 37 8)
 		     (:combobox name nil #x50210002 7 19 162 88)
 		     (:button IDOK "OK" #x50010001 174 7 50 14)
-		     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 174 24 50 14)))
+		     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 174 24 50 14)))
 		  (list (cons 'name *minibuffer-file-name-history*))
-		  '((name :non-null "ƒtƒ@ƒCƒ‹–¼‚ğ“ü—Í‚µ‚Ä" :enable (IDOK))))
+		  '((name :non-null "ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å…¥åŠ›ã—ã¦" :enable (IDOK))))
     (when result
       (let ((name (cdr (assoc 'name data))))
 	(unless (zerop (length name))
@@ -1263,8 +1263,8 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     (when (and files
 	       (or (null *filer-query-before-process*)
 		   (if (null (cdr files))
-		       (yes-or-no-p "~A~%‚ğƒ[ƒh‚µ‚Ü‚·‚©?" (car files))
-		     (yes-or-no-p "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ğƒ[ƒh‚µ‚Ü‚·‚©?"))))
+		       (yes-or-no-p "~A~%ã‚’ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã‹?" (car files))
+		     (yes-or-no-p "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™ã‹?"))))
       (long-operation
 	(mapc #'load files)))))
 
@@ -1273,21 +1273,21 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
       (let* ((s (filer-get-sort-order))
 	     (x (logand s 3)))
 	(dialog-box '(dialog 0 0 143 147
-		      (:caption "ƒtƒ@ƒCƒ‹‚Ìƒ\[ƒg")
+		      (:caption "ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚½ãƒ¼ãƒˆ")
 		      (:font 9 "MS UI Gothic")
 		      (:control
-		       (:button nil "ƒ\[ƒg•û–@" #x50000007 7 7 70 78)
-		       (:button name "–¼‘O(&N)" #x50030009 13 21 39 10)
-		       (:button size "ƒTƒCƒY(&S)" #x50000009 13 37 39 10)
-		       (:button date "XV“ú(&D)" #x50000009 13 53 53 10)
-		       (:button ext "Šg’£q(&E)" #x50000009 13 69 45 10)
-		       (:button reverse "~‡‚Åƒ\[ƒg(&R)" #x50030003 7 91 63 10)
-		       (:button icase "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010003 7 104 105 10)
-		       (:button idir "ƒfƒBƒŒƒNƒgƒŠ‚ğ“Á•Êˆµ‚¢‚µ‚È‚¢(&I)" #x50010003 7 117 101 10)
-		       (:button num "”’l‚ğl—¶‚·‚é(&U)" #x50010003 7 130 78 10)
+		       (:button nil "ã‚½ãƒ¼ãƒˆæ–¹æ³•" #x50000007 7 7 70 78)
+		       (:button name "åå‰(&N)" #x50030009 13 21 39 10)
+		       (:button size "ã‚µã‚¤ã‚º(&S)" #x50000009 13 37 39 10)
+		       (:button date "æ›´æ–°æ—¥æ™‚(&D)" #x50000009 13 53 53 10)
+		       (:button ext "æ‹¡å¼µå­(&E)" #x50000009 13 69 45 10)
+		       (:button reverse "é™é †ã§ã‚½ãƒ¼ãƒˆ(&R)" #x50030003 7 91 63 10)
+		       (:button icase "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010003 7 104 105 10)
+		       (:button idir "ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’ç‰¹åˆ¥æ‰±ã„ã—ãªã„(&I)" #x50010003 7 117 101 10)
+		       (:button num "æ•°å€¤ã‚’è€ƒæ…®ã™ã‚‹(&U)" #x50010003 7 130 78 10)
 		       (:button IDOK "OK" #x50010001 86 7 50 14)
-		       (:button both "—¼•û‚Ì‘‹(&B)" #x50010000 86 24 50 14)
-		       (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 86 41 50 14)))
+		       (:button both "ä¸¡æ–¹ã®çª“(&B)" #x50010000 86 24 50 14)
+		       (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 86 41 50 14)))
 		    (list (cons 'name (= x 0))
 			  (cons 'size (= x 1))
 			  (cons 'date (= x 2))
@@ -1315,8 +1315,8 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
   (let ((file1 (filer-fetch-file nil nil))
 	(file2 (filer-fetch-file nil t)))
     (unless (and file1 file2)
-      (error "”äŠr‚·‚éƒtƒ@ƒCƒ‹‚ğw’è‚µ‚Ä"))
-    (msgbox "~A~%~A~%~%~:[‚¿‚á‚¤~;“¯‚¶~]"
+      (error "æ¯”è¼ƒã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æŒ‡å®šã—ã¦"))
+    (msgbox "~A~%~A~%~%~:[ã¡ã‚ƒã†~;åŒã˜~]"
 	    file1 file2 (compare-file file1 file2))))
 
 (defun filer-eject-media ()
@@ -1344,12 +1344,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 			 *filer-send-to-list*)))
       (multiple-value-bind (result data)
 	  (dialog-box '(dialog 0 0 184 107
-			(:caption "‘—‚Á‚¿‚á‚¤‚æ")
+			(:caption "é€ã£ã¡ã‚ƒã†ã‚ˆ")
 			(:font 9 "MS UI Gothic")
 			(:control
 			 (:listbox list nil #x50b10001 2 3 118 103)
-			 (:button IDOK "‘—‚é" #x50030001 128 7 52 14)
-			 (:button IDCANCEL "‘—‚ç‚È‚¢" #x50030000 128 27 52 14)))
+			 (:button IDOK "é€ã‚‹" #x50030001 128 7 52 14)
+			 (:button IDCANCEL "é€ã‚‰ãªã„" #x50030000 128 27 52 14)))
 		      (list (cons 'list (mapcar #'(lambda (x)
 						    (if (consp x)
 							(car x)
@@ -1377,12 +1377,12 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		       *filer-send-to-list*)))
     (multiple-value-bind (result data)
 	(dialog-box '(dialog 0 0 184 107
-		      (:caption "‘—‚Á‚¿‚á‚¤‚æ")
+		      (:caption "é€ã£ã¡ã‚ƒã†ã‚ˆ")
 		      (:font 9 "MS UI Gothic")
 		      (:control
 		       (:listbox list nil #x50b10001 2 3 118 103)
-		       (:button IDOK "‘—‚é" #x50030001 128 7 52 14)
-		       (:button IDCANCEL "‘—‚ç‚È‚¢" #x50030000 128 27 52 14)))
+		       (:button IDOK "é€ã‚‹" #x50030001 128 7 52 14)
+		       (:button IDCANCEL "é€ã‚‰ãªã„" #x50030000 128 27 52 14)))
 		    (list (cons 'list (mapcar #'(lambda (x)
 						  (if (consp x)
 						      (car x)
@@ -1436,19 +1436,19 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 		       (:caption "Grep")
 		       (:font 9 "MS UI Gothic")
 		       (:control
-			(:static nil "ƒpƒ^[ƒ“(&P):" #x50020000 7 10 38 8)
+			(:static nil "ãƒ‘ã‚¿ãƒ¼ãƒ³(&P):" #x50020000 7 10 38 8)
 			(:combobox pat nil #x50210042 51 8 157 96)
-			(:static file-static "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 27 40 8)
+			(:static file-static "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 27 40 8)
 			(:combobox file nil #x50210042 51 25 157 96)
-			(:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 51 44 105 10)
-			(:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 51 57 92 10)
-			(:button regexp "³‹K•\Œ»(&E)" #x50010003 51 70 58 10)
-			(:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 51 83 106 10)
-			(:button subdir "‚Â‚¢‚Å‚ÉƒTƒuƒfƒBƒŒƒNƒgƒŠ‚à(&U)" #x50010003 51 96 95 10)
-			(:button async "”ñ“¯Šú‚Ågrep(&A)" #x50010003 51 109 65 10)
-			(:button name "ƒtƒ@ƒCƒ‹–¼‚¾‚¯o—Í(&O)" #x50010003 51 122 87 10)
-			(:button IDOK "ŒŸõ(&S)" #x50010001 214 7 50 14)
-			(:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 214 24 50 14)))
+			(:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 51 44 105 10)
+			(:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 51 57 92 10)
+			(:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 51 70 58 10)
+			(:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 51 83 106 10)
+			(:button subdir "ã¤ã„ã§ã«ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚(&U)" #x50010003 51 96 95 10)
+			(:button async "éåŒæœŸã§grep(&A)" #x50010003 51 109 65 10)
+			(:button name "ãƒ•ã‚¡ã‚¤ãƒ«åã ã‘å‡ºåŠ›(&O)" #x50010003 51 122 87 10)
+			(:button IDOK "æ¤œç´¢(&S)" #x50010001 214 7 50 14)
+			(:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 214 24 50 14)))
 		     files))))
 
 (defun filer-gresreg ()
@@ -1459,22 +1459,22 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
 			  (:caption "Gresreg")
 			  (:font 9 "MS UI Gothic")
 			  (:control
-			   (:static nil "ŒŸõ(&S):" #x50020000 7 10 32 8)
+			   (:static nil "æ¤œç´¢(&S):" #x50020000 7 10 32 8)
 			   (:combobox pat nil #x50210042 50 8 157 96)
-			   (:static nil "’uŠ·(&R):" #x50020000 7 27 36 8)
+			   (:static nil "ç½®æ›(&R):" #x50020000 7 27 36 8)
 			   (:combobox rep nil #x50210042 50 25 157 96)
-			   (:static file-static "ƒtƒ@ƒCƒ‹–¼(&F):" #x50020000 7 44 41 8)
+			   (:static file-static "ãƒ•ã‚¡ã‚¤ãƒ«å(&F):" #x50020000 7 44 41 8)
 			   (:combobox file nil #x50210042 50 42 157 96)
-			   (:button case-fold "‘å•¶š¬•¶š‚ğ‹æ•Ê‚·‚é(&C)" #x50010006 50 60 113 10)
-			   (:button word "’PŒê’PˆÊ‚ÅŒŸõ‚·‚é(&W)" #x50010003 50 73 100 10)
-			   (:button regexp "³‹K•\Œ»(&E)" #x50010003 50 86 62 10)
-			   (:button escseq "ƒGƒXƒP[ƒvƒV[ƒPƒ“ƒX‚ğ—‰ğ‚µ‚ë(&Y)" #x50010003 50 99 105 10)
-			   (:button subdir "‚Â‚¢‚Å‚ÉƒTƒuƒfƒBƒŒƒNƒgƒŠ‚à(&U)" #x50010003 50 112 103 10)
-			   (:button save "Ÿè‚ÉƒZ[ƒu‚µ‚ë(&V)" #x50010003 50 125 79 10)
-			   (:button query "Šm”F‚ ‚è(&Q)" #x50010001 214 7 50 14)
-			   (:button all "‘S‚Ä’uŠ·(&A)" #x50010000 214 24 50 14)
-			   (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 214 42 50 14)
-			   (:button ref "QÆ(&N)..." #x50010000 214 59 50 14)))
+			   (:button case-fold "å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã™ã‚‹(&C)" #x50010006 50 60 113 10)
+			   (:button word "å˜èªå˜ä½ã§æ¤œç´¢ã™ã‚‹(&W)" #x50010003 50 73 100 10)
+			   (:button regexp "æ­£è¦è¡¨ç¾(&E)" #x50010003 50 86 62 10)
+			   (:button escseq "ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã‚·ãƒ¼ã‚±ãƒ³ã‚¹ã‚’ç†è§£ã—ã‚(&Y)" #x50010003 50 99 105 10)
+			   (:button subdir "ã¤ã„ã§ã«ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚(&U)" #x50010003 50 112 103 10)
+			   (:button save "å‹æ‰‹ã«ã‚»ãƒ¼ãƒ–ã—ã‚(&V)" #x50010003 50 125 79 10)
+			   (:button query "ç¢ºèªã‚ã‚Š(&Q)" #x50010001 214 7 50 14)
+			   (:button all "å…¨ã¦ç½®æ›(&A)" #x50010000 214 24 50 14)
+			   (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 214 42 50 14)
+			   (:button ref "å‚ç…§(&N)..." #x50010000 214 59 50 14)))
 			files))))
 
 (defun filer-byte-compile ()
@@ -1482,8 +1482,8 @@ K:mkdir  L:ƒhƒ‰ƒCƒu  M:ˆÚ“®  N:ƒtƒ@ƒCƒ‹–¼  O:ˆ³k  P:DIR??"
     (when (and files
 	       (or (null *filer-query-before-process*)
 		   (if (null (cdr files))
-		       (yes-or-no-p "~A~%‚ğƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·‚©?" (car files))
-		     (yes-or-no-p "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ğƒRƒ“ƒpƒCƒ‹‚µ‚Ü‚·‚©?"))))
+		       (yes-or-no-p "~A~%ã‚’ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã‹?" (car files))
+		     (yes-or-no-p "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã‚’ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ã¾ã™ã‹?"))))
       (filer-subscribe-to-reload (filer-get-directory))
       (mapc #'(lambda (f)
 		(if (file-directory-p f)
