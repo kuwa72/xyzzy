@@ -6292,6 +6292,28 @@ run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
         }
     }
 
+  // Drain stale mouse events left over from menu interaction.
+  // Without this, the menu click's release/motion events leak into
+  // the editor and corrupt selection state (e.g. moving point to the
+  // menu area coordinates).
+  {
+    MEVENT mev;
+    nodelay (stdscr, TRUE);
+    wint_t wch;
+    while (wget_wch (stdscr, &wch) != ERR)
+      {
+        if (wch == KEY_MOUSE)
+          getmouse (&mev);  // consume and discard
+        else
+          {
+            // Non-mouse key: put it back
+            unget_wch (wch);
+            break;
+          }
+      }
+    nodelay (stdscr, FALSE);
+  }
+
   touchwin (stdscr);
   refresh_screen (1);
   return Qnil;
@@ -6527,6 +6549,21 @@ run_popup_modal (lisp lmenu)
           app.kbdq.putc (LCHAR_MENU | id);
         }
     }
+
+  // Drain stale mouse events from menu interaction
+  {
+    MEVENT mev;
+    nodelay (stdscr, TRUE);
+    wint_t wch;
+    while (wget_wch (stdscr, &wch) != ERR)
+      {
+        if (wch == KEY_MOUSE)
+          getmouse (&mev);
+        else
+          { unget_wch (wch); break; }
+      }
+    nodelay (stdscr, FALSE);
+  }
 
   touchwin (stdscr);
   refresh_screen (1);

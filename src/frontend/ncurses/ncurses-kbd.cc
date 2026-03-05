@@ -23,7 +23,8 @@ ncurses_mouse_init ()
 {
   mousemask (ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   // Enable SGR (1006) mouse mode for coordinates > 223
-  printf ("\033[?1006h");
+  // Enable button-event tracking (1002) for drag motion events
+  printf ("\033[?1002h\033[?1006h");
   fflush (stdout);
   mouseinterval (0);  // no click-resolution delay (we handle it ourselves)
 }

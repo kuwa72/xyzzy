@@ -51,9 +51,18 @@ void create_default_buffers ();
 lisp Fcommand_execute (lisp command, lisp hook);
 lisp Fkeymapp (lisp);
 
+static void
+ncurses_cleanup ()
+{
+  // Disable button-event tracking and SGR mouse mode before endwin
+  printf ("\033[?1002l\033[?1006l");
+  fflush (stdout);
+  endwin ();
+}
+
 static void crash_handler (int sig)
 {
-  endwin ();
+  ncurses_cleanup ();
   fprintf (stderr, "\n=== Signal %d ===\n", sig);
   _exit (1);
 }
@@ -938,7 +947,7 @@ int main (int argc, char **argv)
           slog ("self-test mode");
           self_test_minibuffer ();
           if (sfd >= 0) close (sfd);
-          endwin ();
+          ncurses_cleanup ();
           return 0;
         }
 
@@ -969,11 +978,11 @@ int main (int argc, char **argv)
       slog ("command_loop exited");
       if (sfd >= 0) close (sfd);
 
-      endwin ();
+      ncurses_cleanup ();
     }
   catch (nonlocal_jump &)
     {
-      endwin ();
+      ncurses_cleanup ();
       fprintf (stderr, "Fatal error during initialization\n");
       return 1;
     }
