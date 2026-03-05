@@ -827,6 +827,10 @@ int main (int argc, char **argv)
       start_color ();
       use_default_colors ();
 
+      // Mouse support
+      extern void ncurses_mouse_init ();
+      ncurses_mouse_init ();
+
       // Create editor windows and buffers
       create_ncurses_windows ();
       create_default_buffers ();

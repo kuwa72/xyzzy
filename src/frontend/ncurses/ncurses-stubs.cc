@@ -1392,6 +1392,7 @@ int assert_failed (const char *file, int line)
 #include <ncurses.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 // ---- popup_string state ----
@@ -5658,8 +5659,43 @@ close_submenus_above (submenu_level *stack, int &depth, int keep_depth)
       }
 }
 
+// Determine which menu item index was clicked at screen (row, col)
+// for a submenu_level. Returns -1 if outside, -2 if on border/separator.
+static int
+menu_item_at (submenu_level &lvl, int row, int col)
+{
+  if (!lvl.win || lvl.count == 0)
+    return -1;
+  // Box: top-left at (lvl.y, lvl.x), width=lvl.width, height=lvl.count+2
+  if (col < lvl.x || col >= lvl.x + lvl.width)
+    return -1;
+  if (row <= lvl.y || row >= lvl.y + lvl.count + 1)
+    return -1;
+  int idx = row - lvl.y - 1;  // item index (0-based)
+  if (idx < 0 || idx >= lvl.count)
+    return -1;
+  if (lvl.items[idx].is_separator)
+    return -2;
+  return idx;
+}
+
+// Determine which bar item index was clicked at screen row 0
+static int
+bar_item_at (menu_entry *bar_items, int bar_count, int col)
+{
+  int x = 0;
+  for (int i = 0; i < bar_count; i++)
+    {
+      int w = bar_items[i].display_width + 2;
+      if (col >= x && col < x + w)
+        return i;
+      x += w;
+    }
+  return -1;
+}
+
 static lisp
-run_menu_modal (lisp menu_root)
+run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
 {
   // Collect top-level bar items
   menu_entry bar_items[64];
@@ -5667,11 +5703,12 @@ run_menu_modal (lisp menu_root)
   if (bar_count == 0)
     return Qnil;
 
-  int bar_sel = 0;
+  int bar_sel = (initial_bar_sel >= 0 && initial_bar_sel < bar_count)
+                ? initial_bar_sel : 0;
   lisp result = Qnil;
-  int drop_open = 0;
+  int drop_open = (initial_bar_sel >= 0) ? 1 : 0;
   int need_redraw_bar = 1;
-  int need_redraw_drop = 0;
+  int need_redraw_drop = drop_open ? 1 : 0;
   int running = 1;
 
   // Submenu stack: heap-allocated to avoid ~1.2MB stack usage
@@ -5733,6 +5770,7 @@ run_menu_modal (lisp menu_root)
         }
 
       int ch = getch ();
+      displog ("menu_modal: ch=%d (0x%x)\n", ch, ch);
       submenu_level &cur = stack[depth];
 
       switch (ch)
@@ -5827,9 +5865,7 @@ run_menu_modal (lisp menu_root)
                 }
               else
                 {
-                  lisp command = xwin32_menu_command (cur.items[cur.sel].item);
-                  if (command != Qnil)
-                    result = command;
+                  result = cur.items[cur.sel].item;
                   running = 0;
                 }
             }
@@ -5840,6 +5876,88 @@ run_menu_modal (lisp menu_root)
         case 27: // ESC
         case 7:  // C-g
           running = 0;
+          break;
+
+        case KEY_MOUSE:
+          {
+            MEVENT mev;
+            if (getmouse (&mev) == OK)
+              {
+                int mrow = mev.y, mcol = mev.x;
+                displog ("menu_mouse: row=%d col=%d bstate=0x%lx\n",
+                         mrow, mcol, (unsigned long)mev.bstate);
+                int clicked = (mev.bstate & (BUTTON1_PRESSED | BUTTON1_CLICKED));
+                if (!clicked)
+                  {
+                    // Ignore release events silently
+                    if (mev.bstate & (BUTTON1_RELEASED | BUTTON2_RELEASED
+                                      | BUTTON3_RELEASED | REPORT_MOUSE_POSITION))
+                      {
+                        displog ("menu_mouse: ignored release/motion\n");
+                        break;
+                      }
+                    // Non-left-button click → close menu
+                    displog ("menu_mouse: non-left → close\n");
+                    running = 0;
+                    break;
+                  }
+
+                // Check bar items (row 0)
+                if (mrow == 0)
+                  {
+                    int bi = bar_item_at (bar_items, bar_count, mcol);
+                    if (bi >= 0)
+                      {
+                        bar_sel = bi;
+                        drop_open = 1;
+                        need_redraw_bar = 1;
+                        need_redraw_drop = 1;
+                      }
+                    break;
+                  }
+
+                // Check dropdown items from deepest to shallowest
+                int handled = 0;
+                for (int d = depth; d >= 0; d--)
+                  {
+                    int idx = menu_item_at (stack[d], mrow, mcol);
+                    if (idx >= 0)
+                      {
+                        // Close deeper levels
+                        if (d < depth)
+                          close_submenus_above (stack, depth, d);
+
+                        stack[d].sel = idx;
+                        redraw_level (stack[d]);
+
+                        if (stack[d].items[idx].is_submenu
+                            && !(stack[d].items[idx].flags & MF_GRAYED))
+                          {
+                            if (open_submenu (stack, d))
+                              depth = d + 1;
+                          }
+                        else if (!(stack[d].items[idx].flags & MF_GRAYED))
+                          {
+                            result = stack[d].items[idx].item;
+                            running = 0;
+                          }
+                        handled = 1;
+                        break;
+                      }
+                    else if (idx == -2)
+                      {
+                        displog ("menu_mouse: separator click\n");
+                        handled = 1; // clicked separator, ignore
+                        break;
+                      }
+                  }
+                if (!handled)
+                  {
+                    displog ("menu_mouse: outside → close\n");
+                    running = 0;  // clicked outside all menus → close
+                  }
+              }
+          }
           break;
 
         default:
@@ -5866,9 +5984,7 @@ run_menu_modal (lisp menu_root)
                           }
                         else
                           {
-                            lisp command = xwin32_menu_command (cur.items[i].item);
-                            if (command != Qnil)
-                              result = command;
+                            result = cur.items[i].item;
                             running = 0;
                           }
                         break;
@@ -5901,10 +6017,14 @@ run_menu_modal (lisp menu_root)
   touchwin (stdscr);
   refresh_screen (1);
 
+  // Post menu command to keyboard queue (like Win32 WM_COMMAND handler).
+  // This lets dispatch() handle it via LCHAR_MENU path, which doesn't
+  // process interactive specs — avoiding issues with (interactive "p").
   if (result != Qnil)
     {
-      xsymbol_value (Vthis_command) = result;
-      return Fcommand_execute (result, 0);
+      int id = xwin32_menu_id (result);
+      if (id >= MENU_ID_RANGE_MIN && id < MENU_ID_RANGE_MAX)
+        app.kbdq.putc (LCHAR_MENU | id);
     }
   return Qnil;
 }
@@ -5920,7 +6040,10 @@ Fcall_menu (lisp)
   if (win32_menu_p (selected_buffer ()->lmenu))
     lmenu = selected_buffer ()->lmenu;
 
-  dynamic_bind dynb (Vlast_active_menu, lmenu);
+  // Set last_active_menu persistently (not dynamic_bind) so that
+  // lookup_menu_command can find the command when dispatch() processes
+  // the LCHAR_MENU posted to kbdq after we return.
+  xsymbol_value (Vlast_active_menu) = lmenu;
   return run_menu_modal (lmenu);
 }
 
@@ -6031,9 +6154,7 @@ run_popup_modal (lisp lmenu)
                 }
               else
                 {
-                  lisp command = xwin32_menu_command (cur.items[cur.sel].item);
-                  if (command != Qnil)
-                    result = command;
+                  result = cur.items[cur.sel].item;
                   running = 0;
                 }
             }
@@ -6044,6 +6165,53 @@ run_popup_modal (lisp lmenu)
         case 27: // ESC
         case 7:  // C-g
           running = 0;
+          break;
+
+        case KEY_MOUSE:
+          {
+            MEVENT mev;
+            if (getmouse (&mev) == OK
+                && (mev.bstate & (BUTTON1_PRESSED | BUTTON1_CLICKED)))
+              {
+                int handled = 0;
+                for (int d = depth; d >= 0; d--)
+                  {
+                    int idx = menu_item_at (stack[d], mev.y, mev.x);
+                    if (idx >= 0)
+                      {
+                        if (d < depth)
+                          close_submenus_above (stack, depth, d);
+
+                        stack[d].sel = idx;
+                        redraw_level (stack[d]);
+
+                        if (stack[d].items[idx].is_submenu
+                            && !(stack[d].items[idx].flags & MF_GRAYED))
+                          {
+                            if (open_submenu (stack, d))
+                              depth = d + 1;
+                          }
+                        else if (!(stack[d].items[idx].flags & MF_GRAYED))
+                          {
+                            result = stack[d].items[idx].item;
+                            running = 0;
+                          }
+                        handled = 1;
+                        break;
+                      }
+                    else if (idx == -2)
+                      {
+                        handled = 1;
+                        break;
+                      }
+                  }
+                if (!handled)
+                  running = 0;
+              }
+            else if (!(mev.bstate & (BUTTON1_RELEASED | BUTTON2_RELEASED
+                                     | BUTTON3_RELEASED | REPORT_MOUSE_POSITION)))
+              running = 0;  // non-left click → close (but ignore releases)
+          }
           break;
 
         default:
@@ -6065,9 +6233,7 @@ run_popup_modal (lisp lmenu)
                       }
                     else
                       {
-                        lisp command = xwin32_menu_command (cur.items[i].item);
-                        if (command != Qnil)
-                          result = command;
+                        result = cur.items[i].item;
                         running = 0;
                       }
                     break;
@@ -6087,8 +6253,9 @@ run_popup_modal (lisp lmenu)
 
   if (result != Qnil)
     {
-      xsymbol_value (Vthis_command) = result;
-      return Fcommand_execute (result, 0);
+      int id = xwin32_menu_id (result);
+      if (id >= MENU_ID_RANGE_MIN && id < MENU_ID_RANGE_MAX)
+        app.kbdq.putc (LCHAR_MENU | id);
     }
   return Qnil;
 }
@@ -6097,8 +6264,206 @@ lisp
 Ftrack_popup_menu (lisp lmenu, lisp)
 {
   check_popup_menu (lmenu);
-  dynamic_bind dynb (Vtracking_menu, lmenu);
+  xsymbol_value (Vtracking_menu) = lmenu;
   return run_popup_modal (lmenu);
+}
+
+// ============================================================
+// Mouse support
+// ============================================================
+
+// Find which xyzzy Window contains screen coordinate (row, col).
+// Returns NULL if no editing window matches (e.g. menu bar row).
+static Window *
+ncurses_find_window_at (int row, int col)
+{
+  Window *mini = Window::minibuffer_window ();
+  // Check minibuffer first
+  if (mini && mini->w_bufp
+      && row >= mini->w_rect.top && row < mini->w_rect.bottom
+      && col >= mini->w_rect.left && col < mini->w_rect.right)
+    return mini;
+  // Iterate editing windows
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      if (!wp->w_bufp)
+        continue;
+      if (row >= wp->w_rect.top && row < wp->w_rect.bottom
+          && col >= wp->w_rect.left && col < wp->w_rect.right)
+        return wp;
+    }
+  return NULL;
+}
+
+// Convert screen (row, col) to text (line, column) within a window.
+// Sets *line to virtual line number, *column to column offset.
+// Returns 0 if inside text area, non-zero if out of bounds.
+static int
+ncurses_screen_to_text (Window *wp, int row, int col, int *line, int *column)
+{
+  int text_top = wp->w_rect.top;
+  int text_left = wp->w_rect.left;
+  int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;  // -1 for modeline
+  int has_separator = (wp->w_rect.right < (int)app.active_frame.size.cx) ? 1 : 0;
+  int text_cols = (wp->w_rect.right - wp->w_rect.left) - has_separator;
+
+  int linenum_offset = 0;
+  if (wp->flags () & Window::WF_LINE_NUMBER)
+    linenum_offset = Window::LINENUM_COLUMNS + 1;
+
+  int y = row - text_top;
+  int x = col - text_left - linenum_offset;
+
+  int oob = 0;
+  if (y < 0) { oob = 1; y = 0; }
+  else if (y >= text_rows) { oob = 1; y = text_rows - 1; }
+  if (x < 0) { oob = 1; x = 0; }
+  else if (x >= text_cols - linenum_offset) { oob = 1; x = text_cols - linenum_offset - 1; }
+
+  *line = wp->w_last_top_linenum + y;
+  *column = wp->w_top_column + x;
+  return oob;
+}
+
+// Win32 mouse.cc compatibility: rowcol_from_point
+// In ncurses, coordinates are already cell-based, so this is straightforward.
+int
+rowcol_from_point (Window *wp, int *xx, int *yy)
+{
+  return ncurses_screen_to_text (wp, *yy, *xx, yy, xx);
+}
+
+// Click tracking for double/triple click detection
+static struct {
+  int row, col;
+  int click_count;
+  struct timespec last_time;
+  int button_down;  // 0=none, 1=left, 2=middle, 3=right
+} g_click_state = {-1, -1, 0, {0, 0}, 0};
+
+static int
+detect_click_count (int row, int col)
+{
+  struct timespec now;
+  clock_gettime (CLOCK_MONOTONIC, &now);
+  long elapsed_ms = (now.tv_sec - g_click_state.last_time.tv_sec) * 1000
+                  + (now.tv_nsec - g_click_state.last_time.tv_nsec) / 1000000;
+  if (row == g_click_state.row && col == g_click_state.col && elapsed_ms < 500)
+    g_click_state.click_count++;
+  else
+    g_click_state.click_count = 1;
+  g_click_state.row = row;
+  g_click_state.col = col;
+  g_click_state.last_time = now;
+  return g_click_state.click_count;
+}
+
+// Open menu bar directly at the clicked column position.
+// Called from mouse dispatch when row 0 is clicked.
+static void
+ncurses_menu_bar_click (int col)
+{
+  lisp lmenu = xsymbol_value (Vdefault_menu);
+  if (!win32_menu_p (lmenu))
+    return;
+  if (win32_menu_p (selected_buffer ()->lmenu))
+    lmenu = selected_buffer ()->lmenu;
+
+  // Find which bar item was clicked by computing positions
+  menu_entry bar_items[64];
+  int bar_count = collect_menu_items (lmenu, bar_items, 64, 1);
+  int bi = bar_item_at (bar_items, bar_count, col);
+  if (bi < 0)
+    bi = 0;
+
+  xsymbol_value (Vlast_active_menu) = lmenu;
+  run_menu_modal (lmenu, bi);
+}
+
+// Dispatch ncurses MEVENT to xyzzy mouse event.
+// Called from ncurses-kbd.cc when KEY_MOUSE is received.
+// Returns lChar to enqueue, or lChar_EOF if unhandled.
+lChar
+ncurses_mouse_dispatch (MEVENT *mev)
+{
+  int row = mev->y;
+  int col = mev->x;
+  mmask_t state = mev->bstate;
+
+  // Determine button and operation
+  Char ccf;
+  if (state & (BUTTON1_PRESSED | BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED))
+    ccf = CCF_LBTNDOWN;
+  else if (state & BUTTON1_RELEASED)
+    ccf = CCF_LBTNUP;
+  else if (state & (BUTTON3_PRESSED | BUTTON3_CLICKED | BUTTON3_DOUBLE_CLICKED))
+    ccf = CCF_RBTNDOWN;
+  else if (state & BUTTON3_RELEASED)
+    ccf = CCF_RBTNUP;
+  else if (state & (BUTTON2_PRESSED | BUTTON2_CLICKED | BUTTON2_DOUBLE_CLICKED))
+    ccf = CCF_MBTNDOWN;
+  else if (state & BUTTON2_RELEASED)
+    ccf = CCF_MBTNUP;
+  else if (state & REPORT_MOUSE_POSITION)
+    {
+      // Motion: convert to button-specific move based on tracked state
+      switch (g_click_state.button_down)
+        {
+        case 1: ccf = CCF_LBTNMOVE; break;
+        case 2: ccf = CCF_MBTNMOVE; break;
+        case 3: ccf = CCF_RBTNMOVE; break;
+        default: ccf = CCF_MOUSEMOVE; break;
+        }
+    }
+  else
+    return lChar_EOF;
+
+  // Track button state for motion events
+  if (state & (BUTTON1_PRESSED | BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED))
+    g_click_state.button_down = 1;
+  else if (state & (BUTTON2_PRESSED | BUTTON2_CLICKED | BUTTON2_DOUBLE_CLICKED))
+    g_click_state.button_down = 2;
+  else if (state & (BUTTON3_PRESSED | BUTTON3_CLICKED | BUTTON3_DOUBLE_CLICKED))
+    g_click_state.button_down = 3;
+  else if (state & (BUTTON1_RELEASED | BUTTON2_RELEASED | BUTTON3_RELEASED))
+    g_click_state.button_down = 0;
+
+  // Add modifier keys
+  if (state & BUTTON_SHIFT)
+    ccf |= CCF_SHIFT_BIT;
+  if (state & BUTTON_CTRL)
+    ccf |= CCF_CTRL_BIT;
+  if (state & BUTTON_ALT)
+    ccf = function_to_meta_function (ccf);
+
+  // Click on menu bar row → open menu at clicked item directly
+  if (row == 0 && (ccf == CCF_LBTNDOWN || (ccf & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT)) == CCF_LBTNDOWN))
+    {
+      ncurses_menu_bar_click (col);
+      return lChar_EOF;
+    }
+
+  // Find which window was clicked
+  Window *wp = ncurses_find_window_at (row, col);
+  if (!wp)
+    return lChar_EOF;
+
+  // Convert to text coordinates
+  int line, column;
+  ncurses_screen_to_text (wp, row, col, &line, &column);
+
+  // Detect click count for double/triple click (on button down only)
+  int click_count = 1;
+  if (ccf == CCF_LBTNDOWN || ccf == CCF_RBTNDOWN || ccf == CCF_MBTNDOWN)
+    click_count = detect_click_count (row, col);
+
+  // Set xyzzy mouse variables (same as win32/mouse.cc dispatch)
+  xsymbol_value (Vlast_mouse_window) = wp->lwp;
+  xsymbol_value (Vlast_mouse_line) = make_fixnum (line);
+  xsymbol_value (Vlast_mouse_column) = make_fixnum (column);
+  xsymbol_value (Vlast_mouse_click_count) = make_fixnum (click_count);
+
+  return (lChar)ccf | LCHAR_MOUSE;
 }
 
 // Dialog

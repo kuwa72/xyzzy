@@ -14,6 +14,31 @@ void refresh_screen (int);
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
 
+// Mouse support: dispatch ncurses mouse event → xyzzy lChar
+// Returns lChar (CCF_LBTNxxx | LCHAR_MOUSE etc), or lChar_EOF if unhandled.
+lChar ncurses_mouse_dispatch (MEVENT *mev);
+
+void
+ncurses_mouse_init ()
+{
+  mousemask (ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+  // Enable SGR (1006) mouse mode for coordinates > 223
+  printf ("\033[?1006h");
+  fflush (stdout);
+  mouseinterval (0);  // no click-resolution delay (we handle it ourselves)
+}
+
+// Helper: process a KEY_MOUSE event from wget_wch.
+// Returns lChar for the keyboard queue, or lChar_EOF if not handled.
+static lChar
+handle_mouse_event ()
+{
+  MEVENT mev;
+  if (getmouse (&mev) != OK)
+    return lChar_EOF;
+  return ncurses_mouse_dispatch (&mev);
+}
+
 // Key debug log (enabled by XYZZY_KEYLOG env var)
 static int g_keylog_fd = -1;
 static int g_keylog_init = 0;
@@ -268,6 +293,17 @@ kbd_queue::fetch (int wait, int)
                   continue;
                 }
 
+              if (ret == KEY_CODE_YES && wch == KEY_MOUSE)
+                {
+                  lChar mc = handle_mouse_event ();
+                  if (mc != lChar_EOF)
+                    {
+                      fetchlog ("fetch: mouse → 0x%lx\n", (unsigned long)mc);
+                      return mc;
+                    }
+                  continue;
+                }
+
               break;
             }
         }
@@ -352,6 +388,11 @@ kbd_queue::peek (int)
       g_need_resize = 1;
       return lChar_EOF;
     }
+  if (ret == KEY_CODE_YES && wch == KEY_MOUSE)
+    {
+      lChar mc = handle_mouse_event ();
+      return mc;  // may be lChar_EOF if unhandled
+    }
 
   return ncurses_key_to_lchar (ret, wch);
 }
@@ -370,6 +411,16 @@ kbd_queue::listen ()
   if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
     {
       g_need_resize = 1;
+      return 0;
+    }
+  if (ret == KEY_CODE_YES && wch == KEY_MOUSE)
+    {
+      lChar mc = handle_mouse_event ();
+      if (mc != lChar_EOF)
+        {
+          pending = mc;
+          return 1;
+        }
       return 0;
     }
   lChar c = ncurses_key_to_lchar (ret, wch);
