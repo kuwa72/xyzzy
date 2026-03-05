@@ -6789,14 +6789,22 @@ separator_drag (int drag_type, Window *wp1, Window *wp2, int start_row, int star
         continue;
 
       // Check minimum size constraints
+      Window *mini = Window::minibuffer_window ();
       if (drag_type == 1)
         {
           int new_h1 = (wp1->w_rect.bottom - wp1->w_rect.top) + delta;
           int new_h2 = (wp2->w_rect.bottom - wp2->w_rect.top) - delta;
           if (new_h1 < min_size || new_h2 < min_size)
             continue;
-          wp1->w_rect.bottom += delta;
-          wp2->w_rect.top += delta;
+          // Move the horizontal boundary for all windows sharing it
+          int boundary = wp1->w_rect.bottom;
+          for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+            {
+              if (wp->w_rect.bottom == boundary)
+                wp->w_rect.bottom += delta;
+              else if (wp->w_rect.top == boundary)
+                wp->w_rect.top += delta;
+            }
         }
       else
         {
@@ -6804,13 +6812,20 @@ separator_drag (int drag_type, Window *wp1, Window *wp2, int start_row, int star
           int new_w2 = (wp2->w_rect.right - wp2->w_rect.left) - delta;
           if (new_w1 < min_size || new_w2 < min_size)
             continue;
-          wp1->w_rect.right += delta;
-          wp2->w_rect.left += delta;
+          // Move the vertical boundary for all windows sharing it
+          int boundary = wp1->w_rect.right;
+          for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+            {
+              if (wp->w_rect.right == boundary)
+                wp->w_rect.right += delta;
+              else if (wp->w_rect.left == boundary)
+                wp->w_rect.left += delta;
+            }
         }
 
-      // Recompute text area sizes
+      // Recompute text area sizes for all windows
       int cols = (int)app.active_frame.size.cx;
-      for (Window *wp : {wp1, wp2})
+      for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
         {
           int win_cols = wp->w_rect.right - wp->w_rect.left;
           if (wp->w_rect.right < cols)
