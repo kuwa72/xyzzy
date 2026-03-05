@@ -10,6 +10,32 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ============================================================
+# Install layout: "unix" (FHS) or "flat" (Windows-style)
+# ============================================================
+if(NOT INSTALL_LAYOUT)
+    if(WIN32)
+        set(INSTALL_LAYOUT "flat")
+    else()
+        set(INSTALL_LAYOUT "unix")
+    endif()
+endif()
+set(INSTALL_LAYOUT "${INSTALL_LAYOUT}" CACHE STRING "Install layout: unix (FHS) or flat (Windows-style)")
+
+if(INSTALL_LAYOUT STREQUAL "unix")
+    set(XYZZY_BIN_DIR "bin")
+    set(XYZZY_DATA_DIR "share/xyzzy")
+    set(XYZZY_DOC_DIR "share/doc/xyzzy")
+    set(XYZZY_ETC_DIR "share/xyzzy/etc")
+    set(XYZZY_LISP_DIR "share/xyzzy/lisp")
+else()
+    set(XYZZY_BIN_DIR ".")
+    set(XYZZY_DATA_DIR ".")
+    set(XYZZY_DOC_DIR "docs")
+    set(XYZZY_ETC_DIR "etc")
+    set(XYZZY_LISP_DIR "lisp")
+endif()
+
+# ============================================================
 # Version description from git
 # ============================================================
 find_package(Git QUIET)
@@ -656,15 +682,22 @@ if(NOT WIN32)
             ${NCURSESW_LIBRARY}
             pthread
         )
-        install(TARGETS xyzzy-ncurses RUNTIME DESTINATION bin)
-        install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp
+        # Embed data directory path for runtime file lookup
+        if(INSTALL_LAYOUT STREQUAL "unix")
+            target_compile_definitions(xyzzy-ncurses PRIVATE
+                "XYZZY_DATA_DIR=\"${CMAKE_INSTALL_PREFIX}/${XYZZY_DATA_DIR}\"")
+        endif()
+        # Install as "xyzzy" on Unix (single binary with --batch)
+        set_target_properties(xyzzy-ncurses PROPERTIES OUTPUT_NAME xyzzy)
+        install(TARGETS xyzzy-ncurses RUNTIME DESTINATION ${XYZZY_BIN_DIR})
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION ${XYZZY_LISP_DIR}
             FILES_MATCHING PATTERN "*.l" PATTERN "*.lc"
             PATTERN "wip" EXCLUDE)   # Win32-specific DLL wrappers
-        install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION etc
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION ${XYZZY_ETC_DIR}
             PATTERN "*.bmp" EXCLUDE) # Win32 toolbar bitmaps
-        install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION docs)
-        install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION .)
-        install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
+        install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION ${XYZZY_DOC_DIR})
+        install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION ${XYZZY_DOC_DIR} OPTIONAL)
     else()
         message(STATUS "ncursesw not found - skipping xyzzy-ncurses target")
     endif()
@@ -772,14 +805,14 @@ add_test(
 )
 
 # Install (Win32)
-install(TARGETS xyzzy xyzzycli xyzzyenv browser treeview RUNTIME DESTINATION .)
-install(TARGETS tail-f RUNTIME DESTINATION etc)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION lisp FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION etc)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION docs)
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION reference OPTIONAL)
-install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION .)
-install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION . OPTIONAL)
+install(TARGETS xyzzy xyzzycli xyzzyenv browser treeview RUNTIME DESTINATION ${XYZZY_BIN_DIR})
+install(TARGETS tail-f RUNTIME DESTINATION ${XYZZY_ETC_DIR})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION ${XYZZY_LISP_DIR} FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION ${XYZZY_ETC_DIR})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION ${XYZZY_DOC_DIR}/reference OPTIONAL)
+install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION ${XYZZY_DOC_DIR})
+install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION ${XYZZY_DOC_DIR} OPTIONAL)
 
 endif() # WIN32
 

@@ -74,14 +74,37 @@ static void sigwinch_handler (int)
   g_need_resize = 1;
 }
 
+// Helper: set module_dir if path/lisp/ exists
+static int
+try_module_dir (const char *dir)
+{
+  char path[PATH_MAX];
+  snprintf (path, sizeof (path), "%slisp/", dir);
+  struct stat st;
+  if (stat (path, &st) == 0 && S_ISDIR (st.st_mode))
+    {
+      xsymbol_value (Qmodule_dir) = make_path (dir);
+      return 1;
+    }
+  return 0;
+}
+
 // POSIX version of init_module_dir
+// Search order:
+//   1. XYZZYHOME env var (development override)
+//   2. Compiled-in XYZZY_DATA_DIR (cmake install prefix, unix layout)
+//   3. ../share/xyzzy/ relative to exe (FHS relative fallback)
+//   4. exe directory (flat layout / dev build)
+//   5. current directory (last resort)
 static void
 init_module_dir ()
 {
+  char path[PATH_MAX];
+
+  // 1. XYZZYHOME environment variable
   char *xyzzyhome = getenv ("XYZZYHOME");
   if (xyzzyhome && *xyzzyhome)
     {
-      char path[PATH_MAX];
       int l = strlen (xyzzyhome);
       if (l > 0 && l < PATH_MAX - 2)
         {
@@ -91,13 +114,21 @@ init_module_dir ()
               path[l] = '/';
               path[l + 1] = 0;
             }
-          xsymbol_value (Qmodule_dir) = make_path (path);
-          return;
+          if (try_module_dir (path))
+            return;
         }
     }
 
-  // Fallback: use /proc/self/exe directory
-  char path[PATH_MAX];
+#ifdef XYZZY_DATA_DIR
+  // 2. Compiled-in install prefix data directory
+  {
+    snprintf (path, sizeof (path), "%s/", XYZZY_DATA_DIR);
+    if (try_module_dir (path))
+      return;
+  }
+#endif
+
+  // 3-4. Relative to /proc/self/exe
   ssize_t len = readlink ("/proc/self/exe", path, sizeof (path) - 1);
   if (len > 0)
     {
@@ -105,13 +136,31 @@ init_module_dir ()
       char *slash = strrchr (path, '/');
       if (slash)
         {
+          // 3. ../share/xyzzy/ (FHS: exe in bin/, data in share/xyzzy/)
+          char rel[PATH_MAX];
+          *slash = 0;  // remove exe name
+          snprintf (rel, sizeof (rel), "%s/../share/xyzzy/", path);
+          char resolved[PATH_MAX];
+          if (realpath (rel, resolved))
+            {
+              int rl = strlen (resolved);
+              if (rl > 0 && resolved[rl - 1] != '/')
+                {
+                  resolved[rl] = '/';
+                  resolved[rl + 1] = 0;
+                }
+              if (try_module_dir (resolved))
+                return;
+            }
+
+          // 4. Exe directory (flat layout)
           slash[1] = 0;
-          xsymbol_value (Qmodule_dir) = make_path (path);
-          return;
+          if (try_module_dir (path))
+            return;
         }
     }
 
-  // Last resort: current directory
+  // 5. Last resort: current directory
   if (getcwd (path, sizeof (path)))
     {
       int l = strlen (path);
