@@ -922,6 +922,86 @@ Fdialog_box (lisp dialog, lisp init, lisp handlers)
                 }
               break;
 
+            case KEY_MOUSE:
+              {
+                MEVENT mev;
+                if (getmouse (&mev) == OK
+                    && (mev.bstate & (BUTTON1_PRESSED | BUTTON1_CLICKED)))
+                  {
+                    // Convert screen coords to window-relative
+                    int my = mev.y - win_row;
+                    int mx = mev.x - win_col;
+
+                    // Find which control was clicked
+                    int clicked_ctl = -1;
+                    for (int i = 0; i < nctl; i++)
+                      {
+                        NcCtl *c = &ctls[i];
+                        if (!c->visible) continue;
+                        int cr = c->row + content_off;
+                        int cc = c->col + 1;
+                        int cw = c->width;
+                        if (is_push_button (c))
+                          cw = text_display_width (c->text) + 2;
+                        if (my == cr && mx >= cc && mx < cc + cw)
+                          { clicked_ctl = i; break; }
+                      }
+
+                    if (clicked_ctl >= 0 && is_focusable (&ctls[clicked_ctl]))
+                      {
+                        NcCtl *c = &ctls[clicked_ctl];
+                        focus = clicked_ctl;
+
+                        if (is_push_button (c))
+                          {
+                            if (c->symid == Qidcancel)
+                              { done = 1; break; }
+                            if (collect_results (ctls, nctl, c, &result_data))
+                              { retval = c->symid; done = 1; }
+                          }
+                        else if (is_checkbox (c))
+                          {
+                            int b = c->style & 0xf;
+                            if (b == BTN_AUTO3STATE || b == BTN_3STATE)
+                              c->checked = (c->checked + 1) % 3;
+                            else
+                              c->checked = !c->checked;
+                            apply_enable (ctls, nctl, c, c->checked == 1);
+                          }
+                        else if (is_editable (c))
+                          {
+                            // Position cursor at click point
+                            int field_start = c->col + 2; // after '[' border
+                            int click_col = mx - field_start;
+                            if (click_col < 0) click_col = 0;
+                            // Map display column to character position
+                            int pos = 0, dcol = 0;
+                            for (pos = 0; pos < c->elen; pos++)
+                              {
+                                Char ch = c->ebuf[pos];
+                                int cw2 = 1;
+                                if (ch >= 0x80)
+                                  {
+                                    ucs2_t wc = i2w (ch);
+                                    cw2 = wcwidth ((wchar_t)wc);
+                                    if (cw2 <= 0) cw2 = 1;
+                                  }
+                                if (dcol + cw2 > click_col) break;
+                                dcol += cw2;
+                              }
+                            c->epos = pos;
+                          }
+                        else if (c->wclass == Klistbox)
+                          {
+                            // Cycle through items on click
+                            if (c->nitem > 0)
+                              c->isel = (c->isel + 1) % c->nitem;
+                          }
+                      }
+                  }
+              }
+              break;
+
             case KEY_RESIZE:
               g_need_resize = 1;
               done = 1;
