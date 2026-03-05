@@ -94,6 +94,16 @@ map_ncurses_key (int key)
     case KEY_F(10):     return CCF_F10;
     case KEY_F(11):     return CCF_F11;
     case KEY_F(12):     return CCF_F12;
+    // Shift + arrow keys
+    case KEY_SLEFT:     return CCF_LEFT  | CCF_SHIFT_BIT;
+    case KEY_SRIGHT:    return CCF_RIGHT | CCF_SHIFT_BIT;
+    case KEY_SR:        return CCF_UP    | CCF_SHIFT_BIT;  // shift-up (scroll reverse)
+    case KEY_SF:        return CCF_DOWN  | CCF_SHIFT_BIT;  // shift-down (scroll forward)
+    // Shift + other nav keys
+    case KEY_SHOME:     return CCF_HOME  | CCF_SHIFT_BIT;
+    case KEY_SEND:      return CCF_END   | CCF_SHIFT_BIT;
+    case KEY_SPREVIOUS: return CCF_PRIOR | CCF_SHIFT_BIT;
+    case KEY_SNEXT:     return CCF_NEXT  | CCF_SHIFT_BIT;
     default:            return lChar_EOF;
     }
 }
@@ -309,6 +319,13 @@ kbd_queue::fetch (int wait, int)
     }
 
   lChar result = ncurses_key_to_lchar (ret, wch);
+  if (result == lChar_EOF)
+    {
+      fetchlog ("fetch: unmapped key ret=%d wch=%d (0x%x), ignoring\n",
+                ret, (int)wch, (int)wch);
+      // Recurse to get next valid key (avoid returning EOF which exits the editor)
+      return fetch (wait, 0);
+    }
 
   // ESC timeout detection: ESC alone (200ms) → CCF_F10 (menu activation)
   if (result == CC_ESC)

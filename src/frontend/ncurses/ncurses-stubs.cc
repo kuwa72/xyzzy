@@ -2,6 +2,8 @@
 // ncurses frontend: starts as cli-stubs.cc copy, functions will be
 // replaced with real implementations as phases progress.
 
+#include <string>
+#include <vector>
 #include "stdafx.h"
 #include "ed.h"
 #include "mainframe.h"
@@ -2061,7 +2063,9 @@ xyzzy_color_bright (int idx)
 
 // Color pair layout:
 //   1-8:   syntax highlighting
+//   9:     selection (white on blue)
 //   16+:   textprop colors, indexed as 16 + fg*16 + bg
+#define SELECTION_PAIR 9
 #define TEXTPROP_PAIR_BASE 16
 #define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
 
@@ -2081,20 +2085,21 @@ output_glyph (int row, int col, glyph_t g)
     attrs |= A_UNDERLINE;
   if (g & GLYPH_REVERSED)
     attrs |= A_REVERSE;
-  if (g & GLYPH_SELECTED)
-    attrs |= A_REVERSE;
+
+  int selected = (g & GLYPH_SELECTED) != 0;
 
   // Check for bitmap glyphs (special display chars)
   if (g & GLYPH_BITMAP_BIT)
     {
       // Bitmap markers: newline mark, tab mark, etc.
       // For ncurses, show as space (these are visual markers only)
-      mvaddch (row, col, ' ' | attrs);
+      attr_t a = attrs | (selected ? COLOR_PAIR (SELECTION_PAIR) : 0);
+      mvaddch (row, col, ' ' | a);
       return 1;
     }
 
   // Determine color pair from syntax highlighting or text properties
-  int color_pair = 0;
+  int color_pair = selected ? SELECTION_PAIR : 0;
   if (g & GLYPH_TEXTPROP_FG_BIT)
     {
       // Text property colors (set-text-attribute)
@@ -2213,9 +2218,8 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
           if (gt & GLYPH_BOLD) attrs |= A_BOLD;
           if (gt & GLYPH_UNDERLINE) attrs |= A_UNDERLINE;
           if (gt & GLYPH_REVERSED) attrs |= A_REVERSE;
-          if (gt & GLYPH_SELECTED) attrs |= A_REVERSE;
 
-          int color_pair = 0;
+          int color_pair = (gt & GLYPH_SELECTED) ? SELECTION_PAIR : 0;
           if (!(gt & GLYPH_TEXTPROP_FG_BIT))
             {
               glyph_t text_type = gt & GLYPH_TEXT_MASK;
@@ -2689,6 +2693,7 @@ init_ncurses_colors ()
   init_pair (6, COLOR_BLUE, -1);      // tag
   init_pair (7, COLOR_RED, -1);       // ctrl (bright via A_BOLD)
   init_pair (8, COLOR_WHITE, -1);     // linenum (dim via A_DIM)
+  init_pair (SELECTION_PAIR, COLOR_WHITE, COLOR_BLUE);  // selection
 
   // Color pairs for text properties (16-271)
   // Only initialize combinations that fit within COLOR_PAIRS limit
@@ -2731,6 +2736,49 @@ render_window (Window *wp, int total_cols)
   ncurses_calc_client_size (wp, text_cols, text_rows);
   bp->window_size_changed ();
   ncurses_reframe (wp);
+
+  // Update selection region from point/marker (same as win32/disp.cc)
+  if ((wp->w_selection_type & (Buffer::CONTINUE_PRE_SELECTION
+                               | Buffer::PRE_SELECTION)) == Buffer::PRE_SELECTION)
+    {
+      // Use (int &) cast to match the (int &) &= ~CONTINUE_PRE_SELECTION below;
+      // without this, strict aliasing lets the compiler cache the enum value
+      // across the (int &) write, so the VOID assignment silently disappears.
+      (int &)wp->w_selection_type = (int)Buffer::SELECTION_VOID;
+      wp->w_selection_point = NO_MARK_SET;
+      wp->w_selection_marker = NO_MARK_SET;
+      wp->w_selection_region.p1 = -1;
+    }
+  (int &)wp->w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
+
+  if (wp->w_reverse_region.p1 != NO_MARK_SET)
+    {
+      if ((wp->w_reverse_temp & (Buffer::CONTINUE_PRE_SELECTION
+                                 | Buffer::PRE_SELECTION)) == Buffer::PRE_SELECTION)
+        {
+          wp->w_reverse_region.p1 = NO_MARK_SET;
+          wp->w_reverse_region.p2 = NO_MARK_SET;
+          (int &)wp->w_reverse_temp = (int)Buffer::SELECTION_VOID;
+        }
+    }
+  (int &)wp->w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
+
+  if (wp->w_selection_type != Buffer::SELECTION_VOID)
+    {
+      point_t p = (wp->w_selection_point == NO_MARK_SET
+                   ? wp->w_point.p_point : wp->w_selection_point);
+      point_t p1, p2;
+      if (wp->w_selection_marker < p)
+        { p1 = wp->w_selection_marker; p2 = p; }
+      else
+        { p1 = p; p2 = wp->w_selection_marker; }
+      wp->w_selection_region.p1 = p1;
+      wp->w_selection_region.p2 = p2;
+    }
+  else
+    {
+      wp->w_selection_region.p1 = -1;
+    }
 
   if (wp->w_glyphs.g_rep)
     {
@@ -3515,19 +3563,231 @@ lisp Fget_short_path_name (lisp lpath)
   return lpath;
 }
 
-lisp Fcopy_to_clipboard (lisp)
+// ============================================================
+// Clipboard via OSC 52 escape sequence
+// ============================================================
+
+// Internal clipboard buffer (fallback when OSC 52 read is unsupported)
+static std::string g_clipboard_buf;
+
+static const char b64_table[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static std::string
+base64_encode (const std::string &in)
 {
-  return Qnil;
+  std::string out;
+  int i = 0, len = (int)in.size ();
+  while (i < len)
+    {
+      int b0 = (u_char)in[i++];
+      int b1 = (i < len) ? (u_char)in[i++] : 0;
+      int b2 = (i < len) ? (u_char)in[i++] : 0;
+      int n = (b0 << 16) | (b1 << 8) | b2;
+      out += b64_table[(n >> 18) & 0x3f];
+      out += b64_table[(n >> 12) & 0x3f];
+      out += (i - 1 > len) ? '=' : b64_table[(n >> 6) & 0x3f];
+      out += (i > len) ? '=' : b64_table[n & 0x3f];
+    }
+  return out;
+}
+
+static int
+b64_decode_char (int c)
+{
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+static std::string
+base64_decode (const std::string &in)
+{
+  std::string out;
+  int i = 0, len = (int)in.size ();
+  while (i < len)
+    {
+      int a = 0, b = 0, c = 0, d = 0;
+      while (i < len && (a = b64_decode_char (in[i])) < 0) i++;
+      if (i >= len) break; i++;
+      while (i < len && (b = b64_decode_char (in[i])) < 0) i++;
+      if (i >= len) break; i++;
+      out += (char)((a << 2) | (b >> 4));
+      if (i >= len || in[i] == '=') break;
+      c = b64_decode_char (in[i++]);
+      if (c < 0) break;
+      out += (char)(((b & 0xf) << 4) | (c >> 2));
+      if (i >= len || in[i] == '=') break;
+      d = b64_decode_char (in[i++]);
+      if (d < 0) break;
+      out += (char)(((c & 0x3) << 6) | d);
+    }
+  return out;
+}
+
+// Convert internal Char string to UTF-8
+static std::string
+internal_to_utf8 (const Char *s, int len)
+{
+  std::string out;
+  for (int i = 0; i < len; i++)
+    {
+      ucs2_t wc = i2w (s[i]);
+      if (wc < 0x80)
+        out += (char)wc;
+      else if (wc < 0x800)
+        {
+          out += (char)(0xc0 | (wc >> 6));
+          out += (char)(0x80 | (wc & 0x3f));
+        }
+      else
+        {
+          out += (char)(0xe0 | (wc >> 12));
+          out += (char)(0x80 | ((wc >> 6) & 0x3f));
+          out += (char)(0x80 | (wc & 0x3f));
+        }
+    }
+  return out;
+}
+
+// Convert UTF-8 to internal Char string
+static lisp
+utf8_to_internal_string (const std::string &utf8)
+{
+  std::vector<Char> chars;
+  int i = 0, len = (int)utf8.size ();
+  while (i < len)
+    {
+      ucs2_t wc;
+      u_char c = utf8[i++];
+      if (c < 0x80)
+        wc = c;
+      else if ((c & 0xe0) == 0xc0)
+        {
+          wc = (c & 0x1f) << 6;
+          if (i < len) wc |= (utf8[i++] & 0x3f);
+        }
+      else if ((c & 0xf0) == 0xe0)
+        {
+          wc = (c & 0x0f) << 12;
+          if (i < len) wc |= (utf8[i++] & 0x3f) << 6;
+          if (i < len) wc |= (utf8[i++] & 0x3f);
+        }
+      else
+        {
+          // Skip 4-byte+ sequences (outside BMP)
+          while (i < len && (utf8[i] & 0xc0) == 0x80) i++;
+          wc = '?';
+        }
+      Char ic = w2i (wc);
+      if (ic == Char (-1))
+        ic = '?';
+      chars.push_back (ic);
+    }
+  if (chars.empty ())
+    return make_simple_string ();
+  return make_string (chars.data (), (int)chars.size ());
+}
+
+// Write OSC 52 to set clipboard
+static void
+osc52_copy (const std::string &utf8)
+{
+  std::string b64 = base64_encode (utf8);
+  // Use BEL (\a) terminator — more compatible than ST (\e\\)
+  std::string seq = "\033]52;c;" + b64 + "\a";
+  // Write directly to terminal, bypassing ncurses
+  ssize_t r = write (STDOUT_FILENO, seq.data (), seq.size ());
+  (void)r;
+}
+
+// Read clipboard via OSC 52 (with timeout)
+static std::string
+osc52_paste (int timeout_ms = 500)
+{
+  // Request clipboard: ESC ] 52 ; c ; ? BEL
+  const char *req = "\033]52;c;?\a";
+  ssize_t r = write (STDOUT_FILENO, req, strlen (req));
+  (void)r;
+
+  // Read response: ESC ] 52 ; c ; BASE64 BEL (or ST)
+  // We need raw mode — ncurses is already in raw mode
+  std::string resp;
+  struct timeval tv;
+  fd_set fds;
+  int start_ms = timeout_ms;
+
+  while (timeout_ms > 0)
+    {
+      FD_ZERO (&fds);
+      FD_SET (STDIN_FILENO, &fds);
+      tv.tv_sec = timeout_ms / 1000;
+      tv.tv_usec = (timeout_ms % 1000) * 1000;
+      int ret = select (STDIN_FILENO + 1, &fds, 0, 0, &tv);
+      if (ret <= 0)
+        break;
+      char buf[256];
+      int n = read (STDIN_FILENO, buf, sizeof buf);
+      if (n <= 0)
+        break;
+      resp.append (buf, n);
+      // Check for terminator: BEL (\a=0x07) or ST (ESC \)
+      if (resp.find ('\a') != std::string::npos)
+        break;
+      if (resp.find ("\033\\") != std::string::npos)
+        break;
+      // Reduce timeout for subsequent reads
+      timeout_ms = start_ms / 5;
+    }
+
+  // Parse: look for ESC ] 52 ; c ; then base64 until BEL or ST
+  size_t pos = resp.find ("\033]52;c;");
+  if (pos == std::string::npos)
+    pos = resp.find ("\033]52;p;");  // primary selection
+  if (pos == std::string::npos)
+    return "";  // No valid response
+  pos += 7;  // skip past "ESC]52;c;"
+  size_t end = resp.find ('\a', pos);
+  if (end == std::string::npos)
+    {
+      end = resp.find ("\033\\", pos);
+      if (end == std::string::npos)
+        end = resp.size ();
+    }
+  std::string b64 = resp.substr (pos, end - pos);
+  return base64_decode (b64);
+}
+
+lisp Fcopy_to_clipboard (lisp string)
+{
+  check_string (string);
+  if (!xstring_length (string))
+    return Qnil;
+
+  std::string utf8 = internal_to_utf8 (xstring_contents (string),
+                                        xstring_length (string));
+  g_clipboard_buf = utf8;
+  osc52_copy (utf8);
+  return Qt;
 }
 
 lisp Fget_clipboard_data ()
 {
-  return Qnil;
+  // Try OSC 52 read first — but only if terminal likely supports it.
+  // For now, skip OSC 52 read and use internal buffer to avoid 500ms delay.
+  // TODO: detect OSC 52 read support and enable conditionally.
+  std::string utf8 = g_clipboard_buf;
+  if (utf8.empty ())
+    return Qnil;
+  return utf8_to_internal_string (utf8);
 }
 
 lisp Fclipboard_empty_p ()
 {
-  return Qt;
+  return boole (g_clipboard_buf.empty ());
 }
 
 int make_clipboard_text (CLIPBOARDTEXT &, lisp, int)
@@ -6014,9 +6274,6 @@ run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
     close_submenu (stack, d);
   delete[] stack;
 
-  touchwin (stdscr);
-  refresh_screen (1);
-
   // Post menu command to keyboard queue (like Win32 WM_COMMAND handler).
   // This lets dispatch() handle it via LCHAR_MENU path, which doesn't
   // process interactive specs — avoiding issues with (interactive "p").
@@ -6024,8 +6281,19 @@ run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
     {
       int id = xwin32_menu_id (result);
       if (id >= MENU_ID_RANGE_MIN && id < MENU_ID_RANGE_MAX)
-        app.kbdq.putc (LCHAR_MENU | id);
+        {
+          // Preserve selection state: set CONTINUE_PRE_SELECTION *before*
+          // refresh_screen, so render_window doesn't clear the selection.
+          // dispatch() will clear it after the command runs.
+          Window *wp = selected_window ();
+          if (wp && (wp->w_selection_type & Buffer::PRE_SELECTION))
+            (int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+          app.kbdq.putc (LCHAR_MENU | id);
+        }
     }
+
+  touchwin (stdscr);
+  refresh_screen (1);
   return Qnil;
 }
 
@@ -6248,15 +6516,20 @@ run_popup_modal (lisp lmenu)
     close_submenu (stack, d);
   delete[] stack;
 
-  touchwin (stdscr);
-  refresh_screen (1);
-
   if (result != Qnil)
     {
       int id = xwin32_menu_id (result);
       if (id >= MENU_ID_RANGE_MIN && id < MENU_ID_RANGE_MAX)
-        app.kbdq.putc (LCHAR_MENU | id);
+        {
+          Window *wp = selected_window ();
+          if (wp && (wp->w_selection_type & Buffer::PRE_SELECTION))
+            (int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+          app.kbdq.putc (LCHAR_MENU | id);
+        }
     }
+
+  touchwin (stdscr);
+  refresh_screen (1);
   return Qnil;
 }
 
@@ -6380,6 +6653,144 @@ ncurses_menu_bar_click (int col)
   run_menu_modal (lmenu, bi);
 }
 
+// ---- Separator drag (window resize by mouse) ----
+
+// Check if screen (row, col) is on a window separator.
+// Returns: 0=not on separator, 1=horizontal (modeline), 2=vertical separator.
+// Sets *wp1 to the window above/left of the boundary, *wp2 to the one below/right.
+static int
+separator_hit_test (int row, int col, Window **wp1, Window **wp2)
+{
+  Window *mini = Window::minibuffer_window ();
+  int cols = (int)app.active_frame.size.cx;
+
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      if (!wp->w_bufp)
+        continue;
+
+      // Check modeline (horizontal separator): bottom row of this window
+      int modeline_row = wp->w_rect.bottom - 1;
+      if (row == modeline_row
+          && col >= wp->w_rect.left && col < wp->w_rect.right)
+        {
+          // Find neighbor below
+          for (Window *w2 = app.active_frame.windows; w2 && w2 != mini; w2 = w2->w_next)
+            if (w2 != wp && w2->w_rect.top == wp->w_rect.bottom
+                && w2->w_rect.left < wp->w_rect.right
+                && w2->w_rect.right > wp->w_rect.left)
+              {
+                *wp1 = wp;
+                *wp2 = w2;
+                return 1;
+              }
+        }
+
+      // Check vertical separator: rightmost column when not at terminal edge
+      if (wp->w_rect.right < cols)
+        {
+          int sep_col = wp->w_rect.right;  // the boundary column
+          if (col == sep_col - 1  // on the separator character itself
+              && row >= wp->w_rect.top && row < wp->w_rect.bottom)
+            {
+              // Find neighbor to the right
+              for (Window *w2 = app.active_frame.windows; w2 && w2 != mini; w2 = w2->w_next)
+                if (w2 != wp && w2->w_rect.left == wp->w_rect.right
+                    && w2->w_rect.top < wp->w_rect.bottom
+                    && w2->w_rect.bottom > wp->w_rect.top)
+                  {
+                    *wp1 = wp;
+                    *wp2 = w2;
+                    return 2;
+                  }
+            }
+        }
+    }
+  return 0;
+}
+
+// Modal drag loop for resizing windows by dragging a separator.
+// drag_type: 1=horizontal (modeline), 2=vertical separator.
+static void
+separator_drag (int drag_type, Window *wp1, Window *wp2, int start_row, int start_col)
+{
+  int min_size = (drag_type == 1) ? 3 : 6;  // min rows / min cols per window
+
+  while (1)
+    {
+      int ch = getch ();
+      if (ch != KEY_MOUSE)
+        {
+          // Any non-mouse key ends the drag
+          if (ch != ERR)
+            ungetch (ch);
+          break;
+        }
+
+      MEVENT mev;
+      if (getmouse (&mev) != OK)
+        continue;
+
+      // Button release ends drag
+      if (mev.bstate & (BUTTON1_RELEASED | BUTTON2_RELEASED | BUTTON3_RELEASED))
+        break;
+
+      // Only handle motion / pressed events
+      if (!(mev.bstate & (REPORT_MOUSE_POSITION | BUTTON1_PRESSED)))
+        continue;
+
+      int new_pos = (drag_type == 1) ? mev.y : mev.x;
+      int cur_boundary = (drag_type == 1) ? wp1->w_rect.bottom : wp1->w_rect.right;
+
+      int delta = new_pos - cur_boundary;
+      if (drag_type == 1)
+        delta = new_pos - (wp1->w_rect.bottom - 1);  // modeline row
+      else
+        delta = new_pos - (wp1->w_rect.right - 1);   // separator col
+
+      if (delta == 0)
+        continue;
+
+      // Check minimum size constraints
+      if (drag_type == 1)
+        {
+          int new_h1 = (wp1->w_rect.bottom - wp1->w_rect.top) + delta;
+          int new_h2 = (wp2->w_rect.bottom - wp2->w_rect.top) - delta;
+          if (new_h1 < min_size || new_h2 < min_size)
+            continue;
+          wp1->w_rect.bottom += delta;
+          wp2->w_rect.top += delta;
+        }
+      else
+        {
+          int new_w1 = (wp1->w_rect.right - wp1->w_rect.left) + delta;
+          int new_w2 = (wp2->w_rect.right - wp2->w_rect.left) - delta;
+          if (new_w1 < min_size || new_w2 < min_size)
+            continue;
+          wp1->w_rect.right += delta;
+          wp2->w_rect.left += delta;
+        }
+
+      // Recompute text area sizes
+      int cols = (int)app.active_frame.size.cx;
+      for (Window *wp : {wp1, wp2})
+        {
+          int win_cols = wp->w_rect.right - wp->w_rect.left;
+          if (wp->w_rect.right < cols)
+            win_cols--;
+          int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;
+          if (text_rows < 1) text_rows = 1;
+          if (win_cols < 1) win_cols = 1;
+          ncurses_calc_client_size (wp, win_cols, text_rows);
+        }
+
+      clear ();
+      refresh_screen (1);
+    }
+
+  g_click_state.button_down = 0;
+}
+
 // Dispatch ncurses MEVENT to xyzzy mouse event.
 // Called from ncurses-kbd.cc when KEY_MOUSE is received.
 // Returns lChar to enqueue, or lChar_EOF if unhandled.
@@ -6441,6 +6852,18 @@ ncurses_mouse_dispatch (MEVENT *mev)
     {
       ncurses_menu_bar_click (col);
       return lChar_EOF;
+    }
+
+  // Left-click on window separator → start drag resize
+  if (ccf == CCF_LBTNDOWN)
+    {
+      Window *wp1 = 0, *wp2 = 0;
+      int sep = separator_hit_test (row, col, &wp1, &wp2);
+      if (sep)
+        {
+          separator_drag (sep, wp1, wp2, row, col);
+          return lChar_EOF;
+        }
     }
 
   // Find which window was clicked
