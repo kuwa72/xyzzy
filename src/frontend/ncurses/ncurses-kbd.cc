@@ -151,24 +151,17 @@ fetchlog (const char *fmt, ...)
     }
 }
 
-// Handle terminal resize: resizeterm + update frame size + drain KEY_RESIZE.
+// Drain KEY_RESIZE from ncurses input queue after SIGWINCH.
+// The actual resize (resizeterm, compute_geometry) is deferred to refresh_screen.
 // Saves any real key found while draining into kbd_queue::pending.
-// Returns with g_need_resize = 0.
 static void
 handle_resize (kbd_queue &kbdq)
 {
-  g_need_resize = 0;
+  // Don't clear the flag here — let refresh_screen handle the actual
+  // resize (compute_geometry, window_size_changed, etc.).
+  // We just drain KEY_RESIZE so it doesn't pile up in the input queue.
 
-  struct winsize ws;
-  if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &ws) == 0
-      && ws.ws_row > 0 && ws.ws_col > 0)
-    {
-      resizeterm (ws.ws_row, ws.ws_col);
-      app.active_frame.size.cx = ws.ws_col;
-      app.active_frame.size.cy = ws.ws_row;
-    }
-
-  // Drain any KEY_RESIZE that resizeterm enqueued
+  // Drain any KEY_RESIZE from the ncurses input queue
   nodelay (stdscr, TRUE);
   wint_t drain;
   int drain_ret;
@@ -182,10 +175,7 @@ handle_resize (kbd_queue &kbdq)
     }
   nodelay (stdscr, FALSE);
 
-  clear ();
-  fetchlog ("fetch: resize handled (%dx%d)\n",
-            (int)app.active_frame.size.cx,
-            (int)app.active_frame.size.cy);
+  fetchlog ("fetch: resize detected, deferring to refresh_screen\n");
 }
 
 // From ncurses-process.cc: poll processes and collect fds
