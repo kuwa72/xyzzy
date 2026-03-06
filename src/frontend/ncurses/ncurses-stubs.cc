@@ -2951,7 +2951,10 @@ refresh_screen (int)
     }
 
   // Draw persistent menu bar at row 0 (after all windows, so nothing overwrites it)
+  int save_y, save_x;
+  getyx (stdscr, save_y, save_x);
   draw_persistent_menu_bar ();
+  move (save_y, save_x);
 
   // Flush to terminal
   ::refresh ();
