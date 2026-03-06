@@ -682,6 +682,7 @@ if(NOT WIN32)
             ${ZLIB_LIBRARIES}
             ${NCURSESW_LIBRARY}
             pthread
+            util
         )
         # Embed data directory path for runtime file lookup
         if(INSTALL_LAYOUT STREQUAL "unix")

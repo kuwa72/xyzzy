@@ -12,6 +12,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
+#include <pty.h>
+#include <termios.h>
 #include <errno.h>
 
 void refresh_screen (int);
@@ -75,7 +78,8 @@ Process::~Process ()
 {
   if (p_read_fd >= 0)
     close (p_read_fd);
-  if (p_write_fd >= 0)
+  // p_write_fd == p_read_fd when using pty; only close once
+  if (p_write_fd >= 0 && p_write_fd != p_read_fd)
     close (p_write_fd);
   if (p_pid > 0)
     {
@@ -93,39 +97,23 @@ Process::create (lisp command, lisp execdir)
   char dir[PATH_MAX + 1];
   pathname2cstr (execdir, dir);
 
-  // Create pipes: parent reads from out_pipe[0], child writes to out_pipe[1]
-  //               child reads from in_pipe[0], parent writes to in_pipe[1]
-  int out_pipe[2], in_pipe[2];
-  if (pipe (out_pipe) < 0)
-    FEsimple_error (Ecreate_thread_failed);
-  if (pipe (in_pipe) < 0)
-    {
-      close (out_pipe[0]);
-      close (out_pipe[1]);
-      FEsimple_error (Ecreate_thread_failed);
-    }
+  // Use forkpty() to give the child a pseudo-terminal.
+  // This enables shell prompts, line editing, and terminal-aware
+  // programs (less, vi, etc.) to work correctly.
+  int master_fd;
+  struct winsize ws;
+  ws.ws_row = 24;
+  ws.ws_col = 80;
+  ws.ws_xpixel = 0;
+  ws.ws_ypixel = 0;
 
-  pid_t pid = fork ();
+  pid_t pid = forkpty (&master_fd, NULL, NULL, &ws);
   if (pid < 0)
-    {
-      close (out_pipe[0]);
-      close (out_pipe[1]);
-      close (in_pipe[0]);
-      close (in_pipe[1]);
-      FEsimple_error (Ecreate_thread_failed);
-    }
+    FEsimple_error (Ecreate_thread_failed);
 
   if (pid == 0)
     {
-      // Child process
-      close (out_pipe[0]);
-      close (in_pipe[1]);
-      dup2 (in_pipe[0], STDIN_FILENO);
-      dup2 (out_pipe[1], STDOUT_FILENO);
-      dup2 (out_pipe[1], STDERR_FILENO);
-      close (in_pipe[0]);
-      close (out_pipe[1]);
-
+      // Child process — already has pty as stdin/stdout/stderr
       if (*dir && chdir (dir) < 0)
         ;  // ignore chdir failure in child
 
@@ -138,16 +126,23 @@ Process::create (lisp command, lisp execdir)
       _exit (127);
     }
 
-  // Parent process
-  close (out_pipe[1]);
-  close (in_pipe[0]);
-  p_read_fd = out_pipe[0];
-  p_write_fd = in_pipe[1];
+  // Parent process — single master fd for both read and write
+  p_read_fd = master_fd;
+  p_write_fd = master_fd;
   p_pid = pid;
 
-  // Set read fd to non-blocking
-  int flags = fcntl (p_read_fd, F_GETFL, 0);
-  fcntl (p_read_fd, F_SETFL, flags | O_NONBLOCK);
+  // Disable ONLCR (NL→CRLF mapping) so we get clean LF output.
+  // Keep other pty settings (echo, signals, etc.) for interactive use.
+  struct termios tio;
+  if (tcgetattr (master_fd, &tio) == 0)
+    {
+      tio.c_oflag &= ~ONLCR;
+      tcsetattr (master_fd, TCSANOW, &tio);
+    }
+
+  // Set master fd to non-blocking
+  int flags = fcntl (master_fd, F_GETFL, 0);
+  fcntl (master_fd, F_SETFL, flags | O_NONBLOCK);
 }
 
 void
@@ -291,6 +286,9 @@ Process::terminated ()
   if (p_read_fd >= 0)
     {
       close (p_read_fd);
+      // p_write_fd == p_read_fd when using pty; don't close twice
+      if (p_write_fd == p_read_fd)
+        p_write_fd = -1;
       p_read_fd = -1;
     }
   if (p_write_fd >= 0)
