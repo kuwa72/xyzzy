@@ -9,7 +9,7 @@
 
 (export '(add-option-prop-page option-property-sheet))
 
-(defvar *option-prop-page* '(font-page))
+(defvar *option-prop-page* '(#-ncurses font-page))
 (defvar *option-prop-page-no* nil)
 
 (defun add-option-prop-page (ident tmpl init handlers result)
@@ -679,6 +679,7 @@
    *kinsoku-extend-limit* *kinsoku-shorten-limit*
    *fill-kinsoku-mode*))
 
+#-ncurses
 (add-option-prop-page
  'directory
  '(dialog 0 0 255 169
@@ -740,11 +741,13 @@
      (setq *html-help-path* (cdr (assoc 'html data)))
      (setq *edict-dictionary-path* (cdr (assoc 'dic data)))))
 
+#-ncurses
 (register-history-variable
  '(*winhelp-directory* *info-viewer-file-name* *info-viewer-title*
    *winhelp-index-files* *edict-dictionary-path*
    *html-help-path*))
 
+#-ncurses
 (add-option-prop-page
  'filer
  '(dialog 0 0 243 252
@@ -837,6 +840,7 @@
 (defvar *filer-save-file-mask* nil)
 (export '*filer-save-file-mask*)
 
+#-ncurses
 (register-history-variable
  '(*filer-retrieve-icon* *filer-query-before-process*
    *filer-query-delete-precisely* *filer-ask-same-name-default*

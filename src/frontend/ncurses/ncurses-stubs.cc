@@ -6949,8 +6949,7 @@ ncurses_mouse_dispatch (MEVENT *mev)
   return (lChar)ccf | LCHAR_MOUSE;
 }
 
-// Dialog (Fdialog_box is in ncurses-dialog.cc)
-lisp Fproperty_sheet (lisp, lisp, lisp) { return Qnil; }
+// Dialog (Fdialog_box and Fproperty_sheet are in ncurses-dialog.cc)
 lisp Ffile_name_dialog (lisp) { return Qnil; }
 lisp Fdirectory_name_dialog (lisp) { return Qnil; }
 lisp Fdrive_dialog (lisp) { return Qnil; }

@@ -1194,3 +1194,864 @@ Fdialog_box (lisp dialog, lisp init, lisp handlers)
   multiple_value::value (1) = result_data;
   return retval;
 }
+
+// ============================================================
+// property-sheet implementation (tabbed dialog)
+// ============================================================
+
+enum { PS_MAX_PAGES = 16, PS_MAX_CTLS = 512 };
+
+struct PsPage
+{
+  lisp ident;
+  lisp page_caption;
+  int ctl_start;
+  int ctl_count;
+  int char_w, char_h;
+};
+
+static NcCtl ps_ctls[PS_MAX_CTLS];
+static PsPage ps_pages[PS_MAX_PAGES];
+
+// After init, copy spin values to adjacent edit controls
+static void
+ps_fixup_spin_buddies (NcCtl *ctls, int nctl)
+{
+  for (int i = 1; i < nctl; i++)
+    {
+      NcCtl *c = &ctls[i];
+      if (c->wclass != Kspin) continue;
+      if (c->elen <= 0) continue;
+      // Find preceding edit control
+      NcCtl *e = &ctls[i - 1];
+      if (!is_editable (e)) continue;
+      if (e->elen > 0) continue; // already has value
+      memcpy (e->ebuf, c->ebuf, c->elen * sizeof (Char));
+      e->elen = c->elen;
+      e->epos = c->elen;
+    }
+}
+
+lisp
+Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
+{
+  if (caption && caption != Qnil)
+    check_string (caption);
+
+  int start_page = (lstart_page && lstart_page != Qnil
+                    ? fixnum_value (lstart_page) : 0);
+
+  if (!consp (pages))
+    return Qnil;
+
+  protect_gc gcpro (pages);
+  protect_gc gcpro_cap (caption);
+
+  int npages = 0;
+  int total_ctls = 0;
+
+  for (lisp p = pages; consp (p); p = xcdr (p))
+    {
+      QUIT;
+      lisp x = xcar (p);
+
+      // Skip font-page and color-page (Win32-only built-in pages)
+      if (x == Qfont_page || x == Qcolor_page)
+        continue;
+
+      if (npages >= PS_MAX_PAGES) break;
+      if (xlist_length (x) != 4)
+        FEtype_error (x, Qproperty_page);
+
+      PsPage *pg = &ps_pages[npages];
+      pg->ident = xcar (x);
+      lisp tmpl = Fcadr (x);
+      lisp init_data = Fcaddr (x);
+      lisp handlers = Fcadddr (x);
+      pg->ctl_start = total_ctls;
+      pg->page_caption = Qnil;
+
+      // Parse template: (dialog X Y W H options...)
+      lisp d = tmpl;
+      if (xcar (d) != Qdialog)
+        FEtype_error (xcar (d), Qdialog);
+      d = xcdr (d);
+      d = xcdr (d); // skip X
+      d = xcdr (d); // skip Y
+      int dlg_w = fixnum_value (xcar (d)); d = xcdr (d);
+      int dlg_h = fixnum_value (xcar (d)); d = xcdr (d);
+
+      int page_nctl = 0;
+
+      for (; consp (d); d = xcdr (d))
+        {
+          lisp opt = xcar (d);
+          check_cons (opt);
+          if (xcar (opt) == Kcaption)
+            {
+              if (xlist_length (opt) == 2)
+                {
+                  lisp s = xcar (xcdr (opt));
+                  if (stringp (s)) pg->page_caption = s;
+                }
+            }
+          else if (xcar (opt) == Kfont)
+            ; // ignore
+          else if (xcar (opt) == Kcontrol)
+            {
+              for (lisp cx = xcdr (opt); consp (cx) && total_ctls < PS_MAX_CTLS;
+                   cx = xcdr (cx))
+                {
+                  lisp item = xcar (cx);
+                  if (xlist_length (item) != 8)
+                    FEprogram_error (Einvalid_dialog_item, item);
+
+                  NcCtl *c = &ps_ctls[total_ctls];
+                  memset (c, 0, sizeof (NcCtl));
+
+                  c->wclass = xcar (item); item = xcdr (item);
+                  c->symid = xcar (item); item = xcdr (item);
+                  c->text = xcar (item); item = xcdr (item);
+                  c->style = fixnum_value (xcar (item)); item = xcdr (item);
+                  c->dx = fixnum_value (xcar (item)); item = xcdr (item);
+                  c->dy = fixnum_value (xcar (item)); item = xcdr (item);
+                  c->dw = fixnum_value (xcar (item)); item = xcdr (item);
+                  c->dh = fixnum_value (xcar (item));
+
+                  c->kwd = Qnil;
+                  if (c->symid != Qnil)
+                    for (lisp hp = handlers; consp (hp); hp = xcdr (hp))
+                      {
+                        lisp h = xcar (hp);
+                        if (consp (h) && xcar (h) == c->symid)
+                          { c->kwd = xcdr (h); break; }
+                      }
+
+                  c->visible = 1;
+                  c->enabled = (c->style & 0x08000000) ? 0 : 1;
+                  c->items = Qnil;
+                  c->nitem = 0;
+                  c->isel = -1;
+
+                  if (safe_find_keyword (Khide, c->kwd) == Khide)
+                    c->visible = 0;
+                  if (safe_find_keyword (Kdisable, c->kwd) == Kdisable)
+                    c->enabled = 0;
+
+                  if (c->wclass == Kbutton && is_checkbox (c))
+                    {
+                      int b = c->style & 0xf;
+                      c->checked = (b == BTN_AUTO3STATE || b == BTN_3STATE) ? 2 : 0;
+                    }
+
+                  total_ctls++;
+                  page_nctl++;
+                }
+            }
+        }
+
+      pg->ctl_count = page_nctl;
+
+      // DLU to character coordinates
+      int char_w = (dlg_w + 3) / 4;
+      int char_h = (dlg_h + 7) / 8;
+      if (char_w < 20) char_w = 20;
+      if (char_h < 4) char_h = 4;
+
+      NcCtl *pctls = &ps_ctls[pg->ctl_start];
+      for (int i = 0; i < page_nctl; i++)
+        {
+          NcCtl *c = &pctls[i];
+          c->col = c->dx / 4;
+          c->row = c->dy / 8;
+          c->width = c->dw / 4;
+          if (c->width < 1) c->width = 1;
+          if (is_push_button (c))
+            {
+              int tw = text_display_width (c->text) + 2;
+              if (c->width < tw) c->width = tw;
+            }
+          if (is_checkbox (c))
+            {
+              int tw = text_display_width (c->text) + 4;
+              if (c->width < tw) c->width = tw;
+            }
+        }
+
+      int max_right = 0, max_bottom = 0;
+      for (int i = 0; i < page_nctl; i++)
+        {
+          int r = pctls[i].col + pctls[i].width;
+          int b = pctls[i].row + 1;
+          if (r > max_right) max_right = r;
+          if (b > max_bottom) max_bottom = b;
+        }
+      if (char_w < max_right + 1) char_w = max_right + 1;
+      if (char_h < max_bottom) char_h = max_bottom;
+
+      pg->char_w = char_w;
+      pg->char_h = char_h;
+
+      // Initialize controls from init-data alist
+      for (lisp ip = init_data; consp (ip); ip = xcdr (ip))
+        {
+          lisp ientry = xcar (ip);
+          if (!consp (ientry)) continue;
+          lisp sym = xcar (ientry);
+          lisp val = xcdr (ientry);
+
+          for (int i = 0; i < page_nctl; i++)
+            {
+              NcCtl *c = &pctls[i];
+              if (c->symid != sym) continue;
+
+              if (c->wclass == Kbutton)
+                {
+                  if (is_checkbox (c))
+                    {
+                      int b = c->style & 0xf;
+                      if (b == BTN_AUTO3STATE || b == BTN_3STATE)
+                        c->checked = (val == Kdisable ? 2 : val != Qnil ? 1 : 0);
+                      else
+                        c->checked = (val != Qnil ? 1 : 0);
+                    }
+                  else if (is_push_button (c) && stringp (val))
+                    c->text = val;
+                }
+              else if (is_editable (c) || c->wclass == Kspin)
+                {
+                  if (consp (val) || val == Qnil)
+                    {
+                      c->items = val;
+                      c->nitem = 0;
+                      for (lisp q = val; consp (q); q = xcdr (q))
+                        c->nitem++;
+                    }
+                  else if (stringp (val))
+                    copy_to_edit (c, val);
+                  else if (fixnump (val))
+                    copy_to_edit (c, val);
+                }
+              else if (c->wclass == Klistbox)
+                {
+                  if (consp (val) || val == Qnil)
+                    {
+                      c->items = val;
+                      c->nitem = 0;
+                      for (lisp q = val; consp (q); q = xcdr (q))
+                        c->nitem++;
+                    }
+                }
+              else if (c->wclass == Kstatic)
+                {
+                  if (stringp (val)) c->text = val;
+                }
+            }
+        }
+
+      // Copy spin values to buddy edit controls
+      ps_fixup_spin_buddies (pctls, page_nctl);
+
+      // Apply initial enable/disable
+      for (int i = 0; i < page_nctl; i++)
+        {
+          NcCtl *c = &pctls[i];
+          if (safe_find_keyword (Knon_null, c->kwd) != Qnil)
+            {
+              int has_value = is_editable (c) ? c->elen > 0
+                : is_checkbox (c) ? c->checked == 1 : 0;
+              apply_enable (pctls, page_nctl, c, has_value);
+            }
+          if (is_checkbox (c) && safe_find_keyword (Kdisable, c->kwd) != Qnil)
+            apply_enable (pctls, page_nctl, c, c->checked == 1);
+          if (is_checkbox (c) && safe_find_keyword (Kenable, c->kwd) != Qnil)
+            apply_enable (pctls, page_nctl, c, c->checked == 1);
+        }
+
+      npages++;
+    }
+
+  if (npages == 0)
+    return Qnil;
+
+  if (start_page < 0 || start_page >= npages)
+    start_page = 0;
+
+  // Compute max page size across all pages
+  int max_w = 0, max_h = 0;
+  for (int i = 0; i < npages; i++)
+    {
+      if (ps_pages[i].char_w > max_w) max_w = ps_pages[i].char_w;
+      if (ps_pages[i].char_h > max_h) max_h = ps_pages[i].char_h;
+    }
+
+  int term_rows, term_cols;
+  getmaxyx (stdscr, term_rows, term_cols);
+
+  int tab_bar_h = 1;
+  int btn_bar_h = 1;
+  int border_h = 2;
+
+  int win_w = max_w + 4;
+  int win_h = max_h + tab_bar_h + btn_bar_h + border_h + 1;
+  if (win_w > term_cols) win_w = term_cols;
+  if (win_h > term_rows) win_h = term_rows;
+
+  // Ensure width fits tab labels
+  int tab_total_w = 0;
+  for (int i = 0; i < npages; i++)
+    tab_total_w += text_display_width (ps_pages[i].page_caption) + 3;
+  if (win_w < tab_total_w + 4)
+    win_w = (tab_total_w + 4 < term_cols) ? tab_total_w + 4 : term_cols;
+
+  int win_row = (term_rows - win_h) / 2;
+  int win_col = (term_cols - win_w) / 2;
+  if (win_row < 0) win_row = 0;
+  if (win_col < 0) win_col = 0;
+
+  int tab_row = 1;
+  int content_off = 2;
+
+  WINDOW *win = newwin (win_h, win_w, win_row, win_col);
+  if (!win) return Qnil;
+  keypad (win, TRUE);
+
+  int cur_page = start_page;
+
+  // focus_area: 0=tab bar, 1=controls, 2=OK/Cancel buttons
+  int focus_area = 1;
+  int focus = -1;       // control index within current page
+  int btn_focus = 0;    // 0=OK, 1=Cancel
+
+  auto find_first_focus = [&](int page) -> int {
+    NcCtl *pc = &ps_ctls[ps_pages[page].ctl_start];
+    int nc = ps_pages[page].ctl_count;
+    for (int i = 0; i < nc; i++)
+      if (is_focusable (&pc[i]) && is_editable (&pc[i]))
+        return i;
+    for (int i = 0; i < nc; i++)
+      if (is_focusable (&pc[i]))
+        return i;
+    return -1;
+  };
+
+  focus = find_first_focus (cur_page);
+
+  auto draw_all = [&]() {
+    werase (win);
+    box (win, 0, 0);
+
+    // Title
+    if (stringp (caption))
+      {
+        wmove (win, 0, 2);
+        waddch (win, ' ');
+        wattron (win, A_BOLD);
+        render_text (win, caption, win_w - 6);
+        wattroff (win, A_BOLD);
+        waddch (win, ' ');
+      }
+
+    // Tab bar
+    wmove (win, tab_row, 1);
+    for (int i = 0; i < npages; i++)
+      {
+        if (i == cur_page)
+          wattron (win, A_REVERSE);
+        else if (focus_area == 0)
+          wattron (win, A_DIM);
+
+        waddch (win, ' ');
+        render_text (win, ps_pages[i].page_caption, win_w - 4);
+        waddch (win, ' ');
+
+        if (i == cur_page)
+          wattroff (win, A_REVERSE);
+        else if (focus_area == 0)
+          wattroff (win, A_DIM);
+
+        if (i < npages - 1)
+          waddch (win, '|');
+      }
+
+    // Current page controls
+    NcCtl *pctls = &ps_ctls[ps_pages[cur_page].ctl_start];
+    int nctl = ps_pages[cur_page].ctl_count;
+    for (int i = 0; i < nctl; i++)
+      draw_control (win, &pctls[i], focus_area == 1 && i == focus, content_off);
+
+    // OK / Cancel at bottom
+    int brow = win_h - 2;
+    int ok_col = win_w / 2 - 10;
+    if (ok_col < 2) ok_col = 2;
+
+    wmove (win, brow, ok_col);
+    if (focus_area == 2 && btn_focus == 0)
+      wattron (win, A_REVERSE);
+    waddstr (win, "< OK >");
+    if (focus_area == 2 && btn_focus == 0)
+      wattroff (win, A_REVERSE);
+
+    waddstr (win, "  ");
+
+    if (focus_area == 2 && btn_focus == 1)
+      wattron (win, A_REVERSE);
+    waddstr (win, "< Cancel >");
+    if (focus_area == 2 && btn_focus == 1)
+      wattroff (win, A_REVERSE);
+
+    // Cursor
+    if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+      {
+        NcCtl *c = &pctls[focus];
+        int cpos_w = chars_display_width (c->ebuf, c->epos);
+        int field_inner = c->width - 2;
+        if (cpos_w > field_inner) cpos_w = field_inner;
+        wmove (win, c->row + content_off, c->col + 2 + cpos_w);
+        curs_set (1);
+      }
+    else
+      curs_set (0);
+
+    wrefresh (win);
+  };
+
+  int done = 0;
+  int ok_pressed = 0;
+
+  draw_all ();
+
+  while (!done)
+    {
+      wint_t wch;
+      int ret = wget_wch (win, &wch);
+
+      NcCtl *pctls = &ps_ctls[ps_pages[cur_page].ctl_start];
+      int nctl = ps_pages[cur_page].ctl_count;
+
+      // Helper: try OK — validate all pages
+      auto try_ok = [&]() -> int {
+        for (int pi = 0; pi < npages; pi++)
+          {
+            lisp pr = Qnil;
+            if (!collect_results (&ps_ctls[ps_pages[pi].ctl_start],
+                                  ps_pages[pi].ctl_count, NULL, &pr))
+              {
+                cur_page = pi;
+                focus = find_first_focus (cur_page);
+                focus_area = 1;
+                return 0;
+              }
+          }
+        ok_pressed = 1;
+        done = 1;
+        return 1;
+      };
+
+      if (ret == KEY_CODE_YES)
+        {
+          switch (wch)
+            {
+            case KEY_NPAGE: // PageDown: next tab
+              if (cur_page < npages - 1)
+                {
+                  cur_page++;
+                  focus = find_first_focus (cur_page);
+                  focus_area = (focus >= 0) ? 1 : 2;
+                }
+              break;
+
+            case KEY_PPAGE: // PageUp: prev tab
+              if (cur_page > 0)
+                {
+                  cur_page--;
+                  focus = find_first_focus (cur_page);
+                  focus_area = (focus >= 0) ? 1 : 2;
+                }
+              break;
+
+            case KEY_BTAB: // Shift-Tab: backward
+              if (focus_area == 2)
+                {
+                  if (btn_focus > 0)
+                    btn_focus--;
+                  else
+                    {
+                      focus_area = 1;
+                      focus = -1;
+                      for (int i = nctl - 1; i >= 0; i--)
+                        if (is_focusable (&pctls[i]))
+                          { focus = i; break; }
+                      if (focus < 0)
+                        focus_area = 0;
+                    }
+                }
+              else if (focus_area == 1)
+                {
+                  if (focus > 0)
+                    {
+                      int start = focus;
+                      do { focus--; }
+                      while (focus > 0 && !is_focusable (&pctls[focus]));
+                      if (focus == 0 && !is_focusable (&pctls[0]))
+                        focus_area = 0;
+                    }
+                  else
+                    focus_area = 0;
+                }
+              else
+                {
+                  focus_area = 2;
+                  btn_focus = 1;
+                }
+              break;
+
+            case KEY_UP:
+              if (focus_area == 1 && focus >= 0)
+                {
+                  if (pctls[focus].wclass == Klistbox)
+                    {
+                      if (pctls[focus].isel > 0) pctls[focus].isel--;
+                    }
+                  else
+                    {
+                      int start = focus;
+                      do {
+                        focus--;
+                        if (focus < 0) focus = nctl - 1;
+                      } while (!is_focusable (&pctls[focus]) && focus != start);
+                    }
+                }
+              break;
+
+            case KEY_DOWN:
+              if (focus_area == 1 && focus >= 0)
+                {
+                  if (pctls[focus].wclass == Klistbox)
+                    {
+                      if (pctls[focus].isel < pctls[focus].nitem - 1)
+                        pctls[focus].isel++;
+                    }
+                  else
+                    {
+                      int start = focus;
+                      do {
+                        focus++;
+                        if (focus >= nctl) focus = 0;
+                      } while (!is_focusable (&pctls[focus]) && focus != start);
+                    }
+                }
+              break;
+
+            case KEY_LEFT:
+              if (focus_area == 0)
+                {
+                  if (cur_page > 0)
+                    {
+                      cur_page--;
+                      focus = find_first_focus (cur_page);
+                    }
+                }
+              else if (focus_area == 2)
+                {
+                  if (btn_focus > 0) btn_focus--;
+                }
+              else if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                {
+                  if (pctls[focus].epos > 0) pctls[focus].epos--;
+                }
+              break;
+
+            case KEY_RIGHT:
+              if (focus_area == 0)
+                {
+                  if (cur_page < npages - 1)
+                    {
+                      cur_page++;
+                      focus = find_first_focus (cur_page);
+                    }
+                }
+              else if (focus_area == 2)
+                {
+                  if (btn_focus < 1) btn_focus++;
+                }
+              else if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                {
+                  if (pctls[focus].epos < pctls[focus].elen) pctls[focus].epos++;
+                }
+              break;
+
+            case KEY_HOME:
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                pctls[focus].epos = 0;
+              break;
+
+            case KEY_END:
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                pctls[focus].epos = pctls[focus].elen;
+              break;
+
+            case KEY_BACKSPACE:
+            case KEY_DC:
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                {
+                  NcCtl *c = &pctls[focus];
+                  if (wch == KEY_BACKSPACE && c->epos > 0)
+                    {
+                      memmove (c->ebuf + c->epos - 1, c->ebuf + c->epos,
+                               (c->elen - c->epos) * sizeof (Char));
+                      c->epos--;
+                      c->elen--;
+                      apply_enable (pctls, nctl, c, c->elen > 0);
+                    }
+                  else if (wch == KEY_DC && c->epos < c->elen)
+                    {
+                      memmove (c->ebuf + c->epos, c->ebuf + c->epos + 1,
+                               (c->elen - c->epos - 1) * sizeof (Char));
+                      c->elen--;
+                      apply_enable (pctls, nctl, c, c->elen > 0);
+                    }
+                }
+              break;
+
+            case KEY_MOUSE:
+              {
+                MEVENT mev;
+                if (getmouse (&mev) == OK
+                    && (mev.bstate & (BUTTON1_PRESSED | BUTTON1_CLICKED)))
+                  {
+                    int my = mev.y - win_row;
+                    int mx = mev.x - win_col;
+
+                    // Click on tab bar?
+                    if (my == tab_row)
+                      {
+                        int tcol = 1;
+                        for (int i = 0; i < npages; i++)
+                          {
+                            int tw = text_display_width (ps_pages[i].page_caption) + 2;
+                            if (mx >= tcol && mx < tcol + tw)
+                              {
+                                cur_page = i;
+                                focus = find_first_focus (cur_page);
+                                focus_area = (focus >= 0) ? 1 : 0;
+                                break;
+                              }
+                            tcol += tw + 1;
+                          }
+                      }
+                    // Click on OK/Cancel?
+                    else if (my == win_h - 2)
+                      {
+                        int oc = win_w / 2 - 10;
+                        if (oc < 2) oc = 2;
+                        if (mx >= oc && mx < oc + 6)
+                          try_ok ();
+                        else if (mx >= oc + 8 && mx < oc + 18)
+                          done = 1;
+                      }
+                    // Click on control
+                    else
+                      {
+                        for (int i = 0; i < nctl; i++)
+                          {
+                            NcCtl *c = &pctls[i];
+                            if (!c->visible || !is_focusable (c)) continue;
+                            int cr = c->row + content_off;
+                            int cc = c->col + 1;
+                            int cw = c->width;
+                            if (is_push_button (c))
+                              cw = text_display_width (c->text) + 2;
+                            if (my == cr && mx >= cc && mx < cc + cw)
+                              {
+                                focus = i;
+                                focus_area = 1;
+                                if (is_checkbox (c))
+                                  {
+                                    int b = c->style & 0xf;
+                                    if (b == BTN_AUTO3STATE || b == BTN_3STATE)
+                                      c->checked = (c->checked + 1) % 3;
+                                    else
+                                      c->checked = !c->checked;
+                                    apply_enable (pctls, nctl, c, c->checked == 1);
+                                  }
+                                else if (c->wclass == Klistbox && c->nitem > 0)
+                                  c->isel = (c->isel + 1) % c->nitem;
+                                break;
+                              }
+                          }
+                      }
+                  }
+              }
+              break;
+
+            case KEY_RESIZE:
+              g_need_resize = 1;
+              done = 1;
+              break;
+
+            default:
+              break;
+            }
+        }
+      else if (ret == OK)
+        {
+          switch (wch)
+            {
+            case '\t':
+              if (focus_area == 0)
+                {
+                  focus_area = 1;
+                  focus = find_first_focus (cur_page);
+                  if (focus < 0)
+                    { focus_area = 2; btn_focus = 0; }
+                }
+              else if (focus_area == 1)
+                {
+                  if (focus >= 0)
+                    {
+                      int start = focus;
+                      do {
+                        focus++;
+                        if (focus >= nctl)
+                          { focus_area = 2; btn_focus = 0; focus = -1; break; }
+                      } while (!is_focusable (&pctls[focus]) && focus != start);
+                    }
+                  else
+                    { focus_area = 2; btn_focus = 0; }
+                }
+              else
+                {
+                  if (btn_focus < 1)
+                    btn_focus++;
+                  else
+                    focus_area = 0; // wrap to tab bar
+                }
+              break;
+
+            case '\r':
+            case '\n':
+              if (focus_area == 2 && btn_focus == 1)
+                done = 1; // Cancel
+              else
+                try_ok ();
+              break;
+
+            case 0x1b: // ESC
+            case 0x07: // C-g
+              done = 1;
+              break;
+
+            case ' ':
+              if (focus_area == 1 && focus >= 0)
+                {
+                  NcCtl *c = &pctls[focus];
+                  if (is_checkbox (c))
+                    {
+                      int b = c->style & 0xf;
+                      if (b == BTN_AUTO3STATE || b == BTN_3STATE)
+                        c->checked = (c->checked + 1) % 3;
+                      else
+                        c->checked = !c->checked;
+                      apply_enable (pctls, nctl, c, c->checked == 1);
+                    }
+                  else if (is_editable (c) && c->elen < EDIT_MAX - 1)
+                    {
+                      memmove (c->ebuf + c->epos + 1, c->ebuf + c->epos,
+                               (c->elen - c->epos) * sizeof (Char));
+                      c->ebuf[c->epos] = ' ';
+                      c->epos++;
+                      c->elen++;
+                    }
+                }
+              else if (focus_area == 2)
+                {
+                  if (btn_focus == 0) try_ok ();
+                  else done = 1;
+                }
+              break;
+
+            case 0x7f: // DEL (backspace)
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                {
+                  NcCtl *c = &pctls[focus];
+                  if (c->epos > 0)
+                    {
+                      memmove (c->ebuf + c->epos - 1, c->ebuf + c->epos,
+                               (c->elen - c->epos) * sizeof (Char));
+                      c->epos--;
+                      c->elen--;
+                      apply_enable (pctls, nctl, c, c->elen > 0);
+                    }
+                }
+              break;
+
+            case 0x15: // C-u: clear edit
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                {
+                  pctls[focus].elen = 0;
+                  pctls[focus].epos = 0;
+                  apply_enable (pctls, nctl, &pctls[focus], 0);
+                }
+              break;
+
+            case 0x01: // C-a
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                pctls[focus].epos = 0;
+              break;
+
+            case 0x05: // C-e
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus]))
+                pctls[focus].epos = pctls[focus].elen;
+              break;
+
+            default:
+              if (focus_area == 1 && focus >= 0 && is_editable (&pctls[focus])
+                  && wch >= 0x20)
+                {
+                  NcCtl *c = &pctls[focus];
+                  if (c->elen < EDIT_MAX - 1)
+                    {
+                      Char ch = (wch < 0x80) ? (Char)wch : w2i ((ucs2_t)wch);
+                      memmove (c->ebuf + c->epos + 1, c->ebuf + c->epos,
+                               (c->elen - c->epos) * sizeof (Char));
+                      c->ebuf[c->epos] = ch;
+                      c->epos++;
+                      c->elen++;
+                      apply_enable (pctls, nctl, c, c->elen > 0);
+                    }
+                }
+              break;
+            }
+        }
+
+      if (!done)
+        draw_all ();
+    }
+
+  delwin (win);
+  curs_set (1);
+  touchwin (stdscr);
+  refresh_screen (1);
+  QUIT;
+
+  multiple_value::count () = 2;
+  multiple_value::value (1) = make_fixnum (cur_page);
+
+  if (!ok_pressed)
+    return Qnil;
+
+  // Collect results from all pages
+  lisp values = Qnil;
+  protect_gc gcpro_values (values);
+
+  for (int pi = npages - 1; pi >= 0; pi--)
+    {
+      lisp page_result = Qnil;
+      if (collect_results (&ps_ctls[ps_pages[pi].ctl_start],
+                           ps_pages[pi].ctl_count, NULL, &page_result))
+        values = xcons (xcons (ps_pages[pi].ident, page_result), values);
+    }
+
+  return values;
+}
