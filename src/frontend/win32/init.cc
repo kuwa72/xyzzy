@@ -856,6 +856,7 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
               sysdep.host_name);
       MultiByteToWideChar (932, 0, TitleBarString, -1, TitleBarStringW, TITLE_BAR_STRING_SIZE);
     }
+  init_TitleBarStringC ();
 
   if (!init_lisp_objects ())
     return 0;

@@ -35,6 +35,20 @@
 
 char TitleBarString[TITLE_BAR_STRING_SIZE] = TITLEBAR_STRING;
 wchar_t TitleBarStringW[TITLE_BAR_STRING_SIZE] = L"" TITLEBAR_STRING;
+
+// Char (internal encoding) version — s2w(TitleBarString) at first use or startup
+Char TitleBarStringC[TITLE_BAR_STRING_SIZE];
+
+void
+init_TitleBarStringC ()
+{
+  // TitleBarString is ASCII, so simple byte-to-Char expansion
+  const char *s = TitleBarString;
+  Char *d = TitleBarStringC;
+  while (*s)
+    *d++ = (unsigned char)*s++;
+  *d = 0;
+}
 const char VersionString[] = PROGRAM_VERSION;
 const char DisplayVersionString[] = DISPLAY_VERSION_STRING;
 const char ProgramName[] = PROGRAM_NAME;

@@ -20,7 +20,7 @@ public:
 
   // Message box / confirmation dialogs
   // Returns IDYES, IDNO, IDOK, IDCANCEL (Win32 compat constants from platform.h)
-  virtual int message_box (int flags, const char *msg, const char *title)
+  virtual int message_box (int flags, const Char *msg, const Char *title)
   {
     if ((flags & 0x0f) == 0x04 /*MB_YESNO*/)
       return 6 /*IDYES*/;

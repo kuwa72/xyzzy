@@ -159,11 +159,11 @@ int get_glyph_width (Char, const glyph_width &) { return 8; }
 // msgbox.cc stubs
 // ============================================================
 
-int MsgBox (HWND, const char *, const char *, UINT, int) { return IDOK; }
-int MsgBoxEx (HWND, const char *, const char *, int, int, int, int,
-              const char **, int, int, int) { return IDOK; }
-void XMessageBox::add_button (UINT, const char *) {}
-void XMessageBox::set_button (int, UINT, const char *) {}
+int MsgBox (HWND, const Char *, const Char *, UINT, int) { return IDOK; }
+int MsgBoxEx (HWND, const Char *, const Char *, int, int, int, int,
+              const Char **, int, int, int) { return IDOK; }
+void XMessageBox::add_button (UINT, const Char *) {}
+void XMessageBox::set_button (int, UINT, const Char *) {}
 int XMessageBox::doit (HWND) { return IDOK; }
 
 // ============================================================

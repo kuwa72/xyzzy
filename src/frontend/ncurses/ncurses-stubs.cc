@@ -266,7 +266,7 @@ int get_glyph_width (Char, const glyph_width &) { return 8; }
 // msgbox.cc stubs
 // ============================================================
 
-int MsgBox (HWND, const char *msg, const char *title, UINT style, int)
+int MsgBox (HWND, const Char *msg, const Char *title, UINT style, int)
 {
   if (g_frontend)
     return g_frontend->message_box (style, msg, title);
@@ -275,10 +275,15 @@ int MsgBox (HWND, const char *msg, const char *title, UINT style, int)
     return IDYES;
   return IDOK;
 }
-int MsgBoxEx (HWND, const char *, const char *, int, int, int, int,
-              const char **, int, int, int) { return IDOK; }
-void XMessageBox::add_button (UINT, const char *) {}
-void XMessageBox::set_button (int, UINT, const char *) {}
+int MsgBoxEx (HWND hw, const Char *msg, const Char *title, int type, int def, int icon, int beep,
+              const Char **, int, int, int)
+{
+  // Reconstruct MB_* style from decomposed parameters
+  UINT style = (UINT)(type & 0x0f);
+  return MsgBox (hw, msg, title, style, beep);
+}
+void XMessageBox::add_button (UINT, const Char *) {}
+void XMessageBox::set_button (int, UINT, const Char *) {}
 int XMessageBox::doit (HWND) { return IDOK; }
 
 // ============================================================

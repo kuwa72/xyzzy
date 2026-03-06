@@ -51,6 +51,10 @@
 # define TITLE_BAR_STRING_SIZE 256
 extern char TitleBarString[];
 extern wchar_t TitleBarStringW[];
+#ifndef RC_INVOKED
+extern Char TitleBarStringC[];
+void init_TitleBarStringC ();
+#endif
 extern const char VersionString[];
 extern const char DisplayVersionString[];
 extern const char ProgramName[];

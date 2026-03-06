@@ -3922,27 +3922,26 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
   check_string (lmsg);
   int l = count_crlf (xstring_contents (lmsg),
                       xstring_contents (lmsg) + xstring_length (lmsg));
-  char *msg = (char *)alloca (l * 2 + 3);
-  copy_crlf ((Char *)msg + 1,
+  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1));
+  copy_crlf (msg,
              xstring_contents (lmsg),
              xstring_contents (lmsg) + xstring_length (lmsg));
-  w2s (msg, (Char *)msg + 1, l);
+  msg[l] = 0;
 
-  const char *title;
+  const Char *title;
   if (!ltitle || ltitle == Qnil)
-    title = TitleBarString;
+    title = TitleBarStringC;
   else
     {
       check_string (ltitle);
-      title = (char *)alloca (xstring_length (ltitle) * 2 + 1);
-      w2s ((char *)title, ltitle);
+      title = xstring_contents (ltitle);
     }
 
   msgbox_styles mb;
   msgbox_style (mb, styles);
 
   lisp lcaptions[5];
-  const char *captions[numberof (lcaptions)];
+  const Char *captions[numberof (lcaptions)];
   memset (lcaptions, 0, sizeof lcaptions);
   memset (captions, 0, sizeof captions);
   msgbox_captions (lcaptions, args);
@@ -3953,9 +3952,7 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
       if (x && x != Qnil)
         {
           check_string (x);
-          char *s = (char *)alloca (xstring_length (x) * 2 + 1);
-          w2s (s, x);
-          captions[i] = s;
+          captions[i] = xstring_contents (x);
         }
     }
 
@@ -3983,18 +3980,18 @@ putmsg (wStream &stream, int msgboxp, int style, int beep)
 {
   stream.finish ();
   int l = stream.length ();
-  Char *b = (Char *)alloca (sizeof (Char) * l + sizeof (Char) + 1);
-  stream.copy (b + 1);
+  Char *b = (Char *)alloca (sizeof (Char) * (l + 1));
+  stream.copy (b);
+  b[l] = 0;
 
   if (msgboxp)
     {
-      w2s ((char *)b, b + 1, l);
       app.status_window.clear ();
-      return MsgBox (get_active_window (), (char *)b, TitleBarString, style, beep);
+      return MsgBox (get_active_window (), b, TitleBarStringC, style, beep);
     }
   else
     {
-      app.status_window.puts (b + 1, l);
+      app.status_window.puts (b, l);
       app.status_window.putc ('\n');
       if (beep)
         Fding ();
@@ -4347,7 +4344,9 @@ format_yes_or_no_p (message_code m, ...)
   char buf[2048];
   vsprintf (buf, fmt, ap);
   va_end (ap);
-  return MsgBox (get_active_window (), buf, TitleBarString,
+  Char wbuf[2048];
+  s2w (wbuf, buf);
+  return MsgBox (get_active_window (), wbuf, TitleBarStringC,
                  MB_YESNO | MB_ICONQUESTION, 1) == IDYES;
 }
 

@@ -967,6 +967,7 @@ public:
     sigaction (SIGWINCH, &sa, NULL);
 
     init_lisp_engine (argv[0]);
+    init_TitleBarStringC ();
 
     // ncurses init
     initscr ();
@@ -1049,6 +1050,77 @@ public:
   // refresh_screen: uses base class default (no-op) for now;
   // the actual ncurses refresh is called directly from command_loop via
   // the C-linkage refresh_screen() function in ncurses-stubs.cc.
+
+  int message_box (int flags, const Char *msg, const Char *title) override
+  {
+    int type = flags & 0x0f;
+    int rows, cols;
+    getmaxyx (stdscr, rows, cols);
+    int row = rows - 1;
+
+    // Show message on the last row
+    move (row, 0);
+    clrtoeol ();
+
+    const char *prompt;
+    if (type == 0x04 /*MB_YESNO*/)
+      prompt = " (y or n) ";
+    else if (type == 0x03 /*MB_YESNOCANCEL*/)
+      prompt = " (y, n, or ESC) ";
+    else
+      prompt = " [OK] ";
+
+    // Convert Char* msg to wide chars for ncurses display
+    int prompt_len = (int)strlen (prompt);
+    int max_chars = cols - prompt_len - 1;
+    if (max_chars < 0) max_chars = 0;
+
+    move (row, 0);
+    int col = 0;
+    for (const Char *p = msg; *p && col < max_chars; p++)
+      {
+        if (*p == '\r' || *p == '\n')
+          continue;
+        cchar_t cc;
+        wchar_t wc[2] = {(wchar_t)i2w (*p), 0};
+        setcchar (&cc, wc, 0, 0, NULL);
+        add_wch (&cc);
+        col += wcwidth (wc[0]) > 0 ? wcwidth (wc[0]) : 1;
+      }
+    addstr (prompt);
+    curs_set (1);
+    ::refresh ();
+
+    // Wait for input
+    int result;
+    if (type == 0x04 /*MB_YESNO*/ || type == 0x03 /*MB_YESNOCANCEL*/)
+      {
+        while (1)
+          {
+            int ch = getch ();
+            if (ch == 'y' || ch == 'Y')
+              { result = 6 /*IDYES*/; break; }
+            if (ch == 'n' || ch == 'N')
+              { result = 7 /*IDNO*/; break; }
+            if (type == 0x03 && (ch == 27 /*ESC*/ || ch == 'q' || ch == 'Q'))
+              { result = 2 /*IDCANCEL*/; break; }
+            if (type == 0x04 && ch == 27 /*ESC*/)
+              { result = 7 /*IDNO*/; break; }
+          }
+      }
+    else
+      {
+        getch ();
+        result = 1 /*IDOK*/;
+      }
+
+    // Clear the prompt
+    move (row, 0);
+    clrtoeol ();
+    ::refresh ();
+
+    return result;
+  }
 };
 
 // ============================================================
@@ -1061,6 +1133,7 @@ public:
   int init (int argc, char **argv) override
   {
     init_lisp_engine (argv[0]);
+    init_TitleBarStringC ();
 
     // Create minimal window/buffer infrastructure
     // (many Lisp functions assume selected_window() is valid)
