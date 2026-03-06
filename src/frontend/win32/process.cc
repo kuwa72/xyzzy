@@ -339,7 +339,7 @@ public:
   virtual void signal () = 0;
   virtual void kill () = 0;
   virtual void send (const char *, int) const = 0;
-  void insert_process_output (void *);
+  virtual void insert_process_output (void *);
   lisp process_buffer () const {return p_bufp->lbp;}
   void flush_input ();
   void store_output (const Char *, int);
@@ -816,7 +816,9 @@ public:
       WriteFile (p_pipe_out, s, l, &nwrite, 0);
     }
   virtual int readin (u_char *buf, int size);
+  virtual void insert_process_output (void *);
   Terminal *term () const { return p_term; }
+  XHPCON hpc () const { return p_hpc; }
 };
 
 void
@@ -842,6 +844,15 @@ ConPtyProcess::create (lisp command, lisp execdir)
   COORD size;
   size.X = 80;
   size.Y = 24;
+
+  // Use actual window size if buffer is displayed
+  for (Window *w = app.active_frame.windows; w; w = w->w_next)
+    if (w->w_bufp == p_bufp && w->w_ech.cx > 0 && w->w_ech.cy > 0)
+      {
+        size.X = (SHORT)w->w_ech.cx;
+        size.Y = (SHORT)w->w_ech.cy;
+        break;
+      }
 
   HRESULT hr = pCreatePseudoConsole (size, pipe_pty_in, pipe_pty_out, 0, &p_hpc);
   CloseHandle (pipe_pty_in);
@@ -903,6 +914,10 @@ ConPtyProcess::create (lisp command, lisp execdir)
   // Create terminal emulator
   p_term = new Terminal (size.Y, size.X);
 
+  // Disable fold-width — terminal handles wrapping
+  p_bufp->b_fold_columns = Buffer::FOLD_NONE;
+  p_bufp->fold_width_modified ();
+
   // Start reader and waiter threads
   u_int tid;
   HANDLE hread = (HANDLE)_beginthreadex (0, 0, Process::read_process, this,
@@ -930,7 +945,8 @@ ConPtyProcess::read_process ()
   if (!p_process.valid ())
     return 0;
 
-  // Read raw bytes from pty, feed to terminal emulator
+  // Read raw bytes from pty, feed to terminal emulator.
+  // sync_to_buffer is called on the GUI thread via insert_process_output.
   u_char buf[4096];
   while (1)
     {
@@ -941,26 +957,31 @@ ConPtyProcess::read_process ()
       if (p_term)
         {
           p_term->feed (buf, n);
-          if (p_term->dirty ())
+          if (p_term->dirty () && !p_pending)
             {
-              // Sync on reader thread (simpler than cross-thread for now;
-              // sync_to_buffer only writes to Buffer which is not accessed
-              // by GUI thread during SendMessageTimeout below).
-              Window *wp = 0;
-              for (Window *w = app.active_frame.windows; w; w = w->w_next)
-                if (w->w_bufp == p_bufp)
-                  { wp = w; break; }
-              p_term->sync_to_buffer (p_bufp, wp);
-
-              if (!p_pending)
-                {
-                  PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
-                  p_pending = 1;
-                }
+              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+              p_pending = 1;
             }
         }
     }
   return 0;
+}
+
+// Called on GUI thread when WM_PRIVATE_PROCESS_OUTPUT arrives
+void
+ConPtyProcess::insert_process_output (void *)
+{
+  p_pending = 0;
+  if (!p_term || !p_term->dirty ())
+    return;
+
+  // Direct GDI rendering: paint_terminal reads TermCell directly,
+  // no need for sync_to_buffer.
+  for (Window *w = app.active_frame.windows; w; w = w->w_next)
+    if (w->w_bufp == p_bufp)
+      w->w_disp_flags |= Window::WDF_WINDOW;
+
+  refresh_screen (0);
 }
 
 u_int
@@ -1477,6 +1498,61 @@ Fopen_network_stream (lisp buffer, lisp host, lisp service, lisp keys)
   bp->modify_mode_line ();
 
   return process;
+}
+
+// Find the ConPtyProcess for a buffer, or NULL if none.
+static ConPtyProcess *
+find_conpty_process (const Buffer *bp)
+{
+  for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
+    {
+      Process *pr = xprocess_data (xcar (p));
+      if (pr && pr->process_buffer () == bp->lbp)
+        {
+          ConPtyProcess *cp = dynamic_cast<ConPtyProcess *>(pr);
+          if (cp && cp->term ())
+            return cp;
+        }
+    }
+  return 0;
+}
+
+// Return the Terminal* for a buffer's ConPTY process, or NULL.
+Terminal *
+buffer_terminal (const Buffer *bp)
+{
+  ConPtyProcess *cp = find_conpty_process (bp);
+  return cp ? cp->term () : 0;
+}
+
+// Send raw data to the buffer's ConPTY process.
+int
+buffer_terminal_send (const Buffer *bp, const char *data, int len)
+{
+  ConPtyProcess *cp = find_conpty_process (bp);
+  if (cp)
+    {
+      cp->send (data, len);
+      return 1;
+    }
+  return 0;
+}
+
+// Resize the buffer's ConPTY terminal and pseudo console.
+void
+buffer_terminal_resize_conpty (const Buffer *bp, int rows, int cols)
+{
+  ConPtyProcess *cp = find_conpty_process (bp);
+  if (!cp || !cp->term ())
+    return;
+  cp->term ()->resize (rows, cols);
+  if (cp->hpc () && pResizePseudoConsole)
+    {
+      COORD size;
+      size.X = (SHORT)cols;
+      size.Y = (SHORT)rows;
+      pResizePseudoConsole (cp->hpc (), size);
+    }
 }
 
 int

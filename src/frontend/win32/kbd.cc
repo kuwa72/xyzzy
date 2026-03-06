@@ -4,6 +4,96 @@
 #include "safe_ptr.h"
 #include "encoding.h"
 #include "environ.h"
+#include "term.h"
+
+extern Terminal *buffer_terminal (const Buffer *bp);
+extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+
+// Convert an lChar to terminal input and send to pty.
+// Returns 1 if the key was forwarded, 0 if not handled.
+static int
+send_key_to_terminal (const Buffer *bp, Terminal *term, lChar c)
+{
+  char buf[16];
+  int len = 0;
+
+  // Mouse events — not forwarded
+  if (c & (LCHAR_MOUSE | LCHAR_MENU))
+    return 0;
+
+  // Function keys → VT100 escape sequences
+  {
+    int app = term->app_cursor_keys ();
+    int base = c & ~(CCF_CTRL_BIT | CCF_SHIFT_BIT);
+    char code = 0;
+    switch (base)
+      {
+      case CCF_UP:    code = 'A'; break;
+      case CCF_DOWN:  code = 'B'; break;
+      case CCF_RIGHT: code = 'C'; break;
+      case CCF_LEFT:  code = 'D'; break;
+      case CCF_HOME:  code = 'H'; break;
+      case CCF_END:   code = 'F'; break;
+      default: break;
+      }
+    if (code)
+      {
+        buf[0] = '\033';
+        buf[1] = app ? 'O' : '[';
+        buf[2] = code;
+        len = 3;
+      }
+    else
+      {
+        const char *seq = 0;
+        switch (base)
+          {
+          case CCF_INSERT: seq = "\033[2~"; break;
+          case CCF_DELETE: seq = "\033[3~"; break;
+          case CCF_PRIOR:  seq = "\033[5~"; break;
+          case CCF_NEXT:   seq = "\033[6~"; break;
+          case CCF_F1:  seq = "\033OP"; break;
+          case CCF_F2:  seq = "\033OQ"; break;
+          case CCF_F3:  seq = "\033OR"; break;
+          case CCF_F4:  seq = "\033OS"; break;
+          case CCF_F5:  seq = "\033[15~"; break;
+          case CCF_F6:  seq = "\033[17~"; break;
+          case CCF_F7:  seq = "\033[18~"; break;
+          case CCF_F8:  seq = "\033[19~"; break;
+          case CCF_F9:  seq = "\033[20~"; break;
+          case CCF_F10: seq = "\033[21~"; break;
+          case CCF_F11: seq = "\033[23~"; break;
+          case CCF_F12: seq = "\033[24~"; break;
+          default: break;
+          }
+        if (seq)
+          { len = (int)strlen (seq); memcpy (buf, seq, len); }
+      }
+  }
+
+  if (len == 0 && c < 0x80)
+    {
+      // ASCII character (including control chars)
+      buf[0] = (char)c;
+      len = 1;
+    }
+  else if (len == 0 && c < 0x10000)
+    {
+      // Non-ASCII: internal Char → UCS-2 → UTF-8
+      ucs2_t ucs = i2w ((Char)c);
+      if (ucs < 0x80)
+        { buf[0] = (char)ucs; len = 1; }
+      else if (ucs < 0x800)
+        { buf[0] = 0xc0 | (ucs >> 6); buf[1] = 0x80 | (ucs & 0x3f); len = 2; }
+      else
+        { buf[0] = 0xe0 | (ucs >> 12); buf[1] = 0x80 | ((ucs >> 6) & 0x3f);
+          buf[2] = 0x80 | (ucs & 0x3f); len = 3; }
+    }
+
+  if (len > 0)
+    return buffer_terminal_send (bp, buf, len);
+  return 0;
+}
 
 kbd_queue::kbd_queue ()
      : head (0), tail (0), pending (lChar_EOF), last_ime_status (-1),
@@ -169,7 +259,54 @@ kbd_queue::fetch (int in_main, int req_mouse_move)
     {
       c = peek (req_mouse_move);
       if (c != lChar_EOF)
-        break;
+        {
+          // Terminal key forwarding: if selected window has a ConPTY terminal,
+          // send key to pty instead of xyzzy command loop.
+          // C-c is escape prefix: C-c <key> -> C-x <key> in xyzzy.
+          // C-c C-c -> send C-c (0x03) to pty.
+          Window *sw = selected_window ();
+          if (sw && sw->w_bufp && !sw->minibuffer_window_p ())
+            {
+              Terminal *tw = buffer_terminal (sw->w_bufp);
+              if (tw)
+                {
+                  if (c == 0x03)
+                    {
+                      // C-c prefix: read next key
+                      lChar c2 = lChar_EOF;
+                      while (c2 == lChar_EOF)
+                        {
+                          c2 = peek (0);
+                          if (c2 != lChar_EOF)
+                            break;
+                          MSG msg;
+                          if (!GetMessage (&msg, 0, 0, 0))
+                            {
+                              in_main_loop = 0;
+                              PostQuitMessage (0);
+                              return lChar_EOF;
+                            }
+                          XyzzyTranslateMessage (&msg);
+                          DispatchMessage (&msg);
+                        }
+                      if (c2 == 0x03)
+                        {
+                          // C-c C-c -> send C-c to pty
+                          char cc = 0x03;
+                          buffer_terminal_send (sw->w_bufp, &cc, 1);
+                          continue;
+                        }
+                      // C-c <key> -> return C-x to xyzzy, queue <key>
+                      c = 0x18;  // C-x
+                      pending = c2;
+                      break;
+                    }
+                  if (send_key_to_terminal (sw->w_bufp, tw, c))
+                    continue;
+                }
+            }
+          break;
+        }
       MSG msg;
       if (!GetMessage (&msg, 0, 0, 0))
         {

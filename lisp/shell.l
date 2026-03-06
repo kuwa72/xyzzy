@@ -35,6 +35,8 @@
 	 (setq *shell-ret* "\r" *shell-echo* t))
 	((string-matchp *eshell* "cmd.exe$")
 	 (setq *shell-ret* "\n" *shell-echo* t))
+	((string-matchp *eshell* "\\(pwsh\\|powershell\\)\\.exe$")
+	 (setq *shell-ret* "\n" *shell-echo* nil))
 	(t
 	 (setq *shell-ret* "\n" *shell-echo* nil)))
   (run-hooks '*shell-mode-hook*))

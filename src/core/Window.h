@@ -563,6 +563,8 @@ struct Window
                    char *, int, const INT *) const;
   void paint_window (HDC) const;
   void paint_region (HDC, int, int) const;
+  void paint_terminal (HDC, class Terminal *);
+  int refresh_terminal (int f);
   void find_motion () const;
   void redraw_window (Point &, long, int, int) const;
   int kwdmatch (lisp, const Char *, const Chunk *, int &, int &, int, int &, int) const;

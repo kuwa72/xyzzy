@@ -8,6 +8,9 @@
 #include "mainframe.h"
 #include "regex.h"
 #include "glyph.h"
+#include "term.h"
+
+extern Terminal *buffer_terminal (const Buffer *bp);
 
 class color_caret
 {
@@ -2131,6 +2134,11 @@ Window::refresh (int f)
 
   if (w_bufp != w_last_bufp)
     {
+      // Switching to/from terminal buffer: force full repaint
+      // because terminal rendering bypasses the glyph system
+      if ((w_last_bufp && buffer_terminal (w_last_bufp))
+          || (w_bufp && buffer_terminal (w_bufp)))
+        InvalidateRect (w_hwnd, 0, TRUE);
       w_last_bufp = w_bufp;
       w_top_column = 0;
       w_selection_region.p1 = -1;
@@ -2139,6 +2147,14 @@ Window::refresh (int f)
 
   if (flags () != w_last_flags)
     w_disp_flags |= WDF_WINDOW;
+
+  // Terminal buffer: bypass normal glyph rendering
+  if (w_bufp)
+    {
+      int tr = refresh_terminal (f);
+      if (tr >= 0)
+        return tr;
+    }
 
   int r = 0;
   if (w_bufp)
@@ -2249,6 +2265,220 @@ Window::pending_refresh ()
 
   if (w_disp_flags & WDF_GOAL_COLUMN)
     w_goal_column = w_column;
+}
+
+// ============================================================
+// Terminal (ConPTY) direct GDI rendering
+// ============================================================
+
+// xterm 256-color palette → COLORREF
+static COLORREF
+term_color_to_rgb (uint8_t tc)
+{
+  // Standard 16 colors (VGA)
+  static const COLORREF basic16[] = {
+    RGB(0,0,0),       RGB(128,0,0),     RGB(0,128,0),     RGB(128,128,0),
+    RGB(0,0,128),     RGB(128,0,128),   RGB(0,128,128),   RGB(192,192,192),
+    RGB(128,128,128), RGB(255,0,0),     RGB(0,255,0),     RGB(255,255,0),
+    RGB(0,0,255),     RGB(255,0,255),   RGB(0,255,255),   RGB(255,255,255),
+  };
+  if (tc == 0) return CLR_INVALID;  // default
+  if (tc <= 16) return basic16[tc - 1];
+  tc -= 17;
+  if (tc < 216)
+    {
+      // 6x6x6 color cube
+      int b = (tc % 6) * 51;
+      int g = ((tc / 6) % 6) * 51;
+      int r = (tc / 36) * 51;
+      return RGB(r, g, b);
+    }
+  tc -= 216;
+  if (tc < 24)
+    {
+      // Grayscale ramp
+      int v = tc * 10 + 8;
+      return RGB(v, v, v);
+    }
+  return RGB(255, 255, 255);
+}
+
+void
+Window::paint_terminal (HDC hdc, Terminal *term)
+{
+  int cellw = app.text_font.cell ().cx;
+  int cellh = app.text_font.cell ().cy;
+  int trows = term->rows ();
+  int tcols = term->cols ();
+
+  const FontObject &ascii_font = app.text_font.font (FONT_ASCII);
+  const FontObject &jp_font = app.text_font.font (FONT_JP);
+  HGDIOBJ of = SelectObject (hdc, ascii_font);
+
+  // Terminal defaults: white on black (like a real terminal)
+  COLORREF def_fg = RGB(192, 192, 192);
+  COLORREF def_bg = RGB(0, 0, 0);
+
+  for (int r = 0; r < w_ch_max.cy; r++)
+    {
+      int py = r * cellh;
+      for (int c = 0; c < w_ch_max.cx; )
+        {
+          if (r >= trows || c >= tcols)
+            {
+              // Beyond terminal grid — fill with background
+              RECT rc = { c * cellw + cellw / 2, py,
+                          w_client.cx, py + cellh };
+              HBRUSH hbr = CreateSolidBrush (def_bg);
+              FillRect (hdc, &rc, hbr);
+              DeleteObject (hbr);
+              c = w_ch_max.cx;
+              continue;
+            }
+
+          const TermCell *tc = term->cell_at (r, c);
+          if (tc->wide == 2)
+            { c++; continue; }
+
+          uint8_t fg_idx = tc->fg;
+          uint8_t bg_idx = tc->bg;
+          uint8_t attrs = tc->attrs;
+
+          if (attrs & TATTR_REVERSE)
+            { uint8_t tmp = fg_idx; fg_idx = bg_idx; bg_idx = tmp; }
+
+          COLORREF fg = (fg_idx == 0) ? def_fg : term_color_to_rgb (fg_idx);
+          COLORREF bg = (bg_idx == 0) ? def_bg : term_color_to_rgb (bg_idx);
+
+          if (attrs & TATTR_DIM)
+            {
+              fg = RGB(GetRValue(fg)/2, GetGValue(fg)/2, GetBValue(fg)/2);
+            }
+
+          int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
+
+          // Convert internal Char to wchar_t for ExtTextOutW
+          Char ich = tc->ch;
+          wchar_t wc;
+          if (ich == 0 || ich == ' ')
+            wc = L' ';
+          else
+            wc = i2w (ich);
+
+          int px = c * cellw + cellw / 2;
+          RECT rc = { px, py, px + cw * cellw, py + cellh };
+
+          SetTextColor (hdc, fg);
+          SetBkColor (hdc, bg);
+
+          if (tc->wide == 1)
+            {
+              // Wide character — use CJK font
+              HGDIOBJ prev = SelectObject (hdc, jp_font);
+              ExtTextOutW (hdc, px + jp_font.offset ().x,
+                           py + jp_font.offset ().y,
+                           ETO_CLIPPED | ETO_OPAQUE, &rc, &wc, 1, 0);
+              SelectObject (hdc, prev);
+            }
+          else
+            {
+              ExtTextOutW (hdc, px + ascii_font.offset ().x,
+                           py + ascii_font.offset ().y,
+                           ETO_CLIPPED | ETO_OPAQUE, &rc, &wc, 1, 0);
+            }
+
+          if (attrs & TATTR_UNDERLINE)
+            {
+              HPEN pen = CreatePen (PS_SOLID, 1, fg);
+              HGDIOBJ op = SelectObject (hdc, pen);
+              MoveToEx (hdc, px, py + cellh - 1, 0);
+              LineTo (hdc, px + cw * cellw, py + cellh - 1);
+              SelectObject (hdc, op);
+              DeleteObject (pen);
+            }
+
+          if (attrs & TATTR_BOLD)
+            {
+              // Draw again offset by 1 pixel for bold effect
+              SetBkMode (hdc, TRANSPARENT);
+              if (tc->wide == 1)
+                {
+                  HGDIOBJ prev = SelectObject (hdc, jp_font);
+                  ExtTextOutW (hdc, px + jp_font.offset ().x + 1,
+                               py + jp_font.offset ().y,
+                               ETO_CLIPPED, &rc, &wc, 1, 0);
+                  SelectObject (hdc, prev);
+                }
+              else
+                {
+                  ExtTextOutW (hdc, px + ascii_font.offset ().x + 1,
+                               py + ascii_font.offset ().y,
+                               ETO_CLIPPED, &rc, &wc, 1, 0);
+                }
+              SetBkMode (hdc, OPAQUE);
+            }
+
+          c += cw;
+        }
+    }
+
+  // Draw cursor
+  int cr = term->cursor_row ();
+  int cc = term->cursor_col ();
+  if (cr >= 0 && cr < trows && cc >= 0 && cc < tcols
+      && this == selected_window ())
+    {
+      int cpx = cc * cellw + cellw / 2;
+      int cpy = cr * cellh;
+      // Invert cursor cell
+      RECT crc = { cpx, cpy, cpx + cellw, cpy + cellh };
+      InvertRect (hdc, &crc);
+    }
+
+  // Fill area below terminal rows
+  if (trows < w_ch_max.cy)
+    {
+      RECT rc = { 0, trows * cellh, w_client.cx, w_client.cy };
+      HBRUSH hbr = CreateSolidBrush (def_bg);
+      FillRect (hdc, &rc, hbr);
+      DeleteObject (hbr);
+    }
+
+  SelectObject (hdc, of);
+}
+
+int
+Window::refresh_terminal (int f)
+{
+  Terminal *term = buffer_terminal (w_bufp);
+  if (!term)
+    return -1;  // not a terminal buffer
+
+  // Resize terminal to match window
+  if (term->rows () != w_ech.cy || term->cols () != w_ech.cx)
+    {
+      extern void buffer_terminal_resize_conpty (const Buffer *bp, int rows, int cols);
+      buffer_terminal_resize_conpty (w_bufp, w_ech.cy, w_ech.cx);
+    }
+
+  // Hide Windows caret — terminal draws its own cursor
+  hide_caret ();
+
+  int r = redraw_mode_line ();
+
+  // Always repaint terminal (it's cheap compared to glyph diffing)
+  {
+    HDC hdc = GetDC (w_hwnd);
+    paint_terminal (hdc, term);
+    ReleaseDC (w_hwnd, hdc);
+    term->clear_dirty ();
+  }
+
+  w_disp_flags = 0;
+
+  update_vscroll_bar ();
+  update_hscroll_bar ();
+  return r;
 }
 
 void
@@ -2394,6 +2624,20 @@ Window::discard_invalid_region (const PAINTSTRUCT &ps, RECT &r)
 void
 Window::update_window ()
 {
+  // Terminal buffer: paint directly from TermCell
+  if (w_bufp)
+    {
+      Terminal *term = buffer_terminal (w_bufp);
+      if (term)
+        {
+          PAINTSTRUCT ps;
+          HDC hdc = BeginPaint (w_hwnd, &ps);
+          paint_terminal (hdc, term);
+          EndPaint (w_hwnd, &ps);
+          return;
+        }
+    }
+
   PAINTSTRUCT ps;
   HDC hdc = BeginPaint (w_hwnd, &ps);
 
