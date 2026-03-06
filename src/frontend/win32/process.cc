@@ -4,6 +4,7 @@
 #include "sockinet.h"
 #include "byte-stream.h"
 #include "mainframe.h"
+#include "term.h"
 
 class EnvStrings
 {
@@ -705,6 +706,287 @@ public:
 };
 
 
+// ============================================================
+// ConPTY support (Windows 10 1809+, runtime detection)
+// All types/constants defined manually for XP-compatible SDK.
+// ============================================================
+
+// HPCON is void* (opaque handle)
+typedef void *XHPCON;
+
+typedef HRESULT (WINAPI *pfnCreatePseudoConsole)(COORD, HANDLE, HANDLE, DWORD, XHPCON *);
+typedef void (WINAPI *pfnClosePseudoConsole)(XHPCON);
+typedef HRESULT (WINAPI *pfnResizePseudoConsole)(XHPCON, COORD);
+typedef BOOL (WINAPI *pfnInitializeProcThreadAttributeList)(
+  LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD, PSIZE_T);
+typedef BOOL (WINAPI *pfnUpdateProcThreadAttribute)(
+  LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD_PTR, PVOID, SIZE_T, PVOID, PSIZE_T);
+typedef void (WINAPI *pfnDeleteProcThreadAttributeList)(LPPROC_THREAD_ATTRIBUTE_LIST);
+
+#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
+#define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
+#endif
+
+#ifndef EXTENDED_STARTUPINFO_PRESENT
+#define EXTENDED_STARTUPINFO_PRESENT 0x00080000
+#endif
+
+// STARTUPINFOEXW may not be available in old SDKs
+struct MY_STARTUPINFOEXW {
+  STARTUPINFOW StartupInfo;
+  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
+};
+
+static pfnCreatePseudoConsole pCreatePseudoConsole;
+static pfnClosePseudoConsole pClosePseudoConsole;
+static pfnResizePseudoConsole pResizePseudoConsole;
+static pfnInitializeProcThreadAttributeList pInitializeProcThreadAttributeList;
+static pfnUpdateProcThreadAttribute pUpdateProcThreadAttribute;
+static pfnDeleteProcThreadAttributeList pDeleteProcThreadAttributeList;
+static int g_conpty_checked;
+
+static int
+conpty_available ()
+{
+  if (!g_conpty_checked)
+    {
+      g_conpty_checked = 1;
+      HMODULE hk = GetModuleHandleW (L"kernel32.dll");
+      if (hk)
+        {
+          pCreatePseudoConsole = (pfnCreatePseudoConsole)
+            GetProcAddress (hk, "CreatePseudoConsole");
+          pClosePseudoConsole = (pfnClosePseudoConsole)
+            GetProcAddress (hk, "ClosePseudoConsole");
+          pResizePseudoConsole = (pfnResizePseudoConsole)
+            GetProcAddress (hk, "ResizePseudoConsole");
+          pInitializeProcThreadAttributeList = (pfnInitializeProcThreadAttributeList)
+            GetProcAddress (hk, "InitializeProcThreadAttributeList");
+          pUpdateProcThreadAttribute = (pfnUpdateProcThreadAttribute)
+            GetProcAddress (hk, "UpdateProcThreadAttribute");
+          pDeleteProcThreadAttributeList = (pfnDeleteProcThreadAttributeList)
+            GetProcAddress (hk, "DeleteProcThreadAttributeList");
+        }
+    }
+  return pCreatePseudoConsole && pClosePseudoConsole
+         && pInitializeProcThreadAttributeList && pUpdateProcThreadAttribute;
+}
+
+class ConPtyProcess: public Process
+{
+  dyn_handle p_pipe_in;   // read from child
+  dyn_handle p_pipe_out;  // write to child
+  XHPCON p_hpc;
+  dyn_handle p_process;
+  dyn_handle p_read_thread;
+  dyn_handle p_wait_thread;
+  DWORD p_exit_code;
+  Terminal *p_term;
+
+  virtual u_int read_process ();
+  u_int wait_process ();
+  static u_int WINAPI wait_process (void *p)
+    { return ((ConPtyProcess *)p)->wait_process (); }
+
+public:
+  ConPtyProcess (Buffer *bp, lisp pl, lisp marker)
+    : Process (bp, pl, marker), p_hpc (0), p_exit_code (0), p_term (0) {}
+  virtual ~ConPtyProcess ()
+    {
+      if (p_hpc)
+        pClosePseudoConsole (p_hpc);
+      delete p_term;
+    }
+  void create (lisp command, lisp execdir);
+  virtual void wait_terminate ();
+  virtual void signal ()
+    {
+      // Send Ctrl+C via the pty
+      char cc = 0x03;
+      send (&cc, 1);
+    }
+  virtual void kill ()
+    {
+      if (p_process.valid ())
+        TerminateProcess (p_process, 2);
+    }
+  virtual void send (const char *s, int l) const
+    {
+      DWORD nwrite;
+      WriteFile (p_pipe_out, s, l, &nwrite, 0);
+    }
+  virtual int readin (u_char *buf, int size);
+  Terminal *term () const { return p_term; }
+};
+
+void
+ConPtyProcess::create (lisp command, lisp execdir)
+{
+  char dir[PATH_MAX + 1];
+  pathname2cstr (execdir, dir);
+  map_sl_to_backsl (dir);
+
+  // Create pipes for ConPTY
+  HANDLE pipe_pty_in, pipe_pty_out;  // pty side
+  HANDLE pipe_our_in, pipe_our_out;  // our side
+
+  if (!CreatePipe (&pipe_pty_in, &pipe_our_out, NULL, 0))
+    file_error (GetLastError ());
+  if (!CreatePipe (&pipe_our_in, &pipe_pty_out, NULL, 0))
+    {
+      CloseHandle (pipe_pty_in);
+      CloseHandle (pipe_our_out);
+      file_error (GetLastError ());
+    }
+
+  COORD size;
+  size.X = 80;
+  size.Y = 24;
+
+  HRESULT hr = pCreatePseudoConsole (size, pipe_pty_in, pipe_pty_out, 0, &p_hpc);
+  CloseHandle (pipe_pty_in);
+  CloseHandle (pipe_pty_out);
+  if (FAILED (hr))
+    {
+      CloseHandle (pipe_our_in);
+      CloseHandle (pipe_our_out);
+      file_error (GetLastError ());
+    }
+
+  p_pipe_in.fix (pipe_our_in);
+  p_pipe_out.fix (pipe_our_out);
+
+  // Set up STARTUPINFOEX with pseudo console attribute
+  SIZE_T attr_size = 0;
+  pInitializeProcThreadAttributeList (NULL, 1, 0, &attr_size);
+  LPPROC_THREAD_ATTRIBUTE_LIST attr_list =
+    (LPPROC_THREAD_ATTRIBUTE_LIST)alloca (attr_size);
+  pInitializeProcThreadAttributeList (attr_list, 1, 0, &attr_size);
+  pUpdateProcThreadAttribute (attr_list, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+                              p_hpc, sizeof (XHPCON), NULL, NULL);
+
+  MY_STARTUPINFOEXW siex;
+  ZeroMemory (&siex, sizeof siex);
+  siex.StartupInfo.cb = sizeof siex;
+  siex.lpAttributeList = attr_list;
+
+  char *cmdline_a = (char *)alloca (xstring_length (command) * 2 + 1);
+  w2s (cmdline_a, command);
+
+  // Convert to wchar for CreateProcessW
+  int wclen = MultiByteToWideChar (932, 0, cmdline_a, -1, NULL, 0);
+  wchar_t *cmdline_w = (wchar_t *)alloca (wclen * sizeof (wchar_t));
+  MultiByteToWideChar (932, 0, cmdline_a, -1, cmdline_w, wclen);
+
+  wchar_t dir_w[PATH_MAX + 1];
+  MultiByteToWideChar (932, 0, dir, -1, dir_w, PATH_MAX);
+
+  PROCESS_INFORMATION pi;
+  BOOL result = CreateProcessW (NULL, cmdline_w, NULL, NULL, FALSE,
+                                EXTENDED_STARTUPINFO_PRESENT, NULL,
+                                *dir ? dir_w : NULL,
+                                &siex.StartupInfo, &pi);
+  if (pDeleteProcThreadAttributeList)
+    pDeleteProcThreadAttributeList (attr_list);
+
+  if (!result)
+    {
+      int err = GetLastError ();
+      pClosePseudoConsole (p_hpc);
+      p_hpc = 0;
+      file_error (err);
+    }
+
+  CloseHandle (pi.hThread);
+  p_process.fix (pi.hProcess);
+
+  // Create terminal emulator
+  p_term = new Terminal (size.Y, size.X);
+
+  // Start reader and waiter threads
+  u_int tid;
+  HANDLE hread = (HANDLE)_beginthreadex (0, 0, Process::read_process, this,
+                                          CREATE_SUSPENDED, &tid);
+  HANDLE hwait = (HANDLE)_beginthreadex (0, 0, ConPtyProcess::wait_process, this,
+                                          CREATE_SUSPENDED, &tid);
+  p_read_thread.fix (hread);
+  p_wait_thread.fix (hwait);
+  ResumeThread (hread);
+  ResumeThread (hwait);
+}
+
+int
+ConPtyProcess::readin (u_char *buf, int size)
+{
+  DWORD nread;
+  if (!ReadFile (p_pipe_in, buf, size, &nread, 0) || !nread)
+    return 0;
+  return (int)nread;
+}
+
+u_int
+ConPtyProcess::read_process ()
+{
+  if (!p_process.valid ())
+    return 0;
+
+  // Read raw bytes from pty, feed to terminal emulator
+  u_char buf[4096];
+  while (1)
+    {
+      int n = readin (buf, sizeof buf);
+      if (!n)
+        break;
+
+      if (p_term)
+        {
+          p_term->feed (buf, n);
+          if (p_term->dirty ())
+            {
+              // Sync on reader thread (simpler than cross-thread for now;
+              // sync_to_buffer only writes to Buffer which is not accessed
+              // by GUI thread during SendMessageTimeout below).
+              Window *wp = 0;
+              for (Window *w = app.active_frame.windows; w; w = w->w_next)
+                if (w->w_bufp == p_bufp)
+                  { wp = w; break; }
+              p_term->sync_to_buffer (p_bufp, wp);
+
+              if (!p_pending)
+                {
+                  PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+                  p_pending = 1;
+                }
+            }
+        }
+    }
+  return 0;
+}
+
+u_int
+ConPtyProcess::wait_process ()
+{
+  if (!p_process.valid ())
+    return 0;
+  WaitForSingleObject (p_process, INFINITE);
+  if (!GetExitCodeProcess (p_process, &p_exit_code))
+    p_exit_code = (DWORD)-1;
+  p_process.close ();
+  WaitForSingleObject (p_read_thread, INFINITE);
+  notify_term ();
+  return 0;
+}
+
+void
+ConPtyProcess::wait_terminate ()
+{
+  if (p_read_thread.valid ())
+    WaitForSingleObject (p_read_thread, INFINITE);
+  if (p_wait_thread.valid ())
+    WaitForSingleObject (p_wait_thread, INFINITE);
+  terminated (p_exit_code);
+}
+
 class NormalProcess: public Process
 {
 protected:
@@ -1017,15 +1299,34 @@ Fmake_process (lisp command, lisp keys)
   xprocess_outcode (process) = outcode;
   xprocess_eol_code (process) = eol;
 
-  NormalProcess *pr = new NormalProcess (bp, process, Process::make_process_marker (bp));
-  try
+  Process *pr;
+  if (conpty_available ())
     {
-      pr->create (command, execdir, env.str (), show);
+      ConPtyProcess *cp = new ConPtyProcess (bp, process, Process::make_process_marker (bp));
+      try
+        {
+          cp->create (command, execdir);
+        }
+      catch (nonlocal_jump &)
+        {
+          delete cp;
+          throw;
+        }
+      pr = cp;
     }
-  catch (nonlocal_jump &)
+  else
     {
-      delete pr;
-      throw;
+      NormalProcess *np = new NormalProcess (bp, process, Process::make_process_marker (bp));
+      try
+        {
+          np->create (command, execdir, env.str (), show);
+        }
+      catch (nonlocal_jump &)
+        {
+          delete np;
+          throw;
+        }
+      pr = np;
     }
 
   xsymbol_value (Vprocess_list) = pl;
