@@ -699,6 +699,16 @@ if(NOT WIN32)
         install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
         install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION ${XYZZY_DOC_DIR})
         install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION ${XYZZY_DOC_DIR} OPTIONAL)
+
+        # Bytecompile: compile .l -> .lc using ncurses --batch
+        add_custom_target(bytecompile
+            COMMAND ${CMAKE_COMMAND}
+                -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+                -DXYZZY_EXE=$<TARGET_FILE:xyzzy-ncurses>
+                -P ${CMAKE_SOURCE_DIR}/cmake/bytecompile-ncurses.cmake
+            DEPENDS xyzzy-ncurses
+            COMMENT "Byte-compiling Lisp files (ncurses --batch)"
+        )
     else()
         message(STATUS "ncursesw not found - skipping xyzzy-ncurses target")
     endif()
