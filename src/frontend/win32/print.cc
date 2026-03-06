@@ -1933,9 +1933,12 @@ print_engine::notice (HWND hwnd, UINT id, UINT ids)
 {
   wchar_t wb[256];
   LoadStringW (app.hinst, ids, wb, numberof (wb));
-  char b[512];
-  wcs_to_cp932 (wb, -1, b, sizeof b);
-  MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
+  Char ib[256];
+  int ilen = 0;
+  for (int i = 0; wb[i] && ilen < (int)numberof (ib) - 1; i++)
+    ib[ilen++] = w2i (wb[i]);
+  ib[ilen] = 0;
+  MsgBox (hwnd, ib, TitleBarStringC, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))
     SetFocus (GetDlgItem (hwnd, id));
@@ -1948,9 +1951,12 @@ print_engine::notice (HWND hwnd, UINT id, UINT ids, int arg)
   wchar_t wfmt[256], wb[512];
   LoadStringW (app.hinst, ids, wfmt, numberof (wfmt));
   wsprintfW (wb, wfmt, arg);
-  char b[1024];
-  wcs_to_cp932 (wb, -1, b, sizeof b);
-  MsgBox (hwnd, b, TitleBarString, MB_OK | MB_ICONEXCLAMATION,
+  Char ib[512];
+  int ilen = 0;
+  for (int i = 0; wb[i] && ilen < (int)numberof (ib) - 1; i++)
+    ib[ilen++] = w2i (wb[i]);
+  ib[ilen] = 0;
+  MsgBox (hwnd, ib, TitleBarStringC, MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
   if (id != UINT (-1))
     SetFocus (GetDlgItem (hwnd, id));

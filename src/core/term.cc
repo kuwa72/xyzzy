@@ -5,8 +5,34 @@
 #include "ed.h"
 #include "term.h"
 
-#include <wchar.h>
 #include <string.h>
+
+#ifdef _WIN32
+// Windows lacks wcwidth(); simple CJK width check.
+static int
+term_wcwidth (wchar_t wc)
+{
+  if (wc == 0) return 0;
+  // CJK fullwidth / wide ranges
+  if ((wc >= 0x1100 && wc <= 0x115f)   // Hangul Jamo
+      || wc == 0x2329 || wc == 0x232a
+      || (wc >= 0x2e80 && wc <= 0x303e)  // CJK Radicals..CJK Symbols
+      || (wc >= 0x3040 && wc <= 0x33bf)  // Hiragana..CJK Compatibility
+      || (wc >= 0x3400 && wc <= 0x4dbf)  // CJK Unified Ext A
+      || (wc >= 0x4e00 && wc <= 0xa4cf)  // CJK Unified..Yi
+      || (wc >= 0xa960 && wc <= 0xa97c)  // Hangul Jamo Extended-A
+      || (wc >= 0xac00 && wc <= 0xd7a3)  // Hangul Syllables
+      || (wc >= 0xf900 && wc <= 0xfaff)  // CJK Compatibility Ideographs
+      || (wc >= 0xfe30 && wc <= 0xfe6f)  // CJK Compatibility Forms
+      || (wc >= 0xff01 && wc <= 0xff60)  // Fullwidth Forms
+      || (wc >= 0xffe0 && wc <= 0xffe6))
+    return 2;
+  return 1;
+}
+#define wcwidth term_wcwidth
+#else
+#include <wchar.h>
+#endif
 
 // ============================================================
 // Construction / destruction
