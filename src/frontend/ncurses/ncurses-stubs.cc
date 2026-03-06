@@ -2074,6 +2074,8 @@ xyzzy_color_bright (int idx)
 //   9:     selection (white on blue)
 //   16+:   textprop colors, indexed as 16 + fg*16 + bg
 #define SELECTION_PAIR 9
+#define MENU_PAIR 10       // menu bar & dropdown normal
+#define MENU_SEL_PAIR 11   // menu selected item
 #define TEXTPROP_PAIR_BASE 16
 #define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
 
@@ -2702,6 +2704,8 @@ init_ncurses_colors ()
   init_pair (7, COLOR_RED, -1);       // ctrl (bright via A_BOLD)
   init_pair (8, COLOR_WHITE, -1);     // linenum (dim via A_DIM)
   init_pair (SELECTION_PAIR, COLOR_WHITE, COLOR_BLUE);  // selection
+  init_pair (MENU_PAIR, COLOR_BLACK, COLOR_WHITE);      // menu normal
+  init_pair (MENU_SEL_PAIR, COLOR_WHITE, COLOR_BLACK);  // menu selected
 
   // Color pairs for text properties (16-271)
   // Only initialize combinations that fit within COLOR_PAIRS limit
@@ -2881,9 +2885,6 @@ refresh_screen (int)
   if (!mini)
     return;
 
-  // Draw persistent menu bar at row 0
-  draw_persistent_menu_bar ();
-
   // Render each non-minibuffer window
   for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
     {
@@ -2948,6 +2949,9 @@ refresh_screen (int)
             move (win_top + cy, col_offset + cx);
         }
     }
+
+  // Draw persistent menu bar at row 0 (after all windows, so nothing overwrites it)
+  draw_persistent_menu_bar ();
 
   // Flush to terminal
   ::refresh ();
@@ -5689,7 +5693,9 @@ collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enable
 static void
 draw_menu_bar_item (int col, const wchar_t *label, int len, int display_width, int selected)
 {
-  attr_t attr = selected ? A_REVERSE : A_NORMAL;
+  attr_t attr = selected
+    ? (A_BOLD | COLOR_PAIR (MENU_SEL_PAIR))
+    : COLOR_PAIR (MENU_PAIR);
   attron (attr);
   mvaddch (0, col, ' ');
   move (0, col + 1);
@@ -5710,12 +5716,12 @@ draw_persistent_menu_bar ()
   int rows, cols;
   getmaxyx (stdscr, rows, cols);
 
-  // Clear row 0 with reverse video background
-  attron (A_REVERSE);
+  // Clear row 0 with menu color background
+  attron (COLOR_PAIR (MENU_PAIR));
   move (0, 0);
   for (int i = 0; i < cols; i++)
     addch (' ');
-  attroff (A_REVERSE);
+  attroff (COLOR_PAIR (MENU_PAIR));
 
   lisp lmenu = xsymbol_value (Vdefault_menu);
   if (win32_menu_p (selected_buffer ()->lmenu))
@@ -5778,6 +5784,7 @@ draw_dropdown (int bar_x, int top_row, menu_entry *entries, int count, int sel, 
   if (!win)
     return NULL;
 
+  wbkgd (win, COLOR_PAIR (MENU_PAIR));
   box (win, 0, 0);
 
   for (int i = 0; i < count && i + 1 < box_h - 1; i++)
@@ -5788,9 +5795,9 @@ draw_dropdown (int bar_x, int top_row, menu_entry *entries, int count, int sel, 
           continue;
         }
 
-      int attr = A_NORMAL;
+      attr_t attr = COLOR_PAIR (MENU_PAIR);
       if (i == sel)
-        attr = A_REVERSE;
+        attr = A_BOLD | COLOR_PAIR (MENU_SEL_PAIR);
       if (entries[i].flags & MF_GRAYED)
         attr |= A_DIM;
 
@@ -5990,8 +5997,13 @@ run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
     {
       if (need_redraw_bar)
         {
+          int rows2, cols2;
+          getmaxyx (stdscr, rows2, cols2);
+          attron (COLOR_PAIR (MENU_PAIR));
           move (0, 0);
-          clrtoeol ();
+          for (int i = 0; i < cols2; i++)
+            addch (' ');
+          attroff (COLOR_PAIR (MENU_PAIR));
           int col = 0;
           for (int i = 0; i < bar_count; i++)
             {
