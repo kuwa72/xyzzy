@@ -109,4 +109,8 @@ public:
     { return &t_screen[row * t_cols + col]; }
 };
 
+// Convert an lChar key to VT100 escape sequence bytes.
+// Returns number of bytes written (0 if key not handled).
+int terminal_key_to_bytes (const Terminal *term, lChar key, char *buf, int bufsize);
+
 #endif // TERM_H

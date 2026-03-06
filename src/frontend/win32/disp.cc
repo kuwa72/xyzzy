@@ -2457,8 +2457,8 @@ Window::refresh_terminal (int f)
   // Resize terminal to match window
   if (term->rows () != w_ech.cy || term->cols () != w_ech.cx)
     {
-      extern void buffer_terminal_resize_conpty (const Buffer *bp, int rows, int cols);
-      buffer_terminal_resize_conpty (w_bufp, w_ech.cy, w_ech.cx);
+      extern void buffer_terminal_resize (const Buffer *bp, int rows, int cols);
+      buffer_terminal_resize (w_bufp, w_ech.cy, w_ech.cx);
     }
 
   // Hide Windows caret — terminal draws its own cursor

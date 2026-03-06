@@ -14,96 +14,18 @@
 void refresh_screen (int);
 extern Terminal *buffer_terminal (const Buffer *bp);
 extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+static lChar ncurses_key_to_lchar (int ret, wint_t wch);
 
 // Send an ncurses key event to the terminal's pty.
 // Returns 1 if the key was forwarded, 0 if not handled.
 static int
 send_key_to_terminal (const Buffer *bp, Terminal *term, int ret, wint_t wch)
 {
+  lChar c = ncurses_key_to_lchar (ret, wch);
+  if (c == lChar_EOF)
+    return 0;
   char buf[16];
-  int len = 0;
-
-  if (ret == KEY_CODE_YES)
-    {
-      // Special keys → VT100 escape sequences
-      int app = term->app_cursor_keys ();
-      char code = 0;
-      switch (wch)
-        {
-        case KEY_UP:    code = 'A'; break;
-        case KEY_DOWN:  code = 'B'; break;
-        case KEY_RIGHT: code = 'C'; break;
-        case KEY_LEFT:  code = 'D'; break;
-        case KEY_HOME:  code = 'H'; break;
-        case KEY_END:   code = 'F'; break;
-        default: break;
-        }
-      if (code)
-        {
-          buf[0] = '\033';
-          buf[1] = app ? 'O' : '[';
-          buf[2] = code;
-          len = 3;
-        }
-      else
-        {
-          const char *seq = 0;
-          switch (wch)
-            {
-            case KEY_IC:        seq = "\033[2~"; break;
-            case KEY_DC:        seq = "\033[3~"; break;
-            case KEY_PPAGE:     seq = "\033[5~"; break;
-            case KEY_NPAGE:     seq = "\033[6~"; break;
-            case KEY_BACKSPACE: buf[0] = 0x7f; len = 1; break;
-            case KEY_F(1):  seq = "\033OP"; break;
-            case KEY_F(2):  seq = "\033OQ"; break;
-            case KEY_F(3):  seq = "\033OR"; break;
-            case KEY_F(4):  seq = "\033OS"; break;
-            case KEY_F(5):  seq = "\033[15~"; break;
-            case KEY_F(6):  seq = "\033[17~"; break;
-            case KEY_F(7):  seq = "\033[18~"; break;
-            case KEY_F(8):  seq = "\033[19~"; break;
-            case KEY_F(9):  seq = "\033[20~"; break;
-            case KEY_F(10): seq = "\033[21~"; break;
-            case KEY_F(11): seq = "\033[23~"; break;
-            case KEY_F(12): seq = "\033[24~"; break;
-            default: return 0;  // unhandled special key
-            }
-          if (seq)
-            { len = strlen (seq); memcpy (buf, seq, len); }
-        }
-    }
-  else if (ret == OK)
-    {
-      // Regular character — convert wchar_t to UTF-8
-      if (wch < 0x80)
-        {
-          buf[0] = (char)wch;
-          len = 1;
-        }
-      else if (wch < 0x800)
-        {
-          buf[0] = 0xc0 | (wch >> 6);
-          buf[1] = 0x80 | (wch & 0x3f);
-          len = 2;
-        }
-      else if (wch < 0x10000)
-        {
-          buf[0] = 0xe0 | (wch >> 12);
-          buf[1] = 0x80 | ((wch >> 6) & 0x3f);
-          buf[2] = 0x80 | (wch & 0x3f);
-          len = 3;
-        }
-      else
-        {
-          buf[0] = 0xf0 | (wch >> 18);
-          buf[1] = 0x80 | ((wch >> 12) & 0x3f);
-          buf[2] = 0x80 | ((wch >> 6) & 0x3f);
-          buf[3] = 0x80 | (wch & 0x3f);
-          len = 4;
-        }
-    }
-
+  int len = terminal_key_to_bytes (term, c, buf, sizeof buf);
   if (len > 0)
     return buffer_terminal_send (bp, buf, len);
   return 0;

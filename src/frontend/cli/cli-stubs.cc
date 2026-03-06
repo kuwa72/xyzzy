@@ -8,6 +8,7 @@
 #include "conf.h"
 #include "colors.h"
 #include "version.h"
+#include "term.h"
 
 // ============================================================
 // Global objects (normally defined in init.cc and sysdep.cc)
@@ -195,6 +196,9 @@ lisp minibuffer_read_integer (const Char *, long) { return Qnil; }
 void read_process_output (WPARAM, LPARAM) {}
 void wait_process_terminate (WPARAM, LPARAM) {}
 int buffer_has_process (const Buffer *) { return 0; }
+Terminal *buffer_terminal (const Buffer *) { return 0; }
+int buffer_terminal_send (const Buffer *, const char *, int) { return 0; }
+void buffer_terminal_resize (const Buffer *, int, int) {}
 int query_kill_subprocesses () { return 1; }
 void process_gc_mark (void (*)(lisp)) {}
 

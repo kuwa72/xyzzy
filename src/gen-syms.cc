@@ -1126,6 +1126,15 @@ static symbols sys[] =
 
   SI_DEFUN3 (inflate-stream, 1, 1, 0),
   //SI_DEFUN3 (deflate-stream, 1, 2, 0),
+
+  /* term-lisp.cc */
+  SI_DEFUN3 (process-terminal-p, 1, 0, 0),
+  SI_DEFUN3 (terminal-screen-line, 2, 0, 0),
+  SI_DEFUN3 (terminal-screen-size, 1, 0, 0),
+  SI_DEFUN3 (terminal-cursor-position, 1, 0, 0),
+  SI_DEFUN3 (terminal-resize, 3, 0, 0),
+  SI_DEFUN3 (terminal-app-cursor-keys-p, 1, 0, 0),
+  SI_DEFUN3 (terminal-send-key, 2, 0, 0),
 };
 
 static symbols kwd[] =

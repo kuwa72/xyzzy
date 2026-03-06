@@ -993,6 +993,12 @@ ConPtyProcess::wait_process ()
   if (!GetExitCodeProcess (p_process, &p_exit_code))
     p_exit_code = (DWORD)-1;
   p_process.close ();
+  // Close pseudo console so ReadFile in reader thread unblocks
+  if (p_hpc && pClosePseudoConsole)
+    {
+      pClosePseudoConsole (p_hpc);
+      p_hpc = 0;
+    }
   WaitForSingleObject (p_read_thread, INFINITE);
   notify_term ();
   return 0;
@@ -1540,7 +1546,7 @@ buffer_terminal_send (const Buffer *bp, const char *data, int len)
 
 // Resize the buffer's ConPTY terminal and pseudo console.
 void
-buffer_terminal_resize_conpty (const Buffer *bp, int rows, int cols)
+buffer_terminal_resize (const Buffer *bp, int rows, int cols)
 {
   ConPtyProcess *cp = find_conpty_process (bp);
   if (!cp || !cp->term ())
