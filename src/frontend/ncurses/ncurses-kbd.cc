@@ -9,7 +9,105 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 
+#include "term.h"
+
 void refresh_screen (int);
+extern Terminal *buffer_terminal (const Buffer *bp);
+extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+
+// Send an ncurses key event to the terminal's pty.
+// Returns 1 if the key was forwarded, 0 if not handled.
+static int
+send_key_to_terminal (const Buffer *bp, Terminal *term, int ret, wint_t wch)
+{
+  char buf[16];
+  int len = 0;
+
+  if (ret == KEY_CODE_YES)
+    {
+      // Special keys → VT100 escape sequences
+      int app = term->app_cursor_keys ();
+      char code = 0;
+      switch (wch)
+        {
+        case KEY_UP:    code = 'A'; break;
+        case KEY_DOWN:  code = 'B'; break;
+        case KEY_RIGHT: code = 'C'; break;
+        case KEY_LEFT:  code = 'D'; break;
+        case KEY_HOME:  code = 'H'; break;
+        case KEY_END:   code = 'F'; break;
+        default: break;
+        }
+      if (code)
+        {
+          buf[0] = '\033';
+          buf[1] = app ? 'O' : '[';
+          buf[2] = code;
+          len = 3;
+        }
+      else
+        {
+          const char *seq = 0;
+          switch (wch)
+            {
+            case KEY_IC:        seq = "\033[2~"; break;
+            case KEY_DC:        seq = "\033[3~"; break;
+            case KEY_PPAGE:     seq = "\033[5~"; break;
+            case KEY_NPAGE:     seq = "\033[6~"; break;
+            case KEY_BACKSPACE: buf[0] = 0x7f; len = 1; break;
+            case KEY_F(1):  seq = "\033OP"; break;
+            case KEY_F(2):  seq = "\033OQ"; break;
+            case KEY_F(3):  seq = "\033OR"; break;
+            case KEY_F(4):  seq = "\033OS"; break;
+            case KEY_F(5):  seq = "\033[15~"; break;
+            case KEY_F(6):  seq = "\033[17~"; break;
+            case KEY_F(7):  seq = "\033[18~"; break;
+            case KEY_F(8):  seq = "\033[19~"; break;
+            case KEY_F(9):  seq = "\033[20~"; break;
+            case KEY_F(10): seq = "\033[21~"; break;
+            case KEY_F(11): seq = "\033[23~"; break;
+            case KEY_F(12): seq = "\033[24~"; break;
+            default: return 0;  // unhandled special key
+            }
+          if (seq)
+            { len = strlen (seq); memcpy (buf, seq, len); }
+        }
+    }
+  else if (ret == OK)
+    {
+      // Regular character — convert wchar_t to UTF-8
+      if (wch < 0x80)
+        {
+          buf[0] = (char)wch;
+          len = 1;
+        }
+      else if (wch < 0x800)
+        {
+          buf[0] = 0xc0 | (wch >> 6);
+          buf[1] = 0x80 | (wch & 0x3f);
+          len = 2;
+        }
+      else if (wch < 0x10000)
+        {
+          buf[0] = 0xe0 | (wch >> 12);
+          buf[1] = 0x80 | ((wch >> 6) & 0x3f);
+          buf[2] = 0x80 | (wch & 0x3f);
+          len = 3;
+        }
+      else
+        {
+          buf[0] = 0xf0 | (wch >> 18);
+          buf[1] = 0x80 | ((wch >> 12) & 0x3f);
+          buf[2] = 0x80 | ((wch >> 6) & 0x3f);
+          buf[3] = 0x80 | (wch & 0x3f);
+          len = 4;
+        }
+    }
+
+  if (len > 0)
+    return buffer_terminal_send (bp, buf, len);
+  return 0;
+}
 
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
@@ -305,6 +403,41 @@ kbd_queue::fetch (int wait, int)
                   continue;
                 }
 
+              // Terminal key forwarding: if selected window has a terminal,
+              // send key to pty instead of xyzzy command loop.
+              // C-c is escape prefix: C-c <key> → C-x <key> in xyzzy.
+              // C-c C-c → send C-c (0x03) to pty.
+              {
+                Window *sw = selected_window ();
+                if (sw && sw->w_bufp && !sw->minibuffer_window_p ())
+                  {
+                    Terminal *tw = buffer_terminal (sw->w_bufp);
+                    if (tw)
+                      {
+                        if (ret == OK && wch == 0x03)
+                          {
+                            // C-c prefix: read next key
+                            nodelay (stdscr, FALSE);
+                            wint_t wch2;
+                            int ret2 = wget_wch (stdscr, &wch2);
+                            if (ret2 == OK && wch2 == 0x03)
+                              {
+                                // C-c C-c → send C-c to pty
+                                char cc = 0x03;
+                                buffer_terminal_send (sw->w_bufp, &cc, 1);
+                                continue;
+                              }
+                            // C-c <key> → return C-x to xyzzy, queue <key>
+                            ret = OK;
+                            wch = 0x18;  // C-x
+                            pending = ncurses_key_to_lchar (ret2, wch2);
+                            break;
+                          }
+                        if (send_key_to_terminal (sw->w_bufp, tw, ret, wch))
+                          continue;
+                      }
+                  }
+              }
               break;
             }
         }

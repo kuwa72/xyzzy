@@ -19,6 +19,8 @@
 
 void refresh_screen (int);
 
+#include "term.h"
+
 // ============================================================
 // Process class — POSIX implementation
 // ============================================================
@@ -34,6 +36,7 @@ class Process
   pid_t p_pid;
   int p_read_fd;   // pipe: child stdout/stderr → parent read
   int p_write_fd;  // pipe: parent write → child stdin
+  Terminal *p_term; // VT100 terminal emulator
 
   void insert_output (const Char *data, int size);
 
@@ -54,6 +57,7 @@ public:
   lisp &marker () { return p_marker; }
   int read_fd () const { return p_read_fd; }
   pid_t pid () const { return p_pid; }
+  Terminal *term () const { return p_term; }
 
   int incode_modified_p () const
     { return xprocess_incode (p_proc) != p_last_incode; }
@@ -70,7 +74,7 @@ public:
 Process::Process (Buffer *bp, lisp pl, lisp marker)
      : p_bufp (bp), p_proc (pl), p_filter (Qnil), p_sentinel (Qnil),
        p_last_incode (Qnil), p_marker (marker),
-       p_pid (-1), p_read_fd (-1), p_write_fd (-1)
+       p_pid (-1), p_read_fd (-1), p_write_fd (-1), p_term (0)
 {
 }
 
@@ -86,6 +90,7 @@ Process::~Process ()
       int status;
       waitpid (p_pid, &status, WNOHANG);
     }
+  delete p_term;
 }
 
 void
@@ -131,18 +136,15 @@ Process::create (lisp command, lisp execdir)
   p_write_fd = master_fd;
   p_pid = pid;
 
-  // Disable ONLCR (NL→CRLF mapping) so we get clean LF output.
-  // Keep other pty settings (echo, signals, etc.) for interactive use.
-  struct termios tio;
-  if (tcgetattr (master_fd, &tio) == 0)
-    {
-      tio.c_oflag &= ~ONLCR;
-      tcsetattr (master_fd, TCSANOW, &tio);
-    }
+  // Keep ONLCR enabled — the pty line discipline converts \n to \r\n,
+  // and the terminal emulator handles \r and \n separately.
 
   // Set master fd to non-blocking
   int flags = fcntl (master_fd, F_GETFL, 0);
   fcntl (master_fd, F_SETFL, flags | O_NONBLOCK);
+
+  // Create terminal emulator matching pty size
+  p_term = new Terminal (ws.ws_row, ws.ws_col);
 }
 
 void
@@ -189,7 +191,7 @@ Process::insert_output (const Char *data, int size)
     }
 }
 
-// Read available output from child process, decode, and insert into buffer
+// Read available output from child process and feed to terminal emulator
 void
 Process::poll_output ()
 {
@@ -198,72 +200,34 @@ Process::poll_output ()
   if (n <= 0)
     return;
 
-  // EOL conversion
-  u_char *src = rawbuf;
-  int srclen = (int)n;
-  switch (eolcode ())
+  if (p_term)
     {
-    case eol_crlf:
-      {
-        u_char *d = rawbuf, *s = rawbuf, *se = s + srclen;
-        for (; s < se; s++)
-          if (*s != '\r')
-            *d++ = *s;
-        srclen = d - rawbuf;
-        break;
-      }
-    case eol_cr:
-      {
-        for (u_char *s = rawbuf, *se = s + srclen; s < se; s++)
-          if (*s == '\r')
-            *s = '\n';
-        break;
-      }
-    default:
-      break;
-    }
+      // Feed raw bytes directly to VT100 terminal emulator.
+      // The terminal handles UTF-8 decoding and escape sequences internally.
+      p_term->feed (rawbuf, (int)n);
 
-  // Encoding conversion: bytes → Char via encoding_input_stream_helper
-  // For simplicity, use the process incode to decode
-  p_last_incode = xprocess_incode (p_proc);
-
-  // Build a simple byte input source and decode through encoding stream
-  Char outbuf[4096];
-  int outlen = 0;
-
-  lisp encoding = p_last_incode;
-  if (encoding != Qnil && xchar_encoding_type (encoding) != encoding_auto_detect)
-    {
-      // Use encoding to convert
-      class simple_byte_input : public byte_input_stream
+      // Trigger screen refresh — render_terminal_window will read
+      // directly from the TermCell grid, no buffer sync needed.
+      if (p_term->dirty ())
         {
-          u_char *p_buf;
-          u_char *p_end;
-          virtual int refill ()
-            {
-              if (p_buf >= p_end)
-                return eof;
-              int c = setbuf (p_buf, p_end);
-              p_buf = p_end; // consumed
-              return c;
-            }
-        public:
-          simple_byte_input (u_char *buf, int len) : p_buf (buf), p_end (buf + len) {}
-        } bis (src, srclen);
-
-      encoding_input_stream_helper eis (encoding, bis);
-      int c;
-      while ((c = eis->get ()) != xstream::eof && outlen < (int)numberof (outbuf))
-        outbuf[outlen++] = (Char)c;
+          for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+            if (wp->w_bufp == p_bufp)
+              {
+                refresh_screen (0);
+                break;
+              }
+        }
     }
   else
     {
-      // No encoding or auto-detect: treat as raw bytes → Char
-      for (int i = 0; i < srclen && outlen < (int)numberof (outbuf); i++)
-        outbuf[outlen++] = (Char)src[i];
+      // Fallback: no terminal emulator, insert raw output
+      // (This path is used when terminal is not available)
+      Char outbuf[4096];
+      int outlen = 0;
+      for (int i = 0; i < (int)n && outlen < (int)numberof (outbuf); i++)
+        outbuf[outlen++] = (Char)rawbuf[i];
+      insert_output (outbuf, outlen);
     }
-
-  insert_output (outbuf, outlen);
 }
 
 void
@@ -664,6 +628,75 @@ buffer_has_process (const Buffer *bp)
     if (xprocess_data (xcar (p))
         && xprocess_data (xcar (p))->process_buffer () == bp->lbp)
       return 1;
+  return 0;
+}
+
+Terminal *
+buffer_terminal (const Buffer *bp)
+{
+  for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
+    {
+      Process *pr = xprocess_data (xcar (p));
+      if (pr && pr->process_buffer () == bp->lbp && pr->term ())
+        return pr->term ();
+    }
+  return 0;
+}
+
+void
+buffer_terminal_resize (const Buffer *bp, int rows, int cols)
+{
+  for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
+    {
+      Process *pr = xprocess_data (xcar (p));
+      if (pr && pr->process_buffer () == bp->lbp && pr->term ())
+        {
+          Terminal *t = pr->term ();
+          if (t->rows () != rows || t->cols () != cols)
+            {
+              t->resize (rows, cols);
+              // Notify the pty of the new size
+              if (pr->read_fd () >= 0)
+                {
+                  struct winsize ws;
+                  ws.ws_row = rows;
+                  ws.ws_col = cols;
+                  ws.ws_xpixel = 0;
+                  ws.ws_ypixel = 0;
+                  ioctl (pr->read_fd (), TIOCSWINSZ, &ws);
+                }
+            }
+          return;
+        }
+    }
+}
+
+// Send raw bytes to the pty of a buffer's terminal process.
+// Returns 1 if sent, 0 if no terminal process found.
+int
+buffer_terminal_send (const Buffer *bp, const char *data, int len)
+{
+  for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
+    {
+      Process *pr = xprocess_data (xcar (p));
+      if (pr && pr->process_buffer () == bp->lbp && pr->term ()
+          && pr->read_fd () >= 0)
+        {
+          // write_fd == read_fd for pty
+          while (len > 0)
+            {
+              ssize_t n = write (pr->read_fd (), data, len);
+              if (n < 0)
+                {
+                  if (errno == EINTR) continue;
+                  break;
+                }
+              data += n;
+              len -= n;
+            }
+          return 1;
+        }
+    }
   return 0;
 }
 

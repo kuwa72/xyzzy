@@ -10,6 +10,7 @@
 #include "conf.h"
 #include "colors.h"
 #include "version.h"
+#include "term.h"
 
 // ============================================================
 // Global objects (normally defined in init.cc and sysdep.cc)
@@ -2725,6 +2726,146 @@ init_ncurses_colors ()
 // SIGWINCH flag (set in ncurses-main.cc)
 extern volatile int g_need_resize;
 
+// Terminal helpers (defined in ncurses-process.cc)
+extern Terminal *buffer_terminal (const Buffer *bp);
+extern void buffer_terminal_resize (const Buffer *bp, int rows, int cols);
+
+// Terminal color pair allocation for 256-color support.
+// Pairs 272+ are used for terminal fg/bg combinations.
+#define TERM_PAIR_BASE 272
+
+// Map terminal color index to ncurses color number.
+// 0=default(-1), 1-8=standard(0-7), 9-16=bright(8-15), 17+=extended(idx-17)
+static short
+term_color_to_ncurses (uint8_t tc)
+{
+  if (tc == 0) return -1;
+  if (tc <= 8) return (short)(tc - 1);
+  if (tc <= 16) return (short)(tc - 9 + 8);
+  return (short)(tc - 17);  // 256-color index directly
+}
+
+// Cache for terminal color pairs (lazily allocated)
+struct TermColorPairCache {
+  struct Entry { uint8_t fg, bg; short pair; };
+  Entry entries[256];
+  int count;
+  short next_pair;
+};
+static TermColorPairCache g_term_colors = {{}, 0, TERM_PAIR_BASE};
+
+static short
+get_term_color_pair (uint8_t fg, uint8_t bg)
+{
+  if (fg == 0 && bg == 0)
+    return 0;  // default colors
+
+  // Search cache
+  for (int i = 0; i < g_term_colors.count; i++)
+    if (g_term_colors.entries[i].fg == fg && g_term_colors.entries[i].bg == bg)
+      return g_term_colors.entries[i].pair;
+
+  // Allocate new pair
+  if (g_term_colors.next_pair >= COLOR_PAIRS || g_term_colors.count >= 256)
+    return 0;  // fallback to default
+
+  short pair = g_term_colors.next_pair++;
+  short ncfg = term_color_to_ncurses (fg);
+  short ncbg = term_color_to_ncurses (bg);
+  init_pair (pair, ncfg, ncbg);
+
+  TermColorPairCache::Entry &e = g_term_colors.entries[g_term_colors.count++];
+  e.fg = fg; e.bg = bg; e.pair = pair;
+  return pair;
+}
+
+// Render a terminal window directly from TermCell grid
+static void
+render_terminal_window (Window *wp, Terminal *term, int total_cols)
+{
+  int col_offset = wp->w_rect.left;
+  int win_cols = wp->w_rect.right - wp->w_rect.left;
+  int has_separator = (wp->w_rect.right < total_cols) ? 1 : 0;
+  int text_cols = win_cols - has_separator;
+  if (text_cols < 1) text_cols = 1;
+
+  int win_top = wp->w_rect.top;
+  int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;
+
+  // Resize terminal to match window if needed
+  if (term->rows () != text_rows || term->cols () != text_cols)
+    buffer_terminal_resize (wp->w_bufp, text_rows, text_cols);
+
+  int trows = term->rows ();
+  int tcols = term->cols ();
+
+  for (int r = 0; r < text_rows; r++)
+    {
+      move (win_top + r, col_offset);
+      for (int c = 0; c < text_cols; c++)
+        {
+          if (r < trows && c < tcols)
+            {
+              const TermCell *tc = term->cell_at (r, c);
+              if (tc->wide == 2)
+                continue;  // skip continuation cells
+
+              attr_t attrs = 0;
+              if (tc->attrs & TATTR_BOLD)      attrs |= A_BOLD;
+              if (tc->attrs & TATTR_DIM)       attrs |= A_DIM;
+              if (tc->attrs & TATTR_UNDERLINE) attrs |= A_UNDERLINE;
+              if (tc->attrs & TATTR_REVERSE)   attrs |= A_REVERSE;
+
+              short pair = get_term_color_pair (tc->fg, tc->bg);
+              if (pair)
+                attrs |= COLOR_PAIR (pair);
+
+              Char ch = tc->ch;
+              if (ch == 0) ch = ' ';
+
+              if (tc->wide == 1 && ch > 0x80)
+                {
+                  // Wide character: convert internal Char to wchar_t
+                  ucs2_t w = i2w (ch);
+                  cchar_t cc;
+                  wchar_t wstr[2] = { (wchar_t)w, 0 };
+                  setcchar (&cc, wstr, attrs, pair, NULL);
+                  mvadd_wch (win_top + r, col_offset + c, &cc);
+                }
+              else if (ch > 0x80)
+                {
+                  ucs2_t w = i2w (ch);
+                  cchar_t cc;
+                  wchar_t wstr[2] = { (wchar_t)w, 0 };
+                  setcchar (&cc, wstr, attrs, pair, NULL);
+                  mvadd_wch (win_top + r, col_offset + c, &cc);
+                }
+              else
+                {
+                  mvaddch (win_top + r, col_offset + c, (chtype)ch | attrs);
+                }
+            }
+          else
+            {
+              mvaddch (win_top + r, col_offset + c, ' ');
+            }
+        }
+    }
+
+  term->clear_dirty ();
+
+  // Draw modeline
+  draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
+
+  // Draw vertical separator if needed
+  if (has_separator)
+    {
+      int sep_col = wp->w_rect.right - 1;
+      for (int y = wp->w_rect.top; y < wp->w_rect.bottom; y++)
+        mvaddch (y, sep_col, ACS_VLINE);
+    }
+}
+
 // Render one editing window: fill glyphs, render to screen, draw modeline.
 // total_cols: terminal width (for separator detection).
 static void
@@ -2733,6 +2874,14 @@ render_window (Window *wp, int total_cols)
   Buffer *bp = wp->w_bufp;
   if (!bp)
     return;
+
+  // If this buffer has a terminal-backed process, render directly from terminal
+  Terminal *term = buffer_terminal (bp);
+  if (term)
+    {
+      render_terminal_window (wp, term, total_cols);
+      return;
+    }
 
   int col_offset = wp->w_rect.left;
   int win_cols = wp->w_rect.right - wp->w_rect.left;
@@ -2940,13 +3089,28 @@ refresh_screen (int)
       // Position cursor in active window
       if (!sel->minibuffer_window_p ())
         {
-          int cy, cx;
-          glyph_point_to_screen (sel, &cy, &cx);
-          int win_top = sel->w_rect.top;
-          int col_offset = sel->w_rect.left;
-          int text_rows = sel->w_rect.bottom - sel->w_rect.top - 1;
-          if (cy < text_rows)
-            move (win_top + cy, col_offset + cx);
+          Terminal *sel_term = sel->w_bufp ? buffer_terminal (sel->w_bufp) : 0;
+          if (sel_term)
+            {
+              // Terminal window: cursor from terminal emulator
+              int win_top = sel->w_rect.top;
+              int col_offset = sel->w_rect.left;
+              int cr = sel_term->cursor_row ();
+              int cc = sel_term->cursor_col ();
+              move (win_top + cr, col_offset + cc);
+              curs_set (1);
+            }
+          else
+            {
+              int cy, cx;
+              glyph_point_to_screen (sel, &cy, &cx);
+              int win_top = sel->w_rect.top;
+              int col_offset = sel->w_rect.left;
+              int text_rows = sel->w_rect.bottom - sel->w_rect.top - 1;
+              if (cy < text_rows)
+                move (win_top + cy, col_offset + cx);
+              curs_set (1);
+            }
         }
     }
 

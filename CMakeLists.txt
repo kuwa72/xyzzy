@@ -442,6 +442,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/mman.cc
     ${CORE_DIR}/cmdloop.cc
     ${CORE_DIR}/glyph.cc
+    ${CORE_DIR}/term.cc
     ${CORE_DIR}/dsfmt/dSFMT.cc
     # Generated sources (compiled standalone; gen/symtable-core.cc is #include'd by core/symtable.cc)
     ${GEN_DIR}/chtab.cc
