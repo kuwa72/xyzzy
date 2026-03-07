@@ -2817,33 +2817,25 @@ render_terminal_window (Window *wp, Terminal *term, int total_cols)
               if (tc->attrs & TATTR_REVERSE)   attrs |= A_REVERSE;
 
               short pair = get_term_color_pair (tc->fg, tc->bg);
-              if (pair)
-                attrs |= COLOR_PAIR (pair);
 
               Char ch = tc->ch;
               if (ch == 0) ch = ' ';
 
-              if (tc->wide == 1 && ch > 0x80)
-                {
-                  // Wide character: convert internal Char to wchar_t
-                  ucs2_t w = i2w (ch);
-                  cchar_t cc;
-                  wchar_t wstr[2] = { (wchar_t)w, 0 };
-                  setcchar (&cc, wstr, attrs, pair, NULL);
-                  mvadd_wch (win_top + r, col_offset + c, &cc);
-                }
-              else if (ch > 0x80)
+              // Use mvadd_wch for all terminal cells to avoid chtype's
+              // 8-bit color pair limit (pairs >= 256 wrap around).
+              wchar_t wc;
+              if (ch > 0x80)
                 {
                   ucs2_t w = i2w (ch);
-                  cchar_t cc;
-                  wchar_t wstr[2] = { (wchar_t)w, 0 };
-                  setcchar (&cc, wstr, attrs, pair, NULL);
-                  mvadd_wch (win_top + r, col_offset + c, &cc);
+                  wc = (wchar_t)(w ? w : '?');
                 }
               else
-                {
-                  mvaddch (win_top + r, col_offset + c, (chtype)ch | attrs);
-                }
+                wc = (wchar_t)ch;
+
+              cchar_t cc;
+              wchar_t wstr[2] = { wc, 0 };
+              setcchar (&cc, wstr, attrs, pair, NULL);
+              mvadd_wch (win_top + r, col_offset + c, &cc);
             }
           else
             {
