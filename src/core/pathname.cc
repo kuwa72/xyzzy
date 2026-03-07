@@ -1270,7 +1270,7 @@ rename_short_name (const char *fpath, const char *tname, const char *longname)
   map_backsl_to_sl (tempname);
   sprintf (buf, get_message_string (Erename_failed), tempname, realpath);
   Char wbuf[PATH_MAX * 3];
-  s2w (wbuf, buf);
+  *s2w (wbuf, buf) = 0;
   MsgBox (get_active_window (), wbuf, TitleBarStringC,
           MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);

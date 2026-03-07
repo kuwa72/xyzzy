@@ -4345,7 +4345,7 @@ format_yes_or_no_p (message_code m, ...)
   vsprintf (buf, fmt, ap);
   va_end (ap);
   Char wbuf[2048];
-  s2w (wbuf, buf);
+  *s2w (wbuf, buf) = 0;
   return MsgBox (get_active_window (), wbuf, TitleBarStringC,
                  MB_YESNO | MB_ICONQUESTION, 1) == IDYES;
 }

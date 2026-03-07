@@ -541,7 +541,7 @@ cleanup_exception ()
           "\x8e\xa9\x93\xae\x83\x5a\x81\x5b\x83\x75\x82\xb5\x82\xc4\x82\xdd\x82\xdc\x82\xb7\x82\xa9\x81\x48");
 
   Char wmsg[1024];
-  s2w (wmsg, msg);
+  *s2w (wmsg, msg) = 0;
   if (MsgBox (get_active_window (), wmsg, TitleBarStringC,
               MB_ICONHAND | MB_YESNO, 1) != IDYES)
     return;
