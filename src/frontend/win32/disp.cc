@@ -2336,7 +2336,7 @@ Window::paint_terminal (HDC hdc, Terminal *term)
               continue;
             }
 
-          const TermCell *tc = term->cell_at (r, c);
+          const TermCell *tc = term->display_cell (r, c);
           if (tc->wide == 2)
             { c++; continue; }
 

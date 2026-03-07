@@ -62,6 +62,9 @@ Terminal::Terminal (int rows, int cols)
       t_alt_active (0), t_cursor_visible (1),
       t_app_cursor_keys (0), t_origin_mode (0),
       t_wraparound (1), t_insert_mode (0), t_pending_wrap (0),
+      t_scrollback (0), t_scrollback_cols (cols),
+      t_scrollback_count (0), t_scrollback_head (0),
+      t_scrollback_offset (0),
       t_dirty (1)
 {
   int total = rows * cols;
@@ -73,6 +76,9 @@ Terminal::Terminal (int rows, int cols)
   for (int i = 0; i < total; i++)
     clear_cell_default (&t_alt_screen[i]);
   init_tabs ();
+  t_scrollback = new TermCell[SCROLLBACK_MAX * cols];
+  for (int i = 0; i < SCROLLBACK_MAX * cols; i++)
+    clear_cell_default (&t_scrollback[i]);
 }
 
 Terminal::~Terminal ()
@@ -80,6 +86,7 @@ Terminal::~Terminal ()
   delete[] t_screen;
   delete[] t_alt_screen;
   delete[] t_tabs;
+  delete[] t_scrollback;
 }
 
 void
@@ -125,6 +132,10 @@ Terminal::resize (int new_rows, int new_cols)
   t_scroll_bottom = new_rows - 1;
   if (t_cur_row >= new_rows) t_cur_row = new_rows - 1;
   if (t_cur_col >= new_cols) t_cur_col = new_cols - 1;
+  // Scrollback is invalidated on column change
+  if (t_scrollback_cols != new_cols)
+    scrollback_realloc ();
+  t_scrollback_offset = 0;
   t_dirty = 1;
 }
 
@@ -142,12 +153,88 @@ Terminal::clear_region (int r1, int c1, int r2, int c2)
 }
 
 void
+Terminal::scrollback_realloc ()
+{
+  if (t_scrollback_cols == t_cols)
+    return;
+  delete[] t_scrollback;
+  t_scrollback = new TermCell[SCROLLBACK_MAX * t_cols];
+  for (int i = 0; i < SCROLLBACK_MAX * t_cols; i++)
+    clear_cell_default (&t_scrollback[i]);
+  t_scrollback_cols = t_cols;
+  t_scrollback_count = 0;
+  t_scrollback_head = 0;
+}
+
+void
+Terminal::scrollback_push (const TermCell *row)
+{
+  if (!t_scrollback || t_alt_active)
+    return;
+  if (t_scrollback_cols != t_cols)
+    scrollback_realloc ();
+  memcpy (&t_scrollback[t_scrollback_head * t_cols], row, t_cols * sizeof (TermCell));
+  t_scrollback_head = (t_scrollback_head + 1) % SCROLLBACK_MAX;
+  if (t_scrollback_count < SCROLLBACK_MAX)
+    t_scrollback_count++;
+}
+
+const TermCell *
+Terminal::scrollback_line (int index) const
+{
+  if (index < 0 || index >= t_scrollback_count || !t_scrollback
+      || t_scrollback_cols != t_cols)
+    return 0;
+  int pos = (t_scrollback_head - 1 - index + SCROLLBACK_MAX) % SCROLLBACK_MAX;
+  return &t_scrollback[pos * t_cols];
+}
+
+void
+Terminal::scrollback_scroll (int delta)
+{
+  t_scrollback_offset += delta;
+  if (t_scrollback_offset < 0)
+    t_scrollback_offset = 0;
+  if (t_scrollback_offset > t_scrollback_count)
+    t_scrollback_offset = t_scrollback_count;
+  t_dirty = 1;
+}
+
+const TermCell *
+Terminal::display_cell (int row, int col) const
+{
+  if (t_scrollback_offset <= 0)
+    return cell_at (row, col);
+  // row 0..t_rows-1 maps to scrollback or screen
+  int sb_row = t_scrollback_offset - 1 - row;  // scrollback index for this display row
+  if (sb_row >= 0)
+    {
+      const TermCell *line = scrollback_line (sb_row);
+      if (line && col < t_cols)
+        return &line[col];
+      // fallback: empty cell
+      static TermCell empty = {0, 0, 0, 0, 0};
+      return &empty;
+    }
+  // Screen row: offset into live screen
+  int screen_row = row - t_scrollback_offset;
+  if (screen_row >= 0 && screen_row < t_rows)
+    return cell_at (screen_row, col);
+  static TermCell empty = {0, 0, 0, 0, 0};
+  return &empty;
+}
+
+void
 Terminal::scroll_up (int top, int bottom, int n)
 {
   if (n <= 0 || top > bottom)
     return;
   if (n > bottom - top + 1)
     n = bottom - top + 1;
+  // Save scrolled-out lines to scrollback (main screen, full-screen scroll region only)
+  if (top == t_scroll_top && !t_alt_active)
+    for (int r = top; r < top + n; r++)
+      scrollback_push (cell (r, 0));
   for (int r = top; r <= bottom - n; r++)
     memcpy (cell (r, 0), cell (r + n, 0), t_cols * sizeof (TermCell));
   for (int r = bottom - n + 1; r <= bottom; r++)
@@ -855,6 +942,12 @@ Terminal::sync_to_buffer (Buffer *bp, Window *wp)
 void
 Terminal::feed (const u_char *data, int len)
 {
+  // New output arrives: snap back to live view
+  if (t_scrollback_offset > 0)
+    {
+      t_scrollback_offset = 0;
+      t_dirty = 1;
+    }
   for (int i = 0; i < len; i++)
     {
       u_char ch = data[i];

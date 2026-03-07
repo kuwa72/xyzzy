@@ -63,6 +63,17 @@ class Terminal
   // Tab stops
   uint8_t *t_tabs;
 
+  // Scrollback buffer (ring buffer of rows)
+  enum { SCROLLBACK_MAX = 1000 };
+  TermCell *t_scrollback;       // SCROLLBACK_MAX * t_cols cells
+  int t_scrollback_cols;        // cols at allocation time
+  int t_scrollback_count;       // number of saved lines (0..SCROLLBACK_MAX)
+  int t_scrollback_head;        // ring buffer write position
+  int t_scrollback_offset;      // view offset (0=live, >0=scrolled back)
+
+  void scrollback_push (const TermCell *row);
+  void scrollback_realloc ();
+
   // Dirty tracking
   int t_dirty;
 
@@ -107,6 +118,15 @@ public:
   const TermCell *screen () const { return t_screen; }
   const TermCell *cell_at (int row, int col) const
     { return &t_screen[row * t_cols + col]; }
+
+  // Scrollback
+  int scrollback_offset () const { return t_scrollback_offset; }
+  int scrollback_count () const { return t_scrollback_count; }
+  void scrollback_scroll (int delta);  // positive=back, negative=forward
+  const TermCell *scrollback_line (int index) const; // 0=most recent
+  // Get cell for rendering: handles scrollback offset
+  const TermCell *display_cell (int row, int col) const;
+  int alt_active () const { return t_alt_active; }
 };
 
 // Convert an lChar key to VT100 escape sequence bytes.

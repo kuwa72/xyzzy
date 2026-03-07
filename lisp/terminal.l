@@ -7,7 +7,8 @@
 
 (in-package "editor")
 
-(export '(*terminal-map* terminal-self-insert terminal-send-ctrl-c))
+(export '(*terminal-map* terminal-self-insert terminal-send-ctrl-c
+	  terminal-scroll-back terminal-scroll-forward))
 
 (defvar *terminal-map* nil)
 (unless *terminal-map*
@@ -20,7 +21,10 @@
   (define-key *terminal-map* '(#\C-c #\1) 'delete-other-windows)
   (define-key *terminal-map* '(#\C-c #\2) 'split-window)
   (define-key *terminal-map* '(#\C-c #\k) 'kill-buffer)
-  (define-key *terminal-map* '(#\C-c #\C-f) 'find-file))
+  (define-key *terminal-map* '(#\C-c #\C-f) 'find-file)
+  ;; Scrollback
+  (define-key *terminal-map* #\S-PageUp 'terminal-scroll-back)
+  (define-key *terminal-map* #\S-PageDown 'terminal-scroll-forward))
 
 (defun terminal-self-insert ()
   (interactive)
@@ -33,3 +37,15 @@
   (let ((proc (buffer-process (selected-buffer))))
     (when (and proc (si:process-terminal-p proc))
       (si:terminal-send-key proc 3))))
+
+(defun terminal-scroll-back ()
+  (interactive)
+  (let ((proc (buffer-process (selected-buffer))))
+    (when (and proc (si:process-terminal-p proc))
+      (si:terminal-scroll-back proc (window-height)))))
+
+(defun terminal-scroll-forward ()
+  (interactive)
+  (let ((proc (buffer-process (selected-buffer))))
+    (when (and proc (si:process-terminal-p proc))
+      (si:terminal-scroll-back proc (- (window-height))))))

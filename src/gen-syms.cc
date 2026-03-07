@@ -1135,6 +1135,8 @@ static symbols sys[] =
   SI_DEFUN3 (terminal-resize, 3, 0, 0),
   SI_DEFUN3 (terminal-app-cursor-keys-p, 1, 0, 0),
   SI_DEFUN3 (terminal-send-key, 2, 0, 0),
+  SI_DEFUN3 (terminal-scroll-back, 2, 0, 0),
+  SI_DEFUN3 (terminal-scrollback-line, 2, 0, 0),
 };
 
 static symbols kwd[] =

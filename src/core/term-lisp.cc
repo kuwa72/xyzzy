@@ -154,3 +154,47 @@ Fsi_terminal_send_key (lisp process, lisp lkey)
     }
   return Qnil;
 }
+
+// (si:terminal-scroll-back process delta)
+// Scroll the terminal view back (positive) or forward (negative).
+lisp
+Fsi_terminal_scroll_back (lisp process, lisp ldelta)
+{
+  Terminal *term = process_terminal (process);
+  if (!term)
+    return Qnil;
+  int delta = fixnum_value (ldelta);
+  term->scrollback_scroll (delta);
+  return make_fixnum (term->scrollback_offset ());
+}
+
+// (si:terminal-scrollback-line process index)
+// Get a scrollback line (0=most recent). Returns string or nil.
+lisp
+Fsi_terminal_scrollback_line (lisp process, lisp lindex)
+{
+  Terminal *term = process_terminal (process);
+  if (!term)
+    return Qnil;
+  int index = fixnum_value (lindex);
+  const TermCell *line = term->scrollback_line (index);
+  if (!line)
+    return Qnil;
+
+  int cols = term->cols ();
+  Char buf[1024];
+  int len = 0;
+  int last = -1;
+  for (int c = cols - 1; c >= 0; c--)
+    {
+      if (line[c].ch != 0 && line[c].ch != ' ')
+        { last = c; break; }
+    }
+  for (int c = 0; c <= last && len < (int)(sizeof buf / sizeof buf[0]) - 1; c++)
+    {
+      if (line[c].wide == 2)
+        continue;
+      buf[len++] = line[c].ch ? line[c].ch : ' ';
+    }
+  return make_string (buf, len);
+}

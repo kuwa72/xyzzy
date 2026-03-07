@@ -19,11 +19,15 @@
                (if (featurep :windows-nt) "cmd.exe" "command.com"))))
   (defvar *shell* shell)
   (defvar *eshell*
-    (if (featurep :windows-nt)
-        (or (si:search-path "pwsh" nil ".exe")
-            (si:search-path "powershell" nil ".exe")
-            shell)
-      shell)))
+    (cond ((featurep :unix)
+           (or (si:getenv "SHELL")
+               (si:search-path "bash")
+               shell))
+          ((featurep :windows-nt)
+           (or (si:search-path "pwsh" nil ".exe")
+               (si:search-path "powershell" nil ".exe")
+               shell))
+          (t shell))))
 
 (defvar *shell-command-option* (if (featurep :unix) "-c" "/c"))
 (defvar *shell-chdir-option-alist*

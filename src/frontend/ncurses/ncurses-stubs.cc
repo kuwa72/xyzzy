@@ -2806,7 +2806,7 @@ render_terminal_window (Window *wp, Terminal *term, int total_cols)
         {
           if (r < trows && c < tcols)
             {
-              const TermCell *tc = term->cell_at (r, c);
+              const TermCell *tc = term->display_cell (r, c);
               if (tc->wide == 2)
                 continue;  // skip continuation cells
 
@@ -3093,12 +3093,18 @@ refresh_screen (int)
           if (sel_term)
             {
               // Terminal window: cursor from terminal emulator
-              int win_top = sel->w_rect.top;
-              int col_offset = sel->w_rect.left;
-              int cr = sel_term->cursor_row ();
-              int cc = sel_term->cursor_col ();
-              move (win_top + cr, col_offset + cc);
-              curs_set (1);
+              // Hide cursor when scrolled back
+              if (sel_term->scrollback_offset () > 0)
+                curs_set (0);
+              else
+                {
+                  int win_top = sel->w_rect.top;
+                  int col_offset = sel->w_rect.left;
+                  int cr = sel_term->cursor_row ();
+                  int cc = sel_term->cursor_col ();
+                  move (win_top + cr, col_offset + cc);
+                  curs_set (1);
+                }
             }
           else
             {
