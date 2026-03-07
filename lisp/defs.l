@@ -52,6 +52,8 @@
 			    ("\\.cls$" . basic-mode)
 			    ("\\.css$" . css-mode)
 			    ("\\.cs$" . csharp-mode)
+			    ("\\.md$" . markdown-mode)
+			    ("\\.markdown$" . markdown-mode)
 			   ))
 
 (defvar show-dots nil)
@@ -252,6 +254,9 @@
 
 (export 'view-mode)
 (autoload 'view-mode "viewmode" t)
+
+(export 'markdown-mode)
+(autoload 'markdown-mode "markdown" t)
 
 (export '(dabbrev-expand *dabbrevs-case-fold* *dabbrevs-no-undo*))
 (defvar-local *dabbrevs-case-fold* nil)
