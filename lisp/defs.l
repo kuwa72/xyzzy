@@ -36,7 +36,6 @@
 			    ("\\.l$" . lisp-mode)
 			    ("\\.lisp$" . lisp-mode)
 			    ("\\.txt$" . text-mode)
-			    ("\\.doc$" . text-mode)
 			    ("\\.log$" . text-mode)
 			    ("\\.html?$" . html-mode)
 			    ("\\.pas$" . pascal-mode)
