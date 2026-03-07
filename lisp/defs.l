@@ -55,6 +55,12 @@
 			    ("\\.sh$" . shell-script-mode)
 			    ("\\.bash$" . shell-script-mode)
 			    ("\\.zsh$" . shell-script-mode)
+			    ("\\.js$" . javascript-mode)
+			    ("\\.jsx$" . javascript-mode)
+			    ("\\.mjs$" . javascript-mode)
+			    ("\\.cjs$" . javascript-mode)
+			    ("\\.ts$" . typescript-mode)
+			    ("\\.tsx$" . typescript-mode)
 			    ("\\.py$" . python-mode)
 			    ("\\.pyw$" . python-mode)
 			    ("\\.json$" . json-mode)
@@ -266,6 +272,10 @@
 (export 'markdown-mode)
 (autoload 'markdown-mode "markdown" t)
 
+(export '(javascript-mode typescript-mode))
+(autoload 'javascript-mode "javascript-mode" t)
+(autoload 'typescript-mode "javascript-mode" t)
+
 (export 'shell-script-mode)
 (autoload 'shell-script-mode "shell-mode" t)
 
@@ -290,7 +300,8 @@
     ("python2" . python-mode)
     ("python3" . python-mode)
     ("perl" . perl-mode)
-    ("perl5" . perl-mode)))
+    ("perl5" . perl-mode)
+    ("node" . javascript-mode)))
 
 (defun find-file-shebang-mode ()
   "Detect mode from shebang line. Called as fallback after *auto-mode-alist*."
