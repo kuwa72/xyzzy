@@ -448,8 +448,6 @@
 	    #'(lambda () (if (null *global-mark-list*) :disable)))
 	   (:sep :|above-(>_<)|)
 	   (:popup :|(>_<)-popup| "(>&_<)"
-	    (:item :tag-command "ニフティのログを読む(&N)"
-	     'view-nifty-log)
 	    (:item :tag-command "電卓(&T)"
 	     'calc)
 	    (:item :tag-command "カレンダー(&A)"
