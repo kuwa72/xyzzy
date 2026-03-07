@@ -2597,6 +2597,9 @@ ncurses_reframe (Window *wp)
         bp->folded_linenum_point (df, disp_linenum);
       wp->w_disp = df.p_point;
     }
+
+  wp->w_last_top_linenum = disp_linenum;
+  wp->w_last_top_column = wp->w_top_column;
 }
 
 // Compute cursor position from glyph data.
@@ -7052,6 +7055,18 @@ ncurses_mouse_dispatch (MEVENT *mev)
     ccf = CCF_MBTNDOWN;
   else if (state & BUTTON2_RELEASED)
     ccf = CCF_MBTNUP;
+  else if (state & (BUTTON4_PRESSED | BUTTON5_PRESSED))
+    {
+      // Mouse wheel: scroll window under cursor, 3 lines
+      Window *wp = ncurses_find_window_at (row, col);
+      if (wp && wp->w_bufp)
+        {
+          int delta = (state & BUTTON4_PRESSED) ? -3 : 3;
+          wp->scroll_window (delta);
+          refresh_screen (1);
+        }
+      return lChar_EOF;
+    }
   else if (state & REPORT_MOUSE_POSITION)
     {
       // Motion: convert to button-specific move based on tracked state
