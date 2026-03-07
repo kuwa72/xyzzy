@@ -2497,6 +2497,9 @@ static symbols ed[] =
   DEFVAR2 (*use-shell-execute-ex*),
   DEFVAR2 (*shell-execute-disregards-shift-key*),
 
+  /* terminal.l */
+  DEFVAR2 (*terminal-map*),
+
   /* menu.cc */
   DEFUN3 (create-menu, 0, 1, 0),
   DEFUN3 (create-popup-menu, 0, 1, 0),

@@ -48,6 +48,7 @@
 (si:*load-library "filer") (gc)
 (si:*load-library "search") (gc)
 (si:*load-library "process") (gc)
+(si:*load-library "terminal") (gc)
 (si:*load-library "register") (gc)
 (si:*load-library "select") (gc)
 (si:*load-library "menu") (gc)

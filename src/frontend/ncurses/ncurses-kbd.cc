@@ -327,36 +327,33 @@ kbd_queue::fetch (int wait, int)
 
               // Terminal key forwarding: if selected window has a terminal,
               // send key to pty instead of xyzzy command loop.
-              // C-c is escape prefix: C-c <key> → C-x <key> in xyzzy.
-              // C-c C-c → send C-c (0x03) to pty.
+              // Keys bound in *terminal-map* go to command loop.
+              // Skip terminal check when in prefix key sequence (g_map not finished).
               {
+                extern int g_map_finished_p ();
                 Window *sw = selected_window ();
-                if (sw && sw->w_bufp && !sw->minibuffer_window_p ())
+                if (sw && sw->w_bufp && !sw->minibuffer_window_p ()
+                    && g_map_finished_p ())
                   {
                     Terminal *tw = buffer_terminal (sw->w_bufp);
                     if (tw)
                       {
-                        if (ret == OK && wch == 0x03)
+                        lChar lc = ncurses_key_to_lchar (ret, wch);
+                        if (lc != lChar_EOF)
                           {
-                            // C-c prefix: read next key
-                            nodelay (stdscr, FALSE);
-                            wint_t wch2;
-                            int ret2 = wget_wch (stdscr, &wch2);
-                            if (ret2 == OK && wch2 == 0x03)
+                            // Check *terminal-map*: if key is bound,
+                            // let command loop handle it.
+                            lisp tmap = xsymbol_value (Vterminal_map);
+                            if (tmap != Qnil && tmap != Qunbound)
                               {
-                                // C-c C-c → send C-c to pty
-                                char cc = 0x03;
-                                buffer_terminal_send (sw->w_bufp, &cc, 1);
-                                continue;
+                                lisp km = Fkeymapp (tmap);
+                                if (km != Qnil
+                                    && parse_keymap ((Char)(lc & 0xffff), km) != Qnil)
+                                  break;  // → command loop
                               }
-                            // C-c <key> → return C-x to xyzzy, queue <key>
-                            ret = OK;
-                            wch = 0x18;  // C-x
-                            pending = ncurses_key_to_lchar (ret2, wch2);
-                            break;
+                            if (send_key_to_terminal (sw->w_bufp, tw, ret, wch))
+                              continue;
                           }
-                        if (send_key_to_terminal (sw->w_bufp, tw, ret, wch))
-                          continue;
                       }
                   }
               }

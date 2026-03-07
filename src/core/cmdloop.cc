@@ -98,6 +98,12 @@ toplev_accept_mouse_move_p ()
 }
 
 int
+g_map_finished_p ()
+{
+  return g_map.finished_p ();
+}
+
+int
 char_mouse_move_p (Char cc)
 {
   if (function_char_p (cc))

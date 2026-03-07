@@ -49,7 +49,7 @@ full_keymap_index (Char c)
   return c < 128 ? c : -1;
 }
 
-static lisp
+lisp
 parse_keymap (Char c, lisp map)
 {
   if (general_vector_p (map))

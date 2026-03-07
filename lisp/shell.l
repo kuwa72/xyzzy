@@ -7,6 +7,8 @@
 
 (in-package "editor")
 
+(require "terminal")
+
 (export '(*shell-mode-hook* *shell-prompt-regexp* *shell-mode-map*
 	  *shell-ret* *shell-echo* shell shell-send-input shell-send-interrupt
 	  shell-alternate-send-input))
@@ -49,7 +51,10 @@
 	 (return-from shell t)))
   (goto-char (point-max))
   (shell-mode)
-  (make-process *eshell* :output (selected-buffer)))
+  (make-process *eshell* :output (selected-buffer))
+  (let ((proc (buffer-process (selected-buffer))))
+    (when (and proc (si:process-terminal-p proc))
+      (set-minor-mode-map *terminal-map*))))
 
 ;;;
 ;;; This code is loosely based on version 0.1 by Yutaka Oiwa <oiwa@is.s.u-tokyo.ac.jp>.

@@ -188,49 +188,31 @@ kbd_queue::fetch (int in_main, int req_mouse_move)
         {
           // Terminal key forwarding: if selected window has a ConPTY terminal,
           // send key to pty instead of xyzzy command loop.
-          // C-c is escape prefix: C-c <key> -> C-x <key> in xyzzy.
-          // C-c C-c -> send C-c (0x03) to pty.
-          Window *sw = selected_window ();
-          if (sw && sw->w_bufp && !sw->minibuffer_window_p ())
-            {
-              Terminal *tw = buffer_terminal (sw->w_bufp);
-              if (tw)
-                {
-                  if (c == 0x03)
-                    {
-                      // C-c prefix: read next key
-                      lChar c2 = lChar_EOF;
-                      while (c2 == lChar_EOF)
-                        {
-                          c2 = peek (0);
-                          if (c2 != lChar_EOF)
-                            break;
-                          MSG msg;
-                          if (!GetMessage (&msg, 0, 0, 0))
-                            {
-                              in_main_loop = 0;
-                              PostQuitMessage (0);
-                              return lChar_EOF;
-                            }
-                          XyzzyTranslateMessage (&msg);
-                          DispatchMessage (&msg);
-                        }
-                      if (c2 == 0x03)
-                        {
-                          // C-c C-c -> send C-c to pty
-                          char cc = 0x03;
-                          buffer_terminal_send (sw->w_bufp, &cc, 1);
-                          continue;
-                        }
-                      // C-c <key> -> return C-x to xyzzy, queue <key>
-                      c = 0x18;  // C-x
-                      pending = c2;
-                      break;
-                    }
-                  if (send_key_to_terminal (sw->w_bufp, tw, c))
-                    continue;
-                }
-            }
+          // Skip terminal check when in prefix key sequence (g_map not finished).
+          {
+            extern int g_map_finished_p ();
+            Window *sw = selected_window ();
+            if (sw && sw->w_bufp && !sw->minibuffer_window_p ()
+                && g_map_finished_p ())
+              {
+                Terminal *tw = buffer_terminal (sw->w_bufp);
+                if (tw)
+                  {
+                    // Check *terminal-map*: if key is bound, let
+                    // the command loop handle it instead of sending to pty.
+                    lisp tmap = xsymbol_value (Vterminal_map);
+                    if (tmap != Qnil && tmap != Qunbound)
+                      {
+                        lisp km = Fkeymapp (tmap);
+                        if (km != Qnil
+                            && parse_keymap ((Char)(c & 0xffff), km) != Qnil)
+                          break;  // → command loop
+                      }
+                    if (send_key_to_terminal (sw->w_bufp, tw, c))
+                      continue;
+                  }
+              }
+          }
           break;
         }
       MSG msg;
