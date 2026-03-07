@@ -52,6 +52,9 @@
 			    ("\\.cls$" . basic-mode)
 			    ("\\.css$" . css-mode)
 			    ("\\.cs$" . csharp-mode)
+			    ("\\.sh$" . shell-script-mode)
+			    ("\\.bash$" . shell-script-mode)
+			    ("\\.zsh$" . shell-script-mode)
 			    ("\\.py$" . python-mode)
 			    ("\\.pyw$" . python-mode)
 			    ("\\.json$" . json-mode)
@@ -263,6 +266,9 @@
 (export 'markdown-mode)
 (autoload 'markdown-mode "markdown" t)
 
+(export 'shell-script-mode)
+(autoload 'shell-script-mode "shell-mode" t)
+
 (export 'python-mode)
 (autoload 'python-mode "python-mode" t)
 
@@ -271,6 +277,37 @@
 
 (export 'yaml-mode)
 (autoload 'yaml-mode "yaml-mode" t)
+
+(export '(*interpreter-mode-alist* find-file-shebang-mode))
+
+(defvar *interpreter-mode-alist*
+  '(("sh" . shell-script-mode)
+    ("bash" . shell-script-mode)
+    ("zsh" . shell-script-mode)
+    ("ksh" . shell-script-mode)
+    ("dash" . shell-script-mode)
+    ("python" . python-mode)
+    ("python2" . python-mode)
+    ("python3" . python-mode)
+    ("perl" . perl-mode)
+    ("perl5" . perl-mode)))
+
+(defun find-file-shebang-mode ()
+  "Detect mode from shebang line. Called as fallback after *auto-mode-alist*."
+  (save-excursion
+    (goto-char (point-min))
+    (when (looking-at "^#![ \t]*\\([^ \t\n]+\\)\\([ \t]+\\([^ \t\n]+\\)\\)?")
+      (let* ((cmd (match-string 1))
+             (arg (match-string 3))
+             (name (file-namestring cmd)))
+        ;; Handle #!/usr/bin/env <interpreter>
+        (when (string= name "env")
+          (setq name arg))
+        (when name
+          (let ((mode (cdr (assoc name *interpreter-mode-alist*
+                                  :test #'string=))))
+            (when mode
+              (funcall mode))))))))
 
 (export '(dabbrev-expand *dabbrevs-case-fold* *dabbrevs-no-undo*))
 (defvar-local *dabbrevs-case-fold* nil)

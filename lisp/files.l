@@ -160,10 +160,11 @@
     (unless auto-mode
       (let ((filename (get-buffer-file-name))
 	    (*auto-mode-last-buffer* last-buffer))
-	(dolist (x *auto-mode-alist*)
-	  (when (string-matchp (car x) filename)
-	    (funcall (cdr x))
-	    (return)))))))
+	(unless (dolist (x *auto-mode-alist*)
+		  (when (string-matchp (car x) filename)
+		    (funcall (cdr x))
+		    (return t)))
+	  (find-file-shebang-mode))))))
 
 (defun find-file-auto-encoding (filename)
   (unwind-protect
