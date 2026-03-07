@@ -52,6 +52,8 @@
 			    ("\\.cls$" . basic-mode)
 			    ("\\.css$" . css-mode)
 			    ("\\.cs$" . csharp-mode)
+			    ("\\.py$" . python-mode)
+			    ("\\.pyw$" . python-mode)
 			    ("\\.json$" . json-mode)
 			    ("\\.jsonc$" . json-mode)
 			    ("\\.ya?ml$" . yaml-mode)
@@ -260,6 +262,9 @@
 
 (export 'markdown-mode)
 (autoload 'markdown-mode "markdown" t)
+
+(export 'python-mode)
+(autoload 'python-mode "python-mode" t)
 
 (export 'json-mode)
 (autoload 'json-mode "json-mode" t)

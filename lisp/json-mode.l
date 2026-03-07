@@ -66,8 +66,6 @@
              ("\"\\([^\"\\\\]\\|\\\\[^\n]\\)*\"[ \t\n]*:" nil 0)
              ;; String values
              ("\"\\([^\"\\\\]\\|\\\\[^\n]\\)*\"" nil :string)
-             ;; Numbers
-             ("-?[0-9]+\\(\\.[0-9]+\\)?\\([eE][-+]?[0-9]+\\)?" nil :tag)
              ;; Keywords: true, false, null
              ("\\btrue\\b\\|\\bfalse\\b" nil 2)
              ("\\bnull\\b" nil :comment)
