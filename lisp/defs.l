@@ -216,9 +216,6 @@
 (export 'gomoku)
 (autoload 'gomoku "gomoku" t)
 
-(export 'view-nifty-log)
-(autoload 'view-nifty-log "niftylog" t)
-
 (export '(gresreg re-gresreg query-gresreg query-gresreg-regexp))
 (autoload 'gresreg "gresreg" t)
 (autoload 're-gresreg "gresreg" t)
