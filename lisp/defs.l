@@ -52,6 +52,9 @@
 			    ("\\.cls$" . basic-mode)
 			    ("\\.css$" . css-mode)
 			    ("\\.cs$" . csharp-mode)
+			    ("\\.json$" . json-mode)
+			    ("\\.jsonc$" . json-mode)
+			    ("\\.ya?ml$" . yaml-mode)
 			    ("\\.md$" . markdown-mode)
 			    ("\\.markdown$" . markdown-mode)
 			   ))
@@ -257,6 +260,12 @@
 
 (export 'markdown-mode)
 (autoload 'markdown-mode "markdown" t)
+
+(export 'json-mode)
+(autoload 'json-mode "json-mode" t)
+
+(export 'yaml-mode)
+(autoload 'yaml-mode "yaml-mode" t)
 
 (export '(dabbrev-expand *dabbrevs-case-fold* *dabbrevs-no-undo*))
 (defvar-local *dabbrevs-case-fold* nil)
