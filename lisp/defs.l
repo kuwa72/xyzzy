@@ -38,6 +38,13 @@
 			    ("\\.txt$" . text-mode)
 			    ("\\.log$" . text-mode)
 			    ("\\.html?$" . html-mode)
+			    ("\\.toml$" . toml-mode)
+			    ("\\.xml$" . xml-mode)
+			    ("\\.xsl$" . xml-mode)
+			    ("\\.xslt$" . xml-mode)
+			    ("\\.svg$" . xml-mode)
+			    ("\\.xsd$" . xml-mode)
+			    ("\\.rss$" . xml-mode)
 			    ("\\.pas$" . pascal-mode)
 			    ("\\.tex$" . LaTeX-mode)
 			    ("\\.java$" . java-mode)
@@ -68,6 +75,12 @@
 			    ("\\.ya?ml$" . yaml-mode)
 			    ("\\.md$" . markdown-mode)
 			    ("\\.markdown$" . markdown-mode)
+			    ("\\.mk$" . makefile-mode)
+			    ("\\(^\\|/\\)Makefile$" . makefile-mode)
+			    ("\\.cmake$" . cmake-mode)
+			    ("\\(^\\|/\\)CMakeLists\\.txt$" . cmake-mode)
+			    ("\\(^\\|/\\)Dockerfile" . dockerfile-mode)
+			    ("\\.dockerfile$" . dockerfile-mode)
 			   ))
 
 (defvar show-dots nil)
@@ -271,6 +284,21 @@
 
 (export 'markdown-mode)
 (autoload 'markdown-mode "markdown" t)
+
+(export 'xml-mode)
+(autoload 'xml-mode "xml-mode" t)
+
+(export 'toml-mode)
+(autoload 'toml-mode "toml-mode" t)
+
+(export 'makefile-mode)
+(autoload 'makefile-mode "makefile-mode" t)
+
+(export 'cmake-mode)
+(autoload 'cmake-mode "cmake-mode" t)
+
+(export 'dockerfile-mode)
+(autoload 'dockerfile-mode "dockerfile-mode" t)
 
 (export '(javascript-mode typescript-mode))
 (autoload 'javascript-mode "javascript-mode" t)
