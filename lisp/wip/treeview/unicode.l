@@ -13,6 +13,14 @@
 (require "wip/treeview/defs")
 (require "wip/treeview/winapi")
 
+;; SendMessageW for Unicode tree operations
+;; (winapi:SendMessage is bound to SendMessageA which corrupts W message data)
+(in-package "winapi")
+(unless (fboundp 'SendMessageW)
+  (c:*define-dll-entry LRESULT SendMessageW (HWND UINT WPARAM LPARAM)
+    "user32" "SendMessageW")
+  (export 'SendMessageW))
+
 (in-package "treeview")
 
 (defun treeview-insert-item (text parent &key icon sicon (insertafter winapi:TVI_LAST)
@@ -20,7 +28,8 @@
   "treeview に item を追加。(unicode版)"
   (let ((mask winapi:TVIF_TEXT)
         (lpitemex (winapi::make-TVITEMEXW))
-        (lpis (winapi::make-TVINSERTSTRUCTW)))
+        (lpis (winapi::make-TVINSERTSTRUCTW))
+        (text-chunk (si:make-string-chunk (map-internal-to-ucs-2 (concat text "\0")))))
     (si:clear-chunk lpitemex)
     (si:clear-chunk lpis)
     (if (null icon)
@@ -33,7 +42,7 @@
     (setf (winapi:TVITEMEXW-hItem lpitemex) 0)
     (setf (winapi:TVITEMEXW-state lpitemex) state)
     (setf (winapi:TVITEMEXW-stateMask lpitemex) statemask)
-    (setf (winapi:TVITEMEXW-pszText lpitemex) (si:make-string-chunk (map-internal-to-ucs-2 (concat text "\0"))))
+    (setf (winapi:TVITEMEXW-pszText lpitemex) text-chunk)
     (setf (winapi:TVITEMEXW-cchTextMax lpitemex) 0)
     (setf (winapi:TVITEMEXW-iImage lpitemex) icon)
     (setf (winapi:TVITEMEXW-iSelectedImage lpitemex) sicon)
@@ -43,11 +52,11 @@
     (setf (winapi:TVINSERTSTRUCTW-hParent lpis) parent)
     (setf (winapi:TVINSERTSTRUCTW-hInsertAfter lpis) insertafter)
     (setf (winapi:TVINSERTSTRUCTW-itemex lpis) lpitemex)
-    (winapi:SendMessage (treeview-get-htree) winapi:TVM_INSERTITEMW 0 lpis)))
+    (winapi::SendMessageW (treeview-get-htree) winapi:TVM_INSERTITEMW 0 lpis)))
 
 (defun treeview-get-item (pitem); TVITEMW*
   "TVITEM 構造体へのポインタを渡し、item を取得。(unicode版)"
-  (winapi:SendMessage (treeview-get-htree) winapi:TVM_GETITEMW 0 pitem))
+  (winapi::SendMessageW (treeview-get-htree) winapi:TVM_GETITEMW 0 pitem))
 
 (defun treeview-get-item-state (hitem statemask)
   "item の state を取得。(unicode版)"
@@ -84,19 +93,20 @@
 
 (defun treeview-set-item (hitem mask text icon sicon state statemask lparam)
   "item に各種値を設定。(unicode版)"
-  (let ((pitem (winapi:make-TVITEMW)))
+  (let ((pitem (winapi:make-TVITEMW))
+        (text-chunk (si:make-string-chunk (map-internal-to-ucs-2 (concat text "\0")))))
     (si:clear-chunk pitem)
     (setf (winapi::TVITEMW-mask pitem) mask)
     (setf (winapi::TVITEMW-hItem pitem) hitem)
     (setf (winapi::TVITEMW-state pitem) state)
     (setf (winapi::TVITEMW-stateMask pitem) statemask)
-    (setf (winapi::TVITEMW-pszText pitem) (si:make-string-chunk (map-internal-to-ucs-2 (concat text "\0"))))
+    (setf (winapi::TVITEMW-pszText pitem) text-chunk)
     (setf (winapi::TVITEMW-cchTextMax pitem) 0)
     (setf (winapi::TVITEMW-iImage pitem) icon)
     (setf (winapi::TVITEMW-iSelectedImage pitem) sicon)
     (setf (winapi::TVITEMW-cChildren pitem) 0)
     (setf (winapi::TVITEMW-lParam pitem) lparam)
-    (winapi:SendMessage (treeview-get-htree) winapi:TVM_SETITEMW 0 pitem)))
+    (winapi::SendMessageW (treeview-get-htree) winapi:TVM_SETITEMW 0 pitem)))
 
 (defun treeview-set-item-state (hitem state statamask)
   "item に state を設定。(unicode版)"
