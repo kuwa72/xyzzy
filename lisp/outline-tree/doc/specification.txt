@@ -1,0 +1,75 @@
+-*- outline-tree: topic -*-
+
+■アウトライン作成関数の指定
+  以下優先度の高い順
+
+    1. アウトライン上でのメニュー「アウトラインタイプ」から指定。
+         各バッファの情報は buffer-local 変数
+         outline-tree-create-outline-function-interactive に記録
+
+    2. ファイル先頭パラメータ (-*- outline-tree: **** -*-) で指定。
+         各バッファの情報は special 変数
+         *outline-tree-find-file-outline-create-function-alist* に記録
+
+    3. 各種フックなどで指定。
+         各バッファの情報は buffer-local 変数
+         outline-tree-create-outline-function に記録
+
+    4. デフォルトの選択関数により指定。
+         *outline-tree-get-default-create-outline-function* に指定された
+         関数に buffer を与え、結果返された関数がアウトライン作成関数と
+         なる。
+
+
+==============================================================================
+■ノードの種類・意味
+・category-node  : ファイルに関連付いていないバッファの分類
+・folder-node    : バッファの分類
+・buffer-node    : バッファと一対一対応
+・section-node   : 複数系統のアウトラインを持つ場合の分類
+・range-node     : バッファ内の対象範囲を保持
+・point-node     : バッファ内の対象ポイントを保持
+・info-node      : item-text としてテキスト情報のみ保持
+
+・heading-node   : range-node の一種。
+                   range-node の中でも特に、文書内の階層を決定付けているも
+                   の。
+・header-node    : range-node の一種。
+                   (outline-tree-create-outline-regexp-internal) もしくは
+                   (outline-tree-create-outline-topic-internal) を用いて
+                   アウトラインを作成した場合のみ、buffer-node, range-node
+                   の先頭子ノードとして使用する場合がある。
+                   次の heading-node までの範囲を保持する。
+
+■各ノードの制限
+・<root> には、category-node, folder-node のみ存在可
+・category-node : <root>, category-node の下にのみ存在可。
+・folder-node   : <root>, folder-node の下にのみ存在可。
+・buffer-node   : category-node, folder-node の下にのみ存在可。
+・section-node  : buffer-node の下にのみ存在可。
+・range-node    : buffer-node, section-node, range-node の下にのみ存在可。
+                  親が range-node の場合は、自身の対象範囲は親の対象範囲に
+                  含まれなければならない。
+                  同一 buffer-node 以下には、一部のみ共有する対象範囲をも
+                  つ異なる range-node は存在すべきでない。(★)
+・point-node    : buffer-node, section-node, range-node の下にのみ存在可。
+                  親が range-node の場合は、自身の対象ポイントは親の対象
+                  範囲に含まれなければならない。
+・info-node     : buffer-node, section-node, range-node の下にのみ存在可。
+
+■range-node 入替えの制限
+・header-node は入替えできない。
+・heading-node は heading-node とのみ入替え可。
+・連続しない範囲の入替えを行うためには、明示的な許可が必要。
+・対象範囲がバッファ末尾までのノードを入替える際には、バッファ末尾が行頭で
+  ない場合(バッファ最後の文字が改行でない場合)には、バッファ最後に改行を加
+  えた上で入替えを行う。
+・入替えを行う 2 つの range-node 以下のノードのみ、対象範囲、対象ポイント
+  情報を更新する。(★)
+
+■range-node 削除の制限
+・削除する range-node が属する buffer-node 以下の range-node, point-node 
+  について対象範囲、対象ポイントを修正する。
+・削除する範囲と「一部のみを共有する対象範囲」を持つ range-node は削除する。
+  削除する範囲を完全に内包する range-node については対象範囲を修正する。
+・削除する範囲に含まれる対象ポイントを持つ point-node は削除する。

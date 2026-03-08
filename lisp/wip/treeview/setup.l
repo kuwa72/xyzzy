@@ -32,5 +32,6 @@
 (require "wip/treeview/sort")
 (require "wip/treeview/dialog")
 (require "wip/treeview/utils")
+(require "wip/treeview/unicode")
 
 ;;; setup.l ends here

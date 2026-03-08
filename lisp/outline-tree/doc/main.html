@@ -1,0 +1,529 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang="ja">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <style type="text/css">
+      <!--
+        .bgcolor {
+          color: #000000;
+          background-color: #fff9bf;
+        } /* textColor, backColor */
+        SPAN.keyword1 {
+          color: #0000ff;
+        } /* kwdColor1 */
+        SPAN.keyword2 {
+          color: #ff0000;
+        } /* kwdColor2 */
+        SPAN.keyword3 {
+          color: #800080;
+        } /* kwdColor3 */
+        SPAN.keyword1inverse {
+          color: #fff9bf;
+          background-color: #0000ff;
+        } /* backColor, kwdColor1 */
+        SPAN.keyword2inverse {
+          color: #fff9bf;
+          background-color: #ff0000;
+        } /* backColor, kwdColor2 */
+        SPAN.keyword3inverse {
+          color: #fff9bf;
+          background-color: #800080;
+        } /* backColor, kwdColor3 */
+        SPAN.ctl {
+          color: #808000;
+        } /* ctlColor */
+        SPAN.string {
+          color: #008080;
+        } /* stringColor */
+        SPAN.comment {
+          color: #9c0e0e;
+        } /* commentColor */
+        SPAN.tag {
+          color: #a5a2a5;
+        } /* tagColor */
+        .fg0 {
+          color: #000000;
+        } /* textColor */
+        .bg0 {
+          background-color: #fff9bf;
+        } /* backColor */
+        .fg1 { color: #ff0000; } /* fg1 */
+        .bg1 { background-color: #ffaaaa; } /* bg1 */
+        .fg2 { color: #00ff00; } /* fg2 */
+        .bg2 { background-color: #80ff80; } /* bg2 */
+        .fg3 { color: #ffff00; } /* fg3 */
+        .bg3 { background-color: #ffff80; } /* bg3 */
+        .fg4 { color: #0000ff; } /* fg4 */
+        .bg4 { background-color: #bfbfff; } /* bg4 */
+        .fg5 { color: #ff00ff; } /* fg5 */
+        .bg5 { background-color: #ff00ff; } /* bg5 */
+        .fg6 { color: #00ffff; } /* fg6 */
+        .bg6 { background-color: #00ffff; } /* bg6 */
+        .fg7 { color: #ffffff; } /* fg7 */
+        .bg7 { background-color: #ffffff; } /* bg7 */
+        .fg8 { color: #000000; } /* fg8 */
+        .bg8 { background-color: #000000; } /* bg8 */
+        .fg9 { color: #800000; } /* fg9 */
+        .bg9 { background-color: #800000; } /* bg9 */
+        .fg10 { color: #008000; } /* fg10 */
+        .bg10 { background-color: #008000; } /* bg10 */
+        .fg11 { color: #808000; } /* fg11 */
+        .bg11 { background-color: #808000; } /* bg11 */
+        .fg12 { color: #000080; } /* fg12 */
+        .bg12 { background-color: #000080; } /* bg12 */
+        .fg13 { color: #800080; } /* fg13 */
+        .bg13 { background-color: #800080; } /* bg13 */
+        .fg14 { color: #008080; } /* fg14 */
+        .bg14 { background-color: #008080; } /* bg14 */
+        .fg15 { color: #808080; } /* fg15 */
+        .bg15 { background-color: #808080; } /* bg15 */
+        .bold { font-weight: bold; }
+        .underline { text-decoration: underline; }
+        .strike-out { text-decoration: line-through; }
+
+        body {
+          color: black;
+          background-color: white;
+        }
+        a:link {
+          color: #0033cc;
+        }
+        a:visited {
+          color: navy;
+        }
+        a:hover {
+          color: #ff6633;
+        }
+        h1 {
+          font-size: 1.5em;
+          line-height: 1.7em;
+          background-color: #ffcc66;
+          margin: 0.2em 0em 0em 0em;
+          padding: 4px 4px 2px;
+          border-width: 1px 1px 1px 3px;
+          border-color: #6666ff;
+          border-style: solid;
+        }
+        h2 {
+          font-weight: bold;
+          font-size: 1.3em;
+          line-height: 1.4em;
+          background-color: #ccccff;
+          margin: 0.2em 0em 0em 0.5em;
+          padding: 5px 8px 5px 1ex;
+          border-width: 1px 1px 1px 3px;
+          border-color: #8888ff;
+          border-style: solid;
+        }
+        h3 {
+          font-size: 1.1em;
+          line-height: 1.1em;
+          background-color: #FFFFCC;
+          margin: 0.2em 0em 0em 1em;
+          padding: 5px 8px 5px 2ex;
+          border-width: 1px 1px 1px 3px;
+          border-color: #ffccff;
+          border-style: solid;
+        }
+        h4, h5, h6 {
+          line-height: 1.2em;
+          font-size: 1.5em;
+          margin: 0.2em 0em 0em 1.5em;
+          padding: 5px 8px 5px 2ex;
+        }
+        pre {
+          margin: 0.3em 0em 0.6em 2em;
+          border-width: 2px;
+          border-color: #000000;
+          border-style: solid;
+          padding: 3px 3px 3px 3px;
+        }
+        p {
+          margin-top: 0.3em;
+          margin-right: 1em;
+          margin-bottom: 1em;
+          margin-left: 2em;
+        }
+        ul {
+          list-style: circle;
+          margin-left: 1em;
+        }
+        ul ul {
+          list-style: disc;
+        }
+        ul ul ul {
+          list-style: square;
+        }
+        ul ul ul ul {
+          list-style: none;
+        }
+        ol {
+          margin-left: 1em;
+        }
+        #toc {
+          margin: 1em 1em 1em 1em;
+          padding: 0px 1em 0px 1em;
+          border: 1px solid #339966;
+          border-width: 1px 1px 1px 5px;
+          background-color: #eeeeee;
+          color: #993366;
+        }
+
+      //-->
+    </style>
+    <meta name="GENERATOR" content="outline-tree">
+    <title>00readme.txt</title>
+  </head>
+  <body>
+<div id="main">
+<h1 class="lv1"><a href="toc.html#TOC1" name="SEC1" target="toc">&lt;HEADER&gt;</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+-*- outline-tree: topic -*-
+======================================================================
+                            outline-tree
+                            ------------
+
+    Copyright (C) 2001-2012 OHKUBO Hiroshi &lt;<span class="fg4 bg0"><span class="underline"><a class="buf2html" href="mailto:ohkubo@s53.xrea.com"><span class="fg4 bg0"><span class="underline">ohkubo@s53.xrea.com</span></span></a></span></span>&gt;
+
+    Author: OHKUBO Hiroshi &lt;<span class="fg4 bg0"><span class="underline"><a class="buf2html" href="mailto:ohkubo@s53.xrea.com"><span class="fg4 bg0"><span class="underline">ohkubo@s53.xrea.com</span></span></a></span></span>&gt;
+    Time-stamp: &lt;2012/03/30 21:39:50 +0900&gt;
+======================================================================
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC2" name="SEC2" target="toc">■概要</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  TreeView.dll を用いて、バッファリストのツリー表示、バッファ内のア
+  ウトライン表示を行います。
+
+  outline-tree 及び、使用している treeview ライブラリが提供する機能
+  の概要を以下に列挙します。
+
+  □基本機能
+   - バッファリストのツリー表示
+      - バッファの選択
+      - フォルダを閉じる
+   - バッファ内アウトライン表示
+      - バッファ内ノード位置への移動
+  □Treeview設定・操作
+   - TreeView の各種設定
+   - TreeView ウィンドウ位置の変更
+   - TreeView ウィンドウの開閉
+   - TreeView ウィンドウ上キーバインドの設定 (Alt キー使用不可)
+   - 大体の操作が TreeView 上右クリックから可能
+  □編集
+   - 「範囲ノード」の上下入替え
+  □出力
+   - テキスト, HTML 出力
+  □その他
+   - アウトライン作成関数の半自動生成
+   - ファイル先頭部分への記述による outline 種類自動選択
+
+
+  ナローイングはユーザがインタラクティブに設定するものと考え、
+  outline-tree がノードに対応するリージョンを自動的にナローイングす
+  る機能は有しません。
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC3" name="SEC3" target="toc">■インストール</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  0. 必要なライブラリを導入します。
+
+          - treeview (treeview ライブラリ)
+             | 2005/05/17 時点では、treeview は以下を必要とします。
+             | - TreeView.dll (ver. 1.03 以降)
+             | - color
+             | - win-window
+          - buf2html
+
+  1. アーカイブを展開して outline-tree/ 以下を $XYZZY/site-lisp に
+     コピーします。
+     toolbar-outline-tree.bmp を $XYZZY/etc にコピーします。
+
+  2. 必要ならばバイトコンパイルします。
+
+          M-x load-library
+          Load library: outline-tree/makefile
+
+          M-x outline-tree-make-clean
+          M-x outline-tree-make-all
+
+  3. ~/.xyzzy または $XYZZY/site-lisp/siteinit.l に以下のコードを
+     追加します。
+
+          (require &quot;outline-tree/outline-tree&quot;)
+
+  4. 上記の設定を反映させるために、xyzzy を再起動します。
+     siteinit.l に記述した場合は Ctrl キーと Shift キーを押しながら
+     xyzzy を再起動し、ダンプファイルを再構築します。
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC4" name="SEC4" target="toc">■アンインストール</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  1. ESC ESC (outline-tree2::outline-tree-uninstall) とタイプし、
+     outline-tree 関連の情報を xyzzy から削除します。
+
+  2. outline-tree に関する記述を削除します。
+
+  3. siteinit.l に記述していた場合は Ctrl キーと Shift キーを押し
+     ながら xyzzy を再起動し、ダンプファイルを再構築します。
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC5" name="SEC5" target="toc">■ライセンス</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  outline-tree は修正BSDライセンスに基づいて利用可能です。
+  &lt;<span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.opensource.org/licenses/bsd-license.php"><span class="fg4 bg0"><span class="underline">http://www.opensource.org/licenses/bsd-license.php</span></span></a></span></span>&gt;
+
+
+  Copyright (C) 2001-2012, OHKUBO Hiroshi.  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+  3. Neither the name of the University nor the names of its
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC6" name="SEC6" target="toc">■outline-tree&nbsp;キーバインド</a></h1>
+<div class="lv1"></div>
+<h2 class="lv2"><a href="toc.html#TOC7" name="SEC7" target="toc">●注意</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+
+    快適な使用のためには、以下の設定が必要だと考えています。
+
+      ・TreeView &lt;-&gt; Editor のフォーカスを切り替えるキーバインド
+      ・outline を更新するキーバインド
+
+    作者はそれぞれ exkey-C-tab (Ctrl+TAB), exkey-C-return
+    (Ctrl+Return) を使用していますが、それらのキーは xyzzy 標準では
+    使用できるようになっていません。そのため outline-tree では設定し
+    ていません。
+    以下では、exkey-C-tab を F23、exkey-C-return を F20 にマッピング
+    した上でキー設定する例を示します。
+
+    F23, F20 にマッピングしているのは、単純に、作者のこれまでの xyzzy
+    設定との兼ね合いによっています。下記を参考にして設定を行う場合は、
+    各人の環境に合わせて F13～F24 辺りを使用してください。
+
+      ;; extended-key-translate-table 設定
+      (set-extended-key-translate-table exkey-C-tab #\F23)
+      (set-extended-key-translate-table exkey-C-return #\F20)
+
+      ;; Editor &lt;-&gt; TreeView
+      ; Editor -&gt; TreeView
+      (require &quot;treeview/setup&quot;)
+      (global-set-key #\F23 'treeview::treeview-focus-treeview)
+      ; TreeView (outline-tree) -&gt; Editor
+      (require &quot;outline-tree/outline-tree&quot;)
+      (define-key outline-tree2::*outline-tree-map*
+                  #\F23 'treeview::treeview-focus-editor)
+
+      ;; outline 更新
+      (global-set-key #\F20 'outline-tree2::outline-tree-create-outline-and-select-node)
+      (define-key outline-tree2::*outline-tree-map*
+                  #\F20 'outline-tree2::outline-tree-create-outline-and-select-node)
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC8" name="SEC8" target="toc">●エディタ上</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+
+    基本的に TreeView 上での操作のみにしていますので、キー設定はあり
+    ません。上記「注意」の設定をした場合、以下2点が設定されます。
+      ・Editor -&gt; TreeView とフォーカスを切り替えるキーバインド
+      ・outline を更新するキーバインド
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC9" name="SEC9" target="toc">●TreeView&nbsp;上</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+
+    [右クリック]-[ヘルプ]-[キー割り当て一覧] を参照ください。
+
+    ○ノード間移動
+        Up,        C-p
+        Down,      C-n
+        Left,      C-b
+        Right,     C-f
+
+        PageUp,    S-PageUp
+        PageDown,  S-PageDown
+        Home,      S-Home
+        End,       S-End
+
+        C-a
+        C-e
+        C-z
+        C-v
+
+    ○スクロール
+        C-Up,        S-C-Up
+        C-Down,      S-C-Down
+        C-Left,      S-C-Left
+        C-Right,     S-C-Right
+        C-PageUp,    S-C-PageUp
+        C-PageDown,  S-C-PageDown
+        C-Home,      S-C-Home
+        C-End,       S-C-End
+
+        &lt;              左端にスクロール
+        &gt;              右端にスクロール
+
+        C-l            リセンター
+
+    ○ノード検索
+        C-s            インクリメンタルサーチ
+        C-r            インクリメンタルサーチ(逆順)
+
+    ○ノード実行
+        Return
+        左ダブルクリック
+
+    ○アウトラインの削除
+        Delete
+
+    ○エディタ部をフォーカス
+        (exkey-C-tab : F23)
+
+    ○範囲ノード入替え
+        P
+        N
+
+    ○範囲ノード削除
+        D
+
+    ○その他
+        Apps           ポップアップメニュー表示
+        右クリック     ポップアップメニュー表示
+
+        C-c C-f        ファイラ起動
+
+        C-x 0          TreeView を閉じる
+        C-x 1          TreeView を開く
+        C-:            TreeView を開閉する
+
+        C-c w t        ウィンドウを上に
+        C-c w b        ウィンドウを下に
+        C-c w l        ウィンドウを左に
+        C-c w r        ウィンドウを右に
+        C-c w w        ウィンドウを次の位置に
+
+        C-x ?          キー説明
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC10" name="SEC10" target="toc">■プロパティシート</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  主な設定は、下記操作で表示されるプロパティシート/ダイアログから設
+  定可能です。
+
+  ・[右クリックメニュー]-[アウトラインツリー設定]
+  ・[右クリックメニュー]-[TreeView 設定]
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC11" name="SEC11" target="toc">■ツールバー</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  アウトラインツリーの起動・終了を行います。
+  アウトラインツリーが起動している場合、アイコンは押された
+  状態で表示されます。
+
+    未起動時：（通常状態の）アイコンをクリック⇒起動
+    起動時  ：（押下状態の）アイコンをクリック⇒終了
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC12" name="SEC12" target="toc">■設定ファイル</a></h1>
+<div class="lv1"><pre class="bgcolor border">
+
+  outline-tree 開始時に
+      ~/.outline-tree/autoload/ 以下の *.l(c)
+      ~/.outline-tree/config.l(c)
+  ファイルを読み込みます。
+
+</pre></div>
+<h1 class="lv1"><a href="toc.html#TOC13" name="SEC13" target="toc">■参考フォーマット</a></h1>
+<div class="lv1"></div>
+<h2 class="lv2"><a href="toc.html#TOC14" name="SEC14" target="toc">○構造化エディタ&nbsp;(STED)</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・松崎 暁 HP
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www008.upp.so-net.ne.jp/momotan/"><span class="fg4 bg0"><span class="underline">http://www008.upp.so-net.ne.jp/momotan/</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC15" name="SEC15" target="toc">○eMemoPad</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・eMemoPad Home
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.ememopad.net/"><span class="fg4 bg0"><span class="underline">http://www.ememopad.net/</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC16" name="SEC16" target="toc">○ChangeLog</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・たつをのホームページ
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://nais.to/~yto/"><span class="fg4 bg0"><span class="underline">http://nais.to/~yto/</span></span></a></span></span>
+
+  ・Let's try ChangeLog MEMO
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://pop-club.hp.infoseek.co.jp/emacs/changelog.html"><span class="fg4 bg0"><span class="underline">http://pop-club.hp.infoseek.co.jp/emacs/changelog.html</span></span></a></span></span>
+
+  ・横着プログラミング: Unixのメモ技術
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://namazu.org/~satoru/unimag/1/index.html"><span class="fg4 bg0"><span class="underline">http://namazu.org/~satoru/unimag/1/index.html</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC17" name="SEC17" target="toc">○RD</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・RD working draft 日本語版
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.rubyist.net/~rubikitch/RDP.cgi?cmd=view&amp;name=RD"><span class="fg4 bg0"><span class="underline">http://www.rubyist.net/~rubikitch/RDP.cgi?cmd=view&amp;name=RD</span></span></a></span></span>
+
+  ・RD事始め
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.rubyist.net/~rubikitch/computer/rd-intro/"><span class="fg4 bg0"><span class="underline">http://www.rubyist.net/~rubikitch/computer/rd-intro/</span></span></a></span></span>
+
+  ・What is RD? What is RDtool?
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www2.pos.to/~tosh/ruby/rdtool/ja/whats.html"><span class="fg4 bg0"><span class="underline">http://www2.pos.to/~tosh/ruby/rdtool/ja/whats.html</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC18" name="SEC18" target="toc">○Markdown</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・Daring Fireball: Markdown Syntax Documentation
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://daringfireball.net/projects/markdown/syntax"><span class="fg4 bg0"><span class="underline">http://daringfireball.net/projects/markdown/syntax</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC19" name="SEC19" target="toc">○Hiki</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・Hikiトップページ
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.namaraii.com/hiki/"><span class="fg4 bg0"><span class="underline">http://www.namaraii.com/hiki/</span></span></a></span></span>
+
+  ・整形ルール
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.namaraii.com/hiki/?TextFormattingRules"><span class="fg4 bg0"><span class="underline">http://www.namaraii.com/hiki/?TextFormattingRules</span></span></a></span></span>
+
+</pre></div>
+<h2 class="lv2"><a href="toc.html#TOC20" name="SEC20" target="toc">○RFC</a></h2>
+<div class="lv2"><pre class="bgcolor border">
+  ・サンプル: Internet Small Computer Systems Interface (iSCSI)
+    <span class="fg4 bg0"><span class="underline"><a class="buf2html" href="http://www.ietf.org/rfc/rfc3720.txt"><span class="fg4 bg0"><span class="underline">http://www.ietf.org/rfc/rfc3720.txt</span></span></a></span></span>
+
+</pre></div>
+</div>
+</body>
+</html>

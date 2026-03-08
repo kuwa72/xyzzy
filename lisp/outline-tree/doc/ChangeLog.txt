@@ -1,0 +1,1039 @@
+2012-04-03  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20090403.zip 公開
+
+2012-03-30  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: Markdown 対応
+        - 新規: cr-Markdown.l
+        - 更新: outline-tree.l makefile.l get-outline-function.l
+          ファイルの追加、削除に伴う更新。
+
+2009-09-29  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: RDフォーマット解析を緩く
+	- cr-rd.l
+	  - = == === ==== + ++ の上位が無くても解析するように変更
+
+2009-06-23  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree-create-outline-java の正規表現修正
+	- cr-regexp-inheritance.l
+
+2009-06-02  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree-create-outline-java の優先度低下
+	- 更新: get-outline-function.l
+
+2009-05-22  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: HTML見出し解析改善
+        - 更新: cr-html-heading.l
+          - <li> ... <ul> などの場合、<ul> 以降の文字列も見出しとして
+            表示していた点を修正。
+          - outline-tree-create-outline-html-heading-get-range-listing-item
+            outline-tree-create-outline-html-heading-get-range-listing-definition
+          - scan-buffer に「:case-fold t」指定を追加
+
+2009-05-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: ctags 解析改善
+	- 更新: cr-ctags.l
+	  - -R, --recurse を指定せずに作成した tags ファイルから
+	    アウトラインが作成できない点を修正。
+
+	* 更新: ctags kind 出力フルネーム化
+        - 更新: cr-ctags.l
+        - *outline-tree-create-outline-ctags-list-maps*
+          *outline-tree-create-outline-ctags-auto-maps-alist*
+          *outline-tree-create-outline-ctags-list-kinds*
+          *outline-tree-create-outline-ctags-list-kinds-list*
+          outline-tree-create-outline-ctags-buffer-to-langege
+          outline-tree-create-outline-ctags-kind-to-kind-fullname
+          outline-tree-create-outline-ctags
+
+2009-04-08  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: ChangeLog フォーマット解析更新
+        - 更新: cr-regexp-inheritance.l
+        - outline-tree-create-outline-changelog
+
+2009-04-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: XSV解析の区切り文字に compiled-regexp を指定可能に
+        - 更新: cr-xsv.l
+        - outline-tree-create-outline-xsv
+
+2009-04-03  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20090403.zip 公開
+
+2009-03-31  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: lisp 解析の define-dll-entry 対応
+	- 更新: cr-lisp.l
+
+2009-03-27  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: タグ解析改善
+        - 更新: cr-tag.l
+          - 空要素タグを意識し解析し、空要素タグも表示するように変更。
+          - #\< #\> が set-syntax-tag されていなくても動作するように変更。
+
+	* 更新: タグ解析方法の改善 
+        - 更新: public-utils.l cr-tag.l cr-html-heading.l cr-FreeMind.l
+        - html-highlight-mode の考慮
+        - タグタイプの変更 :open, :close → :start-tag, :end-tag, :empty-element-tag
+
+2009-03-26  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: FreeMind 対応
+        - 新規: cr-FreeMind.l
+        - 更新: outline-tree.l makefile.l get-outline-function.l
+          ファイルの追加、削除に伴う更新。
+
+2009-03-18  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: GNU GLOBAL(gtags) 対応
+	- 新規: cr-global.l
+        - 更新: outline-tree.l makefile.l
+          ファイルの追加、削除に伴う更新。
+
+2009-03-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: アウトライン分類の変更
+        - 更新: outline-tree.l cr-*.l
+          [一般解析, 言語, ファイルフォーマット, その他, ユーザ] を
+          [プログラミング個別,プログラミング汎用,文書フォーマット,
+           データフォーマット,汎用,その他,ユーザ] に変更。
+
+	* 修正: 未定義変数使用によるエラーを修正
+	- 修正; cr-list-function.l
+	  (require "listfn") するように修正。
+
+2009-03-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: CSV, TSV 用解析処理にシンタックステーブルの設定/復帰を追加
+        - 更新: cr-xsv.l
+          *outline-tree-create-outline-xsv-syntax-table*
+          outline-tree-create-outline-xsv
+
+	* 更新: HTML出力指定ダイアログで「ヘッダ・フッタ」「CSS」指定可能に
+        - 更新: output-html.l
+          outline-tree-output-html 関数に css を渡せるように変更。
+        - 更新: output-dialog.l
+          outline-tree-output-html-dialog 関数で
+          *outline-tree-output-html-html-alist*
+          *outline-tree-output-html-css-alist*
+          を使用するように変更。
+
+2008-12-01  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: 「フォルダを閉じる」実行時にフォルダが既に存在しない場合を考慮
+	- 更新: outline-tree.l
+	  outline-tree-kill-folder-file-buffers
+	  outline-tree-save-some-buffers
+
+2008-07-26  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: outline-tree 開始時に、存在しないフォルダ内のファイルを開いていた場合のエラー修正
+	- 修正: outline-tree.l
+
+2008-07-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: ini ファイル解析時、セクション判定を緩く変更
+	- 更新: cr-ini.l
+	  "]" で終了していなくても[...]の行はセクションと判定するように変更。
+
+2008-02-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: CSV, TSV 用解析追加
+	- 新規: cr-xsv.l
+        - 更新: outline-tree.l makefile.l get-outline-function.l
+          ファイルの追加に伴う更新。
+
+2007-08-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: lisp 解析結果表示時の作業用パッケージ名削除
+        - 更新: cr-lisp.l
+          outline-tree-create-outline-lisp 関数内定義の trim-text で行って
+          いる作業用パッケージ名の削除置換処理を、文字列先頭でなくても実施
+          するように変更。伴い、複数ある場合は複数置換するように。
+
+2007-07-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: HTML出力中の message 情報にノード名を追加
+        - 更新: output-html-heading.l output-html-range.l
+
+2007-07-05  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: アウトライン作成関数のタイトル変更
+	- 更新: cr-tag.l
+	  「タグ」を「<タグ>」に変更
+
+2007-07-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: ツールバーの動作を変更
+	- 更新: toolbar.l
+	  ツールバーのボタンで、起動/終了をトグルするように変更。
+	  outline-tree-tool-bar-toggle-exist 関数追加。
+
+2007-06-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: アイコン変更
+        - 更新: range1.ico range2.ico
+
+	* 新規: 属性情報を表示する TAG 解析
+        - 更新: cr-tag.l
+          outline-tree-create-outline-tag2 関数追加。
+
+2007-05-30  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: アウトライン作成関数表示順で大文字小文字を無視するように
+	- 更新: outline-tree.l
+
+2007-05-18  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: ctags 対応
+	- 新規: cr-ctags.l
+        - 更新: outline-tree.l makefile.l
+          ファイルの追加、削除に伴う更新。
+
+	* 更新: アウトライン作成の有効判定関数追加
+	- 更新: cr-XTAGS.l
+	  outline-tree-create-outline-XTAGS-possible-p
+	- 更新: cr-tag.l
+	  outline-tree-create-outline-tag-possible-p
+	- 更新: cr-grep.l
+	  outline-tree-create-outline-grep-possible-p
+	- 更新: cr-list-function.l
+	  outline-tree-create-outline-list-function-possible-p
+
+2007-05-15  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: 作業バッファを非表示バッファに
+	- 修正: cr-XTAGS.l
+	  *outline-tree-create-outline-XTAGS-buffer* の値を
+	  "*outline-tree: XTAGS*" から  " *outline-tree: XTAGS*" に変更。
+
+2007-02-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: LISP 用アウトライン作成関数での interactive 処理
+        - 修正: cr-lisp.l
+	  2006-10-16 の cr-lisp.l 更新により、インタラクティブな関数も
+	  「defun (command)」でなく「defun (not command)」に分類されるよう
+	  になっていたのを 2007-01-22 に続き再度修正。
+
+	* 更新: 範囲ノードHTML出力
+        - 更新: output-html-range.l
+          範囲ノードだけでなく、セクションノードも出力するように変更。
+
+2007-02-10  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: HTML出力指定ダイアログ化
+        - 更新: output.l
+        - 新規: output-html.l output-html-range.l output-html-heading.l output-dialog.l
+        - 削除: op-range-html.l op-range-html-frame.l op-heading-html.l op-heading-html-frame.l
+        - 更新: outline-tree.l makefile.l
+          ファイルの追加、削除に伴う更新。
+        - 更新: outline-tree.l app-menu.l
+          メニューを更新
+
+2007-01-22  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: app-menu.l
+	- outline-tree-create-app-menu 関数の [出力]-[見出しノード]
+	  メニュー以下の各項目の表示条件に、outline-tree-has-heading-node-p
+	  を追加。
+
+	* 更新: outline-tree.l
+	- outline-tree-menu-gen 関数の [出力]-[見出しノード] メニュー以下の
+	  各項目の表示条件に、outline-tree-has-heading-node-p を追加。
+
+	* 更新: outline-tree.l
+        - outline-tree-has-heading-node-p 関数追加。
+
+	* 更新: cr-lisp.l
+	- *outline-tree-create-outline-lisp-ignore-interactive* 追加。
+	  non-nil 場合、インタラクティブか否かでの分類を行わない。
+
+	* 修正: cr-lisp.l
+	- 2006-10-16 の cr-lisp.l 更新により、インタラクティブな関数も
+	  「defun (command)」でなく「defun (not command)」に分類されるよう
+	  になっていたのを修正。(thanks: xyzzy Part14 640)
+
+2006-11-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: output.l
+	- outline-tree-output-dialog 記述開始
+
+2006-10-25  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20061025.zip 公開
+
+	* 更新: outline-tree.l
+	- バッファノード削除時のタイトルバー、バッファの再描画を廃止。
+	  outline-tree-delete-buffer-node-by-buffer の更新。
+
+2006-10-23  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- 「アウトラインツリー設定」のプロパティシートのタイトルに、
+	  outline-tree のバージョン番号を表示するように。
+	  outline-tree-option-property-sheet の更新。
+
+	* 更新: outline-tree.l
+	- outline-tree 起動時に、バッファの編集状態を反映するために、
+	  outline-tree-create の中で
+	  outline-tree-update-modified-buffer-node-name-view するように。
+
+2006-10-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20061021.zip 公開
+
+2006-10-20  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- *outline-tree-style-linesatroot* の初期値を nil に変更。
+
+2006-10-19  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- outline-tree 起動時に、選択バッファに対するノードを確実に
+	  選択するために、outline-tree-create の中で
+	  outline-tree-select-node するように。
+
+2006-10-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: defs.l
+	- *outline-tree-visible-buffer-category-node-name* のデフォルト値を
+	  "=== 表示バッファ ===" に変更。
+	- *outline-tree-invisible-buffer-category-node-name* のデフォルト値を
+	  "=== 非表示バッファ ===" に変更。
+
+	* 更新: outline-tree.l
+	- 表示バッファ、非表示バッファのカテゴリノード名
+	  *outline-tree-visible-buffer-category-node-name*
+	  *outline-tree-invisible-buffer-category-node-name*
+	  の文字列が任意の文字列の場合でも、outline-tree 起動時に
+	  「非表示バッファのカテゴリノード」が
+	  「表示バッファのカテゴリノード」よりも上にくるように対応。
+
+2006-10-16  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-lisp.l
+	- http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F17
+	  「outline-tree/cr-lisp.l の read による不都合回避」でいただいた
+	  修正案を元に outline-tree-create-outline-lisp を修正。
+	  lisp のアウトラインを作成すると、その後で、シンボルの衝突が起こる
+	  問題を修正。ありがとうございます。
+
+	- http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F17
+	  「outline-tree/cr-lisp.l の read による不都合回避」でいただいた
+	  修正案を元に outline-tree-create-outline-lisp を修正。
+	  「'(defmacro ...)」というようなリストが存在してもエラーが発生しな
+	  くなる。(ex: lisp/evalmacs.l)
+	  ありがとうございます。
+
+2006-10-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: get-outline-function.l
+        - outline-tree-get-default-create-outline-function 関数で、
+          前回対象としたバッファならば、キャッシュから値を返すように変更。
+	  完全ではないが、実用上問題なし。
+        - アウトラインタイプを明示的に選択していない場合でのメニューの
+	  表示が高速化する。
+
+2006-10-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: gen-cr-user-topic.l
+	- メニューバーのメニューで「アウトラインタイプ選択」
+	  「アウトラインタイプ説明」が動作しない現象への対処。
+	  outline-tree-gen-cr-user-topic 関数で、
+	  以下関数を呼び出すように変更。
+	    (outline-tree-create-outline-function-menu-gen)
+	    (outline-tree-create-outline-function-info-menu-gen)
+
+	* 更新: gen-cr-user-regexp.l
+	- メニューバーのメニューで「アウトラインタイプ選択」
+	  「アウトラインタイプ説明」が動作しない現象への対処。
+	  outline-tree-gen-cr-user-regexp 関数で、
+	  以下関数を呼び出すように変更。
+	    (outline-tree-create-outline-function-menu-gen)
+	    (outline-tree-create-outline-function-info-menu-gen)
+
+	* 更新: outline-tree.l
+	- メニューバーのメニューで「アウトラインタイプ選択」
+	  「アウトラインタイプ説明」が動作しない現象への対処。
+	  outline-tree-add-create-outline-function 関数で、
+	  以下関数を呼び出さないように変更。
+	    (outline-tree-create-outline-function-menu-gen)
+	    (outline-tree-create-outline-function-info-menu-gen)
+
+2006-10-03  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: defs.l
+	- *outline-tree-delete-category-buffers-except-regexp-list* 追加。
+
+	* 更新: outline-tree.l
+	- 「カテゴリを閉じる」を追加。
+	  outline-tree-delete-category-buffers 追加。
+	  outline-tree-menu-gen 更新。
+
+2006-08-24  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-regexp.l
+        - 「正規表現」のアウトラインタイプ説明を更新。
+        
+	* 更新: cr-topic.l
+        - 「見出し解析」のアウトラインタイプ説明を更新。
+
+	* 更新: outline-tree.l
+	- 「アウトラインタイプ説明」メニューに「一覧」を追加。
+        - 「アウトラインタイプ説明」での説明出力の順番を変更。
+
+2006-07-25  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- 「カーソル追従」時、カーソル移動先バッファが非表示バッファで
+	  あっても、ファイルに関連づいているバッファの場合は追従するように。
+
+2006-05-28  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- バッファノード選択時、タイトルバー、バッファバーを更新するように。
+	  outline-tree-set-buffer-by-node,
+	  outline-tree-delete-buffer-node-by-buffer 更新。
+
+2006-04-05  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- バッファ編集時、バッファノード名に "* " を追加するように。
+	  *outline-tree-update-modified-buffer-node-name-view-p*
+	  outline-tree-update-modified-buffer-node-name-view
+	  outline-tree-sort-node 追加。
+	  outline-tree-insert-buffer-node 更新。
+	- outline-tree-update-modified-buffer-node-name-view の処理時間(各1000回測定)
+	  ┏━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+	  ┃          ┃     コンパイルなし(ms)     ┃     コンパイルあり(ms)     ┃
+	  ┠─────╂────┬────┬────╂────┬────┬────┨
+	  ┃バッファ数┃  min   │  max   │  avg   ┃  min   │  max   │  avg   ┃
+	  ┣━━━━━╋━━━━┿━━━━┿━━━━╋━━━━┿━━━━┿━━━━┫
+	  ┃         5┃  0.7615│  2.2338│  0.8826┃  0.4414│  2.2617│  0.5789┃
+	  ┠─────╂────┼────┼────╂────┼────┼────┨
+	  ┃        10┃  1.1655│  3.3890│  1.4409┃  0.8269│  2.8945│  1.0581┃
+	  ┠─────╂────┼────┼────╂────┼────┼────┨
+	  ┃        50┃  4.5559│ 10.132 │  5.7527┃  4.0206│  8.7547│  5.1297┃
+	  ┠─────╂────┼────┼────╂────┼────┼────┨
+	  ┃       100┃  8.8872│ 17.206 │ 11.157 ┃  8.0667│ 15.437 │ 10.176 ┃
+	  ┗━━━━━┻━━━━┷━━━━┷━━━━┻━━━━┷━━━━┷━━━━┛
+	  ;(setq ed::*kprofile-measure-target-function-list*
+	  ;      '(outline-tree2::outline-tree-update-modified-buffer-node-name-view))
+	  ;(compile 'outline-tree2::outline-tree-update-modified-buffer-node-name-view)
+	  ;
+	  ;(kprofile
+	  ; (dotimes (i 1000)
+	  ;   (outline-tree2::outline-tree-update-modified-buffer-node-name-view)))
+
+2006-04-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060404.zip 公開
+
+	* 更新: outline-tree.l
+	- フォルダノード名の表示幅を設定可能に。
+	- [アウトラインツリー設定]-[基本設定]に、「フォルダ名表示幅」オプ
+	  ションを追加。
+	- *outline-tree-abbreviate-display-folder-name-length*
+	  outline-tree-abbreviate-display-folder-name
+	  outline-tree-sort-folder-node 追加。
+	  outline-tree-insert-folder-node 更新。
+
+2006-04-03  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060403.zip 公開
+
+	* 修正: outline-tree.l
+	- 未保存バッファがある状態で kill-xyzzy を実行したが xyzzy の終了
+	  を中断した場合、outline-tree2 のバッファノードが全て削除されてし
+	  まう問題に対処。
+	- ed::*this-command* が ed::kill-xyzzy の場合は 
+	  outline-tree-delete-buffer-node-buffer は何も処理を行わないように
+	  した。
+	- ed::kill-xyzzy 以外のコマンドでも同様の動作とする場合は、
+	  *outline-tree-delete-buffer-node-kill-xyzzy-command-list* にコマ
+	  ンドのシンボルを追加する。
+
+	* 修正: ni-before-uninstall/misc_notes/outline-tree2.l
+	- NetInstaller 上でインストール (i) した直後にアンインストール (d) 
+	  しても「パッケージが存在しません: "outline-tree2"」と出力されない
+	  ように。
+
+2006-03-30  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060330.zip 公開
+
+	* 更新: outline-tree.l get-outline-function.l makefile.l
+	- cr-list-function.l 追加に伴う更新。
+
+	* 新規: cr-list-function.l
+	- ed::build-summary-function の関数を元に関数一覧を作成
+
+	* 更新: outline-tree.l
+	- *outline-tree-use* のとりうる値を nil, non-nil から
+	  t, nil, :one-shot に。
+	  :one-shot の場合は、次回 xyzzy 起動時に outline-tree を起動しない。
+	- [アウトラインツリー設定]-[基本設定]に、「xyzzy 起動時はアウトライ
+	  ンツリーを起動しない」オプションを追加。
+
+2006-03-24  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: outline-tree.l
+	- 存在しないファイルをショートパス名で開いた場合、フォルダノードが
+	  ショートパス名で表示・管理されてしまう問題を修正。
+
+2006-02-27  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-tag.l
+        - アウトラインタイプ名を「TAG」から「タグ (HTML,XML)」に変更。
+
+	* 更新: outline-tree.l
+        - outline-tree-detect-category-name 関数更新。
+          正規表現のみでサブカテゴリ名を検出した際にも、サブカテゴリ名の先
+	  頭に半角空白を入れるように。
+
+2006-02-26  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060226.zip 公開
+
+	* 更新: app-menu.l
+        - *outline-tree-app-menu* にバッファバーメニューを追加。
+        - メニュー表示時に ed::*buffer-bar-context-menu-buffer* の値を変更
+	  するようにしています。問題があれば連絡を。
+
+	* 更新: outline-tree.l
+	- バッファノードのメニューに、バッファバーメニューを追加。
+        - メニュー生成時に ed::*buffer-bar-context-menu-buffer* の値を変更
+	  するようにしています。問題があれば連絡を。
+
+	* 更新: defs.l
+	- rss-mode で作成されるバッファをカテゴリ分類するように
+	  *outline-tree-buffer-category-regexp-list* を更新
+	  (佐野さんからの報告)。
+
+	* 修正: cr-lisp.l
+	- outline-tree-create-outline-lisp-defvar-type で docstring を取得
+	  できていないバグを修正(佐野さんからの報告)。
+
+2006-02-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l get-outline-function.l makefile.l
+	- cr-grep.l 追加に伴う更新。
+
+	* 新規: cr-grep.l
+
+2006-01-23  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060129.zip 公開
+
+	* 更新: cr-lisp.l
+	- defparameter の解析を追加 (2006-01-22 佐野さんからの要望)。
+
+2006-01-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l get-outline-function.l makefile.l
+	- cr-RFC.l 追加に伴う更新。
+
+	* 新規: cr-RFC.l
+        - RFC ファイル見出し表示用
+
+	* 更新: cr-hiki.l
+        - (require "outline-tree/cr-range-internal") を追加。
+
+2006-01-15  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20060115.zip 公開
+
+	* 更新: outline-tree.l get-outline-function.l makefile.l
+	- cr-ASP.l 追加に伴う更新。
+
+	* 新規: cr-ASP.l
+
+2006-01-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l makefile.l doc/00readme.txt
+	- cr-perl.l, cr-VB-like.l 追加に伴う更新。
+
+	* 新規: cr-VB-like.l
+	- Visual Basic ライクな言語用
+
+	* 更新: cr-regexp-inheritance.l
+        - cr-perl.l での新実装にともない、outline-tree-create-outline-perl 
+	  関数の記述を削除。
+
+	* 新規: cr-perl.l
+	- Perl 言語用
+
+2005-12-28  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051228.zip 公開
+	- treeview-20051228.zip 以降が必要。
+
+	* 更新: outline-tree.l
+	- 矩形選択の表示問題回避方法を変更。
+
+2005-12-27  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: 
+	- 「アウトライン選択」「アウトライン説明」メニューが動作しない場合
+	  があるが、再現条件不明。
+
+	* 更新: outline-tree.l
+	- outline-tree-define-target-window-popup-menu が生成するメニューに
+	  outline-tree-define-target-window タグを付加するように。
+
+	* 更新: outline-tree.l
+	- メニュー再作成のタイミングで app-menu 内のメニューを更新するよう
+	  に以下関数を更新。
+	    outline-tree-create-outline-function-menu-gen
+	    outline-tree-create-outline-function-info-menu-gen
+
+	* 更新: outline-tree.l
+	- outline-tree-create-outline-function-info-menu-gen で生成される
+	  popup-menu のタグが outline-tree-create-outline-function となって
+	  いたのを outline-tree-create-outline-function-info に修正。
+
+	* 更新: outline-tree.l
+	- outline-tree が起動していない場合、outline-tree-get-selected-node
+	  関数は nil を返すように。
+
+	* 更新: outline-tree.l
+	- outline-tree が起動していない場合でも outline-tree-initialize-icons
+	  がエラーにならないよう修正。
+
+2005-12-26  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- [アウトラインツリー設定]-[基本設定] プロパティシートにメニュー用
+	  の設定を追加。
+
+	* 更新: outline-tree.l
+	- outline-tree-create-outline-function-menu-gen 更新。
+	  選択ノードが buffer-node でない場合は :disable に。
+
+	* 更新: outline-tree.l
+	- 前回 xyzzy 終了時に outline-tree を使用したままで、xyzzy 起動時に 
+	  outline-tree が実行された場合、xyzzy 起動時に *app-menu* のトップ
+	  レベルに追加するメニュー (ex. browserex) が環境により正常動作しな
+	  くなることを確認。
+	  タイミングの問題に思えるため、start-timer で回避。
+
+	* 更新: outline-tree.l makefile.l
+	- app-menu.l 追加に伴う更新。
+
+	* 新規: app-menu.l
+
+	* 更新: outline-tree.l
+	- outline-tree-startup 追加
+
+	* 更新: defs.l
+	- *outline-tree-startup-hook* 追加
+
+	* 更新: toolbar.l
+	- コメント修正。
+
+2005-12-24  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051224.zip 公開
+
+	* 更新: cr-regexp-inheritance.l
+	- NANRI さんからいただいた修正案を outline-tree-create-outline-java
+	  に適用。
+
+	* 更新: outline-tree.l, doc/00readme.txt
+	- outline-tree 上の Delete キーでアウトラインを削除するように。
+
+	* 更新: outline-tree.l
+	- 「ノード追従」設定の状態でバッファノードを明示的に実行した場合は、
+	  「アウトラインの作成/更新」動作をするように。
+
+2005-12-23  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051223.zip 公開
+
+	* 更新: ni-autoload/misc_notes/outline-tree2.l
+	- autoload, config ファイルを読み込むように。
+
+	* 更新: outline-tree.l
+	- 実行後アウトラインツリーウィンドウが開いた状態になるように、
+	  outline-tree-create-outline-and-select-node の動作を変更。
+
+	* 更新: cr-blank-line.l
+	- コメント修正。
+
+	* 更新: outline-tree.l, doc/00readme.txt
+	- 微妙な操作感であった点、モーダルファイラとの相性が悪かった点から、
+	  folder-node の実行でファイラを起動させていたのを廃止。
+	- モードレスファイラを使用している場合のみ filer-node のメニューに
+	  「ファイラを開く」を追加。
+
+2005-12-18  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051218.zip 公開
+
+	* 更新: outline-tree.l
+	- 「カーソル追従」にチェックがある状態の場合セレクションによる矩形
+	  選択の表示がおかしくなる（左端が行頭へ広がる）ため、セレクション
+	  がある場合は *post-command-hook* にひっかけてある
+	  (outline-tree-select-node-by-window-for-hook) が動作しないように
+	  変更。(2005-10-18 に NANRI さんから報告いただいた件)
+
+2005-12-15  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051215.zip 公開
+
+	* 更新: outline-tree.l makefile.l doc/00readme.txt
+	- toolbar.l 追加に伴う更新。
+
+	* 新規: etc/toolbar-outline-tree.bmp
+
+	* 新規: toolbar.l
+
+2005-12-10  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051210.zip 公開
+
+2005-11-25  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: outline-tree.l
+	- TreeView 右クリックメニュー「アウトライン作成関数の生成(&G)」以下
+	  の各項目選択後に、エディタ部(ミニバッファ)にフォーカスが移るよう
+	  に修正。
+
+2005-11-24  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: defs.l
+	- *outline-tree-visible-buffer-category-node-name*
+	  *outline-tree-invisible-buffer-category-node-name* の初期値を変更。
+
+2005-11-18  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: public-utils.l, outline-tree.l, cr-html-heading.l, cr-tag.l, cr-html-info-and-heading.l
+	- editor パッケージ内で定義していた関数を、シンボル名を変えるととも
+	  に outline-tree2 パッケージで定義するように変更。
+	    ed::buffer-read-only-p → outline-tree2::outline-tree-buffer-read-only-p
+	    ed::filer-open-p       → outline-tree2::outline-tree-filer-open-p
+	    ed::goto-next-tag      → outline-tree2::outline-tree-goto-next-tag
+	    ed::goto-matched-tag   → outline-tree2::outline-tree-goto-matched-tag
+	    ed::get-current-tag    → outline-tree2::outline-tree-get-current-tag
+	    ed::get-matched-tag    → outline-tree2::outline-tree-get-matched-tag
+
+	* 更新: outline-tree.l
+	- コンフィグファイル、autoload ファイルの読み込みタイミングを xyzzy 
+	  起動時から outline-tree 開始時 (outline-tree-create 実行時) に変
+	  更。outline-tree 開始毎に読み込むため、複数回評価しても問題ない記
+	  述にしておく必要がある点に注意。
+
+	* 更新: makefile.l
+	- defs.l も処理対象に追加
+
+	* 更新: outline-tree.l
+	- outline-tree2 パッケージの宣言等を outline-tree.l から defs.l に
+	  分離。
+
+	* 新規: defs.l
+	- outline-tree2 パッケージの宣言等を outline-tree.l から defs.l に
+	  分離。
+
+2005-11-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree2-20051113.zip 公開
+
+2005-11-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: 全ファイル
+	- 更新履歴を doc/ChangeLog.txt に統合。
+
+	* 更新: makefile.l
+	- 各種 outline-tree-make-* 関数実行の前後で (default-directory) の
+	  値を維持するように。
+
+2005-11-09  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 変更: outline-tree.l
+	- treeview ライブラリの変更に伴い、*outline-tree-font-weight-manual-p*
+	  *outline-tree-font-weight* を廃止し、*outline-tree-font-bold*
+	  追加。
+
+2005-11-02  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree-20051102.zip 公開
+
+	* 更新: outline-tree.l
+	- outline-tree-create-buffer-node-by-buffer 関数更新。
+	  非表示バッファ作成時は、バッファノードの上位ノードを開かないよう
+	  に変更。
+
+	* 修正: outline-tree.l
+	- outline-tree-create-buffer-node-by-buffer 関数修正。
+	  ミニバッファウィンドウにカーソルがある場合に新規バッファが作成さ
+	  れると「ミニバッファウィンドウではバッファの変更はできません」と
+	  エラーになる問題を解決。(NANRIさんからの報告)
+
+2005-10-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree-20051006.zip 公開
+
+	* 更新: doc/00readme.txt
+	- ライセンス条項(修正BSDライセンス)を記載。
+
+2005-10-05  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: 全ファイル
+	- メールアドレスの記述を変更。
+	  konata_o@hotmail.com を ohkubo@s53.xrea.com に置換。
+
+	* 更新: cr-regexp-internal.l
+	- outline-tree-create-outline-topic-internal 関数作成によ
+	  る機能分離に伴い、outline-tree-create-outline-regexp-internal
+          関数の引数から heading-chars, heading-chars-group-list,
+	  heading-skip-regexp を削除。
+	  以前「アウトライン作成関数の生成」で作成したファイルは使用できな
+	  くなった。
+	  ~/.outline-tree/autoload/ 以下のファイルを削除した上で、「アウト
+	  ライン作成関数の生成」での再生成が必要。
+
+	* 更新: sample.config.l
+	- 簡素に。
+
+	* 更新: outline-tree.l
+        - メニュー項目の順番を変更。
+
+2005-10-04  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-sted.l
+	- 「構造化テキスト(STED)」の説明を追加。
+
+2005-09-21  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: outline-tree.l
+	- outline-tree-kill-folder-file-buffers 関数に指定していた
+	  (interactive) を削除。
+
+2005-09-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: op-heading-html-frame.l, op-heading-html.l, op-range-html-frame.l, op-range-html.l
+	- docstring 追加。
+
+2005-09-05  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: output.l
+	- outline-tree-output-confirm-output-files-p 関数の引数 directory 
+	  を &optional 指定に変更。
+
+2005-08-31  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 修正: op-heading-html-frame.l, op-heading-html.l, op-range-html-frame.l, op-range-html.l
+	- ファイル名に関連づいていないバッファでHTML出力できないバグを修正。
+
+2005-08-02  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: gen-cr-user-regexp.l
+	- cr-regexp.l の更新に合わせて修正。
+
+	* 更新: cr-regexp.l
+	- プロパティシートで正規表現のみ指定可能に変更。
+
+2005-08-01  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-regexp-internal.l
+	- 一番最後の match-string をタイトルとするように変更。
+
+	* 更新: outline-tree.l
+	- cr-topic-internal.l の require を追加。
+
+	* 更新: gen-cr-user-topic.l
+	- cr-topic.l の更新に合わせて修正。
+
+	* 更新: cr-topic.l
+	- cr-topic-internal.l を用いるように変更。
+	- 行頭スキップ幅を考慮できるように拡張。
+	- 変数名変更、変数追加。
+
+	* 新規: cr-topic-internal.l
+	- cr-regexp-internal.l から分離。
+	- スキップ幅を考慮した解析ができるように拡張。
+
+2005-05-17  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: outline-tree-20050518.zip 公開
+
+	* 更新: get-outline-function.l
+	- buffer-mode での ed::html+-mode のシンボルの判定をやめて、
+	  mode-name での "HTML+" の文字列判定にした。
+
+	* INFO: outline-tree-20050517.zip 公開
+
+	* 更新: outline-tree.l
+	- TreeView を create していない状態で
+	  outline-tree-create-outline-and-select-node を実行してもエラーに
+	  ならないように。
+
+	* 更新: cr-lisp.l
+	- defconstant も拾うように。
+
+2005-05-11  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: gen-cr-user-topic.l
+
+2005-05-08  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: gen-cr-user-regexp.l
+
+2005-05-08  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: ベータ版 (outline-tree-20050508.zip) 公開
+
+2005-04-25  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: expand.l
+
+2005-03-14  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: sample.config.l
+
+2005-03-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-xdoc2txt-excel.l
+
+	* 新規: cr-xdoc2txt-pdf.l
+
+2005-02-01  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-html-info-and-heading.l
+
+2005-01-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-regexp.l
+
+2004-12-01  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-blank-line.l
+
+	* 更新: cr-indent.l
+
+	* 更新: cr-hiki.l
+
+	* 更新: cr-LaTeX.l
+
+	* 更新: cr-texinfo.l
+
+	* 更新: cr-ini.l
+
+	* 更新: cr-topic.l
+
+	* 更新: cr-hierarchy-inheritance.l
+
+	* 更新: cr-regexp-inheritance.l
+
+2004-09-30  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-range-internal.l
+
+2004-09-28  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-eMemoPad.l
+
+	* 新規: cr-sted.l
+
+	* 新規: cr-texinfo.l
+
+	* 新規: cr-ini.l
+
+	* 新規: cr-topic.l
+
+	* 更新: cr-rd.l
+
+	* 更新: cr-html-heading.l
+
+	* 更新: cr-hierarchy-internal.l
+
+	* 更新: cr-regexp-internal.l
+
+2004-09-27  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-blank-line.l
+
+2004-09-25  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: public-utils.l
+
+2004-09-24  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 更新: cr-2ch.l
+
+	* 更新: cr-lisp.l
+
+	* 更新: cr-css.l
+
+	* 更新: cr-tag.l
+
+	* 更新: cr-XTAGS.l
+
+	* 更新: utils.l
+
+2004-09-15  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-hierarchy-internal.l
+
+2004-09-14  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: get-outline-function.l
+
+	* 新規: cr-XTAGS.l
+
+	* 新規: cr-rd.l
+
+	* 新規: cr-LaTeX.l
+
+	* 新規: cr-hiki.l
+
+	* 新規: cr-css.l
+
+	* 新規: cr-html-heading.l
+
+	* 新規: cr-tag.l
+
+	* 新規: cr-hierarchy-inheritance.l
+
+	* 新規: cr-range-internal.l
+
+	* 新規: cr-regexp-inheritance.l
+
+	* 新規: cr-regexp-internal.l
+
+2004-09-13  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-indent.l
+
+2004-09-12  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-2ch.l
+
+2004-09-07  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-regexp.l
+
+2004-09-06  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: cr-lisp.l
+
+2004-08-18  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* 新規: outline-tree.l
+	- outline-tree2 の作成開始。
+
+0000-00-00  OHKUBO Hiroshi  <ohkubo@s53.xrea.com>
+
+	* INFO: このファイルの読み方
+	- * のレベルでは上に行くほど新しい情報
+        - * の中は、下に行くほど新しい情報
