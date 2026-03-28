@@ -143,11 +143,14 @@ jobs:
         rm -f build/xyzzy-batch.wxp
         ./build/xyzzy-batch.exe -q -load misc/run-tests-batch.l
 
+    - name: Package
+      shell: msys2 {0}
+      run: |
+        cd build
+        cpack -G ZIP
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: xyzzy-x86
-        path: |
-          build/xyzzy.exe
-          build/xyzzy-batch.exe
-          build/xyzzy-cli.exe
+        path: build/xyzzy-*.zip
