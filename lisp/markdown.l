@@ -224,8 +224,9 @@
 		(goto-char start)
 		(insert before)))))
       ;; No selection: insert pair and position between
-      (insert before after)
-      (backward-char alen))))
+      (progn
+	(insert before after)
+	(backward-char alen)))))
 
 (defun markdown-toggle-bold ()
   (interactive)
