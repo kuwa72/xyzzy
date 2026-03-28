@@ -356,20 +356,147 @@ add_custom_target(gen-src2-run
 )
 
 else() # !WIN32
-# Non-Win32: use pre-generated files, create no-op targets
-add_custom_target(gen-src1-run)
-add_custom_target(gen-src2-run)
-# Verify generated files exist
-foreach(_genfile
-    ${GEN_DIR}/num-arith.h ${GEN_DIR}/char-width.h ${GEN_DIR}/chtab.cc
-    ${GEN_DIR}/ibmext.h ${GEN_DIR}/iso2022state.h ${GEN_DIR}/jisx0212-hash.h
-    ${GEN_DIR}/kanjitab.h ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
-    ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
-    ${GEN_DIR}/utf2sjis.h ${GEN_DIR}/msgcode.h ${GEN_DIR}/msgdef.cc)
-    if(NOT EXISTS ${_genfile})
-        message(FATAL_ERROR "Pre-generated file missing: ${_genfile}\nRun gen tools on Windows first.")
-    endif()
-endforeach()
+
+set(GEN_SRC1_SOURCES
+    ${SRC_DIR}/gen-main.cc
+    ${SRC_DIR}/gen-stdafx.cc
+    ${SRC_DIR}/dpp.cc
+    ${SRC_DIR}/gen-char-width.cc
+    ${SRC_DIR}/gen-ctab.cc
+    ${SRC_DIR}/gen-fontrange.cc
+    ${SRC_DIR}/gen-ibmext.cc
+    ${SRC_DIR}/gen-iso2022state.cc
+    ${SRC_DIR}/gen-jisx0212-hash.cc
+    ${SRC_DIR}/gen-jisx0212-width.cc
+    ${SRC_DIR}/gen-ktab.cc
+    ${SRC_DIR}/gen-lucida-width.cc
+    ${SRC_DIR}/gen-syms.cc
+    ${SRC_DIR}/gen-ucs2tab.cc
+    ${SRC_DIR}/gen-utf2sjis.cc
+)
+
+add_executable(gen-src1 ${GEN_SRC1_SOURCES})
+target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 _CONSOLE)
+target_compile_options(gen-src1 PRIVATE
+    "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+
+add_custom_command(
+    OUTPUT ${GEN_DIR}/num-arith.h
+    COMMAND $<TARGET_FILE:gen-src1> dpp ${SRC_DIR}/num-arith.d ${GEN_DIR}/num-arith.h
+    DEPENDS gen-src1 ${SRC_DIR}/num-arith.d ${SRC_DIR}/dpp.cc
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating num-arith.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/char-width.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-char-width > ${GEN_DIR}/char-width.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating char-width.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/chtab.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-ctab > ${GEN_DIR}/chtab.cc
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating chtab.cc"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/ibmext.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-ibmext > ${GEN_DIR}/ibmext.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating ibmext.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/iso2022state.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-iso2022state > ${GEN_DIR}/iso2022state.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating iso2022state.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/jisx0212-hash.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-jisx0212-hash > ${GEN_DIR}/jisx0212-hash.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating jisx0212-hash.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/kanjitab.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-ktab > ${GEN_DIR}/kanjitab.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating kanjitab.h"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
+           ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
+    COMMAND $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
+    DEPENDS gen-src1 ${SRC_DIR}/gen-syms.cc
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating symbol tables"
+)
+add_custom_command(
+    OUTPUT ${GEN_DIR}/utf2sjis.h
+    COMMAND $<TARGET_FILE:gen-src1> gen-utf2sjis > ${GEN_DIR}/utf2sjis.h
+    DEPENDS gen-src1
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating utf2sjis.h"
+)
+
+add_custom_target(gen-src1-run
+    DEPENDS
+        ${GEN_DIR}/num-arith.h
+        ${GEN_DIR}/char-width.h
+        ${GEN_DIR}/chtab.cc
+        ${GEN_DIR}/ibmext.h
+        ${GEN_DIR}/iso2022state.h
+        ${GEN_DIR}/jisx0212-hash.h
+        ${GEN_DIR}/kanjitab.h
+        ${GEN_DIR}/vars-decl.h
+        ${GEN_DIR}/fns-decl.h
+        ${GEN_DIR}/symtable-core.cc
+        ${GEN_DIR}/symtable-ed.cc
+        ${GEN_DIR}/dumpver.cc
+        ${GEN_DIR}/utf2sjis.h
+)
+
+set(GEN_SRC2_SOURCES
+    ${SRC_DIR}/gen-main.cc
+    ${SRC_DIR}/gen-msg.cc
+)
+
+add_executable(gen-src2 ${GEN_SRC2_SOURCES})
+target_compile_definitions(gen-src2 PRIVATE GEN_SRC2 _CONSOLE)
+target_compile_options(gen-src2 PRIVATE
+    "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+add_dependencies(gen-src2 gen-src1-run)
+# iconv is needed for UTF-8 -> CP932 conversion in gen-msg.cc
+find_library(ICONV_LIB iconv)
+if(ICONV_LIB)
+    target_link_libraries(gen-src2 PRIVATE ${ICONV_LIB})
+endif()
+
+add_custom_command(
+    OUTPUT ${GEN_DIR}/msgcode.h ${GEN_DIR}/msgdef.cc
+    COMMAND $<TARGET_FILE:gen-src2> gen-msg -enum > ${GEN_DIR}/msgcode.h
+    COMMAND $<TARGET_FILE:gen-src2> gen-msg -c > ${GEN_DIR}/msgdef.cc
+    DEPENDS gen-src2
+    WORKING_DIRECTORY ${SRC_DIR}
+    COMMENT "Generating message code"
+)
+
+add_custom_target(gen-src2-run
+    DEPENDS
+        ${GEN_DIR}/msgcode.h
+        ${GEN_DIR}/msgdef.cc
+)
+
 endif() # WIN32
 
 # ============================================================
@@ -457,6 +584,9 @@ if(MSVC)
     target_include_directories(xyzzy-core PRIVATE ${CORE_DIR} ${GEN_DIR} ${SRC_DIR})
 else()
     target_compile_options(xyzzy-core PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
+    # number.cc includes gen/num-arith.h which triggers a Clang 14 -O3 ARM64
+    # mis-optimization in arithmetic dispatch switches.  Compile at -O1.
+    set_source_files_properties(${CORE_DIR}/number.cc PROPERTIES COMPILE_OPTIONS "-O1")
 endif()
 target_include_directories(xyzzy-core PRIVATE ${ZLIB_INCLUDE_DIRS})
 add_dependencies(xyzzy-core gen-src1-run gen-src2-run)
@@ -662,6 +792,15 @@ if(NOT WIN32)
     # Prefer ncursesw (wide character support) over plain ncurses
     find_library(NCURSESW_LIBRARY ncursesw)
     find_path(NCURSESW_INCLUDE_DIR ncurses.h PATH_SUFFIXES ncursesw)
+    # On some systems (e.g. Homebrew on macOS) ncurses.h lives in a
+    # ncursesw/ subdirectory; we need both that directory and its parent
+    # so that #include <ncurses.h> resolves to the wide-char version.
+    if(NCURSESW_INCLUDE_DIR)
+        get_filename_component(NCURSESW_INCLUDE_PARENT "${NCURSESW_INCLUDE_DIR}" DIRECTORY)
+        if(NOT "${NCURSESW_INCLUDE_PARENT}" STREQUAL "${NCURSESW_INCLUDE_DIR}")
+            list(APPEND NCURSESW_INCLUDE_DIR "${NCURSESW_INCLUDE_PARENT}")
+        endif()
+    endif()
     if(NCURSESW_LIBRARY AND NCURSESW_INCLUDE_DIR)
         set(NCURSES_DIR ${CMAKE_SOURCE_DIR}/src/frontend/ncurses)
         set(NCURSES_SOURCES
@@ -675,7 +814,7 @@ if(NOT WIN32)
         )
 
         add_executable(xyzzy-ncurses ${NCURSES_SOURCES})
-        target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE)
+        target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE NCURSES_WIDECHAR=1)
         target_compile_options(xyzzy-ncurses PRIVATE
             "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
         target_include_directories(xyzzy-ncurses PRIVATE ${ZLIB_INCLUDE_DIRS} ${NCURSESW_INCLUDE_DIR})
@@ -686,6 +825,13 @@ if(NOT WIN32)
             pthread
             util
         )
+        # Increase the default stack to 32MB so Lisp loading doesn't overflow.
+        # macOS uses -Wl,-stack_size,<hex bytes> to set the main thread stack.
+        if(APPLE)
+            target_link_options(xyzzy-ncurses PRIVATE -Wl,-stack_size,0x1000000)
+        elseif(UNIX)
+            target_link_options(xyzzy-ncurses PRIVATE -Wl,-z,stacksize=0x1000000)
+        endif()
         # Embed data directory path for runtime file lookup
         if(INSTALL_LAYOUT STREQUAL "unix")
             target_compile_definitions(xyzzy-ncurses PRIVATE
