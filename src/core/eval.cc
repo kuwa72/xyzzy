@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "lex.h"
+#ifndef _WIN32
+#include <sys/resource.h>
+#include <pthread.h>
+#endif
 #ifdef DEBUG_GC
 #include "symtable.h"
 #endif
@@ -31,9 +35,46 @@ check_stack_depth::check_stack_depth ()
   VirtualQuery (&mbi, &mbi, sizeof mbi);
   limit = (char *)mbi.AllocationBase + 512 * 1024;
 #else
-  // On Linux, use a simple heuristic: set limit 512KB below current stack position
-  char st;
-  limit = &st - 512 * 1024;
+  /* Use the actual stack top address so the limit is correct regardless of
+     when this constructor runs (static init may be called from deep frames). */
+  char *stack_top = nullptr;
+  size_t stack_size = 0;
+
+#if defined(__APPLE__)
+  {
+    pthread_t self = pthread_self ();
+    stack_top = (char *)pthread_get_stackaddr_np (self);
+    stack_size = pthread_get_stacksize_np (self);
+  }
+#else
+  {
+    pthread_t self = pthread_self ();
+    pthread_attr_t attr;
+    if (pthread_getattr_np (self, &attr) == 0)
+      {
+        void *base;
+        if (pthread_attr_getstack (&attr, &base, &stack_size) == 0)
+          stack_top = (char *)base + stack_size;
+        pthread_attr_destroy (&attr);
+      }
+  }
+#endif
+
+  if (stack_top && stack_size > 0)
+    {
+      /* Reserve 2MB at the bottom for error-handling stack frames. */
+      size_t reserve = 2 * 1024 * 1024;
+      if (stack_size > reserve)
+        limit = stack_top - stack_size + reserve;
+      else
+        limit = stack_top - stack_size + 4096;
+    }
+  else
+    {
+      /* Fallback: use current SP with a conservative 28MB budget. */
+      char st;
+      limit = &st - 28 * 1024 * 1024;
+    }
 #endif
 }
 
