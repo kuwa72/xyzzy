@@ -41,41 +41,8 @@
 #include "endian.h"
 #include "sha2.h"
 
-#ifdef _WIN32
-static uint32_t
-htobe32(uint32_t x)
-{
-	uint8_t p[4];
-	memcpy(p, &x, 4);
-
-	return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]);
-}
-
-static uint64_t
-htobe64(uint64_t x)
-{
-	uint8_t p[8];
-	uint32_t u, v;
-	memcpy(p, &x, 8);
-
-	u = ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]);
-	v = ((p[4] << 24) | (p[5] << 16) | (p[6] << 8) | p[7]);
-
-	return ((((uint64_t)u) << 32) | v);
-}
-
-static uint32_t
-be32toh(uint32_t x)
-{
-	return htobe32(x);
-}
-
-static uint64_t
-be64toh(uint64_t x)
-{
-	return htobe64(x);
-}
-#endif // _WIN32
+/* htobe32/htobe64/be32toh/be64toh are provided by endian.h
+   (or by the system headers on newer MSVC) */
 
 /*** SHA-256/384/512 Various Length Definitions ***********************/
 /* NOTE: Most of these are in sha2.h */

@@ -142,9 +142,11 @@ le64dec(const void *buf)
 	return (le32dec(p) | (__CAST(uint64_t, le32dec(p + 4)) << 32));
 }
 
+#ifndef htobe32
 static inline uint32_t htobe32(uint32_t x) { uint8_t b[4]; be32enc(b, x); uint32_t r; memcpy(&r, b, 4); return r; }
 static inline uint32_t be32toh(uint32_t x) { return htobe32(x); }
 static inline uint64_t htobe64(uint64_t x) { uint8_t b[8]; be64enc(b, x); uint64_t r; memcpy(&r, b, 8); return r; }
 static inline uint64_t be64toh(uint64_t x) { return htobe64(x); }
+#endif
 
 #endif /* !_endian_h_ */
