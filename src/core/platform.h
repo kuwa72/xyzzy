@@ -1284,8 +1284,16 @@ inline BOOL WriteFile(HANDLE h, const void* buf, DWORD n, DWORD* nwritten, void*
   return TRUE;
 }
 
-// File attributes / find (stubs)
-inline DWORD GetFileAttributesA(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
+// File attributes / find
+inline DWORD GetFileAttributesA(LPCSTR path) {
+  if (!path) return INVALID_FILE_ATTRIBUTES;
+  struct stat st;
+  if (stat(path, &st) != 0) return INVALID_FILE_ATTRIBUTES;
+  DWORD attr = FILE_ATTRIBUTE_NORMAL;
+  if (S_ISDIR(st.st_mode)) attr = FILE_ATTRIBUTE_DIRECTORY;
+  if (!(st.st_mode & S_IWUSR)) attr |= FILE_ATTRIBUTE_READONLY;
+  return attr;
+}
 inline BOOL SetFileAttributesA(LPCSTR, DWORD) { return FALSE; }
 inline HANDLE FindFirstFileA(LPCSTR, WIN32_FIND_DATAA*) { return INVALID_HANDLE_VALUE; }
 inline BOOL FindNextFileA(HANDLE, WIN32_FIND_DATAA*) { return FALSE; }
@@ -1569,8 +1577,11 @@ typedef struct _SYSTEM_INFO {
 } SYSTEM_INFO;
 
 inline void GetSystemInfo(SYSTEM_INFO *si) {
-  si->dwPageSize = 4096;
-  si->dwAllocationGranularity = 65536;
+  long pgsz = sysconf(_SC_PAGESIZE);
+  si->dwPageSize = (pgsz > 0) ? (DWORD)pgsz : 4096;
+  // Allocation granularity: use max(page_size, 65536) so that
+  // VirtualAlloc reservations are at least 64KB-aligned.
+  si->dwAllocationGranularity = (si->dwPageSize > 65536) ? si->dwPageSize : 65536;
   si->dwNumberOfProcessors = 1;
 }
 
@@ -1597,25 +1608,43 @@ struct _VirtualAllocInfo {
 };
 static _VirtualAllocInfo *_va_regions = nullptr;
 
+// Return the OS allocation granularity (max of page size and 64KB).
+// Cached after first call.
+static inline size_t _va_granularity() {
+  static size_t g = 0;
+  if (!g) {
+    long pgsz = sysconf(_SC_PAGESIZE);
+    size_t pg = (pgsz > 0) ? (size_t)pgsz : 4096;
+    g = (pg > 65536) ? pg : 65536;
+  }
+  return g;
+}
+
 inline LPVOID VirtualAlloc(LPVOID addr, size_t size, DWORD type, DWORD protect) {
   int prot = PROT_NONE;
   if (protect == PAGE_READWRITE) prot = PROT_READ | PROT_WRITE;
   if (type & MEM_COMMIT) prot = PROT_READ | PROT_WRITE;
 
   if (addr) {
-    // MEM_COMMIT within existing reservation: remap with MAP_FIXED
+    // MEM_COMMIT within existing reservation.
+    // On Linux, MAP_FIXED can overwrite an existing PROT_NONE mapping.
+    // On macOS, mprotect is the correct approach for already-reserved pages.
+    if (mprotect(addr, size, prot) == 0)
+      return addr;
+    // Fallback for cases where the region wasn't previously mapped (e.g. MEM_RESERVE+MEM_COMMIT)
     void *p = mmap(addr, size, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     return (p == MAP_FAILED) ? 0 : p;
   }
 
-  // MEM_RESERVE (new allocation): need 64KB-aligned address
-  // Over-allocate by (alignment - 1) to guarantee we can align
-  size_t alignment = 65536; // dwAllocationGranularity
+  // MEM_RESERVE (new allocation): need alignment-aligned address.
+  // Use the OS allocation granularity (at least 64KB, or page size on
+  // systems with larger pages like Apple Silicon with 16KB pages).
+  size_t alignment = _va_granularity();
   size_t alloc_size = size + alignment - 1;
   void *raw = mmap(NULL, alloc_size, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (raw == MAP_FAILED) return 0;
 
-  // Align up to 64KB boundary
+  // Align up to granularity boundary
   void *aligned = (void *)(((uintptr_t)raw + alignment - 1) & ~(alignment - 1));
 
   // Trim excess at front and back
