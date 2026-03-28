@@ -1,5 +1,8 @@
 #include "gen-stdafx.h"
 #include "chtype.h"
+#ifndef _WIN32
+#include <iconv.h>
+#endif
 
 #include "chtab.cc"
 
@@ -20,6 +23,7 @@ static const msgdef msg[] =
 static char *
 utf8_to_cp932 (const char *utf8)
 {
+#ifdef _WIN32
   int wlen = MultiByteToWideChar (CP_UTF8, 0, utf8, -1, NULL, 0);
   wchar_t *wbuf = (wchar_t *)malloc (wlen * sizeof (wchar_t));
   MultiByteToWideChar (CP_UTF8, 0, utf8, -1, wbuf, wlen);
@@ -30,6 +34,33 @@ utf8_to_cp932 (const char *utf8)
 
   free (wbuf);
   return cbuf;
+#else
+  /* Non-Windows: convert UTF-8 to CP932 using iconv */
+  iconv_t cd = iconv_open ("CP932", "UTF-8");
+  if (cd == (iconv_t)-1)
+    {
+      /* Fallback: pass through as-is (will be garbled but won't crash) */
+      char *cbuf = (char *)malloc (strlen (utf8) + 1);
+      strcpy (cbuf, utf8);
+      return cbuf;
+    }
+  size_t inlen = strlen (utf8);
+  size_t outlen = inlen * 2 + 4; /* CP932 can be up to 2 bytes per UTF-8 char */
+  char *cbuf = (char *)malloc (outlen);
+  char *inp = (char *)utf8;
+  char *outp = cbuf;
+  size_t inrem = inlen;
+  size_t outrem = outlen - 1;
+  size_t r = iconv (cd, &inp, &inrem, &outp, &outrem);
+  if (r == (size_t)-1 && inrem > 0)
+    {
+      /* Conversion failed partway: fill rest with '?' */
+      while (outrem > 0 && inrem > 0) { *outp++ = '?'; inrem--; outrem--; }
+    }
+  *outp = '\0';
+  iconv_close (cd);
+  return cbuf;
+#endif
 }
 
 /* Output CP932 bytes with C escaping.

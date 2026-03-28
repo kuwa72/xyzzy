@@ -429,6 +429,7 @@ read_jisx0212 (ucs2_t *wbuf)
   fclose (fp);
 }
 
+#ifdef _WIN32
 static void
 make_wc2cp950 (ucs2_t *const wc2cp950)
 {
@@ -466,6 +467,52 @@ make_wc2cp950 (ucs2_t *const wc2cp950)
           }
     }
 }
+#else /* !_WIN32 */
+/* Build wc->cp reverse mapping from a CP*.TXT file.
+   file: path to mapping file (tab-separated: 0xCPCODE 0xUCS ...)
+   For 1-byte entries (cp < 0x100), store cp directly.
+   For 2-byte entries (cp >= 0x100), store the raw 2-byte value. */
+static void
+make_wc2cp_from_file (ucs2_t *const wc2cp, const char *file)
+{
+  clear (wc2cp, 65536);
+  FILE *fp = fopen (file, "r");
+  if (!fp)
+    {
+      fprintf (stderr, "%s: %s\n", file, strerror (errno));
+      exit (2);
+    }
+  char b[1024];
+  for (int linenum = 1; fgets (b, sizeof b, fp); linenum++)
+    {
+      int mb;
+      ucs2_t wc;
+      if (parse_line (b, mb, wc, file, linenum, 1 /*undef_ok*/))
+        if (wc != ucs2_t (-1))
+          wc2cp[wc] = (ucs2_t) mb;
+    }
+  fclose (fp);
+}
+
+static void
+make_wc2cp950 (ucs2_t *const wc2cp950)
+{
+  make_wc2cp_from_file (wc2cp950, "unicode/CP950.TXT");
+  /* Remap 2-byte entries to big5_to_int internal index */
+  for (int i = 0; i < 65536; i++)
+    {
+      ucs2_t v = wc2cp950[i];
+      if (v == ucs2_t (-1) || v < 0x100)
+        continue;
+      int c1 = (v >> 8) & 0xff, c2 = v & 0xff;
+      if ((c1 >= 0xa1 && c1 <= 0xc7 || c1 >= 0xc9 && c1 <= 0xf9)
+          && (c2 >= 0x40 && c2 <= 0x7e || c2 >= 0xa1 && c2 <= 0xfe))
+        wc2cp950[i] = big5_to_int (c1, c2);
+      else
+        wc2cp950[i] = ucs2_t (-1);
+    }
+}
+#endif /* _WIN32 */
 
 static void
 read_big5 (ucs2_t *wbuf)
@@ -518,6 +565,7 @@ read_big5 (ucs2_t *wbuf)
   output_diff (wc2cp950, wbuf2, "wc2big5");
 }
 
+#ifdef _WIN32
 static void
 make_wc2cp949 (ucs2_t *const wc2cp949)
 {
@@ -553,6 +601,25 @@ make_wc2cp949 (ucs2_t *const wc2cp949)
           }
     }
 }
+#else /* !_WIN32 */
+static void
+make_wc2cp949 (ucs2_t *const wc2cp949)
+{
+  make_wc2cp_from_file (wc2cp949, "unicode/CP949.TXT");
+  /* Remap 2-byte entries to ksc5601_to_int internal index */
+  for (int i = 0; i < 65536; i++)
+    {
+      ucs2_t v = wc2cp949[i];
+      if (v == ucs2_t (-1) || v < 0x100)
+        continue;
+      int c1 = (v >> 8) & 0xff, c2 = v & 0xff;
+      if (c1 >= 0xa1 && c1 <= 0xfe && c2 >= 0xa1 && c2 <= 0xfe)
+        wc2cp949[i] = ksc5601_to_int (c1 & 127, c2 & 127);
+      else
+        wc2cp949[i] = ucs2_t (-1);
+    }
+}
+#endif /* _WIN32 */
 
 static void
 read_ksc5601 (ucs2_t *wbuf)
@@ -570,6 +637,7 @@ read_ksc5601 (ucs2_t *wbuf)
   output_diff (wc2cp949, wbuf2, "wc2ksc5601");
 }
 
+#ifdef _WIN32
 static void
 make_wc2cp936 (ucs2_t *const wc2cp936)
 {
@@ -605,6 +673,25 @@ make_wc2cp936 (ucs2_t *const wc2cp936)
           }
     }
 }
+#else /* !_WIN32 */
+static void
+make_wc2cp936 (ucs2_t *const wc2cp936)
+{
+  make_wc2cp_from_file (wc2cp936, "unicode/CP936.TXT");
+  /* Remap 2-byte entries to gb2312_to_int internal index */
+  for (int i = 0; i < 65536; i++)
+    {
+      ucs2_t v = wc2cp936[i];
+      if (v == ucs2_t (-1) || v < 0x100)
+        continue;
+      int c1 = (v >> 8) & 0xff, c2 = v & 0xff;
+      if (c1 >= 0xa1 && c1 <= 0xfe && c2 >= 0xa1 && c2 <= 0xfe)
+        wc2cp936[i] = gb2312_to_int (c1 & 127, c2 & 127);
+      else
+        wc2cp936[i] = ucs2_t (-1);
+    }
+}
+#endif /* _WIN32 */
 
 static void
 read_gb2312 (ucs2_t *wbuf)
@@ -819,6 +906,7 @@ make_cns11643 (const ucs2_t *const big5, const ucs2_t *const gb2312)
 #endif /* RUNTIME_TEST_CNS_TABLE */
 }
 
+#ifdef _WIN32
 static void
 make_wc2cp932 (ucs2_t *const wc2cp932)
 {
@@ -896,6 +984,48 @@ make_cp932 (ucs2_t *wbuf)
   make_wc2cp932 (wc2cp932);
   output_diff (wc2cp932, wbuf, "wc2cp932");
 }
+#else /* !_WIN32 */
+static void
+make_cp932 (ucs2_t *wbuf)
+{
+  /* Build cp932->ucs (wbuf) and ucs->cp932 (wc2cp932) from CP932.TXT */
+  const char *const file = "unicode/CP932.TXT";
+  FILE *fp = fopen (file, "r");
+  if (!fp)
+    {
+      fprintf (stderr, "%s: %s\n", file, strerror (errno));
+      exit (2);
+    }
+
+  clear (wbuf, 65536);
+  ucs2_t wc2cp932[65536];
+  clear (wc2cp932, 65536);
+
+  char b[1024];
+  for (int linenum = 1; fgets (b, sizeof b, fp); linenum++)
+    {
+      int mb;
+      ucs2_t wc;
+      if (parse_line (b, mb, wc, file, linenum, 1 /*undef_ok*/))
+        {
+          if (wc != ucs2_t (-1) && mb < 65536)
+            {
+              wbuf[mb] = wc;
+              wc2cp932[wc] = (ucs2_t) mb;
+            }
+        }
+    }
+  fclose (fp);
+
+  for (int i = CCS_UTF16_SURROGATE_HIGH_MIN; i <= CCS_UTF16_SURROGATE_LOW_MAX; i++)
+    {
+      wbuf[i] = ucs2_t (i);
+      wc2cp932[i] = ucs2_t (i);
+    }
+
+  output_diff (wc2cp932, wbuf, "wc2cp932");
+}
+#endif /* _WIN32 */
 
 static void
 merge_int2wc (ucs2_t *d, const ucs2_t *s, int size, int offset)
