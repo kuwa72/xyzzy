@@ -103,10 +103,8 @@ jobs:
         cmake --install build --config Release --prefix staging/xyzzy
 
     - name: Build installer
-      uses: jrsoftware/inno-setup-action@v1
-      with:
-        script: installer/xyzzy.iss
-        options: /DAppVersion=${{ env.VERSION }} /DAppArch=${{ matrix.artifact == 'xyzzy-arm64' && 'arm64' || (matrix.artifact == 'xyzzy-amd64' && 'amd64' || 'x86') }} /DSourceDir=${{ github.workspace }}\staging\xyzzy
+      run: |
+        iscc /DAppVersion=${{ env.VERSION }} /DAppArch=${{ matrix.artifact == 'xyzzy-arm64' && 'arm64' || (matrix.artifact == 'xyzzy-amd64' && 'amd64' || 'x86') }} "/DSourceDir=${{ github.workspace }}\staging\xyzzy" installer\xyzzy.iss
 
     - name: Upload installer
       uses: actions/upload-artifact@v4
@@ -201,10 +199,8 @@ jobs:
         cmake --install build --prefix staging/xyzzy
 
     - name: Build installer
-      uses: jrsoftware/inno-setup-action@v1
-      with:
-        script: installer/xyzzy.iss
-        options: /DAppVersion=${{ env.VERSION }} /DAppArch=x86 /DSourceDir=${{ github.workspace }}\staging\xyzzy
+      run: |
+        iscc /DAppVersion=${{ env.VERSION }} /DAppArch=x86 "/DSourceDir=${{ github.workspace }}\staging\xyzzy" installer\xyzzy.iss
 
     - name: Upload installer
       uses: actions/upload-artifact@v4
