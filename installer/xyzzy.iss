@@ -22,8 +22,13 @@ OutputBaseFilename=xyzzy-{#AppVersion}-{#AppArch}-setup
 OutputDir=..\build
 Compression=lzma2
 SolidCompression=yes
-ArchitecturesAllowed={code:GetArchAllowed}
-ArchitecturesInstallIn64BitMode={code:GetArch64BitMode}
+#if AppArch == "arm64"
+ArchitecturesAllowed=arm64 x64
+ArchitecturesInstallIn64BitMode=arm64 x64
+#elif AppArch == "amd64"
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+#endif
 LicenseFile={#SourceDir}\docs\LICENSE
 WizardStyle=modern
 UninstallDisplayIcon={app}\xyzzy.exe
@@ -60,25 +65,6 @@ Root: HKCU; Subkey: "Software\Classes\*\shell\xyzzy"; ValueType: string; ValueNa
 Root: HKCU; Subkey: "Software\Classes\*\shell\xyzzy\command"; ValueType: string; ValueName: ""; ValueData: """{app}\xyzzycli.exe"" ""%1"""; Tasks: shellcontext
 
 [Code]
-// Architecture handling
-function GetArchAllowed(Param: String): String;
-begin
-  if '{#AppArch}' = 'arm64' then
-    Result := 'arm64 x64'
-  else if '{#AppArch}' = 'amd64' then
-    Result := 'x64'
-  else
-    Result := '';  // x86: no restriction
-end;
-
-function GetArch64BitMode(Param: String): String;
-begin
-  if ('{#AppArch}' = 'arm64') or ('{#AppArch}' = 'amd64') then
-    Result := 'x64'
-  else
-    Result := '';
-end;
-
 // PATH management
 const
   EnvironmentKey = 'Environment';
