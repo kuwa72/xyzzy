@@ -113,6 +113,7 @@ jobs:
         path: build/xyzzy-*-setup.exe
 
   build-x86:
+    if: false  # disabled: mingw-w64-i686-clang removed from MSYS2
     runs-on: windows-latest
 
     steps:

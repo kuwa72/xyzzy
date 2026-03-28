@@ -23,12 +23,13 @@ OutputDir=..\build
 Compression=lzma2
 SolidCompression=yes
 #if AppArch == "arm64"
-ArchitecturesAllowed=arm64 x64
-ArchitecturesInstallIn64BitMode=arm64 x64
+ArchitecturesAllowed=arm64 x64compatible
+ArchitecturesInstallIn64BitMode=arm64 x64compatible
 #elif AppArch == "amd64"
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 #endif
+PrivilegesRequired=lowest
 LicenseFile={#SourceDir}\docs\LICENSE
 WizardStyle=modern
 UninstallDisplayIcon={app}\xyzzy.exe
@@ -108,7 +109,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    if IsTaskSelected('addtopath') then
+    if WizardIsTaskSelected('addtopath') then
       AddToPath(ExpandConstant('{app}'));
   end;
 end;
