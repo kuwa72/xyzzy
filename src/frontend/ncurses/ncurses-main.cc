@@ -8,6 +8,7 @@
 
 #include <locale.h>
 #include <signal.h>
+#include <execinfo.h>
 #include <ncurses.h>
 #include <float.h>
 #include <unistd.h>
@@ -60,11 +61,23 @@ ncurses_cleanup ()
   endwin ();
 }
 
-static void crash_handler (int sig)
+static void crash_handler (int sig, siginfo_t *info, void *)
 {
   ncurses_cleanup ();
-  fprintf (stderr, "\n=== Signal %d ===\n", sig);
-  _exit (1);
+  fprintf (stderr, "\nFatal signal %d", sig);
+#ifndef _WIN32
+  if (info && info->si_addr)
+    fprintf (stderr, " (fault address: %p)", info->si_addr);
+  fprintf (stderr, "\n");
+  void *frames[32];
+  int n = backtrace (frames, 32);
+  if (n > 0)
+    backtrace_symbols_fd (frames, n, 2);
+#else
+  fprintf (stderr, "\n");
+#endif
+  signal (sig, SIG_DFL);
+  raise (sig);
 }
 
 volatile int g_need_resize = 0;
@@ -899,20 +912,51 @@ load_startup (void (*slog)(const char *))
     {
       if (slog) slog ("startup.l FAILED");
       nonlocal_data *nld = nonlocal_jump::data ();
+      // Convert lisp string (internal Char*) to UTF-8 via internal2wc_table
+      auto lisp2mb = [](lisp s, char *buf, int bufsz) {
+        if (!stringp (s)) return;
+        const Char *p = xstring_contents (s);
+        int l = xstring_length (s);
+        int mi = 0;
+        for (int j = 0; j < l && mi < bufsz - 5; j++)
+          {
+            // Convert xyzzy internal Char to UCS-2
+            ucs2_t wc = i2w (p[j]);
+            if (wc == ucs2_t (-1))
+              wc = '?';
+            if (wc < 0x80)
+              buf[mi++] = (char)wc;
+            else if (wc < 0x800)
+              {
+                buf[mi++] = (char)(0xC0 | (wc >> 6));
+                buf[mi++] = (char)(0x80 | (wc & 0x3F));
+              }
+            else
+              {
+                buf[mi++] = (char)(0xE0 | (wc >> 12));
+                buf[mi++] = (char)(0x80 | ((wc >> 6) & 0x3F));
+                buf[mi++] = (char)(0x80 | (wc & 0x3F));
+              }
+          }
+        buf[mi] = 0;
+      };
       if (nld->type && symbolp (nld->type))
         {
-          lisp name = xsymbol_name (nld->type);
-          if (stringp (name))
-            {
-              const Char *s = xstring_contents (name);
-              int l = xstring_length (name);
-              char mb[256];
-              int mi = 0;
-              for (int j = 0; j < l && mi < (int)sizeof (mb) - 2; j++)
-                mb[mi++] = (s[j] < 0x80) ? (char)s[j] : '?';
-              mb[mi] = 0;
-              if (slog) slog (mb);
-            }
+          char mb[256] = {};
+          lisp2mb (xsymbol_name (nld->type), mb, sizeof mb);
+          if (slog) slog (mb);
+        }
+      if (nld->id && nld->id != Qnil)
+        {
+          try {
+            lisp cs = Fsi_condition_string (nld->id);
+            if (stringp (cs))
+              {
+                char mb[1024] = {};
+                lisp2mb (cs, mb, sizeof mb);
+                if (slog) slog (mb);
+              }
+          } catch (...) {}
         }
       return 0;
     }
@@ -1224,8 +1268,22 @@ private:
 
 int main (int argc, char **argv)
 {
-  signal (SIGSEGV, crash_handler);
-  signal (SIGABRT, crash_handler);
+  /* Set up an alternate signal stack so crash_handler works even on stack overflow */
+  {
+    static char altstack[65536];
+    stack_t ss;
+    ss.ss_sp = altstack;
+    ss.ss_size = sizeof(altstack);
+    ss.ss_flags = 0;
+    sigaltstack(&ss, NULL);
+    struct sigaction sa;
+    sa.sa_sigaction = crash_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+  }
   setlocale (LC_ALL, "");
 
   // Determine frontend mode
