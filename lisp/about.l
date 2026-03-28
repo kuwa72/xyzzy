@@ -25,7 +25,7 @@
 		       #x50020000 34 7 123 8)
 		      (:static nil "Copyright (C) 1996-2005 Tetsuya Kamei"
 		       #x50020000 34 19 132 8)
-		      (:link org "Copyright (C) 2012-2013 \001xyzzy Project\002"
+		      (:link org "Copyright (C) 2012-2026 \001xyzzy Project\002"
 		       #x50020000 34 28 132 8)
 		      (:static nil "Icon designed by Yoshinori Watanabe."
 		       #x50020000 34 41 126 8)
@@ -41,7 +41,7 @@
 						 (list (list (get x 'archiver-dll-file-name)
 							     version)))))
 				      *archiver-dll-list*))))
-		'((xyzzy :url "http://xyzzy-022.github.com")
-		  (org :url "https://github.com/xyzzy-022")
+		'((xyzzy :url "https://github.com/snmsts/xyzzy")
+		  (org :url "https://github.com/snmsts/xyzzy")
 		  (list :column (28 10))))
     t))

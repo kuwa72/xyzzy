@@ -15,7 +15,7 @@
 AppName=xyzzy
 AppVersion={#AppVersion}
 AppPublisher=xyzzy contributors
-AppPublisherURL=https://github.com/xyzzy-022/xyzzy
+AppPublisherURL=https://github.com/snmsts/xyzzy
 DefaultDirName={autopf}\xyzzy
 DefaultGroupName=xyzzy
 OutputBaseFilename=xyzzy-{#AppVersion}-{#AppArch}-setup

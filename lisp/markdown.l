@@ -60,6 +60,9 @@
 	  (compile-regexp-keyword-list
 	   '(;; Headings: keyword1 = cyan on ncurses, blue on Win32
 	     ("^#+[ \t].*$" nil 0)
+	     ;; Setext headings (underline style)
+	     ("^===+$" nil 0)
+	     ("^---+$" nil 0)
 	     ;; Fenced code blocks
 	     ("^```.*$" nil :string)
 	     ;; Inline code
