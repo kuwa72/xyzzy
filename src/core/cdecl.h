@@ -42,7 +42,7 @@
 #ifdef _WIN32
 # define PATH_MAX 1024
 #else
-# include <linux/limits.h>
+# include <limits.h>
 #endif
 # define BUFFER_NAME_MAX PATH_MAX
 

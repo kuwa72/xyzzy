@@ -13,7 +13,11 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
+#ifdef __APPLE__
+#include <util.h>
+#else
 #include <pty.h>
+#endif
 #include <termios.h>
 #include <errno.h>
 
