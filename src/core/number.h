@@ -305,6 +305,15 @@ lisp make_integer (long x);
 lisp make_integer (u_long x);
 lisp make_integer (int64_t);
 lisp make_integer (uint64_t);
+#if !defined(_WIN32) && defined(__LP64__)
+/* On LP64 platforms (macOS/Linux 64-bit), long == int64_t but
+   long long is a distinct type.  Cast to long (== int64_t) and call
+   make_integer(long) directly to avoid Clang -O3 ARM64 mis-optimization
+   that generates an infinite self-call when int64_t and long long
+   are the same underlying type. */
+inline lisp make_integer (long long x) { return make_integer (static_cast<long> (x)); }
+inline lisp make_integer (unsigned long long x) { return make_integer (static_cast<u_long> (x)); }
+#endif
 lisp make_integer (bignum_rep *);
 
 int safe_fixnum_value (lisp, long *);
