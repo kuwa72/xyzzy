@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "lex.h"
 #include "symtable.h"
+#include <vector>
 #ifdef _WIN32
 #include "mainframe.h"
 #endif
@@ -420,298 +421,311 @@ mark_toplev_list (lisp p)
 
 /*GENERIC_FUNCTION*/
 static void
-gc_mark_object (lisp object)
+gc_mark_object (lisp first_object)
 {
-  while (1)
+  /* Iterative mark to avoid C-stack overflow on deeply nested heap objects.
+     We maintain an explicit worklist of objects still to be processed.
+     The inner while-loop follows "tail" pointer chains (CDR of cons, etc.)
+     without growing the C stack; other sub-objects are pushed to the list. */
+  static std::vector<lisp> worklist;
+  lisp object = first_object;
+
+  for (;;)
     {
-      assert (object);
-      if (!object || immediatep (object))
-        return;
-
-      u_long *dr_gc = gc_place (object);
-      int index = bit_index (object);
-      if (bitisset (dr_gc, index))
-        return;
-      bitset (dr_gc, index);
-
-      switch (object_typeof (object))
+      while (1)
         {
-        case Tcons:
-          gc_mark_object (xcar (object));
-          object = xcdr (object);
-          break;
-
-        case Tsymbol:
-          gc_mark_object (xsymbol_function (object));
-          gc_mark_object (xsymbol_plist (object));
-          gc_mark_object (xsymbol_package (object));
-          gc_mark_object (xsymbol_name (object));
-          object = xsymbol_value (object);
-          break;
-
-        case Tlong_int:
-        case Tsingle_float:
-        case Tdouble_float:
-        case Tbignum:
-          return;
-
-        case Tregexp:
-          object = xregexp_source (object);
-          break;
-
-        case Tfraction:
-          gc_mark_object (xfract_num (object));
-          object = xfract_den (object);
-          break;
-
-        case Tcomplex:
-          gc_mark_object (xcomplex_real (object));
-          object = xcomplex_imag (object);
-          break;
-
-        case Tsimple_string:
-          return;
-
-        case Tsimple_vector:
-          {
-            lisp *p = xvector_contents (object);
-            lisp *pe = p + xvector_length (object);
-            for (; p < pe; p++)
-              gc_mark_object (*p);
-            return;
-          }
-
-        case Tcomplex_vector:
-          {
-            lisp *p = xvector_contents (object);
-            lisp *pe = p + xvector_dimension (object);
-            for (; p < pe; p++)
-              gc_mark_object (*p);
-            mark_toplev_list (xarray_referenced_list (object));
-            object = xarray_displaced_to (object);
+          if (!object || immediatep (object))
             break;
-          }
 
-        case Tarray:
-          {
-            lisp *p = xgeneral_array_contents (object);
-            lisp *pe = p + xarray_total_size (object);
-            for (; p < pe; p++)
-              gc_mark_object (*p);
-            mark_toplev_list (xarray_referenced_list (object));
-            object = xarray_displaced_to (object);
+          u_long *dr_gc = gc_place (object);
+          int index = bit_index (object);
+          if (bitisset (dr_gc, index))
             break;
-          }
+          bitset (dr_gc, index);
 
-        case Tcomplex_string:
-        case Tstring_array:
-          mark_toplev_list (xarray_referenced_list (object));
-          object = xarray_displaced_to (object);
-          break;
-
-        case Tfunction:
-          object = xfunction_name (object);
-          break;
-
-        case Tclosure:
-          gc_mark_object (xclosure_vars (object));
-          gc_mark_object (xclosure_fns (object));
-          gc_mark_object (xclosure_frame (object));
-          gc_mark_object (xclosure_name (object));
-          object = xclosure_body (object);
-          break;
-
-        case Tstream:
-          switch (xstream_type (object))
+          switch (object_typeof (object))
             {
-            case st_file_input:
-            case st_file_output:
-            case st_file_io:
-              object = xfile_stream_pathname (object);
+            case Tcons:
+              worklist.push_back (xcar (object));
+              object = xcdr (object);
+              continue;
+
+            case Tsymbol:
+              worklist.push_back (xsymbol_function (object));
+              worklist.push_back (xsymbol_plist (object));
+              worklist.push_back (xsymbol_package (object));
+              worklist.push_back (xsymbol_name (object));
+              object = xsymbol_value (object);
+              continue;
+
+            case Tlong_int:
+            case Tsingle_float:
+            case Tdouble_float:
+            case Tbignum:
+            case Tsimple_string:
               break;
 
-            case st_string_input:
-            case st_string_output:
-              gc_mark_object (xstring_stream_input (object));
-              object = xstring_stream_output (object);
+            case Tregexp:
+              object = xregexp_source (object);
+              continue;
+
+            case Tfraction:
+              worklist.push_back (xfract_num (object));
+              object = xfract_den (object);
+              continue;
+
+            case Tcomplex:
+              worklist.push_back (xcomplex_real (object));
+              object = xcomplex_imag (object);
+              continue;
+
+            case Tsimple_vector:
+              {
+                lisp *p = xvector_contents (object);
+                lisp *pe = p + xvector_length (object);
+                for (; p < pe; p++)
+                  worklist.push_back (*p);
+                break;
+              }
+
+            case Tcomplex_vector:
+              {
+                lisp *p = xvector_contents (object);
+                lisp *pe = p + xvector_dimension (object);
+                for (; p < pe; p++)
+                  worklist.push_back (*p);
+                mark_toplev_list (xarray_referenced_list (object));
+                object = xarray_displaced_to (object);
+                continue;
+              }
+
+            case Tarray:
+              {
+                lisp *p = xgeneral_array_contents (object);
+                lisp *pe = p + xarray_total_size (object);
+                for (; p < pe; p++)
+                  worklist.push_back (*p);
+                mark_toplev_list (xarray_referenced_list (object));
+                object = xarray_displaced_to (object);
+                continue;
+              }
+
+            case Tcomplex_string:
+            case Tstring_array:
+              mark_toplev_list (xarray_referenced_list (object));
+              object = xarray_displaced_to (object);
+              continue;
+
+            case Tfunction:
+              object = xfunction_name (object);
+              continue;
+
+            case Tclosure:
+              worklist.push_back (xclosure_vars (object));
+              worklist.push_back (xclosure_fns (object));
+              worklist.push_back (xclosure_frame (object));
+              worklist.push_back (xclosure_name (object));
+              object = xclosure_body (object);
+              continue;
+
+            case Tstream:
+              switch (xstream_type (object))
+                {
+                case st_file_input:
+                case st_file_output:
+                case st_file_io:
+                  object = xfile_stream_pathname (object);
+                  continue;
+
+                case st_string_input:
+                case st_string_output:
+                  worklist.push_back (xstring_stream_input (object));
+                  object = xstring_stream_output (object);
+                  continue;
+
+                case st_synonym:
+                case st_broadcast:
+                case st_concatenated:
+                case st_two_way:
+                case st_echo:
+                  worklist.push_back (xcomposite_stream_input (object));
+                  object = xcomposite_stream_output (object);
+                  continue;
+
+                case st_status:
+                case st_keyboard:
+                case st_wstream:
+                case st_socket:
+                case st_debug_output:
+                  break;
+
+                case st_buffer:
+                  worklist.push_back (xbuffer_stream_eob (object));
+                  object = xbuffer_stream_marker (object);
+                  continue;
+
+                case st_general_input:
+                  worklist.push_back (xgeneral_input_stream_listen_callback (object));
+                  worklist.push_back (xgeneral_input_stream_string (object));
+                  worklist.push_back (xgeneral_stream_io_callback (object));
+                  object = xgeneral_stream_close_callback (object);
+                  continue;
+
+                case st_general_output:
+                  worklist.push_back (xgeneral_output_stream_flush_callback (object));
+                  worklist.push_back (xgeneral_stream_io_callback (object));
+                  object = xgeneral_stream_close_callback (object);
+                  continue;
+
+                default:
+                  assert (0);
+                  break;
+                }
               break;
 
-            case st_synonym:
-            case st_broadcast:
-            case st_concatenated:
-            case st_two_way:
-            case st_echo:
-              gc_mark_object (xcomposite_stream_input (object));
-              object = xcomposite_stream_output (object);
+            case Tpackage:
+              worklist.push_back (xpackage_name (object));
+              worklist.push_back (xpackage_nicknames (object));
+              worklist.push_back (xpackage_use_list (object));
+              worklist.push_back (xpackage_used_by_list (object));
+              worklist.push_back (xpackage_shadowings (object));
+              worklist.push_back (xpackage_external (object));
+              worklist.push_back (xpackage_documentation (object));
+              object = xpackage_internal (object);
+              continue;
+
+            case Trandom_state:
+            case Twindow:
+            case Tbuffer:
+            case Tsyntax_table:
+            case Tmarker:
+            case Terror:
+            case Twin32_dde_handle:
+            case Twait_object:
               break;
 
-            case st_status:
-            case st_keyboard:
-            case st_wstream:
-            case st_socket:
-            case st_debug_output:
-              return;
+            case Toledata:
+              if (xoledata_name (object))
+                worklist.push_back (xoledata_name (object));
+              if (!xoledata_event (object))
+                break;
+              object = xoledata_event (object)->handlers ();
+              continue;
 
-            case st_buffer:
-              gc_mark_object (xbuffer_stream_eob (object));
-              object = xbuffer_stream_marker (object);
-              break;
+            case Tprocess:
+              worklist.push_back (xprocess_buffer (object));
+              worklist.push_back (xprocess_command (object));
+              worklist.push_back (xprocess_incode (object));
+              object = xprocess_outcode (object);
+              continue;
 
-            case st_general_input:
-              gc_mark_object (xgeneral_input_stream_listen_callback (object));
-              gc_mark_object (xgeneral_input_stream_string (object));
-              goto general_stream;
+            case Tchar_encoding:
+              worklist.push_back (xchar_encoding_name (object));
+              object = xchar_encoding_display_name (object);
+              continue;
 
-            case st_general_output:
-              gc_mark_object (xgeneral_output_stream_flush_callback (object));
-              goto general_stream;
+            case Thash_table:
+              {
+                hash_entry *e = xhash_table_entry (object);
+                hash_entry *ee = e + xhash_table_size (object);
+                for (; e < ee; e++)
+                  {
+                    worklist.push_back (e->key);
+                    worklist.push_back (e->value);
+                  }
+                object = xhash_table_rehash_size (object);
+                continue;
+              }
 
-            general_stream:
-              gc_mark_object (xgeneral_stream_io_callback (object));
-              object = xgeneral_stream_close_callback (object);
-              break;
+            case Tstruct_def:
+              {
+                worklist.push_back (xstrdef_name (object));
+                worklist.push_back (xstrdef_type (object));
+                worklist.push_back (xstrdef_includes (object));
+                worklist.push_back (xstrdef_constructors (object));
+                worklist.push_back (xstrdef_print_function (object));
+                worklist.push_back (xstrdef_report (object));
+                for (struct_slotdesc *s = xstrdef_slotdesc (object),
+                     *se = s + xstrdef_nslots (object);
+                     s < se; s++)
+                  {
+                    worklist.push_back (s->name);
+                    worklist.push_back (s->default_init);
+                    worklist.push_back (s->type);
+                    worklist.push_back (s->read_only);
+                    worklist.push_back (s->offset);
+                  }
+                break;
+              }
+
+            case Tstruct_data:
+              {
+                worklist.push_back (xstrdata_def (object));
+                for (lisp *d = xstrdata_data (object),
+                     *de = d + xstrdata_nslots (object);
+                     d < de; d++)
+                  worklist.push_back (*d);
+                break;
+              }
+
+            case Treadtable:
+              {
+                for (readtab_rep *r = xreadtable_rep (object),
+                     *re = r + READTABLE_REP_SIZE;
+                     r < re; r++)
+                  {
+                    worklist.push_back (r->lfunc);
+                    if (r->disp)
+                      for (disptab_rep *d = r->disp, *de = d + READTABLE_REP_SIZE;
+                           d < de; d++)
+                        worklist.push_back (d->lfunc);
+                  }
+                break;
+              }
+
+            case Twin32_menu:
+              worklist.push_back (xwin32_menu_init (object));
+              worklist.push_back (xwin32_menu_tag (object));
+              worklist.push_back (xwin32_menu_name (object));
+              object = xwin32_menu_command (object);
+              continue;
+
+            case Tchunk:
+              worklist.push_back (xchunk_type (object));
+              object = xchunk_owner (object);
+              continue;
+
+            case Tdll_module:
+              object = xdll_module_name (object);
+              continue;
+
+            case Tdll_function:
+              worklist.push_back (xdll_function_module (object));
+              object = xdll_function_name (object);
+              continue;
+
+            case Tc_callable:
+              object = xc_callable_function (object);
+              continue;
+
+            case Tenvironment:
+              worklist.push_back (xenvironment_var (object));
+              worklist.push_back (xenvironment_frame (object));
+              object = xenvironment_fns (object);
+              continue;
 
             default:
               assert (0);
-              return;
+              break;
             }
-          break;
-
-        case Tpackage:
-          gc_mark_object (xpackage_name (object));
-          gc_mark_object (xpackage_nicknames (object));
-          gc_mark_object (xpackage_use_list (object));
-          gc_mark_object (xpackage_used_by_list (object));
-          gc_mark_object (xpackage_shadowings (object));
-          gc_mark_object (xpackage_external (object));
-          gc_mark_object (xpackage_documentation (object));
-          object = xpackage_internal (object);
-          break;
-
-        case Trandom_state:
-        case Twindow:
-        case Tbuffer:
-        case Tsyntax_table:
-        case Tmarker:
-        case Terror:
-        case Twin32_dde_handle:
-        case Twait_object:
-          return;
-
-        case Toledata:
-          if (xoledata_name (object))
-            gc_mark_object (xoledata_name (object));
-          if (!xoledata_event (object))
-            return;
-          object = xoledata_event (object)->handlers ();
-          break;
-
-        case Tprocess:
-          gc_mark_object (xprocess_buffer (object));
-          gc_mark_object (xprocess_command (object));
-          gc_mark_object (xprocess_incode (object));
-          object = xprocess_outcode (object);
-          break;
-
-        case Tchar_encoding:
-          gc_mark_object (xchar_encoding_name (object));
-          object = xchar_encoding_display_name (object);
-          break;
-
-        case Thash_table:
-          {
-            hash_entry *e = xhash_table_entry (object);
-            hash_entry *ee = e + xhash_table_size (object);
-            for (; e < ee; e++)
-              {
-                gc_mark_object (e->key);
-                gc_mark_object (e->value);
-              }
-            object = xhash_table_rehash_size (object);
-            break;
-          }
-
-        case Tstruct_def:
-          {
-            gc_mark_object (xstrdef_name (object));
-            gc_mark_object (xstrdef_type (object));
-            gc_mark_object (xstrdef_includes (object));
-            gc_mark_object (xstrdef_constructors (object));
-            gc_mark_object (xstrdef_print_function (object));
-            gc_mark_object (xstrdef_report (object));
-            for (struct_slotdesc *s = xstrdef_slotdesc (object),
-                 *se = s + xstrdef_nslots (object);
-                 s < se; s++)
-              {
-                gc_mark_object (s->name);
-                gc_mark_object (s->default_init);
-                gc_mark_object (s->type);
-                gc_mark_object (s->read_only);
-                gc_mark_object (s->offset);
-              }
-            return;
-          }
-
-        case Tstruct_data:
-          {
-            gc_mark_object (xstrdata_def (object));
-            for (lisp *d = xstrdata_data (object),
-                 *de = d + xstrdata_nslots (object);
-                 d < de; d++)
-              gc_mark_object (*d);
-            return;
-          }
-
-        case Treadtable:
-          {
-            for (readtab_rep *r = xreadtable_rep (object),
-                 *re = r + READTABLE_REP_SIZE;
-                 r < re; r++)
-              {
-                gc_mark_object (r->lfunc);
-                if (r->disp)
-                  for (disptab_rep *d = r->disp, *de = d + READTABLE_REP_SIZE;
-                       d < de; d++)
-                    gc_mark_object (d->lfunc);
-              }
-            return;
-          }
-
-        case Twin32_menu:
-          gc_mark_object (xwin32_menu_init (object));
-          gc_mark_object (xwin32_menu_tag (object));
-          gc_mark_object (xwin32_menu_name (object));
-          object = xwin32_menu_command (object);
-          break;
-
-        case Tchunk:
-          gc_mark_object (xchunk_type (object));
-          object = xchunk_owner (object);
-          break;
-
-        case Tdll_module:
-          object = xdll_module_name (object);
-          break;
-
-        case Tdll_function:
-          gc_mark_object (xdll_function_module (object));
-          object = xdll_function_name (object);
-          break;
-
-        case Tc_callable:
-          object = xc_callable_function (object);
-          break;
-
-        case Tenvironment:
-          gc_mark_object (xenvironment_var (object));
-          gc_mark_object (xenvironment_frame (object));
-          object = xenvironment_fns (object);
-          break;
-
-        default:
-          assert (0);
-          return;
+          break;  /* fall out of inner while when no tail-continue */
         }
+
+      /* Pop next object from worklist */
+      if (worklist.empty ())
+        return;
+      object = worklist.back ();
+      worklist.pop_back ();
     }
 }
 
