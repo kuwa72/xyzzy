@@ -80,11 +80,39 @@ jobs:
         cd build
         cpack -C Release
 
+    - name: Extract version
+      id: version
+      shell: pwsh
+      run: |
+        if ("${{ github.ref_name }}" -match '^v(.+)$') {
+          $ver = $Matches[1]
+        } else {
+          $ver = (Select-String -Path CMakeLists.txt -Pattern 'project\(xyzzy VERSION (\S+)').Matches.Groups[1].Value
+        }
+        echo "VERSION=$ver" >> $env:GITHUB_ENV
+        echo "Version: $ver"
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact }}
         path: build/xyzzy-*.zip
+
+    - name: Install to staging directory
+      run: |
+        cmake --install build --config Release --prefix staging/xyzzy
+
+    - name: Build installer
+      uses: jrsoftware/inno-setup-action@v1
+      with:
+        script: installer/xyzzy.iss
+        options: /DAppVersion=${{ env.VERSION }} /DAppArch=${{ matrix.artifact == 'xyzzy-arm64' && 'arm64' || (matrix.artifact == 'xyzzy-amd64' && 'amd64' || 'x86') }} /DSourceDir=${{ github.workspace }}\staging\xyzzy
+
+    - name: Upload installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}-setup
+        path: build/xyzzy-*-setup.exe
 
   build-x86:
     runs-on: windows-latest
@@ -149,8 +177,37 @@ jobs:
         cd build
         cpack -G ZIP
 
+    - name: Extract version
+      id: version
+      shell: pwsh
+      run: |
+        if ("${{ github.ref_name }}" -match '^v(.+)$') {
+          $ver = $Matches[1]
+        } else {
+          $ver = (Select-String -Path CMakeLists.txt -Pattern 'project\(xyzzy VERSION (\S+)').Matches.Groups[1].Value
+        }
+        echo "VERSION=$ver" >> $env:GITHUB_ENV
+        echo "Version: $ver"
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: xyzzy-x86
         path: build/xyzzy-*.zip
+
+    - name: Install to staging directory
+      shell: msys2 {0}
+      run: |
+        cmake --install build --prefix staging/xyzzy
+
+    - name: Build installer
+      uses: jrsoftware/inno-setup-action@v1
+      with:
+        script: installer/xyzzy.iss
+        options: /DAppVersion=${{ env.VERSION }} /DAppArch=x86 /DSourceDir=${{ github.workspace }}\staging\xyzzy
+
+    - name: Upload installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: xyzzy-x86-setup
+        path: build/xyzzy-*-setup.exe
