@@ -27,13 +27,22 @@ jobs:
 
     - name: Rename artifacts with architecture suffix
       run: |
+        # ZIP files
         for dir in arm64 amd64 x86-msvc; do
           for f in artifacts/xyzzy-${dir}/*.zip; do
+            [ -f "$f" ] || continue
             base=$(basename "$f" .zip)
             mv "$f" "artifacts/xyzzy-${dir}/${base}-${dir}.zip"
           done
         done
-        find artifacts -name '*.zip' | sort
+        # x86 MinGW ZIP
+        for f in artifacts/xyzzy-x86/*.zip; do
+          [ -f "$f" ] || continue
+          base=$(basename "$f" .zip)
+          mv "$f" "artifacts/xyzzy-x86/${base}-x86.zip"
+        done
+        echo "=== All release files ==="
+        find artifacts -name '*.zip' -o -name '*-setup.exe' | sort
 
     - name: Create GitHub Release
       env:
@@ -44,4 +53,9 @@ jobs:
           --generate-notes \
           artifacts/xyzzy-arm64/*.zip \
           artifacts/xyzzy-amd64/*.zip \
-          artifacts/xyzzy-x86-msvc/*.zip
+          artifacts/xyzzy-x86-msvc/*.zip \
+          artifacts/xyzzy-x86/*.zip \
+          artifacts/xyzzy-arm64-setup/*-setup.exe \
+          artifacts/xyzzy-amd64-setup/*-setup.exe \
+          artifacts/xyzzy-x86-msvc-setup/*-setup.exe \
+          artifacts/xyzzy-x86-setup/*-setup.exe
