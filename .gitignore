@@ -51,6 +51,7 @@ misc/words.utf8.txt
 
 # MSYS2/CMake build
 build/
+.worktrees/
 xyzzy_debug.log
 
 # Local files
