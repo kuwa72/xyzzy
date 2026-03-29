@@ -9,21 +9,31 @@ ARM64 で動くようにしたり、Win32 API を Unicode 化したりしてい�
 
 ## ダウンロード
 
-[Releases](https://github.com/snmsts/xyzzy/releases/latest) から ZIP をダウンロードしてください。
+[Releases](https://github.com/snmsts/xyzzy/releases/latest) からインストーラまたは ZIP をダウンロードしてください。
 
-| アーカイブ | 対象 |
+| ファイル | 対象 |
 |---|---|
-| xyzzy-...-arm64.zip | ARM64 (Snapdragon など) |
-| xyzzy-...-amd64.zip | x86-64 (普通の PC) |
-| xyzzy-...-x86-msvc.zip | x86 (32-bit、互換用) |
+| xyzzy-...-arm64-setup.exe | ARM64 インストーラ (Snapdragon など) |
+| xyzzy-...-amd64-setup.exe | x86-64 インストーラ (普通の PC) |
+| xyzzy-...-x86-setup.exe | x86 インストーラ (32-bit、互換用) |
+| xyzzy-...-arm64.zip | ARM64 ZIP |
+| xyzzy-...-amd64.zip | x86-64 ZIP |
+| xyzzy-...-x86.zip | x86 ZIP |
 
 ## インストール
 
-アーカイブを**ディレクトリつきで**展開すればできあがりです。インストーラなどという気の利いたものはないので、ショートカットとかファイルの関連付けなどをしたい場合は自分でやってください。
+### インストーラ版
+
+セットアップ exe を実行してください。スタートメニュー、PATH 追加、右クリック「Open with xyzzy」などを設定できます。
+署名していないので、SmartScreen にブロックされる場合があります。そのときは ZIP 版をどうぞ。
+
+### ZIP 版
+
+アーカイブを**ディレクトリつきで**展開すればできあがりです。ショートカットやファイルの関連付けは自分でやってください。
 
 ## アンインストール
 
-当然のことながらアンインストーラはないので、展開したディレクトリを丸ごと削除してください。
+インストーラ版は「プログラムの追加と削除」から。ZIP 版は展開したディレクトリを丸ごと削除してください。
 
 ## 主な変更点
 
@@ -31,11 +41,46 @@ ARM64 で動くようにしたり、Win32 API を Unicode 化したりしてい�
 - Win32 API: ANSI (A-suffix) から Unicode (W-suffix) に移行 — システムロケールに依存しない
 - デフォルトファイルエンコーディング: UTF-8N
 - ビルドシステム: Visual Studio ソリューションから CMake に移行
+- 各種言語モード追加 (json, yaml, python, javascript, typescript, markdown 等)
+- ncurses フロントエンド (Linux/macOS)
+- VT100 ターミナルエミュレータ (Win32 ConPTY / ncurses)
 
 ## ビルド方法
 
-CI では MSVC (Visual Studio 17 2022) でビルドしています。
-MSYS2 + Clang でもビルドできます。詳しくは [CMakeLists.txt](CMakeLists.txt) を参照してください。
+### MSVC (CI と同じ)
+
+```powershell
+vcpkg install zlib:arm64-windows-static-md   # or x64-windows-static-md
+cmake -B build -G "Visual Studio 17 2022" -A ARM64 `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=arm64-windows-static-md
+cmake --build build --config Release
+cmake --build build --config Release --target bytecompile
+```
+
+### MSYS2 + Clang (ARM64)
+
+```bash
+pacman -S mingw-w64-clang-aarch64-{clang,cmake,make,zlib}
+export PATH=/clangarm64/bin:$PATH
+cmake -B build-clangarm64 -G "MinGW Makefiles" \
+  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_RC_COMPILER=llvm-windres -DCMAKE_SYSTEM_NAME=Windows \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build-clangarm64 -- -j$(nproc)
+cmake --build build-clangarm64 --target bytecompile
+```
+
+### Linux (ncurses フロントエンド)
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential cmake libncursesw5-dev zlib1g-dev
+cmake -B build-curses -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
+```
+
+bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) します。初回起動が大幅に速くなります。
 
 ## バージョン体系
 
