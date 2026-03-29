@@ -24,7 +24,7 @@ jobs:
             cmake-arch: Win32
             runner: windows-latest
             vcpkg-triplet: x86-windows-static-md
-            artifact: xyzzy-x86-msvc
+            artifact: xyzzy-x86
 
     runs-on: ${{ matrix.runner }}
 

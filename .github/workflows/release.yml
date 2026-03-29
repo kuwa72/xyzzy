@@ -28,7 +28,7 @@ jobs:
     - name: Rename artifacts with architecture suffix
       run: |
         # ZIP files
-        for dir in arm64 amd64 x86-msvc; do
+        for dir in arm64 amd64 x86; do
           for f in artifacts/xyzzy-${dir}/*.zip; do
             [ -f "$f" ] || continue
             base=$(basename "$f" .zip)
@@ -58,7 +58,7 @@ jobs:
           --notes-file release-notes.md \
           artifacts/xyzzy-arm64/*.zip \
           artifacts/xyzzy-amd64/*.zip \
-          artifacts/xyzzy-x86-msvc/*.zip \
+          artifacts/xyzzy-x86/*.zip \
           artifacts/xyzzy-arm64-setup/*-setup.exe \
           artifacts/xyzzy-amd64-setup/*-setup.exe \
-          artifacts/xyzzy-x86-msvc-setup/*-setup.exe
+          artifacts/xyzzy-x86-setup/*-setup.exe
