@@ -67,6 +67,16 @@ endif()
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/src/core/gen)
 file(WRITE ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
 
+# Generate version.h from template (single source of truth: PROJECT_VERSION)
+if(NOT DEFINED PROJECT_VERSION_TWEAK)
+    set(PROJECT_VERSION_TWEAK 0)
+endif()
+configure_file(
+    ${CMAKE_SOURCE_DIR}/src/core/version.h.in
+    ${CMAKE_SOURCE_DIR}/src/core/gen/version.h
+    @ONLY
+)
+
 # ============================================================
 # Find zlib (prefer static library for -static linking)
 # ============================================================
@@ -708,7 +718,7 @@ if(CMAKE_RC_COMPILER)
     target_sources(xyzzy PRIVATE ${WIN32_DIR}/xyzzy.rc)
     set_source_files_properties(${WIN32_DIR}/xyzzy.rc PROPERTIES
         OBJECT_DEPENDS "${CORE_DIR}/resource.h"
-        INCLUDE_DIRECTORIES "${CORE_DIR};${WIN32_DIR}")
+        INCLUDE_DIRECTORIES "${GEN_DIR};${CORE_DIR};${WIN32_DIR}")
 endif()
 
 # ============================================================
@@ -734,7 +744,7 @@ if(CMAKE_RC_COMPILER)
     target_sources(xyzzy-batch PRIVATE ${WIN32_DIR}/xyzzy.rc)
     set_source_files_properties(${WIN32_DIR}/xyzzy.rc PROPERTIES
         OBJECT_DEPENDS "${CORE_DIR}/resource.h"
-        INCLUDE_DIRECTORIES "${CORE_DIR};${WIN32_DIR}")
+        INCLUDE_DIRECTORIES "${GEN_DIR};${CORE_DIR};${WIN32_DIR}")
 endif()
 
 endif() # WIN32 (end of xyzzy, xyzzy-batch GUI targets)
