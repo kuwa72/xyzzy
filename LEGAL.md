@@ -242,9 +242,9 @@
 
 ----
 
-### lisp/wip/browserex.l, lisp/wip/color.l, lisp/wip/win-window.l, lisp/wip/treeview/*
+### lisp/wip/browserex.l, lisp/wip/color.l, lisp/wip/win-window.l, lisp/wip/treeview/*, lisp/wip/outline-tree/*
 
-    Copyright (C) 2001-2006, OHKUBO Hiroshi <ohkubo@s53.xrea.com>
+    Copyright (C) 2001-2012, OHKUBO Hiroshi <ohkubo@s53.xrea.com>
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
