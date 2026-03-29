@@ -65,6 +65,11 @@ Root: HKCU; Subkey: "Software\Classes\*\shell\xyzzy"; ValueType: string; ValueNa
 Root: HKCU; Subkey: "Software\Classes\*\shell\xyzzy"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\xyzzy.exe"""; Tasks: shellcontext
 Root: HKCU; Subkey: "Software\Classes\*\shell\xyzzy\command"; ValueType: string; ValueName: ""; ValueData: """{app}\xyzzycli.exe"" ""%1"""; Tasks: shellcontext
 
+[UninstallDelete]
+; Remove runtime-generated files
+Type: files; Name: "{app}\xyzzy.wxp"
+Type: files; Name: "{app}\xyzzy.BUG"
+
 [Code]
 // PATH management
 const
