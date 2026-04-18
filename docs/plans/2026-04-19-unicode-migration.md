@@ -339,11 +339,17 @@ xyzzy の session / history / resume は **Lisp source (.l ファイル) とし�
 
 ---
 
-# Phase 3: Lisp 文字列 UTF-32 化
+# Phase 3: Lisp 文字列 UTF-32 化 + Lisp char lChar 化
 
 ## 目的
 
 Lisp の `string` 要素型を **UTF-32 code point** に切替。`(length s)` が code point 数を返す、`(schar s i)` が code point を返す、サロゲートが API に漏れない、の正常化。
+
+**同時に** Phase 1 で先送りした Lisp char (make_char / xchar_code) の 32bit
+lChar 値化も実施する。Phase 1 時点では `make_immediate` のデータ幅が 16bit
+固定のため Lisp char が CCF (旧 Char 形式) に留まっており、Phase 2 で
+buffer が UTF-16LE 化した後に U+FF00-FF3E 範囲の fullwidth 文字が
+CCF_PRIOR..CCF_XBTN2MOVE と数値衝突するエッジケースが残る。
 
 ## 実装
 
@@ -445,6 +451,40 @@ Phase 2 完了時点で着手可能。外部調査済み (`tmp/ts-api.h` にヘ�
 - `project_compat_policy.md` — 外部ユーザ互換シム不要方針
 - `project_cl_rpc.md`, `project_dotcl.md`, `project_goals.md` — 関連プロジェクト
 - `tmp/ts-api.h` — tree-sitter v0.26 ヘッダキャッシュ
+
+---
+
+# Phase 1 完了時点の既知の限界
+
+## Lisp char が CCF 形式のまま残存している件
+
+Phase 1 では `make_immediate` の 16bit データ幅制約により Lisp char の
+lChar 値化 (Task #12) を断念、Phase 3 に延期した。`normalize_for_keymap`
+shim と旧 CCF_*/CC_META 定数は Phase 3 まで存置。
+
+### 結果として Phase 2 完了後に顕在化するエッジケース
+
+- `(char-name (char-after))` が U+FF07 (fullwidth apostrophe) を拾うと
+  `#\Down` を返す (chname.cc が `X ("Down", CCF_DOWN)` 経由で CCF_DOWN =
+  0xff07 に bound しているため)
+- `(define-key map (char-after) 'cmd)` で U+FF00..U+FF3E 範囲の文字を
+  渡すと keymap が function key として解釈する
+- `(format "~S" ...)` 等の Lisp print 結果で fullwidth chars と function
+  key symbol が混同される
+
+### 影響範囲
+
+- 衝突する code point は **U+FF00..U+FF3E の約 63 個** (Halfwidth and
+  Fullwidth Forms ブロックの先頭付近)
+- 絵文字・CJK 漢字・ひらがな等は衝突範囲外
+- 通常の編集・表示・tree-sitter 連携には影響なし
+- ユーザが「buffer から取り出した char を keymap / printer に流す」
+  コードパスでのみ発現
+- xyzzy 同梱の .l コードにそのようなパターンは (調査した範囲で) 見当たらず、
+  project_compat_policy.md の方針により許容
+
+Phase 3 で Lisp char を lChar 値 (kind/mods bit 付き 32bit) に昇格すれば
+構造的に解消する。
 
 ---
 
