@@ -8,6 +8,17 @@ u_char escseq_euckr[] = {ccs_usascii, ccs_ksc5601, ccs_invalid, ccs_invalid};
 u_char escseq_eucgb[] = {ccs_usascii, ccs_gb2312, ccs_invalid, ccs_invalid};
 u_int designatable_any[] = {u_int (-1), u_int (-1), u_int (-1), u_int (-1)};
 
+/* Translate a legacy "internal" Char (SJIS-packed / iso8859 / big5 / ...) into
+   a UTF-16 code unit. Used by decode streams to emit UTF-16 directly rather
+   than storing xyzzy's pre-Phase-2 internal encoding in the buffer.
+   For ASCII (c < 0x80) this is identity. */
+static inline Char
+internal_to_utf16 (Char internal)
+{
+  ucs2_t wc = i2w (internal);
+  return wc != ucs2_t (-1) ? wc : DEFCHAR;
+}
+
 const Char *
 cjk_translate_table (int lang)
 {
@@ -65,31 +76,20 @@ sjis_to_utf16_stream::refill_internal ()
           if (c2 != eof)
             {
               Char cc = (c1 << 8) + c2;
-#ifdef UNICODE
-              Char ic = w2i (i2w (cc));
-              if (ic == Char (-1))
+              ucs2_t wc = i2w (cc);
+              if (wc == ucs2_t (-1))
                 {
                   s_in.putback (c2);
                   put (DEFCHAR);
                 }
               else
-                put (ic);
-#else
-              put (cc);
-#endif
+                put (wc);
             }
           else
             put (c1);
         }
       else
-        {
-#ifdef UNICODE
-          Char ic = w2i (i2w (c1));
-          put (ic != Char (-1) ? ic : DEFCHAR);
-#else
-          put (c1);
-#endif
-        }
+        put (internal_to_utf16 (c1));
     }
 }
 
@@ -109,28 +109,17 @@ fast_sjis_to_utf16_stream::refill_internal ()
       if (SJISP (c1) && s < se)
         {
           Char cc = (c1 << 8) + *s++;
-#ifdef UNICODE
-          Char ic = w2i (i2w (cc));
-          if (ic == Char (-1))
+          ucs2_t wc = i2w (cc);
+          if (wc == ucs2_t (-1))
             {
               --s;
               *d = DEFCHAR;
             }
           else
-            *d = ic;
-#else
-          *d = cc;
-#endif
+            *d = wc;
         }
       else
-        {
-#ifdef UNICODE
-          Char ic = w2i (i2w (c1));
-          *d = (ic != Char (-1)) ? ic : DEFCHAR;
-#else
-          *d = c1;
-#endif
-        }
+        *d = internal_to_utf16 (c1);
     }
   s_in.end_direct_input (s);
   end_direct_output (d);
@@ -174,25 +163,28 @@ void
 iso2022_noesc_to_utf16_stream::to_internal (u_char ccs, int c1, int oc1)
 {
   if (ccs_1byte_charset_p (ccs))
-    put ((ccs_1byte_94_charset_p (ccs)
-          ? c1 <= ' ' || c1 >= 0x7f : c1 < ' ')
-         ? oc1 : (ccs << 7) | c1);
+    {
+      Char cc = (ccs_1byte_94_charset_p (ccs)
+                 ? c1 <= ' ' || c1 >= 0x7f : c1 < ' ')
+                ? Char (oc1) : Char ((ccs << 7) | c1);
+      put (internal_to_utf16 (cc));
+    }
   else
     {
       if (c1 <= 0x20 || c1 >= 0x7f)
-        put (oc1);
+        put (internal_to_utf16 (Char (oc1)));
       else
         {
           int oc2 = s_in.get ();
           if (oc2 == eof)
             {
-              put (oc1);
+              put (internal_to_utf16 (Char (oc1)));
               return;
             }
           int c2 = oc2 & 127;
           if (c2 <= 0x20 || c2 >= 0x7f)
             {
-              put (oc1);
+              put (internal_to_utf16 (Char (oc1)));
               s_in.putback (oc2);
             }
           else
@@ -201,32 +193,32 @@ iso2022_noesc_to_utf16_stream::to_internal (u_char ccs, int c1, int oc1)
               case ccs_jisx0208:
                 if (s_vender == ENCODING_ISO_VENDER_OSFJVC && c1 >= 0x75)
                   c1 += 10;
-                put ((j2sh (c1, c2) << 8) | j2sl (c1, c2));
+                put (internal_to_utf16 (Char ((j2sh (c1, c2) << 8) | j2sl (c1, c2))));
                 break;
 
               case ccs_jisx0212:
-                put (jisx0212_to_internal (c1, c2, s_vender));
+                put (internal_to_utf16 (jisx0212_to_internal (c1, c2, s_vender)));
                 break;
 
               case ccs_gb2312:
-                put (gb2312_to_int (c1, c2));
+                put (internal_to_utf16 (gb2312_to_int (c1, c2)));
                 break;
 
               case ccs_big5_1:
               case ccs_big5_2:
                 mule_g2b (ccs, c1, c2);
-                put (big5_to_int (c1, c2));
+                put (internal_to_utf16 (big5_to_int (c1, c2)));
                 break;
 
               case ccs_cns11643_1:
                 {
                   Char cc = cns11643_1_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
                   if (cc != Char (-1))
-                    put (cc);
+                    put (internal_to_utf16 (cc));
                   else
                     {
-                      put (oc1);
-                      put (oc2);
+                      put (internal_to_utf16 (Char (oc1)));
+                      put (internal_to_utf16 (Char (oc2)));
                     }
                   break;
                 }
@@ -235,23 +227,23 @@ iso2022_noesc_to_utf16_stream::to_internal (u_char ccs, int c1, int oc1)
                 {
                   Char cc = cns11643_2_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
                   if (cc != Char (-1))
-                    put (cc);
+                    put (internal_to_utf16 (cc));
                   else
                     {
-                      put (oc1);
-                      put (oc2);
+                      put (internal_to_utf16 (Char (oc1)));
+                      put (internal_to_utf16 (Char (oc2)));
                     }
                   break;
                 }
 
               case ccs_ksc5601:
-                put (ksc5601_to_int (c1, c2));
+                put (internal_to_utf16 (ksc5601_to_int (c1, c2)));
                 break;
 
               default:
                 assert (0);
-                put (oc1);
-                put (oc2);
+                put (internal_to_utf16 (Char (oc1)));
+                put (internal_to_utf16 (Char (oc2)));
                 break;
               }
         }
@@ -271,7 +263,7 @@ iso2022_noesc_to_utf16_stream::refill_internal ()
       else if (c == CC_SS2)
         {
           if (s_g[2] == ccs_invalid)
-            put (c);
+            put (internal_to_utf16 (Char (c)));
           else
             {
               c = s_in.get ();
@@ -283,7 +275,7 @@ iso2022_noesc_to_utf16_stream::refill_internal ()
       else if (c == CC_SS3)
         {
           if (s_g[3] == ccs_invalid)
-            put (c);
+            put (internal_to_utf16 (Char (c)));
           else
             {
               c = s_in.get ();
@@ -313,8 +305,8 @@ iso2022_to_utf16_stream::designate94 (u_char &g, int *cp)
       return 1;
 
     default:
-      put (cp[0]);
-      put (cp[1]);
+      put (internal_to_utf16 (Char (cp[0])));
+      put (internal_to_utf16 (Char (cp[1])));
       cp[0] = c;
       return 0;
     }
@@ -363,8 +355,8 @@ iso2022_to_utf16_stream::designate96 (u_char &g, int *cp)
       return 1;
 
     default:
-      put (cp[0]);
-      put (cp[1]);
+      put (internal_to_utf16 (Char (cp[0])));
+      put (internal_to_utf16 (Char (cp[1])));
       cp[0] = c;
       return 0;
     }
@@ -410,9 +402,9 @@ iso2022_to_utf16_stream::designate94n (u_char &g, int *cp)
       return 1;
 
     default:
-      put (cp[0]);
-      put (cp[1]);
-      put (cp[2]);
+      put (internal_to_utf16 (Char (cp[0])));
+      put (internal_to_utf16 (Char (cp[1])));
+      put (internal_to_utf16 (Char (cp[2])));
       cp[0] = c;
       return 0;
     }
@@ -469,8 +461,8 @@ iso2022_to_utf16_stream::refill_internal ()
                   break;
 
                 default:
-                  put (c[0]);
-                  put (c[1]);
+                  put (internal_to_utf16 (Char (c[0])));
+                  put (internal_to_utf16 (Char (c[1])));
                   c[0] = c[2];
                   break;
                 }
@@ -559,7 +551,7 @@ iso2022_to_utf16_stream::refill_internal ()
               continue;
 
             wrong:
-              put (c[0]);
+              put (internal_to_utf16 (Char (c[0])));
               c[0] = c[1];
               goto normal_char;
 
@@ -640,7 +632,7 @@ big5_to_utf16_stream::refill_internal ()
           else
             s_in.putback (c2);
         }
-      put (c1);
+      put (internal_to_utf16 (Char (c1)));
     }
 }
 
@@ -652,7 +644,7 @@ binary_to_utf16_stream::refill_internal ()
       int c = s_in.get ();
       if (c == eof)
         break;
-      put (c);
+      put (Char (c));
     }
 }
 
@@ -685,33 +677,7 @@ utf_to_utf16_stream::putw_jp (ucs2_t wc)
       if (s_has_bom)
         return;
     }
-
-  if (!(s_flags & ENCODING_UTF_WINDOWS))
-    {
-      int n = wc % numberof (utf_shiftjis2internal_hash);
-      if (utf_shiftjis2internal_hash[n].wc == wc)
-        {
-          put (utf_shiftjis2internal_hash[n].cc);
-          return;
-        }
-    }
-
-  Char cc;
-  if (s_to_full_width
-      && (cc = wc2cp932 (wc)) != Char (-1)
-      && !ccs_1byte_94_charset_p (code_charset (cc)))
-    put (cc);
-  else
-    {
-      cc = w2i (wc);
-      if (cc != Char (-1))
-        put (cc);
-      else
-        {
-          put (utf16_ucs2_to_undef_pair_high (wc));
-          put (utf16_ucs2_to_undef_pair_low (wc));
-        }
-    }
+  put (wc);
 }
 
 void
@@ -723,23 +689,7 @@ utf_to_utf16_stream::putw_gen (ucs2_t wc)
       if (s_has_bom)
         return;
     }
-
-  Char cc = w2i (wc);
-  if (cc != Char (-1))
-    {
-      if (!ccs_1byte_94_charset_p (code_charset (cc)))
-        {
-          Char t = s_cjk_translate[wc];
-          if (t != Char (-1))
-            cc = t;
-        }
-      put (cc);
-    }
-  else
-    {
-      put (utf16_ucs2_to_undef_pair_high (wc));
-      put (utf16_ucs2_to_undef_pair_low (wc));
-    }
+  put (wc);
 }
 
 void
@@ -751,23 +701,7 @@ utf_to_utf16_stream::putw_cn (ucs2_t wc)
       if (s_has_bom)
         return;
     }
-
-  Char cc = w2i (wc);
-  if (cc != Char (-1))
-    {
-      if (!ccs_1byte_94_charset_p (code_charset (cc)))
-        {
-          Char t = wc2gb2312_table[wc];
-          if (t != Char (-1) || (t = wc2big5_table[wc]) != Char (-1))
-            cc = t;
-        }
-      put (cc);
-    }
-  else
-    {
-      put (utf16_ucs2_to_undef_pair_high (wc));
-      put (utf16_ucs2_to_undef_pair_low (wc));
-    }
+  put (wc);
 }
 
 inline void
@@ -1040,7 +974,7 @@ iso8859_to_utf16_stream::refill_internal ()
         break;
       if (c >= 0xa0)
         c = s_charset | (c & 127);
-      put (c);
+      put (internal_to_utf16 (Char (c)));
     }
 }
 
@@ -1054,7 +988,7 @@ windows_codepage_to_utf16_stream::refill_internal ()
         break;
       if (c >= 0x80 && s_translate[c - 0x80] != Char (-1))
         c = s_translate[c - 0x80];
-      put (c);
+      put (internal_to_utf16 (Char (c)));
     }
 }
 
@@ -1083,24 +1017,37 @@ utf16_to_sjis_stream::refill ()
       if (c == eof)
         break;
 
-      Char cc = c;
-      if (cc >= 0x80)
-        {
-          if (code_charset_bit (cc) & ccsf_possible_cp932)
-            {
-              cc = wc2cp932 (i2w (cc));
-              if (cc == Char (-1))
-                cc = DEFCHAR;
-            }
-          else if (code_charset_bit (cc) & ccsf_not_cp932)
-            cc = DEFCHAR;
+      ucs2_t wc = ucs2_t (c);
 
-          if (DBCP (cc))
-            {
-              put (u_char (cc >> 8));
-              put (u_char (cc));
-              continue;
-            }
+      if (utf16_surrogate_high_p (wc))
+        {
+          int c2 = s_in.get ();
+          if (c2 != eof && !utf16_surrogate_low_p (ucs2_t (c2)))
+            s_in.putback (c2);
+          put (DEFCHAR);
+          continue;
+        }
+      if (utf16_surrogate_low_p (wc))
+        {
+          put (DEFCHAR);
+          continue;
+        }
+
+      Char cc;
+      if (wc < 0x80)
+        cc = Char (wc);
+      else
+        {
+          cc = wc2cp932 (wc);
+          if (cc == Char (-1))
+            cc = DEFCHAR;
+        }
+
+      if (DBCP (cc))
+        {
+          put (u_char (cc >> 8));
+          put (u_char (cc));
+          continue;
         }
 
       if (cc == '\n')
@@ -1121,7 +1068,23 @@ utf16_to_big5_stream::refill ()
       if (c == eof)
         break;
 
-      Char cc = wc2big5_table[i2w (c)];
+      ucs2_t wc = ucs2_t (c);
+
+      if (utf16_surrogate_high_p (wc))
+        {
+          int c2 = s_in.get ();
+          if (c2 != eof && !utf16_surrogate_low_p (ucs2_t (c2)))
+            s_in.putback (c2);
+          put (DEFCHAR);
+          continue;
+        }
+      if (utf16_surrogate_low_p (wc))
+        {
+          put (DEFCHAR);
+          continue;
+        }
+
+      Char cc = wc2big5_table[wc];
       if (cc == Char (-1))
         cc = DEFCHAR;
       if (cc >= 0x100)
@@ -1422,32 +1385,43 @@ utf16_to_iso2022_stream::refill ()
           break;
         }
 
-      Char cc = c;
-      u_int ccsf = code_charset_bit (cc);
-      if (ccsf & (ccsf_utf16_surrogate | ccsf_utf16_undef_char))
+      ucs2_t wc = ucs2_t (c);
+      Char cc;
+
+      if (utf16_surrogate_high_p (wc))
+        {
+          int c2 = s_in.get ();
+          if (c2 != eof && !utf16_surrogate_low_p (ucs2_t (c2)))
+            s_in.putback (c2);
+          cc = DEFCHAR;
+        }
+      else if (utf16_surrogate_low_p (wc))
         cc = DEFCHAR;
       else
         {
-          if (s_lang_cn)
-            {
-              if (!(ccsf & (ccsf_gb2312 | ccsf_big5)))
-                {
-                  wchar_t wc = i2w (cc);
-                  Char t = wc2gb2312_table[wc];
-                  if (t != Char (-1) || (t = wc2big5_table[wc]) != Char (-1))
-                    cc = t;
-                }
-            }
+          cc = w2i (wc);
+          if (cc == Char (-1))
+            cc = DEFCHAR;
           else
             {
-              if (s_cjk_translate)
+              u_int ccsf = code_charset_bit (cc);
+              if (s_lang_cn)
                 {
-                  Char t = s_cjk_translate[i2w (cc)];
+                  if (!(ccsf & (ccsf_gb2312 | ccsf_big5)))
+                    {
+                      Char t = wc2gb2312_table[wc];
+                      if (t != Char (-1) || (t = wc2big5_table[wc]) != Char (-1))
+                        cc = t;
+                    }
+                }
+              else if (s_cjk_translate)
+                {
+                  Char t = s_cjk_translate[wc];
                   if (t != Char (-1))
                     cc = t;
                 }
+              cc = (*s_vender_code_mapper)(cc);
             }
-          cc = (*s_vender_code_mapper)(cc);
         }
 
       int ccs = code_charset (cc);
@@ -1594,33 +1568,7 @@ utf16_to_iso2022_stream::refill ()
 int
 utf16_to_utf_stream::getw () const
 {
-  int c = s_in.get ();
-  if (c == eof)
-    return eof;
-
-  Char cc = Char (c);
-
-  if (!(s_flags & ENCODING_UTF_WINDOWS) && cc != Char (-1))
-    {
-      int n = cc % numberof (utf_internal2shiftjis_hash);
-      if (utf_internal2shiftjis_hash[n].cc == cc)
-        return utf_internal2shiftjis_hash[n].wc;
-    }
-
-  ucs2_t wc = i2w (cc);
-  if (wc != ucs2_t (-1))
-    return wc;
-  if (utf16_undef_char_high_p (ucs2_t (cc)))
-    {
-      int c2 = s_in.get ();
-      if (c2 != eof)
-        {
-          if (utf16_undef_char_low_p (ucs2_t (c2)))
-            return utf16_undef_pair_to_ucs2 (ucs2_t (cc), ucs2_t (c2));
-          s_in.putback (c2);
-        }
-    }
-  return DEFCHAR;
+  return s_in.get ();
 }
 
 int
@@ -1985,16 +1933,24 @@ utf16_to_iso8859_stream::refill ()
       if (c == eof)
         break;
 
-      Char cc = c;
-      if (cc >= 0xa0)
+      ucs2_t wc = ucs2_t (c);
+      Char cc;
+
+      if (utf16_surrogate_high_p (wc))
         {
-          if (code_charset (cc) == s_charset)
-            cc = int_to_iso8859 (cc);
-          else
-            {
-              cc = lookup_wc2int_hash (s_hash, i2w (cc));
-              cc = cc != Char (-1) ? int_to_iso8859 (cc) : DEFCHAR;
-            }
+          int c2 = s_in.get ();
+          if (c2 != eof && !utf16_surrogate_low_p (ucs2_t (c2)))
+            s_in.putback (c2);
+          cc = DEFCHAR;
+        }
+      else if (utf16_surrogate_low_p (wc))
+        cc = DEFCHAR;
+      else if (wc < 0xa0)
+        cc = Char (wc);
+      else
+        {
+          cc = lookup_wc2int_hash (s_hash, wc);
+          cc = cc != Char (-1) ? int_to_iso8859 (cc) : DEFCHAR;
           if (cc >= 0x80 && cc < 0xa0)
             cc = DEFCHAR;
         }
@@ -2017,10 +1973,23 @@ utf16_to_windows_codepage_stream::refill ()
       if (c == eof)
         break;
 
-      Char cc = c;
-      if (cc >= 128)
+      ucs2_t wc = ucs2_t (c);
+      Char cc;
+
+      if (utf16_surrogate_high_p (wc))
         {
-          cc = lookup_wc2int_hash (s_hash, i2w (cc));
+          int c2 = s_in.get ();
+          if (c2 != eof && !utf16_surrogate_low_p (ucs2_t (c2)))
+            s_in.putback (c2);
+          cc = DEFCHAR;
+        }
+      else if (utf16_surrogate_low_p (wc))
+        cc = DEFCHAR;
+      else if (wc < 128)
+        cc = Char (wc);
+      else
+        {
+          cc = lookup_wc2int_hash (s_hash, wc);
           if (cc == Char (-1))
             cc = DEFCHAR;
         }
