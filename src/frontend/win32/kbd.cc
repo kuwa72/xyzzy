@@ -722,7 +722,9 @@ decode_syschars (WPARAM wparam)
       else if (function_char_p (Char (cc)))
         cc = function_to_meta_function (Char (cc));
     }
-  return cc;
+  /* Phase 1 Task #9: 旧 Char encoding で組み立てた値を新 lChar 形式に
+     昇格してキューへ渡す。内部ロジックは従来のまま保持。 */
+  return cc == lChar_EOF ? lChar_EOF : lc_from_ccf (Char (cc));
 }
 
 lChar
@@ -739,7 +741,7 @@ decode_syskeys (WPARAM wparam, LPARAM lparam)
 
   lChar c = pre_decode_vkeys (wparam, 1);
   if (c != lChar_EOF)
-    return c;
+    return lc_from_ccf (Char (c));
 
   c = decode_vkeys (wparam);
   if (c != lChar_EOF)
@@ -761,7 +763,7 @@ decode_syskeys (WPARAM wparam, LPARAM lparam)
             c = function_to_meta_function (Char (c));
         }
     }
-  return c;
+  return c == lChar_EOF ? lChar_EOF : lc_from_ccf (Char (c));
 }
 
 lChar
@@ -769,7 +771,7 @@ decode_keys (WPARAM wparam, LPARAM lparam)
 {
   lChar c = pre_decode_vkeys (wparam, 0);
   if (c != lChar_EOF)
-    return c;
+    return lc_from_ccf (Char (c));
 
   c = decode_vkeys (wparam);
   if (c != lChar_EOF)
@@ -820,7 +822,7 @@ decode_keys (WPARAM wparam, LPARAM lparam)
             }
         }
     }
-  return c;
+  return c == lChar_EOF ? lChar_EOF : lc_from_ccf (Char (c));
 }
 
 int
