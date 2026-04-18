@@ -194,6 +194,54 @@
 #define LCHAR_KIND(lc)    ((lc) & LCKIND_MASK)
 #define LCHAR_MODS(lc)    ((lc) & LCMOD_MASK)
 
+/* function key IDs (完全な lChar 値: LCKIND_FNKEY と OR 済み)
+   既存 CCF_PRIOR..CCF_F24 の順序を保存して 0 起算で再採番。
+   マウス系 (LBTNDOWN..XBTN2MOVE) と擬似制御文字 (CCF_EXCLAM 等) は
+   新スキームでは modifier + kind=MOUSE / modifier + kind=CHAR で
+   表現するため、ここには定義しない。                                   */
+#define LCKEY_PRIOR     (LCKIND_FNKEY | 0x00) /* Page Up   */
+#define LCKEY_NEXT      (LCKIND_FNKEY | 0x01) /* Page Down */
+#define LCKEY_END       (LCKIND_FNKEY | 0x02)
+#define LCKEY_HOME      (LCKIND_FNKEY | 0x03)
+#define LCKEY_LEFT      (LCKIND_FNKEY | 0x04)
+#define LCKEY_UP        (LCKIND_FNKEY | 0x05)
+#define LCKEY_RIGHT     (LCKIND_FNKEY | 0x06)
+#define LCKEY_DOWN      (LCKIND_FNKEY | 0x07)
+#define LCKEY_SCROLL    (LCKIND_FNKEY | 0x08) /* Scroll Lock */
+#define LCKEY_MOUSEMOVE (LCKIND_FNKEY | 0x09) /* XXX 歴史的事情。将来 kind=MOUSE へ */
+#define LCKEY_PAUSE     (LCKIND_FNKEY | 0x0A)
+#define LCKEY_APPS      (LCKIND_FNKEY | 0x0B) /* Application/Menu */
+#define LCKEY_INSERT    (LCKIND_FNKEY | 0x0C)
+#define LCKEY_DELETE    (LCKIND_FNKEY | 0x0D)
+#define LCKEY_HELP      (LCKIND_FNKEY | 0x0E)
+
+#define LCKEY_F1        (LCKIND_FNKEY | 0x0F)
+#define LCKEY_F2        (LCKIND_FNKEY | 0x10)
+#define LCKEY_F3        (LCKIND_FNKEY | 0x11)
+#define LCKEY_F4        (LCKIND_FNKEY | 0x12)
+#define LCKEY_F5        (LCKIND_FNKEY | 0x13)
+#define LCKEY_F6        (LCKIND_FNKEY | 0x14)
+#define LCKEY_F7        (LCKIND_FNKEY | 0x15)
+#define LCKEY_F8        (LCKIND_FNKEY | 0x16)
+#define LCKEY_F9        (LCKIND_FNKEY | 0x17)
+#define LCKEY_F10       (LCKIND_FNKEY | 0x18)
+#define LCKEY_F11       (LCKIND_FNKEY | 0x19)
+#define LCKEY_F12       (LCKIND_FNKEY | 0x1A)
+#define LCKEY_F13       (LCKIND_FNKEY | 0x1B)
+#define LCKEY_F14       (LCKIND_FNKEY | 0x1C)
+#define LCKEY_F15       (LCKIND_FNKEY | 0x1D)
+#define LCKEY_F16       (LCKIND_FNKEY | 0x1E)
+#define LCKEY_F17       (LCKIND_FNKEY | 0x1F)
+#define LCKEY_F18       (LCKIND_FNKEY | 0x20)
+#define LCKEY_F19       (LCKIND_FNKEY | 0x21)
+#define LCKEY_F20       (LCKIND_FNKEY | 0x22)
+#define LCKEY_F21       (LCKIND_FNKEY | 0x23)
+#define LCKEY_F22       (LCKIND_FNKEY | 0x24)
+#define LCKEY_F23       (LCKIND_FNKEY | 0x25)
+#define LCKEY_F24       (LCKIND_FNKEY | 0x26)
+
+#define LCKEY_Fn_MAX    LCKEY_F24
+
 #define _CTN 1
 #define _CTU 2
 #define _CTL 4
