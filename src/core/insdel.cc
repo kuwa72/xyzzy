@@ -208,11 +208,13 @@ Buffer::move_before_gap (Point &w_point, int size) const
   int n = cur->c_used - w_point.p_offset;
   move_chunk (cur, w_point.p_offset, Chunk::TEXT_SIZE - n, n);
   cur->c_used = Chunk::TEXT_SIZE;
+  cur->c_nchars = Chunk::TEXT_SIZE;
   modify_chunk (cur);
 
   Chunk *prev = cur->c_prev;
   int pused = prev->c_used;
   prev->c_used += size - rest;
+  prev->c_nchars += size - rest;
   modify_chunk (prev);
   copy_chunk (cur->c_text, prev, pused, w_point.p_offset);
 
@@ -284,10 +286,12 @@ Buffer::move_after_gap (Point &w_point, int size) const
   int n = size - cp->rest ();
   move_chunk (next, 0, n, next->c_used);
   next->c_used += n;
+  next->c_nchars += n;
   modify_chunk (next);
   copy_chunk_reverse (cp, w_point.p_offset, cp, w_point.p_offset + size,
                       cp->c_used - w_point.p_offset);
   cp->c_used = Chunk::TEXT_SIZE;
+  cp->c_nchars = Chunk::TEXT_SIZE;
   modify_chunk (cp);
 }
 
@@ -305,12 +309,14 @@ Buffer::allocate_new_chunks (Point &w_point, int requested)
       if (need > Chunk::TEXT_SIZE)
         {
           cp->c_used = Chunk::TEXT_SIZE;
+          cp->c_nchars = Chunk::TEXT_SIZE;
           need -= Chunk::TEXT_SIZE;
           cp->c_next = alloc_chunk ();
         }
       else
         {
           cp->c_used = need;
+          cp->c_nchars = need;
           cp->c_next = chunk->c_next;
           if (cp->c_next)
             cp->c_next->c_prev = cp;
@@ -322,6 +328,7 @@ Buffer::allocate_new_chunks (Point &w_point, int requested)
                               chunk->c_used - w_point.p_offset);
           modify_chunk (chunk);
           chunk->c_used = Chunk::TEXT_SIZE;
+          chunk->c_nchars = Chunk::TEXT_SIZE;
           if (w_point.p_offset == chunk->c_used)
             {
               w_point.p_chunk = chunk->c_next;
@@ -346,6 +353,7 @@ Buffer::move_gap (Point &w_point, int requested)
       move_chunk (chunk, w_point.p_offset, w_point.p_offset + requested,
                   chunk->c_used - w_point.p_offset);
       chunk->c_used += requested;
+      chunk->c_nchars += requested;
       modify_chunk (chunk);
       return 1;
     }
@@ -730,6 +738,7 @@ Buffer::insert_file_contents (Window *wp, lisp filename, lisp visit,
               bcopy (cp->c_text + wp->w_point.p_offset, t_chunk->c_text,
                      cp->c_used - wp->w_point.p_offset);
               t_chunk->c_used = cp->c_used - wp->w_point.p_offset;
+              t_chunk->c_nchars = cp->c_nchars - wp->w_point.p_offset;
               modify_chunk (t_chunk);
               t_chunk->c_next = cp->c_next;
               if (t_chunk->c_next)
@@ -741,6 +750,7 @@ Buffer::insert_file_contents (Window *wp, lisp filename, lisp visit,
               rfc.r_chunk->c_prev = cp;
               cp->c_next = rfc.r_chunk;
               cp->c_used = wp->w_point.p_offset;
+              cp->c_nchars = wp->w_point.p_offset;
               modify_chunk (cp);
             }
         }
@@ -907,6 +917,7 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
           else
             {
               cp->c_used = off;
+              cp->c_nchars = off;
               modify_chunk (cp);
             }
           size -= rest;
@@ -918,6 +929,7 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
       else
         {
           cp->c_used -= size;
+          cp->c_nchars -= size;
           modify_chunk (cp);
           bcopy (cp->c_text + off + size, cp->c_text + off, cp->c_used - off);
           break;

@@ -61,6 +61,9 @@ struct Chunk
   Char *c_text;
   u_char *c_breaks;
   short c_used;
+  short c_nchars; /* 使用中の code point 数。現 SJIS 時代は c_used と同値。
+                     Phase 2 UTF-16LE 化後はサロゲートペアを 1 code point と
+                     して数える (c_used <= c_nchars の関係になる)。      */
   short c_nlines;
   short c_nbreaks;
   short c_first_eol;

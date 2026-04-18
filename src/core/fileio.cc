@@ -129,6 +129,7 @@ Buffer::read_chunk (ReadFileContext &rfc, xread_stream &sin)
     }
 done:
   cp->c_used = p - cp->c_text;
+  cp->c_nchars = p - cp->c_text;
   cp->c_nlines = nlines;
   rfc.r_nchars += cp->c_used;
   rfc.r_nlines += nlines;

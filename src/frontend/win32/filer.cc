@@ -3084,6 +3084,7 @@ ViewerBuffer::clean (ViewerWindow *wp)
 {
   b_nchars = 0;
   b_chunkb->c_used = 0;
+  b_chunkb->c_nchars = 0;
   b_contents.p2 = 0;
   wp->w_flags = 0;
 }

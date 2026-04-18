@@ -59,6 +59,7 @@ void
 Chunk::clear ()
 {
   c_used = 0;
+  c_nchars = 0;
   c_nlines = 0;
   c_nbreaks = 0;
   bzero (c_breaks, BREAKS_SIZE);
@@ -76,6 +77,7 @@ Buffer::alloc_chunk ()
   cp->c_prev = 0;
   cp->c_next = 0;
   cp->c_used = 0;
+  cp->c_nchars = 0;
   cp->c_nlines = -1;
   cp->c_nbreaks = -1;
   cp->c_first_eol = -1;
