@@ -527,6 +527,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/data.cc
     ${CORE_DIR}/debug.cc
     ${CORE_DIR}/encdec.cc
+    ${CORE_DIR}/eaw.cc
     ${CORE_DIR}/encoding.cc
     ${CORE_DIR}/environ.cc
     ${CORE_DIR}/eval.cc
