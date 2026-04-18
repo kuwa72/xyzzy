@@ -529,6 +529,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/encdec.cc
     ${CORE_DIR}/eaw.cc
     ${CORE_DIR}/encoding.cc
+    ${CORE_DIR}/fontmap.cc
     ${CORE_DIR}/environ.cc
     ${CORE_DIR}/eval.cc
     ${CORE_DIR}/except.cc
