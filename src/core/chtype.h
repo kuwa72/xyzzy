@@ -451,6 +451,82 @@ meta_pseudo_ctlchar_p (Char c)
           && pseudo_ctlchar_p (meta_function_to_function (c)));
 }
 
+/* ============================================================
+   旧 Char encoding <--> 新 lChar encoding の相互変換
+
+   旧 Char encoding (16bit):
+     - ASCII / UCS2 / SJIS char    : そのまま (C-a = 0x01 等の制御文字)
+     - function key / mouse         : CCF_CHAR_MIN + id (0xff00..0xff3e)
+     - function key + Shift         : 上記 | CCF_SHIFT_BIT (0x0040)
+     - function key + Ctrl          : 上記 | CCF_CTRL_BIT  (0x0080)
+     - meta + ASCII char            : CC_META (0xf800) | ascii
+     - meta + function key          : function_to_meta_function (CCF_META | id)
+     - pseudo control chars (C-! 等): CCF_CTLCHAR_MIN..MAX (0xff30..0xff38) 他
+
+   新 lChar encoding (32bit):
+     - modifier (bit 24-27) : LCMOD_SHIFT / CTRL / ALT / META
+     - kind     (bit 21-23) : LCKIND_CHAR (0) / FNKEY / MOUSE / IME
+     - payload  (bit 0-20)  : code point (kind=CHAR) or id (kind=FNKEY 等)
+
+   Phase 1 の Commit 8b で kbd.cc / keymap.cc / Lisp char を新 encoding に
+   切り替える際の橋渡しとして、本 helper を使って境界で変換する。   */
+
+inline lChar
+lc_from_ccf (Char c)
+{
+  lChar mods = 0;
+  Char base = c;
+
+  if (meta_char_p (c))
+    {
+      mods |= LCMOD_META;
+      base = meta_char_to_char (c);
+    }
+  else if (meta_function_char_p (c))
+    {
+      mods |= LCMOD_META;
+      base = meta_function_to_function (c);
+    }
+
+  if (function_char_p (base))
+    {
+      if (base & CCF_SHIFT_BIT) { mods |= LCMOD_SHIFT; base = Char (base & ~CCF_SHIFT_BIT); }
+      if (base & CCF_CTRL_BIT)  { mods |= LCMOD_CTRL;  base = Char (base & ~CCF_CTRL_BIT); }
+      return mods | LCKIND_FNKEY | lChar (base - CCF_CHAR_MIN);
+    }
+
+  /* Regular char (ASCII/SJIS/UCS2) または pseudo_ctlchar の一部 (0xff70+ 等)
+     は code point 空間に収まるので LCKIND_CHAR として渡す */
+  return mods | LCKIND_CHAR | lChar (base);
+}
+
+inline Char
+ccf_from_lc (lChar lc)
+{
+  lChar mods = LCHAR_MODS (lc);
+  lChar kind = LCHAR_KIND (lc);
+  lChar payload = LCHAR_PAYLOAD (lc);
+  Char result;
+
+  if (kind == LCKIND_FNKEY)
+    {
+      Char fn = Char (CCF_CHAR_MIN + payload);
+      if (mods & LCMOD_SHIFT) fn = Char (fn | CCF_SHIFT_BIT);
+      if (mods & LCMOD_CTRL)  fn = Char (fn | CCF_CTRL_BIT);
+      if (mods & LCMOD_META)  fn = function_to_meta_function (fn);
+      return fn;
+    }
+
+  /* LCKIND_CHAR : regular character + optional Meta */
+  result = Char (payload);
+  if (mods & LCMOD_META)
+    result = char_to_meta_char (result);
+  /* LCMOD_SHIFT / CTRL / ALT on LCKIND_CHAR は旧 encoding に表現がなく
+     欠落する。C-a は旧表現では 0x01 (ASCII control char) として呼び出し側で
+     既に処理されているため、ここでは通常通過で問題ない想定。 */
+  return result;
+}
+
 inline int
 base64_decode (int c)
 {
