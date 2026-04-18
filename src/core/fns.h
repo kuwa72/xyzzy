@@ -64,10 +64,10 @@ void init_environ ();
 void init_readtable ();
 
 /* keymap.cc */
-lisp parse_keymap (Char, lisp);
-lisp lookup_keymap (Char, lisp *, int);
+lisp parse_keymap (lChar, lisp);
+lisp lookup_keymap (lChar, lisp *, int);
 Char *lookup_command_keyseq (lisp, lisp, const lisp *, int, Char *, Char *, Char *);
-int find_in_current_keymaps (Char);
+int find_in_current_keymaps (lChar);
 
 /* data.cc */
 lisp interactive_string (lisp);
