@@ -153,6 +153,47 @@
 #define LCHAR_MOUSE 0x10000
 #define LCHAR_MENU 0x20000
 
+/* ============================================================
+   lChar bit layout (Phase 1 unicode migration)
+
+    31..28    27  26  25  24   23..21    20..0
+   +--------+---+---+---+---+---------+--------------------+
+   |  予約  |Met|Alt|Ctl|Shf|  kind   |  payload (21 bit)  |
+   +--------+---+---+---+---+---------+--------------------+
+
+   modifier (bit 24-27): Shift / Ctrl / Alt / Meta を別ビットで保持
+   予約 (bit 28-31):     Win / Super / Hyper / keyup 等の将来拡張
+   kind (bit 21-23):     0=CHAR, 1=FNKEY, 2=MOUSE, 3=IME, 4..7=予約
+   payload (bit 0-20):   kind=CHAR なら Unicode code point (U+0000..U+10FFFF)、
+                         その他 kind は各イベントの ID 空間
+
+   既存の Char ベース CCF_* や CC_META と並行稼働。Phase 1 後半で呼出箇所
+   を順次新マクロに移行し、最終的に旧定数を削除する。
+   ============================================================ */
+
+/* modifier flags (bit 24-27) */
+#define LCMOD_SHIFT  0x01000000
+#define LCMOD_CTRL   0x02000000
+#define LCMOD_ALT    0x04000000
+#define LCMOD_META   0x08000000
+#define LCMOD_MASK   0x0F000000
+
+/* kind field (bit 21-23) */
+#define LCKIND_SHIFT 21
+#define LCKIND_MASK  0x00E00000
+#define LCKIND_CHAR  (0 << LCKIND_SHIFT)
+#define LCKIND_FNKEY (1 << LCKIND_SHIFT)
+#define LCKIND_MOUSE (2 << LCKIND_SHIFT)
+#define LCKIND_IME   (3 << LCKIND_SHIFT)
+
+/* payload field (bit 0-20) */
+#define LCHAR_PAYLOAD_MASK 0x001FFFFF
+
+/* accessor macros (引数・戻値とも lChar 前提) */
+#define LCHAR_PAYLOAD(lc) ((lc) & LCHAR_PAYLOAD_MASK)
+#define LCHAR_KIND(lc)    ((lc) & LCKIND_MASK)
+#define LCHAR_MODS(lc)    ((lc) & LCMOD_MASK)
+
 #define _CTN 1
 #define _CTU 2
 #define _CTL 4
