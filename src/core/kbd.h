@@ -320,6 +320,6 @@ lChar decode_keys (WPARAM, LPARAM);
 lChar lookup_translate_table (lChar);
 lChar decode_syschars (WPARAM);
 lChar decode_chars (WPARAM);
-int char_mouse_move_p (Char);
+int char_mouse_move_p (lChar);
 
 #endif

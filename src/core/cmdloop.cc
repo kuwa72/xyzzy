@@ -24,7 +24,7 @@ public:
   void init ();
   void finish () {v_finished = 1;}
   int finished_p () const {return v_finished;}
-  lisp lookup (Char c) {return lookup_keymap (c, v_vec, v_length);}
+  lisp lookup (lChar lc) {return lookup_keymap (lc, v_vec, v_length);}
   void translate (lisp, lisp);
   void gc_mark_object (void (*)(lisp));
 };
@@ -104,11 +104,20 @@ g_map_finished_p ()
 }
 
 int
-char_mouse_move_p (Char cc)
+char_mouse_move_p (lChar lc)
 {
-  if (function_char_p (cc))
-    cc = meta_function_to_function (cc & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
-  return cc == CCF_MOUSEMOVE;
+  /* 旧 Char (CCF_MOUSEMOVE = 0xff09 系) と新 lChar (LCKEY_MOUSEMOVE) の
+     両形式に対応。cmdloop 呼び出し側が完全に新 encoding 化するまで
+     後方互換を保持 */
+  if (!(lc & ~lChar (0xFFFF)))
+    {
+      Char cc = Char (lc);
+      if (function_char_p (cc))
+        cc = meta_function_to_function (cc & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
+      return cc == CCF_MOUSEMOVE;
+    }
+  /* 新 encoding: Meta 剥がして LCKEY_MOUSEMOVE 一致判定 */
+  return (lc & ~LCMOD_META) == LCKEY_MOUSEMOVE;
 }
 
 #ifndef _WIN32
@@ -176,10 +185,10 @@ dispatch (lChar cc)
             }
           g_map.init ();
         }
-      else if (char_mouse_move_p (c))
+      else if (char_mouse_move_p (cc))
         return Qt;
 
-      command = g_map.lookup (c);
+      command = g_map.lookup (cc);
       dlog ("dispatch: lookup → command=%p (Qnil=%p)\n", (void*)command, (void*)Qnil);
       if (command && symbolp (command))
         {
@@ -241,7 +250,7 @@ run_command:
 
   if (command == Qnil)
     {
-      if (!char_mouse_move_p (CCF_MOUSEMOVE))
+      if (!char_mouse_move_p (cc))
         {
           app.status_window.puts (Ekey_not_bound, 1);
           if (xsymbol_value (Vbeep_on_warn) != Qnil)
