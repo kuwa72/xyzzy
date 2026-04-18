@@ -52,7 +52,7 @@ xbuffered_read_stream::refill ()
 }
 
 void
-sjis_to_internal_stream::refill_internal ()
+sjis_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -94,7 +94,7 @@ sjis_to_internal_stream::refill_internal ()
 }
 
 void
-fast_sjis_to_internal_stream::refill_internal ()
+fast_sjis_to_utf16_stream::refill_internal ()
 {
   const u_char *rs, *rse;
   Char *rd, *rde;
@@ -160,7 +160,7 @@ jisx0212_to_internal (int c1, int c2, int vender)
   return cc;
 }
 
-iso2022_noesc_to_internal_stream::iso2022_noesc_to_internal_stream (xinput_stream <u_char> &in,
+iso2022_noesc_to_utf16_stream::iso2022_noesc_to_utf16_stream (xinput_stream <u_char> &in,
                                                                     const u_char *g,
                                                                     int flags)
      : xbuffered_read_stream (in),
@@ -171,7 +171,7 @@ iso2022_noesc_to_internal_stream::iso2022_noesc_to_internal_stream (xinput_strea
 }
 
 void
-iso2022_noesc_to_internal_stream::to_internal (u_char ccs, int c1, int oc1)
+iso2022_noesc_to_utf16_stream::to_internal (u_char ccs, int c1, int oc1)
 {
   if (ccs_1byte_charset_p (ccs))
     put ((ccs_1byte_94_charset_p (ccs)
@@ -259,7 +259,7 @@ iso2022_noesc_to_internal_stream::to_internal (u_char ccs, int c1, int oc1)
 }
 
 void
-iso2022_noesc_to_internal_stream::refill_internal ()
+iso2022_noesc_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -298,7 +298,7 @@ iso2022_noesc_to_internal_stream::refill_internal ()
 }
 
 int
-iso2022_to_internal_stream::designate94 (u_char &g, int *cp)
+iso2022_to_utf16_stream::designate94 (u_char &g, int *cp)
 {
   int c = s_in.get ();
   switch (c)
@@ -321,7 +321,7 @@ iso2022_to_internal_stream::designate94 (u_char &g, int *cp)
 }
 
 int
-iso2022_to_internal_stream::designate96 (u_char &g, int *cp)
+iso2022_to_utf16_stream::designate96 (u_char &g, int *cp)
 {
   int c = s_in.get ();
   switch (c)
@@ -371,7 +371,7 @@ iso2022_to_internal_stream::designate96 (u_char &g, int *cp)
 }
 
 int
-iso2022_to_internal_stream::designate94n (u_char &g, int *cp)
+iso2022_to_utf16_stream::designate94n (u_char &g, int *cp)
 {
   int c = s_in.get ();
   switch (c)
@@ -419,7 +419,7 @@ iso2022_to_internal_stream::designate94n (u_char &g, int *cp)
 }
 
 void
-iso2022_to_internal_stream::refill_internal ()
+iso2022_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -625,7 +625,7 @@ iso2022_to_internal_stream::refill_internal ()
 }
 
 void
-big5_to_internal_stream::refill_internal ()
+big5_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -645,7 +645,7 @@ big5_to_internal_stream::refill_internal ()
 }
 
 void
-binary_to_internal_stream::refill_internal ()
+binary_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -656,28 +656,28 @@ binary_to_internal_stream::refill_internal ()
     }
 }
 
-utf_to_internal_stream::putw_t
-utf_to_internal_stream::per_lang_putw (int lang)
+utf_to_utf16_stream::putw_t
+utf_to_utf16_stream::per_lang_putw (int lang)
 {
   switch (lang)
     {
     default:
     case ENCODING_LANG_JP:
     case ENCODING_LANG_JP2:
-      return &utf_to_internal_stream::putw_jp;
+      return &utf_to_utf16_stream::putw_jp;
 
     case ENCODING_LANG_KR:
     case ENCODING_LANG_CN_GB:
     case ENCODING_LANG_CN_BIG5:
-      return &utf_to_internal_stream::putw_gen;
+      return &utf_to_utf16_stream::putw_gen;
 
     case ENCODING_LANG_CN:
-      return &utf_to_internal_stream::putw_cn;
+      return &utf_to_utf16_stream::putw_cn;
     }
 }
 
 void
-utf_to_internal_stream::putw_jp (ucs2_t wc)
+utf_to_utf16_stream::putw_jp (ucs2_t wc)
 {
   if (s_has_bom < 0)
     {
@@ -715,7 +715,7 @@ utf_to_internal_stream::putw_jp (ucs2_t wc)
 }
 
 void
-utf_to_internal_stream::putw_gen (ucs2_t wc)
+utf_to_utf16_stream::putw_gen (ucs2_t wc)
 {
   if (s_has_bom < 0)
     {
@@ -743,7 +743,7 @@ utf_to_internal_stream::putw_gen (ucs2_t wc)
 }
 
 void
-utf_to_internal_stream::putw_cn (ucs2_t wc)
+utf_to_utf16_stream::putw_cn (ucs2_t wc)
 {
   if (s_has_bom < 0)
     {
@@ -771,7 +771,7 @@ utf_to_internal_stream::putw_cn (ucs2_t wc)
 }
 
 inline void
-utf_to_internal_stream::putl (ucs4_t lc)
+utf_to_utf16_stream::putl (ucs4_t lc)
 {
   if (lc < 0x10000)
     putw (ucs2_t (lc));
@@ -783,7 +783,7 @@ utf_to_internal_stream::putl (ucs4_t lc)
 }
 
 void
-utf16_to_internal_stream::refill_internal_le ()
+utf16_to_utf16_stream::refill_internal_le ()
 {
   while (room () > 0)
     {
@@ -798,7 +798,7 @@ utf16_to_internal_stream::refill_internal_le ()
 }
 
 void
-utf16_to_internal_stream::refill_internal_be ()
+utf16_to_utf16_stream::refill_internal_be ()
 {
   while (room () > 0)
     {
@@ -813,7 +813,7 @@ utf16_to_internal_stream::refill_internal_be ()
 }
 
 void
-utf16unknown_to_internal_stream::refill_internal ()
+utf16unknown_to_utf16_stream::refill_internal ()
 {
   if (!s_byte_order)
     {
@@ -867,7 +867,7 @@ u_char utf8_chtab[] =
 u_char utf8_chmask[] = {0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f};
 
 void
-utf8_to_internal_stream::refill_internal ()
+utf8_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -905,9 +905,9 @@ utf8_to_internal_stream::refill_internal ()
     }
 }
 
-utf7_to_internal_stream::utf7_to_internal_stream (xinput_stream <u_char> &in,
+utf7_to_utf16_stream::utf7_to_utf16_stream (xinput_stream <u_char> &in,
                                                   int flags, int lang)
-     : utf_to_internal_stream (in, flags | ENCODING_UTF_SIGNATURE, lang),
+     : utf_to_utf16_stream (in, flags | ENCODING_UTF_SIGNATURE, lang),
        s_direct_encoding (1), s_cc (eof),
        s_imap4p (flags & UTF7_IMAP4_MAILBOX_NAME),
        s_shift_char (s_imap4p ? '&' : '+')
@@ -915,7 +915,7 @@ utf7_to_internal_stream::utf7_to_internal_stream (xinput_stream <u_char> &in,
 }
 
 int
-utf7_to_internal_stream::unicode_shifted_encoding ()
+utf7_to_utf16_stream::unicode_shifted_encoding ()
 {
   u_char buf[8];
   int nchars;
@@ -967,7 +967,7 @@ utf7_to_internal_stream::unicode_shifted_encoding ()
 }
 
 void
-utf7_to_internal_stream::refill_internal ()
+utf7_to_utf16_stream::refill_internal ()
 {
   if (!s_direct_encoding)
     goto unicode_shifted_encoding;
@@ -995,7 +995,7 @@ utf7_to_internal_stream::refill_internal ()
 }
 
 void
-utf5_to_internal_stream::refill_internal ()
+utf5_to_utf16_stream::refill_internal ()
 {
   while (1)
     {
@@ -1031,7 +1031,7 @@ utf5_to_internal_stream::refill_internal ()
 }
 
 void
-iso8859_to_internal_stream::refill_internal ()
+iso8859_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -1045,7 +1045,7 @@ iso8859_to_internal_stream::refill_internal ()
 }
 
 void
-windows_codepage_to_internal_stream::refill_internal ()
+windows_codepage_to_utf16_stream::refill_internal ()
 {
   while (room () > 0)
     {
@@ -1074,7 +1074,7 @@ xwrite_stream::puteol ()
 }
 
 int
-internal_to_sjis_stream::refill ()
+utf16_to_sjis_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -1112,7 +1112,7 @@ internal_to_sjis_stream::refill ()
 }
 
 int
-internal_to_big5_stream::refill ()
+utf16_to_big5_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -1140,7 +1140,7 @@ internal_to_big5_stream::refill ()
 }
 
 int
-internal_to_binary_stream::refill ()
+utf16_to_binary_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -1247,7 +1247,7 @@ select_vender_code_mapper (int vender)
     }
 }
 
-const internal_to_iso2022_stream::ccs_data internal_to_iso2022_stream::s_ccs_data[32] =
+const utf16_to_iso2022_stream::ccs_data utf16_to_iso2022_stream::s_ccs_data[32] =
 {
   {'B', ctype94},            // ccs_usascii
   {'I', ctype94},            // ccs_jisx0201_kana
@@ -1274,11 +1274,11 @@ const internal_to_iso2022_stream::ccs_data internal_to_iso2022_stream::s_ccs_dat
   {'H', ctype94n},           // ccs_cns11643_2
 };
 
-const char internal_to_iso2022_stream::s_inter94[] = {'(', ')', '*', '+'};
-const char internal_to_iso2022_stream::s_inter96[] = {',', '-', '.', '/'};
+const char utf16_to_iso2022_stream::s_inter94[] = {'(', ')', '*', '+'};
+const char utf16_to_iso2022_stream::s_inter96[] = {',', '-', '.', '/'};
 
 int
-internal_to_iso2022_stream::select_designation (int ccs) const
+utf16_to_iso2022_stream::select_designation (int ccs) const
 {
   if (ccs == ccs_usascii)
     return 0;
@@ -1299,7 +1299,7 @@ internal_to_iso2022_stream::select_designation (int ccs) const
   return 0;
 }
 
-internal_to_iso2022_stream::internal_to_iso2022_stream (xinput_stream <Char> &in,
+utf16_to_iso2022_stream::utf16_to_iso2022_stream (xinput_stream <Char> &in,
                                                         eol_code eol,
                                                         int flags,
                                                         const u_char *initial,
@@ -1321,7 +1321,7 @@ internal_to_iso2022_stream::internal_to_iso2022_stream (xinput_stream <Char> &in
 }
 
 void
-internal_to_iso2022_stream::designate (int n, u_char ccs)
+utf16_to_iso2022_stream::designate (int n, u_char ccs)
 {
   if (s_g[n] != ccs)
     {
@@ -1348,7 +1348,7 @@ internal_to_iso2022_stream::designate (int n, u_char ccs)
 }
 
 int
-internal_to_iso2022_stream::designate (u_char ccs)
+utf16_to_iso2022_stream::designate (u_char ccs)
 {
   int n = s_designation[ccs];
   if (s_g[n] != ccs)
@@ -1410,7 +1410,7 @@ internal_to_iso2022_stream::designate (u_char ccs)
 }
 
 int
-internal_to_iso2022_stream::refill ()
+utf16_to_iso2022_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -1592,7 +1592,7 @@ internal_to_iso2022_stream::refill ()
 }
 
 int
-internal_to_utf_stream::getw () const
+utf16_to_utf_stream::getw () const
 {
   int c = s_in.get ();
   if (c == eof)
@@ -1624,7 +1624,7 @@ internal_to_utf_stream::getw () const
 }
 
 int
-internal_to_utf16le_stream::refill ()
+utf16_to_utf16le_stream::refill ()
 {
   begin ();
 
@@ -1676,7 +1676,7 @@ internal_to_utf16le_stream::refill ()
 }
 
 int
-internal_to_utf16be_stream::refill ()
+utf16_to_utf16be_stream::refill ()
 {
   begin ();
 
@@ -1728,7 +1728,7 @@ internal_to_utf16be_stream::refill ()
 }
 
 int
-internal_to_utf8_stream::refill ()
+utf16_to_utf8_stream::refill ()
 {
   begin ();
 
@@ -1794,9 +1794,9 @@ static const char b64chars[] =
 static const char imap4_b64chars[] =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
 
-internal_to_utf7_stream::internal_to_utf7_stream (xinput_stream <Char> &in,
+utf16_to_utf7_stream::utf16_to_utf7_stream (xinput_stream <Char> &in,
                                                   eol_code eol, int flags)
-     : internal_to_utf_stream (in, eol, flags & ~ENCODING_UTF_SIGNATURE),
+     : utf16_to_utf_stream (in, eol, flags & ~ENCODING_UTF_SIGNATURE),
        s_nb (0),
        s_nshift (0),
        s_accept (flags),
@@ -1810,7 +1810,7 @@ internal_to_utf7_stream::internal_to_utf7_stream (xinput_stream <Char> &in,
 }
 
 void
-internal_to_utf7_stream::encode_b64 ()
+utf16_to_utf7_stream::encode_b64 ()
 {
   int n = s_nb - s_nb % 3;
   const u_char *b, *const be = s_b + n;
@@ -1839,7 +1839,7 @@ internal_to_utf7_stream::encode_b64 ()
 }
 
 int
-internal_to_utf7_stream::refill ()
+utf16_to_utf7_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -1898,7 +1898,7 @@ internal_to_utf7_stream::refill ()
 }
 
 int
-internal_to_utf5_stream::refill ()
+utf16_to_utf5_stream::refill ()
 {
   begin ();
 
@@ -1948,7 +1948,7 @@ internal_to_utf5_stream::refill ()
 }
 
 const wc2int_hash &
-internal_to_iso8859_stream::charset_hash (int ccs)
+utf16_to_iso8859_stream::charset_hash (int ccs)
 {
   switch (ccs)
     {
@@ -1976,7 +1976,7 @@ internal_to_iso8859_stream::charset_hash (int ccs)
 }
 
 int
-internal_to_iso8859_stream::refill ()
+utf16_to_iso8859_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -2008,7 +2008,7 @@ internal_to_iso8859_stream::refill ()
 }
 
 int
-internal_to_windows_codepage_stream::refill ()
+utf16_to_windows_codepage_stream::refill ()
 {
   begin ();
   while (room () > 0)
@@ -2518,34 +2518,34 @@ encoding_input_stream_helper::encoding_input_stream_helper (lisp encoding,
       assert (0);
     case encoding_sjis:
       if (fast_p)
-        s_stream = new (&s_xbuf) fast_sjis_to_internal_stream (in);
+        s_stream = new (&s_xbuf) fast_sjis_to_utf16_stream (in);
       else
-        s_stream = new (&s_xbuf) sjis_to_internal_stream (in);
+        s_stream = new (&s_xbuf) sjis_to_utf16_stream (in);
       break;
 
     case encoding_big5:
-      s_stream = new (&s_xbuf) big5_to_internal_stream (in);
+      s_stream = new (&s_xbuf) big5_to_utf16_stream (in);
       break;
 
     case encoding_binary:
-      s_stream = new (&s_xbuf) binary_to_internal_stream (in);
+      s_stream = new (&s_xbuf) binary_to_utf16_stream (in);
       break;
 
     case encoding_iso2022:
       s_stream = new (&s_xbuf)
-        iso2022_to_internal_stream (in, xchar_encoding_iso_initial (encoding),
+        iso2022_to_utf16_stream (in, xchar_encoding_iso_initial (encoding),
                                     xchar_encoding_iso_flags (encoding));
       break;
 
     case encoding_iso2022_noesc:
       s_stream = new (&s_xbuf)
-        iso2022_noesc_to_internal_stream (in, xchar_encoding_iso_initial (encoding),
+        iso2022_noesc_to_utf16_stream (in, xchar_encoding_iso_initial (encoding),
                                           xchar_encoding_iso_flags (encoding));
       break;
 
     case encoding_iso8859:
       s_stream = new (&s_xbuf)
-        iso8859_to_internal_stream (in, xchar_encoding_iso8859_charset (encoding));
+        iso8859_to_utf16_stream (in, xchar_encoding_iso8859_charset (encoding));
       break;
 
     case encoding_windows_codepage:
@@ -2553,97 +2553,97 @@ encoding_input_stream_helper::encoding_input_stream_helper (lisp encoding,
         {
         case CP_JAPANESE:
           if (fast_p)
-            s_stream = new (&s_xbuf) fast_sjis_to_internal_stream (in);
+            s_stream = new (&s_xbuf) fast_sjis_to_utf16_stream (in);
           else
-            s_stream = new (&s_xbuf) sjis_to_internal_stream (in);
+            s_stream = new (&s_xbuf) sjis_to_utf16_stream (in);
           break;
 
         case CP_KOREAN:
-          s_stream = new (&s_xbuf) euckr_to_internal_stream (in);
+          s_stream = new (&s_xbuf) euckr_to_utf16_stream (in);
           break;
 
         case CP_CN_TRADITIONAL:
-          s_stream = new (&s_xbuf) big5_to_internal_stream (in);
+          s_stream = new (&s_xbuf) big5_to_utf16_stream (in);
           break;
 
         case CP_CN_SIMPLIFIED:
-          s_stream = new (&s_xbuf) eucgb_to_internal_stream (in);
+          s_stream = new (&s_xbuf) eucgb_to_utf16_stream (in);
           break;
 
         default:
           assert (0);
         case CP_LATIN1:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_latin1_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_latin1_to_internal);
           break;
 
         case CP_LATIN2:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_latin2_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_latin2_to_internal);
           break;
 
         case CP_CYRILLIC:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_cyrillic_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_cyrillic_to_internal);
           break;
 
         case CP_GREEK:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_greek_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_greek_to_internal);
           break;
 
         case CP_TURKISH:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_turkish_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_turkish_to_internal);
           break;
 
         case CP_BALTIC:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, windows_baltic_to_internal);
+            windows_codepage_to_utf16_stream (in, windows_baltic_to_internal);
           break;
 
         case CP_KOI8R:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, koi8r_to_internal);
+            windows_codepage_to_utf16_stream (in, koi8r_to_internal);
           break;
 
         case CP_PSEUDO_KOI8U:
           s_stream = new (&s_xbuf)
-            windows_codepage_to_internal_stream (in, koi8u_to_internal);
+            windows_codepage_to_utf16_stream (in, koi8u_to_internal);
           break;
         }
       break;
 
     case encoding_utf5:
       s_stream = new (&s_xbuf)
-        utf5_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+        utf5_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                  xchar_encoding_utf_cjk (encoding));
       break;
 
     case encoding_utf7:
       s_stream = new (&s_xbuf)
-        utf7_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+        utf7_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                  xchar_encoding_utf_cjk (encoding));
       break;
 
     case encoding_utf8:
       s_stream = new (&s_xbuf)
-        utf8_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+        utf8_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                  xchar_encoding_utf_cjk (encoding));
       break;
 
     case encoding_utf16:
       if (xchar_encoding_utf_flags (encoding) & ENCODING_UTF_BE)
         s_stream = new (&s_xbuf)
-          utf16be_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+          utf16be_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                       xchar_encoding_utf_cjk (encoding));
       else if (xchar_encoding_utf_flags (encoding) & ENCODING_UTF_LE)
         s_stream = new (&s_xbuf)
-          utf16le_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+          utf16le_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                       xchar_encoding_utf_cjk (encoding));
       else
         s_stream = new (&s_xbuf)
-          utf16unknown_to_internal_stream (in, xchar_encoding_utf_flags (encoding),
+          utf16unknown_to_utf16_stream (in, xchar_encoding_utf_flags (encoding),
                                            xchar_encoding_utf_cjk (encoding),
                                            s_byte_order);
       break;
@@ -2659,21 +2659,21 @@ encoding_output_stream_helper::encoding_output_stream_helper (lisp encoding, xin
     default:
       assert (0);
     case encoding_sjis:
-      s_stream = new (&s_xbuf) internal_to_sjis_stream (in, eol);
+      s_stream = new (&s_xbuf) utf16_to_sjis_stream (in, eol);
       break;
 
     case encoding_big5:
-      s_stream = new (&s_xbuf) internal_to_big5_stream (in, eol);
+      s_stream = new (&s_xbuf) utf16_to_big5_stream (in, eol);
       break;
 
     case encoding_binary:
-      s_stream = new (&s_xbuf) internal_to_binary_stream (in, eol);
+      s_stream = new (&s_xbuf) utf16_to_binary_stream (in, eol);
       break;
 
     case encoding_iso2022:
     case encoding_iso2022_noesc:
       s_stream = new (&s_xbuf)
-        internal_to_iso2022_stream (in, eol,
+        utf16_to_iso2022_stream (in, eol,
                                     xchar_encoding_iso_flags (encoding),
                                     xchar_encoding_iso_initial (encoding),
                                     xchar_encoding_iso_designatable (encoding),
@@ -2682,85 +2682,85 @@ encoding_output_stream_helper::encoding_output_stream_helper (lisp encoding, xin
 
     case encoding_iso8859:
       s_stream = new (&s_xbuf)
-        internal_to_iso8859_stream (in, eol, xchar_encoding_iso8859_charset (encoding));
+        utf16_to_iso8859_stream (in, eol, xchar_encoding_iso8859_charset (encoding));
       break;
 
     case encoding_windows_codepage:
       switch (xchar_encoding_windows_codepage (encoding))
         {
         case CP_JAPANESE:
-          s_stream = new (&s_xbuf) internal_to_sjis_stream (in, eol);
+          s_stream = new (&s_xbuf) utf16_to_sjis_stream (in, eol);
           break;
 
         case CP_KOREAN:
-          s_stream = new (&s_xbuf) internal_to_euckr_stream (in, eol);
+          s_stream = new (&s_xbuf) utf16_to_euckr_stream (in, eol);
           break;
 
         case CP_CN_TRADITIONAL:
-          s_stream = new (&s_xbuf) internal_to_big5_stream (in, eol);
+          s_stream = new (&s_xbuf) utf16_to_big5_stream (in, eol);
           break;
 
         case CP_CN_SIMPLIFIED:
-          s_stream = new (&s_xbuf) internal_to_eucgb_stream (in, eol);
+          s_stream = new (&s_xbuf) utf16_to_eucgb_stream (in, eol);
           break;
 
         default:
           assert (0);
         case CP_LATIN1:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_latin1_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_latin1_hash);
           break;
 
         case CP_LATIN2:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_latin2_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_latin2_hash);
           break;
 
         case CP_CYRILLIC:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_cyrillic_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_cyrillic_hash);
           break;
 
         case CP_GREEK:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_greek_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_greek_hash);
           break;
 
         case CP_TURKISH:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_turkish_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_turkish_hash);
           break;
 
         case CP_BALTIC:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_windows_baltic_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_windows_baltic_hash);
           break;
 
         case CP_KOI8R:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_koi8r_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_koi8r_hash);
           break;
 
         case CP_PSEUDO_KOI8U:
           s_stream = new (&s_xbuf)
-            internal_to_windows_codepage_stream (in, eol, wc2int_koi8u_hash);
+            utf16_to_windows_codepage_stream (in, eol, wc2int_koi8u_hash);
           break;
         }
       break;
 
     case encoding_utf5:
       s_stream = new (&s_xbuf)
-        internal_to_utf5_stream (in, eol, xchar_encoding_utf_flags (encoding));
+        utf16_to_utf5_stream (in, eol, xchar_encoding_utf_flags (encoding));
       break;
 
     case encoding_utf7:
       s_stream = new (&s_xbuf)
-        internal_to_utf7_stream (in, eol, xchar_encoding_utf_flags (encoding));
+        utf16_to_utf7_stream (in, eol, xchar_encoding_utf_flags (encoding));
       break;
 
     case encoding_utf8:
       s_stream = new (&s_xbuf)
-        internal_to_utf8_stream (in, eol, xchar_encoding_utf_flags (encoding));
+        utf16_to_utf8_stream (in, eol, xchar_encoding_utf_flags (encoding));
       break;
 
     case encoding_utf16:
@@ -2774,12 +2774,12 @@ encoding_output_stream_helper::encoding_output_stream_helper (lisp encoding, xin
 
     utf16be:
       s_stream = new (&s_xbuf)
-        internal_to_utf16be_stream (in, eol, xchar_encoding_utf_flags (encoding));
+        utf16_to_utf16be_stream (in, eol, xchar_encoding_utf_flags (encoding));
       break;
 
     utf16le:
       s_stream = new (&s_xbuf)
-        internal_to_utf16le_stream (in, eol, xchar_encoding_utf_flags (encoding));
+        utf16_to_utf16le_stream (in, eol, xchar_encoding_utf_flags (encoding));
       break;
     }
 }

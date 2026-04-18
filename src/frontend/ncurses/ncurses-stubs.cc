@@ -3810,7 +3810,7 @@ base64_decode (const std::string &in)
 
 // Convert internal Char string to UTF-8
 static std::string
-internal_to_utf8 (const Char *s, int len)
+utf16_to_utf8 (const Char *s, int len)
 {
   std::string out;
   for (int i = 0; i < len; i++)
@@ -3947,7 +3947,7 @@ lisp Fcopy_to_clipboard (lisp string)
   if (!xstring_length (string))
     return Qnil;
 
-  std::string utf8 = internal_to_utf8 (xstring_contents (string),
+  std::string utf8 = utf16_to_utf8 (xstring_contents (string),
                                         xstring_length (string));
   g_clipboard_buf = utf8;
   osc52_copy (utf8);

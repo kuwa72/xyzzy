@@ -173,24 +173,24 @@ public:
     }
 };
 
-class sjis_to_internal_stream: public xbuffered_read_stream
+class sjis_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  sjis_to_internal_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
+  sjis_to_utf16_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
 };
 
-class fast_sjis_to_internal_stream: public xbuffered_read_stream
+class fast_sjis_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  fast_sjis_to_internal_stream (xinput_stream <u_char> &in)
+  fast_sjis_to_utf16_stream (xinput_stream <u_char> &in)
        : xbuffered_read_stream (in) {}
 };
 
-class iso2022_noesc_to_internal_stream: public xbuffered_read_stream
+class iso2022_noesc_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   u_char s_g[4];
@@ -198,10 +198,10 @@ protected:
   void to_internal (u_char, int, int);
   virtual void refill_internal ();
 public:
-  iso2022_noesc_to_internal_stream (xinput_stream <u_char> &, const u_char *, int);
+  iso2022_noesc_to_utf16_stream (xinput_stream <u_char> &, const u_char *, int);
 };
 
-class iso2022_to_internal_stream: public iso2022_noesc_to_internal_stream
+class iso2022_to_utf16_stream: public iso2022_noesc_to_utf16_stream
 {
 protected:
   u_char *s_gl, *s_gr;
@@ -213,46 +213,46 @@ protected:
   int designate94n (u_char &, int *);
 
 public:
-  iso2022_to_internal_stream (xinput_stream <u_char> &in, const u_char *g,
+  iso2022_to_utf16_stream (xinput_stream <u_char> &in, const u_char *g,
                               int flags)
-       : iso2022_noesc_to_internal_stream (in, g, flags),
+       : iso2022_noesc_to_utf16_stream (in, g, flags),
          s_gl (&s_g[0]), s_gr (&s_g[1]), s_ss (0) {}
 };
 
-class euckr_to_internal_stream: public iso2022_noesc_to_internal_stream
+class euckr_to_utf16_stream: public iso2022_noesc_to_utf16_stream
 {
 public:
-  euckr_to_internal_stream (xinput_stream <u_char> &in)
-       : iso2022_noesc_to_internal_stream (in, escseq_euckr, 0) {}
+  euckr_to_utf16_stream (xinput_stream <u_char> &in)
+       : iso2022_noesc_to_utf16_stream (in, escseq_euckr, 0) {}
 };
 
-class eucgb_to_internal_stream: public iso2022_to_internal_stream
+class eucgb_to_utf16_stream: public iso2022_to_utf16_stream
 {
 public:
-  eucgb_to_internal_stream (xinput_stream <u_char> &in)
-       : iso2022_to_internal_stream (in, escseq_eucgb, 0) {}
+  eucgb_to_utf16_stream (xinput_stream <u_char> &in)
+       : iso2022_to_utf16_stream (in, escseq_eucgb, 0) {}
 };
 
-class big5_to_internal_stream: public xbuffered_read_stream
+class big5_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  big5_to_internal_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
+  big5_to_utf16_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
 };
 
-class binary_to_internal_stream: public xbuffered_read_stream
+class binary_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  binary_to_internal_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
+  binary_to_utf16_stream (xinput_stream <u_char> &in) : xbuffered_read_stream (in) {}
 };
 
-class utf_to_internal_stream: public xbuffered_read_stream
+class utf_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
-  typedef void (utf_to_internal_stream::*putw_t)(ucs2_t);
+  typedef void (utf_to_utf16_stream::*putw_t)(ucs2_t);
   const int s_flags;
   int s_has_bom;
   const int s_to_full_width;
@@ -265,7 +265,7 @@ protected:
   void putw (ucs2_t c) {(this->*s_putw)(c);}
   static putw_t per_lang_putw (int);
 public:
-  utf_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
+  utf_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
        : xbuffered_read_stream (in), s_flags (flags),
          s_has_bom (flags & ENCODING_UTF_SIGNATURE ? -1 : 0),
          s_to_full_width (xsymbol_value (Vunicode_to_half_width) == Qnil),
@@ -274,58 +274,58 @@ public:
   int has_bom_p () const {return s_has_bom > 0;}
 };
 
-class utf16_to_internal_stream: public utf_to_internal_stream
+class utf16_to_utf16_stream: public utf_to_utf16_stream
 {
 protected:
   void refill_internal_le ();
   void refill_internal_be ();
   virtual void refill_internal () = 0;
 public:
-  utf16_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
-       : utf_to_internal_stream (in, flags, lang) {}
+  utf16_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
+       : utf_to_utf16_stream (in, flags, lang) {}
 };
 
-class utf16le_to_internal_stream: public utf16_to_internal_stream
+class utf16le_to_utf16_stream: public utf16_to_utf16_stream
 {
 protected:
   virtual void refill_internal () {refill_internal_le ();}
 public:
-  utf16le_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
-       : utf16_to_internal_stream (in, flags, lang) {}
+  utf16le_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
+       : utf16_to_utf16_stream (in, flags, lang) {}
 };
 
-class utf16be_to_internal_stream: public utf16_to_internal_stream
+class utf16be_to_utf16_stream: public utf16_to_utf16_stream
 {
 protected:
   virtual void refill_internal () {refill_internal_be ();}
 public:
-  utf16be_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
-       : utf16_to_internal_stream (in, flags, lang) {}
+  utf16be_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
+       : utf16_to_utf16_stream (in, flags, lang) {}
 };
 
-class utf16unknown_to_internal_stream: public utf16_to_internal_stream
+class utf16unknown_to_utf16_stream: public utf16_to_utf16_stream
 {
 protected:
   int &s_byte_order;
   virtual void refill_internal ();
 public:
-  utf16unknown_to_internal_stream (xinput_stream <u_char> &in,
+  utf16unknown_to_utf16_stream (xinput_stream <u_char> &in,
                                    int flags, int lang, int &byte_order)
-       : utf16_to_internal_stream (in, flags, lang),
+       : utf16_to_utf16_stream (in, flags, lang),
          s_byte_order (byte_order)
     {s_byte_order = 0;}
 };
 
-class utf8_to_internal_stream: public utf_to_internal_stream
+class utf8_to_utf16_stream: public utf_to_utf16_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  utf8_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
-       : utf_to_internal_stream (in, flags, lang) {}
+  utf8_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
+       : utf_to_utf16_stream (in, flags, lang) {}
 };
 
-class utf7_to_internal_stream: public utf_to_internal_stream
+class utf7_to_utf16_stream: public utf_to_utf16_stream
 {
 protected:
   int s_direct_encoding;
@@ -337,35 +337,35 @@ protected:
   int unicode_shifted_encoding ();
   virtual void refill_internal ();
 public:
-  utf7_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang);
+  utf7_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang);
 };
 
-class utf5_to_internal_stream: public utf_to_internal_stream
+class utf5_to_utf16_stream: public utf_to_utf16_stream
 {
 protected:
   virtual void refill_internal ();
 public:
-  utf5_to_internal_stream (xinput_stream <u_char> &in, int flags, int lang)
-       : utf_to_internal_stream (in, flags, lang) {}
+  utf5_to_utf16_stream (xinput_stream <u_char> &in, int flags, int lang)
+       : utf_to_utf16_stream (in, flags, lang) {}
 };
 
-class iso8859_to_internal_stream: public xbuffered_read_stream
+class iso8859_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   const int s_charset;
   virtual void refill_internal ();
 public:
-  iso8859_to_internal_stream (xinput_stream <u_char> &in, int ccs)
+  iso8859_to_utf16_stream (xinput_stream <u_char> &in, int ccs)
        : xbuffered_read_stream (in), s_charset (ccs << 7) {}
 };
 
-class windows_codepage_to_internal_stream: public xbuffered_read_stream
+class windows_codepage_to_utf16_stream: public xbuffered_read_stream
 {
 protected:
   const Char *const s_translate;
   virtual void refill_internal ();
 public:
-  windows_codepage_to_internal_stream (xinput_stream <u_char> &in, const Char *translate)
+  windows_codepage_to_utf16_stream (xinput_stream <u_char> &in, const Char *translate)
        : xbuffered_read_stream (in), s_translate (translate) {}
 };
 
@@ -384,34 +384,34 @@ public:
   long nlines () const {return s_nlines;}
 };
 
-class internal_to_sjis_stream: public xwrite_stream
+class utf16_to_sjis_stream: public xwrite_stream
 {
 protected:
   virtual int refill ();
 public:
-  internal_to_sjis_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_sjis_stream (xinput_stream <Char> &in, eol_code eol)
        : xwrite_stream (in, eol) {}
 };
 
-class internal_to_big5_stream: public xwrite_stream
+class utf16_to_big5_stream: public xwrite_stream
 {
 protected:
   virtual int refill ();
 public:
-  internal_to_big5_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_big5_stream (xinput_stream <Char> &in, eol_code eol)
        : xwrite_stream (in, eol) {init_wc2big5_table ();}
 };
 
-class internal_to_binary_stream: public xwrite_stream
+class utf16_to_binary_stream: public xwrite_stream
 {
 protected:
   virtual int refill ();
 public:
-  internal_to_binary_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_binary_stream (xinput_stream <Char> &in, eol_code eol)
        : xwrite_stream (in, eol) {}
 };
 
-class internal_to_iso2022_stream: public xwrite_stream
+class utf16_to_iso2022_stream: public xwrite_stream
 {
 protected:
   virtual int refill ();
@@ -441,75 +441,75 @@ protected:
   int designate (u_char);
   int select_designation (int) const;
 public:
-  internal_to_iso2022_stream (xinput_stream <Char> &, eol_code, int, const u_char *,
+  utf16_to_iso2022_stream (xinput_stream <Char> &, eol_code, int, const u_char *,
                               const u_int *, int);
 };
 
-class internal_to_euckr_stream: public internal_to_iso2022_stream
+class utf16_to_euckr_stream: public utf16_to_iso2022_stream
 {
 public:
-  internal_to_euckr_stream (xinput_stream <Char> &in, eol_code eol)
-       : internal_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
+  utf16_to_euckr_stream (xinput_stream <Char> &in, eol_code eol)
+       : utf16_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
                                                | ENCODING_ISO_ASCII_CTRL
                                                | ENCODING_ISO_SHORT_FORM),
                                      escseq_euckr, designatable_any,
                                      ENCODING_LANG_KR) {}
 };
 
-class internal_to_eucgb_stream: public internal_to_iso2022_stream
+class utf16_to_eucgb_stream: public utf16_to_iso2022_stream
 {
 public:
-  internal_to_eucgb_stream (xinput_stream <Char> &in, eol_code eol)
-       : internal_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
+  utf16_to_eucgb_stream (xinput_stream <Char> &in, eol_code eol)
+       : utf16_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
                                                | ENCODING_ISO_ASCII_CTRL
                                                | ENCODING_ISO_SHORT_FORM),
                                      escseq_eucgb, designatable_any,
                                      ENCODING_LANG_CN_GB) {}
 };
 
-class internal_to_utf_stream: public xwrite_stream
+class utf16_to_utf_stream: public xwrite_stream
 {
 protected:
   const int s_flags;
-  internal_to_utf_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf_stream (xinput_stream <Char> &in, eol_code eol, int flags)
        : xwrite_stream (in, eol), s_flags (flags) {}
   int getw () const;
 };
 
-class internal_to_utf16le_stream: public internal_to_utf_stream
+class utf16_to_utf16le_stream: public utf16_to_utf_stream
 {
 protected:
   int s_bom;
   virtual int refill ();
 public:
-  internal_to_utf16le_stream (xinput_stream <Char> &in, eol_code eol, int flags)
-       : internal_to_utf_stream (in, eol, flags),
+  utf16_to_utf16le_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+       : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
 
-class internal_to_utf16be_stream: public internal_to_utf_stream
+class utf16_to_utf16be_stream: public utf16_to_utf_stream
 {
 protected:
   int s_bom;
   virtual int refill ();
 public:
-  internal_to_utf16be_stream (xinput_stream <Char> &in, eol_code eol, int flags)
-       : internal_to_utf_stream (in, eol, flags),
+  utf16_to_utf16be_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+       : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
 
-class internal_to_utf8_stream: public internal_to_utf_stream
+class utf16_to_utf8_stream: public utf16_to_utf_stream
 {
 protected:
   int s_bom;
   virtual int refill ();
 public:
-  internal_to_utf8_stream (xinput_stream <Char> &in, eol_code eol, int flags)
-       : internal_to_utf_stream (in, eol, flags),
+  utf16_to_utf8_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+       : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
 
-class internal_to_utf7_stream: public internal_to_utf_stream
+class utf16_to_utf7_stream: public utf16_to_utf_stream
 {
 protected:
   u_char s_b[6];
@@ -523,19 +523,19 @@ protected:
   virtual int refill ();
   void encode_b64 ();
 public:
-  internal_to_utf7_stream (xinput_stream <Char> &in, eol_code eol, int flags);
+  utf16_to_utf7_stream (xinput_stream <Char> &in, eol_code eol, int flags);
 };
 
-class internal_to_utf5_stream: public internal_to_utf_stream
+class utf16_to_utf5_stream: public utf16_to_utf_stream
 {
 protected:
   virtual int refill ();
 public:
-  internal_to_utf5_stream (xinput_stream <Char> &in, eol_code eol, int flags)
-       : internal_to_utf_stream (in, eol, flags) {}
+  utf16_to_utf5_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+       : utf16_to_utf_stream (in, eol, flags) {}
 };
 
-class internal_to_iso8859_stream: public xwrite_stream
+class utf16_to_iso8859_stream: public xwrite_stream
 {
 protected:
   int s_charset;
@@ -543,18 +543,18 @@ protected:
   virtual int refill ();
   static const wc2int_hash &charset_hash (int);
 public:
-  internal_to_iso8859_stream (xinput_stream <Char> &in, eol_code eol, int charset)
+  utf16_to_iso8859_stream (xinput_stream <Char> &in, eol_code eol, int charset)
        : xwrite_stream (in, eol), s_charset (charset),
          s_hash (charset_hash (charset)) {}
 };
 
-class internal_to_windows_codepage_stream: public xwrite_stream
+class utf16_to_windows_codepage_stream: public xwrite_stream
 {
 protected:
   const wc2int_hash &s_hash;
   virtual int refill ();
 public:
-  internal_to_windows_codepage_stream (xinput_stream <Char> &in, eol_code eol, const wc2int_hash &hash)
+  utf16_to_windows_codepage_stream (xinput_stream <Char> &in, eol_code eol, const wc2int_hash &hash)
        : xwrite_stream (in, eol), s_hash (hash) {}
 };
 
@@ -708,24 +708,24 @@ class encoding_input_stream_helper
 {
   union
     {
-      XBUFDEF (sjis_to_internal_stream);
-      XBUFDEF (fast_sjis_to_internal_stream);
-      XBUFDEF (big5_to_internal_stream);
-      XBUFDEF (binary_to_internal_stream);
-      XBUFDEF (iso2022_to_internal_stream);
-      XBUFDEF (iso2022_noesc_to_internal_stream);
-      XBUFDEF (iso8859_to_internal_stream);
-      XBUFDEF (euckr_to_internal_stream);
-      XBUFDEF (eucgb_to_internal_stream);
-      XBUFDEF (windows_codepage_to_internal_stream);
-      XBUFDEF (utf5_to_internal_stream);
-      XBUFDEF (utf7_to_internal_stream);
-      XBUFDEF (utf8_to_internal_stream);
-      XBUFDEF (utf16unknown_to_internal_stream);
-      XBUFDEF (utf16le_to_internal_stream);
-      XBUFDEF (utf16be_to_internal_stream);
-      XBUFDEF (utf_to_internal_stream);
-      XBUFDEF (utf16_to_internal_stream);
+      XBUFDEF (sjis_to_utf16_stream);
+      XBUFDEF (fast_sjis_to_utf16_stream);
+      XBUFDEF (big5_to_utf16_stream);
+      XBUFDEF (binary_to_utf16_stream);
+      XBUFDEF (iso2022_to_utf16_stream);
+      XBUFDEF (iso2022_noesc_to_utf16_stream);
+      XBUFDEF (iso8859_to_utf16_stream);
+      XBUFDEF (euckr_to_utf16_stream);
+      XBUFDEF (eucgb_to_utf16_stream);
+      XBUFDEF (windows_codepage_to_utf16_stream);
+      XBUFDEF (utf5_to_utf16_stream);
+      XBUFDEF (utf7_to_utf16_stream);
+      XBUFDEF (utf8_to_utf16_stream);
+      XBUFDEF (utf16unknown_to_utf16_stream);
+      XBUFDEF (utf16le_to_utf16_stream);
+      XBUFDEF (utf16be_to_utf16_stream);
+      XBUFDEF (utf_to_utf16_stream);
+      XBUFDEF (utf16_to_utf16_stream);
     } s_xbuf;
   xread_stream *s_stream;
   int s_byte_order;
@@ -741,20 +741,20 @@ class encoding_output_stream_helper
 {
   union
     {
-      XBUFDEF (internal_to_sjis_stream);
-      XBUFDEF (internal_to_big5_stream);
-      XBUFDEF (internal_to_binary_stream);
-      XBUFDEF (internal_to_iso2022_stream);
-      XBUFDEF (internal_to_euckr_stream);
-      XBUFDEF (internal_to_eucgb_stream);
-      XBUFDEF (internal_to_utf_stream);
-      XBUFDEF (internal_to_utf16le_stream);
-      XBUFDEF (internal_to_utf16be_stream);
-      XBUFDEF (internal_to_utf8_stream);
-      XBUFDEF (internal_to_utf7_stream);
-      XBUFDEF (internal_to_utf5_stream);
-      XBUFDEF (internal_to_iso8859_stream);
-      XBUFDEF (internal_to_windows_codepage_stream);
+      XBUFDEF (utf16_to_sjis_stream);
+      XBUFDEF (utf16_to_big5_stream);
+      XBUFDEF (utf16_to_binary_stream);
+      XBUFDEF (utf16_to_iso2022_stream);
+      XBUFDEF (utf16_to_euckr_stream);
+      XBUFDEF (utf16_to_eucgb_stream);
+      XBUFDEF (utf16_to_utf_stream);
+      XBUFDEF (utf16_to_utf16le_stream);
+      XBUFDEF (utf16_to_utf16be_stream);
+      XBUFDEF (utf16_to_utf8_stream);
+      XBUFDEF (utf16_to_utf7_stream);
+      XBUFDEF (utf16_to_utf5_stream);
+      XBUFDEF (utf16_to_iso8859_stream);
+      XBUFDEF (utf16_to_windows_codepage_stream);
     } s_xbuf;
   xwrite_stream *s_stream;
 public:
