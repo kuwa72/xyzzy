@@ -211,36 +211,32 @@ make_cf_text (CLIPBOARDTEXT &clp, lisp string, lisp encoding)
 static int
 make_cf_wtext (CLIPBOARDTEXT &clp, lisp string)
 {
+  /* 5b-6: Phase 2 で buffer Char は UTF-16 code unit (ucs2_t と同型)。
+     CF_UNICODETEXT も UTF-16 なので、\n → \r\n の挿入だけして memcpy
+     相当の write で十分。旧 i2w() / utf16_undef_pair 機構 (Phase 1
+     internal encoding 用) は撤廃。surrogate pair も buffer 上の 2 つの
+     Char をそのまま 2 wchar として書き出すだけで Windows 側に正しく
+     伝わる。 */
   const Char *s = xstring_contents (string);
   const Char *const se = s + xstring_length (string);
 
-  int extra;
-  for (extra = 0; s < se; s++)
-    if (*s == '\n')
+  int extra = 0;
+  for (const Char *p = s; p < se; p++)
+    if (*p == '\n')
       extra++;
 
   clp.fmt = CF_UNICODETEXT;
-  ucs2_t *b = (ucs2_t *)galloc (clp, (xstring_length (string) + extra + 1) * sizeof *b);
+  ucs2_t *b = (ucs2_t *) galloc (clp,
+                                 (xstring_length (string) + extra + 1)
+                                 * sizeof *b);
   if (!b)
     return 0;
 
-  for (s = xstring_contents (string); s < se; s++)
+  for (; s < se; s++)
     {
       if (*s == '\n')
         *b++ = '\r';
-      ucs2_t c = i2w (*s);
-      if (c == ucs2_t (-1))
-        {
-          if (utf16_undef_char_high_p (*s) && s < se - 1
-              && utf16_undef_char_low_p (s[1]))
-            {
-              c = utf16_undef_pair_to_ucs2 (*s, s[1]);
-              s++;
-            }
-          else
-            c = DEFCHAR;
-        }
-      *b++ = c;
+      *b++ = (ucs2_t) *s;
     }
   *b = 0;
 
@@ -439,123 +435,37 @@ eof:
 static int
 count_cf_wtext_length (const ucs2_t *string)
 {
-  int l = 0;
-  const ucs2_t *s;
-  for (s = string; *s; s++)
-    if (*s == '\r')
-      {
-        if (s[1] == '\n')
-          {
-            l--;
-            s++;
-          }
-      }
-    else if (w2i (*s) == Char (-1))
-      l++;
-  return s - string + l;
+  /* 5b-6: UTF-16 → UTF-16。\r\n を \n に折り畳むので、その分だけ詰む。
+     w2i() / undef pair の長さ調整は不要 (Phase 2 buffer は UTF-16)。 */
+  int n = 0;
+  for (const ucs2_t *s = string; *s; s++)
+    {
+      if (*s == '\r' && s[1] == '\n')
+        continue;          /* CR を 1 文字落とす */
+      n++;
+    }
+  return n;
 }
 
 static int
-make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int lang)
+make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int /*lang*/)
 {
+  /* 5b-6: clipboard CF_UNICODETEXT (UTF-16) を Phase 2 buffer (UTF-16
+     Char 列) にコピー。\r\n → \n の正規化のみ。lang による translate
+     table (旧 internal encoding 向け) は撤廃。 */
   int l = count_cf_wtext_length (s);
-  Char *b = (Char *)malloc (l * sizeof *b);
+  Char *b = (Char *) malloc (l * sizeof *b);
   if (!b)
     return 0;
   xstring_contents (lstring) = b;
   xstring_length (lstring) = l;
 
-#ifdef UNICODE
   for (; *s; s++)
-    if (*s != '\r' || s[1] != '\n')
-      {
-        Char cc = w2i (*s);
-        if (cc == Char (-1))
-          {
-            *b++ = utf16_ucs2_to_undef_pair_high (*s);
-            *b++ = utf16_ucs2_to_undef_pair_low (*s);
-          }
-        else
-          *b++ = cc;
-      }
-#else
-  const Char *const translate = cjk_translate_table (lang);
-
-  switch (lang)
     {
-    case ENCODING_LANG_JP:
-    case ENCODING_LANG_JP2:
-    default:
-      {
-        int to_half = xsymbol_value (Vunicode_to_half_width) != Qnil;
-        for (; *s; s++)
-          if (*s != '\r' || s[1] != '\n')
-            {
-              Char cc;
-              if (to_half
-                  || (cc = wc2cp932 (*s)) == Char (-1)
-                  || ccs_1byte_94_charset_p (code_charset (cc)))
-                cc = w2i (*s);
-              if (cc == Char (-1))
-                {
-                  *b++ = utf16_ucs2_to_undef_pair_high (*s);
-                  *b++ = utf16_ucs2_to_undef_pair_low (*s);
-                }
-              else
-                *b++ = cc;
-            }
-      }
-      break;
-
-    case ENCODING_LANG_KR:
-    case ENCODING_LANG_CN_GB:
-    case ENCODING_LANG_CN_BIG5:
-      for (; *s; s++)
-        if (*s != '\r' || s[1] != '\n')
-          {
-            Char cc = w2i (*s);
-            if (cc == Char (-1))
-              {
-                *b++ = utf16_ucs2_to_undef_pair_high (*s);
-                *b++ = utf16_ucs2_to_undef_pair_low (*s);
-              }
-            else
-              {
-                if (!ccs_1byte_94_charset_p (code_charset (cc)))
-                  {
-                    Char t = translate[*s];
-                    if (t != Char (-1))
-                      cc = t;
-                  }
-                *b++ = cc;
-              }
-          }
-      break;
-
-    case ENCODING_LANG_CN:
-      for (; *s; s++)
-        if (*s != '\r' || s[1] != '\n')
-          {
-            Char cc = w2i (*s);
-            if (cc == Char (-1))
-              {
-                *b++ = utf16_ucs2_to_undef_pair_high (*s);
-                *b++ = utf16_ucs2_to_undef_pair_low (*s);
-              }
-            else
-              {
-                if (!ccs_1byte_94_charset_p (code_charset (cc)))
-                  {
-                    Char t = wc2gb2312_table[*s];
-                    if (t != Char (-1) || (t = wc2big5_table[*s]) != Char (-1))
-                      cc = t;
-                  }
-                *b++ = cc;
-              }
-          }
-      break;
+      if (*s == '\r' && s[1] == '\n')
+        continue;
+      *b++ = (Char) *s;
     }
-#endif /* !UNICODE */
 
   return 1;
 }
