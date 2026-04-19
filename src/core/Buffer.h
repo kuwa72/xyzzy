@@ -48,6 +48,24 @@ struct Buffer;
 
 class syntax_info;
 
+/* Phase 2 Step 5d: UTF-16 Char 列の code point 数を数える。
+   high surrogate (0xD800-0xDBFF) の直後に low surrogate (0xDC00-0xDFFF)
+   が続く場合は 1 code point として勘定。標準的でない並び (lone surrogate
+   や順序逆転) はそれぞれ 1 として数える保守解釈。 */
+static inline int
+count_code_points (const Char *p, int n)
+{
+  int count = 0;
+  for (int i = 0; i < n; i++)
+    {
+      count++;
+      if (p[i] >= 0xD800 && p[i] <= 0xDBFF
+          && i + 1 < n && p[i + 1] >= 0xDC00 && p[i + 1] <= 0xDFFF)
+        i++;
+    }
+  return count;
+}
+
 struct Chunk
 {
   enum {TEXT_SIZE = 4096};
@@ -61,9 +79,14 @@ struct Chunk
   Char *c_text;
   u_char *c_breaks;
   short c_used;
-  short c_nchars; /* 使用中の code point 数。現 SJIS 時代は c_used と同値。
-                     Phase 2 UTF-16LE 化後はサロゲートペアを 1 code point と
-                     して数える (c_used <= c_nchars の関係になる)。      */
+  /* c_nchars: 使用中の code point 数。surrogate pair (high+low) を
+     1 code point として数える。lone surrogate (片割れ) は 1 code point。
+     よって `c_nchars <= c_used` (等号は surrogate pair が無い時)。
+     現状 cursor primitive が point_t = code unit のまま動くため、
+     b_nchars / point_t は依然 sum(c_used) / Char index に対応する。
+     c_nchars は将来 cursor 移行で b_nchars = sum(c_nchars) に
+     切替える際の prep field。 */
+  short c_nchars;
   short c_nlines;
   short c_nbreaks;
   short c_first_eol;

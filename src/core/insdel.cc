@@ -459,6 +459,20 @@ Buffer::pre_insert_chars (Point &point, int size)
 void
 Buffer::post_insert_chars (Point &point, int size)
 {
+  /* Phase 2 Step 5d: insert 範囲が掛かる chunk 群の c_nchars を
+     code point 数で再集計。move_gap 系で c_used と一緒に mirror で
+     bumped されているが、入った Char に surrogate pair が含まれて
+     いる場合に code unit 数より小さくなる可能性があるため。
+     範囲は point.p_chunk から size 分カバーする後続 chunk まで。 */
+  Chunk *cp = point.p_chunk;
+  int remaining = size;
+  while (cp && remaining > 0)
+    {
+      cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
+      remaining -= cp->c_used;
+      cp = cp->c_next;
+    }
+
   modify ();
   set_modified_region (point.p_point, point.p_point);
   b_modified_region.p2 += size;
@@ -917,7 +931,7 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
           else
             {
               cp->c_used = off;
-              cp->c_nchars = off;
+              cp->c_nchars = count_code_points (cp->c_text, off);
               modify_chunk (cp);
             }
           size -= rest;
@@ -929,9 +943,9 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
       else
         {
           cp->c_used -= size;
-          cp->c_nchars -= size;
           modify_chunk (cp);
           bcopy (cp->c_text + off + size, cp->c_text + off, cp->c_used - off);
+          cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
           break;
         }
     }
