@@ -363,15 +363,21 @@ paint_build_wchars (const glyph_t *g, const glyph_t *ge,
         }
       else if (cp < 0x110000u)
         {
-          /* surrogate pair に分解。advance は high 側に集約 */
+          /* surrogate pair に分解。lpDx は high/low に半々 (cellw 各々) で
+             振る。lpDx[high]=advance,low=0 にすると low が advance 右に
+             飛んで結合されず別 glyph として描画される。逆に lpDx[high]=0,
+             low=advance だと結合されるが glyph が cell 内で右寄せに見える
+             ケースがある。半々は MFC 等の標準的な振り方で、結合 glyph が
+             自然に 2 cell に収まる。 */
           u_int32_t v = cp - 0x10000u;
+          int half = advance / 2;
           wbuf[n]   = (wchar_t) (0xD800u + (v >> 10));
-          wpad[n]   = advance;
+          wpad[n]   = half;
           n++;
           if (n + 1 >= cap)
             break;
           wbuf[n]   = (wchar_t) (0xDC00u + (v & 0x3FFu));
-          wpad[n]   = 0;
+          wpad[n]   = advance - half;
           n++;
         }
       /* cp >= 0x110000 は Phase 3 shape ref。Phase 2 では到達しない */
@@ -387,8 +393,6 @@ paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
              int font_idx, const glyph_t *g, const glyph_t *ge,
              const INT * /*padding*/)
 {
-  if (g >= ge)
-    return;
   const FontObject &f = app.text_font.font (font_idx);
   HGDIOBJ of = SelectObject (hdc, f);
 
@@ -396,9 +400,11 @@ paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
   INT wpad[512];
   int n = paint_build_wchars (g, ge, wbuf, wpad,
                               app.text_font.cell ().cx, 512);
-  if (n > 0)
-    ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
-                 &r, wbuf, n, wpad);
+  /* n=0 でも ETO_OPAQUE があれば BG fill のため空文字列で呼ぶ。これを
+     skip すると leading-blank strip 後 g..ge が空になった group (例:
+     全部空白の selection 範囲) で BG 反転が残らず redraw が壊れる。 */
+  ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
+               &r, wbuf, n, n > 0 ? wpad : 0);
 
   SelectObject (hdc, of);
 }
