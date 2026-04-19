@@ -1242,20 +1242,15 @@ ime_comp_queue::push (const char *comp, int compl, const char *read, int readl)
 }
 
 static int
-store_wcs (Char *b0, const ucs2_t *w, int l, const Char *tab)
+store_wcs (Char *b0, const ucs2_t *w, int l, const Char * /*tab*/)
 {
+  /* 5c-2: Phase 2 buffer は UTF-16。CJK 別の tab[] 折り畳みと w2i 経由
+     の internal encoding 変換は不要。素のコードユニットを copy する。
+     surrogate pair も入力側の 2 wchar をそのまま 2 Char に並べれば良い。
+     tab 引数は呼び元シグネチャ互換のため残す (unused)。 */
   Char *b = b0;
   for (const ucs2_t *we = w + l; w < we; w++)
-    {
-      Char cc;
-      if ((!tab || (cc = tab[*w]) == Char (-1))
-          && (cc = w2i (*w)) == Char (-1))
-        {
-          *b++ = utf16_ucs2_to_undef_pair_high (*w);
-          cc = utf16_ucs2_to_undef_pair_low (*w);
-        }
-      *b++ = cc;
-    }
+    *b++ = Char (*w);
   return b - b0;
 }
 

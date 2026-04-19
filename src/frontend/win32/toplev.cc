@@ -413,48 +413,14 @@ ime_composition (HWND hwnd, LPARAM lparam)
               ucs2_t *s = (ucs2_t *)alloca (l + sizeof (ucs2_t));
               if (app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTSTR, s, l) == l)
                 {
-                  const Char *tab = 0;
-                  switch (PRIMARYLANGID (app.kbdq.kbd_langid ()))
-                    {
-                    case LANG_JAPANESE:
-                      tab = wc2cp932_table;
-                      break;
-
-                    case LANG_KOREAN:
-                      init_wc2ksc5601_table ();
-                      tab = wc2ksc5601_table;
-                      break;
-
-                    case LANG_CHINESE:
-                      switch (SUBLANGID (app.kbdq.kbd_langid ()))
-                        {
-                        case SUBLANG_CHINESE_TRADITIONAL:
-                        case SUBLANG_CHINESE_HONGKONG:
-                          init_wc2big5_table ();
-                          tab = wc2big5_table;
-                          break;
-
-                        case SUBLANG_CHINESE_SIMPLIFIED:
-                        case SUBLANG_CHINESE_SINGAPORE:
-                          init_wc2gb2312_table ();
-                          tab = wc2gb2312_table;
-                          break;
-                        }
-                      break;
-                    }
-
+                  /* 5c-2: Phase 2 buffer は UTF-16。CJK 言語別の
+                     wc2cp932 / wc2big5 / wc2ksc5601 / wc2gb2312 経由の
+                     internal encoding 折り畳みは不要 (それらは旧 buffer
+                     の表現空間に押し込むためのもの)。push (..., tab=0)
+                     で素 UTF-16 として store する。 */
                   l /= sizeof (ucs2_t);
                   for (ucs2_t *sp = s, *se = s + l; sp < se; sp++)
-                    {
-                      Char cc;
-                      if ((!tab || (cc = tab[*sp]) == Char (-1))
-                          && (cc = w2i (*sp)) == Char (-1))
-                        {
-                          app.kbdq.putc (utf16_ucs2_to_undef_pair_high (*sp));
-                          cc = utf16_ucs2_to_undef_pair_low (*sp);
-                        }
-                      app.kbdq.putc (cc);
-                    }
+                    app.kbdq.putc (Char (*sp));
                   lparam &= ~GCS_RESULTSTR;
 
                   int rl = app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR, 0, 0);
@@ -466,7 +432,7 @@ ime_composition (HWND hwnd, LPARAM lparam)
                         {
                           rl /= sizeof (ucs2_t);
                           s[l] = rs[rl] = 0;
-                          app.ime_compq.push (s, l, rs, rl, tab);
+                          app.ime_compq.push (s, l, rs, rl, 0);
                         }
                     }
                 }
@@ -817,15 +783,13 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 #ifdef UNICODE
       if (wparam >= 128)
         {
-          ucs2_t wc = ucs2_t (wparam);
-          Char cc = w2i (wc);
-          if (cc != Char (-1))
-            app.kbdq.putc (cc);
-          else
-            {
-              app.kbdq.putc (utf16_ucs2_to_undef_pair_high (wc));
-              app.kbdq.putc (utf16_ucs2_to_undef_pair_low (wc));
-            }
+          /* 5c-2: Phase 2 buffer は UTF-16。Windows の WM_CHAR が
+             既に wchar_t を渡してくるので、旧 w2i (UCS-2 → internal
+             encoding) と utf16_ucs2_to_undef_pair_* (unmappable
+             fallback) は不要。surrogate pair は high / low が個別の
+             WM_CHAR で届くため、各 wparam をそのまま push すれば
+             buffer 上に正しく 2 code unit として並ぶ。 */
+          app.kbdq.putc (Char (wparam));
           return 0;
         }
 #endif
@@ -833,18 +797,11 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       return 0;
 
     case WM_PRIVATE_WCHAR:
-      {
-        ucs2_t wc = ucs2_t (wparam);
-        Char cc = w2i_half_width (wc);
-        if (cc != Char (-1))
-          app.kbdq.putc (decode_chars (cc));
-        else
-          {
-            app.kbdq.putc (utf16_ucs2_to_undef_pair_high (wc));
-            app.kbdq.putc (utf16_ucs2_to_undef_pair_low (wc));
-          }
-        return 0;
-      }
+      /* 5c-2: 旧 w2i_half_width はフルワイド→ハーフワイド折り畳みを
+         していたが、Phase 2 では UTF-16 そのまま push。half-width 折り
+         畳みは将来別経路 (Lisp 側の入力フィルタ等) で再導入する。 */
+      app.kbdq.putc (decode_chars (Char (wparam)));
+      return 0;
 
     case WM_IME_ENDCOMPOSITION:
       app.ime_composition = 0;
@@ -878,17 +835,9 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         app.kbdq.init_kbd_encoding ();
 #endif
 #ifdef UNICODE
-      {
-        ucs2_t wc = ucs2_t (wparam);
-        Char cc = w2i (wc);
-        if (cc != Char (-1))
-          app.kbdq.putc (cc);
-        else
-          {
-            app.kbdq.putc (utf16_ucs2_to_undef_pair_high (wc));
-            app.kbdq.putc (utf16_ucs2_to_undef_pair_low (wc));
-          }
-      }
+      /* 5c-2: WM_IME_CHAR (Unicode IME 経由の commit) も WM_CHAR と
+         同じく wparam が UTF-16 code unit。w2i / undef pair は撤廃。 */
+      app.kbdq.putc (Char (wparam));
 #else
       app.kbdq.putw (wparam);
 #endif
