@@ -50,9 +50,23 @@ get_font_idx (unsigned int cp)
   if (cp < 0x2000)
     return FONT_GREEK;
 
-  /* General Punctuation ... Box Drawing (U+2000-25FF): Latin */
+  /* General Punctuation .. Misc Symbols (U+2000-U+2E7F)。
+     U+2010-U+215F (General Punctuation, Currency, Letterlike Symbols,
+     Number Forms 等) は Latin font に振る — JP font に glyph が無くて
+     豆腐化しがちな † ™ € ‰ などはこちら。
+     U+2160-U+22FF (Roman numerals, Arrows, Math) と U+2460-U+26FF
+     (Enclosed alpha, Box, Block, Geometric, Misc symbols) は CJK fullwidth
+     glyph が定着しているので JP font。eaw.cc の wide 範囲と揃える。 */
+  if (cp < 0x2160)
+    return FONT_LATIN;       /* General Punct, Currency, Letterlike, etc. */
+  if (cp < 0x2300)
+    return FONT_JP;          /* Roman numerals, Arrows, Math */
+  if (cp < 0x2460)
+    return FONT_LATIN;       /* Misc Technical */
+  if (cp < 0x2700)
+    return FONT_JP;          /* Enclosed + Box + Block + Geometric + Misc symbols */
   if (cp < 0x2E80)
-    return FONT_LATIN;
+    return FONT_LATIN;       /* Dingbats / Misc */
 
   /* CJK Radicals .. CJK Unified Ideographs まで: まず日本語フォント */
   if (cp < 0xA000)

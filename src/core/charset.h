@@ -372,11 +372,20 @@ mule_b2g (int &ccs, int &c1, int &c2)
   c2 = tem % (0xff - 0xa1) + 0x21;
 }
 
+/* Phase 2: char_width は eaw.cc の unicode_width に揃える。旧
+   char_width_table は internal encoding 前提のため UTF-16 cc に対して
+   整合しない (例: U+2122 ™ や U+20AC € を 2 と返してしまうが
+   実際の glyph は 1 cell)。column 計算と paint cell 割当てを
+   同じ width 関数から導出することで cursor 位置と描画位置の整合性を
+   保つ。combining mark (eaw 上は 0) は column 上は 1 として扱う
+   (将来 grapheme cluster 単位の column で 0 化する余地あり)。 */
+int unicode_width (unsigned int);  /* eaw.h */
+
 static inline int
 char_width (Char cc)
 {
-  extern u_char char_width_table[];
-  return char_width_table[cc >> 3] & (1 << (cc & 7)) ? 2 : 1;
+  int w = unicode_width (cc);
+  return w == 0 ? 1 : w;
 }
 
 static inline const ucs2_t &
