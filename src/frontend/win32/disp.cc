@@ -9,6 +9,7 @@
 #include "regex.h"
 #include "glyph.h"
 #include "term.h"
+#include "eaw.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
 
@@ -335,228 +336,71 @@ Window::update_caret () const
     }
 }
 
-class paint_chars_ctx
+/* 5b-3: glyph 列 [g, ge) から UTF-16 wchar buffer と per-wchar padding を
+   組み立てる。JUNK trail (wide char 後続セル) は skip。surrogate pair は
+   2 wchar に展開し、上位 wchar に全 advance を載せる (paint_chars に
+   渡す lpDx の慣例)。戻り値は書き込んだ wchar 数。 */
+static int
+paint_build_wchars (const glyph_t *g, const glyph_t *ge,
+                    wchar_t *wbuf, INT *wpad, int cellw, int cap)
 {
-  int p_x, p_y;
-  RECT p_r;
-  int p_right;
-  const int p_cellw;
-public:
-  paint_chars_ctx (int x, int y, const RECT &r, int w)
-       : p_x (x), p_y (y), p_cellw (w * app.text_font.cell ().cx)
+  int n = 0;
+  for (; g < ge && n + 1 < cap; g++)
     {
-      p_r.left = r.left;
-      p_r.top = r.top;
-      p_r.bottom = r.bottom;
-      p_right = r.right;
+      glyph_t c = *g;
+      if (c & GLYPH_JUNK)
+        continue;
+      u_int32_t cp = GLYPH_CP (c);
+      int width = (int) glyph_width (c);
+      if (width == 0)
+        width = 1;  /* combining (将来) は base に併合; 単独なら 1 cell 想定 */
+      int advance = width * cellw;
+      if (cp < 0x10000u)
+        {
+          wbuf[n] = (wchar_t) cp;
+          wpad[n] = advance;
+          n++;
+        }
+      else if (cp < 0x110000u)
+        {
+          /* surrogate pair に分解。advance は high 側に集約 */
+          u_int32_t v = cp - 0x10000u;
+          wbuf[n]   = (wchar_t) (0xD800u + (v >> 10));
+          wpad[n]   = advance;
+          n++;
+          if (n + 1 >= cap)
+            break;
+          wbuf[n]   = (wchar_t) (0xDC00u + (v & 0x3FFu));
+          wpad[n]   = 0;
+          n++;
+        }
+      /* cp >= 0x110000 は Phase 3 shape ref。Phase 2 では到達しない */
     }
-  void paint (HDC hdc, ucs2_t wc, int flags)
-    {
-      p_r.right = min (int (p_r.left + p_cellw), p_right);
-      ExtTextOutW (hdc, p_x, p_y, flags, &p_r, (LPCWSTR)&wc, 1, 0);
-      p_r.left = p_r.right;
-      p_x += p_cellw;
-    }
-  void paint_lucida (HDC, ucs2_t, int);
-};
-
-void
-paint_chars_ctx::paint_lucida (HDC hdc, ucs2_t wc, int flags)
-{
-  const FontObject &f = app.text_font.font (FONT_ASCII);
-  int o = (LUCIDA_OFFSET (wc - UNICODE_SMLCDM_MIN) * f.size ().cy / LUCIDA_BASE_HEIGHT
-           + app.text_font.cell ().cx / 2);
-  p_r.right = min (int (p_r.left + p_cellw), p_right);
-  ExtTextOutW (hdc, p_x + o, p_y, flags, &p_r, (LPCWSTR)&wc, 1, 0);
-  p_r.left = p_r.right;
-  p_x += p_cellw;
+  return n;
 }
 
-static inline void
-paint_ascii_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-                   const char *string, int len, const INT *padding)
-{
-  const FontObject &f = app.text_font.font (FONT_ASCII);
-  wchar_t wbuf[256];
-  for (int i = 0; i < len && i < 256; i++)
-    wbuf[i] = (unsigned char)string[i];
-  ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
-               &r, wbuf, min (len, 256), f.need_pad_p () ? padding : 0);
-}
-
-static inline void
-paint_jp_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-                const char *string, int len, const INT *padding)
-{
-  const FontObject &f = app.text_font.font (FONT_JP);
-  HGDIOBJ of = SelectObject (hdc, f);
-  wchar_t wbuf[256];
-  int wl = cp932_to_wcs (string, len, wbuf, 256);
-  ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
-               &r, wbuf, wl, f.need_pad_p () ? padding : 0);
-  SelectObject (hdc, of);
-}
-
-static inline void
-paint_full_width_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-                        const char *string, int len, const FontObject &f)
-{
-  HGDIOBJ of = SelectObject (hdc, f);
-  paint_chars_ctx ctx (x + f.offset ().x, y + f.offset ().y, r, 2);
-  for (const u_char *s = (const u_char *)string, *const se = s + len; s < se; s += 2)
-    ctx.paint (hdc, i2w ((s[0] << 8) | s[1]), flags);
-  SelectObject (hdc, of);
-}
-
-static inline void
-paint_half_width_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-                        const char *string, int len, const INT *padding,
-                        int c, const FontObject &f)
-{
-  HGDIOBJ of = SelectObject (hdc, f);
-  paint_chars_ctx ctx (x + f.offset ().x, y + f.offset ().y, r, 1);
-  for (const u_char *s = (const u_char *)string, *const se = s + len; s < se; s++)
-    ctx.paint (hdc, i2w (c + *s), flags);
-  SelectObject (hdc, of);
-}
-
-static inline void
-paint_jisx0212_half_width_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-                                 const char *string, int len, const INT *padding)
-{
-  const FontObject &f = app.text_font.font (FONT_JP);
-  HGDIOBJ of = SelectObject (hdc, f);
-  paint_chars_ctx ctx (x + f.offset ().x, y + f.offset ().y, r, 1);
-  for (const u_char *s = (const u_char *)string, *const se = s + len; s < se; s++)
-    ctx.paint (hdc, i2w (jisx0212_half_width_table[*s]), flags);
-  SelectObject (hdc, of);
-}
-
-static inline void
-paint_chars_lucida (HDC hdc, int x, int y, int flags, const RECT &r,
-                    const char *string, int len, const INT *padding, int c)
-{
-  static LOGFONTW lfw = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME_W};
-  lfw.lfHeight = app.text_font.font (FONT_ASCII).size ().cy;
-  HGDIOBJ of = SelectObject (hdc, CreateFontIndirectW (&lfw));
-  paint_chars_ctx ctx (x, y, r, 1);
-  for (const u_char *s = (const u_char *)string, *const se = s + len; s < se; s++)
-    ctx.paint_lucida (hdc, i2w (c + *s), flags);
-  DeleteObject (SelectObject (hdc, of));
-}
-
+/* 5b-3: glyph 列 [g, ge) を 1 font slot で ExtTextOutW。font_idx は
+   GLYPH_FONT_MASK から抽出した 0-15 の slot 番号 (FontSet の FONT_*)。
+   呼び元は GLYPH_BITMAP_BIT を見て bitmap dispatch と分岐済み。 */
 static void
 paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
-             glyph_t charset, const char *string, int len, const INT *padding)
+             int font_idx, const glyph_t *g, const glyph_t *ge,
+             const INT * /*padding*/)
 {
-#define PAINT_FULL_WIDTH_CHARS(FONT) \
-  paint_full_width_chars (hdc, x, y, flags, r, string, len, app.text_font.font (FONT))
-#define PAINT_HALF_WIDTH_CHARS(OFFSET, FONT) \
-  paint_half_width_chars (hdc, x, y, flags, r, string, len, padding, \
-                          OFFSET, app.text_font.font (FONT))
-#define PAINT_JISX0212_HALF_WIDTH_CHARS() \
-  paint_jisx0212_half_width_chars (hdc, x, y, flags, r, string, len, padding)
-#define PAINT_CHARS_LUCIDA(OFFSET) \
-  paint_chars_lucida (hdc, x, y, flags, r, string, len, padding, OFFSET)
+  if (g >= ge)
+    return;
+  const FontObject &f = app.text_font.font (font_idx);
+  HGDIOBJ of = SelectObject (hdc, f);
 
-  switch (charset)
-    {
-    default:
-    case GLYPH_CHARSET_USASCII:
-      paint_ascii_chars (hdc, x, y, flags, r, string, len, padding);
-      break;
+  wchar_t wbuf[512];
+  INT wpad[512];
+  int n = paint_build_wchars (g, ge, wbuf, wpad,
+                              app.text_font.cell ().cx, 512);
+  if (n > 0)
+    ExtTextOutW (hdc, x + f.offset ().x, y + f.offset ().y, flags,
+                 &r, wbuf, n, wpad);
 
-    case GLYPH_CHARSET_JISX0201_KANA:
-      PAINT_HALF_WIDTH_CHARS (0, FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_JISX0208:
-      PAINT_FULL_WIDTH_CHARS (FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_JISX0212:
-      PAINT_FULL_WIDTH_CHARS (FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_GB2312:
-      PAINT_FULL_WIDTH_CHARS (FONT_CN_SIMPLIFIED);
-      break;
-
-    case GLYPH_CHARSET_BIG5:
-      PAINT_FULL_WIDTH_CHARS (FONT_CN_TRADITIONAL);
-      break;
-
-    case GLYPH_CHARSET_KSC5601:
-      PAINT_FULL_WIDTH_CHARS (FONT_HANGUL);
-      break;
-
-    case GLYPH_CHARSET_JISX0212_HALF:
-      PAINT_JISX0212_HALF_WIDTH_CHARS ();
-      break;
-
-    case GLYPH_CHARSET_ISO8859_1_2:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_1 << 7, FONT_LATIN);
-      break;
-
-    case GLYPH_CHARSET_ISO8859_3_4:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_3 << 7, FONT_LATIN);
-      break;
-
-    case GLYPH_CHARSET_ISO8859_5:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_5 << 7, FONT_CYRILLIC);
-      break;
-
-    case GLYPH_CHARSET_ISO8859_7:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_7 << 7, FONT_GREEK);
-      break;
-
-    case GLYPH_CHARSET_ISO8859_9_10:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_9 << 7, FONT_LATIN);
-      break;
-
-    case GLYPH_CHARSET_ISO8859_13:
-      PAINT_HALF_WIDTH_CHARS (ccs_iso8859_13 << 7, FONT_LATIN);
-      break;
-
-    case GLYPH_CHARSET_GEORGIAN:
-      PAINT_HALF_WIDTH_CHARS (CCS_GEORGIAN_MIN, FONT_GEORGIAN);
-      break;
-
-    case GLYPH_CHARSET_IPA:
-      PAINT_HALF_WIDTH_CHARS (CCS_IPA_MIN, FONT_JP); // XXX
-      break;
-
-    case GLYPH_CHARSET_SMLCDM:
-      PAINT_CHARS_LUCIDA (CCS_SMLCDM_MIN);
-      break;
-
-#ifdef CCS_ULATIN_MIN
-    case GLYPH_CHARSET_ULATIN1:
-      PAINT_HALF_WIDTH_CHARS (CCS_ULATIN_MIN, FONT_LATIN);
-      break;
-
-    case GLYPH_CHARSET_ULATIN2:
-      PAINT_HALF_WIDTH_CHARS (CCS_ULATIN_MIN + 256, FONT_LATIN);
-      break;
-#endif
-#ifdef CCS_UJP_MIN
-    case GLYPH_CHARSET_UJP:
-      PAINT_FULL_WIDTH_CHARS (FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_UJP_H1:
-      PAINT_HALF_WIDTH_CHARS (CCS_UJP_MIN, FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_UJP_H2:
-      PAINT_HALF_WIDTH_CHARS (CCS_UJP_MIN + 256, FONT_JP);
-      break;
-
-    case GLYPH_CHARSET_UJP_H3:
-      PAINT_HALF_WIDTH_CHARS (CCS_UJP_MIN + 512, FONT_JP);
-      break;
-#endif
-    }
+  SelectObject (hdc, of);
 }
 
 void
@@ -571,6 +415,7 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
   glyph_t gsum = 0;
   const glyph_t *gfrom = g;
 
+  const glyph_t blank_cell = glyph_ascii_cell (' ');
   while (g < ge)
     {
       const glyph_t *g0 = g;
@@ -578,8 +423,10 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
       glyph_t c = *g++;
       gsum |= c;
       *be++ = char (c);
-      c &= GLYPH_COLOR_MASK | GLYPH_CHARSET_MASK;
-      while (g < ge && (*g & (GLYPH_COLOR_MASK | GLYPH_CHARSET_MASK)) == c)
+      /* 5b-3: grouping key を charset から font_idx に切替 */
+      c &= GLYPH_COLOR_MASK | GLYPH_FONT_MASK | GLYPH_BITMAP_BIT;
+      while (g < ge
+             && (*g & (GLYPH_COLOR_MASK | GLYPH_FONT_MASK | GLYPH_BITMAP_BIT)) == c)
         {
           gsum |= *g;
           *be++ = char (*g++);
@@ -595,7 +442,7 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
         }
 
       char *b = buf;
-      if (!(c & GLYPH_CHARSET_MASK))
+      if (!(c & GLYPH_BITMAP_BIT))
         {
           for (; b < be && *b == ' '; b++)
             ;
@@ -603,7 +450,8 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
         }
       const glyph_t *g1;
       for (g1 = g;
-           g1 > g0 && (g1[-1] & ~GLYPH_COLOR_MASK) == ' ';
+           g1 > g0
+           && (g1[-1] & ~(glyph_t) GLYPH_COLOR_MASK) == blank_cell;
            g1--)
         ;
       be -= g - g1;
@@ -613,21 +461,23 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
 
       if (c & GLYPH_BITMAP_BIT)
         {
-          int x = r.left + (b - buf) * app.text_font.cell ().cx;
-          for (; b < be; b++, x += app.text_font.cell ().cx)
+          int xpx = r.left + (b - buf) * app.text_font.cell ().cx;
+          for (; b < be; b++, xpx += app.text_font.cell ().cx)
             {
-              int w = w_clsize.cx - x;
+              int w = w_clsize.cx - xpx;
               if (w <= 0)
                 break;
               if (w > app.text_font.cell ().cx)
                 w = app.text_font.cell ().cx;
-              BitBlt (hdc, x, r.top, w, app.text_font.cell ().cy,
+              BitBlt (hdc, xpx, r.top, w, app.text_font.cell ().cy,
                       hdcmem, app.text_font.cell ().cx * (*b & 0xff), yoffset, SRCCOPY);
             }
         }
       else
         paint_chars (hdc, r.left + (b - buf) * app.text_font.cell ().cx, y,
-                     ETO_OPAQUE | ETO_CLIPPED, r, GLYPH_CHARSET (c), b, be - b, padding);
+                     ETO_OPAQUE | ETO_CLIPPED, r,
+                     int (GLYPH_FONT (c) >> GLYPH_FONT_SHIFT_BITS),
+                     g0, g1, padding);
 
       SetTextColor (hdc, ofg);
       SetBkColor (hdc, obg);
@@ -640,7 +490,7 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
       if (g > gstart && g[-1] & GLYPH_BOLD)
         {
           g--;
-          if (glyph_trail_p (*g))
+          if (*g & GLYPH_JUNK)  /* wide char trail なら lead まで戻す */
             g--;
         }
 
@@ -654,10 +504,11 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
           const glyph_t *g0 = g;
           glyph_t c0 = *g++;
           *be++ = char (c0);
+          /* 5b-3: BOLD grouping key も charset → font_idx へ */
           glyph_t c = c0 & (GLYPH_FORE_COLOR_MASK | GLYPH_BITMAP_BIT
-                            | GLYPH_CHARSET_MASK | GLYPH_BOLD);
+                            | GLYPH_FONT_MASK | GLYPH_BOLD);
           for (; g < ge && (*g & (GLYPH_FORE_COLOR_MASK | GLYPH_BITMAP_BIT
-                                  | GLYPH_CHARSET_MASK | GLYPH_BOLD)) == c; g++)
+                                  | GLYPH_FONT_MASK | GLYPH_BOLD)) == c; g++)
             *be++ = char (*g);
 
           COLORREF ofg = SetTextColor (hdc, glyph_forecolor (c0));
@@ -675,22 +526,23 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
             {
               COLORREF obg = SetBkColor (hdc, glyph_backcolor (c0));
               char *b = buf;
-              for (int x = r.left; b < be; b++, x += app.text_font.cell ().cx)
+              for (int xpx = r.left; b < be; b++, xpx += app.text_font.cell ().cx)
                 if ((*b & 0xff) == FontSet::backsl)
                   {
-                    int w = w_clsize.cx - x;
+                    int w = w_clsize.cx - xpx;
                     if (w <= 0)
                       break;
                     if (w > app.text_font.cell ().cx)
                       w = app.text_font.cell ().cx;
-                    BitBlt (hdc, x, r.top, w, app.text_font.cell ().cy,
+                    BitBlt (hdc, xpx, r.top, w, app.text_font.cell ().cy,
                             hdcmem, app.text_font.cell ().cx * FontSet::bold_backsl, yoffset, SRCCOPY);
                   }
               SetBkColor (hdc, obg);
             }
           else
-            paint_chars (hdc, r.left, y, ETO_CLIPPED, r, GLYPH_CHARSET (c),
-                         buf, be - buf, padding);
+            paint_chars (hdc, r.left, y, ETO_CLIPPED, r,
+                         int (GLYPH_FONT (c) >> GLYPH_FONT_SHIFT_BITS),
+                         g0, g, padding);
 
           SetTextColor (hdc, ofg);
         }
@@ -750,12 +602,14 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
     ;
   if (n == ne && o == oe)
     return;
-  if (glyph_trail_p (*n))
+  /* 5b-3: 旧 glyph_trail_p (=GLYPH_TRAIL bit) は廃止。wide char 後続セルは
+     GLYPH_JUNK で識別する。 */
+  if (n < ne && (*n & GLYPH_JUNK))
     n--, o--;
   if (o > ogd->gd_cc && o[-1] & GLYPH_BOLD)
     {
       n--, o--;
-      if (glyph_trail_p (*n))
+      if (n < ne && (*n & GLYPH_JUNK))
         n--, o--;
     }
 
@@ -764,14 +618,14 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
 
   for (n = ne, o = oe; n > nfd && o > ofd && n[-1] == o[-1]; n--, o--)
     ;
-  if (n < ne && glyph_trail_p (*n))
+  if (n < ne && (*n & GLYPH_JUNK))
     n++, o++;
   if (o > ogd->gd_cc && o[-1] & GLYPH_BOLD)
     {
       if (o < oe)
         {
           n++, o++;
-          if (n < ne && glyph_trail_p (*n))
+          if (n < ne && (*n & GLYPH_JUNK))
             n++, o++;
         }
       else
@@ -836,13 +690,14 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
                     {
                       const glyph_t *g = ngd->gd_cc + x;
                       int l = 1;
-                      if (x && glyph_trail_p (*g))
+                      /* 5b-3: lead/trail 判定は GLYPH_JUNK と width=WIDE で */
+                      if (x && (*g & GLYPH_JUNK))
                         {
                           g--;
                           x--;
                           l = 2;
                         }
-                      else if (glyph_lead_p (*g))
+                      else if (glyph_width (*g) == 2)
                         l = 2;
                       paint_glyphs (hdc, hdcmem, ngd->gd_cc, g, g + l, buf, padding,
                                     (x - 1) * app.text_font.cell ().cx + app.text_font.cell ().cx / 2,
@@ -1652,14 +1507,28 @@ Window::paint_minibuffer_message (lisp string)
           *g++ = GLYPH_CTRL | '^';
           *g++ = GLYPH_CTRL | '?';
         }
-      else if (char_width (cc) == 2)
-        {
-          if (g + 1 == ge)
-            break;
-          g = glyph_dbchar (g, cc, 0, 0);
-        }
       else
-        g = glyph_sbchar (g, cc, 0, 0);
+        {
+          /* 5b-2: surrogate pair 合成 (intra-buffer のみ、chunk 境界はない) */
+          u_int32_t cp = cc;
+          if (cc >= 0xD800 && cc <= 0xDBFF
+              && p < pe && *p >= 0xDC00 && *p <= 0xDFFF)
+            {
+              cp = 0x10000u
+                   + ((u_int32_t (cc) - 0xD800u) << 10)
+                   + (u_int32_t (*p) - 0xDC00u);
+              p++;
+            }
+          int w = unicode_width (cp);
+          if (w == 2)
+            {
+              if (g + 1 == ge)
+                break;
+              g = glyph_dbchar (g, cp, 0, 0);
+            }
+          else
+            g = glyph_sbchar (g, cp, 0, 0);
+        }
     }
 
   app.minibuffer_prompt_column = g - (*gr)->gd_cc;
