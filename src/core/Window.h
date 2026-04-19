@@ -1,36 +1,49 @@
 #ifndef _Window_h_
 # define _Window_h_
 
-typedef u_long glyph_t;
+typedef u_int64_t glyph_t;
 
 /*
- GLYPH BITS
+ GLYPH BITS (Phase 2 layout: u64, code_point + metadata)
+
+ HIGH 32 bits  code_point + reserved
+  6                   5                   4                   3
+  3210 98765 43210 98765 43210 98765 43210 9876 54321 09876 54321 0987 65432 10
+  ---- ----- ----- ----- ----- ----- ----- ---- ----- ----- ----- ---- ----- --
+  rrrr rrrrr rrrrr ppppp ppppp ppppp ppppp pppp
+   \           \__________________________________ code_point (bit 32-52, 21 bit)
+    \_____________________________________________ reserved (bit 53-63, 11 bit)
+                                                   Phase 3 予約: shape_pool ref は
+                                                   code_point >= 0x110000 (bit 20=1)
+                                                   で表す。0x110000-0x1FFFFF まで
+                                                   割当可能 (docs/plans/
+                                                   2026-04-19-phase2-glyph-rewrite.md)
+
+ LOW 32 bits  metadata (旧 glyph_t とほぼ同じ、charset/category 廃止)
 
   3               2              1           0
- 10 98765 4 3 2 1 0987 6 5 4 3 2109 8 76543210
- nn nnnnn b b b b nnnn b b b b nnnn b cccccccc
- -- ----- | | | | ---- | | | | ---- |
-  \   \    \ \ \ \  \   \ \ \ \  \   \__________ 0: Char  1: Bitmap
-   \   \    \ \ \ \  \   \ \ \ \  \_____________ textprop-fg-bit == 0:
-    \   \    \ \ \ \  \   \ \ \ \                  0: normal    4: keyword3   8: -         12: linenum
-     \   \    \ \ \ \  \   \ \ \ \                 1: ctrl      5: keyword1r  9: -         13: string
-      \   \    \ \ \ \  \   \ \ \ \                2: keyword1  6: keyword2r 10: -         14: tag
-       \   \    \ \ \ \  \   \ \ \ \               3: keyword2  7: keyword3r 11: -         15: comment
-        \   \    \ \ \ \  \   \ \ \ \            textprop-fg-bit == 1:
-         \   \    \ \ \ \  \   \ \ \ \             textprop fg
-          \   \    \ \ \ \  \   \ \ \ \_________ hidden
-           \   \    \ \ \ \  \   \ \ \__________ selected
-            \   \    \ \ \ \  \   \ \___________ reversed
-             \   \    \ \ \ \  \   \____________ textprop-fg-bit
-              \   \    \ \ \ \  \_______________ textprop bg
-               \   \    \ \ \ \_________________ bold
-                \   \    \ \ \__________________ italic (yet)
-                 \   \    \ \___________________ underline
-                  \   \    \____________________ strikeout
-                   \   \________________________ charset
-                    \___________________________ category
-                                                   0: SBCS   2: DBCS lead
-                                                   1: JUNK   3: DBCS trail
+  10 98 7654 3 2 1 0987 6 5 4 3 2109 8 76543210
+  J  ww ffff b b b b nnnn b b b b nnnn b rrrrrrrr
+  |  |  |    | | | | ---- | | | | ---- | \________ 予約 (旧 char byte、未使用)
+  |  |  |    | | | |  \    \ \ \ \  \    \________ 0:Char/1:Bitmap
+  |  |  |    | | | |   \    \ \ \ \  \____________ textprop-fg-bit == 0:
+  |  |  |    | | | |    \    \ \ \ \                0:normal 4:keyword3 8:- 12:linenum
+  |  |  |    | | | |     \    \ \ \ \               1:ctrl   5:keyword1r 9:- 13:string
+  |  |  |    | | | |      \    \ \ \ \              2:keyword1 6:keyword2r 10:- 14:tag
+  |  |  |    | | | |       \    \ \ \ \             3:keyword2 7:keyword3r 11:- 15:comment
+  |  |  |    | | | |        \    \ \ \ \          textprop-fg-bit == 1: textprop fg
+  |  |  |    | | | |         \    \ \ \ \______________ hidden
+  |  |  |    | | | |          \    \ \ \_______________ selected
+  |  |  |    | | | |           \    \ \________________ reversed
+  |  |  |    | | | |            \    \_________________ textprop-fg-bit
+  |  |  |    | | | |             \____________________ textprop bg
+  |  |  |    | | | \___________________________________ bold
+  |  |  |    | | \_____________________________________ italic (未使用)
+  |  |  |    | \_______________________________________ underline
+  |  |  |    \_________________________________________ strikeout
+  |  |  \______________________________________________ font_idx (4 bit)
+  |  \_________________________________________________ width (2 bit, 0=combining/1=narrow/2=wide)
+  \____________________________________________________ JUNK
 */
 
 # define GLYPH_NFOREGROUND_COLORS 128
@@ -93,69 +106,126 @@ typedef u_long glyph_t;
 # define GLYPH_UNDERLINE         0x00800000
 # define GLYPH_STRIKEOUT         0x01000000
 
-# define GLYPH_CHARSET_MASK      0x3e000000
-# define GLYPH_CHARSET_SHIFT_BIT 25
-# define GLYPH_CHARSET(X)        ((X) & GLYPH_CHARSET_MASK)
+/* font_idx (4 bit): directly indexes FONT_* slot (see font.h).
+   get_font_idx(cp) computes this from a code point (fontmap.cc). */
+# define GLYPH_FONT_MASK         0x1e000000u
+# define GLYPH_FONT_SHIFT_BITS   25
+# define GLYPH_FONT(X)           ((u_int32_t)((X) & GLYPH_FONT_MASK))
+# define MAKE_GLYPH_FONT(X)      ((u_int32_t)(X) << GLYPH_FONT_SHIFT_BITS)
 
-# define MAKE_GLYPH_CHARSET(X)        ((X) << GLYPH_CHARSET_SHIFT_BIT)
-# define GLYPH_CHARSET_USASCII        MAKE_GLYPH_CHARSET (0)
-# define GLYPH_CHARSET_JISX0201_KANA  MAKE_GLYPH_CHARSET (1)
-# define GLYPH_CHARSET_JISX0208       MAKE_GLYPH_CHARSET (2)
-# define GLYPH_CHARSET_JISX0212       MAKE_GLYPH_CHARSET (3)
-# define GLYPH_CHARSET_JISX0212_HALF  MAKE_GLYPH_CHARSET (4)
-# define GLYPH_CHARSET_KSC5601        MAKE_GLYPH_CHARSET (5)
-# define GLYPH_CHARSET_GB2312         MAKE_GLYPH_CHARSET (6)
-# define GLYPH_CHARSET_BIG5           MAKE_GLYPH_CHARSET (7)
-# define GLYPH_CHARSET_ISO8859_1_2    MAKE_GLYPH_CHARSET (8)
-# define GLYPH_CHARSET_ISO8859_3_4    MAKE_GLYPH_CHARSET (9)
-# define GLYPH_CHARSET_ISO8859_5      MAKE_GLYPH_CHARSET (10)
-# define GLYPH_CHARSET_ISO8859_7      MAKE_GLYPH_CHARSET (11)
-# define GLYPH_CHARSET_ISO8859_9_10   MAKE_GLYPH_CHARSET (12)
-# define GLYPH_CHARSET_ISO8859_13     MAKE_GLYPH_CHARSET (13)
-# define GLYPH_CHARSET_IPA            MAKE_GLYPH_CHARSET (14)
-# define GLYPH_CHARSET_SMLCDM         MAKE_GLYPH_CHARSET (15)
-# ifdef CCS_UJP_MIN
-#  if (CCS_UJP_HALF_MAX - CCS_UJP_HALF_MIN) != 0x2ff
-#   error "wrong GLYPH_CHARSET_UJP"
-#  endif
-#  define GLYPH_CHARSET_UJP           MAKE_GLYPH_CHARSET (16)
-#  define GLYPH_CHARSET_UJP_H1        MAKE_GLYPH_CHARSET (17)
-#  define GLYPH_CHARSET_UJP_H2        MAKE_GLYPH_CHARSET (18)
-#  define GLYPH_CHARSET_UJP_H3        MAKE_GLYPH_CHARSET (19)
-# endif
-# ifdef CCS_ULATIN_MIN
-#  if (CCS_ULATIN_MAX - CCS_ULATIN_MIN) != 0x1ff
-#   error "wrong GLYPH_CHARSET_ULATIN"
-#  endif
-#  define GLYPH_CHARSET_ULATIN1       MAKE_GLYPH_CHARSET (20)
-#  define GLYPH_CHARSET_ULATIN2       MAKE_GLYPH_CHARSET (21)
-# endif
-# define GLYPH_CHARSET_GEORGIAN       MAKE_GLYPH_CHARSET (22)
+/* width (2 bit): display column count (0=combining/zero, 1=narrow, 2=wide).
+   unicode_width(cp) computes this from a code point (eaw.cc). */
+# define GLYPH_WIDTH_MASK        0x60000000u
+# define GLYPH_WIDTH_SHIFT_BITS  29
+# define GLYPH_WIDTH_ZERO        (0u << GLYPH_WIDTH_SHIFT_BITS)
+# define GLYPH_WIDTH_NARROW      (1u << GLYPH_WIDTH_SHIFT_BITS)
+# define GLYPH_WIDTH_WIDE        (2u << GLYPH_WIDTH_SHIFT_BITS)
+# define glyph_width(g)          ((u_int32_t)(((g) & GLYPH_WIDTH_MASK) >> GLYPH_WIDTH_SHIFT_BITS))
 
-# define GLYPH_CATEGORY_MASK     0xc0000000
-# define  GLYPH_JUNK             0x40000000
-# define  GLYPH_LEAD             0x80000000
-# define  GLYPH_TRAIL            0xc0000000
+/* JUNK (bit 31): marks a padding cell in gd_cc[] that holds no live glyph
+   (e.g. trailing cell of a wide glyph, or stale entry before redraw). */
+# define GLYPH_JUNK              0x80000000u
+
+# define GLYPH_METADATA_MASK     ((glyph_t)0xFFFFFFFFu)
+
+/* code_point (bit 32-52, 21 bit): Unicode code point 0x000000-0x10FFFF.
+   0x110000-0x1FFFFF (bit 20 = 1) is reserved for Phase 3 shape_pool refs
+   — see docs/plans/2026-04-19-phase2-glyph-rewrite.md.
+
+   MAKE_GLYPH_CP(cp) : code point -> glyph_t mask (OR 可能)
+   GLYPH_CP(g)      : glyph_t -> code point (21 bit 抽出) */
+# define GLYPH_CP_SHIFT          32
+# define GLYPH_CP_BITS           21
+# define GLYPH_CP_VALUE_MASK     0x1FFFFFu
+# define MAKE_GLYPH_CP(cp)       ((glyph_t)(u_int32_t)(cp) << GLYPH_CP_SHIFT)
+# define GLYPH_CP(g)             ((u_int32_t)((g) >> GLYPH_CP_SHIFT) & GLYPH_CP_VALUE_MASK)
+
+/* Phase 3 予約: shape_pool への ref。Phase 2 時点で常に false。
+   paint 側の fast path / slow path 分岐を先に書いておけば Phase 3 で else 側を
+   埋めるだけで済む。 */
+# define GLYPH_SHAPE_REF_MIN     0x110000u
+static inline int
+glyph_is_shape_ref (glyph_t g)
+{
+  return GLYPH_CP (g) >= GLYPH_SHAPE_REF_MIN;
+}
 
 # define GLYPH_MAX_KEYWORDS      6
 
+/* glyph_make_junk: clear metadata to a JUNK marker. code_point 側は
+   compare_glyph の memcmp 一致のため未変更で残す。 */
 static inline void
 glyph_make_junk (glyph_t *g)
 {
-  *g = (*g & ~GLYPH_CATEGORY_MASK) | GLYPH_JUNK;
+  *g = ((*g) & ~GLYPH_METADATA_MASK) | GLYPH_JUNK;
+}
+
+/* ----------------------------------------------------------------------
+   Phase 2 Step 5b-1 compatibility stubs.
+
+   5b-1 は glyph_t の再定義と旧マクロの設計上の廃止を単独 commit する
+   checkpoint 段階。paint 側 (glyph.cc / disp.cc / ncurses-stubs.cc) は
+   5b-2〜5b-4 で順次書き換えるため、それまでは旧マクロに依存したコードが
+   コンパイルを通る必要がある。本セクションの stub は全て 5b-4 完了時に
+   削除する予定。
+
+   セマンティクスは意図的に壊してある:
+   - GLYPH_CHARSET(X) / GLYPH_CHARSET_MASK は 0 で、paint_chars は
+     全 glyph を ASCII パスに落とす。日本語は壊れる (5b-2 で glyph_dbchar
+     が font_idx を設定するまで)
+   - glyph_lead_p / glyph_trail_p は常に 0。wide char の 2nd cell 検出が
+     効かない (5b-3 で paint_line から呼出し撤廃)
+   - GLYPH_CHARSET_* の値は switch() case label の一意性のためだけに
+     連番を振ってある                                                    */
+# define GLYPH_CHARSET_MASK      0u
+# define GLYPH_CHARSET_SHIFT_BIT 25
+# define GLYPH_CHARSET(X)        (0u)
+# define MAKE_GLYPH_CHARSET(X)   ((X) + 0u)
+
+# define GLYPH_CHARSET_USASCII        0u
+# define GLYPH_CHARSET_JISX0201_KANA  1u
+# define GLYPH_CHARSET_JISX0208       2u
+# define GLYPH_CHARSET_JISX0212       3u
+# define GLYPH_CHARSET_JISX0212_HALF  4u
+# define GLYPH_CHARSET_KSC5601        5u
+# define GLYPH_CHARSET_GB2312         6u
+# define GLYPH_CHARSET_BIG5           7u
+# define GLYPH_CHARSET_ISO8859_1_2    8u
+# define GLYPH_CHARSET_ISO8859_3_4    9u
+# define GLYPH_CHARSET_ISO8859_5      10u
+# define GLYPH_CHARSET_ISO8859_7      11u
+# define GLYPH_CHARSET_ISO8859_9_10   12u
+# define GLYPH_CHARSET_ISO8859_13     13u
+# define GLYPH_CHARSET_IPA            14u
+# define GLYPH_CHARSET_SMLCDM         15u
+# ifdef CCS_UJP_MIN
+#  define GLYPH_CHARSET_UJP           16u
+#  define GLYPH_CHARSET_UJP_H1        17u
+#  define GLYPH_CHARSET_UJP_H2        18u
+#  define GLYPH_CHARSET_UJP_H3        19u
+# endif
+# ifdef CCS_ULATIN_MIN
+#  define GLYPH_CHARSET_ULATIN1       20u
+#  define GLYPH_CHARSET_ULATIN2       21u
+# endif
+# define GLYPH_CHARSET_GEORGIAN       22u
+
+# define GLYPH_CATEGORY_MASK     0u
+# define GLYPH_LEAD              0u
+# define GLYPH_TRAIL             0u
+
+static inline int
+glyph_lead_p (glyph_t)
+{
+  return 0;
 }
 
 static inline int
-glyph_lead_p (glyph_t c)
+glyph_trail_p (glyph_t)
 {
-  return (c & GLYPH_CATEGORY_MASK) == GLYPH_LEAD;
+  return 0;
 }
-
-static inline int
-glyph_trail_p (glyph_t c)
-{
-  return (c & GLYPH_CATEGORY_MASK) == GLYPH_TRAIL;
-}
+/* ---------------------------------------------------------------------- */
 
 struct glyph_data
 {

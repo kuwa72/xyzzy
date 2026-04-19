@@ -55,6 +55,7 @@ typedef unsigned long u_long;
 typedef u_char u_int8_t;
 typedef u_short u_int16_t;
 typedef u_long u_int32_t;
+typedef uint64_t u_int64_t;
 #endif
 
 typedef uintptr_t pointer_t;
