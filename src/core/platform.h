@@ -1520,21 +1520,28 @@ inline BOOL SetEnvironmentVariableA(LPCSTR name, LPCSTR val) {
   if (val) return setenv(name, val, 1) == 0;
   else return unsetenv(name) == 0;
 }
-inline DWORD ExpandEnvironmentStringsA(LPCSTR src, LPSTR dst, DWORD n) {
+inline DWORD ExpandEnvironmentStringsW(LPCWSTR src, LPWSTR dst, DWORD n) {
   // Minimal: just copy
-  if (dst && n) { strncpy(dst, src, n); dst[n-1] = 0; }
-  return (DWORD)(strlen(src) + 1);
+  size_t l = 0;
+  while (src[l]) l++;
+  if (dst && n) {
+    size_t i = 0;
+    for (; i < l && i < n - 1; i++) dst[i] = src[i];
+    dst[i] = 0;
+  }
+  return (DWORD)(l + 1);
 }
 inline int GetSystemMetrics(int) { return 0; }
-inline LONG RegOpenKeyExA(HKEY, LPCSTR, DWORD, DWORD, HKEY*) { return 1; }
-inline LONG RegQueryValueExA(HKEY, LPCSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
+inline LONG RegOpenKeyExW(HKEY, LPCWSTR, DWORD, DWORD, HKEY*) { return 1; }
+inline LONG RegQueryValueExW(HKEY, LPCWSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
 inline LONG RegCloseKey(HKEY) { return 0; }
-inline LONG RegCreateKeyExA(HKEY, LPCSTR, DWORD, LPSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, HKEY*, DWORD*) { return 1; }
-inline LONG RegSetValueExA(HKEY, LPCSTR, DWORD, DWORD, const BYTE*, DWORD) { return 1; }
-inline LONG RegDeleteValueA(HKEY, LPCSTR) { return 1; }
-inline LONG RegDeleteKeyA(HKEY, LPCSTR) { return 1; }
-inline LONG RegEnumKeyExA(HKEY, DWORD, LPSTR, DWORD*, DWORD*, LPSTR, DWORD*, FILETIME*) { return 1; }
-inline LONG RegEnumValueA(HKEY, DWORD, LPSTR, DWORD*, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
+inline LONG RegCreateKeyExW(HKEY, LPCWSTR, DWORD, LPWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, HKEY*, DWORD*) { return 1; }
+inline LONG RegSetValueExW(HKEY, LPCWSTR, DWORD, DWORD, const BYTE*, DWORD) { return 1; }
+inline LONG RegDeleteValueW(HKEY, LPCWSTR) { return 1; }
+inline LONG RegDeleteKeyW(HKEY, LPCWSTR) { return 1; }
+inline LONG RegEnumKeyExW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, LPWSTR, DWORD*, FILETIME*) { return 1; }
+inline LONG RegEnumValueW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
+inline LONG RegQueryInfoKeyW(HKEY, LPWSTR, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, FILETIME*) { return 1; }
 
 // GDI stubs
 inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return 0; }

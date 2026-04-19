@@ -7,35 +7,48 @@
 #include "monitor.h"
 #endif
 
-const char Registry::base[] = "Software\\Free Software\\Xyzzy\\";
-const char Registry::Settings[] = "Settings";
+const Char Registry::base[] = {'S','o','f','t','w','a','r','e','\\',
+                               'F','r','e','e',' ',
+                               'S','o','f','t','w','a','r','e','\\',
+                               'X','y','z','z','y','\\',0};
+const Char Registry::Settings[] = {'S','e','t','t','i','n','g','s',0};
+
+static size_t
+wsz_len (const Char *s)
+{
+  const Char *p = s;
+  while (*p) p++;
+  return p - s;
+}
 
 #define ALLOC_SUBKEY(VAR, SUBKEY) \
-  char *(VAR) = (char *)alloca (sizeof base + strlen (SUBKEY)); \
-  memcpy ((VAR), base, sizeof base - 1), \
-  strcpy ((VAR) + sizeof base - 1, (SUBKEY))
+  size_t VAR##_blen = sizeof base / sizeof (Char) - 1; \
+  size_t VAR##_slen = wsz_len (SUBKEY); \
+  Char *(VAR) = (Char *)alloca ((VAR##_blen + VAR##_slen + 1) * sizeof (Char)); \
+  memcpy ((VAR), base, VAR##_blen * sizeof (Char)); \
+  memcpy ((VAR) + VAR##_blen, (SUBKEY), (VAR##_slen + 1) * sizeof (Char))
 
 void
-ReadRegistry::open_local (const char *subkey)
+ReadRegistry::open_local (const Char *subkey)
 {
   ALLOC_SUBKEY (b, subkey);
-  if (RegOpenKeyExA (HKEY_CURRENT_USER, b, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
+  if (RegOpenKeyExW (HKEY_CURRENT_USER, (LPCWSTR)b, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     hkey = 0;
 }
 
-ReadRegistry::ReadRegistry (HKEY h, const char *subkey)
+ReadRegistry::ReadRegistry (HKEY h, const Char *subkey)
 {
   if (!h)
     open_local (subkey);
-  else if (RegOpenKeyExA (h, subkey, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
+  else if (RegOpenKeyExW (h, (LPCWSTR)subkey, 0, KEY_READ, &hkey) != ERROR_SUCCESS)
     hkey = 0;
 }
 
-WriteRegistry::WriteRegistry (const char *subkey)
+WriteRegistry::WriteRegistry (const Char *subkey)
 {
   ALLOC_SUBKEY (b, subkey);
   DWORD x;
-  DWORD e = RegCreateKeyExA (HKEY_CURRENT_USER, b, 0, 0, REG_OPTION_NON_VOLATILE,
+  DWORD e = RegCreateKeyExW (HKEY_CURRENT_USER, (LPCWSTR)b, 0, 0, REG_OPTION_NON_VOLATILE,
                              KEY_WRITE, 0, &hkey, &x);
   if (e != ERROR_SUCCESS)
     {
@@ -45,30 +58,30 @@ WriteRegistry::WriteRegistry (const char *subkey)
 }
 
 int
-ReadRegistry::get (const char *key, void *buf, DWORD size, DWORD req) const
+ReadRegistry::get (const Char *key, void *buf, DWORD size, DWORD req) const
 {
   assert (!fail ());
   DWORD type;
-  return (RegQueryValueExA (hkey, (char *)key, 0, &type,
+  return (RegQueryValueExW (hkey, (LPCWSTR)key, 0, &type,
                             (BYTE *)buf, &size) == ERROR_SUCCESS
           && type == req) ? size : -1;
 }
 
 int
-ReadRegistry::query (const char *key, DWORD *type) const
+ReadRegistry::query (const Char *key, DWORD *type) const
 {
   assert (!fail ());
   DWORD size = 0;
-  if (RegQueryValueExA (hkey, (char *)key, 0, type, 0, &size) == ERROR_SUCCESS)
+  if (RegQueryValueExW (hkey, (LPCWSTR)key, 0, type, 0, &size) == ERROR_SUCCESS)
     return size;
   return -1;
 }
 
 int
-WriteRegistry::set (const char *key, DWORD type, const void *buf, int size) const
+WriteRegistry::set (const Char *key, DWORD type, const void *buf, int size) const
 {
   assert (!fail ());
-  DWORD e = RegSetValueExA (hkey, key, 0, type, (BYTE *)buf, size);
+  DWORD e = RegSetValueExW (hkey, (LPCWSTR)key, 0, type, (BYTE *)buf, size);
   if (e == ERROR_SUCCESS)
     return 1;
   SetLastError (e);
@@ -76,31 +89,39 @@ WriteRegistry::set (const char *key, DWORD type, const void *buf, int size) cons
 }
 
 int
-WriteRegistry::remove (const char *key) const
+WriteRegistry::remove (const Char *key) const
 {
   assert (!fail ());
-  DWORD e = RegDeleteValueA (hkey, key);
+  DWORD e = RegDeleteValueW (hkey, (LPCWSTR)key);
   if (e == ERROR_SUCCESS || e == ERROR_FILE_NOT_FOUND)
     return 1;
   SetLastError (e);
   return 0;
 }
 
+static Char *
+lisp_to_wsz (lisp s)
+{
+  int l = xstring_length (s);
+  Char *b = (Char *)alloca ((l + 1) * sizeof (Char));
+  memcpy (b, xstring_contents (s), l * sizeof (Char));
+  b[l] = 0;
+  return b;
+}
+
 lisp
 Fwrite_registry (lisp lsection, lisp lkey, lisp val)
 {
   lsection = Fstring (lsection);
-  char *section = (char *)alloca (w2sl (lsection) + 1);
-  w2s (section, lsection);
+  Char *section = lisp_to_wsz (lsection);
 
-  char *key;
+  Char *key;
   if (lkey == Qnil)
     key = 0;
   else
     {
       lkey = Fstring (lkey);
-      key = (char *)alloca (w2sl (lkey) + 1);
-      w2s (key, lkey);
+      key = lisp_to_wsz (lkey);
     }
 
   if (val != Qnil && !stringp (val) && !fixnump (val))
@@ -119,10 +140,9 @@ Fwrite_registry (lisp lsection, lisp lkey, lisp val)
 
   if (stringp (val))
     {
-      int l = w2sl (val);
-      char *b = (char *)alloca (l + 1);
-      w2s (b, val);
-      if (!r.set (key, b, l + 1))
+      Char *b = lisp_to_wsz (val);
+      int n = xstring_length (val);
+      if (!r.set (key, b, (n + 1) * sizeof (Char)))
         FEsimple_win32_error (GetLastError (), lkey);
       return Qt;
     }
@@ -136,17 +156,15 @@ lisp
 Fwrite_registry_literally (lisp lsection, lisp lkey, lisp val)
 {
   lsection = Fstring (lsection);
-  char *section = (char *)alloca (w2sl (lsection) + 1);
-  w2s (section, lsection);
+  Char *section = lisp_to_wsz (lsection);
 
-  char *key;
+  Char *key;
   if (lkey == Qnil)
     key = 0;
   else
     {
       lkey = Fstring (lkey);
-      key = (char *)alloca (w2sl (lkey) + 1);
-      w2s (key, lkey);
+      key = lisp_to_wsz (lkey);
     }
 
   if (val != Qnil)
@@ -190,17 +208,15 @@ lisp
 Fread_registry (lisp lsection, lisp lkey, lisp lroot)
 {
   lsection = Fstring (lsection);
-  char *section = (char *)alloca (w2sl (lsection) + 1);
-  w2s (section, lsection);
+  Char *section = lisp_to_wsz (lsection);
 
-  char *key;
+  Char *key;
   if (lkey == Qnil)
     key = 0;
   else
     {
       lkey = Fstring (lkey);
-      key = (char *)alloca (w2sl (lkey) + 1);
-      w2s (key, lkey);
+      key = lisp_to_wsz (lkey);
     }
 
   ReadRegistry r (check_root (lroot), section);
@@ -224,38 +240,46 @@ Fread_registry (lisp lsection, lisp lkey, lisp lroot)
 
     case REG_SZ:
       {
-        char *b = (char *)alloca (l + 1);
-        if (!r.get (key, b, l, type))
+        int ncu = l / sizeof (Char);
+        Char *b = (Char *)alloca ((ncu + 1) * sizeof (Char));
+        if (r.get (key, b, (ncu + 1) * sizeof (Char), type) < 0)
           FEsimple_win32_error (GetLastError (), lkey);
-        return make_string (b);
+        int n = ncu;
+        while (n > 0 && b[n - 1] == 0) n--;
+        return make_string (b, n);
       }
 
     case REG_EXPAND_SZ:
       {
-        char *b = (char *)alloca (l + 1);
-        if (!r.get (key, b, l, type))
+        int ncu = l / sizeof (Char);
+        Char *b = (Char *)alloca ((ncu + 1) * sizeof (Char));
+        if (r.get (key, b, (ncu + 1) * sizeof (Char), type) < 0)
           FEsimple_win32_error (GetLastError (), lkey);
-        l = ExpandEnvironmentStringsA (b, 0, 0);
-        if (!l)
+        DWORD n = ExpandEnvironmentStringsW ((LPCWSTR)b, 0, 0);
+        if (!n)
           FEsimple_win32_error (GetLastError (), lkey);
-        char *b2 = (char *)alloca (l + 1);
-        if (!ExpandEnvironmentStringsA (b, b2, l + 1))
+        Char *b2 = (Char *)alloca (n * sizeof (Char));
+        if (!ExpandEnvironmentStringsW ((LPCWSTR)b, (LPWSTR)b2, n))
           FEsimple_win32_error (GetLastError (), lkey);
-        return make_string (b2);
+        int rn = n;
+        while (rn > 0 && b2[rn - 1] == 0) rn--;
+        return make_string (b2, rn);
       }
 
     case REG_MULTI_SZ:
       {
-        char *b = (char *)alloca (l + 1);
-        if (!r.get (key, b, l, type))
+        int ncu = l / sizeof (Char);
+        Char *b = (Char *)alloca ((ncu + 1) * sizeof (Char));
+        if (r.get (key, b, (ncu + 1) * sizeof (Char), type) < 0)
           FEsimple_win32_error (GetLastError (), lkey);
         lisp p = Qnil;
-        do
+        Char *s = b;
+        while (*s)
           {
-            p = xcons (make_string (b), p);
-            b += strlen (b) + 1;
+            size_t sl = wsz_len (s);
+            p = xcons (make_string (s, sl), p);
+            s += sl + 1;
           }
-        while (*b);
         return Fnreverse (p);
       }
 
@@ -278,8 +302,7 @@ lisp
 Flist_registry_key (lisp lsection, lisp lroot)
 {
   lsection = Fstring (lsection);
-  char *section = (char *)alloca (w2sl (lsection) + 1);
-  w2s (section, lsection);
+  Char *section = lisp_to_wsz (lsection);
 
   EnumRegistry r (check_root (lroot), section);
   if (r.fail ())
@@ -288,12 +311,12 @@ Flist_registry_key (lisp lsection, lisp lroot)
   lisp p = Qnil;
   for (int i = 0;; i++)
     {
-      char name[1024];
-      DWORD namel = sizeof name;
+      Char name[1024];
+      DWORD namel = sizeof name / sizeof (Char);
       FILETIME ft;
-      int e = RegEnumKeyExA (r, i, name, &namel, 0, 0, 0, &ft);
+      int e = RegEnumKeyExW (r, i, (LPWSTR)name, &namel, 0, 0, 0, &ft);
       if (e == ERROR_SUCCESS)
-        p = xcons (make_string (name), p);
+        p = xcons (make_string (name, namel), p);
       else
         break;
     }

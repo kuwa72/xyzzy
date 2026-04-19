@@ -1471,11 +1471,28 @@ Fenable_global_ime (lisp f)
 static int
 get_kbd_layout_name (HKL hkl, char *buf, int size)
 {
-  char k[256];
-  sprintf (k, "SYSTEM\\CurrentControlSet\\Control\\Keyboard Layouts\\%08x", hkl);
+  Char k[256];
+  _snwprintf ((wchar_t *)k, numberof (k),
+              L"SYSTEM\\CurrentControlSet\\Control\\Keyboard Layouts\\%08x", hkl);
+  k[numberof (k) - 1] = 0;
   ReadRegistry r (HKEY_LOCAL_MACHINE, k);
-  return ((!r.fail () && r.get ("Layout Text", buf, size) > 0)
-          || app.kbdq.gime.ImmGetDescription (hkl, buf, size) > 0);
+  if (!r.fail ())
+    {
+      static const Char layout_text[] = {'L','a','y','o','u','t',' ','T','e','x','t',0};
+      Char wbuf[256];
+      if (r.get (layout_text, wbuf, sizeof wbuf) > 0)
+        {
+          int nchar = 0;
+          while (nchar < (int)numberof (wbuf) && wbuf[nchar]) nchar++;
+          size_t nb = w2sl (wbuf, nchar);
+          int copy = min<int> (nb, size - 1);
+          w2s (buf, buf + copy, wbuf, nchar);
+          buf[copy] = 0;
+          if (copy > 0)
+            return 1;
+        }
+    }
+  return app.kbdq.gime.ImmGetDescription (hkl, buf, size) > 0;
 }
 
 typedef UINT (WINAPI *GETKEYBOARDLAYOUTLIST)(int, HKL *);

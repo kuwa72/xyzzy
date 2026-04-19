@@ -20,12 +20,12 @@ public:
 class Registry
 {
 protected:
-  static const char base[];
+  static const Char base[];
   HKEY hkey;
   Registry ();
   ~Registry ();
 public:
-  static const char Settings[];
+  static const Char Settings[];
   int fail () const;
 };
 
@@ -51,44 +51,44 @@ Registry::fail () const
 class ReadRegistry: public Registry
 {
 protected:
-  void open_local (const char *);
+  void open_local (const Char *);
 public:
-  int get (const char *, void *, DWORD, DWORD) const;
-  int get (const char *, int *) const;
-  int get (const char *, long *) const;
-  int get (const char *, char *, int) const;
-  int get (const char *, void *, int) const;
-  int query (const char *, DWORD *) const;
-  ReadRegistry (const char *);
-  ReadRegistry (HKEY, const char *);
+  int get (const Char *, void *, DWORD, DWORD) const;
+  int get (const Char *, int *) const;
+  int get (const Char *, long *) const;
+  int get (const Char *, Char *, int) const;
+  int get (const Char *, void *, int) const;
+  int query (const Char *, DWORD *) const;
+  ReadRegistry (const Char *);
+  ReadRegistry (HKEY, const Char *);
 };
 
 inline
-ReadRegistry::ReadRegistry (const char *subkey)
+ReadRegistry::ReadRegistry (const Char *subkey)
 {
   open_local (subkey);
 }
 
 inline int
-ReadRegistry::get (const char *key, int *x) const
+ReadRegistry::get (const Char *key, int *x) const
 {
   return get (key, x, sizeof *x, REG_DWORD) == sizeof *x;
 }
 
 inline int
-ReadRegistry::get (const char *key, long *x) const
+ReadRegistry::get (const Char *key, long *x) const
 {
   return get (key, x, sizeof *x, REG_DWORD) == sizeof *x;
 }
 
 inline int
-ReadRegistry::get (const char *key, char *buf, int size) const
+ReadRegistry::get (const Char *key, Char *buf, int size) const
 {
   return get (key, buf, size, REG_SZ);
 }
 
 inline int
-ReadRegistry::get (const char *key, void *buf, int size) const
+ReadRegistry::get (const Char *key, void *buf, int size) const
 {
   return get (key, buf, size, REG_BINARY);
 }
@@ -96,35 +96,37 @@ ReadRegistry::get (const char *key, void *buf, int size) const
 class WriteRegistry: public Registry
 {
 public:
-  int set (const char *, DWORD, const void *, int) const;
-  int set (const char *, long) const;
-  int set (const char *, const char *) const;
-  int set (const char *, const char *, int) const;
-  int set (const char *, const void *, int) const;
-  int remove (const char *) const;
-  WriteRegistry (const char *);
+  int set (const Char *, DWORD, const void *, int) const;
+  int set (const Char *, long) const;
+  int set (const Char *, const Char *) const;
+  int set (const Char *, const Char *, int) const;
+  int set (const Char *, const void *, int) const;
+  int remove (const Char *) const;
+  WriteRegistry (const Char *);
 };
 
 inline int
-WriteRegistry::set (const char *key, long val) const
+WriteRegistry::set (const Char *key, long val) const
 {
   return set (key, REG_DWORD, &val, sizeof val);
 }
 
 inline int
-WriteRegistry::set (const char *key, const char *val) const
+WriteRegistry::set (const Char *key, const Char *val) const
 {
-  return set (key, REG_SZ, val, strlen (val) + 1);
+  int l = 0;
+  while (val[l]) l++;
+  return set (key, REG_SZ, val, (l + 1) * sizeof (Char));
 }
 
 inline int
-WriteRegistry::set (const char *key, const char *val, int size) const
+WriteRegistry::set (const Char *key, const Char *val, int size) const
 {
   return set (key, REG_SZ, val, size);
 }
 
 inline int
-WriteRegistry::set (const char *key, const void *val, int size) const
+WriteRegistry::set (const Char *key, const void *val, int size) const
 {
   return set (key, REG_BINARY, val, size);
 }
@@ -132,8 +134,8 @@ WriteRegistry::set (const char *key, const void *val, int size) const
 class EnumRegistry: public ReadRegistry
 {
 public:
-  EnumRegistry (const char *subkey) : ReadRegistry (subkey) {}
-  EnumRegistry (HKEY h, const char *subkey) : ReadRegistry (h, subkey) {}
+  EnumRegistry (const Char *subkey) : ReadRegistry (subkey) {}
+  EnumRegistry (HKEY h, const Char *subkey) : ReadRegistry (h, subkey) {}
   operator HKEY () const {return hkey;}
 };
 

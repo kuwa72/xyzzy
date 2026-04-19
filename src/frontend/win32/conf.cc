@@ -469,16 +469,47 @@ static const conf preview[] =
   {cfgScale, REG_DWORD, CONF_INT},
 };
 
+// ASCII-only char* → Char* widening into alloca'd buffer.
+// reg2ini migrates legacy xyzzy registry data whose key names are ASCII.
+static Char *
+ascii_widen (Char *dst, const char *src)
+{
+  Char *p = dst;
+  while ((*p++ = (Char)(u_char)*src++))
+    ;
+  return dst;
+}
+
+#define ASCII_W(s) \
+  ascii_widen ((Char *)alloca ((strlen (s) + 1) * sizeof (Char)), (s))
+
+static size_t
+wsz_len (const Char *s)
+{
+  const Char *p = s;
+  while (*p) p++;
+  return p - s;
+}
+
 static void
 reg2ini_str (const char *key, ReadRegistry &r, const conf &cf)
 {
+  Char *wname = ASCII_W (cf.name);
   DWORD type;
-  int l = r.query (cf.name, &type);
-  if (l > 0 && type == REG_SZ)
+  int l = r.query (wname, &type);
+  if (l > 0 && type == REG_SZ && !(l % sizeof (Char)))
     {
-      char *v = (char *)alloca (l + 1);
-      if (r.get (cf.name, v, l + 1) == l)
-        conf_write_string (key, cf.name, v);
+      int ncu = l / sizeof (Char);
+      Char *w = (Char *)alloca ((ncu + 1) * sizeof (Char));
+      if (r.get (wname, w, (ncu + 1) * sizeof (Char)) == l)
+        {
+          while (ncu > 0 && w[ncu - 1] == 0) ncu--;
+          size_t nbytes = w2sl (w, ncu);
+          char *v = (char *)alloca (nbytes + 1);
+          w2s (v, w, ncu);
+          v[nbytes] = 0;
+          conf_write_string (key, cf.name, v);
+        }
     }
 }
 
@@ -486,7 +517,7 @@ static void
 reg2ini_int (const char *key, ReadRegistry &r, const conf &cf)
 {
   int v;
-  if (r.get (cf.name, &v))
+  if (r.get (ASCII_W (cf.name), &v))
     write_conf (key, cf.name, v, cf.type == CONF_HEX);
 }
 
@@ -495,7 +526,7 @@ reg2ini_int (const char *key, ReadRegistry &r, const conf &cf, int l)
 {
   int sz = sizeof (int) * l;
   int *v = (int *)alloca (sz);
-  if (r.get (cf.name, v, sz) == sz)
+  if (r.get (ASCII_W (cf.name), v, sz) == sz)
     write_conf (key, cf.name, v, l, (cf.type & ~0xffff) == CONF_HEX);
 }
 
@@ -503,7 +534,7 @@ static void
 reg2ini_logfont (const char *key, ReadRegistry &r, const conf &cf)
 {
   LOGFONTA lf;
-  if (r.get (cf.name, &lf, sizeof lf) == sizeof lf)
+  if (r.get (ASCII_W (cf.name), &lf, sizeof lf) == sizeof lf)
     write_conf (key, cf.name, lf);
 }
 
@@ -511,20 +542,24 @@ static void
 reg2ini_print_font (const char *key, ReadRegistry &r, const conf &cf)
 {
   PRLOGFONT lf;
-  if (r.get (cf.name, &lf, sizeof lf) == sizeof lf)
+  if (r.get (ASCII_W (cf.name), &lf, sizeof lf) == sizeof lf)
     write_conf (key, cf.name, lf);
 }
 
 static void
 reg2ini (const char *rkey, const char *ikey, const conf *cf, int n)
 {
-  char *key;
+  Char *key;
   if (!*rkey)
-    key = (char *)Registry::Settings;
+    key = (Char *)Registry::Settings;
   else
     {
-      key = (char *)alloca (strlen (Registry::Settings) + strlen (rkey) + 2);
-      sprintf (key, "%s\\%s", Registry::Settings, rkey);
+      size_t sl = wsz_len (Registry::Settings);
+      size_t rl = strlen (rkey);
+      key = (Char *)alloca ((sl + 1 + rl + 1) * sizeof (Char));
+      memcpy (key, Registry::Settings, sl * sizeof (Char));
+      key[sl] = '\\';
+      ascii_widen (key + sl + 1, rkey);
     }
 
   if (!ikey)
@@ -562,8 +597,12 @@ reg2ini (const char *rkey, const char *ikey, const conf *cf, int n)
 static void
 reg2ini_colors ()
 {
-  char *key = (char *)alloca (strlen (Registry::Settings) + strlen (cfgColors) + 2);
-  sprintf (key, "%s\\%s", Registry::Settings, cfgColors);
+  size_t sl = wsz_len (Registry::Settings);
+  size_t cl = strlen (cfgColors);
+  Char *key = (Char *)alloca ((sl + 1 + cl + 1) * sizeof (Char));
+  memcpy (key, Registry::Settings, sl * sizeof (Char));
+  key[sl] = '\\';
+  ascii_widen (key + sl + 1, cfgColors);
 
   ReadRegistry r (key);
   if (r.fail ())
@@ -582,7 +621,8 @@ reg2ini_colors ()
     }
 
   COLORREF c[16];
-  if (r.get ("CustColors", c, sizeof c) == sizeof c)
+  static const Char cust_colors[] = {'C','u','s','t','C','o','l','o','r','s',0};
+  if (r.get (cust_colors, c, sizeof c) == sizeof c)
     for (int i = 0; i < 16; i++)
       {
         sprintf (name, "%s%d", cfgCustColor, i);
@@ -593,24 +633,34 @@ reg2ini_colors ()
 static void
 reg2ini_geometry (const char *rkey)
 {
-  char *key = (char *)alloca (strlen (Registry::Settings) + strlen (rkey) + 2);
-  sprintf (key, "%s\\%s", Registry::Settings, rkey);
+  size_t sl = wsz_len (Registry::Settings);
+  size_t rl = strlen (rkey);
+  Char *key = (Char *)alloca ((sl + 1 + rl + 1) * sizeof (Char));
+  memcpy (key, Registry::Settings, sl * sizeof (Char));
+  key[sl] = '\\';
+  ascii_widen (key + sl + 1, rkey);
   EnumRegistry er (key);
   if (er.fail ())
     return;
 
   for (int i = 0;; i++)
     {
-      char name[128];
-      DWORD namel = sizeof name;
+      Char name[128];
+      DWORD namel = sizeof name / sizeof (Char);
       WINDOWPLACEMENT w;
       DWORD wl = sizeof w;
       DWORD type;
-      int e = RegEnumValueA (er, i, name, &namel, 0, &type, (BYTE *)&w, &wl);
+      int e = RegEnumValueW (er, i, (LPWSTR)name, &namel, 0, &type, (BYTE *)&w, &wl);
       if (e == ERROR_SUCCESS)
         {
           if (type == REG_BINARY && wl == sizeof w && w.length == sizeof w)
-            write_conf (rkey, name, w);
+            {
+              size_t nbytes = w2sl (name, namel);
+              char *aname = (char *)alloca (nbytes + 1);
+              w2s (aname, name, namel);
+              aname[nbytes] = 0;
+              write_conf (rkey, aname, w);
+            }
         }
       else if (e != ERROR_MORE_DATA)
         break;
@@ -621,31 +671,48 @@ static void
 reg2ini_geometry ()
 {
   const char *rkey = cfgGeometry;
-  char *key = (char *)alloca (strlen (Registry::Settings) + strlen (rkey) + 2);
-  sprintf (key, "%s\\%s", Registry::Settings, rkey);
-  EnumRegistry er (key);
+  size_t sl = wsz_len (Registry::Settings);
+  size_t rl = strlen (rkey);
+  Char *rootkey = (Char *)alloca ((sl + 1 + rl + 1) * sizeof (Char));
+  memcpy (rootkey, Registry::Settings, sl * sizeof (Char));
+  rootkey[sl] = '\\';
+  ascii_widen (rootkey + sl + 1, rkey);
+  EnumRegistry er (rootkey);
   if (er.fail ())
     return;
 
   for (int i = 0;; i++)
     {
-      char name[128];
-      DWORD namel = sizeof name;
+      Char name[128];
+      DWORD namel = sizeof name / sizeof (Char);
       FILETIME ft;
-      int e = RegEnumKeyExA (er, i, name, &namel, 0, 0, 0, &ft);
+      int e = RegEnumKeyExW (er, i, (LPWSTR)name, &namel, 0, 0, 0, &ft);
       if (e == ERROR_SUCCESS)
         {
           WINDOWPLACEMENT w;
-          char key[256];
-          sprintf (key, "%s\\%s\\%s", Registry::Settings, cfgGeometry, name);
+          Char key[256];
+          size_t pos = sl;
+          memcpy (key, Registry::Settings, sl * sizeof (Char));
+          key[pos++] = '\\';
+          ascii_widen (key + pos, cfgGeometry);
+          pos += strlen (cfgGeometry);
+          key[pos++] = '\\';
+          memcpy (key + pos, name, namel * sizeof (Char));
+          key[pos + namel] = 0;
           ReadRegistry r (key);
           if (!r.fail ()
-              && r.get (cfgShowCmd, (int *)&w.showCmd)
-              && r.get (cfgLeft, &w.rcNormalPosition.left)
-              && r.get (cfgTop, &w.rcNormalPosition.top)
-              && r.get (cfgRight, &w.rcNormalPosition.right)
-              && r.get (cfgBottom, &w.rcNormalPosition.bottom))
-            write_conf (cfgMisc, name, w);
+              && r.get (ASCII_W (cfgShowCmd), (int *)&w.showCmd)
+              && r.get (ASCII_W (cfgLeft), &w.rcNormalPosition.left)
+              && r.get (ASCII_W (cfgTop), &w.rcNormalPosition.top)
+              && r.get (ASCII_W (cfgRight), &w.rcNormalPosition.right)
+              && r.get (ASCII_W (cfgBottom), &w.rcNormalPosition.bottom))
+            {
+              size_t nbytes = w2sl (name, namel);
+              char *aname = (char *)alloca (nbytes + 1);
+              w2s (aname, name, namel);
+              aname[nbytes] = 0;
+              write_conf (cfgMisc, aname, w);
+            }
         }
       else if (e != ERROR_MORE_DATA)
         break;
@@ -680,18 +747,18 @@ reg2ini ()
 static int
 reg_empty_tree_p (HKEY hkey)
 {
-  char cls[1024];
-  DWORD clsl = sizeof clsl;
+  Char cls[1024];
+  DWORD clsl = sizeof cls / sizeof (Char);
   DWORD nkeys, keyl, xclsl, nvals, naml, datal, desc;
   FILETIME ft;
-  if (RegQueryInfoKeyA (hkey, cls, &clsl, 0, &nkeys, &keyl, &xclsl,
+  if (RegQueryInfoKeyW (hkey, (LPWSTR)cls, &clsl, 0, &nkeys, &keyl, &xclsl,
                        &nvals, &naml, &datal, &desc, &ft) != ERROR_SUCCESS)
     return 0;
   return !(nkeys + nvals);
 }
 
 static int
-delete_sub_tree (HKEY hkey, const char *name)
+delete_sub_tree (HKEY hkey, const Char *name)
 {
   {
     EnumRegistry r (hkey, name);
@@ -700,33 +767,39 @@ delete_sub_tree (HKEY hkey, const char *name)
         for (int i = 0; i < 100; i++)
           {
             FILETIME ft;
-            char buf[256];
-            DWORD sz = sizeof buf;
-            if (RegEnumKeyExA (r, 0, buf, &sz, 0, 0, 0, &ft) != ERROR_SUCCESS
+            Char buf[256];
+            DWORD sz = sizeof buf / sizeof (Char);
+            if (RegEnumKeyExW (r, 0, (LPWSTR)buf, &sz, 0, 0, 0, &ft) != ERROR_SUCCESS
                 || !delete_sub_tree (r, buf))
               break;
           }
       }
   }
-  return RegDeleteKeyA (hkey, name) == ERROR_SUCCESS;
+  return RegDeleteKeyW (hkey, (LPCWSTR)name) == ERROR_SUCCESS;
 }
 
 void
 reg_delete_tree ()
 {
+  static const Char sw_free[] = {'S','o','f','t','w','a','r','e','\\',
+                                 'F','r','e','e',' ',
+                                 'S','o','f','t','w','a','r','e',0};
+  static const Char xyzzy[] = {'x','y','z','z','y',0};
+  static const Char sw[] = {'S','o','f','t','w','a','r','e',0};
+  static const Char free_sw[] = {'F','r','e','e',' ','S','o','f','t','w','a','r','e',0};
   {
-    EnumRegistry r (HKEY_CURRENT_USER, "Software\\Free Software");
+    EnumRegistry r (HKEY_CURRENT_USER, sw_free);
     if (r.fail ())
       return;
     if (sysdep.WinNTp ())
-      delete_sub_tree (r, "xyzzy");
+      delete_sub_tree (r, xyzzy);
     else
-      RegDeleteKeyA (r, "xyzzy");
+      RegDeleteKeyW (r, (LPCWSTR)xyzzy);
     if (!reg_empty_tree_p (r))
       return;
   }
 
-  EnumRegistry r (HKEY_CURRENT_USER, "Software");
+  EnumRegistry r (HKEY_CURRENT_USER, sw);
   if (!r.fail ())
-    RegDeleteKeyA (r, "Free Software");
+    RegDeleteKeyW (r, (LPCWSTR)free_sw);
 }
