@@ -2081,45 +2081,42 @@ xyzzy_color_bright (int idx)
 #define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
 
 // Output a single glyph_t to ncurses at position (row, col).
-// Returns the number of columns consumed (1 for half-width, 2 for full-width).
+// Returns the number of columns consumed (0 for combining/JUNK trail,
+// 1 for narrow, 2 for wide).
+//
+// 5b-4: glyph layout は code_point (high 32bit, GLYPH_CP) + metadata
+// (low 32bit, GLYPH_FONT/WIDTH/etc)。旧 GLYPH_LEAD/TRAIL/CATEGORY は廃止、
+// wide char 後続 cell は GLYPH_JUNK で識別。
 static int
 output_glyph (int row, int col, glyph_t g)
 {
-  // Extract character (low 8 bits)
-  Char cc = g & 0xff;
+  // JUNK trail (wide char の 2 cell 目): caller 側で skip 想定。念のため 0。
+  if (g & GLYPH_JUNK)
+    return 0;
 
-  // Determine attributes from glyph bits
   attr_t attrs = 0;
-  if (g & GLYPH_BOLD)
-    attrs |= A_BOLD;
-  if (g & GLYPH_UNDERLINE)
-    attrs |= A_UNDERLINE;
-  if (g & GLYPH_REVERSED)
-    attrs |= A_REVERSE;
+  if (g & GLYPH_BOLD)      attrs |= A_BOLD;
+  if (g & GLYPH_UNDERLINE) attrs |= A_UNDERLINE;
+  if (g & GLYPH_REVERSED)  attrs |= A_REVERSE;
 
   int selected = (g & GLYPH_SELECTED) != 0;
 
-  // Check for bitmap glyphs (special display chars)
   if (g & GLYPH_BITMAP_BIT)
     {
-      // Bitmap markers: newline mark, tab mark, etc.
-      // For ncurses, show as space (these are visual markers only)
+      // Bitmap markers: newline mark, tab mark, etc. ncurses 上は空白で代替。
       attr_t a = attrs | (selected ? COLOR_PAIR (SELECTION_PAIR) : 0);
       mvaddch (row, col, ' ' | a);
       return 1;
     }
 
-  // Determine color pair from syntax highlighting or text properties
   int color_pair = selected ? SELECTION_PAIR : 0;
   if (g & GLYPH_TEXTPROP_FG_BIT)
     {
-      // Text property colors (set-text-attribute)
       int fg = (g >> GLYPH_TEXTPROP_FG_SHIFT_BITS) & (GLYPH_TEXTPROP_NCOLORS - 1);
       int bg = (g >> GLYPH_TEXTPROP_BG_SHIFT_BITS) & (GLYPH_TEXTPROP_NCOLORS - 1);
       color_pair = TEXTPROP_PAIR (fg, bg);
       if (color_pair >= COLOR_PAIRS)
         color_pair = 0;
-      // Bright colors (index 0-7) get A_BOLD
       if (fg > 0 && xyzzy_color_bright (fg))
         attrs |= A_BOLD;
     }
@@ -2143,62 +2140,62 @@ output_glyph (int row, int col, glyph_t g)
   if (color_pair)
     attrs |= COLOR_PAIR (color_pair);
 
-  // Check glyph category (DBCS lead/trail)
-  glyph_t cat = g & GLYPH_CATEGORY_MASK;
+  u_int32_t cp = GLYPH_CP (g);
+  int width = (int) glyph_width (g);
+  if (width == 0)
+    width = 1;
 
-  if (cat == GLYPH_LEAD)
+  // Phase 3 reserved (shape ref): 当面 ? で出す
+  if (cp >= 0x110000u)
     {
-      // DBCS lead byte — will be combined with trail in caller
-      // Just return, the caller handles lead+trail pair
-      return 0;
+      mvaddch (row, col, '?' | attrs);
+      return width;
     }
 
-  if (cat == GLYPH_JUNK)
+  // ASCII control char (cp < 0x20) は ^ で代替表示 (元来 GLYPH_CTRL +
+  // bitmap / 2-cell ^X 形式は visual marker。ncurses は単純化)
+  if (cp < 0x20)
     {
-      mvaddch (row, col, ' ' | attrs);
-      return 1;
+      mvaddch (row, col, '^' | attrs);
+      return width;
     }
 
-  // Single-byte or DBCS trail (where cc has the full character)
-  if (cc < 0x20)
+  if (cp < 0x80)
     {
-      // Control character
-      mvaddch (row, col, ('^') | attrs);
-      return 1;
+      mvaddch (row, col, cp | attrs);
+      return width;
     }
-  else if (cc < 0x80)
+
+  // BMP / 非 BMP の Unicode glyph
+  cchar_t cch;
+  wchar_t ws[3];
+  if (cp < 0x10000u)
     {
-      mvaddch (row, col, cc | attrs);
-      return 1;
+      ws[0] = (wchar_t) cp;
+      ws[1] = 0;
     }
   else
     {
-      // Non-ASCII: convert internal Char to UCS-2
-      ucs2_t wc = i2w (cc);
-      if (wc != 0)
-        {
-          cchar_t cch;
-          wchar_t ws[2] = {(wchar_t)wc, 0};
-          setcchar (&cch, ws, attrs, (short)color_pair, NULL);
-          mvadd_wch (row, col, &cch);
-          int w = wcwidth ((wchar_t)wc);
-          return (w > 0) ? w : 1;
-        }
-      else
-        {
-          mvaddch (row, col, '?' | attrs);
-          return 1;
-        }
+      u_int32_t v = cp - 0x10000u;
+      ws[0] = (wchar_t) (0xD800u + (v >> 10));
+      ws[1] = (wchar_t) (0xDC00u + (v & 0x3FFu));
+      ws[2] = 0;
     }
+  setcchar (&cch, ws, attrs, (short) color_pair, NULL);
+  mvadd_wch (row, col, &cch);
+  return width;
 }
 
 // Render one glyph_data row to ncurses screen row.
 // col_offset: starting column on screen (0 for full-width windows).
 // cols: number of columns available for this window's text.
+//
+// 5b-4: 1 glyph_t = 1 code point。wide char は連続 2 cell (lead に
+// width=WIDE+CP、trail に GLYPH_JUNK) で格納されている。trail は skip し、
+// lead で 2 column 分前進する。
 static void
 render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
 {
-  // Clear this window's area on the row
   move (row, col_offset);
   for (int i = 0; i < cols; i++)
     addch (' ');
@@ -2213,76 +2210,10 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
   for (int i = 0; i < len && x < cols; i++)
     {
       glyph_t gt = g[i];
-      glyph_t cat = gt & GLYPH_CATEGORY_MASK;
-
-      if (cat == GLYPH_LEAD && i + 1 < len)
-        {
-          // DBCS pair: lead byte has high byte, trail has low byte
-          // The actual Char is stored across lead+trail
-          glyph_t trail = g[i + 1];
-          Char lead_cc = gt & 0xff;
-          Char trail_cc = trail & 0xff;
-          Char full_cc = (lead_cc << 8) | trail_cc;
-
-          // Get attributes from lead glyph
-          attr_t attrs = 0;
-          if (gt & GLYPH_BOLD) attrs |= A_BOLD;
-          if (gt & GLYPH_UNDERLINE) attrs |= A_UNDERLINE;
-          if (gt & GLYPH_REVERSED) attrs |= A_REVERSE;
-
-          int color_pair = (gt & GLYPH_SELECTED) ? SELECTION_PAIR : 0;
-          if (!(gt & GLYPH_TEXTPROP_FG_BIT))
-            {
-              glyph_t text_type = gt & GLYPH_TEXT_MASK;
-              switch (text_type)
-                {
-                case GLYPH_COMMENT:  color_pair = 1; break;
-                case GLYPH_STRING:   color_pair = 2; break;
-                case GLYPH_KEYWORD1: color_pair = 3; break;
-                case GLYPH_KEYWORD2: color_pair = 4; break;
-                case GLYPH_KEYWORD3: color_pair = 5; break;
-                case GLYPH_TAG:      color_pair = 6; break;
-                case GLYPH_CTRL:     color_pair = 7; break;
-                case GLYPH_LINENUM:  color_pair = 8; break;
-                default: break;
-                }
-            }
-          if (color_pair)
-            attrs |= COLOR_PAIR (color_pair);
-
-          ucs2_t wc = i2w (full_cc);
-          if (wc != 0)
-            {
-              cchar_t cch;
-              wchar_t ws[2] = {(wchar_t)wc, 0};
-              setcchar (&cch, ws, attrs, (short)color_pair, NULL);
-              mvadd_wch (row, col_offset + x, &cch);
-              int w = wcwidth ((wchar_t)wc);
-              x += (w > 0) ? w : 1;
-            }
-          else
-            {
-              mvaddch (row, col_offset + x, '?' | attrs);
-              x++;
-            }
-          i++;  // skip trail
-        }
-      else if (cat == GLYPH_TRAIL)
-        {
-          // Orphan trail — skip
-          continue;
-        }
-      else if (cat == GLYPH_JUNK)
-        {
-          // Unused cell
-          x++;
-        }
-      else
-        {
-          // Normal single-byte glyph
-          int w = output_glyph (row, col_offset + x, gt);
-          x += (w > 0) ? w : 1;
-        }
+      if (gt & GLYPH_JUNK)
+        continue;  // wide trail — lead 側で 2 cell まとめて消化済
+      int w = output_glyph (row, col_offset + x, gt);
+      x += (w > 0) ? w : 1;
     }
 }
 
