@@ -82,6 +82,14 @@ save_match (const Regexp &re, lisp str)
   xsymbol_value (Vlast_match_string) = str;
 }
 
+/* 5c: Boyer-Moore bad-character table の hash function。
+   Phase 2 で buffer Char は UTF-16 code unit。pattern と buffer 双方を
+   `c & 0xFF` (低 8 bit) で 256 entry に分配する。旧
+   `DBCP(c) ? c >> 8 : c` は internal encoding の DBCS lead byte 前提
+   だったので不要。compile / exec 双方で同一 hash を使う必要がある
+   ため、両関数で揃えて変更している。 */
+#define BM_HASH(c) ((c) & 0xFFu)
+
 static void
 bm_compilef (int *BM, const Char *pattern, int patlen, int case_fold)
 {
@@ -91,7 +99,7 @@ bm_compilef (int *BM, const Char *pattern, int patlen, int case_fold)
   for (int i = patlen - 1; i >= 0; i--)
     {
       Char cc = *pattern++;
-      int c = DBCP (cc) ? cc >> 8 : cc;
+      int c = BM_HASH (cc);
       if (case_fold && alpha_char_p (cc))
         BM[_char_transpose_case (c)] = i;
       BM[c] = i;
@@ -108,7 +116,7 @@ bm_compileb (int *BM, const Char *pattern, int patlen, int case_fold)
   for (i = patlen - 1, pattern += patlen; i >= 0; i--)
     {
       Char cc = *--pattern;
-      int c = DBCP (cc) ? cc >> 8 : cc;
+      int c = BM_HASH (cc);
       if (case_fold && alpha_char_p (cc))
         BM[_char_transpose_case (c)] = i;
       BM[c] = i;
@@ -161,7 +169,7 @@ Buffer::bm_execf (Point &point, const Char *pattern, int patlen, const int *BM,
   const Char *p = cp->c_text + point.p_offset;
 
   Char c = *p;
-  int delta = BM[DBCP (c) ? c >> 8 : c];
+  int delta = BM[BM_HASH (c)];
 
   while (1)
     {
@@ -179,7 +187,7 @@ Buffer::bm_execf (Point &point, const Char *pattern, int patlen, const int *BM,
             }
           p += delta;
           c = *p;
-          delta = BM[DBCP (c) ? c >> 8 : c];
+          delta = BM[BM_HASH (c)];
         }
 
       if (((flags & SF_CASE_FOLD) ? char_upcase (c) : c) != c0)
@@ -226,7 +234,7 @@ Buffer::bm_execf (Point &point, const Char *pattern, int patlen, const int *BM,
       continue;
 
     fail:
-      delta = max (BM[DBCP (c) ? c >> 8 : c], int (opoint - point.p_point + 1));
+      delta = max (BM[BM_HASH (c)], int (opoint - point.p_point + 1));
     }
 }
 
@@ -243,7 +251,7 @@ Buffer::bm_execb (Point &point, const Char *pattern, int patlen, const int *BM,
   const Char *pe = cp->c_text + cp->c_used;
   Char c = *p;
 
-  int delta = BM[DBCP (c) ? c >> 8 : c];
+  int delta = BM[BM_HASH (c)];
 
   while (1)
     {
@@ -260,7 +268,7 @@ Buffer::bm_execb (Point &point, const Char *pattern, int patlen, const int *BM,
             }
           p -= delta;
           c = *p;
-          delta = BM[DBCP (c) ? c >> 8 : c];
+          delta = BM[BM_HASH (c)];
         }
 
       if (((flags & SF_CASE_FOLD) ? char_upcase (c) : c) != c0)
@@ -312,7 +320,7 @@ Buffer::bm_execb (Point &point, const Char *pattern, int patlen, const int *BM,
       continue;
 
     fail:
-      delta = max (BM[DBCP (c) ? c >> 8 : c], int (point.p_point - opoint + 1));
+      delta = max (BM[BM_HASH (c)], int (point.p_point - opoint + 1));
     }
 }
 

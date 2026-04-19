@@ -45,6 +45,12 @@ enum
 
 #define NBITS (sizeof (Char) * 8)
 
+/* 5c: regexp の atom は Phase 2 で UTF-16 code unit と等価。charclass の
+   256x256 hi/lo bitmap は BMP 全域 (U+0000-U+FFFF) を網羅し、surrogate
+   pair (U+D800-U+DFFF) は 2 atom として個別に扱われる (JavaScript /
+   Java と同じ制約)。non-BMP の grapheme/code-point 単位マッチ、Unicode
+   property (\\p{Letter} 等)、Unicode case folding は Phase 2 では非対応 —
+   将来 PCRE2 / RE2 入替で検討。 */
 class charclass
 {
   Char hi[256 / NBITS];
@@ -1151,6 +1157,11 @@ regexp_compile::compile_fastmap (char *fastmap, const Char *p, const Char *pe) c
 
         case NORMAL_CHARS:
           {
+            /* 5c: fastmap は 256 entry。ASCII (c<256) はそのまま、
+               BMP 非 ASCII は high byte でバケットを共有する旧方式を
+               維持。reader 側 (Regexp::search) と hash が一致して
+               いれば false-reject が出ないため動く (UTF-16 cutover で
+               意味論変化なし)。 */
             Char c = p[1];
             if (c < 256)
               fastmap[c] = 1;
