@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (require "foreign")
 
 (c:define-dll-entry
@@ -319,7 +320,7 @@
 
 
 (c:define-dll-entry
-  c:u_int64 ; �ق�Ƃ� div_t �����\���̖̂߂�l�͖��T�|�[�g
+  c:u_int64 ; ほんとは div_t だが構造体の戻り値は未サポート
   (div :convention :cdecl)
   (c:int c:int)
   "msvcrt")
@@ -401,7 +402,7 @@
       (c:expand-c-vaargs `((INVALID_VAARGS 123)))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((INVALID_VAARGS 123))")
+  => "不正な可変長引数です: ((INVALID_VAARGS 123))")
 
 (deftest funcall-expand-vaargs ()
   (let ((b (si:make-chunk nil 200)))
@@ -470,56 +471,56 @@
                   (list 123))))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (123)")
+  => "不正な可変長引数です: (123)")
 
 (deftest c-vaargs-invalid-vaargs-1 ()
   (handler-case
       (c:c-vaargs 123)
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (123)")
+  => "不正な可変長引数です: (123)")
 
 (deftest c-vaargs-invalid-vaargs-2 ()
   (handler-case
       (c:c-vaargs (123))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((123))")
+  => "不正な可変長引数です: ((123))")
 
 (deftest c-vaargs-invalid-vaargs-3 ()
   (handler-case
       (c:c-vaargs :int32 123)
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (:int32 123)")
+  => "不正な可変長引数です: (:int32 123)")
 
 (deftest c-vaargs-invalid-vaargs-4 ()
   (handler-case
       (c:c-vaargs (:int32))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:int32))")
+  => "不正な可変長引数です: ((:int32))")
 
 (deftest c-vaargs-invalid-vaargs-5 ()
   (handler-case
       (c:c-vaargs (:int32 123 234))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:int32 123 234))")
+  => "不正な可変長引数です: ((:int32 123 234))")
 
 (deftest c-vaargs-invalid-vaargs-6 ()
   (handler-case
       (c:c-vaargs nil (:int32 123))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (nil (:int32 123))")
+  => "不正な可変長引数です: (nil (:int32 123))")
 
 (deftest c-vaargs-invalid-vaargs-7 ()
   (handler-case
       (c:c-vaargs (:void 123))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:void 123))")
+  => "不正な可変長引数です: ((:void 123))")
 
 
 (deftest funcall-invalid-vaargs-1 ()
@@ -527,49 +528,49 @@
       (sprintf 0 0 123)
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: 123")
+  => "不正な可変長引数です: 123")
 
 (deftest funcall-invalid-vaargs-2 ()
   (handler-case
       (sprintf 0 0 '(123))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (123)")
+  => "不正な可変長引数です: (123)")
 
 (deftest funcall-invalid-vaargs-3 ()
   (handler-case
       (sprintf 0 0 '(:int32 123))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (:int32 123)")
+  => "不正な可変長引数です: (:int32 123)")
 
 (deftest funcall-invalid-vaargs-4 ()
   (handler-case
       (sprintf 0 0 '((:int32)))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:int32))")
+  => "不正な可変長引数です: ((:int32))")
 
 (deftest funcall-invalid-vaargs-5 ()
   (handler-case
       (sprintf 0 0 '((:int32 123 234)))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:int32 123 234))")
+  => "不正な可変長引数です: ((:int32 123 234))")
 
 (deftest funcall-invalid-vaargs-6 ()
   (handler-case
       (sprintf 0 0 '(nil (:int32 123)))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: (nil (:int32 123))")
+  => "不正な可変長引数です: (nil (:int32 123))")
 
 (deftest funcall-invalid-vaargs-7 ()
   (handler-case
       (sprintf 0 0 '((:void 123)))
     (error (c)
       (si:*condition-string c)))
-  => "�s���ȉϒ������ł�: ((:void 123))")
+  => "不正な可変長引数です: ((:void 123))")
 
 
 (deftest make-c-function-stdcall-rest ()
@@ -581,7 +582,7 @@
                           :vaarg t :convention :stdcall)
     (error (c)
       (si:*condition-string c)))
-  => "stdcall�Ăяo���K��̏ꍇ�A�ϒ������͗��p�ł��܂���")
+  => "stdcall呼び出し規約の場合、可変長引数は利用できません")
 
 (deftest define-dll-entry-stdcall-rest ()
   (handler-case
@@ -591,7 +592,7 @@
         "msvcrt" "sprintf")
     (error (c)
       (si:*condition-string c)))
-  => "stdcall�Ăяo���K��̏ꍇ�A�ϒ������͗��p�ł��܂���")
+  => "stdcall呼び出し規約の場合、可変長引数は利用できません")
 
 
 (c:define-dll-entry

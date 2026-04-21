@@ -1,10 +1,10 @@
-;;; -*- mode: lisp -*-
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 
 ;; 2011-12-21  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* lisp : fix saving session file.
-;; 	ƒqƒXƒgƒŠƒtƒ@ƒCƒ‹‚Æ“¯—l‚ÉƒZƒbƒVƒ‡ƒ“ƒtƒ@ƒCƒ‹‚à‘‚«‚İ‚É *print-length*
-;; 	‚È‚Ç‚Ì‰e‹¿‚ğó‚¯‚È‚¢‚æ‚¤C³B
+;; 	ãƒ’ã‚¹ãƒˆãƒªãƒ•ã‚¡ã‚¤ãƒ«ã¨åŒæ§˜ã«ã‚»ãƒƒã‚·ãƒ§ãƒ³ãƒ•ã‚¡ã‚¤ãƒ«ã‚‚æ›¸ãè¾¼ã¿æ™‚ã« *print-length*
+;; 	ãªã©ã®å½±éŸ¿ã‚’å—ã‘ãªã„ã‚ˆã†ä¿®æ­£ã€‚
 ;; 
 ;; 	(progn
 ;; 	  (ed::write-session-file "0ssn.l")
@@ -15,7 +15,7 @@
 ;; 	    (ed::write-session-file "1ssn.l")))
 ;;
 (deftest fix-saving-session-file ()
-  "ƒZƒbƒVƒ‡ƒ“ƒtƒ@ƒCƒ‹‚ğ•Û‘¶‚É *print-length* ‚È‚Ç‚Ì‰e‹¿‚ğó‚¯‚È‚¢‚æ‚¤‚ÉC³B"
+  "ã‚»ãƒƒã‚·ãƒ§ãƒ³ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ä¿å­˜æ™‚ã« *print-length* ãªã©ã®å½±éŸ¿ã‚’å—ã‘ãªã„ã‚ˆã†ã«ä¿®æ­£ã€‚"
   (with-temp-files (ssn)
     (block test
       (with-fake-functions ((write (object &key pretty readably escape)
@@ -31,7 +31,7 @@
   => non-nil)
 
 ;; 	* lisp : fix saving history-file.
-;; 	ƒqƒXƒgƒŠƒtƒ@ƒCƒ‹‘‚«‚İ‚É *print-length* ‚È‚Ç‚Ì‰e‹¿‚ğó‚¯‚é‚Ì‚ğC³B
+;; 	ãƒ’ã‚¹ãƒˆãƒªãƒ•ã‚¡ã‚¤ãƒ«æ›¸ãè¾¼ã¿æ™‚ã« *print-length* ãªã©ã®å½±éŸ¿ã‚’å—ã‘ã‚‹ã®ã‚’ä¿®æ­£ã€‚
 ;; 
 ;; 	(progn
 ;; 	  (let ((*history-file-name* "0hist.l"))
@@ -44,8 +44,8 @@
 ;; 	    (ed::save-history-file)))
 ;;
 (deftest fix-saving-history-file ()
-  "ƒqƒXƒgƒŠƒtƒ@ƒCƒ‹‘‚«‚İ‚É *print-length* ‚È‚Ç‚Ì‰e‹¿‚ğó‚¯‚é‚Ì‚ğC³B"
-  ;; NOTE: xyzzy.exe -q ‚Å‹N“®‚µ‚Ä‚é‚ÆƒqƒXƒgƒŠƒtƒ@ƒCƒ‹‚ğg‚í‚È‚¢Š´‚¶‚É‚È‚Á‚¿‚á‚¤‚Ì‚Å
+  "ãƒ’ã‚¹ãƒˆãƒªãƒ•ã‚¡ã‚¤ãƒ«æ›¸ãè¾¼ã¿æ™‚ã« *print-length* ãªã©ã®å½±éŸ¿ã‚’å—ã‘ã‚‹ã®ã‚’ä¿®æ­£ã€‚"
+  ;; NOTE: xyzzy.exe -q ã§èµ·å‹•ã—ã¦ã‚‹ã¨ãƒ’ã‚¹ãƒˆãƒªãƒ•ã‚¡ã‚¤ãƒ«ã‚’ä½¿ã‚ãªã„æ„Ÿã˜ã«ãªã£ã¡ã‚ƒã†ã®ã§
   (unless ed::*history-file-loaded*
     (trap-errors (ed::load-history-file)))
   (with-temp-files (histfile)
@@ -66,11 +66,11 @@
 ;; 2011-12-20  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix equalp for hash-table.
-;; 	equalp ‚É hash-table ‚ğ“n‚·‚Æ‘½’l‚ª•Ô‚Á‚Ä‚­‚é–â‘è‚ğC³B
+;; 	equalp ã« hash-table ã‚’æ¸¡ã™ã¨å¤šå€¤ãŒè¿”ã£ã¦ãã‚‹å•é¡Œã‚’ä¿®æ­£ã€‚
 ;; 	https://gist.github.com/1480046
 ;; 
 (deftest equalp-for-hash-table ()
-  "equalp ‚É hash-table ‚ğ“n‚·‚Æ‘½’l‚ª‚ª‘I‚Á‚Ä‚­‚é–â‘è‚ğC³B"
+  "equalp ã« hash-table ã‚’æ¸¡ã™ã¨å¤šå€¤ãŒãŒé¸ã£ã¦ãã‚‹å•é¡Œã‚’ä¿®æ­£ã€‚"
   (let ((a (make-hash-table))
         (b (make-hash-table)))
     (setf (gethash 1 a) "foo"
@@ -81,30 +81,30 @@
 ;; 2011-06-17  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix sxhash.
-;; 	sxhash ‚Ì’l‚ª equalp —p‚Ì’l‚É‚È‚Á‚Ä‚¢‚é‚ª equal —p‚Ì’l‚É‚È‚é‚æ‚¤‚ÉC³B
+;; 	sxhash ã®å€¤ãŒ equalp ç”¨ã®å€¤ã«ãªã£ã¦ã„ã‚‹ãŒ equal ç”¨ã®å€¤ã«ãªã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;; 	(= (sxhash (list "ABC")) (sxhash (list "ABC"))) => t
 ;; 	(= (sxhash (list "abc")) (sxhash (list "ABC"))) => nil
 ;;
-;; NOTE: ‚±‚ê‚ÍŒ³‚©‚çƒIƒbƒP[
+;; NOTE: ã“ã‚Œã¯å…ƒã‹ã‚‰ã‚ªãƒƒã‚±ãƒ¼
 ; (deftest sxhash-fix-00 ()
 ;   (= (sxhash (list "ABC")) (sxhash (list "ABC")))
 ;   => t)
  
 (deftest sxhash-fix-01 ()
-  "sxhash ‚Ì’l‚ª equalp —p‚Ì’l‚É‚È‚Á‚Ä‚¢‚½‚ª equal —p‚Ì’l‚ÉC³B"
+  "sxhash ã®å€¤ãŒ equalp ç”¨ã®å€¤ã«ãªã£ã¦ã„ãŸãŒ equal ç”¨ã®å€¤ã«ä¿®æ­£ã€‚"
   (= (sxhash (list "abc")) (sxhash (list "ABC")))
   => nil)
 
 ;; 2011-06-15  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* lisp : fix compiling lambda form.
-;; 	lambda form ‚ğƒRƒ“ƒpƒCƒ‹‚·‚é‚ÆƒŒƒLƒVƒJƒ‹•Ï”‚ğQÆ‚Å‚«‚È‚­‚È‚Á‚Ä‚¢‚½–â
-;; 	‘è‚ğC³B
+;; 	lambda form ã‚’ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã™ã‚‹ã¨ãƒ¬ã‚­ã‚·ã‚«ãƒ«å¤‰æ•°ã‚’å‚ç…§ã§ããªããªã£ã¦ã„ãŸå•
+;; 	é¡Œã‚’ä¿®æ­£ã€‚
 ;; 	https://gist.github.com/998414
 ;; 	https://gist.github.com/1000096
 ;; 
 (deftest fix-compiling-lambda-form ()
-  "lambda form ‚ğƒRƒ“ƒpƒCƒ‹‚·‚é‚ÆƒŒƒLƒVƒJƒ‹•Ï”‚ğQÆ‚Å‚«‚È‚­‚È‚Á‚Ä‚¢‚½–â‘è‚ğC³B"
+  "lambda form ã‚’ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã™ã‚‹ã¨ãƒ¬ã‚­ã‚·ã‚«ãƒ«å¤‰æ•°ã‚’å‚ç…§ã§ããªããªã£ã¦ã„ãŸå•é¡Œã‚’ä¿®æ­£ã€‚"
   (compile-and-eval
     (let ((a 1))
       ((lambda () a))))
@@ -113,11 +113,11 @@
 ;; 2011-06-14  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* lisp : fix typo in lisp/compile.l.
-;; 	ŠÖ”–¼‚Ìƒ~ƒX‚ğC³B
+;; 	é–¢æ•°åã®ãƒŸã‚¹ã‚’ä¿®æ­£ã€‚
 ;; 	https://twitter.com/#!/bowbow99/status/80332901014704128
 ;;
 (deftest fix-typo-in-lisp/compile.l ()
-  "lisp/compile.l ‚ÌŠÖ”–¼ typo ‚ğC³is/nineth/ninth/jB"
+  "lisp/compile.l ã®é–¢æ•°å typo ã‚’ä¿®æ­£ï¼ˆs/nineth/ninth/ï¼‰ã€‚"
   (progn
     (require "compile")
     (functionp (get 'ninth (find-symbol "optimize-form" :compiler))))
@@ -126,19 +126,19 @@
 ;; 2011-01-30  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix abbreviate-display-string.
-;; 	abbreviate-display-string ‚Å•K—vˆÈã‚É•¶š—ñ‚ªÈ—ª‚³‚ê‚é‚±‚Æ‚ª‚ ‚é‚Ì‚ğ
-;; 	C³BˆÈ‰º‚Ì‚æ‚¤‚É‚È‚éê‡‚ª‚ ‚Á‚½B
+;; 	abbreviate-display-string ã§å¿…è¦ä»¥ä¸Šã«æ–‡å­—åˆ—ãŒçœç•¥ã•ã‚Œã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã‚’
+;; 	ä¿®æ­£ã€‚ä»¥ä¸‹ã®ã‚ˆã†ã«ãªã‚‹å ´åˆãŒã‚ã£ãŸã€‚
 ;; 	(abbreviate-display-string "D:/src/cmigemo-1.3c-MIT/src/wordlist.h" 40 t)
 ;; 	=> "D:/..."
 ;; 
-;; 	string.cc ‚Ì 1109 s–ÚAˆÈ‰º‚Ì‚æ‚¤‚É‚È‚Á‚Ä‚¢‚½B
+;; 	string.cc ã® 1109 è¡Œç›®ã€ä»¥ä¸‹ã®ã‚ˆã†ã«ãªã£ã¦ã„ãŸã€‚
 ;; 	  strcpy (le, "...");
 ;; 	  strcpy (le + 3, rb);
-;; 	‚Í‚¶‚ß‚Ì strcpy ‚Å '\0' ‚ª‘‚«‚Ü‚êA‚»‚ÌˆÊ’u‚ª‚¿‚å‚¤‚Ç rb ‚Æˆê’v‚µ‚½
-;; 	‚Æ‚«‚É”­¶‚µ‚½B
+;; 	ã¯ã˜ã‚ã® strcpy ã§ '\0' ãŒæ›¸ãè¾¼ã¾ã‚Œã€ãã®ä½ç½®ãŒã¡ã‚‡ã†ã© rb ã¨ä¸€è‡´ã—ãŸ
+;; 	ã¨ãã«ç™ºç”Ÿã—ãŸã€‚
 ;;
 (deftest fix-abbreviate-display-string ()
-  "abbreviate-display-string ‚Å•K—vˆÈã‚É•¶š—ñ‚ªÈ—ª‚³‚ê‚é‚±‚Æ‚ª‚ ‚é‚Ì‚ğC³B"
+  "abbreviate-display-string ã§å¿…è¦ä»¥ä¸Šã«æ–‡å­—åˆ—ãŒçœç•¥ã•ã‚Œã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã‚’ä¿®æ­£ã€‚"
   (abbreviate-display-string "D:/src/cmigemo-1.3c-MIT/src/wordlist.h" 40 t)
   => "D:/.../cmigemo-1.3c-MIT/src/wordlist.h")
 
@@ -146,30 +146,30 @@
 ;; 2011-01-21  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* lisp : fix pipe-command.
-;; 	uplink name@example.jp lsv‚Æ plink ‚ğ—˜—p‚µ‚æ‚¤‚Æ‚·‚é‚Æ
-;; 	uUnable to read from standard input: ƒnƒ“ƒhƒ‹‚ª–³Œø‚Å‚·Bv
-;; 	‚Æ‚¢‚¤ƒGƒ‰[‚É‚È‚é‚Ì‚ğC³B
+;; 	ã€Œplink name@example.jp lsã€ã¨ plink ã‚’åˆ©ç”¨ã—ã‚ˆã†ã¨ã™ã‚‹ã¨
+;; 	ã€ŒUnable to read from standard input: ãƒãƒ³ãƒ‰ãƒ«ãŒç„¡åŠ¹ã§ã™ã€‚ã€
+;; 	ã¨ã„ã†ã‚¨ãƒ©ãƒ¼ã«ãªã‚‹ã®ã‚’ä¿®æ­£ã€‚
 ;; 
-;; 	execute-shell-command ‚Ì‘æ“ñˆø”‚É•¶š—ñEnilˆÈŠO‚Ìˆø”‚ğ“n‚·‚Æƒtƒ@ƒCƒ‹
-;; 	–¼‚ª‹ó‚Ìƒtƒ@ƒCƒ‹‚ğŠJ‚±‚¤‚Æ‚·‚é‚Ì‚ÅAƒGƒ‰[‚É‚È‚Á‚Ä‚¢‚½–Í—lB
+;; 	execute-shell-command ã®ç¬¬äºŒå¼•æ•°ã«æ–‡å­—åˆ—ãƒ»nilä»¥å¤–ã®å¼•æ•°ã‚’æ¸¡ã™ã¨ãƒ•ã‚¡ã‚¤ãƒ«
+;; 	åãŒç©ºã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é–‹ã“ã†ã¨ã™ã‚‹ã®ã§ã€ã‚¨ãƒ©ãƒ¼ã«ãªã£ã¦ã„ãŸæ¨¡æ§˜ã€‚
 ;; 
-;; NOTE: •ÏX‚Ì“à—e‚ğ‚æ‚­—‰ğ‚µ‚Ä‚È‚¢‚ªA•ÏX‚³‚ê‚Ä‚é‚©‚¾‚¯ƒ`ƒFƒbƒNB
+;; NOTE: å¤‰æ›´ã®å†…å®¹ã‚’ã‚ˆãç†è§£ã—ã¦ãªã„ãŒã€å¤‰æ›´ã•ã‚Œã¦ã‚‹ã‹ã ã‘ãƒã‚§ãƒƒã‚¯ã€‚
 (deftest fix-pipe-command ()
-  "pipe-command ‚ª execute-shell-command ‚É“n‚·ˆø”‚ªŠÔˆá‚Á‚Ä‚½‚Ì‚ğC³i‚½‚Ô‚ñj"
+  "pipe-command ãŒ execute-shell-command ã«æ¸¡ã™å¼•æ•°ãŒé–“é•ã£ã¦ãŸã®ã‚’ä¿®æ­£ï¼ˆãŸã¶ã‚“ï¼‰"
   (with-fake-functions ((execute-shell-command (a b c) b))
     (pipe-command "duh.."))
   => nil)
 
 ;; 	* src : fix wheel icon.
-;; 	‚È‚ñ‚Æ‚È‚­ƒzƒC[ƒ‹ƒ{ƒ^ƒ“‚ğƒNƒŠƒbƒN‚µ‚½‚Æ‚«‚ÌƒAƒCƒRƒ“‚ğ‚¢‚¶‚Á‚Ä‚İ‚½B
+;; 	ãªã‚“ã¨ãªããƒ›ã‚¤ãƒ¼ãƒ«ãƒœã‚¿ãƒ³ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ãŸã¨ãã®ã‚¢ã‚¤ã‚³ãƒ³ã‚’ã„ã˜ã£ã¦ã¿ãŸã€‚
 ;; 
-;; NOTE: ƒeƒXƒg•s—v‚©‚ÆB–³—‚¾‚µB
+;; NOTE: ãƒ†ã‚¹ãƒˆä¸è¦ã‹ã¨ã€‚ç„¡ç†ã ã—ã€‚
 
 ;; 	* src : fix multiple binding of special variables in let, let*.
 ;; 	http://d.hatena.ne.jp/bowbow99/20101127/1290818576
-;; 	let ‚â let* ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚Á‚½‚Æ‚«‚Ì’l
-;; 	‚ª‚¨‚©‚µ‚¢‚Ì‚ğC³B
-;; 	ƒRƒ“ƒpƒCƒ‹‚µ‚½‚Æ‚«‚Ì“®ì‚ÍC³‚Å‚«‚Ä‚¢‚È‚¢B
+;; 	let ã‚„ let* ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã£ãŸã¨ãã®å€¤
+;; 	ãŒãŠã‹ã—ã„ã®ã‚’ä¿®æ­£ã€‚
+;; 	ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ãŸã¨ãã®å‹•ä½œã¯ä¿®æ­£ã§ãã¦ã„ãªã„ã€‚
 ;; 	(progn
 ;; 	  (defparameter *special* :global)
 ;; 	  (let ((*special* :local-1)
@@ -177,12 +177,12 @@
 ;; 	    *special*))
 ;; 	=> :local-2
 ;; 
-;; 	ƒŒƒLƒVƒJƒ‹‚ÈŠÂ‹«‚É‚Í‹t‡‚É“o˜^‚³‚ê‚é‚Ì‚ÅAƒXƒyƒVƒƒƒ‹•Ï”‚É’l‚ğİ’è‚·‚é
-;; 	‘O‚É‡˜‚ğŒ³‚É–ß‚µ‚Ä‚¢‚éB
+;; 	ãƒ¬ã‚­ã‚·ã‚«ãƒ«ãªç’°å¢ƒã«ã¯é€†é †ã«ç™»éŒ²ã•ã‚Œã‚‹ã®ã§ã€ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å€¤ã‚’è¨­å®šã™ã‚‹
+;; 	å‰ã«é †åºã‚’å…ƒã«æˆ»ã—ã¦ã„ã‚‹ã€‚
 ;; 
 (deftest fix-multiple-binding-of-special-variable-in-let/let*-00 ()
-  "let ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚Á‚½‚Æ‚«‚Ì’l
-‚ª‚¨‚©‚µ‚¢‚Ì‚ğC³B"
+  "let ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã£ãŸã¨ãã®å€¤
+ãŒãŠã‹ã—ã„ã®ã‚’ä¿®æ­£ã€‚"
   (progn
     (defparameter *special* :global)
     (let ((*special* :local-1)
@@ -191,8 +191,8 @@
   => :local-2)
 
 (deftest fix-multiple-binding-of-special-variable-in-let/let*-01 ()
-  "let* ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚Á‚½‚Æ‚«‚Ì’l
-‚ª‚¨‚©‚µ‚¢‚Ì‚ğC³B"
+  "let* ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã£ãŸã¨ãã®å€¤
+ãŒãŠã‹ã—ã„ã®ã‚’ä¿®æ­£ã€‚"
   (progn
     (defparameter *special* :global)
     (let* ((*special* :local-1)
@@ -204,10 +204,10 @@
 ;; 
 ;; 	* src : fix let, let*.
 ;; 	http://d.hatena.ne.jp/bowbow99/20101127/1290818576
-;; 	ƒRƒ“ƒpƒCƒ‹‚µ‚½‚Æ‚«‚Í’l‚ª•Ï‚í‚é‚±‚Æ‚Í‚È‚¢‚ªAƒCƒ“ƒ^ƒvƒŠƒ^‚Æ“¯—l‚É‹t‡‚Å
-;; 	’l‚ğƒŠƒXƒgƒA‚·‚é‚æ‚¤‚ÉC³B
+;; 	ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ãŸã¨ãã¯å€¤ãŒå¤‰ã‚ã‚‹ã“ã¨ã¯ãªã„ãŒã€ã‚¤ãƒ³ã‚¿ãƒ—ãƒªã‚¿ã¨åŒæ§˜ã«é€†é †ã§
+;; 	å€¤ã‚’ãƒªã‚¹ãƒˆã‚¢ã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;;
-;; NOTE: ‚±‚ê‚ÍŒ³‚©‚ç‰ó‚ê‚Ä‚È‚¢i‹““®‚Í•Ï‚í‚Á‚Ä‚È‚¢j
+;; NOTE: ã“ã‚Œã¯å…ƒã‹ã‚‰å£Šã‚Œã¦ãªã„ï¼ˆæŒ™å‹•ã¯å¤‰ã‚ã£ã¦ãªã„ï¼‰
 ; (deftest fix-let/let*-multiple-bind-for-special-variable-in-compiled-code ()
 ;   (progn
 ;     (defparameter *special* :global)
@@ -225,8 +225,8 @@
 ;; 
 ;; 	* src : fix special variables restore at the end of let, let*.
 ;; 	http://d.hatena.ne.jp/bowbow99/20101127/1290818576
-;; 	let ‚â let* ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚é‚ÆAƒXƒR[
-;; 	ƒv‚ªŠO‚ê‚½‚Æ‚«‚É’l‚ª‘‚«Š·‚í‚Á‚Ä‚µ‚Ü‚¤‚Ì‚ğC³B
+;; 	let ã‚„ let* ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã‚‹ã¨ã€ã‚¹ã‚³ãƒ¼
+;; 	ãƒ—ãŒå¤–ã‚ŒãŸã¨ãã«å€¤ãŒæ›¸ãæ›ã‚ã£ã¦ã—ã¾ã†ã®ã‚’ä¿®æ­£ã€‚
 ;; 	(progn
 ;; 	  (defparameter *special* :global)
 ;; 	  (let ((*special* :local-1)
@@ -235,12 +235,12 @@
 ;; 	  *special*)
 ;; 	=> :global
 ;; 
-;; 	’l‚ğ•Û‘¶‚·‚é‚Æ‚«(src/eval.cc 347s–Ú•Ó‚è)‚Æ‹t‡‚É’l‚ğƒŠƒXƒgƒA‚·‚é‚æ‚¤‚É
-;; 	‚µ‚½B
+;; 	å€¤ã‚’ä¿å­˜ã™ã‚‹ã¨ã(src/eval.cc 347è¡Œç›®è¾ºã‚Š)ã¨é€†é †ã«å€¤ã‚’ãƒªã‚¹ãƒˆã‚¢ã™ã‚‹ã‚ˆã†ã«
+;; 	ã—ãŸã€‚
 ;; 
 (deftest fix-special-variables-restore-at-the-end-of-let/let*-00 ()
-  "let ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚é‚ÆAƒXƒR[
-ƒv‚ªŠO‚ê‚½‚Æ‚«‚É’l‚ª‘‚«Š·‚í‚Á‚Ä‚µ‚Ü‚¤‚Ì‚ğC³B"
+  "let ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã‚‹ã¨ã€ã‚¹ã‚³ãƒ¼
+ãƒ—ãŒå¤–ã‚ŒãŸã¨ãã«å€¤ãŒæ›¸ãæ›ã‚ã£ã¦ã—ã¾ã†ã®ã‚’ä¿®æ­£ã€‚"
   (progn
     (defparameter *special* :global)
     (let ((*special* :local-1)
@@ -250,8 +250,8 @@
   => :global)
 
 (deftest fix-special-variables-restore-at-the-end-of-let/let*-01 ()
-  "let* ‚Å“¯ˆê‚ÌƒXƒyƒVƒƒƒ‹•Ï”‚É‘Î‚µ‚Ä•¡”‰ñ‚Ì‘©”›‚ğì‚é‚ÆAƒXƒR[
-ƒv‚ªŠO‚ê‚½‚Æ‚«‚É’l‚ª‘‚«Š·‚í‚Á‚Ä‚µ‚Ü‚¤‚Ì‚ğC³B"
+  "let* ã§åŒä¸€ã®ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°ã«å¯¾ã—ã¦è¤‡æ•°å›ã®æŸç¸›ã‚’ä½œã‚‹ã¨ã€ã‚¹ã‚³ãƒ¼
+ãƒ—ãŒå¤–ã‚ŒãŸã¨ãã«å€¤ãŒæ›¸ãæ›ã‚ã£ã¦ã—ã¾ã†ã®ã‚’ä¿®æ­£ã€‚"
   (progn
     (defparameter *special* :global)
     (let* ((*special* :local-1)
@@ -263,15 +263,15 @@
 ;; 2010-12-14  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix eol-code of zero size file.
-;; 	ƒtƒ@ƒCƒ‹ƒTƒCƒY‚ª 0 ‚Ì‚Æ‚«‚Ì (³Šm‚É‚Í‰üs‚ª‚È‚¢ƒtƒ@ƒCƒ‹‚Ì‚Æ‚«‚Ì) ‰üsƒR[
-;; 	ƒh‚ªí‚É CRLF ‚É‚È‚é‚Ì‚ğC³‚µ *default-eol-code* ‚ÉŠî‚Ã‚¢‚½‰üsƒR[ƒh
-;; 	‚É‚È‚é‚æ‚¤‚É‚·‚éB
+;; 	ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºãŒ 0 ã®ã¨ãã® (æ­£ç¢ºã«ã¯æ”¹è¡ŒãŒãªã„ãƒ•ã‚¡ã‚¤ãƒ«ã®ã¨ãã®) æ”¹è¡Œã‚³ãƒ¼
+;; 	ãƒ‰ãŒå¸¸ã« CRLF ã«ãªã‚‹ã®ã‚’ä¿®æ­£ã— *default-eol-code* ã«åŸºã¥ã„ãŸæ”¹è¡Œã‚³ãƒ¼ãƒ‰
+;; 	ã«ãªã‚‹ã‚ˆã†ã«ã™ã‚‹ã€‚
 ;; 	xyzzy Part16 577
 ;;
 (deftest fix-eol-code-of-zero-size-file ()
-  "ƒtƒ@ƒCƒ‹ƒTƒCƒY‚ª 0 ‚Ì‚Æ‚«‚Ì (³Šm‚É‚Í‰üs‚ª‚È‚¢ƒtƒ@ƒCƒ‹‚Ì‚Æ‚«‚Ì) ‰üsƒR[
-ƒh‚ªí‚É CRLF ‚É‚È‚é‚Ì‚ğC³‚µ *default-eol-code* ‚ÉŠî‚Ã‚¢‚½‰üsƒR[ƒh
-‚É‚È‚é‚æ‚¤‚É‚·‚éB"
+  "ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºãŒ 0 ã®ã¨ãã® (æ­£ç¢ºã«ã¯æ”¹è¡ŒãŒãªã„ãƒ•ã‚¡ã‚¤ãƒ«ã®ã¨ãã®) æ”¹è¡Œã‚³ãƒ¼
+ãƒ‰ãŒå¸¸ã« CRLF ã«ãªã‚‹ã®ã‚’ä¿®æ­£ã— *default-eol-code* ã«åŸºã¥ã„ãŸæ”¹è¡Œã‚³ãƒ¼ãƒ‰
+ã«ãªã‚‹ã‚ˆã†ã«ã™ã‚‹ã€‚"
   (with-temp-files (name)
     (let (buffer)
       (with-open-file (out name :direction :output :if-does-not-exist :create))
@@ -286,33 +286,33 @@
 ;; 2010-12-13  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix DLL loading (hhctrl.ocx).
-;; 	JVNVU#707943: Windows ƒvƒƒOƒ‰ƒ€‚Ì DLL “Ç‚İ‚İ‚ÉÆã«
+;; 	JVNVU#707943: Windows ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã® DLL èª­ã¿è¾¼ã¿ã«è„†å¼±æ€§
 ;; 	http://jvn.jp/cert/JVNVU707943/index.html
-;; 	‚ÌC³‚Ì‘±‚«B
-;; 	hhctrl.ocx ‚Ìƒ[ƒh‚ÍÃ“I•Ï”‚Ì‰Šú‰»‚És‚í‚ê‚é‚½‚ßAæ‚ÌC³‚ÌŒø‰Ê‚ª
-;; 	‹y‚Î‚È‚¢B‚æ‚Á‚ÄAƒ[ƒh‚Ìƒ^ƒCƒ~ƒ“ƒO‚ğŠÖ” html-help ŒÄ‚Ño‚µ‚É•ÏXB
+;; 	ã®ä¿®æ­£ã®ç¶šãã€‚
+;; 	hhctrl.ocx ã®ãƒ­ãƒ¼ãƒ‰ã¯é™çš„å¤‰æ•°ã®åˆæœŸåŒ–æ™‚ã«è¡Œã‚ã‚Œã‚‹ãŸã‚ã€å…ˆã®ä¿®æ­£ã®åŠ¹æœãŒ
+;; 	åŠã°ãªã„ã€‚ã‚ˆã£ã¦ã€ãƒ­ãƒ¼ãƒ‰ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã‚’é–¢æ•° html-help å‘¼ã³å‡ºã—æ™‚ã«å¤‰æ›´ã€‚
 ;; 
 ;; 	* src : fix DLL loading.
-;; 	JVNVU#707943: Windows ƒvƒƒOƒ‰ƒ€‚Ì DLL “Ç‚İ‚İ‚ÉÆã«
+;; 	JVNVU#707943: Windows ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã® DLL èª­ã¿è¾¼ã¿ã«è„†å¼±æ€§
 ;; 	http://jvn.jp/cert/JVNVU707943/index.html
-;; 	‚ÌC³B
-;; 	“‡ƒA[ƒJƒCƒo‚Ì DLL ‚Æ WSOCK32.DLL ‚Æ ctl3d32.dll ‚ª‘ÎÛB
-;; 	foreign:define-dll-entry (si:load-dll-module) ‚Åw’è‚·‚é DLL ‚à‘ÎÛ‚¾‚ªA
-;; 	‚±‚¿‚ç‚Íƒtƒ‹ƒpƒX‚Åw’è‚·‚é‚Ì‚ª–]‚Ü‚µ‚¢‚¾‚ë‚¤B
+;; 	ã®ä¿®æ­£ã€‚
+;; 	çµ±åˆã‚¢ãƒ¼ã‚«ã‚¤ãƒã® DLL ã¨ WSOCK32.DLL ã¨ ctl3d32.dll ãŒå¯¾è±¡ã€‚
+;; 	foreign:define-dll-entry (si:load-dll-module) ã§æŒ‡å®šã™ã‚‹ DLL ã‚‚å¯¾è±¡ã ãŒã€
+;; 	ã“ã¡ã‚‰ã¯ãƒ•ãƒ«ãƒ‘ã‚¹ã§æŒ‡å®šã™ã‚‹ã®ãŒæœ›ã¾ã—ã„ã ã‚ã†ã€‚
 ;; 
-;; TODO: ƒeƒLƒg[‚È dll ‚ğ“Ç‚İ‚ñ‚ÅƒeƒXƒg‚·‚éHH
+;; TODO: ãƒ†ã‚­ãƒˆãƒ¼ãª dll ã‚’èª­ã¿è¾¼ã‚“ã§ãƒ†ã‚¹ãƒˆã™ã‚‹ï¼Ÿï¼Ÿ
 
 ;; 2010-12-12  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : update zlib(version 1.2.5).
-;; 	zlib‚ğƒo[ƒWƒ‡ƒ“1.2.5‚ÉƒAƒbƒvƒf[ƒgB
+;; 	zlibã‚’ãƒãƒ¼ã‚¸ãƒ§ãƒ³1.2.5ã«ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆã€‚
 ;; 
 ;; 	* lisp : support lzma and xz in filer.
-;; 	lzma ‚¨‚æ‚Ñ xz ‚Ìˆ³k‚Æ“WŠJ‚ğƒtƒ@ƒCƒ‰‚©‚ç—˜—p‚Å‚«‚é‚æ‚¤‚ÉC³B
+;; 	lzma ãŠã‚ˆã³ xz ã®åœ§ç¸®ã¨å±•é–‹ã‚’ãƒ•ã‚¡ã‚¤ãƒ©ã‹ã‚‰åˆ©ç”¨ã§ãã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;; 
 (deftest lzma-support-in-filer-00 ()
-  "lzma ‚Ìˆ³k‚Æ“WŠJ‚ğƒtƒ@ƒCƒ‰‚©‚ç—˜—p‚Å‚«‚é‚æ‚¤‚ÉC³B"
-  (member "*.lzma" (cdr (assoc "ƒA[ƒJƒCƒu" ed:*filer-path-masks* :test #'string=))
+  "lzma ã®åœ§ç¸®ã¨å±•é–‹ã‚’ãƒ•ã‚¡ã‚¤ãƒ©ã‹ã‚‰åˆ©ç”¨ã§ãã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚"
+  (member "*.lzma" (cdr (assoc "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–" ed:*filer-path-masks* :test #'string=))
           :test #'string=)
   => non-nil)
 
@@ -328,8 +328,8 @@
   => "C:/dir")
 
 (deftest xz-support-in-filer-00 ()
-  "xz ‚Ìˆ³k‚Æ“WŠJ‚ğƒtƒ@ƒCƒ‰‚©‚ç—˜—p‚Å‚«‚é‚æ‚¤‚ÉC³B"
-  (member "*.xz" (cdr (assoc "ƒA[ƒJƒCƒu" ed:*filer-path-masks* :test #'string=))
+  "xz ã®åœ§ç¸®ã¨å±•é–‹ã‚’ãƒ•ã‚¡ã‚¤ãƒ©ã‹ã‚‰åˆ©ç”¨ã§ãã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚"
+  (member "*.xz" (cdr (assoc "ã‚¢ãƒ¼ã‚«ã‚¤ãƒ–" ed:*filer-path-masks* :test #'string=))
           :test #'string=)
   => non-nil)
 
@@ -345,22 +345,22 @@
   => "C:/dir")
 
 ;; 	* src : support lzma and xz.
-;; 	tar32.dll Ver2.35 ‚©‚ç—˜—p‚Å‚«‚é‚æ‚¤‚É‚È‚Á‚½ lzma ‚¨‚æ‚Ñ xz ‚Ìˆ³k‚Æ“W
-;; 	ŠJ‚É‘Î‰B
+;; 	tar32.dll Ver2.35 ã‹ã‚‰åˆ©ç”¨ã§ãã‚‹ã‚ˆã†ã«ãªã£ãŸ lzma ãŠã‚ˆã³ xz ã®åœ§ç¸®ã¨å±•
+;; 	é–‹ã«å¯¾å¿œã€‚
 ;;
 
 ;; 2010-12-11  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix hash-table.
-;; 	rehash ‚É•s—v‚ÈƒnƒbƒVƒ…ƒIƒuƒWƒFƒNƒg‚ÌƒGƒ“ƒgƒŠ[‚ğ NULL ‚Éİ’è‚µ‚Ä‚¢‚é
-;; 	‚Ì‚ÅAƒTƒCƒY‚à 0 ‚Éİ’è‚·‚éBhash-table ‚Ìƒ}[ƒNƒtƒF[ƒY(data.cc‚Ì613s
-;; 	–Ú‚ ‚½‚è)‚Å NULL ‚ğQÆ‚·‚é‚Ì‚ğ–h~‚·‚éB
-;; 	ˆÈ‰º‚Ì‚æ‚¤‚È hash-table ‚ª rehash ‚µ‚½Œã‚Ì GC ‚Ìƒ^ƒCƒ~ƒ“ƒO‚Å—‚¿‚éŒ»Û
-;; 	‚ª‚¨‚»‚ç‚­‰ğÁ‚·‚é‚Æv‚í‚ê‚éB
+;; 	rehash æ™‚ã«ä¸è¦ãªãƒãƒƒã‚·ãƒ¥ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ã‚¨ãƒ³ãƒˆãƒªãƒ¼ã‚’ NULL ã«è¨­å®šã—ã¦ã„ã‚‹
+;; 	ã®ã§ã€ã‚µã‚¤ã‚ºã‚‚ 0 ã«è¨­å®šã™ã‚‹ã€‚hash-table ã®ãƒãƒ¼ã‚¯ãƒ•ã‚§ãƒ¼ã‚º(data.ccã®613è¡Œ
+;; 	ç›®ã‚ãŸã‚Š)ã§ NULL ã‚’å‚ç…§ã™ã‚‹ã®ã‚’é˜²æ­¢ã™ã‚‹ã€‚
+;; 	ä»¥ä¸‹ã®ã‚ˆã†ãª hash-table ãŒ rehash ã—ãŸå¾Œã® GC ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§è½ã¡ã‚‹ç¾è±¡
+;; 	ãŒãŠãã‚‰ãè§£æ¶ˆã™ã‚‹ã¨æ€ã‚ã‚Œã‚‹ã€‚
 ;; 	http://twitter.com/miyamuko/status/14229437114
 ;; 	http://d.hatena.ne.jp/knenet/20091223/1261578863
 ;; 
-;; FIXME: u‹ó‚Å‚È‚¢ŠÂ‹«‚Å’è‹`‚³‚ê‚½ŠÖ”‚ÍƒRƒ“ƒpƒCƒ‹‚Å‚«‚Ü‚¹‚ñv
+;; FIXME: ã€Œç©ºã§ãªã„ç’°å¢ƒã§å®šç¾©ã•ã‚ŒãŸé–¢æ•°ã¯ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã¾ã›ã‚“ã€
 ; (deftest fix-hash-table-and-gc-crash ()
 ;   (with-another-xyzzy (:options "-q")
 ;     (defun xn ()
@@ -384,14 +384,14 @@
 ;; 	* src : fix (cdr '#1='#1#) printing.
 ;; 	http://blog.bugyo.tk/lyrical/archives/610
 ;; 	http://blog.practical-scheme.net/gauche/20100609-curious-circular-list
-;; 	u(cdr '#1='#1#)v‚Ì•]‰¿Œ‹‰Ê‚Ìˆóš‚ÅƒXƒ^ƒbƒNƒI[ƒo[ƒtƒ[‚·‚é‚Ì‚ğC³B
+;; 	ã€Œ(cdr '#1='#1#)ã€ã®è©•ä¾¡çµæœã®å°å­—ã§ã‚¹ã‚¿ãƒƒã‚¯ã‚ªãƒ¼ãƒãƒ¼ãƒ•ãƒ­ãƒ¼ã™ã‚‹ã®ã‚’ä¿®æ­£ã€‚
 ;; 	'#1='#1#              => #1='#1#
 ;; 	(cdr '#1='#1#)        => #1=((quote . #1#))
 ;; 	(cdr '#1=(quote #1#)) => #1=((quote . #1#))
 ;; 	(cdr '#1=(q #1#))     => #1=((q . #1#))
 ;;
 (deftest |fix (cdr '#1='#1#) printing| ()
-  "u(cdr '#1='#1#)v‚Ì•]‰¿Œ‹‰Ê‚Ìˆóš‚ÅƒXƒ^ƒbƒNƒI[ƒo[ƒtƒ[‚·‚é‚Ì‚ğC³B"
+  "ã€Œ(cdr '#1='#1#)ã€ã®è©•ä¾¡çµæœã®å°å­—ã§ã‚¹ã‚¿ãƒƒã‚¯ã‚ªãƒ¼ãƒãƒ¼ãƒ•ãƒ­ãƒ¼ã™ã‚‹ã®ã‚’ä¿®æ­£ã€‚"
   (eval-in-another-xyzzy
    '(with-output-to-string (*standard-output*)
      (write (cdr '#1='#1#) :circle t))
@@ -402,7 +402,7 @@
 ;; 
 ;; 	* src : fix macroexpand.
 ;; 	http://twitter.com/bowbow99/status/9887141152694272
-;; 	“ñ”Ô–Ú‚Ì–ß‚è’l‚ª•Ô‚Á‚Ä‚¢‚È‚©‚Á‚½‚Ì‚ğC³B
+;; 	äºŒç•ªç›®ã®æˆ»ã‚Šå€¤ãŒè¿”ã£ã¦ã„ãªã‹ã£ãŸã®ã‚’ä¿®æ­£ã€‚
 ;; 	(macroexpand '(push 1 x))
 ;; 	=> (setq x (cons 1 x))
 ;; 	=> t
@@ -411,20 +411,20 @@
 ;; 	=> nil
 ;; 
 (deftest fix-macroexpand-00 ()
-  "macroexpand ‚Å2”Ô–Ú‚Ì–ß‚è’l‚ª•Ô‚Á‚Ä‚¢‚È‚©‚Á‚½‚Ì‚ğC³: “WŠJ‚µ‚½ê‡ t"
+  "macroexpand ã§2ç•ªç›®ã®æˆ»ã‚Šå€¤ãŒè¿”ã£ã¦ã„ãªã‹ã£ãŸã®ã‚’ä¿®æ­£: å±•é–‹ã—ãŸå ´åˆ t"
   (macroexpand '(push 1 x))
   => (setq x (cons 1 x))
   => t)
 
 (deftest fix-macroexpand-01 ()
-  "macroexpand ‚Å2”Ô–Ú‚Ì–ß‚è’l‚ª•Ô‚Á‚Ä‚¢‚È‚©‚Á‚½‚Ì‚ğC³: “WŠJ‚µ‚È‚¢ê‡ nil"
+  "macroexpand ã§2ç•ªç›®ã®æˆ»ã‚Šå€¤ãŒè¿”ã£ã¦ã„ãªã‹ã£ãŸã®ã‚’ä¿®æ­£: å±•é–‹ã—ãªã„å ´åˆ nil"
   (macroexpand '(setq x (cons 1 x)))
   => (setq x (cons 1 x))
   => nil)
 
 ;; 	* src : fix flet, labels, macrolet.
 ;; 	http://twitter.com/bowbow99/status/8011887295856640
-;; 	ˆø”‚Ìƒ`ƒFƒbƒN‚ª‚¨‚©‚µ‚©‚Á‚½‚Ì‚ğC³B
+;; 	å¼•æ•°ã®ãƒã‚§ãƒƒã‚¯ãŒãŠã‹ã—ã‹ã£ãŸã®ã‚’ä¿®æ­£ã€‚
 ;; 	(flet () 3)     => 3
 ;; 	(flet ())       => nil
 ;; 	(labels () 3)   => 3
@@ -433,20 +433,20 @@
 ;; 	(macrolet ())   => nil
 ;; 
 (deftest fix-flet/labels/macrolet-00 ()
-  "flet, labels, macrolet ‚Ì BODY ‚ğ‹ó‚É‚·‚é‚ÆƒGƒ‰[‚É‚È‚Á‚Ä‚½‚Ì‚ğC³: flet"
+  "flet, labels, macrolet ã® BODY ã‚’ç©ºã«ã™ã‚‹ã¨ã‚¨ãƒ©ãƒ¼ã«ãªã£ã¦ãŸã®ã‚’ä¿®æ­£: flet"
   (flet ()) => nil)
 
 (deftest fix-flet/labels/macrolet-01 ()
-  "flet, labels, macrolet ‚Ì BODY ‚ğ‹ó‚É‚·‚é‚ÆƒGƒ‰[‚É‚È‚Á‚Ä‚½‚Ì‚ğC³: labels"
+  "flet, labels, macrolet ã® BODY ã‚’ç©ºã«ã™ã‚‹ã¨ã‚¨ãƒ©ãƒ¼ã«ãªã£ã¦ãŸã®ã‚’ä¿®æ­£: labels"
   (labels ()) => nil)
 
 (deftest fix-flet/labels/macrolet-02 ()
-  "flet, labels, macrolet ‚Ì BODY ‚ğ‹ó‚É‚·‚é‚ÆƒGƒ‰[‚É‚È‚Á‚Ä‚½‚Ì‚ğC³: macrolet"
+  "flet, labels, macrolet ã® BODY ã‚’ç©ºã«ã™ã‚‹ã¨ã‚¨ãƒ©ãƒ¼ã«ãªã£ã¦ãŸã®ã‚’ä¿®æ­£: macrolet"
   (macrolet ()) => nil)
 
 ;; 	* src : add "listp" Macro.
-;; 	ƒIƒuƒWƒFƒNƒg‚ª cons ‚Å‚ ‚éA–”‚Í nil ‚Å‚ ‚é‚©‚Ç‚¤‚©’²‚×‚é listp ƒ}ƒNƒ
-;; 	‚ğ’Ç‰ÁB
+;; 	ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãŒ cons ã§ã‚ã‚‹ã€åˆã¯ nil ã§ã‚ã‚‹ã‹ã©ã†ã‹èª¿ã¹ã‚‹ listp ãƒã‚¯ãƒ­
+;; 	ã‚’è¿½åŠ ã€‚
 ;; 
 
 ;; 2010-11-09  NANRI Masaoki  <southly@gmail.com>
@@ -454,20 +454,20 @@
 ;; 	* src : fix type-check in list-length.
 ;; 	http://twitter.com/bowbow99/status/1742537278623744
 ;; 	(list-length :foo)
-;; 	-> •s³‚Èƒf[ƒ^Œ^‚Å‚·: :foo: list
+;; 	-> ä¸æ­£ãªãƒ‡ãƒ¼ã‚¿å‹ã§ã™: :foo: list
 ;; 	(list-length '(a . b))
-;; 	-> •s³‚Èƒf[ƒ^Œ^‚Å‚·: b: list
+;; 	-> ä¸æ­£ãªãƒ‡ãƒ¼ã‚¿å‹ã§ã™: b: list
 ;; 
-;; 	ˆø”‚Édotted list‚ğ“n‚µ‚½‚Æ‚«‚ÌƒGƒ‰[ƒƒbƒZ[ƒW‚ª‚¢‚Ü‚¢‚¿‚¾‚ªA
-;; 	‚Æ‚è‚ ‚¦‚¸‚»‚Ì‚Ü‚ÜB
+;; 	å¼•æ•°ã«dotted listã‚’æ¸¡ã—ãŸã¨ãã®ã‚¨ãƒ©ãƒ¼ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒã„ã¾ã„ã¡ã ãŒã€
+;; 	ã¨ã‚Šã‚ãˆãšãã®ã¾ã¾ã€‚
 ;; 
 (deftest fix-type-check-in-list-length-00 ()
-  "list-length ‚ÌŒ^ƒ`ƒFƒbƒNB"
+  "list-length ã®å‹ãƒã‚§ãƒƒã‚¯ã€‚"
   (list-length :foo)
   !! type-error)
 
 (deftest fix-type-check-in-list-length-01 ()
-  "list-length ‚ÌŒ^ƒ`ƒFƒbƒNBƒhƒbƒgƒŠƒXƒg‚àƒ_ƒB"
+  "list-length ã®å‹ãƒã‚§ãƒƒã‚¯ã€‚ãƒ‰ãƒƒãƒˆãƒªã‚¹ãƒˆã‚‚ãƒ€ãƒ¡ã€‚"
   (list-length '(a . b))
   !! type-error)
 
@@ -481,10 +481,10 @@
 ;; 	(nthcdr 1 '(0 . 1)) => 1
 ;; 	(nthcdr 3 '(0 . 1)) => nil
 ;; 
-;; 	ÅŒã‚ÌƒP[ƒX‚ÍƒGƒ‰[‚É‚·‚×‚«‚¾‚¯‚ÇA‚Æ‚è‚ ‚¦‚¸‚»‚Ì‚Ü‚ÜB
+;; 	æœ€å¾Œã®ã‚±ãƒ¼ã‚¹ã¯ã‚¨ãƒ©ãƒ¼ã«ã™ã¹ãã ã‘ã©ã€ã¨ã‚Šã‚ãˆãšãã®ã¾ã¾ã€‚
 ;;
 
-;; NOTE: 05 ˆÈŠO‚ÍŒ³‚©‚ç‚¿‚á‚ñ‚Æ“®‚­
+;; NOTE: 05 ä»¥å¤–ã¯å…ƒã‹ã‚‰ã¡ã‚ƒã‚“ã¨å‹•ã
 ; (deftest fix-nthcdr-given-dotted-list-00 ()
 ;   (nthcdr 0 '()) => nil)
 
@@ -501,7 +501,7 @@
 ;   (nthcdr 4 '(a b c)) => nil)
 
 (deftest fix-nthcdr-given-dotted-list-05 ()
-  "nthcdr ‚ğƒhƒbƒgƒŠƒXƒg‚É‘Î‰‚³‚¹‚éB"
+  "nthcdr ã‚’ãƒ‰ãƒƒãƒˆãƒªã‚¹ãƒˆã«å¯¾å¿œã•ã›ã‚‹ã€‚"
   (nthcdr 1 '(0 . 1)) => 1)
 
 ; (deftest fix-nthcdr-given-dotted-list-06 ()
@@ -540,7 +540,7 @@
 ;; 	nil
 ;; 
 (deftest fix-single-float-eplilon ()
-  "single-float-epsilon ‚Æ‚»‚Ì’‡ŠÔ‚½‚¿‚Ì’l‚ªA”{¸“x‚Ì‚»‚ê‚Æ“¯‚¶‚É‚È‚Á‚Ä‚µ‚Ü‚Á‚Ä‚½‚Ì‚ğC³B"
+  "single-float-epsilon ã¨ãã®ä»²é–“ãŸã¡ã®å€¤ãŒã€å€ç²¾åº¦ã®ãã‚Œã¨åŒã˜ã«ãªã£ã¦ã—ã¾ã£ã¦ãŸã®ã‚’ä¿®æ­£ã€‚"
   (dolist (sym '((double-float-epsilon t)
                  (double-float-negative-epsilon nil)
                  (long-float-epsilon t)
@@ -573,22 +573,22 @@
 ;; 2010-09-30  MIYAMUKO Katsuyuki  <miyamuko@gmail.com>
 ;; 
 ;; 	* src : add deleted-window-p
-;; 	íœ‚³‚ê‚½ Window ‚È‚ç t ‚ğ•Ô‚·B
-;; 	deleted-buffer-p ‚Ì Window ƒo[ƒWƒ‡ƒ“B
+;; 	å‰Šé™¤ã•ã‚ŒãŸ Window ãªã‚‰ t ã‚’è¿”ã™ã€‚
+;; 	deleted-buffer-p ã® Window ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã€‚
 ;; 	http://twitter.com/bowbow99/status/25935896653
 ;;
 
-;; NOTE: ©‘O‚Å—pˆÓ‚µ‚Ä‚½ê‡ pass ‚µ‚Ä‚µ‚Ü‚¤B
+;; NOTE: è‡ªå‰ã§ç”¨æ„ã—ã¦ãŸå ´åˆ pass ã—ã¦ã—ã¾ã†ã€‚
 (deftest add-deleted-window-p-00 ()
-  "íœ‚³‚ê‚½ window ‚È‚ç t ‚ğ•Ô‚· deleted-window-p ‚ğ’Ç‰ÁB
-ŠÖ”‚©‚Ç‚¤‚©ƒ`ƒFƒbƒNB"
+  "å‰Šé™¤ã•ã‚ŒãŸ window ãªã‚‰ t ã‚’è¿”ã™ deleted-window-p ã‚’è¿½åŠ ã€‚
+é–¢æ•°ã‹ã©ã†ã‹ãƒã‚§ãƒƒã‚¯ã€‚"
   (fboundp 'deleted-window-p)
   => non-nil)
 
-;; NOTE: ©‘O‚Å—pˆÓ‚µ‚Ä‚½ê‡ pass ‚µ‚Ä‚µ‚Ü‚¤B
+;; NOTE: è‡ªå‰ã§ç”¨æ„ã—ã¦ãŸå ´åˆ pass ã—ã¦ã—ã¾ã†ã€‚
 (deftest add-deleted-window-p-01 ()
-  "íœ‚³‚ê‚½ window ‚È‚ç t ‚ğ•Ô‚· deleted-window-p ‚ğ’Ç‰ÁB
-íœ‚³‚ê‚½ window ‚É t ‚ğ•Ô‚·‚©ƒ`ƒFƒbƒNB"
+  "å‰Šé™¤ã•ã‚ŒãŸ window ãªã‚‰ t ã‚’è¿”ã™ deleted-window-p ã‚’è¿½åŠ ã€‚
+å‰Šé™¤ã•ã‚ŒãŸ window ã« t ã‚’è¿”ã™ã‹ãƒã‚§ãƒƒã‚¯ã€‚"
   (let ((current (selected-window))
         (new     (save-window-excursion
                    (split-window -1)
@@ -597,18 +597,18 @@
   => non-nil)
 
 (deftest add-deleted-window-p-02 ()
-  "íœ‚³‚ê‚½ window ‚È‚ç t ‚ğ•Ô‚· deleted-window-p ‚ğ’Ç‰ÁB
-ƒrƒ‹ƒgƒCƒ“ŠÖ”‚©‚Ç‚¤‚©ƒ`ƒFƒbƒNB"
+  "å‰Šé™¤ã•ã‚ŒãŸ window ãªã‚‰ t ã‚’è¿”ã™ deleted-window-p ã‚’è¿½åŠ ã€‚
+ãƒ“ãƒ«ãƒˆã‚¤ãƒ³é–¢æ•°ã‹ã©ã†ã‹ãƒã‚§ãƒƒã‚¯ã€‚"
   (si:*builtin-function-p (symbol-function 'deleted-window-p))
   => non-nil)
 
 ;; 2010-09-12  MIYAMUKO Katsuyuki  <miyamuko@gmail.com>
 ;; 
 ;; 	* src : add optional value parameter to si:putenv.
-;; 	ˆø”‚ğŠÂ‹«•Ï”–¼‚ÆƒIƒvƒVƒ‡ƒiƒ‹‚È’l‚ğ‚Æ‚é‚æ‚¤‚É•ÏXB
-;; 	’l‚ğÈ—ª‚µ‚½ê‡‚â nil ‚ğw’è‚µ‚½ê‡‚ÍŠÂ‹«•Ï”‚ğíœ‚·‚éB
-;; 	–ß‚è’l‚ÍŠÂ‹«•Ï”‚Ìİ’è‚É¬Œ÷‚µ‚½ê‡‚Íİ’è‚µ‚½’l‚ğ•Ô‚µA
-;; 	ŠÂ‹«•Ï”‚ğíœ‚µ‚½ê‡‚Ü‚½‚Íİ’è‚É¸”s‚µ‚½ê‡‚Í nil ‚ğ•Ô‚·‚æ‚¤‚É•ÏXB
+;; 	å¼•æ•°ã‚’ç’°å¢ƒå¤‰æ•°åã¨ã‚ªãƒ—ã‚·ãƒ§ãƒŠãƒ«ãªå€¤ã‚’ã¨ã‚‹ã‚ˆã†ã«å¤‰æ›´ã€‚
+;; 	å€¤ã‚’çœç•¥ã—ãŸå ´åˆã‚„ nil ã‚’æŒ‡å®šã—ãŸå ´åˆã¯ç’°å¢ƒå¤‰æ•°ã‚’å‰Šé™¤ã™ã‚‹ã€‚
+;; 	æˆ»ã‚Šå€¤ã¯ç’°å¢ƒå¤‰æ•°ã®è¨­å®šã«æˆåŠŸã—ãŸå ´åˆã¯è¨­å®šã—ãŸå€¤ã‚’è¿”ã—ã€
+;; 	ç’°å¢ƒå¤‰æ•°ã‚’å‰Šé™¤ã—ãŸå ´åˆã¾ãŸã¯è¨­å®šã«å¤±æ•—ã—ãŸå ´åˆã¯ nil ã‚’è¿”ã™ã‚ˆã†ã«å¤‰æ›´ã€‚
 ;; 	(si:putenv "FOO" "bar")
 ;; 	=> "bar"
 ;; 	(si:putenv "FOO")
@@ -617,31 +617,31 @@
 ;; 	=> nil
 ;; 
 (deftest add-putenv-00 ()
-  "ŠÖ” si:putenv ‚ğ’Ç‰Á•ˆø”‚ğ (VARNAME &optional VALUE) ‚É"
+  "é–¢æ•° si:putenv ã‚’è¿½åŠ ï¼†å¼•æ•°ã‚’ (VARNAME &optional VALUE) ã«"
   (multiple-value-bind (sym class)
       (find-symbol "putenv" :system)
     class)
   => :external)
 
 (deftest add-putend-01 ()
-  "ŠÖ” si:putenv ‚ğ’Ç‰Á•ˆø”‚ğ (VARNAME &optional VALUE) ‚É"
+  "é–¢æ•° si:putenv ã‚’è¿½åŠ ï¼†å¼•æ•°ã‚’ (VARNAME &optional VALUE) ã«"
   (fboundp (find-symbol "putenv" :system))
   => non-nil)
 
 (deftest add-putenv-02 ()
-  "ŠÖ” si:putenv ‚ğ’Ç‰Á•ˆø”‚ğ (VARNAME &optional VALUE) ‚É"
+  "é–¢æ•° si:putenv ã‚’è¿½åŠ ï¼†å¼•æ•°ã‚’ (VARNAME &optional VALUE) ã«"
   (funcall (find-symbol "putenv" :system) "FOO" "bar")
   => "bar")
 
 (deftest add-putenv-03 ()
-  "ŠÖ” si:putenv ‚ğ’Ç‰Á•ˆø”‚ğ (VARNAME &optional VALUE) ‚É"
+  "é–¢æ•° si:putenv ã‚’è¿½åŠ ï¼†å¼•æ•°ã‚’ (VARNAME &optional VALUE) ã«"
   (progn
     (funcall (find-symbol "putenv" :system) "FOO" "baz")
     (si:getenv "FOO"))
   => "baz")
 
 (deftest add-putenv-04 ()
-  "ŠÖ” si:putenv ‚ğ’Ç‰Á•ˆø”‚ğ (VARNAME &optional VALUE) ‚É"
+  "é–¢æ•° si:putenv ã‚’è¿½åŠ ï¼†å¼•æ•°ã‚’ (VARNAME &optional VALUE) ã«"
   (values
    (funcall (find-symbol "putenv" :system) "FOO" nil)
    (si:getenv "FOO"))
@@ -651,32 +651,32 @@
 ;; 2010-09-11  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : remove redefinition.
-;; 	Microsoft Visual C++ 2010 ‚Å‚Í wingdi.h ‚ªƒCƒ“ƒNƒ‹[ƒh‚³‚ê‚ÄA
-;; 	tagWCRANGE ‚Æ tagGLYPHSET ‚ª’è‹`‚³‚ê‚é‚æ‚¤‚È‚Ì‚Å gen-fontrange.cc ‚Å‚Ì
-;; 	’è‹`‚ğíœB
-;; 	‚Æ‚è‚ ‚¦‚¸VC2010‚Å‚Ì‚İíœB
+;; 	Microsoft Visual C++ 2010 ã§ã¯ wingdi.h ãŒã‚¤ãƒ³ã‚¯ãƒ«ãƒ¼ãƒ‰ã•ã‚Œã¦ã€
+;; 	tagWCRANGE ã¨ tagGLYPHSET ãŒå®šç¾©ã•ã‚Œã‚‹ã‚ˆã†ãªã®ã§ gen-fontrange.cc ã§ã®
+;; 	å®šç¾©ã‚’å‰Šé™¤ã€‚
+;; 	ã¨ã‚Šã‚ãˆãšVC2010ã§ã®ã¿å‰Šé™¤ã€‚
 ;; 
 
 ;; 	* src : remove pragma optimize.
-;; 	uinternal compiler errorv‘Îô‚Æ‚ÌƒRƒƒ“ƒg‚ª‚ ‚é‚ªAMicrosoft Visual
-;; 	C++ 2010 ‚Å‚ÍƒGƒ‰[‚ª”­¶‚µ‚È‚¢‚Ì‚ÅíœB
-;; 	‚Æ‚è‚ ‚¦‚¸VC2010‚Å‚Ì‚İíœB
+;; 	ã€Œinternal compiler errorã€å¯¾ç­–ã¨ã®ã‚³ãƒ¡ãƒ³ãƒˆãŒã‚ã‚‹ãŒã€Microsoft Visual
+;; 	C++ 2010 ã§ã¯ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ãªã„ã®ã§å‰Šé™¤ã€‚
+;; 	ã¨ã‚Šã‚ãˆãšVC2010ã§ã®ã¿å‰Šé™¤ã€‚
 ;; 
 
 ;; 	* src : add si:putenv.
-;; 	si:putenv ‚ğ’Ç‰ÁB
+;; 	si:putenv ã‚’è¿½åŠ ã€‚
 ;; 	via http://d.hatena.ne.jp/miyamuko/20100910/xyzzy_putenv
 ;; 
-;; NOTE: ‚»‚ÌŒã•ÏX‚³‚ê‚Ä‚é‚ñ‚Å‚»‚Á‚¿‚ÅƒeƒXƒg
+;; NOTE: ãã®å¾Œå¤‰æ›´ã•ã‚Œã¦ã‚‹ã‚“ã§ãã£ã¡ã§ãƒ†ã‚¹ãƒˆ
 
 ;; 2010-08-31  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix call-process.
-;; 	call-process‚Ì•W€“ü—ÍE•W€o—Í“™‚Ìw’è‚ª‚¤‚Ü‚­İ’è‚³‚ê‚È‚¢Œ»Û‚ª‚¨‚«
-;; 	‚Ä‚¢‚½‚Ì‚ğC³B
+;; 	call-processã®æ¨™æº–å…¥åŠ›ãƒ»æ¨™æº–å‡ºåŠ›ç­‰ã®æŒ‡å®šãŒã†ã¾ãè¨­å®šã•ã‚Œãªã„ç¾è±¡ãŒãŠã
+;; 	ã¦ã„ãŸã®ã‚’ä¿®æ­£ã€‚
 ;;
-;; TODO: command prompt ‚ªˆêu•\¦‚³‚ê‚é‚Ì‚¤‚´‚¢
-;; FIXME: 0.2.2.235 ‚Å pass ‚µ‚Ä‚µ‚Ü‚¤B‚Ç‚¤‚¢‚¤ê‡‚Éãè‚­İ’è‚³‚ê‚È‚¢‚Ì‚©‚í‚©‚ç‚ñB
+;; TODO: command prompt ãŒä¸€ç¬è¡¨ç¤ºã•ã‚Œã‚‹ã®ã†ã–ã„
+;; FIXME: 0.2.2.235 ã§ pass ã—ã¦ã—ã¾ã†ã€‚ã©ã†ã„ã†å ´åˆã«ä¸Šæ‰‹ãè¨­å®šã•ã‚Œãªã„ã®ã‹ã‚ã‹ã‚‰ã‚“ã€‚
 ; (deftest fix-call-process-input/output ()
 ;   (labels ((make-file (name &optional contents)
 ;              (with-open-file (out name
@@ -698,8 +698,8 @@
 ;; 2010-07-14  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix format "~T".
-;; 	u~colnum,colincTv‚Ì‚Æ‚«Aucolnum+k*colincv‚ğ–‚½‚·Å¬‚Ì³‚Ì®”k‚Å
-;; 	Œ…‚ğ‹‚ß‚é‚æ‚¤‚ÉC³B
+;; 	ã€Œ~colnum,colincTã€ã®ã¨ãã€ã€Œcolnum+k*colincã€ã‚’æº€ãŸã™æœ€å°ã®æ­£ã®æ•´æ•°kã§
+;; 	æ¡ã‚’æ±‚ã‚ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;; 	(format nil "~0,1T")
 ;; 	=> " "
 ;; 
@@ -709,7 +709,7 @@
   => nil)
 
 ;; 	* src : fox format "~VT" in the case of being provided '() as a prefix parameter.
-;; 	V‚Éˆø”‚Æ‚µ‚Änil‚ğ“n‚µ‚½‚Æ‚«‚Ì“®ì‚ğC³B
+;; 	Vã«å¼•æ•°ã¨ã—ã¦nilã‚’æ¸¡ã—ãŸã¨ãã®å‹•ä½œã‚’ä¿®æ­£ã€‚
 ;; 	(format t "~VA" nil 'x)
 ;; 	== (format t "~A" 'x)
 ;; 
@@ -719,17 +719,17 @@
   => nil)
 
 ;; 	* src : fix for VC2010.
-;; 	Microsoft Visual C++ 2010 ‚Å‚Ìƒrƒ‹ƒh—p‚ÉC³B
-;; 	Makefile‚ÌC³‚Ì‚İB
+;; 	Microsoft Visual C++ 2010 ã§ã®ãƒ“ãƒ«ãƒ‰ç”¨ã«ä¿®æ­£ã€‚
+;; 	Makefileã®ä¿®æ­£ã®ã¿ã€‚
 ;; 
 
 ;; 2010-04-04  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : add repl.
-;; 	ƒRƒ}ƒ“ƒhƒvƒƒ“ƒvƒg‚ğ•\¦‚·‚éƒo[ƒWƒ‡ƒ“xyzzyrpl.exe‚ğì¬‚Å‚«‚é‚æ‚¤‚É‚µ
-;; 	‚½Bunmake replv‚Åì¬‚Å‚«‚éB
+;; 	ã‚³ãƒãƒ³ãƒ‰ãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã‚’è¡¨ç¤ºã™ã‚‹ãƒãƒ¼ã‚¸ãƒ§ãƒ³xyzzyrpl.exeã‚’ä½œæˆã§ãã‚‹ã‚ˆã†ã«ã—
+;; 	ãŸã€‚ã€Œnmake replã€ã§ä½œæˆã§ãã‚‹ã€‚
 ;; 
-;; 	;;; ŠÈˆÕREPL
+;; 	;;; ç°¡æ˜“REPL
 ;; 	(defun repl ()
 ;; 	  (interactive)
 ;; 	  (let ((*standard-input* *terminal-io*)
@@ -738,18 +738,18 @@
 ;; 	      (format t "~%> ")
 ;; 	      (format t "~A" (eval (read *standard-input*))))))
 ;; 
-;; NOTE: merge ‚³‚ê‚Ä‚È‚¢ixyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593j
+;; NOTE: merge ã•ã‚Œã¦ãªã„ï¼ˆxyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593ï¼‰
 
 ;; 2010-03-01  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix "*load-pathname*" initialization.
-;; 	ƒ_ƒ“ƒvì¬‚Éƒ[ƒh‚µ‚½ƒtƒ@ƒCƒ‹–¼‚ª‚»‚Ì‚Ü‚Üƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚É•Û‘¶‚³‚ê‚é
-;; 	‚æ‚¤‚È‚Ì‚ÅA‹N“®‚É‚à‰Šú‰»‚·‚é‚æ‚¤‚ÉC³B
+;; 	ãƒ€ãƒ³ãƒ—ä½œæˆæ™‚ã«ãƒ­ãƒ¼ãƒ‰ã—ãŸãƒ•ã‚¡ã‚¤ãƒ«åãŒãã®ã¾ã¾ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã•ã‚Œã‚‹
+;; 	ã‚ˆã†ãªã®ã§ã€èµ·å‹•æ™‚ã«ã‚‚åˆæœŸåŒ–ã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;; 
 (deftest fix-*load-pathname*-from-dump-image ()
-  "ƒ_ƒ“ƒvì¬‚Éƒ[ƒh‚µ‚½ƒtƒ@ƒCƒ‹–¼‚ª‚»‚Ì‚Ü‚Üƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚É•Û‘¶‚³‚ê‚é
-‚æ‚¤‚È‚Ì‚ÅA‹N“®‚É‚à‰Šú‰»‚·‚é‚æ‚¤‚ÉC³B"
-  ;; FIXME: ƒ_ƒ“ƒvƒCƒ[ƒW‚ª‚Ü‚¾–³‚¢ê‡ pass ‚Á‚Ä‚µ‚Ü‚¤B
+  "ãƒ€ãƒ³ãƒ—ä½œæˆæ™‚ã«ãƒ­ãƒ¼ãƒ‰ã—ãŸãƒ•ã‚¡ã‚¤ãƒ«åãŒãã®ã¾ã¾ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã«ä¿å­˜ã•ã‚Œã‚‹
+ã‚ˆã†ãªã®ã§ã€èµ·å‹•æ™‚ã«ã‚‚åˆæœŸåŒ–ã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚"
+  ;; FIXME: ãƒ€ãƒ³ãƒ—ã‚¤ãƒ¡ãƒ¼ã‚¸ãŒã¾ã ç„¡ã„å ´åˆ pass ã£ã¦ã—ã¾ã†ã€‚
   (eval-in-another-xyzzy
    `*load-pathname*
    :options "-q")
@@ -757,8 +757,8 @@
   )
 
 ;; 	* src : fix format "~F".
-;; 	format‚Ì"~F"‚Ì‘æˆêƒpƒ‰ƒ[ƒ^w‚ğw’è‚µ‚È‚¢‚Æ‘æOƒpƒ‰ƒ[ƒ^k‚ª‹@”\‚µ‚È‚¢
-;; 	‚Ì‚ğC³B
+;; 	formatã®"~F"ã®ç¬¬ä¸€ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿wã‚’æŒ‡å®šã—ãªã„ã¨ç¬¬ä¸‰ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿kãŒæ©Ÿèƒ½ã—ãªã„
+;; 	ã®ã‚’ä¿®æ­£ã€‚
 ;; 
 ;; 	(dotimes (i 10)
 ;; 	  (format t "~,,VF~%" i pi))
@@ -846,55 +846,55 @@
 ;; 2010-02-21  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix applyhook.
-;; 	applyhook, *applyhook* ‚ğƒ[ƒJƒ‹ŠÖ”‚É‘Î‰‚³‚¹‚½B
-;; 	call_applyhook‚Ì‘æˆêˆø”‚ÉƒNƒ[ƒWƒƒ‚ğ“n‚·‚æ‚¤‚É•ÏX‚µ‚½B
+;; 	applyhook, *applyhook* ã‚’ãƒ­ãƒ¼ã‚«ãƒ«é–¢æ•°ã«å¯¾å¿œã•ã›ãŸã€‚
+;; 	call_applyhookã®ç¬¬ä¸€å¼•æ•°ã«ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ£ã‚’æ¸¡ã™ã‚ˆã†ã«å¤‰æ›´ã—ãŸã€‚
 ;; 
 (deftest fix-applyhook-00 ()
-  "applyhook, *applyhook* ‚ğƒ[ƒJƒ‹ŠÖ”‚É‘Î‰‚³‚¹‚½B"
+  "applyhook, *applyhook* ã‚’ãƒ­ãƒ¼ã‚«ãƒ«é–¢æ•°ã«å¯¾å¿œã•ã›ãŸã€‚"
   (let ((*applyhook* (lambda (fn args)
                        (functionp fn))))
     (car 1))
   => non-nil)
 
 ;; 	* src : add "*read-eval*".
-;; 	ƒXƒyƒVƒƒƒ‹•Ï”*read-eval*‚ª‹@”\‚·‚é‚æ‚¤‚É‚µ‚½B
-;; 	*read-eval*‚Ìo—Í‚Ö‚Ì‰e‹¿‚Ì—‰ğ‚ª‰ö‚µ‚¢B
-;; 	*read-eval*‚ªnil‚Ìê‡‚Íencoding‚ğunreadable-object‚Æ‚µ‚Äo—Í‚·‚é‚æ‚¤‚µ
-;; 	‚Ä‚¢‚é‚ªA©M‚È‚µB
+;; 	ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°*read-eval*ãŒæ©Ÿèƒ½ã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
+;; 	*read-eval*ã®å‡ºåŠ›ã¸ã®å½±éŸ¿ã®ç†è§£ãŒæ€ªã—ã„ã€‚
+;; 	*read-eval*ãŒnilã®å ´åˆã¯encodingã‚’unreadable-objectã¨ã—ã¦å‡ºåŠ›ã™ã‚‹ã‚ˆã†ã—
+;; 	ã¦ã„ã‚‹ãŒã€è‡ªä¿¡ãªã—ã€‚
 ;; 
 (deftest add-*read-eval*-00 ()
-  "ƒXƒyƒVƒƒƒ‹•Ï”*read-eval*‚ª‹@”\‚·‚é‚æ‚¤‚É‚µ‚½B"
+  "ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°*read-eval*ãŒæ©Ÿèƒ½ã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚"
   (si:*specialp '*read-eval*)
   => non-nil)
 
 (deftest add-*read-eval*-01 ()
-  "ƒXƒyƒVƒƒƒ‹•Ï”*read-eval*‚ª‹@”\‚·‚é‚æ‚¤‚É‚µ‚½B"
+  "ã‚¹ãƒšã‚·ãƒ£ãƒ«å¤‰æ•°*read-eval*ãŒæ©Ÿèƒ½ã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚"
   (let ((*read-eval* nil))
     (read-from-string "#.(+ 1 2)"))
   !! reader-error)
 
-;; TODO: o—Í‚Ö‚Ì‰e‹¿H
+;; TODO: å‡ºåŠ›ã¸ã®å½±éŸ¿ï¼Ÿ
 
 ;; 2010-01-23  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix for VC2008.
-;; 	Microsoft Visual C++ 2008 ‚Å‚Ìƒrƒ‹ƒh—p‚ÉC³B
+;; 	Microsoft Visual C++ 2008 ã§ã®ãƒ“ãƒ«ãƒ‰ç”¨ã«ä¿®æ­£ã€‚
 ;; 	http://xyzzy.s53.xrea.com/wiki/index.php?Memo%2F%A5%BD%A1%BC%A5%B9%A4%AB%A4%E9%A5%D3%A5%EB%A5%C9%A4%B7%A4%C6%A4%DF%A4%EB3
 ;; 
-;; NOTE: ƒeƒXƒg‚Í‚¢‚ç‚ñ‚Æv‚¤‚¯‚ÇAcommit Œ©“–‚½‚ç‚È‚¢B
+;; NOTE: ãƒ†ã‚¹ãƒˆã¯ã„ã‚‰ã‚“ã¨æ€ã†ã‘ã©ã€commit è¦‹å½“ãŸã‚‰ãªã„ã€‚
 
 ;; 	* src : add get-buffer-colors.
-;; 	ŠÖ”get-buffer-colors‚ğ’Ç‰ÁB
-;; 	set-buffer-colors‚Æ‘Î‚Æ‚È‚éŒ»İ‚Ìƒoƒbƒtƒ@‚ÌFİ’è‚ğæ“¾‚·‚éŠÖ”B
+;; 	é–¢æ•°get-buffer-colorsã‚’è¿½åŠ ã€‚
+;; 	set-buffer-colorsã¨å¯¾ã¨ãªã‚‹ç¾åœ¨ã®ãƒãƒƒãƒ•ã‚¡ã®è‰²è¨­å®šã‚’å–å¾—ã™ã‚‹é–¢æ•°ã€‚
 ;;
 (deftest add-get-buffer-colors-00 ()
-  "ŠÖ”get-buffer-colors‚ğ’Ç‰ÁB"
+  "é–¢æ•°get-buffer-colorsã‚’è¿½åŠ ã€‚"
   (fboundp 'get-buffer-colors)
   => non-nil)
 
-;; NOTE: NANRI ‚³‚ñ‚©‚ç‚Ì’¸‚«•¨; thx
+;; NOTE: NANRI ã•ã‚“ã‹ã‚‰ã®é ‚ãç‰©; thx
 (deftest add-get-buffer-colors-01 ()
-  "ŠÖ”get-buffer-colors‚ÍŒ»İ‚Ìƒoƒbƒtƒ@‚ÌFİ’è‚ğ•Ô‚·B"
+  "é–¢æ•°get-buffer-colorsã¯ç¾åœ¨ã®ãƒãƒƒãƒ•ã‚¡ã®è‰²è¨­å®šã‚’è¿”ã™ã€‚"
   (flet ((make-tmp-colors ()
            (let ((l (list #xffffff #x000000)))
              (dotimes (i 16)
@@ -915,17 +915,17 @@
 ;; 2010-01-22  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : fix listen.
-;; 	EOF‚Ì‚Æ‚«‚Énil‚ğ•Ô‚·‚æ‚¤‚ÉC³B
-;; 	•ª‚©‚é”ÍˆÍ‚Æ‚¢‚¤‚±‚Æ‚Åstring-stream‚Æfile-stream‚¾‚¯B
+;; 	EOFã®ã¨ãã«nilã‚’è¿”ã™ã‚ˆã†ã«ä¿®æ­£ã€‚
+;; 	åˆ†ã‹ã‚‹ç¯„å›²ã¨ã„ã†ã“ã¨ã§string-streamã¨file-streamã ã‘ã€‚
 ;; 
 (deftest fix-listen-for-string-stream ()
-  "EOF‚Ì‚Æ‚«‚Énil‚ğ•Ô‚·‚æ‚¤‚ÉC³istring-streamj"
+  "EOFã®ã¨ãã«nilã‚’è¿”ã™ã‚ˆã†ã«ä¿®æ­£ï¼ˆstring-streamï¼‰"
   (let ((stream (make-string-input-stream "")))
     (listen stream))
   => nil)
 
 (deftest fix-listen-for-file-stream ()
-  "EOF‚Ì‚Æ‚«‚Énil‚ğ•Ô‚·‚æ‚¤‚ÉC³ifile-streamj"
+  "EOFã®ã¨ãã«nilã‚’è¿”ã™ã‚ˆã†ã«ä¿®æ­£ï¼ˆfile-streamï¼‰"
   (with-temp-files (file)
     (with-open-file (in file :direction :input)
       (listen in)))
@@ -935,29 +935,29 @@
 ;; 
 ;; 	* src : fix save-window-excursion.
 ;; 	(save-window-excursion (values 1 2 3))
-;; 	‚Å³‚µ‚­‘½’l‚ª•Ô‚ç‚È‚¢ê‡‚ª‚ ‚é‚Ì‚ğC³B
+;; 	ã§æ­£ã—ãå¤šå€¤ãŒè¿”ã‚‰ãªã„å ´åˆãŒã‚ã‚‹ã®ã‚’ä¿®æ­£ã€‚
 ;; 	xyzzy Part11 8 http://www.bookshelf.jp/2ch/win/1085301777.html
 ;;
-;; 	WindowConfiguration‚ÌƒfƒXƒgƒ‰ƒNƒ^“à‚ÅLisp‚ÌƒR[ƒh‚ªÀs‚³‚ê‚é‚Ì‚ÅA
-;; 	WindowConfiguration‚ÌƒfƒXƒgƒ‰ƒNƒ^‚ğÀs‚µ‚½‚ ‚Æ‚ÅA‘½’l‚ğŒ³‚Ì’l‚É–ß
-;; 	‚·•K—v‚ª‚ ‚éB
+;; 	WindowConfigurationã®ãƒ‡ã‚¹ãƒˆãƒ©ã‚¯ã‚¿å†…ã§Lispã®ã‚³ãƒ¼ãƒ‰ãŒå®Ÿè¡Œã•ã‚Œã‚‹ã®ã§ã€
+;; 	WindowConfigurationã®ãƒ‡ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã‚’å®Ÿè¡Œã—ãŸã‚ã¨ã§ã€å¤šå€¤ã‚’å…ƒã®å€¤ã«æˆ»
+;; 	ã™å¿…è¦ãŒã‚ã‚‹ã€‚
 ;; 
-;; FIXME: –¢C³‚Å‚à³‚µ‚­‘½’l‚ª•Ô‚é‚±‚Æ‚à‚ ‚é‚İ‚½‚¢‚È‚Ì‚ÅA‚»‚Ì‚Í pass ‚µ‚Ä‚µ‚Ü‚¤
+;; FIXME: æœªä¿®æ­£ã§ã‚‚æ­£ã—ãå¤šå€¤ãŒè¿”ã‚‹ã“ã¨ã‚‚ã‚ã‚‹ã¿ãŸã„ãªã®ã§ã€ãã®æ™‚ã¯ pass ã—ã¦ã—ã¾ã†
 (deftest fix-save-window-excursion ()
-  "³‚µ‚­‘½’l‚ª•Ô‚ç‚È‚¢ê‡‚ª‚ ‚é‚Ì‚ğC³"
+  "æ­£ã—ãå¤šå€¤ãŒè¿”ã‚‰ãªã„å ´åˆãŒã‚ã‚‹ã®ã‚’ä¿®æ­£"
   (save-window-excursion (values 1 2 3))
   => 1
   => 2
   => 3)
 
 ;; 	* lisp : fix long-operation.
-;; 	long-operation‚Ì–ß‚è’l‚ªprog1‘Š“–‚É‚È‚Á‚Ä‚¢‚é‚Ì‚ğprogn‘Š“–‚É‚È‚é‚æ
-;; 	‚¤‚ÉC³B
+;; 	long-operationã®æˆ»ã‚Šå€¤ãŒprog1ç›¸å½“ã«ãªã£ã¦ã„ã‚‹ã®ã‚’prognç›¸å½“ã«ãªã‚‹ã‚ˆ
+;; 	ã†ã«ä¿®æ­£ã€‚
 ;; 	xyzzy Part10 470
 ;; 
 (deftest fix-long-operation ()
-  "long-operation‚Ì–ß‚è’l‚ªprog1‘Š“–‚É‚È‚Á‚Ä‚¢‚é‚Ì‚ğprogn‘Š“–‚É‚È‚é‚æ
-‚¤‚ÉC³B"
+  "long-operationã®æˆ»ã‚Šå€¤ãŒprog1ç›¸å½“ã«ãªã£ã¦ã„ã‚‹ã®ã‚’prognç›¸å½“ã«ãªã‚‹ã‚ˆ
+ã†ã«ä¿®æ­£ã€‚"
   (long-operation
     1
     2)
@@ -966,25 +966,25 @@
 ;; 2009-12-26  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : update zlib.
-;; 	zlib‚ğƒo[ƒWƒ‡ƒ“1.2.3‚ÉƒAƒbƒvƒf[ƒgB
+;; 	zlibã‚’ãƒãƒ¼ã‚¸ãƒ§ãƒ³1.2.3ã«ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆã€‚
 ;; 
 
 ;; 2009-12-17  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* lisp : modify tags-setup-buffer.
-;; 	XTAGSƒtƒ@ƒCƒ‹‚ğ’T‚·ˆÊ’u‚ğ­X•ÏXB
+;; 	XTAGSãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ¢ã™ä½ç½®ã‚’å°‘ã€…å¤‰æ›´ã€‚
 ;; 
-;; NOTE: merge ‚³‚ê‚Ä‚È‚¢ixyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593j
+;; NOTE: merge ã•ã‚Œã¦ãªã„ï¼ˆxyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593ï¼‰
 
 ;; 	* lisp : modify edict-lookup-word.
-;; 	«‘‚ğˆø‚­’PŒê‚ğƒJ[ƒ\ƒ‹‚Ì‘O•û‚É•ÏXB
+;; 	è¾æ›¸ã‚’å¼•ãå˜èªã‚’ã‚«ãƒ¼ã‚½ãƒ«ã®å‰æ–¹ã«å¤‰æ›´ã€‚
 ;; 
-;; NOTE: merge ‚³‚ê‚Ä‚È‚¢ixyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593j
+;; NOTE: merge ã•ã‚Œã¦ãªã„ï¼ˆxyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593ï¼‰
 
 ;; 	* lisp : modify start point in buffer-menu.
-;; 	buffer-menu‚ğÀs‚µ‚½‚Æ‚«‚ÌƒJ[ƒ\ƒ‹ˆÊ’u‚ğŒ»İ‚Ìƒoƒbƒtƒ@‚ÌˆÊ’u‚É•ÏXB
+;; 	buffer-menuã‚’å®Ÿè¡Œã—ãŸã¨ãã®ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®ã‚’ç¾åœ¨ã®ãƒãƒƒãƒ•ã‚¡ã®ä½ç½®ã«å¤‰æ›´ã€‚
 ;;
-;; NOTE: merge ‚³‚ê‚Ä‚È‚¢ixyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593j
+;; NOTE: merge ã•ã‚Œã¦ãªã„ï¼ˆxyzzy Part17 >>593 http://toro.2ch.net/test/read.cgi/win/1303662374/593ï¼‰
 ; (deftest modify-start-point-in-buffer-menu ()
 ;   (let ((buffers '()))
 ;     (do ((i 0 (1+ i)))
@@ -1001,28 +1001,28 @@
 ;         (delete-buffer b)))))
 
 ;; 	* src : add key parameter ":show" to make-process.
-;; 	make-process‚ÉƒL[ƒpƒ‰ƒ[ƒ^ :show ‚ğ’Ç‰Á‚·‚éB
+;; 	make-processã«ã‚­ãƒ¼ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ :show ã‚’è¿½åŠ ã™ã‚‹ã€‚
 ;; 	http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F12
 ;; 
-;; FIXME: ƒeƒXƒg‚·‚é•û–@‚ªv‚¢‚Â‚©‚È‚¢
+;; FIXME: ãƒ†ã‚¹ãƒˆã™ã‚‹æ–¹æ³•ãŒæ€ã„ã¤ã‹ãªã„
 
 ;; 2009-12-16  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : support IMR_DOCUMENTFEED.
 ;; 	via http://fixdap.com/p/xyzzy/7376/
-;; 	ˆÈ‰º‚Å“®ì‚ğŠm”FB
-;; 	‚³‚¢‚½@@@@@‚ ‚½‚½‚©‚¢
-;; 	•z‚ğ@@@@@@‹“û
-;; 	‰Ô‚ª@@@@@@t
-;; 	ŠÔ‚ğ@@@@@
+;; 	ä»¥ä¸‹ã§å‹•ä½œã‚’ç¢ºèªã€‚
+;; 	ã•ã„ãŸã€€ã€€ã€€ã€€ã€€ã‚ãŸãŸã‹ã„
+;; 	å¸ƒã‚’ã€€ã€€ã€€ã€€ã€€ã€€ç‰›ä¹³
+;; 	èŠ±ãŒã€€ã€€ã€€ã€€ã€€ã€€æ˜¥
+;; 	æ™‚é–“ã‚’ã€€ã€€ã€€ã€€ã€€
 ;; 
-;; FIXME: ƒeƒXƒg‚·‚é•û–@‚ªv‚¢‚Â‚©‚È‚¢
+;; FIXME: ãƒ†ã‚¹ãƒˆã™ã‚‹æ–¹æ³•ãŒæ€ã„ã¤ã‹ãªã„
 
 ;; 	* src : fix set-buffer-modified-p.
-;; 	(set-buffer-modified-p nil) ‚ğ‚µ‚½‚ÉˆÈ‘OXV‚È‚µó‘Ô‚¾‚Á‚½“_‚ªX
-;; 	V–³‚µó‘Ô‚Ì‚Ü‚Ü‚È‚Ì‚ğC³B
+;; 	(set-buffer-modified-p nil) ã‚’ã—ãŸæ™‚ã«ä»¥å‰æ›´æ–°ãªã—çŠ¶æ…‹ã ã£ãŸç‚¹ãŒæ›´
+;; 	æ–°ç„¡ã—çŠ¶æ…‹ã®ã¾ã¾ãªã®ã‚’ä¿®æ­£ã€‚
 ;;
-;; TODO: •ÏX‚Ì“à—e‚ª‚æ‚­‚í‚©‚ç‚ñ‚Ì‚ÅŒã‰ñ‚µ
+;; TODO: å¤‰æ›´ã®å†…å®¹ãŒã‚ˆãã‚ã‹ã‚‰ã‚“ã®ã§å¾Œå›ã—
 ; (deftest fix-set-buffer-modified-p ()
 ;   (let ((buffer (create-new-buffer "*Example*")))
 ;     (set-buffer-modified-p nil buffer)
@@ -1031,34 +1031,34 @@
 
 ;; 	* src : fix inverse-cursor-line.
 ;; 	(setq inverse-cursor-line t)
-;; 	‚Ìó‘Ô‚É‚·‚é‚ÆsƒJ[ƒ\ƒ‹‚ÆÜ‚è•Ô‚µü‚ÌŒğ“_‚ª”½“]‚µ‚½‚Ü‚Üc‚Á‚Ä‚µ‚Ü
-;; 	‚¤‚Ì‚ğC³B
+;; 	ã®çŠ¶æ…‹ã«ã™ã‚‹ã¨è¡Œã‚«ãƒ¼ã‚½ãƒ«ã¨æŠ˜ã‚Šè¿”ã—ç·šã®äº¤ç‚¹ãŒåè»¢ã—ãŸã¾ã¾æ®‹ã£ã¦ã—ã¾
+;; 	ã†ã®ã‚’ä¿®æ­£ã€‚
 ;;
-;; FIXME: ƒeƒXƒg‚·‚é•û–@‚ªv‚¢‚Â‚©‚È‚¢
+;; FIXME: ãƒ†ã‚¹ãƒˆã™ã‚‹æ–¹æ³•ãŒæ€ã„ã¤ã‹ãªã„
 
 ;; 2009-12-09  NANRI Masaoki  <southly@gmail.com>
 ;; 
 ;; 	* src : add "*brackets-is-wildcard-character*" to history-variable.
-;; 	‹¤’Êİ’è‚Ìu[...]‚ÍƒƒCƒ‹ƒhƒJ[ƒhv‚Ìİ’è‚ª•Û‘¶‚³‚ê‚È‚¢‚Ì‚ÅA‘Î‰‚·
-;; 	‚é•Ï”‚ğƒqƒXƒgƒŠ‚É’Ç‰ÁB
+;; 	å…±é€šè¨­å®šã®ã€Œ[...]ã¯ãƒ¯ã‚¤ãƒ«ãƒ‰ã‚«ãƒ¼ãƒ‰ã€ã®è¨­å®šãŒä¿å­˜ã•ã‚Œãªã„ã®ã§ã€å¯¾å¿œã™
+;; 	ã‚‹å¤‰æ•°ã‚’ãƒ’ã‚¹ãƒˆãƒªã«è¿½åŠ ã€‚
 ;;
 (deftest add-*brackets-is-wildcard-character*-to-history-variable ()
-  "‹¤’Êİ’è‚Ìu[...]‚ÍƒƒCƒ‹ƒhƒJ[ƒhv‚Ìİ’è‚ª•Û‘¶‚³‚ê‚È‚¢‚Ì‚ÅA‘Î‰‚·
-‚é•Ï”‚ğƒqƒXƒgƒŠ‚É’Ç‰ÁB"
+  "å…±é€šè¨­å®šã®ã€Œ[...]ã¯ãƒ¯ã‚¤ãƒ«ãƒ‰ã‚«ãƒ¼ãƒ‰ã€ã®è¨­å®šãŒä¿å­˜ã•ã‚Œãªã„ã®ã§ã€å¯¾å¿œã™
+ã‚‹å¤‰æ•°ã‚’ãƒ’ã‚¹ãƒˆãƒªã«è¿½åŠ ã€‚"
   (member '*brackets-is-wildcard-character* ed::*history-variable-list*)
   => non-nil)
 
 ;; 	* src : fix dump hash-table.
-;; 	ƒVƒ“ƒ{ƒ‹‚ªƒL[‚ÌƒnƒbƒVƒ…ƒe[ƒuƒ‹‚ğƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚É“ü‚ê‚½ê‡A
-;; 	gethash‚Å’l‚ª‚Æ‚ê‚È‚¢–â‘è‚ª‚ ‚Á‚½B‚½‚¾‚µAmaphash‚Å‘S—v‘f‚ğæ“¾‚·
-;; 	‚é‚±‚Æ‚Í‚Å‚«‚½B
-;; 	---- $XYZZY/site-lisp/siteinit.l ‚Ì“à—e
+;; 	ã‚·ãƒ³ãƒœãƒ«ãŒã‚­ãƒ¼ã®ãƒãƒƒã‚·ãƒ¥ãƒ†ãƒ¼ãƒ–ãƒ«ã‚’ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã«å…¥ã‚ŒãŸå ´åˆã€
+;; 	gethashã§å€¤ãŒã¨ã‚Œãªã„å•é¡ŒãŒã‚ã£ãŸã€‚ãŸã ã—ã€maphashã§å…¨è¦ç´ ã‚’å–å¾—ã™
+;; 	ã‚‹ã“ã¨ã¯ã§ããŸã€‚
+;; 	---- $XYZZY/site-lisp/siteinit.l ã®å†…å®¹
 ;; 	(defparameter *hash* (make-hash-table))
 ;; 	(dolist (i '((aaa . abab) (bbb . bcbc) (ccc . cdcd)))
 ;; 	  (setf (gethash (car i) *hash*) (cdr i)))
-;; 	---- ƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğƒ[ƒh‚µ‚½‚ ‚Æ‚É•]‰¿
+;; 	---- ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ­ãƒ¼ãƒ‰ã—ãŸã‚ã¨ã«è©•ä¾¡
 ;; 	(gethash 'aaa *hash*)
-;; 	=>nil ; –{—ˆ‚Í abab
+;; 	=>nil ; æœ¬æ¥ã¯ abab
 ;; 	=>nil ;        t
 ;; 
 ;; 	(maphash #'(lambda (key val) (format t "~S: ~S~%" key val)) *hash*)
@@ -1067,14 +1067,14 @@
 ;; 	ccc: cdcd
 ;; 	=>nil
 ;; 	----
-;; 	ƒVƒ“ƒ{ƒ‹‚ÌƒnƒbƒVƒ…’l‚ÍƒIƒuƒWƒFƒNƒg‚ÌƒAƒhƒŒƒX‚ğŒ³‚ÉŒvZ‚µ‚Ä‚¢‚é‚ªA
-;; 	ƒ_ƒ“ƒvƒtƒ@ƒCƒ‹ì¬‚Æƒ_ƒ“ƒvƒtƒ@ƒCƒ‹ƒ[ƒhŒã‚Å‚ÍƒVƒ“ƒ{ƒ‹ƒIƒuƒWƒFƒN
-;; 	ƒg‚ÌƒAƒhƒŒƒX‚ªˆÙ‚È‚èA“¯ˆê‚ÌƒnƒbƒVƒ…’l‚É‚È‚ç‚È‚¢‚Ì‚ªŒ´ˆöB
+;; 	ã‚·ãƒ³ãƒœãƒ«ã®ãƒãƒƒã‚·ãƒ¥å€¤ã¯ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’å…ƒã«è¨ˆç®—ã—ã¦ã„ã‚‹ãŒã€
+;; 	ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ä½œæˆæ™‚ã¨ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ãƒ­ãƒ¼ãƒ‰å¾Œã§ã¯ã‚·ãƒ³ãƒœãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯
+;; 	ãƒˆã®ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒç•°ãªã‚Šã€åŒä¸€ã®ãƒãƒƒã‚·ãƒ¥å€¤ã«ãªã‚‰ãªã„ã®ãŒåŸå› ã€‚
 ;; 
-;; 	ƒ_ƒ“ƒvƒtƒ@ƒCƒ‹‚ğƒ[ƒh‚µ‚½‚ ‚Æ‚Érehash‚·‚é‚æ‚¤‚ÉC³B
+;; 	ãƒ€ãƒ³ãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ­ãƒ¼ãƒ‰ã—ãŸã‚ã¨ã«rehashã™ã‚‹ã‚ˆã†ã«ä¿®æ­£ã€‚
 ;;
 
-;; FIXME: ƒ_ƒ~[‚Ì site-lisp/siteinit.l ‚ğ—pˆÓ‚µ‚Ä‚â‚ç‚É‚á‚È‚ç‚ñ‚ç‚µ‚¢B
+;; FIXME: ãƒ€ãƒŸãƒ¼ã® site-lisp/siteinit.l ã‚’ç”¨æ„ã—ã¦ã‚„ã‚‰ã«ã‚ƒãªã‚‰ã‚“ã‚‰ã—ã„ã€‚
 ; (deftest fix-dump-hash-table ()
 ;   (progn
 ;     (with-another-xyzzy (:options "-q")
@@ -1094,11 +1094,11 @@
 ;   => t)
 
 ;; 	* lisp : fix defpackage.
-;; 	defpackageƒ}ƒNƒ‚Å:exportƒIƒvƒVƒ‡ƒ“‚ğw’è‚Å‚«‚È‚¢•s‹ï‡‚ğC³B
+;; 	defpackageãƒã‚¯ãƒ­ã§:exportã‚ªãƒ—ã‚·ãƒ§ãƒ³ã‚’æŒ‡å®šã§ããªã„ä¸å…·åˆã‚’ä¿®æ­£ã€‚
 ;; 	[xyzzy:09241]
 ;; 
 (deftest fix-depackage-export ()
-  "defpackageƒ}ƒNƒ‚Å:exportƒIƒvƒVƒ‡ƒ“‚ğw’è‚Å‚«‚È‚¢•s‹ï‡‚ğC³B"
+  "defpackageãƒã‚¯ãƒ­ã§:exportã‚ªãƒ—ã‚·ãƒ§ãƒ³ã‚’æŒ‡å®šã§ããªã„ä¸å…·åˆã‚’ä¿®æ­£ã€‚"
   (defpackage :example
     (:export #:foo))
   == (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -1117,7 +1117,7 @@
 (require "shell")
 
 (deftest fix-shell-alternate-send-input ()
-  "shell-alternate-send-input ‚Í‰üsƒR[ƒh‚ğƒXƒCƒbƒ`‚·‚é‚æ‚¤‚ÉC³"
+  "shell-alternate-send-input ã¯æ”¹è¡Œã‚³ãƒ¼ãƒ‰ã‚’ã‚¹ã‚¤ãƒƒãƒã™ã‚‹ã‚ˆã†ã«ä¿®æ­£"
   (labels ((mocked-shell-send-input ()
              *shell-ret*))
     (let ((original-shell-send-input #'shell-send-input))
@@ -1129,7 +1129,7 @@
   => "\r")
 
 ;; 	* lisp : fix calendar.
-;; 	ƒJƒŒƒ“ƒ_[‚Ìj“ú‚ğŒ»s–@‚É‚ ‚í‚¹‚éB
+;; 	ã‚«ãƒ¬ãƒ³ãƒ€ãƒ¼ã®ç¥æ—¥ã‚’ç¾è¡Œæ³•ã«ã‚ã‚ã›ã‚‹ã€‚
 ;; 	[xyzzy:09224]
 ;; 
 (require "calendar")
@@ -1140,41 +1140,41 @@
     (svref v day)))
 
 (deftest fix-calendar-01 ()
-  "calendar ‚Ìj“ú‚ğŒ»s–@‚É‡‚í‚¹‚é"
+  "calendar ã®ç¥æ—¥ã‚’ç¾è¡Œæ³•ã«åˆã‚ã›ã‚‹"
   (calendar-japanese-holiday-spec 2007 4 29)
-  => "º˜a‚Ì“ú")
+  => "æ˜­å’Œã®æ—¥")
 
 (deftest fix-calendar-02 ()
-  "calendar ‚Ìj“ú‚ğŒ»s–@‚É‡‚í‚¹‚é"
+  "calendar ã®ç¥æ—¥ã‚’ç¾è¡Œæ³•ã«åˆã‚ã›ã‚‹"
   (calendar-japanese-holiday-spec 2007 5 4)
-  => "‚İ‚Ç‚è‚Ì“ú")
+  => "ã¿ã©ã‚Šã®æ—¥")
 
 (deftest fix-calendar-03 ()
-  "calendar ‚Ìj“ú‚ğŒ»s–@‚É‡‚í‚¹‚é"
+  "calendar ã®ç¥æ—¥ã‚’ç¾è¡Œæ³•ã«åˆã‚ã›ã‚‹"
   (calendar-japanese-holiday-spec 2008 5 6)
-  => "U‘Ö‹x“ú")
+  => "æŒ¯æ›¿ä¼‘æ—¥")
 
 
 ;; 	* lisp : fix typo in lisp/timestmp.l.
-;; 	ƒRƒƒ“ƒg‚Ìtypo‚ğC³B
+;; 	ã‚³ãƒ¡ãƒ³ãƒˆã®typoã‚’ä¿®æ­£ã€‚
 ;; 	[xyzzy:09158]
 ;;
 
 ;; 	* lisp : fix typo in lisp/encoding.l.
-;; 	provide‚Ìtypo‚ğC³B
+;; 	provideã®typoã‚’ä¿®æ­£ã€‚
 ;; 	[xyzzy:09158]
 ;;
 (deftest fix-typo-in-lisp/encoding.l ()
-  "lisp/encoding.l ‚Å provide ‚µ‚Ä‚¢‚éƒ‚ƒWƒ…[ƒ‹–¼‚Ì typo ‚ğC³"
+  "lisp/encoding.l ã§ provide ã—ã¦ã„ã‚‹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«åã® typo ã‚’ä¿®æ­£"
   (modulep "encoding")
   => non-nil)
 
 ;; 	* lisp : fix typo in lisp/css-mode.l.
-;; 	provide‚Ìtypo‚ğC³B
+;; 	provideã®typoã‚’ä¿®æ­£ã€‚
 ;; 	[xyzzy:09158]
 ;;
 (deftest fix-typo-in-lisp/css-mode.l ()
-  "lisp/css-mode.l ‚Å provide ‚µ‚Ä‚¢‚éƒ‚ƒWƒ…[ƒ‹–¼‚Ì typo ‚ğC³"
+  "lisp/css-mode.l ã§ provide ã—ã¦ã„ã‚‹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«åã® typo ã‚’ä¿®æ­£"
   (progn
     (require "css-mode")
     (and (modulep "css-mode")
@@ -1182,91 +1182,91 @@
   => non-nil)
 
 ;; 	* lisp : fix typo in lisp/builtin.l.
-;; 	å‚Éˆø”‚Ìtypo‚ğC³B
+;; 	ä¸»ã«å¼•æ•°ã®typoã‚’ä¿®æ­£ã€‚
 ;; 	[xyzzy:09158]
 ;;
 (deftest fix-typo-in-lisp/builtin--sort ()
-  "builtin.l ‚Ì typo ‚ğC³: sort"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: sort"
   (get 'sort 'si::builtin-function-argument #1='#:undefined)
   => (sequence lisp::predicate &key :key))
 
 (deftest fix-typo-in-lisp/builtin--rename-file ()
-  "builtin.l ‚Ì typo ‚ğC³: rename-file"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: rename-file"
   (get 'rename-file 'si::builtin-function-argument #1='#:undefined)
   => (lisp::file lisp::new-name &key :if-exists :if-access-denied))
 
 (deftest fix-typo-in-lisp/builtin--copy-file ()
-  "builtin.l ‚Ì typo ‚ğC³: copy-file"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: copy-file"
   (get 'copy-file 'si::builtin-function-argument #1='#:undefined)
   => (lisp::file lisp::new-file &key :if-exists :copy-attributes :if-access-denied))
 
 (deftest fix-typo-in-lisp/builtin--dump-image-path ()
-  "builtin.l ‚Ì typo ‚ğC³: si:dump-image-path"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: si:dump-image-path"
   (get 'system:dump-image-path 'si::builtin-function-argument #1='#:undefined)
   => nil)
 
 (deftest fix-typo-in-lisp/builtin--char-before ()
-  "builtin.l ‚Ì typo ‚ğC³: char-before"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: char-before"
   (get 'char-before 'si::builtin-function-argument #1='#:undefined)
   => (point &optional editor::not-used))
 
 (deftest fix-typo-in-lisp/builtin--file-name-dialog ()
-  "builtin.l ‚Ì typo ‚ğC³: file-name-dialog"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: file-name-dialog"
   (get 'file-name-dialog 'si::builtin-function-argument #1='#:undefined)
   => (&key :char-encoding :eol-code :filter :filter-index :title :default :extension :save :multiple :must-exist :explorer :hide-read-only :initial-directory))
 
 (deftest fix-typo-in-lisp/builtin--directory-name-dialog ()
-  "builtin.l ‚Ì typo ‚ğC³: directory-name-dialog"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: directory-name-dialog"
   (get 'directory-name-dialog 'si::builtin-function-argument #1='#:undefined)
   => (&key :title :default))
 
 (deftest fix-typo-in-lisp/builtin--make-iso2022-encoding ()
-  "builtin.l ‚Ì typo ‚ğC³: make-iso2022-ecnoding"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: make-iso2022-ecnoding"
   (get 'make-iso2022-encoding 'si::builtin-function-argument #1='#:undefined)
   => (editor::name editor::display-name &key :g0 :g1 :g2 :g3 :ascii-eol :ascii-control :7bits :locking-shift :short-form :no-escape :cjk :use-cns11643 :vender))
 
 (deftest fix-typo-in-lisp/builtin--make-utf16-encoding ()
-  "builtin.l ‚Ì typo ‚ğC³: make-utf16-encoding"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: make-utf16-encoding"
   (get 'make-utf16-encoding 'si::builtin-function-argument #1='#:undefined)
   => (editor::name editor::display-name &key :signature :byte-order :windows :cjk))
 
 (deftest fix-typo-in-lisp/builtin--make-utf8-encoding ()
-  "builtin.l ‚Ì typo ‚ğC³: make-utf8-encoding"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: make-utf8-encoding"
   (get 'make-utf8-encoding 'si::builtin-function-argument #1='#:undefined)
   => (editor::name editor::display-name &key :signature :windows :cjk))
 
 (deftest fix-typo-in-lisp/builtin--make-utf7-encoding ()
-  "builtin.l ‚Ì typo ‚ğC³: make-utf7-encoding"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: make-utf7-encoding"
   (get 'make-utf7-encoding 'si::builtin-function-argument #1='#:undefined)
   => (editor::name editor::display-name &key :windows :imap4 :white :set-o :cjk))
 
 (deftest fix-typo-in-lisp/builtin--make-utf5-encoding ()
-  "builtin.l ‚Ì typo ‚ğC³: make-utf5-encoding"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: make-utf5-encoding"
   (get 'make-utf5-encoding 'si::builtin-function-argument #1='#:undefined)
   => (editor::name editor::display-name &key :windows :imap4 :white :set-o :cjk))
 
 (deftest fix-typo-in-lisp/builtin--parse-char-encoding-string ()
-  "builtin.l ‚Ì typo ‚ğC³: parse-char-encoding-string"
+  "builtin.l ã® typo ã‚’ä¿®æ­£: parse-char-encoding-string"
   (get 'parse-char-encoding-string 'si::builtin-function-argument #1='#:undefined)
   => (editor::accept-char-encoding string &key :start :end))
 
 ;; 	* src : fix hash-table rehash size.
-;; 	ƒnƒbƒVƒ…ƒe[ƒuƒ‹‚Ì—v‘f”‚ª80000‚ğ‰z‚¦‚é•Ó‚è‚©‚çAƒnƒbƒVƒ…ƒe[ƒuƒ‹‚Ì
-;; 	ƒTƒCƒY‚Ì‘‰Á—Ê‚ª100‚ÉŒÅ’è‚³‚ê‚éB‚»‚Ì‚½‚ß•p”É‚Érehash‚³‚êƒpƒtƒH[ƒ}
-;; 	ƒ“ƒX‚ª’á‰º‚µ‚Ä‚¢‚½B
-;; 	rehash‚·‚é‚Æ‚«‚ÍÅ’á‚Å‚à‘O‚ÌƒTƒCƒY‚Ì1.5”{‚É‚È‚é‚æ‚¤‚É‚µ‚½B
+;; 	ãƒãƒƒã‚·ãƒ¥ãƒ†ãƒ¼ãƒ–ãƒ«ã®è¦ç´ æ•°ãŒ80000ã‚’è¶Šãˆã‚‹è¾ºã‚Šã‹ã‚‰ã€ãƒãƒƒã‚·ãƒ¥ãƒ†ãƒ¼ãƒ–ãƒ«ã®
+;; 	ã‚µã‚¤ã‚ºã®å¢—åŠ é‡ãŒ100ã«å›ºå®šã•ã‚Œã‚‹ã€‚ãã®ãŸã‚é »ç¹ã«rehashã•ã‚Œãƒ‘ãƒ•ã‚©ãƒ¼ãƒ
+;; 	ãƒ³ã‚¹ãŒä½ä¸‹ã—ã¦ã„ãŸã€‚
+;; 	rehashã™ã‚‹ã¨ãã¯æœ€ä½ã§ã‚‚å‰ã®ã‚µã‚¤ã‚ºã®1.5å€ã«ãªã‚‹ã‚ˆã†ã«ã—ãŸã€‚
 ;;
-;; NOTE: ‚â‚½‚ç‚ÆŠÔŠ|‚©‚é‚ñ‚Å•Û—¯
+;; NOTE: ã‚„ãŸã‚‰ã¨æ™‚é–“æ›ã‹ã‚‹ã‚“ã§ä¿ç•™
 ;; Ref: https://gist.github.com/227683
 
 ;; 	* src : fix ole-method.
-;; 	ole-method ‚Å•¶š—ñ‚ğ“n‚·‚Æ—]Œv‚È 0x00 ‚ª•t‚­–â‘è
+;; 	ole-method ã§æ–‡å­—åˆ—ã‚’æ¸¡ã™ã¨ä½™è¨ˆãª 0x00 ãŒä»˜ãå•é¡Œ
 ;; 	via http://fixdap.com/p/xyzzy/8379/
 ;; 	via http://d.hatena.ne.jp/miyamuko/20080304/xyzzy_ole_method_bug
 ;;
-;; NOTE: miyamuko ‚³‚ñ‚©‚ç‚Ì’¸‚«•¨; thx
+;; NOTE: miyamuko ã•ã‚“ã‹ã‚‰ã®é ‚ãç‰©; thx
 (deftest fix-ole-method ()
-  "ole-method ‚Å•¶š—ñ‚ğ“n‚·‚Æ—]Œv‚È 0x00 ‚ª•t‚­–â‘è"
+  "ole-method ã§æ–‡å­—åˆ—ã‚’æ¸¡ã™ã¨ä½™è¨ˆãª 0x00 ãŒä»˜ãå•é¡Œ"
   (flet ((ole-create-file (content)
            (with-temp-files (tmp)
              (let* ((fso (ole-create-object "Scripting.FileSystemObject"))
@@ -1284,12 +1284,12 @@
 
 
 ;; 	* src : fix for FFI.
-;; 	–ß‚è’l‚ª double, float ‚Ì C ŠÖ”‚ğŒÄ‚Ô‚ÆƒNƒ‰ƒbƒVƒ…‚·‚é
+;; 	æˆ»ã‚Šå€¤ãŒ double, float ã® C é–¢æ•°ã‚’å‘¼ã¶ã¨ã‚¯ãƒ©ãƒƒã‚·ãƒ¥ã™ã‚‹
 ;; 	http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F25
 ;; 	via http://d.hatena.ne.jp/miyamuko/20070509/p1
 ;;
 (deftest fix-for-FFI-c-function-return-doubl/float-00 ()
-  "–ß‚è’l‚ª double, float ‚Ì C ŠÖ”‚ğŒÄ‚Ô‚ÆƒNƒ‰ƒbƒVƒ…‚·‚é"
+  "æˆ»ã‚Šå€¤ãŒ double, float ã® C é–¢æ•°ã‚’å‘¼ã¶ã¨ã‚¯ãƒ©ãƒƒã‚·ãƒ¥ã™ã‚‹"
   (eval-in-another-xyzzy
     `(labels ((c (name) (find-symbol name :c)))
        (require "foreign")
@@ -1307,9 +1307,9 @@
 ;; 	http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F21
 ;; 
 
-;; NOTE: ƒ^ƒCƒ}[‚©‚çƒoƒbƒNƒOƒ‰ƒEƒ“ƒh‚ÅƒeƒXƒgÀs‚·‚é‚Æ sleep-for ‚µ‚Ä‚à
-;; start-timer ‚µ‚½ŠÖ”‚ªÀs‚³‚ê‚È‚¢‚Ì‚Å•Ô‚Á‚Ä‚±‚È‚­‚È‚éB‚Ì‚Åƒ^ƒCƒ€ƒAƒEƒg
-;; ‚³‚¹‚Ä‚éB
+;; NOTE: ã‚¿ã‚¤ãƒãƒ¼ã‹ã‚‰ãƒãƒƒã‚¯ã‚°ãƒ©ã‚¦ãƒ³ãƒ‰ã§ãƒ†ã‚¹ãƒˆå®Ÿè¡Œã™ã‚‹ã¨ sleep-for ã—ã¦ã‚‚
+;; start-timer ã—ãŸé–¢æ•°ãŒå®Ÿè¡Œã•ã‚Œãªã„ã®ã§è¿”ã£ã¦ã“ãªããªã‚‹ã€‚ã®ã§ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ
+;; ã•ã›ã¦ã‚‹ã€‚
 (deftest fix-start-timer ()
   (let ((n 0)
         (start (get-internal-real-time))
@@ -1368,10 +1368,10 @@
   => nil)
 
 ;; 	* src : fix for VC2005.
-;; 	Microsoft Visual C++ 2005 ‚Åƒrƒ‹ƒh‚Å‚«‚é‚æ‚¤‚ÉA‚±‚Ü‚²‚Ü‚ÆC³B
+;; 	Microsoft Visual C++ 2005 ã§ãƒ“ãƒ«ãƒ‰ã§ãã‚‹ã‚ˆã†ã«ã€ã“ã¾ã”ã¾ã¨ä¿®æ­£ã€‚
 ;; 	http://xyzzy.s53.xrea.com/wiki/index.php?patch%2F13
 ;; 
 
-;(when (yes-or-no-p "¡‚·‚®ƒeƒXƒg‚·‚éH")
+;(when (yes-or-no-p "ä»Šã™ããƒ†ã‚¹ãƒˆã™ã‚‹ï¼Ÿ")
 ;  (test-changes))
 ;; ;;; nanri-master-change-tests.l ends here.
