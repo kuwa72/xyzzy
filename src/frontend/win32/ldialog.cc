@@ -80,11 +80,12 @@ Dialog::send_ltext (int id, int msg, WPARAM wparam, lisp init, dlg_txtwidth *dt)
     init = xchar_encoding_display_name (init);
   if (stringp (init))
     {
-      char *b = (char *)alloca (xstring_length (init) * 2 + 1);
-      char *be = w2s (b, init);
-      int wl = MultiByteToWideChar (932, 0, b, be - b, 0, 0);
+      /* Phase 2: Lisp string は UTF-16。w2s→cp932→wchar の roundtrip は
+         dialog listbox items / ラベル等で mojibake の原因になる。
+         xstring_contents を直接 SendDlgItemMessageW に渡す。 */
+      int wl = xstring_length (init);
       wchar_t *wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
-      MultiByteToWideChar (932, 0, b, be - b, wb, wl);
+      memcpy (wb, xstring_contents (init), wl * sizeof (wchar_t));
       wb[wl] = 0;
       if (dt)
         {
