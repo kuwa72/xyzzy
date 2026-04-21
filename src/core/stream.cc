@@ -1509,12 +1509,10 @@ readc_stream (lisp stream)
                       }
                   }
 
-                // Convert UCS-2 to internal Char
-                Char ic;
-                if (wc < 0x80)
-                  ic = wc;
-                else
-                  ic = w2i (wc);
+                /* Phase 2: 内部 Char は UTF-16 code unit。UCS-2 値を
+                   そのまま Char に代入すれば良く、旧 w2i (UCS2→SJIS-packed
+                   internal) は不要。 */
+                Char ic = (Char) wc;
 
                 // CR/LF handling for canon mode
                 if (enc == lstream::ENCODE_CANON_UTF8 && ic == '\r')
