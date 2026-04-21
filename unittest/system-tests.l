@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (deftest sha-224 ()
   (values
    (si:sha-224 "")
@@ -230,7 +231,7 @@ of SHA-384 and SHA-512)."
   => "test package")
 
 (deftest uuid-create-1 ()
-  "–ß‚è’l‚Ì 1 ‚Â–Ú‚ª•¶Žš—ñ‚Å 2 ‚Â–Ú‚ªƒŠƒXƒg‚©"
+  "æˆ»ã‚Šå€¤ã® 1 ã¤ç›®ãŒæ–‡å­—åˆ—ã§ 2 ã¤ç›®ãŒãƒªã‚¹ãƒˆã‹"
   (multiple-value-bind (uuidstr uuidlst)
       (si:uuid-create)
     (values (typep uuidstr 'string)
@@ -239,7 +240,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-1-seq ()
-  "–ß‚è’l‚Ì 1 ‚Â–Ú‚ª•¶Žš—ñ‚Å 2 ‚Â–Ú‚ªƒŠƒXƒg‚© (:sequential)"
+  "æˆ»ã‚Šå€¤ã® 1 ã¤ç›®ãŒæ–‡å­—åˆ—ã§ 2 ã¤ç›®ãŒãƒªã‚¹ãƒˆã‹ (:sequential)"
   (multiple-value-bind (uuidstr uuidlst)
       (si:uuid-create :sequential t)
     (values (typep uuidstr 'string)
@@ -248,7 +249,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-2 ()
-  "UUID•¶Žš—ñ‚ÍRFC4122‚É]‚¢‚·‚×‚Ä¬•¶Žš‚©"
+  "UUIDæ–‡å­—åˆ—ã¯RFC4122ã«å¾“ã„ã™ã¹ã¦å°æ–‡å­—ã‹"
   (every #'(lambda (c)
              (or (digit-char-p c)
                  (lower-case-p c)
@@ -257,7 +258,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-2-seq ()
-  "UUID•¶Žš—ñ‚ÍRFC4122‚É]‚¢‚·‚×‚Ä¬•¶Žš‚© (:sequential)"
+  "UUIDæ–‡å­—åˆ—ã¯RFC4122ã«å¾“ã„ã™ã¹ã¦å°æ–‡å­—ã‹ (:sequential)"
   (every #'(lambda (c)
              (or (digit-char-p c)
                  (lower-case-p c)
@@ -266,7 +267,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-3 ()
-  "•¶Žš—ñ‚ÆƒŠƒXƒg‚Ì’l‚Í“¯‚¶UUID‚Å‚ ‚é‚©"
+  "æ–‡å­—åˆ—ã¨ãƒªã‚¹ãƒˆã®å€¤ã¯åŒã˜UUIDã§ã‚ã‚‹ã‹"
   (multiple-value-bind (uuidstr uuidlst)
       (si:uuid-create)
     (string= uuidstr
@@ -275,7 +276,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-3-seq ()
-  "•¶Žš—ñ‚ÆƒŠƒXƒg‚Ì’l‚Í“¯‚¶UUID‚Å‚ ‚é‚© (:sequential)"
+  "æ–‡å­—åˆ—ã¨ãƒªã‚¹ãƒˆã®å€¤ã¯åŒã˜UUIDã§ã‚ã‚‹ã‹ (:sequential)"
   (multiple-value-bind (uuidstr uuidlst)
       (si:uuid-create :sequential t)
     (string= uuidstr
@@ -284,7 +285,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest uuid-create-4 ()
-  ":sequential ‚ðŽw’è‚µ‚È‚¢ê‡A‘O‰ñ‚ÌUUID‚©‚ç‚Ì·•ª‚Í1‚æ‚è‘å‚«‚¢‚©"
+  ":sequential ã‚’æŒ‡å®šã—ãªã„å ´åˆã€å‰å›žã®UUIDã‹ã‚‰ã®å·®åˆ†ã¯1ã‚ˆã‚Šå¤§ãã„ã‹"
   (let ((uuid1 (cadr (multiple-value-list (si:uuid-create))))
         (uuid2 (cadr (multiple-value-list (si:uuid-create)))))
     (flet ((test (a b)
@@ -295,7 +296,7 @@ of SHA-384 and SHA-512)."
   => nil)
 
 (deftest uuid-create-4-seq ()
-  ":sequential ‚ðŽw’è‚µ‚½ê‡A‘O‰ñ‚ÌUUID‚©‚ç‚Ì·•ª‚Í1‚©"
+  ":sequential ã‚’æŒ‡å®šã—ãŸå ´åˆã€å‰å›žã®UUIDã‹ã‚‰ã®å·®åˆ†ã¯1ã‹"
   (let ((uuid1 (cadr (multiple-value-list (si:uuid-create :sequential t))))
         (uuid2 (cadr (multiple-value-list (si:uuid-create :sequential t)))))
     (flet ((test (a b)
@@ -306,7 +307,7 @@ of SHA-384 and SHA-512)."
   => t)
 
 (deftest fix-file-stream-column-1 ()
-  "ƒtƒ@ƒCƒ‹‚Ì si:*stream-column ‚ª³‚µ‚¢’l‚ð•Ô‚·‚©"
+  "ãƒ•ã‚¡ã‚¤ãƒ«ã® si:*stream-column ãŒæ­£ã—ã„å€¤ã‚’è¿”ã™ã‹"
   (with-temp-files (out)
     (with-open-file (s out :direction :output)
       (values (si:*stream-column s)
@@ -317,7 +318,7 @@ of SHA-384 and SHA-512)."
   => 3)
 
 (deftest fix-file-stream-column-2 ()
-  "ƒtƒ@ƒCƒ‹‚Ì si:*stream-column ‚ª³‚µ‚¢’l‚ð•Ô‚·‚©"
+  "ãƒ•ã‚¡ã‚¤ãƒ«ã® si:*stream-column ãŒæ­£ã—ã„å€¤ã‚’è¿”ã™ã‹"
   (with-temp-files (out)
     (with-open-file (s out :direction :output)
       (values (si:*stream-column s)
@@ -328,7 +329,7 @@ of SHA-384 and SHA-512)."
   => 1)
 
 (deftest getpid ()
-  "ƒvƒƒZƒXID‚ªŽæ“¾‚Å‚«‚é‚±‚Æ"
+  "ãƒ—ãƒ­ã‚»ã‚¹IDãŒå–å¾—ã§ãã‚‹ã“ã¨"
   (integerp (si:getpid))
   => t)
 
@@ -353,12 +354,12 @@ of SHA-384 and SHA-512)."
 
 (deftest octet-length-sjis ()
   (values
-   (si:octet-length "‚ ")
-   (si:octet-length "Š¿Žš")
-   (si:octet-length "ƒAƒCƒE")
-   (si:octet-length "‚ " :encoding *encoding-sjis*)
-   (si:octet-length "Š¿Žš" :encoding *encoding-sjis*)
-   (si:octet-length "ƒAƒCƒE" :encoding *encoding-sjis*))
+   (si:octet-length "ã‚")
+   (si:octet-length "æ¼¢å­—")
+   (si:octet-length "ã‚¢ã‚¤ã‚¦")
+   (si:octet-length "ã‚" :encoding *encoding-sjis*)
+   (si:octet-length "æ¼¢å­—" :encoding *encoding-sjis*)
+   (si:octet-length "ã‚¢ã‚¤ã‚¦" :encoding *encoding-sjis*))
   => 2
   => 4
   => 6
@@ -368,12 +369,12 @@ of SHA-384 and SHA-512)."
 
 (deftest octet-length-eucjp ()
   (values
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "‚ "))
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "Š¿Žš"))
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* (map-to-half-width-string "ƒAƒCƒE" :katakana t)))
-   (si:octet-length "‚ " :encoding *encoding-euc-jp*)
-   (si:octet-length "Š¿Žš" :encoding *encoding-euc-jp*)
-   (si:octet-length (map-to-half-width-string "ƒAƒCƒE" :katakana t) :encoding *encoding-euc-jp*))
+   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "ã‚"))
+   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "æ¼¢å­—"))
+   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* (map-to-half-width-string "ã‚¢ã‚¤ã‚¦" :katakana t)))
+   (si:octet-length "ã‚" :encoding *encoding-euc-jp*)
+   (si:octet-length "æ¼¢å­—" :encoding *encoding-euc-jp*)
+   (si:octet-length (map-to-half-width-string "ã‚¢ã‚¤ã‚¦" :katakana t) :encoding *encoding-euc-jp*))
   => 2
   => 4
   => 6
@@ -383,12 +384,12 @@ of SHA-384 and SHA-512)."
 
 (deftest octet-length-utf8 ()
   (values
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "‚ "))
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "Š¿Žš"))
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "ƒAƒCƒE"))
-   (si:octet-length "‚ " :encoding *encoding-utf8n*)
-   (si:octet-length "Š¿Žš" :encoding *encoding-utf8n*)
-   (si:octet-length "ƒAƒCƒE" :encoding *encoding-utf8n*))
+   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "ã‚"))
+   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "æ¼¢å­—"))
+   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "ã‚¢ã‚¤ã‚¦"))
+   (si:octet-length "ã‚" :encoding *encoding-utf8n*)
+   (si:octet-length "æ¼¢å­—" :encoding *encoding-utf8n*)
+   (si:octet-length "ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n*))
   => 3
   => 6
   => 9
@@ -398,12 +399,12 @@ of SHA-384 and SHA-512)."
 
 (deftest octet-length-start-end ()
   (values
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :start 0)
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :start 1)
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :start 3)
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :start 2 :end 2)
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :start 2 :end 4)
-   (si:octet-length "abc‚ ‚¢‚¤ƒAƒCƒE" :encoding *encoding-utf8n* :end 4))
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :start 0)
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :start 1)
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :start 3)
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :start 2 :end 2)
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :start 2 :end 4)
+   (si:octet-length "abcã‚ã„ã†ã‚¢ã‚¤ã‚¦" :encoding *encoding-utf8n* :end 4))
   => 21
   => 20
   => 18

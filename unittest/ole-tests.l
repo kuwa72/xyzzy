@@ -1,8 +1,9 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "ole"))
 
 (deftest ole-method-null-and-empty ()
-  "ole-method‚ÅNull’l‚ÆEmpty’l‚ğ“n‚·"
+  "ole-methodã§Nullå€¤ã¨Emptyå€¤ã‚’æ¸¡ã™"
   (unwind-protect
       (let ((sc (ole-create-object "ScriptControl")))
         (ole-putprop sc 'Language "JScript")

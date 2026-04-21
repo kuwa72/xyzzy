@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 ;; need docstring support!
 (deftest fix-previous-pseudo-frame-test ()
   "(previous-pseudo-frame) caused \"appframe not found\" error."
@@ -62,7 +63,7 @@
       (os-platform)
       => windows-vista)
     (deftest user-config-path-and-dump-image-path-vista-test ()
-      "(user-config-path) and (si:dump-image-path) ‚Í wxp ‚Ì‚Ü‚ÜB0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+      "(user-config-path) and (si:dump-image-path) ã¯ wxp ã®ã¾ã¾ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
       (values (pathname-name (user-config-path))
               (pathname-type (si:dump-image-path)))
       => "wxp"
@@ -78,7 +79,7 @@
       (os-platform)
       => windows-7)
     (deftest user-config-path-and-dump-image-path-7-test ()
-      "(user-config-path) and (si:dump-image-path) ‚Í wxp ‚Ì‚Ü‚ÜB0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+      "(user-config-path) and (si:dump-image-path) ã¯ wxp ã®ã¾ã¾ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
       (values (pathname-name (user-config-path))
               (pathname-type (si:dump-image-path)))
       => "wxp"
@@ -94,7 +95,7 @@
       (os-platform)
       => windows-8)
     (deftest user-config-path-and-dump-image-path-8-test ()
-      "(user-config-path) and (si:dump-image-path) ‚Í wxp ‚Ì‚Ü‚ÜB0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+      "(user-config-path) and (si:dump-image-path) ã¯ wxp ã®ã¾ã¾ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
       (values (pathname-name (user-config-path))
               (pathname-type (si:dump-image-path)))
       => "wxp"
@@ -125,7 +126,7 @@
 
 
 (deftest test-cl-char-Backspace ()
-  "Backspace •¶š‚ªg‚¦‚é‚©"
+  "Backspace æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Backspace")))
     (values
      (char= c #\C-h)
@@ -136,7 +137,7 @@
   => "backspace")
 
 (deftest test-cl-char-Tab ()
-  "•¶š–¼‚Ì‘å•¶š¬•¶š‚Ì‹æ•Ê‚Í‚µ‚È‚¢‚Ì‚ÅA‚±‚ê‚Í 0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+  "æ–‡å­—åã®å¤§æ–‡å­—å°æ–‡å­—ã®åŒºåˆ¥ã¯ã—ãªã„ã®ã§ã€ã“ã‚Œã¯ 0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
   (let ((c (read-from-string "#\\Tab")))
     (values
      (char= c #\TAB)
@@ -147,7 +148,7 @@
   => "horizontal_tabulation")
 
 (deftest test-cl-char-Newline ()
-  "Newline •¶š‚ªg‚¦‚é‚©"
+  "Newline æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Newline")))
     (values
      (char= c #\LFD)
@@ -158,7 +159,7 @@
   => "line_feed")
 
 (deftest test-cl-char-Linefeed ()
-  "Linefeed •¶š‚ªg‚¦‚é‚©"
+  "Linefeed æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Linefeed")))
     (values
      (char= c #\LFD)
@@ -169,7 +170,7 @@
   => "line_feed")
 
 (deftest test-cl-char-Page ()
-  "Page •¶š‚ªg‚¦‚é‚©"
+  "Page æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Page")))
     (values
      (char= c #\C-l)
@@ -180,7 +181,7 @@
   => "form_feed")
 
 (deftest test-cl-char-Return ()
-  "Return •¶š‚ªg‚¦‚é‚©"
+  "Return æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Return")))
     (values
      (char= c #\RET)
@@ -191,7 +192,7 @@
   => "carriage_return")
 
 (deftest test-cl-char-Space ()
-  "Space •¶š‚ªg‚¦‚é‚©"
+  "Space æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Space")))
     (values
      (char= c #\SPC)
@@ -202,7 +203,7 @@
   => "space")
 
 (deftest test-cl-char-Rubout ()
-  "Rubout •¶š‚ªg‚¦‚é‚©"
+  "Rubout æ–‡å­—ãŒä½¿ãˆã‚‹ã‹"
   (let ((c (read-from-string "#\\Rubout")))
     (values
      (char= c #\DEL)
@@ -354,7 +355,7 @@
 
 
 (deftest test-defstruct-print-function-1 ()
-  "print-function ‚ğ–‘O‚É’è‹`B0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+  "print-function ã‚’äº‹å‰ã«å®šç¾©ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (print-function-name (gensym "print-function-"))
          (ctor (intern (format nil "make-~A" struct-name))))
@@ -369,7 +370,7 @@
   => "#<test>")
 
 (deftest test-defstruct-print-function-2 ()
-  "print-function ‚ğ lambda form ‚Å’è‹`B0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+  "print-function ã‚’ lambda form ã§å®šç¾©ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -381,7 +382,7 @@
   => "#<test 1>")
 
 (deftest test-defstruct-print-function-3 ()
-  "print-function ‚ğƒNƒ[ƒWƒƒ‚Å’è‹`‚µ‚½ê‡AŒx‚ªo‚é"
+  "print-function ã‚’ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ£ã§å®šç¾©ã—ãŸå ´åˆã€è­¦å‘ŠãŒå‡ºã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (print-function-name (gensym "print-function-"))
          (ctor (intern (format nil "make-~A" struct-name))))
@@ -396,7 +397,7 @@
   => "#<test>")
 
 (deftest test-defstruct-print-function-4 ()
-  "print-function ‚ğƒNƒ[ƒWƒƒ (lambda form) ‚Å’è‹`‚µ‚½ê‡AŒx‚ªo‚é"
+  "print-function ã‚’ã‚¯ãƒ­ãƒ¼ã‚¸ãƒ£ (lambda form) ã§å®šç¾©ã—ãŸå ´åˆã€è­¦å‘ŠãŒå‡ºã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -408,7 +409,7 @@
   => "#<test 1>")
 
 (deftest test-defstruct-print-function-5 ()
-  "print-function ‚ğŒã‚Å’è‹`‚·‚éê‡"
+  "print-function ã‚’å¾Œã§å®šç¾©ã™ã‚‹å ´åˆ"
   (let* ((struct-name (gensym "struct-"))
          (print-function-name (gensym "print-function-"))
          (ctor (intern (format nil "make-~A" struct-name))))
@@ -423,7 +424,7 @@
   => "#<test>")
 
 (deftest test-defstruct-print-function-6 ()
-  "print-function ‚ğÄ’è‹`‚·‚éê‡"
+  "print-function ã‚’å†å®šç¾©ã™ã‚‹å ´åˆ"
   (let* ((struct-name (gensym "struct-"))
          (print-function-name (gensym "print-function-"))
          (ctor (intern (format nil "make-~A" struct-name))))
@@ -442,7 +443,7 @@
 
 
 (deftest test-defstruct-parent-print-function-1 ()
-  "e‚Ì print-function ‚ğŒp³‚µ‚È‚¢ê‡ƒRƒ“ƒpƒCƒ‹‚Å‚«‚éB0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+  "è¦ªã® print-function ã‚’ç¶™æ‰¿ã—ãªã„å ´åˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã‚‹ã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
   (let* ((struct-name1 (gensym "struct-"))
          (struct-name2 (gensym "struct-")))
     (eval
@@ -457,7 +458,7 @@
   => non-nil)
 
 (deftest test-defstruct-parent-print-function-2 ()
-  "e‚Ì print-function ‚ğŒp³‚·‚éê‡ƒRƒ“ƒpƒCƒ‹‚Å‚«‚é (lambda form)"
+  "è¦ªã® print-function ã‚’ç¶™æ‰¿ã™ã‚‹å ´åˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã‚‹ (lambda form)"
   (let* ((struct-name1 (gensym "struct-"))
          (struct-name2 (gensym "struct-")))
     (declare (special struct-name1 struct-name2))
@@ -472,7 +473,7 @@
   => non-nil)
 
 (deftest test-defstruct-parent-print-function-3 ()
-  "e‚Ì print-function ‚ğŒp³‚·‚éê‡ƒRƒ“ƒpƒCƒ‹‚Å‚«‚é (symbol)"
+  "è¦ªã® print-function ã‚’ç¶™æ‰¿ã™ã‚‹å ´åˆã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã§ãã‚‹ (symbol)"
   (let* ((struct-name1 (gensym "struct-"))
          (struct-name2 (gensym "struct-"))
          (print-function-name1 (gensym "print-function-"))
@@ -493,7 +494,7 @@
 
 
 (deftest test-defstruct-default-constructor-1 ()
-  ":constructor w’è‚ª‚È‚¢ê‡ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ªì¬‚³‚ê‚é"
+  ":constructor æŒ‡å®šãŒãªã„å ´åˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ãŒä½œæˆã•ã‚Œã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (default-ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -506,7 +507,7 @@
   => t)
 
 (deftest test-defstruct-default-constructor-2 ()
-  ":constructor w’è‚ª‚È‚¢ê‡ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ªì¬‚³‚ê‚é"
+  ":constructor æŒ‡å®šãŒãªã„å ´åˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ãŒä½œæˆã•ã‚Œã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (default-ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -520,8 +521,8 @@
   => t)
 
 (deftest test-defstruct-default-constructor-3 ()
-  "ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Æˆá‚¤–¼‘O‚Å :constructor w’è‚ª‚ ‚éê‡A
-ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Íì¬‚³‚ê‚È‚¢"
+  "ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¨é•ã†åå‰ã§ :constructor æŒ‡å®šãŒã‚ã‚‹å ´åˆã€
+ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¯ä½œæˆã•ã‚Œãªã„"
   (let* ((struct-name (gensym "struct-"))
          (default-ctor (intern (format nil "make-~A" struct-name)))
          (other-ctor (intern (format nil "make-~A-2" struct-name))))
@@ -538,8 +539,8 @@
   => t)
 
 (deftest test-defstruct-default-constructor-4 ()
-  "ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Æ“¯‚¶–¼‘O‚Å :constructor w’è‚ª‚ ‚éê‡A
-ƒfƒtƒHƒ‹ƒgƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Íì¬‚³‚ê‚È‚¢"
+  "ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¨åŒã˜åå‰ã§ :constructor æŒ‡å®šãŒã‚ã‚‹å ´åˆã€
+ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¯ä½œæˆã•ã‚Œãªã„"
   (let* ((struct-name (gensym "struct-"))
          (default-ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -554,7 +555,7 @@
 
 
 (deftest test-defstruct-constructor-arg-1 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğ‚·‚×‚Äw’è‚µ‚½ê‡B0.2.2.235 ‚Å‚àƒpƒX‚·‚é"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’ã™ã¹ã¦æŒ‡å®šã—ãŸå ´åˆã€‚0.2.2.235 ã§ã‚‚ãƒ‘ã‚¹ã™ã‚‹"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A-2" struct-name))))
     (eval
@@ -566,7 +567,7 @@
   => (1 2 3))
 
 (deftest test-defstruct-constructor-arg-2 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğˆê•”w’è‚µ‚½ê‡"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’ä¸€éƒ¨æŒ‡å®šã—ãŸå ´åˆ"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A-2" struct-name))))
     (eval
@@ -578,7 +579,7 @@
   => (1 nil 3))
 
 (deftest test-defstruct-constructor-arg-3 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğw’è‚µ‚½ê‡ (&optional)"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’æŒ‡å®šã—ãŸå ´åˆ (&optional)"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A-2" struct-name))))
     (eval
@@ -590,7 +591,7 @@
   => (1 nil 3 4))
 
 (deftest test-defstruct-constructor-arg-4 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğw’è‚µ‚½ê‡ (&key)"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’æŒ‡å®šã—ãŸå ´åˆ (&key)"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A-2" struct-name))))
     (eval
@@ -603,7 +604,7 @@
 
 
 (deftest test-defstruct-default-constructor-arg-1 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğ‚·‚×‚Äw’è‚µ‚½ê‡"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’ã™ã¹ã¦æŒ‡å®šã—ãŸå ´åˆ"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -615,7 +616,7 @@
   => (1 2 3))
 
 (deftest test-defstruct-default-constructor-arg-2 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğˆê•”w’è‚µ‚½ê‡"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’ä¸€éƒ¨æŒ‡å®šã—ãŸå ´åˆ"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -627,7 +628,7 @@
   => (1 nil 3))
 
 (deftest test-defstruct-default-constructor-arg-3 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğw’è‚µ‚½ê‡ (&optional)"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’æŒ‡å®šã—ãŸå ´åˆ (&optional)"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -639,7 +640,7 @@
   => (1 nil 3 4))
 
 (deftest test-defstruct-default-constructor-arg-4 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚Åˆø”‚ğw’è‚µ‚½ê‡ (&key)"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã§å¼•æ•°ã‚’æŒ‡å®šã—ãŸå ´åˆ (&key)"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -652,7 +653,7 @@
 
 
 (deftest test-defstruct-constructor-with-slots-1 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ğw’è‚µ‚Ä‚àƒXƒƒbƒg’è‹`‚Ì‰Šú’l‚ª–³‹‚³‚ê‚È‚¢"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã‚’æŒ‡å®šã—ã¦ã‚‚ã‚¹ãƒ­ãƒƒãƒˆå®šç¾©ã®åˆæœŸå€¤ãŒç„¡è¦–ã•ã‚Œãªã„"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -669,7 +670,7 @@
   => (nil nil 3 4))
 
 (deftest test-defstruct-constructor-with-slots-2 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ğw’è‚µ‚Ä‚àƒXƒƒbƒg’è‹`‚Ì‰Šú’l‚ª–³‹‚³‚ê‚È‚¢"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã‚’æŒ‡å®šã—ã¦ã‚‚ã‚¹ãƒ­ãƒƒãƒˆå®šç¾©ã®åˆæœŸå€¤ãŒç„¡è¦–ã•ã‚Œãªã„"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval
@@ -688,7 +689,7 @@
   => (nil nil nil 4))
 
 (deftest test-defstruct-constructor-with-slots-3 ()
-  "ƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ğw’è‚µ‚Ä‚àƒXƒƒbƒg’è‹`‚Ì‰Šú’l‚ª–³‹‚³‚ê‚È‚¢"
+  "ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã‚’æŒ‡å®šã—ã¦ã‚‚ã‚¹ãƒ­ãƒƒãƒˆå®šç¾©ã®åˆæœŸå€¤ãŒç„¡è¦–ã•ã‚Œãªã„"
   (let* ((struct-name (gensym "struct-"))
          (ctor (intern (format nil "make-~A" struct-name))))
     (eval

@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (defun generate-random (n limit state)
   (let (nums)
     (dotimes (_ n)
@@ -36,7 +37,7 @@
   => t)
 
 (deftest random-state-seed ()
-  "˜A‘±‚µ‚Ä random-state ‚ğ¶¬‚µ‚Ä‚àˆÙ‚È‚é seed ‚É‚È‚é‚±‚Æ"
+  "é€£ç¶šã—ã¦ random-state ã‚’ç”Ÿæˆã—ã¦ã‚‚ç•°ãªã‚‹ seed ã«ãªã‚‹ã“ã¨"
   (let* ((s1 (make-random-state t))
          (s2 (make-random-state t))
          (s3 (make-random-state t)))

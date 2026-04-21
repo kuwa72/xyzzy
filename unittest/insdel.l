@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (deftest test-buffer-substring--buffer ()
   (values
    #1=(with-temp-buffer
@@ -12,8 +13,8 @@
              (buffer-substring 1 3 b)
              (buffer-substring 3 2 (buffer-name b))
              ))))
-   ;; buffer-substring ‚Í 2 ˆø”‚Ìê—p‚ÌƒoƒCƒgƒR[ƒh‚ª—pˆÓ‚³‚ê‚Ä‚¢‚éB
-   ;; 3 ˆø”‚Ìê‡‚Í’Êí‚ÌŠÖ”ŒÄ‚Ño‚µ‚Æ‚µ‚ÄƒRƒ“ƒpƒCƒ‹‚³‚ê‚éB
+   ;; buffer-substring ã¯ 2 å¼•æ•°ã®å°‚ç”¨ã®ãƒã‚¤ãƒˆã‚³ãƒ¼ãƒ‰ãŒç”¨æ„ã•ã‚Œã¦ã„ã‚‹ã€‚
+   ;; 3 å¼•æ•°ã®å ´åˆã¯é€šå¸¸ã®é–¢æ•°å‘¼ã³å‡ºã—ã¨ã—ã¦ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã•ã‚Œã‚‹ã€‚
    (compile-and-eval
      #1#))
   => #2=("fuga" "ug" "hoge" "og" "g")

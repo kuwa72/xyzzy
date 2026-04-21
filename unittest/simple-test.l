@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 ;;; -*- mode: lisp; package: user -*-
 
 (in-package :user)
@@ -31,7 +32,7 @@
        (read-char stream nil nil t) ; discard 2nd >
        (if (peek-char #\space stream nil #1# t)
          (read-char stream nil nil t) ; discard following space
-         (error 'reader-error :stream stream :datum "•s³‚ÈŠú‘Òo—Í‚Å‚·"))
+         (error 'reader-error :stream stream :datum "ä¸æ­£ãªæœŸå¾…å‡ºåŠ›ã§ã™"))
        (list :expected-output
              (with-output-to-string (s)
                (while (and (setf next (read-char stream nil nil t))
@@ -197,7 +198,7 @@
     (let ((head (first forms-and-expectations)))
       (when (or (member head '(=> !! ==))
                 (output-expectation-p head))
-        (error "ƒeƒXƒg®‚È‚µ‚ÉŠú‘Ò‚Æ‚ÈIH: ~S" forms-and-expectations))
+        (error "ãƒ†ã‚¹ãƒˆå¼ãªã—ã«æœŸå¾…ã¨ãªï¼ï¼Ÿ: ~S" forms-and-expectations))
       (recur (cdr forms-and-expectations) (list head) nil))))
 
 #+unittest-meta-test
@@ -854,22 +855,22 @@ Returns list of failures."
          :finish)))
 
 (defparameter *run-tests-continue/rerun/cancel-message*
-  "‘O‰ñ‚ÌƒeƒXƒgÀs‚ª“r’†‚Å’†’f‚³‚ê‚½‚Ü‚ÜI‚í‚Á‚Ä‚¢‚Ü‚¹‚ñB‚Ç‚¤‚·‚éH
+  "å‰å›ã®ãƒ†ã‚¹ãƒˆå®Ÿè¡ŒãŒé€”ä¸­ã§ä¸­æ–­ã•ã‚ŒãŸã¾ã¾çµ‚ã‚ã£ã¦ã„ã¾ã›ã‚“ã€‚ã©ã†ã™ã‚‹ï¼Ÿ
 
-[‘±‚¯‚é] ’†’f‚³‚ê‚½ƒeƒXƒg‚Ì‘±‚«‚©‚ç‘±s‚·‚é
-[‚â‚è’¼‚µ] ‘O‰ñ‚Æ“¯‚¶ƒeƒXƒg‚ğÅ‰‚©‚ç‚â‚è’¼‚·
-[ƒLƒƒƒ“ƒZƒ‹] ‰½‚à‚µ‚È‚¢")
+[ç¶šã‘ã‚‹] ä¸­æ–­ã•ã‚ŒãŸãƒ†ã‚¹ãƒˆã®ç¶šãã‹ã‚‰ç¶šè¡Œã™ã‚‹
+[ã‚„ã‚Šç›´ã—] å‰å›ã¨åŒã˜ãƒ†ã‚¹ãƒˆã‚’æœ€åˆã‹ã‚‰ã‚„ã‚Šç›´ã™
+[ã‚­ãƒ£ãƒ³ã‚»ãƒ«] ä½•ã‚‚ã—ãªã„")
 
 (defun run-tests (&optional (test-list (or *last-test-list* *tests*)))
   (interactive)
   (setf *test-start-time* (get-internal-real-time))
   (unless (null *current-session*)
     (case (message-box *run-tests-continue/rerun/cancel-message*
-                       "Às’†‚ÌƒeƒXƒg‚ª‚ ‚è‚Ü‚·"
+                       "å®Ÿè¡Œä¸­ã®ãƒ†ã‚¹ãƒˆãŒã‚ã‚Šã¾ã™"
                        '(:exclamation :button1)
-                       :button1 "‘±‚¯‚é"
-                       :button2 "‚â‚è’¼‚µ"
-                       :button3 "ƒLƒƒƒ“ƒZƒ‹")
+                       :button1 "ç¶šã‘ã‚‹"
+                       :button2 "ã‚„ã‚Šç›´ã—"
+                       :button3 "ã‚­ãƒ£ãƒ³ã‚»ãƒ«")
       (:button1 (return-from run-tests (continue-run-tests)))
       (:button2 (setf *current-session* nil))
       (:button3 (quit))))
@@ -982,10 +983,10 @@ Returns list of failures."
 
 ;;;;; execute in another xyzzy
 ;;;
-;;; ’ˆÓ:
-;;; - readable ‚Éˆóš‚Å‚«‚È‚¢‚à‚Ì‚ª BODY ‚ÉŠÜ‚Ü‚ê‚Ä‚¢‚é‚ÆƒAƒEƒg
-;;; - –ß‚è’l‚à readable ‚Éˆóš‚Å‚«‚È‚¢‚à‚Ì‚ÍƒAƒEƒg
-;;; - ƒŒƒLƒVƒJƒ‹•Ï”‚ğ‚¿‚ß‚È‚¢...
+;;; æ³¨æ„:
+;;; - readable ã«å°å­—ã§ããªã„ã‚‚ã®ãŒ BODY ã«å«ã¾ã‚Œã¦ã„ã‚‹ã¨ã‚¢ã‚¦ãƒˆ
+;;; - æˆ»ã‚Šå€¤ã‚‚ readable ã«å°å­—ã§ããªã„ã‚‚ã®ã¯ã‚¢ã‚¦ãƒˆ
+;;; - ãƒ¬ã‚­ã‚·ã‚«ãƒ«å¤‰æ•°ã‚’æŒã¡è¾¼ã‚ãªã„...
 
 (defun eval-in-another-xyzzy--make-command-string (form options result-filename)
   (let ((out (gensym "tmpfile-stream-")))

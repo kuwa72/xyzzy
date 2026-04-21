@@ -1,5 +1,6 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (deftest fix-edict-lookup-word ()
-  "’PŒê‹«ŠE‚Å edict-lookup-word ‚µ‚½‚ç‚»‚Ì’PŒê‚ğ•Ô‚·"
+  "å˜èªå¢ƒç•Œã§ edict-lookup-word ã—ãŸã‚‰ãã®å˜èªã‚’è¿”ã™"
   (with-temp-buffer
     (insert "I  like   susi.")
     (flet ((test (point)
@@ -17,7 +18,7 @@
   => "susi")
 
 (deftest fix-do-completion-dup ()
-  "import ‚µ‚½ƒVƒ“ƒ{ƒ‹‚Æ export ‚µ‚½ƒVƒ“ƒ{ƒ‹‚ª•âŠ®‚Éd•¡‚µ‚È‚¢‚±‚Æ"
+  "import ã—ãŸã‚·ãƒ³ãƒœãƒ«ã¨ export ã—ãŸã‚·ãƒ³ãƒœãƒ«ãŒè£œå®Œæ™‚ã«é‡è¤‡ã—ãªã„ã“ã¨"
   (let ((pkg (make-package (gensym) :use :lisp)))
     (export 'caaaar pkg)
     (let ((*package* pkg))
@@ -27,7 +28,7 @@
   => nil)
 
 (deftest do-completion-package-name-1 ()
-  "ƒpƒbƒP[ƒW–¼‚Ì•âŠ®‚ª‚Å‚«‚é‚±‚Æ"
+  "ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸åã®è£œå®ŒãŒã§ãã‚‹ã“ã¨"
   (multiple-value-bind (result list prefix)
       (*do-completion "s" :function-name)
     (values
@@ -39,7 +40,7 @@
   => non-nil)
 
 (deftest do-completion-package-name-2 ()
-  "ƒpƒbƒP[ƒW–¼‚Ì•âŠ®‚ª‚Å‚«‚é‚±‚Æ"
+  "ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸åã®è£œå®ŒãŒã§ãã‚‹ã“ã¨"
   (multiple-value-bind (result list prefix)
       (*do-completion "e" :function-name)
     (values
@@ -716,9 +717,9 @@
 (deftest detect-char-encoding-sjis ()
   (values
    (eq *encoding-sjis*
-       (detect-char-encoding "‚ ‚¢‚¤"))
+       (detect-char-encoding "ã‚ã„ã†"))
    (eq *encoding-sjis*
-       (with-input-from-string (s "‚ ‚¢‚¤")
+       (with-input-from-string (s "ã‚ã„ã†")
          (detect-char-encoding s))))
   => t
   => t)
@@ -726,20 +727,20 @@
 (deftest detect-char-encoding-utf8 ()
   (values
    (eq *encoding-utf8*
-       (detect-char-encoding (convert-encoding-from-internal *encoding-utf8* "‰”Å")))
+       (detect-char-encoding (convert-encoding-from-internal *encoding-utf8* "åˆç‰ˆ")))
    (eq *encoding-utf8n*
-       (detect-char-encoding (convert-encoding-from-internal *encoding-utf8n* "‰”Å"))))
+       (detect-char-encoding (convert-encoding-from-internal *encoding-utf8n* "åˆç‰ˆ"))))
   => t
   => t)
 
 (deftest detect-char-encoding-euc-jp ()
   (eq *encoding-euc-jp*
-      (detect-char-encoding (convert-encoding-from-internal *encoding-euc-jp* "•·‚«o‚·")))
+      (detect-char-encoding (convert-encoding-from-internal *encoding-euc-jp* "èãå‡ºã™")))
   => t)
 
 (deftest detect-char-encoding-jis ()
   (eq *encoding-jis*
-      (detect-char-encoding (convert-encoding-from-internal *encoding-jis* "•·‚«o‚·")))
+      (detect-char-encoding (convert-encoding-from-internal *encoding-jis* "èãå‡ºã™")))
   => t)
 
 
@@ -778,24 +779,24 @@
   => t)
 
 (deftest chdir-3 ()
-  "sysdep.curdir ‚à•ÏX‚³‚ê‚Ä‚¢‚é‚©Šm”F"
+  "sysdep.curdir ã‚‚å¤‰æ›´ã•ã‚Œã¦ã„ã‚‹ã‹ç¢ºèª"
   (chdir (get-windows-directory))
   (values
    (chdir (get-system-directory))
    (progn
-     ;; get-disk-usage ‚Íˆê“I‚ÉƒfƒBƒŒƒNƒgƒŠ‚ğ•ÏX‚µAÅŒã‚É sysdep.curdir ‚ÉˆÚ“®‚·‚é
+     ;; get-disk-usage ã¯ä¸€æ™‚çš„ã«ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’å¤‰æ›´ã—ã€æœ€å¾Œã« sysdep.curdir ã«ç§»å‹•ã™ã‚‹
      (get-disk-usage (get-system-directory))
      (path-equal (get-system-directory) (cwd))))
   => t
   => t)
 
 (deftest chdir-4 ()
-  "Qdefault_dir ‚à•ÏX‚³‚ê‚Ä‚¢‚é‚©Šm”F"
+  "Qdefault_dir ã‚‚å¤‰æ›´ã•ã‚Œã¦ã„ã‚‹ã‹ç¢ºèª"
   (chdir (get-windows-directory))
   (values
    (chdir (get-system-directory))
    (progn
-     ;; call-process ‚Íˆê“I‚ÉƒfƒBƒŒƒNƒgƒŠ‚ğ•ÏX‚µAÅŒã‚É Qdefault_dir ‚ÉˆÚ“®‚·‚é
+     ;; call-process ã¯ä¸€æ™‚çš„ã«ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’å¤‰æ›´ã—ã€æœ€å¾Œã« Qdefault_dir ã«ç§»å‹•ã™ã‚‹
      (call-process "cmd /c dir" :exec-directory (get-system-directory) :show :hide)
      (path-equal (get-system-directory) (cwd))))
   => t
@@ -989,8 +990,8 @@
          (insert-and-eval "(setf fso (ole-create-object \"Scripting.FileSystemObject\"))")
          (insert-and-eval "#{fso.BuildPath[\"foo\" \"bar\"]}"))
        )))
-  => "•Ï”‚ª’è‹`‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ: >"
-  => "•Ï”‚ª’è‹`‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ: }"
+  => "å¤‰æ•°ãŒå®šç¾©ã•ã‚Œã¦ã„ã¾ã›ã‚“: >"
+  => "å¤‰æ•°ãŒå®šç¾©ã•ã‚Œã¦ã„ã¾ã›ã‚“: }"
   => t
   => 0
   => 123
@@ -1005,7 +1006,7 @@
   => #3A(((1)))
   => #C(1 2)
   => #S(foreign::c-type-definition type :int32 size 4 slots nil accessor system:unpack-int32)
-  => ("ƒfƒBƒXƒpƒbƒ`ƒ“ƒOƒ}ƒNƒ•›•¶š‚Å‚Í‚ ‚è‚Ü‚¹‚ñ" (#\<))
+  => ("ãƒ‡ã‚£ã‚¹ãƒ‘ãƒƒãƒãƒ³ã‚°ãƒã‚¯ãƒ­å‰¯æ–‡å­—ã§ã¯ã‚ã‚Šã¾ã›ã‚“" (#\<))
   => "foo\\bar")
 
 (deftest lisp-tags-find-target ()
