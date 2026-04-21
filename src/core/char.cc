@@ -407,8 +407,13 @@ lisp
 Fchar_unicode (lisp cc)
 {
   check_char (cc);
-  ucs2_t wc = i2w (xchar_code (cc));
-  return wc != ucs2_t (-1) ? make_fixnum (wc) : Qnil;
+  /* Phase 2: 内部 Char は UTF-16 code unit。BMP char は値そのものが
+     code point。surrogate half は単独では完全な code point にならず、
+     char object 1 個からは復元不能なので nil。 */
+  Char c = xchar_code (cc);
+  if (utf16_surrogate_high_p (c) || utf16_surrogate_low_p (c))
+    return Qnil;
+  return make_fixnum (c);
 }
 
 lisp

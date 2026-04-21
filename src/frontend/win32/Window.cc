@@ -221,7 +221,9 @@ StatusWindow::putc (Char c)
           *sw_b++ = c == CC_DEL ? '?' : c + '@';
         }
       else
-        *sw_b++ = i2w (c);
+        /* Phase 2: Char は既に UTF-16 code unit (buffer 由来・.lc UTF-16
+           コンパイル後の Lisp literal 由来いずれも)。i2w 変換は不要。 */
+        *sw_b++ = c;
     }
   return 1;
 }
@@ -251,10 +253,15 @@ StatusWindow::flush ()
 void
 StatusWindow::puts (const char *s, int fl)
 {
+  /* Phase 2: byte-string (get_message_string 等で src/core/gen/msgdef.cc が
+     SJIS コンパイル済の error 文字列) は依然 SJIS 2-byte packed を
+     内部 Char として putc に渡していた。putc が identity になった以上、
+     SJIS→UCS-2 変換はここで済ませる必要がある。 */
   for (const u_char *p = (const u_char *)s; *p;)
     if (SJISP (*p) && p[1])
       {
-        putc ((*p << 8) | p[1]);
+        Char sjis_packed = (*p << 8) | p[1];
+        putc (i2w (sjis_packed));
         p += 2;
       }
     else
@@ -312,15 +319,24 @@ StatusWindow::paint (const DRAWITEMSTRUCT *dis)
   RECT r = dis->rcItem;
   r.right = x;
   for (const ucs2_t *b = sw_last.buf, *const be = b + sw_last.l;
-       b < be; b++)
+       b < be; )
     {
+      /* Phase 2: surrogate pair は 2 cu 一括で ExtTextOutW に渡す。
+         1 cu ずつ描画すると Windows 側が pair 合成できず lone surrogate
+         として豆腐化する。 */
+      int n = 1;
+      if (b + 1 < be
+          && b[0] >= 0xD800 && b[0] <= 0xDBFF
+          && b[1] >= 0xDC00 && b[1] <= 0xDFFF)
+        n = 2;
       SIZE sz;
-      GetTextExtentPoint32W (dis->hDC, (LPCWSTR)b, 1, &sz);
+      GetTextExtentPoint32W (dis->hDC, (LPCWSTR)b, n, &sz);
       r.right += sz.cx;
       ExtTextOutW (dis->hDC, x, y, ETO_CLIPPED | ETO_OPAQUE,
-                   &r, (LPCWSTR)b, 1, 0);
+                   &r, (LPCWSTR)b, n, 0);
       r.left = r.right;
       x += sz.cx;
+      b += n;
     }
 #else
   ExtTextOutW (dis->hDC, x, y,

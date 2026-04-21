@@ -81,19 +81,17 @@ FKWin::paint_text (HDC hdc, int n, const RECT &br, int offset) const
   if (fk_vkey & FVK_CONTROL)
     n += CTRL_OFFSET;
 
-  char buf[1024 + 1];
+  /* Phase 2: Lisp string は既に UTF-16。旧 w2s→cp932_to_wcs 往復は不要。 */
   lisp label = xvector_contents (xsymbol_value (Vfunction_bar_labels))[n];
+  const wchar_t *ws = L"";
+  int wl = 0;
   if (stringp (label))
-    w2s (buf, xstring_contents (label), min (xstring_length (label), 512));
-  else
-    *buf = 0;
-
-  {
-    wchar_t wbuf[1024 + 1];
-    cp932_to_wcs (buf, -1, wbuf, 1024 + 1);
-    ExtTextOutW (hdc, r.left + 2, r.top + 2, ETO_CLIPPED | ETO_OPAQUE,
-                 &r, wbuf, wcslen (wbuf), 0);
-  }
+    {
+      ws = (const wchar_t *) xstring_contents (label);
+      wl = min (xstring_length (label), 1024);
+    }
+  ExtTextOutW (hdc, r.left + 2, r.top + 2, ETO_CLIPPED | ETO_OPAQUE,
+               &r, ws, wl, 0);
 
   SetBkColor (hdc, obg);
   SetTextColor (hdc, ofg);
