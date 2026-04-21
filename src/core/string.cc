@@ -162,12 +162,27 @@ a2w (const char *string, size_t size)
   return b;
 }
 
+/* Phase 2: w2s は UTF-16 code unit の Char 列を SJIS byte 列に変換して
+   Windows ANSI API (CreateProcessA / ANSI status-window等) に渡すための
+   経路。旧実装は Char 値を SJIS-packed と仮定してそのまま byte split して
+   いたが、Phase 2 で Char が真の UTF-16 になったため wc2cp932 で cp932
+   へ変換する必要がある。マップ不能 (non-SJIS BMP) は '?'。surrogate pair
+   は SJIS に非 BMP 対応がないので '?' 2 つに落ちる。 */
+static inline Char
+wc_to_sjis (Char cc)
+{
+  if (cc < 0x80)
+    return cc;
+  Char sjis = wc2cp932 (cc);
+  return sjis == Char (-1) ? Char ('?') : sjis;
+}
+
 size_t
 w2sl (const Char *s, size_t size)
 {
   size_t l = 0;
   for (const Char *se = s + size; s < se; s++)
-    if (DBCP (*s))
+    if (DBCP (wc_to_sjis (*s)))
       l++;
   return size + l;
 }
@@ -177,9 +192,10 @@ w2s (char *b, const Char *s, size_t size)
 {
   for (const Char *se = s + size; s < se; s++)
     {
-      if (DBCP (*s))
-        *b++ = *s >> 8;
-      *b++ = char (*s);
+      Char sjis = wc_to_sjis (*s);
+      if (DBCP (sjis))
+        *b++ = sjis >> 8;
+      *b++ = char (sjis);
     }
   *b = 0;
   return b;
@@ -199,13 +215,14 @@ w2s (char *b, char *be, const Char *s, size_t size)
   be--;
   for (const Char *se = s + size; s < se && b < be; s++)
     {
-      if (DBCP (*s))
+      Char sjis = wc_to_sjis (*s);
+      if (DBCP (sjis))
         {
           if (b == be - 1)
             break;
-          *b++ = *s >> 8;
+          *b++ = sjis >> 8;
         }
-      *b++ = char (*s);
+      *b++ = char (sjis);
     }
   *b = 0;
   return b;
