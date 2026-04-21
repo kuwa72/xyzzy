@@ -117,15 +117,16 @@ chunk_backward_cp (const Char *p, int cu_offset, int ncp)
 int unicode_width (unsigned int);  /* eaw.h */
 
 /* Phase 2-1: surrogate pair からの display width 取得。pair 合成後の
-   cp で unicode_width を引く。width 0 (combining) は 1 に丸める。 */
+   cp で unicode_width を引き、paint 側 (glyph_sbchar/dbchar) が emit
+   する cell 数と同じ値を返す。0-width (非 BMP の tag / variation
+   selector 等) は 0 のまま返して column と display を揃える。 */
 static inline int
 surrogate_pair_width (Char hi, Char lo)
 {
   u_int32_t cp = 0x10000u
                  + ((u_int32_t (hi) - 0xD800u) << 10)
                  + (u_int32_t (lo) - 0xDC00u);
-  int w = unicode_width (cp);
-  return w == 0 ? 1 : w;
+  return unicode_width (cp);
 }
 
 struct Chunk
@@ -989,7 +990,15 @@ char_columns (Char c, long column, long tab)
 {
   if (c == '\t')
     return tab - column % tab;
-  return char_width (c);
+  /* combining / ZWJ / VS 等 (EAW 0) は描画上も 0 幅 (paint 側は
+     glyph_sbchar で emit 自体 skip)。column 計算も 0 に合わせることで
+     cursor 位置と描画位置の乖離を防ぐ。
+     char_width() は最低 1 を保証するので、column 計算では unicode_width
+     を直接引いて 0 を許容する。 */
+  int w = unicode_width (c);
+  if (c == '\n' || c == CC_DEL)
+    return 1;   /* 制御文字 etc は 1 幅扱いのまま (display も ^X で占める) */
+  return w;
 }
 
 inline long
