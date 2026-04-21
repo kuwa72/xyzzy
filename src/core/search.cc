@@ -334,16 +334,27 @@ Buffer::scan_forward (Point &w_point, const Char *pattern, int patlen,
   if (w_point.p_point + d >= limit)
     return 0;
 
+  /* Phase 2-7 拡張: patlen / d は cu。cu_forward_char で p_offset を d cu
+     進めつつ p_point を cp で正しく追跡する。forward_char だと d を cp として
+     消費してしまい non-BMP pattern で過剰スキップになる。 */
   Point point (w_point);
-  forward_char (point, d);
+  cu_forward_char (point, d);
 
   if (!bm_execf (point, pattern, patlen, BM, limit, flags))
     return 0;
 
-  save_search (point.p_point, point.p_point + patlen);
+  /* bm_execf 内部は p_point を cu で mutate している。match 成立時の
+     p_chunk / p_offset は正しい cu 位置なので、そこから cp 位置を
+     再計算する。 */
+  point.p_point = cp_position_of (point.p_chunk, point.p_offset);
+
+  Point end_point (point);
+  cu_forward_char (end_point, patlen);
+
+  save_search (point.p_point, end_point.p_point);
 
   if (flags & SF_TAIL)
-    forward_char (point, patlen);
+    point = end_point;
   w_point = point;
   return 1;
 }
@@ -365,12 +376,23 @@ Buffer::scan_backward (Point &w_point, const Char *pattern, int patlen,
   if (!bm_execb (point, pattern, patlen, BM, limit, flags))
     return 0;
 
-  save_search (point.p_point - (patlen - 1), point.p_point + 1);
+  /* Phase 2-7 拡張: bm_execb 成立時 p_chunk/p_offset は match 末尾 (最後の
+     Char) の位置。match 開始は patlen-1 cu 戻った位置。両方 cp で返す。 */
+  Point end_point;
+  end_point.p_chunk = point.p_chunk;
+  end_point.p_offset = point.p_offset;
+  end_point.p_point = cp_position_of (end_point.p_chunk, end_point.p_offset);
+  cu_forward_char (end_point, 1);      /* match end = last char + 1 cu */
+
+  Point start_point (end_point);
+  cu_forward_char (start_point, -patlen); /* match start */
+
+  save_search (start_point.p_point, end_point.p_point);
 
   if (flags & SF_TAIL)
-    forward_char (point, 1);
+    point = end_point;
   else
-    forward_char (point, -(patlen - 1));
+    point = start_point;
   w_point = point;
   return 1;
 }
