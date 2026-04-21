@@ -65,6 +65,12 @@ s2wl (const char *string)
   return s - (const u_char *)string - l;
 }
 
+/* Phase 2: s2w は C string (msgdef 等の SJIS リテラル / Win32 API の
+   ANSI 結果) を Lisp string の Char 列 (= UTF-16 code unit) に変換する。
+   旧実装は SJIS 2-byte を `(*s << 8) | s[1]` でそのまま Char 値として
+   格納していたが、Lisp string として読まれる先が UTF-16 前提になった
+   ため、i2w で SJIS-packed → UCS2 変換を行う。ASCII / halfwidth kana
+   単 byte も i2w table index で identity / UCS2 変換が成立する。 */
 Char *
 s2w (Char *b, size_t size, const char **string)
 {
@@ -76,14 +82,15 @@ s2w (Char *b, size_t size, const char **string)
         {
           if (!s[1])
             {
-              *b++ = *s++;
+              *b++ = i2w (*s);
+              s++;
               break;
             }
-          *b++ = (*s << 8) | s[1];
+          *b++ = i2w (Char ((*s << 8) | s[1]));
           s += 2;
         }
       else
-        *b++ = *s++;
+        *b++ = i2w (*s++);
     }
   *string = (const char *)s;
   return b;
@@ -99,14 +106,14 @@ s2w (Char *b, const char *string)
         {
           if (!s[1])
             {
-              *b = *s;
+              *b = i2w (*s);
               break;
             }
-          *b++ = (*s << 8) | s[1];
+          *b++ = i2w (Char ((*s << 8) | s[1]));
           s += 2;
         }
       else
-        *b++ = *s++;
+        *b++ = i2w (*s++);
     }
   return b;
 }
@@ -254,6 +261,7 @@ s2wl (const char *string, const char *se, int zero_term)
 Char *
 s2w (Char *b, const char *string, const char *se, int zero_term)
 {
+  /* Phase 2: 上記 s2w overload と同じく SJIS → UTF-16 変換。 */
   const u_char *s = (const u_char *)string;
   while (s < (const u_char *)se && (!zero_term || *s))
     {
@@ -261,14 +269,14 @@ s2w (Char *b, const char *string, const char *se, int zero_term)
         {
           if (s + 1 >= (const u_char *)se || (zero_term && !s[1]))
             {
-              *b = *s;
+              *b = i2w (*s);
               break;
             }
-          *b++ = (*s << 8) | s[1];
+          *b++ = i2w (Char ((*s << 8) | s[1]));
           s += 2;
         }
       else
-        *b++ = *s++;
+        *b++ = i2w (*s++);
     }
   return b;
 }
