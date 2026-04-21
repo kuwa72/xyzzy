@@ -131,7 +131,8 @@ done:
   cp->c_used = p - cp->c_text;
   cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
   cp->c_nlines = nlines;
-  rfc.r_nchars += cp->c_used;
+  /* Phase 2-1: r_nchars は cp 単位 (b_nchars と整合)。 */
+  rfc.r_nchars += cp->c_nchars;
   rfc.r_nlines += nlines;
   return cp;
 }
@@ -1021,7 +1022,21 @@ Buffer::write_region (const char *filename, point_t p1, point_t p2,
 
   Point point;
   set_point_no_restrictions (point, p1);
-  xinput_buffer_stream sin (point.p_chunk, point.p_offset, p2 - p1);
+  /* Phase 2-1: p1/p2 は cp。xinput_buffer_stream は cu 単位の rest が
+     必要なので、p1〜p2 範囲の cu 長を計算する。 */
+  Point end_point;
+  set_point_no_restrictions (end_point, p2);
+  long cu_size;
+  if (end_point.p_chunk == point.p_chunk)
+    cu_size = end_point.p_offset - point.p_offset;
+  else
+    {
+      cu_size = point.p_chunk->c_used - point.p_offset;
+      for (Chunk *c = point.p_chunk->c_next; c != end_point.p_chunk; c = c->c_next)
+        cu_size += c->c_used;
+      cu_size += end_point.p_offset;
+    }
+  xinput_buffer_stream sin (point.p_chunk, point.p_offset, cu_size);
   encoding_output_stream_helper sout (wr_param.encoding, sin, wr_param.eol);
   int r = write_region (sout, xbuf, wr_param.error);
   if (r == -1)

@@ -168,11 +168,23 @@ calc_caret_shape (SIZE &size, int ovwrt, int dbcp, int selection)
 void
 Window::caret_size (SIZE &size) const
 {
+  /* Phase 2-1: cursor が pair 先頭 (high surrogate) に乗ってる時、
+     char_width(high 単体) は 1 を返すので caret が半角になる。pair
+     合成して unicode_width を引く必要がある。 */
+  int wide = 0;
+  if (w_point.p_offset != w_point.p_chunk->c_used && w_point.ch () >= 256)
+    {
+      Char c0 = w_point.ch ();
+      if (is_high_surrogate (c0)
+          && w_point.p_offset + 1 < w_point.p_chunk->c_used
+          && is_low_surrogate (w_point.p_chunk->c_text[w_point.p_offset + 1]))
+        wide = (surrogate_pair_width (c0, w_point.p_chunk->c_text[w_point.p_offset + 1]) == 2);
+      else
+        wide = (char_width (c0) == 2);
+    }
   calc_caret_shape (size,
                     symbol_value (Voverwrite_mode, w_bufp) != Qnil,
-                    (w_point.p_offset != w_point.p_chunk->c_used
-                     && w_point.ch () >= 256
-                     && char_width (w_point.ch ()) == 2),
+                    wide,
                     ((w_selection_type != Buffer::SELECTION_VOID
                       && (w_selection_point == NO_MARK_SET
                           || ((w_selection_point <= w_selection_marker)

@@ -66,6 +66,68 @@ count_code_points (const Char *p, int n)
   return count;
 }
 
+static inline int
+is_high_surrogate (Char c)
+{
+  return c >= 0xD800 && c <= 0xDBFF;
+}
+
+static inline int
+is_low_surrogate (Char c)
+{
+  return c >= 0xDC00 && c <= 0xDFFF;
+}
+
+/* Phase 2-1: chunk 内の cp 歩き。cu_offset (現在位置) から
+   ncp 分 code point 進めた cu_offset を返す。ncp は負不可、
+   range 超過は c_used で止める。 */
+static inline int
+chunk_forward_cp (const Char *p, int c_used, int cu_offset, int ncp)
+{
+  while (ncp > 0 && cu_offset < c_used)
+    {
+      if (is_high_surrogate (p[cu_offset])
+          && cu_offset + 1 < c_used
+          && is_low_surrogate (p[cu_offset + 1]))
+        cu_offset += 2;
+      else
+        cu_offset += 1;
+      ncp--;
+    }
+  return cu_offset;
+}
+
+/* chunk 内で cu_offset から ncp code point 戻した cu_offset を返す。
+   ncp は負不可、範囲超過は 0 で止める。 */
+static inline int
+chunk_backward_cp (const Char *p, int cu_offset, int ncp)
+{
+  while (ncp > 0 && cu_offset > 0)
+    {
+      cu_offset--;
+      if (cu_offset > 0
+          && is_low_surrogate (p[cu_offset])
+          && is_high_surrogate (p[cu_offset - 1]))
+        cu_offset--;
+      ncp--;
+    }
+  return cu_offset;
+}
+
+int unicode_width (unsigned int);  /* eaw.h */
+
+/* Phase 2-1: surrogate pair からの display width 取得。pair 合成後の
+   cp で unicode_width を引く。width 0 (combining) は 1 に丸める。 */
+static inline int
+surrogate_pair_width (Char hi, Char lo)
+{
+  u_int32_t cp = 0x10000u
+                 + ((u_int32_t (hi) - 0xD800u) << 10)
+                 + (u_int32_t (lo) - 0xDC00u);
+  int w = unicode_width (cp);
+  return w == 0 ? 1 : w;
+}
+
 struct Chunk
 {
   enum {TEXT_SIZE = 4096};
@@ -82,10 +144,9 @@ struct Chunk
   /* c_nchars: 使用中の code point 数。surrogate pair (high+low) を
      1 code point として数える。lone surrogate (片割れ) は 1 code point。
      よって `c_nchars <= c_used` (等号は surrogate pair が無い時)。
-     現状 cursor primitive が point_t = code unit のまま動くため、
-     b_nchars / point_t は依然 sum(c_used) / Char index に対応する。
-     c_nchars は将来 cursor 移行で b_nchars = sum(c_nchars) に
-     切替える際の prep field。 */
+     Phase 2-1 以降: b_nchars = sum(c_nchars)、point_t は buffer 先頭
+     からの code point 数。chunk 内部の array 参照は c_used / p_offset
+     の cu 単位で続ける (data store の layout は Char = u16 code unit)。 */
   short c_nchars;
   short c_nlines;
   short c_nbreaks;
@@ -606,8 +667,8 @@ struct Buffer
   void insert_chars (Window *, const insertChars *, int, int);
   int insert_chars_internal (Point &, const Char *, int, int);
   int insert_chars_internal (Point &, const insertChars *, int, int);
-  int pre_insert_chars (Point &, int);
-  void post_insert_chars (Point &, int);
+  int pre_insert_chars (Point &, int size_cu, int size_cp);
+  void post_insert_chars (Point &, int size_cu, int size_cp);
   void delete_region (Window *, point_t, point_t);
   int delete_region_internal (Point &, point_t, point_t);
   void insert_file_contents (Window *, lisp, lisp, lisp, lisp, ReadFileContext &);
@@ -682,6 +743,20 @@ struct Buffer
   void goto_eol (Point &) const;
   int forward_line (Point &, long) const;
   int forward_char (Point &, long) const;
+  /* Phase 2-1: cu 単位で walk する variant。search/regex の内部で
+     atom = code unit を維持しつつ Point invariant を保つために使う。
+     p_point は cp 単位、p_offset は cu 単位のまま扱う。 */
+  int cu_forward_char (Point &, long) const;
+  /* (chunk, cu_offset) から buffer 先頭までの cp 距離を返す。O(chunks)。 */
+  point_t cp_position_of (const Chunk *, int) const;
+  /* (chunk, cu_offset) から buffer 先頭までの cu 距離を返す。O(chunks)。 */
+  point_t cu_position_of (const Chunk *, int) const;
+  /* cp offset -> cu offset (buffer 先頭基準)。O(chunks)。 */
+  point_t cu_from_cp (point_t) const;
+  /* cu offset -> cp offset (buffer 先頭基準)。O(chunks)。 */
+  point_t cp_from_cu (point_t) const;
+  /* Point の (p_chunk, p_offset) から p_point を再計算 */
+  void refresh_cp (Point &) const;
   long count_lines ();
   int bolp (const Point &) const;
   int eolp (const Point &) const;

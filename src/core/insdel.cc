@@ -11,7 +11,7 @@ Buffer::check_valid () const
   long nchars = 0;
   for (const Chunk *cp = b_chunkb; cp; cp = cp->c_next)
     {
-      nchars += cp->c_used;
+      nchars += cp->c_nchars;
       if (!cp->c_next)
         assert (cp == b_chunke);
     }
@@ -20,7 +20,7 @@ Buffer::check_valid () const
   nchars = 0;
   for (const Chunk *cp = b_chunke; cp; cp = cp->c_prev)
     {
-      nchars += cp->c_used;
+      nchars += cp->c_nchars;
       if (!cp->c_prev)
         assert (cp == b_chunkb);
     }
@@ -208,13 +208,12 @@ Buffer::move_before_gap (Point &w_point, int size) const
   int n = cur->c_used - w_point.p_offset;
   move_chunk (cur, w_point.p_offset, Chunk::TEXT_SIZE - n, n);
   cur->c_used = Chunk::TEXT_SIZE;
-  cur->c_nchars = Chunk::TEXT_SIZE;
+  /* c_nchars は post_insert_chars で recompute */
   modify_chunk (cur);
 
   Chunk *prev = cur->c_prev;
   int pused = prev->c_used;
   prev->c_used += size - rest;
-  prev->c_nchars += size - rest;
   modify_chunk (prev);
   copy_chunk (cur->c_text, prev, pused, w_point.p_offset);
 
@@ -286,12 +285,11 @@ Buffer::move_after_gap (Point &w_point, int size) const
   int n = size - cp->rest ();
   move_chunk (next, 0, n, next->c_used);
   next->c_used += n;
-  next->c_nchars += n;
   modify_chunk (next);
   copy_chunk_reverse (cp, w_point.p_offset, cp, w_point.p_offset + size,
                       cp->c_used - w_point.p_offset);
   cp->c_used = Chunk::TEXT_SIZE;
-  cp->c_nchars = Chunk::TEXT_SIZE;
+  /* c_nchars は post_insert_chars で recompute */
   modify_chunk (cp);
 }
 
@@ -309,14 +307,13 @@ Buffer::allocate_new_chunks (Point &w_point, int requested)
       if (need > Chunk::TEXT_SIZE)
         {
           cp->c_used = Chunk::TEXT_SIZE;
-          cp->c_nchars = Chunk::TEXT_SIZE;
+          /* c_nchars は post_insert_chars で recompute */
           need -= Chunk::TEXT_SIZE;
           cp->c_next = alloc_chunk ();
         }
       else
         {
           cp->c_used = need;
-          cp->c_nchars = need;
           cp->c_next = chunk->c_next;
           if (cp->c_next)
             cp->c_next->c_prev = cp;
@@ -328,7 +325,6 @@ Buffer::allocate_new_chunks (Point &w_point, int requested)
                               chunk->c_used - w_point.p_offset);
           modify_chunk (chunk);
           chunk->c_used = Chunk::TEXT_SIZE;
-          chunk->c_nchars = Chunk::TEXT_SIZE;
           if (w_point.p_offset == chunk->c_used)
             {
               w_point.p_chunk = chunk->c_next;
@@ -353,7 +349,8 @@ Buffer::move_gap (Point &w_point, int requested)
       move_chunk (chunk, w_point.p_offset, w_point.p_offset + requested,
                   chunk->c_used - w_point.p_offset);
       chunk->c_used += requested;
-      chunk->c_nchars += requested;
+      /* c_nchars は post_insert_chars で recompute される。
+         中間状態の cu padding は意味がないので維持しない。 */
       modify_chunk (chunk);
       return 1;
     }
@@ -440,46 +437,64 @@ Buffer::adjust_insertion (const Point &point, int size)
 }
 
 int
-Buffer::pre_insert_chars (Point &point, int size)
+Buffer::pre_insert_chars (Point &point, int size_cu, int size_cp)
 {
-  UndoInfo *undo = setup_insert_undo (point.p_point, size);
+  /* Phase 2-1: undo は cp 単位 (UndoInsert::undo が delete_region cp で呼ぶ)、
+     move_gap は cu 単位 (chunk array allocation のため)。 */
+  UndoInfo *undo = setup_insert_undo (point.p_point, size_cp);
   if (!undo)
     return 0;
 
-  if (!move_gap (point, size))
+  if (!move_gap (point, size_cu))
     {
       discard_insert_undo (undo);
       return 0;
     }
 
-  save_insert_undo (undo, point.p_point, size);
+  save_insert_undo (undo, point.p_point, size_cp);
   return 1;
 }
 
 void
-Buffer::post_insert_chars (Point &point, int size)
+Buffer::post_insert_chars (Point &point, int size_cu, int size_cp)
 {
-  /* Phase 2 Step 5d: insert 範囲が掛かる chunk 群の c_nchars を
-     code point 数で再集計。move_gap 系で c_used と一緒に mirror で
-     bumped されているが、入った Char に surrogate pair が含まれて
-     いる場合に code unit 数より小さくなる可能性があるため。
-     範囲は point.p_chunk から size 分カバーする後続 chunk まで。 */
+  /* Phase 2-1: size_cu = code unit length inserted、size_cp = code point
+     length。chunk c_nchars を再集計してから cp delta で各種 counter を
+     更新する。
+     - 最初の chunk は point.p_offset から書き始まるので、その分だけ
+       remaining を減らす。
+     - move_after_gap は next chunk の c_used を grow させるので、
+       insert data が cur に収まる小サイズでも next を recount する必要が
+       ある。よって remaining が 0 になっても cp を最低 1 つ先まで walk する。
+     - move_before_gap は c_prev の c_used を grow させ、w_point が cur
+       (= prev->c_next) に進むケースでは forward walk が prev を覆わない。
+       そこで c_prev を 1 つ recount する (touch していない場合は no-op)。 */
+  if (point.p_chunk->c_prev)
+    {
+      Chunk *pp = point.p_chunk->c_prev;
+      pp->c_nchars = count_code_points (pp->c_text, pp->c_used);
+    }
   Chunk *cp = point.p_chunk;
-  int remaining = size;
-  while (cp && remaining > 0)
+  int off = point.p_offset;
+  int remaining = size_cu;
+  int min_iter = 2;  /* point.p_chunk と c_next を必ず覆う */
+  while (cp && (remaining > 0 || min_iter > 0))
     {
       cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
-      remaining -= cp->c_used;
+      int consumed = min (cp->c_used - off, remaining);
+      remaining -= consumed;
+      off = 0;
+      min_iter--;
       cp = cp->c_next;
     }
 
   modify ();
   set_modified_region (point.p_point, point.p_point);
-  b_modified_region.p2 += size;
-  b_nchars += size;
-  b_contents.p2 += size;
-  adjust_insertion (point, size);
-  forward_char (point, size);
+  b_modified_region.p2 += size_cp;
+  b_nchars += size_cp;
+  b_contents.p2 += size_cp;
+  adjust_insertion (point, size_cp);
+  forward_char (point, size_cp);
   b_stream_cache = point;
 #ifdef DEBUG
   check_valid ();
@@ -491,17 +506,23 @@ Buffer::insert_chars_internal (Point &point, const insertChars *ichars,
                                int nargs, int repeat)
 {
   double total_length = 0;
+  double total_cp = 0;
   for (int i = 0; i < nargs; i++)
-    total_length += ichars[i].length;
+    {
+      total_length += ichars[i].length;
+      total_cp += count_code_points (ichars[i].string, ichars[i].length);
+    }
   total_length *= repeat;
-  if (total_length > INT_MAX)
+  total_cp *= repeat;
+  if (total_length > INT_MAX || total_cp > INT_MAX)
     return 0;
 
   int size = int (total_length);
+  int size_cp = int (total_cp);
   if (!size)
     return 1;
 
-  if (!pre_insert_chars (point, size))
+  if (!pre_insert_chars (point, size, size_cp))
     return 0;
 
   Chunk *cp = point.p_chunk;
@@ -526,7 +547,7 @@ Buffer::insert_chars_internal (Point &point, const insertChars *ichars,
           }
       }
 
-  post_insert_chars (point, size);
+  post_insert_chars (point, size, size_cp);
   return 1;
 }
 
@@ -752,7 +773,8 @@ Buffer::insert_file_contents (Window *wp, lisp filename, lisp visit,
               bcopy (cp->c_text + wp->w_point.p_offset, t_chunk->c_text,
                      cp->c_used - wp->w_point.p_offset);
               t_chunk->c_used = cp->c_used - wp->w_point.p_offset;
-              t_chunk->c_nchars = cp->c_nchars - wp->w_point.p_offset;
+              t_chunk->c_nchars = count_code_points (t_chunk->c_text,
+                                                     t_chunk->c_used);
               modify_chunk (t_chunk);
               t_chunk->c_next = cp->c_next;
               if (t_chunk->c_next)
@@ -764,7 +786,7 @@ Buffer::insert_file_contents (Window *wp, lisp filename, lisp visit,
               rfc.r_chunk->c_prev = cp;
               cp->c_next = rfc.r_chunk;
               cp->c_used = wp->w_point.p_offset;
-              cp->c_nchars = wp->w_point.p_offset;
+              cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
               modify_chunk (cp);
             }
         }
@@ -912,14 +934,31 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
   if (from > to)
     swap (from, to);
 
-  int size = to - from;
+  /* size_cp は cp delta、size_cu は同範囲の cu delta。
+     後者は chunk-level bcopy/c_used 操作のため必要。 */
+  int size_cp = int (to - from);
   goto_char (point, from);
 
-  if (!save_delete_undo (point, size))
+  /* 削除範囲の cu 数 = (to の cu 位置) - (from の cu 位置)。 */
+  Point end_point = point;
+  forward_char (end_point, size_cp);
+  int size_cu;
+  if (end_point.p_chunk == point.p_chunk)
+    size_cu = end_point.p_offset - point.p_offset;
+  else
+    {
+      size_cu = point.p_chunk->c_used - point.p_offset;
+      for (Chunk *c = point.p_chunk->c_next; c != end_point.p_chunk; c = c->c_next)
+        size_cu += c->c_used;
+      size_cu += end_point.p_offset;
+    }
+
+  if (!save_delete_undo (point, size_cu))
     return 0;
 
   Chunk *cp = point.p_chunk;
   int off = point.p_offset;
+  int size = size_cu;
   while (1)
     {
       int rest = cp->c_used - off;
@@ -950,14 +989,13 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
         }
     }
 
-  size = to - from;
   modify ();
   set_modified_region (from, to);
-  b_modified_region.p2 -= size;
-  b_nchars -= size;
-  b_contents.p2 -= size;
+  b_modified_region.p2 -= size_cp;
+  b_nchars -= size_cp;
+  b_contents.p2 -= size_cp;
   set_point (point, from);
-  adjust_deletion (point, size);
+  adjust_deletion (point, size_cp);
 #ifdef DEBUG
   check_valid ();
 #endif
@@ -1036,9 +1074,24 @@ Buffer::substring (point_t p1, point_t p2) const
   p2 = min (max (p2, b_contents.p1), b_contents.p2);
   if (p1 > p2)
     swap (p1, p2);
-  int size = p2 - p1;
-  lisp x = make_string (size);
-  substring (p1, size, xstring_contents (x));
+  /* Phase 2-1: p1/p2 は cp 単位。string 長は cu 数なので、範囲を
+     cu に換算してから alloc する。surrogate pair を含む範囲を
+     cp 数で alloc すると pair の片側が欠ける。 */
+  Point ps, pe;
+  set_point (ps, p1);
+  set_point (pe, p2);
+  int cu_size;
+  if (pe.p_chunk == ps.p_chunk)
+    cu_size = pe.p_offset - ps.p_offset;
+  else
+    {
+      cu_size = ps.p_chunk->c_used - ps.p_offset;
+      for (Chunk *c = ps.p_chunk->c_next; c != pe.p_chunk; c = c->c_next)
+        cu_size += c->c_used;
+      cu_size += pe.p_offset;
+    }
+  lisp x = make_string (cu_size);
+  substring (ps, cu_size, xstring_contents (x));
   return x;
 }
 

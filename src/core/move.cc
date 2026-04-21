@@ -1,6 +1,72 @@
 #include "stdafx.h"
 #include "ed.h"
 
+/* Phase 2-1 helpers: Point / buffer offset の cu <-> cp 変換。
+   いずれも O(chunks from b_chunkb)。 */
+
+point_t
+Buffer::cp_position_of (const Chunk *target, int cu_offset) const
+{
+  point_t cp = 0;
+  for (const Chunk *c = b_chunkb; c != target; c = c->c_next)
+    {
+      assert (c);
+      cp += c->c_nchars;
+    }
+  cp += count_code_points (target->c_text, cu_offset);
+  return cp;
+}
+
+point_t
+Buffer::cu_position_of (const Chunk *target, int cu_offset) const
+{
+  point_t cu = 0;
+  for (const Chunk *c = b_chunkb; c != target; c = c->c_next)
+    {
+      assert (c);
+      cu += c->c_used;
+    }
+  return cu + cu_offset;
+}
+
+point_t
+Buffer::cu_from_cp (point_t cp) const
+{
+  if (cp <= 0)
+    return 0;
+  point_t cu = 0;
+  for (const Chunk *c = b_chunkb; c; c = c->c_next)
+    {
+      if (cp <= c->c_nchars)
+        return cu + chunk_forward_cp (c->c_text, c->c_used, 0, int (cp));
+      cp -= c->c_nchars;
+      cu += c->c_used;
+    }
+  return cu;
+}
+
+point_t
+Buffer::cp_from_cu (point_t cu) const
+{
+  if (cu <= 0)
+    return 0;
+  point_t cp = 0;
+  for (const Chunk *c = b_chunkb; c; c = c->c_next)
+    {
+      if (cu <= c->c_used)
+        return cp + count_code_points (c->c_text, int (cu));
+      cu -= c->c_used;
+      cp += c->c_nchars;
+    }
+  return cp;
+}
+
+void
+Buffer::refresh_cp (Point &point) const
+{
+  point.p_point = cp_position_of (point.p_chunk, point.p_offset);
+}
+
 point_t
 Buffer::coerce_to_point (lisp x) const
 {
@@ -36,12 +102,76 @@ Buffer::check_range (Point &point) const
 }
 
 int
-Buffer::forward_char (Point &point, long nchars) const
+Buffer::forward_char (Point &point, long ncp) const
 {
-  long d = min (max (point.p_point + nchars, b_contents.p1),
+  long d = min (max (point.p_point + ncp, b_contents.p1),
                 b_contents.p2) - point.p_point;
-  int f = d == nchars;
-  const Chunk *cp = point.p_chunk;
+  int f = d == ncp;
+  Chunk *cp = point.p_chunk;
+
+  if (d > 0)
+    {
+      while (1)
+        {
+          int head_cp = count_code_points (cp->c_text, point.p_offset);
+          int rest_cp = cp->c_nchars - head_cp;
+          if (d <= rest_cp)
+            {
+              int cu = chunk_forward_cp (cp->c_text, cp->c_used,
+                                         point.p_offset, int (d));
+              point.p_offset = cu;
+              point.p_point += d;
+              if (point.p_offset == cp->c_used && cp->c_next)
+                {
+                  cp = cp->c_next;
+                  point.p_offset = 0;
+                }
+              point.p_chunk = cp;
+              break;
+            }
+          d -= rest_cp;
+          point.p_point += rest_cp;
+          point.p_offset = 0;
+          cp = cp->c_next;
+          assert (cp);
+        }
+    }
+  else if (d < 0)
+    {
+      long back = -d;
+      while (1)
+        {
+          int head_cp = count_code_points (cp->c_text, point.p_offset);
+          if (back <= head_cp)
+            {
+              int cu = chunk_backward_cp (cp->c_text, point.p_offset,
+                                          int (back));
+              point.p_offset = cu;
+              point.p_point -= back;
+              point.p_chunk = cp;
+              break;
+            }
+          back -= head_cp;
+          point.p_point -= head_cp;
+          cp = cp->c_prev;
+          assert (cp);
+          point.p_offset = cp->c_used;
+        }
+    }
+  return f;
+}
+
+/* cu 単位で walk する variant。search/regex の内部で atom = code unit を
+   維持しつつ Point invariant (p_point = cp) を守るために使う。
+   引数 ncu は cu 単位、返却後も p_point は cp 単位。
+   buffer 境界を越える呼び出しは想定外 (caller が limit を管理する前提)。 */
+int
+Buffer::cu_forward_char (Point &point, long ncu) const
+{
+  if (ncu == 0)
+    return 1;
+  Chunk *cp = point.p_chunk;
+  long d = ncu;
 
   if (d > 0)
     {
@@ -50,43 +180,46 @@ Buffer::forward_char (Point &point, long nchars) const
           int size = cp->c_used - point.p_offset;
           if (d <= size)
             {
-              point.p_point += d;
-              if (d == size && cp->c_next)
+              int old_off = point.p_offset;
+              point.p_offset += int (d);
+              point.p_point += count_code_points (cp->c_text + old_off, int (d));
+              if (point.p_offset == cp->c_used && cp->c_next)
                 {
                   cp = cp->c_next;
                   point.p_offset = 0;
                 }
-              else
-                point.p_offset += d;
-              point.p_chunk = (Chunk *)cp;
-              break;
+              point.p_chunk = cp;
+              return 1;
             }
           d -= size;
-          point.p_point += size;
+          point.p_point += count_code_points (cp->c_text + point.p_offset, size);
           point.p_offset = 0;
           cp = cp->c_next;
-          assert (cp);
+          if (!cp)
+            return 0;
         }
     }
-  else if (d < 0)
+  else
     {
+      d = -d;
       while (1)
         {
-          if (point.p_offset + d >= 0)
+          if (d <= point.p_offset)
             {
-              point.p_offset += d;
-              point.p_point += d;
-              point.p_chunk = (Chunk *)cp;
-              break;
+              point.p_offset -= int (d);
+              point.p_point -= count_code_points (cp->c_text + point.p_offset,
+                                                  int (d));
+              point.p_chunk = cp;
+              return 1;
             }
-          d += point.p_offset + 1;
-          point.p_point -= point.p_offset + 1;
+          d -= point.p_offset;
+          point.p_point -= count_code_points (cp->c_text, point.p_offset);
           cp = cp->c_prev;
-          assert (cp);
-          point.p_offset = cp->c_used - 1;
+          if (!cp)
+            return 0;
+          point.p_offset = cp->c_used;
         }
     }
-  return f;
 }
 
 void
@@ -141,14 +274,16 @@ Buffer::point_linenum (point_t goal) const
   long linenum = 1;
   point_t point = 0;
   const Chunk *cp;
-  for (cp = b_chunkb; point + cp->c_used < goal; cp = cp->c_next)
+  for (cp = b_chunkb; point + cp->c_nchars < goal; cp = cp->c_next)
     {
       if (cp->c_nlines == -1)
         ((Chunk *)cp)->c_nlines = cp->count_lines ();
       linenum += cp->c_nlines;
-      point += cp->c_used;
+      point += cp->c_nchars;
     }
-  for (const Char *p = cp->c_text, *pe = p + goal - point; p < pe; p++)
+  int remaining_cp = int (goal - point);
+  int cu_end = chunk_forward_cp (cp->c_text, cp->c_used, 0, remaining_cp);
+  for (const Char *p = cp->c_text, *pe = p + cu_end; p < pe; p++)
     if (*p == '\n')
       linenum++;
   return linenum;
@@ -178,8 +313,9 @@ Buffer::linenum_point (Point &pbuf, long goal)
           for (const Char *p = cp->c_text, *pe = p + cp->c_used; p < pe;)
             if (*p++ == '\n' && ++linenum == goal)
               {
-                pbuf.p_offset = p - cp->c_text;
-                pbuf.p_point = point + pbuf.p_offset;
+                int cu = p - cp->c_text;
+                pbuf.p_offset = cu;
+                pbuf.p_point = point + count_code_points (cp->c_text, cu);
                 if (pbuf.p_offset == cp->c_used && cp->c_next)
                   {
                     pbuf.p_offset = 0;
@@ -212,7 +348,7 @@ Buffer::linenum_point (Point &pbuf, long goal)
                           pbuf.p_offset = 0;
                           return 1;
                         }
-                      point -= cp->c_used;
+                      point -= cp->c_nchars;
                     }
                   while (!cp->c_nlines);
                   linenum -= cp->c_nlines;
@@ -234,8 +370,9 @@ Buffer::linenum_point (Point &pbuf, long goal)
                        p--)
                     ;
                 }
-              pbuf.p_offset = p - cp->c_text;
-              pbuf.p_point = point + pbuf.p_offset;
+              int cu = p - cp->c_text;
+              pbuf.p_offset = cu;
+              pbuf.p_point = point + count_code_points (cp->c_text, cu);
               if (pbuf.p_offset == cp->c_used && cp->c_next)
                 {
                   pbuf.p_offset = 0;
@@ -246,7 +383,7 @@ Buffer::linenum_point (Point &pbuf, long goal)
             }
           linenum = ln;
         }
-      point += cp->c_used;
+      point += cp->c_nchars;
       cp = cp->c_next;
     }
 }
@@ -264,7 +401,8 @@ Buffer::go_bol (Point &point) const
             if (*p == '\n')
               {
                 int n = p - p0 + 1;
-                point.p_point -= point.p_offset - n;
+                point.p_point -= count_code_points (cp->c_text + n,
+                                                    point.p_offset - n);
                 if (n == cp->c_used && cp->c_next)
                   {
                     point.p_offset = 0;
@@ -285,8 +423,10 @@ Buffer::go_bol (Point &point) const
         }
       if (!cp->c_prev)
         break;
+      /* 現在 chunk (cp) の先頭から p_offset までの cp 分を消化して
+         前 chunk の末尾に移動する。 */
+      point.p_point -= count_code_points (cp->c_text, point.p_offset);
       cp = cp->c_prev;
-      point.p_point -= point.p_offset;
       point.p_offset = cp->c_used;
     }
   point.p_offset = 0;
@@ -307,7 +447,8 @@ Buffer::go_eol (Point &point) const
             if (*p == '\n')
               {
                 int n = p - cp->c_text;
-                point.p_point += n - point.p_offset;
+                point.p_point += count_code_points (cp->c_text + point.p_offset,
+                                                    n - point.p_offset);
                 point.p_offset = n;
                 point.p_chunk = cp;
                 return;
@@ -320,11 +461,13 @@ Buffer::go_eol (Point &point) const
         }
       if (!cp->c_next)
         break;
-      point.p_point += cp->c_used - point.p_offset;
+      point.p_point += count_code_points (cp->c_text + point.p_offset,
+                                          cp->c_used - point.p_offset);
       point.p_offset = 0;
       cp = cp->c_next;
     }
-  point.p_point += cp->c_used - point.p_offset;
+  point.p_point += count_code_points (cp->c_text + point.p_offset,
+                                      cp->c_used - point.p_offset);
   assert (point.p_point == b_nchars);
   point.p_offset = cp->c_used;
   point.p_chunk = cp;
@@ -346,34 +489,47 @@ Buffer::line_backward (Point &point, long req) const
             nlines -= cp->c_nlines;
           else
             {
+              /* scan 範囲: chunk 先頭から現在 p_offset までの中で、
+                 b_contents.p1 を超えない分だけ。
+                 cp 単位の下限 = head_cp - (point.p_point - b_contents.p1)
+                 ... 否、 単純化: scan 範囲内の newline を探し、見付けた cu
+                 位置を cp に換算。 */
+              int head_cp = count_code_points (cp->c_text, point.p_offset);
+              int cp_limit = int (min (long (head_cp),
+                                       point.p_point - b_contents.p1));
+              int cu_start = chunk_backward_cp (cp->c_text, point.p_offset,
+                                                cp_limit);
               int l = 0;
-              int n = min (long (point.p_offset), point.p_point - b_contents.p1);
               const Char *p = cp->c_text + point.p_offset;
-              const Char *p0 = p - n;
+              const Char *p0 = cp->c_text + cu_start;
               while (p > p0)
                 if (*--p == '\n')
                   {
                     l++;
                     if (!--nlines)
                       {
-                        n = p - cp->c_text;
-                        point.p_point -= point.p_offset - n;
+                        int n = p - cp->c_text;
+                        point.p_point -= count_code_points (cp->c_text + n,
+                                                            point.p_offset - n);
                         point.p_offset = n;
                         point.p_chunk = cp;
                         forward_char (point, 1);
                         return 1 - req;
                       }
                   }
-              if (point.p_offset == cp->c_used && cp->c_used == n)
+              if (point.p_offset == cp->c_used && cu_start == 0)
                 {
                   assert (cp->c_nlines == -1 || cp->c_nlines == l);
                   cp->c_nlines = l;
                 }
             }
         }
-      if (point.p_point - point.p_offset <= b_contents.p1)
-        break;
-      point.p_point -= point.p_offset;
+      {
+        int head_cp = count_code_points (cp->c_text, point.p_offset);
+        if (point.p_point - head_cp <= b_contents.p1)
+          break;
+        point.p_point -= head_cp;
+      }
       cp = cp->c_prev;
       assert (cp);
       point.p_offset = cp->c_used;
@@ -409,23 +565,32 @@ Buffer::line_forward (Point &point, long req) const
     {
       if (cp->c_nlines)
         {
+          int chunk_tail_cp = cp->c_nchars
+                              - count_code_points (cp->c_text, point.p_offset);
           if (!point.p_offset && cp->c_nlines > 0 && nlines > cp->c_nlines
-              && (nlines != req || point.p_point + cp->c_used <= b_contents.p2))
+              && (nlines != req || point.p_point + chunk_tail_cp <= b_contents.p2))
             nlines -= cp->c_nlines;
           else
             {
-              int n = min (long (cp->c_used - point.p_offset),
-                           b_contents.p2 - point.p_point);
+              /* scan までの cu 数を、cp 数で切らず cu 数で bound する。
+                 b_contents.p2 は cp; chunk 内での cp_limit = min(cp_tail,
+                 b_contents.p2 - point.p_point). それを cu に換算。 */
+              int cp_limit = int (min (long (chunk_tail_cp),
+                                       b_contents.p2 - point.p_point));
+              int cu_end = chunk_forward_cp (cp->c_text, cp->c_used,
+                                             point.p_offset, cp_limit);
               int l = 0;
-              const Char *p = cp->c_text + point.p_offset, *pe = p + n;
+              const Char *p = cp->c_text + point.p_offset;
+              const Char *pe = cp->c_text + cu_end;
               while (p < pe)
                 if (*p++ == '\n')
                   {
                     l++;
                     if (!--nlines)
                       {
-                        n = p - cp->c_text;
-                        point.p_point += n - point.p_offset;
+                        int n = p - cp->c_text;
+                        point.p_point += count_code_points (cp->c_text + point.p_offset,
+                                                            n - point.p_offset);
                         if (n == cp->c_used && cp->c_next)
                           {
                             point.p_offset = 0;
@@ -439,16 +604,25 @@ Buffer::line_forward (Point &point, long req) const
                         return req;
                       }
                   }
-              if (n == cp->c_used)
+              /* Phase 2-1: 元コードは `n == cp->c_used` で scan 長 == chunk
+                 全長 を見ていた (p_offset == 0 を暗黙に含意)。cu_end ベースに
+                 書き換えた時にこの含意が落ち、mid-chunk scan でも c_nlines を
+                 partial 値で上書きしていた。scan が chunk 先頭から末尾までを
+                 カバーした場合のみキャッシュする。 */
+              if (cu_end == cp->c_used && point.p_offset == 0)
                 {
                   assert (cp->c_nlines < 0 || cp->c_nlines == l);
                   cp->c_nlines = l;
                 }
             }
         }
-      if (point.p_point + cp->c_used - point.p_offset >= b_contents.p2)
-        break;
-      point.p_point += cp->c_used - point.p_offset;
+      {
+        int tail_cp = cp->c_nchars
+                      - count_code_points (cp->c_text, point.p_offset);
+        if (point.p_point + tail_cp >= b_contents.p2)
+          break;
+        point.p_point += tail_cp;
+      }
       point.p_offset = 0;
       cp = cp->c_next;
       assert (cp);
@@ -505,9 +679,27 @@ Buffer::point_column (const Point &point) const
   long column = 0;
   while (p.p_point < point.p_point)
     {
-      column += char_columns (p.p_chunk->c_text[p.p_offset++], column);
-      p.p_point++;
-      if (p.p_offset == p.p_chunk->c_used)
+      Char c = p.p_chunk->c_text[p.p_offset];
+      /* Phase 2-1: surrogate pair は 1 cp 単位でまとめて処理。
+         high 単体で char_columns すると pair 2 col 目が計上されないまま
+         p_point が 1 進んでループ終了し、cursor が pair の 2 col 目に
+         重なる。pair 検出時は合成 cp で width を引き、offset +=2、
+         p_point +=1。 */
+      if (is_high_surrogate (c)
+          && p.p_offset + 1 < p.p_chunk->c_used
+          && is_low_surrogate (p.p_chunk->c_text[p.p_offset + 1]))
+        {
+          column += surrogate_pair_width (c, p.p_chunk->c_text[p.p_offset + 1]);
+          p.p_offset += 2;
+          p.p_point++;
+        }
+      else
+        {
+          column += char_columns (c, column);
+          p.p_offset++;
+          p.p_point++;
+        }
+      if (p.p_offset == p.p_chunk->c_used && p.p_chunk->c_next)
         {
           p.p_chunk = p.p_chunk->c_next;
           p.p_offset = 0;
@@ -530,12 +722,28 @@ Buffer::forward_column (Point &point, long ncolumns, long curcol,
       Char c = cp->c_text[point.p_offset];
       if (c == '\n')
         break;
-      int ncol = char_columns (c, curcol);
+      /* Phase 2-1: surrogate pair 対応 (point_column と同じ発想)。 */
+      int ncol;
+      int pair_p = (is_high_surrogate (c)
+                    && point.p_offset + 1 < cp->c_used
+                    && is_low_surrogate (cp->c_text[point.p_offset + 1]));
+      if (pair_p)
+        ncol = surrogate_pair_width (c, cp->c_text[point.p_offset + 1]);
+      else
+        ncol = char_columns (c, curcol);
       if (!can_exceed && curcol + ncol > ncolumns)
         break;
       curcol += ncol;
-      point.p_point++;
-      point.p_offset++;
+      if (pair_p)
+        {
+          point.p_offset += 2;
+          point.p_point++;
+        }
+      else
+        {
+          point.p_offset++;
+          point.p_point++;
+        }
       if (point.p_offset == cp->c_used)
         {
           if (!cp->c_next)
@@ -1336,11 +1544,11 @@ Buffer::update_fold_chunk (point_t goal, update_fold_info &info) const
   info.linenum = 1;
   info.point = 0;
   Chunk *cp;
-  for (cp = b_chunkb; info.point + cp->c_used < goal; cp = cp->c_next)
+  for (cp = b_chunkb; info.point + cp->c_nchars < goal; cp = cp->c_next)
     {
       parse_fold_chunk (cp);
       info.linenum += cp->c_nbreaks;
-      info.point += cp->c_used;
+      info.point += cp->c_nchars;
     }
   parse_fold_chunk (cp);
   info.cp = cp;
@@ -1353,7 +1561,10 @@ Buffer::folded_point_linenum_column (point_t goal, long *columnp) const
   update_fold_chunk (goal, info);
   if (info.cp->c_nbreaks)
     {
-      for (int i = 0, e = goal - info.point; i < e; i++)
+      int cp_within = int (goal - info.point);
+      int cu_within = chunk_forward_cp (info.cp->c_text, info.cp->c_used,
+                                        0, cp_within);
+      for (int i = 0; i < cu_within; i++)
         if (info.cp->break_p (i))
           info.linenum++;
     }
@@ -1366,18 +1577,25 @@ Buffer::folded_point_linenum_column (point_t goal, long *columnp) const
 long
 Buffer::folded_point_column_1 (point_t goal, Point &point) const
 {
-  int rest = goal - point.p_point;
+  int rest_cp = int (goal - point.p_point);
   long column = 0;
 
   while (1)
     {
-      int l = point.p_chunk->c_used - point.p_offset;
+      int tail_cu = point.p_chunk->c_used - point.p_offset;
+      int tail_cp = point.p_chunk->c_nchars
+                    - count_code_points (point.p_chunk->c_text, point.p_offset);
+      int step_cp = min (tail_cp, rest_cp);
+      int step_cu = chunk_forward_cp (point.p_chunk->c_text,
+                                      point.p_chunk->c_used,
+                                      point.p_offset, step_cp) - point.p_offset;
       const Char *p = point.p_chunk->c_text + point.p_offset;
-      const Char *pe = p + min (l, rest);
+      const Char *pe = p + step_cu;
       while (p < pe)
         column += char_columns (*p++, column);
-      rest -= l;
-      if (rest <= 0)
+      (void) tail_cu;
+      rest_cp -= step_cp;
+      if (rest_cp <= 0)
         break;
       point.p_chunk = point.p_chunk->c_next;
       point.p_offset = 0;
@@ -1390,7 +1608,9 @@ Buffer::folded_point_column_1 (point_t goal, const update_fold_info &info) const
 {
   Point point;
   point.p_chunk = info.cp;
-  point.p_offset = goal - info.point;
+  int cp_within = int (goal - info.point);
+  point.p_offset = chunk_forward_cp (info.cp->c_text, info.cp->c_used,
+                                     0, cp_within);
   point.p_point = goal;
   adjust_offset (point);
   folded_go_bol_1 (point);
@@ -1451,13 +1671,13 @@ Buffer::folded_linenum_point (Point &pbuf, long goal)
                   break;
               pbuf.p_offset = o + 1;
             }
-          pbuf.p_point = point + pbuf.p_offset;
+          pbuf.p_point = point + count_code_points (cp->c_text, pbuf.p_offset);
           pbuf.p_chunk = cp;
           adjust_offset (pbuf);
           break;
         }
       linenum = l;
-      point += cp->c_used;
+      point += cp->c_nchars;
       if (!cp->c_next)
         {
           pbuf.p_chunk = cp;
@@ -1489,12 +1709,15 @@ Buffer::folded_forward_column (Point &point, long ncolumns, long curcol,
   Chunk *cp = point.p_chunk;
   while (point.p_point < limit)
     {
-      long nextcol = curcol + char_columns (cp->c_text[point.p_offset], curcol);
+      Char c = cp->c_text[point.p_offset];
+      long nextcol = curcol + char_columns (c, curcol);
       if (!can_exceed && nextcol > ncolumns)
         break;
       curcol = nextcol;
-      point.p_point++;
-      point.p_offset++;
+      int old_off = point.p_offset++;
+      if (!(is_low_surrogate (c) && old_off > 0
+            && is_high_surrogate (cp->c_text[old_off - 1])))
+        point.p_point++;
       if (point.p_offset == cp->c_used)
         {
           if (!cp->c_next)
@@ -1514,7 +1737,8 @@ void
 Buffer::folded_go_bol_1 (Point &point) const
 {
   Chunk *cp = point.p_chunk;
-  point.p_point -= point.p_offset;
+  int head_cp = count_code_points (cp->c_text, point.p_offset);
+  point.p_point -= head_cp;
   if (cp->c_nbreaks && point.p_offset && cp->c_first_eol < point.p_offset)
     {
       assert (cp->c_first_eol >= 0);
@@ -1524,7 +1748,7 @@ Buffer::folded_go_bol_1 (Point &point) const
         ;
       point.p_chunk = cp;
       point.p_offset = o + 1;
-      point.p_point += point.p_offset;
+      point.p_point += count_code_points (cp->c_text, point.p_offset);
       adjust_offset (point);
     }
   else
@@ -1539,13 +1763,13 @@ Buffer::folded_go_bol_1 (Point &point) const
               point.p_point = 0;
               break;
             }
-          point.p_point -= cp->c_used;
+          point.p_point -= cp->c_nchars;
           if (cp->c_nbreaks)
             {
               assert (cp->c_last_eol >= 0);
               point.p_chunk = cp;
               point.p_offset = cp->c_last_eol + 1;
-              point.p_point += point.p_offset;
+              point.p_point += count_code_points (cp->c_text, point.p_offset);
               adjust_offset (point);
               break;
             }
@@ -1581,7 +1805,8 @@ Buffer::folded_go_eol (Point &point) const
           break;
       }
 
-  point.p_point -= point.p_offset;
+  int head_cp_eol = count_code_points (cp->c_text, point.p_offset);
+  point.p_point -= head_cp_eol;
   if (cp->c_nbreaks && cp->c_last_eol >= point.p_offset)
     {
       assert (cp->c_last_eol >= 0);
@@ -1591,7 +1816,7 @@ Buffer::folded_go_eol (Point &point) const
         ;
       point.p_chunk = cp;
       point.p_offset = o;
-      point.p_point += point.p_offset;
+      point.p_point += count_code_points (cp->c_text, point.p_offset);
     }
   else
     {
@@ -1601,17 +1826,17 @@ Buffer::folded_go_eol (Point &point) const
             {
               point.p_chunk = cp;
               point.p_offset = cp->c_used;
-              point.p_point += point.p_offset;
+              point.p_point += cp->c_nchars;
               break;
             }
-          point.p_point += cp->c_used;
+          point.p_point += cp->c_nchars;
           cp = cp->c_next;
           if (cp->c_nbreaks)
             {
               assert (cp->c_first_eol >= 0);
               point.p_chunk = cp;
               point.p_offset = cp->c_first_eol;
-              point.p_point += point.p_offset;
+              point.p_point += count_code_points (cp->c_text, point.p_offset);
               break;
             }
         }
@@ -1831,10 +2056,7 @@ Fkinsoku_goto_column (lisp lcolumn, lisp mode)
     bp->goto_char (wp->w_point, bp->b_contents.p2);
   else
     {
-      point_t p = wp->w_point.p_point - wp->w_point.p_offset;
-      for (const Chunk *cp = wp->w_point.p_chunk; cp != point.p_chunk; cp = cp->c_next)
-        p += cp->c_used;
-      point.p_point = p + point.p_offset;
+      point.p_point = bp->cp_position_of (point.p_chunk, point.p_offset);
       bp->check_range (point);
       wp->w_point = point;
     }

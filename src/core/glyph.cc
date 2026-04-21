@@ -1203,7 +1203,9 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
             {
               int extra = 0;
               u_int32_t cp = fold_surrogate (cc, p, pe, extra);
-              point.p_point += extra;
+              /* Phase 2-1: p_point は cp 単位。pair を渡っても既に 1 cp 進んで
+                 いるので extra (= pair の low surrogate 分の cu) を加えない。 */
+              (void) extra;
               int w = unicode_width (cp);
               if (w == 2)
                 {
@@ -1291,7 +1293,8 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
             {
               int extra = 0;
               u_int32_t cp = fold_surrogate (cc, p, pe, extra);
-              point.p_point += extra;
+              /* Phase 2-1: extra は cu 分、p_point (cp) には加算しない。 */
+              (void) extra;
               int w = unicode_width (cp);
               if (w == 2)
                 {
