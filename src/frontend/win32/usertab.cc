@@ -146,8 +146,11 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
   lisp tt = get_tooltip_text (item_tooltip (item));
   if (!stringp (tt))
     return 0;
-  w2s (b_ttbuf, b_ttbuf + TTBUFSIZE, tt);
-  MultiByteToWideChar (932, 0, b_ttbuf, -1, b_ttbufw, TTBUFSIZE);
+  /* Phase 2: internal encoding is now UTF-16; copy directly, no SJIS roundtrip */
+  int len = xstring_length (tt);
+  if (len > TTBUFSIZE - 1) len = TTBUFSIZE - 1;
+  memcpy (b_ttbufw, xstring_contents (tt), len * sizeof (wchar_t));
+  b_ttbufw[len] = 0;
   ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;

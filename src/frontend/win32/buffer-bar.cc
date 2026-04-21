@@ -122,8 +122,11 @@ buffer_bar::need_text (TOOLTIPTEXT &ttt)
   else
     x = bp->lbuffer_name;
 
-  w2s (b_ttbuf, b_ttbuf + TTBUFSIZE, x);
-  MultiByteToWideChar (932, 0, b_ttbuf, -1, b_ttbufw, TTBUFSIZE);
+  /* Phase 2: internal encoding is now UTF-16; copy directly, no SJIS roundtrip */
+  int len = xstring_length (x);
+  if (len > TTBUFSIZE - 1) len = TTBUFSIZE - 1;
+  memcpy (b_ttbufw, xstring_contents (x), len * sizeof (wchar_t));
+  b_ttbufw[len] = 0;
   ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;
