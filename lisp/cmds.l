@@ -860,12 +860,27 @@
 	 (column (current-column))
 	 (char (if (= point end)
 		   ""
-		 (let ((c (following-char)))
-		   (multiple-value-bind (code charset)
+		 (let* ((c (following-char))
+			(code (char-code c))
+			;; Phase 2-1 interim: cursor が surrogate pair に
+			;; 乗ってる時、buffer-substring で pair 全体の string
+			;; を取って絵文字のまま表示 & 完全 cp を合成する
+			;; (Phase 3 で Lisp char が UTF-32 になれば不要)
+			(pair-p (and (<= #xD800 code #xDBFF) (< point end)))
+			(s (if pair-p
+			       (buffer-substring point (1+ point))
+			     (string c)))
+			(cp (if (and pair-p
+				     (= (length s) 2)
+				     (<= #xDC00 (char-code (schar s 1)) #xDFFF))
+				(+ #x10000
+				   (ash (- code #xD800) 10)
+				   (- (char-code (schar s 1)) #xDC00))
+			      (char-unicode c))))
+		   (multiple-value-bind (ccode charset)
 		       (iso-char-code c)
-		   (format nil "Char: ~:c (0x~x~@[ / U+~4,'0X~]~@[ / 0x~2,'0X[~A]~])  "
-			   c (char-code c) (char-unicode c) code charset
-		   ))))))
+		     (format nil "Char: ~A (0x~x~@[ / U+~4,'0X~]~@[ / 0x~2,'0X[~A]~])  "
+			     s code cp ccode charset))))))
     (if (or (/= begin 0) (/= end size))
 	(message "~Apoint=~D of ~D(~D%) <~D - ~D>  column ~D"
 		 char point size ratio begin end column)
