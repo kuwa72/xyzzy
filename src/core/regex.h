@@ -78,6 +78,10 @@ protected:
   void end_save_regs (int, point_t);
   void init_match (const re_point &, point_t, lChar);
   void init_match (const Buffer *, point_t, lChar);
+  /* Phase 2-7: re_point walks internally in cu while external API (Point,
+     b_contents, scan_buffer callers) speaks cp.  Called by the Buffer*
+     entry wrappers on success to flip re_regs cu -> cp. */
+  void regs_cu_to_cp (const Buffer *);
   int bobp (const re_point &) const;
   int eobp (const re_point &) const;
   static int repeat_max (Char);

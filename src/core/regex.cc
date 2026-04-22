@@ -2418,7 +2418,14 @@ class re_search_buffer: public re_search
 public:
   re_search_buffer (const Buffer *bp) : bufp (bp) {}
   virtual int nextl (re_point &point) const
-    {return bufp->line_forward (point, 1) && point.p_point <= point.p_max;}
+    {
+      if (!bufp->line_forward (point, 1))
+        return 0;
+      /* Phase 2-7: line_forward leaves p_point in cp, but the regex engine
+         needs p_point in cu to stay aligned with p_max.  Refresh here. */
+      point.p_point = bufp->cu_position_of (point.p_chunk, point.p_offset);
+      return point.p_point <= point.p_max;
+    }
 };
 
 int
@@ -2489,10 +2496,26 @@ inline void
 Regexp::init_match (const Buffer *bp, point_t last_match,
                     lChar last_match_char)
 {
-  re_range.p1 = bp->b_contents.p1;
-  re_range.p2 = bp->b_contents.p2;
-  re_last_match = last_match;
+  /* Phase 2-7: re_range / re_last_match are compared against
+     re_point.p_point, which the engine walks in cu (one step per Char).
+     b_contents.p1/p2 and the caller-provided last_match are cp.  Flip
+     them to cu here so internal comparisons line up on non-BMP input. */
+  re_range.p1 = bp->cu_from_cp (bp->b_contents.p1);
+  re_range.p2 = bp->cu_from_cp (bp->b_contents.p2);
+  re_last_match = last_match < 0 ? last_match : bp->cu_from_cp (last_match);
   re_last_match_char = last_match_char;
+}
+
+void
+Regexp::regs_cu_to_cp (const Buffer *bp)
+{
+  for (int i = 0; i <= re_regs.nregs; i++)
+    {
+      if (re_regs.start[i] >= 0)
+        re_regs.start[i] = bp->cp_from_cu (re_regs.start[i]);
+      if (re_regs.end[i] >= 0)
+        re_regs.end[i] = bp->cp_from_cu (re_regs.end[i]);
+    }
 }
 
 int
@@ -2520,14 +2543,19 @@ Regexp::search (const Buffer *bp, const Point &start,
                 point_t p1, point_t p2,
                 point_t last_match, lChar last_match_char)
 {
+  /* Phase 2-7: engine walks p_point in cu.  Convert start / limits from
+     cp to cu at entry, and flip re_regs back cu -> cp before returning. */
   re_point point;
-  point.p_point = start.p_point;
+  point.p_point = bp->cu_position_of (start.p_chunk, start.p_offset);
   point.p_offset = start.p_offset;
   point.p_chunk = start.p_chunk;
-  point.p_min = p1;
-  point.p_max = p2;
+  point.p_min = bp->cu_from_cp (p1);
+  point.p_max = bp->cu_from_cp (p2);
   init_match (bp, last_match, last_match_char);
-  return search (re_search_buffer (bp), point);
+  int r = search (re_search_buffer (bp), point);
+  if (r)
+    regs_cu_to_cp (bp);
+  return r;
 }
 
 int
@@ -2535,20 +2563,25 @@ Regexp::search_backward (const Buffer *bp, const Point &start,
                          point_t p1, point_t p2,
                          point_t last_match, lChar last_match_char)
 {
+  /* Phase 2-7: engine walks p_point in cu; convert start / limits at entry,
+     flip re_regs cu -> cp on success.  go_bol / line_backward leave p_point
+     in cp, so refresh it via cu_position_of right after those calls. */
   re_point point;
-  point.p_point = start.p_point;
+  point.p_point = bp->cu_position_of (start.p_chunk, start.p_offset);
   point.p_offset = start.p_offset;
   point.p_chunk = start.p_chunk;
-  point.p_min = p1;
-  point.p_max = p2;
+  point.p_min = bp->cu_from_cp (p1);
+  point.p_max = bp->cu_from_cp (p2);
   init_match (bp, last_match, last_match_char);
+  const point_t p1_cu = point.p_min;
 
   if (re_match_bol_p)
     {
       if (!point.bobp (*this) && point.prevch (*this) != '\n')
         {
           bp->go_bol (point);
-          if (point.p_point < p1)
+          point.p_point = bp->cu_position_of (point.p_chunk, point.p_offset);
+          if (point.p_point < p1_cu)
             return 0;
         }
 
@@ -2567,9 +2600,15 @@ Regexp::search_backward (const Buffer *bp, const Point &start,
                 goto fail;
             }
           if (match (point))
-            return 1;
+            {
+              regs_cu_to_cp (bp);
+              return 1;
+            }
         fail:
-          if (!bp->line_backward (point, 1) || point.p_point < p1)
+          if (!bp->line_backward (point, 1))
+            return 0;
+          point.p_point = bp->cu_position_of (point.p_chunk, point.p_offset);
+          if (point.p_point < p1_cu)
             return 0;
         }
     }
@@ -2590,7 +2629,10 @@ Regexp::search_backward (const Buffer *bp, const Point &start,
           else
             c >>= 8;
           if (re_fastmap[c] && match (point))
-            return 1;
+            {
+              regs_cu_to_cp (bp);
+              return 1;
+            }
           if (point.bobp (*this))
             return 0;
           point.backward ();
@@ -2600,7 +2642,10 @@ Regexp::search_backward (const Buffer *bp, const Point &start,
   while (1)
     {
       if (match (point))
-        return 1;
+        {
+          regs_cu_to_cp (bp);
+          return 1;
+        }
       if (point.bobp (*this))
         return 0;
       point.backward ();
@@ -2631,14 +2676,18 @@ int
 Regexp::match (const Buffer *bp, const Point &start,
                point_t p1, point_t p2)
 {
+  /* Phase 2-7: cf. Regexp::search (Buffer*). */
   re_point point;
-  point.p_point = start.p_point;
+  point.p_point = bp->cu_position_of (start.p_chunk, start.p_offset);
   point.p_offset = start.p_offset;
   point.p_chunk = start.p_chunk;
-  point.p_min = p1;
-  point.p_max = p2;
+  point.p_min = bp->cu_from_cp (p1);
+  point.p_max = bp->cu_from_cp (p2);
   init_match (bp, -1, 0);
-  return match (point);
+  int r = match (point);
+  if (r)
+    regs_cu_to_cp (bp);
+  return r;
 }
 
 int
