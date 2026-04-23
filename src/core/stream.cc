@@ -1886,26 +1886,76 @@ stream_linenum (lisp stream)
     return xstream_linenum (stream);
 }
 
+/* Phase 2: Char は UTF-16 code unit。byte 出力経路では encoding に応じて
+   cp932 / utf-8 に変換する。pre-Phase-2 は DBCP (Char>=0x100) を SJIS lead/trail
+   と見做して hi/lo byte split していたが、Phase 2 では Char が Unicode に
+   なったので wc2cp932 / UTF-8 encode を挟む必要がある。 */
+static void
+putc_encoded (Char cc, char enc, void (*put) (int, void *), void *arg)
+{
+  if (enc == lstream::ENCODE_CANON_UTF8 || enc == lstream::ENCODE_RAW_UTF8)
+    {
+      if (enc == lstream::ENCODE_CANON_UTF8 && cc == '\n')
+        put ('\r', arg);
+      if (cc < 0x80)
+        put (cc, arg);
+      else if (cc < 0x800)
+        {
+          put (0xC0 | (cc >> 6), arg);
+          put (0x80 | (cc & 0x3F), arg);
+        }
+      else
+        {
+          put (0xE0 | (cc >> 12), arg);
+          put (0x80 | ((cc >> 6) & 0x3F), arg);
+          put (0x80 | (cc & 0x3F), arg);
+        }
+      return;
+    }
+  if (enc == lstream::ENCODE_BINARY)
+    {
+      put (u_char (cc), arg);
+      return;
+    }
+  /* SJIS 系 */
+  if (enc == lstream::ENCODE_CANON && cc == '\n')
+    put ('\r', arg);
+  Char sjis = cc < 0x80 ? cc : wc2cp932 (cc);
+  if (sjis == Char (-1))
+    put ('?', arg);
+  else if (DBCP (sjis))
+    {
+      put (sjis >> 8, arg);
+      put (sjis & 0xFF, arg);
+    }
+  else
+    put (u_char (sjis), arg);
+}
+
+static void
+put_to_file (int c, void *arg)
+{
+  putc (c, (FILE *)arg);
+}
+
+static void
+put_to_sock (int c, void *arg)
+{
+  ((sockinet *)arg)->sputc (c);
+}
+
 static void
 putc_file_stream (lisp stream, Char cc)
 {
-  if (DBCP (cc))
-    putc (cc >> 8, xfile_stream_output (stream));
-  else if (xfile_stream_encoding (stream) == lstream::ENCODE_CANON
-           && cc == '\n')
-    putc ('\r', xfile_stream_output (stream));
-  putc (cc, xfile_stream_output (stream));
+  putc_encoded (cc, xfile_stream_encoding (stream),
+                put_to_file, xfile_stream_output (stream));
 }
 
 static void
 putc_sock_stream (lisp stream, Char cc)
 {
-  if (DBCP (cc))
-    xsocket_stream_sock (stream)->sputc (cc >> 8);
-  else if (xsocket_stream_encoding (stream) == lstream::ENCODE_CANON
-           && cc == '\n')
-    xsocket_stream_sock (stream)->sputc ('\r');
-  xsocket_stream_sock (stream)->sputc (cc);
+  putc_encoded (cc, xsocket_stream_encoding (stream),
+                put_to_sock, xsocket_stream_sock (stream));
 }
 
 void
