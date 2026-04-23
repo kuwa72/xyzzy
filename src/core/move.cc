@@ -984,7 +984,8 @@ hang_char (fold_info &f, int mode)
 static int
 iso8859_word_char_p (Char cc)
 {
-  ucs2_t wc = i2w (cc);
+  /* Phase 2: Char は UTF-16 code unit なので旧 i2w table lookup は identity。 */
+  ucs2_t wc = cc;
   return (wc >= 0xc0
           && (wc <= 0x1ff
               || (wc >= 0x250

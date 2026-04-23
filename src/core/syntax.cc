@@ -525,7 +525,8 @@ word_state::char_category (const syntax_table *tab, Char c)
 {
   if (DBCP (c))
     {
-      ucs2_t wc = i2w (c);
+      /* Phase 2: Char は UTF-16 code unit なので旧 i2w table lookup は identity。 */
+      ucs2_t wc = c;
       for (int i = 0; i < numberof (ws_range); i++)
         {
           if (wc < ws_range[i].from)

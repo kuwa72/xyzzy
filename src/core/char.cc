@@ -28,7 +28,10 @@ Fgraphic_char_p (lisp cc)
     return Qnil;
   if (code_charset_bit (c) & (ccsf_utf16_undef_char | ccsf_utf16_surrogate))
     return Qnil;
-  return boole (i2w (c) != ucs2_t (-1));
+  /* Phase 2: Char は UTF-16 code unit。旧 i2w (old internal → UCS2) lookup は
+     UTF-16 codepoint を誤って -1 判定するので不要。surrogate と undef_char を
+     上で弾いているので、残りは graphic-char。 */
+  return Qt;
 #endif
 }
 

@@ -833,8 +833,8 @@ terminal_key_to_bytes (const Terminal *term, lChar c, char *buf, int bufsize)
     }
   else if (len == 0 && c < 0x10000)
     {
-      // Non-ASCII: internal Char → UCS-2 → UTF-8
-      ucs2_t ucs = i2w ((Char)c);
+      // Phase 2: Char/lChar は UTF-16 code unit なので UCS-2 identity
+      ucs2_t ucs = (ucs2_t) c;
       if (ucs < 0x80 && bufsize >= 1)
         { buf[0] = (char)ucs; len = 1; }
       else if (ucs < 0x800 && bufsize >= 2)
