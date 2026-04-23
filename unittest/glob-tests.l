@@ -186,8 +186,8 @@
                       :test #'(lambda (arg) (push arg args)))
            #'string<)
      (sort args #'string<)))
-  => ("CSS3/speech" "Sql" "Sql-NonStd/" "Sql-NonStd/SQLServer")
-  => ("CSS3/" "CSS3/speech" "Sql" "Sql-NonStd/" "Sql-NonStd/SQLServer"))
+  => ("CSS3/speech" "ShellScript" "Sql" "Sql-NonStd/" "Sql-NonStd/SQLServer")
+  => ("CSS3/" "CSS3/speech" "ShellScript" "Sql" "Sql-NonStd/" "Sql-NonStd/SQLServer"))
 
 (deftest directory--test-wild-2 ()
   (let (args)
