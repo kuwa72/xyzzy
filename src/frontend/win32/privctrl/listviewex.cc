@@ -102,7 +102,7 @@ struct listview_item_data: public item_data
   u_char pagedown_char;
 };
 
-int WINAPI abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname);
+int WINAPI abbreviate_string (HDC hdc, wchar_t *wbuf, int maxpxl, int is_pathname);
 
 static inline listview_item_data *
 get_listview_item_data (HWND hwnd)
@@ -116,6 +116,9 @@ paint_text (HDC hdc, char *s, int l, int fmt, const RECT &r,
 {
   wchar_t ws[1024 + 10];
   int wl = cp932_to_wcs (s, l, ws, 1024);
+  /* cp932_to_wcs may or may not null-terminate when given an explicit length.
+     abbreviate_string requires a null-terminated buffer, so force one. */
+  ws[wl] = 0;
 
   int w = r.right - r.left - 2 * offset;
   SIZE ext;
@@ -125,10 +128,9 @@ paint_text (HDC hdc, char *s, int l, int fmt, const RECT &r,
   if (wl && ext.cx > w)
     {
       fmt = LVCFMT_LEFT;
-      if (path_ellipse && abbreviate_string (hdc, s, w, 1))
+      if (path_ellipse && abbreviate_string (hdc, ws, w, 1))
         {
-          l = strlen (s);
-          wl = cp932_to_wcs (s, l, ws, 1024);
+          wl = (int)wcslen (ws);
           GetTextExtentPoint32W (hdc, ws, wl, &ext);
         }
       else

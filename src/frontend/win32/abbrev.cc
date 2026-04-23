@@ -1,12 +1,15 @@
 #include "stdafx.h"
 #include "ed.h"
 
+/* Phase 2-5: take an in-place wchar_t buffer (null-terminated, with
+   capacity for at least wcslen(wbuf) + 3 to prepend "...") and abbreviate
+   its contents so GetTextExtentPoint32W fits within maxpxl. Returns 1 if
+   wbuf was modified, 0 otherwise. UTF-16 end-to-end so non-cp932 paths /
+   display names pass through untouched. */
 int WINAPI
-abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
+abbreviate_string (HDC hdc, wchar_t *wbuf, int maxpxl, int is_pathname)
 {
-  wchar_t wbuf[2048];
-  int wl = cp932_to_wcs (buf, -1, wbuf, 2048) - 1;
-  int orig_byte_len = strlen (buf);
+  int wl = (int)wcslen (wbuf);
 
   SIZE sz;
   GetTextExtentPoint32W (hdc, wbuf, wl, &sz);
@@ -89,7 +92,6 @@ abbreviate_string (HDC hdc, char *buf, int maxpxl, int is_pathname)
                   wbuf[n + 1] = L'.';
                   wbuf[n + 2] = L'.';
                   wbuf[n + 3] = 0;
-                  wcs_to_cp932 (wbuf, -1, buf, orig_byte_len + 1);
                   return 1;
                 }
             }
@@ -118,19 +120,18 @@ done:
   for (int i = 0; i < 3; i++)
     le[i] = L'.';
   wcscpy (le + 3, rb);
-  wcs_to_cp932 (wbuf, -1, buf, orig_byte_len + 1);
   return 1;
 }
 
 static int
-abbrev_string (char *buf, int maxl, int pathname_p)
+abbrev_string (wchar_t *wbuf, int maxl, int pathname_p)
 {
   HDC hdc (GetDC (0));
   HGDIOBJ of (SelectObject (hdc, sysdep.ui_font ()));
   TEXTMETRICW tm;
   GetTextMetricsW (hdc, &tm);
   int maxpxl = tm.tmAveCharWidth * maxl;
-  int r = abbreviate_string (hdc, buf, maxpxl, pathname_p);
+  int r = abbreviate_string (hdc, wbuf, maxpxl, pathname_p);
   SelectObject (hdc, of);
   ReleaseDC (0, hdc);
   return r;
@@ -143,9 +144,13 @@ Fabbreviate_display_string (lisp string, lisp maxlen, lisp pathname_p)
   int l = fixnum_value (maxlen);
   if (l <= 0)
     return make_string ("");
-  char *buf = (char *)alloca (xstring_length (string) * 2 + 1);
-  w2s (buf, string);
-  if (!abbrev_string (buf, l, pathname_p && pathname_p != Qnil))
+  int slen = xstring_length (string);
+  /* +4 for "..." plus terminator. abbreviate_string may write up to
+     slen + 3 + null. */
+  wchar_t *wbuf = (wchar_t *)alloca ((slen + 4) * sizeof (wchar_t));
+  memcpy (wbuf, xstring_contents (string), slen * sizeof (wchar_t));
+  wbuf[slen] = 0;
+  if (!abbrev_string (wbuf, l, pathname_p && pathname_p != Qnil))
     return string;
-  return make_string (buf);
+  return make_string ((const Char *)wbuf, (size_t)wcslen (wbuf));
 }

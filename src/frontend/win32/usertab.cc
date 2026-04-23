@@ -221,13 +221,15 @@ user_tab_bar::add_item (lisp item, lisp name, lisp tooltip, lisp menu,
       break;
     }
 
-  char buf[ITEM_NAME_MAX];
-  w2s (buf, buf + sizeof buf, name);
+  /* Phase 2: Lisp string is UTF-16, TCITEMW takes wchar_t*. Copy + null
+     terminate instead of going through cp932. */
+  wchar_t wbuf[ITEM_NAME_MAX];
+  int wn = min<int> (xstring_length (name), numberof (wbuf) - 1);
+  memcpy (wbuf, xstring_contents (name), wn * sizeof (wchar_t));
+  wbuf[wn] = 0;
 
   TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
-  wchar_t wbuf[ITEM_NAME_MAX];
-  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
   ti.pszText = wbuf;
   ti.lParam = LPARAM (p);
   if (SendMessageW (b_hwnd, TCM_INSERTITEMW, n, LPARAM (&ti)) < 0)
@@ -248,13 +250,13 @@ user_tab_bar::modify_item (lisp item, lisp name, lisp tooltip, lisp menu)
     {
       check_string (name);
 
-      char buf[ITEM_NAME_MAX];
-      w2s (buf, buf + sizeof buf, name);
+      wchar_t wbuf[ITEM_NAME_MAX];
+      int wn = min<int> (xstring_length (name), numberof (wbuf) - 1);
+      memcpy (wbuf, xstring_contents (name), wn * sizeof (wchar_t));
+      wbuf[wn] = 0;
 
       TCITEMW ti;
       ti.mask = TCIF_TEXT;
-      wchar_t wbuf[ITEM_NAME_MAX];
-      MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
       ti.pszText = wbuf;
       if (!SendMessageW (b_hwnd, TCM_SETITEMW, i, LPARAM (&ti)))
         return 0;

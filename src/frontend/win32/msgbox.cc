@@ -22,17 +22,18 @@ Char_chr (const Char *s, Char c)
   return 0;
 }
 
-// Convert NUL-terminated Char* to wchar_t* (alloca-based, caller provides buffer)
+/* Phase 2: Char is UTF-16 code unit and on Windows wchar_t is UTF-16, so
+   Char -> wchar_t is a memcpy plus null terminator. */
 static wchar_t *
 Char_to_wide (const Char *src, int srclen, wchar_t *dst)
 {
-  ucs2_t *end = i2w (src, srclen, (ucs2_t *)dst);
-  *end = 0;
+  memcpy (dst, src, srclen * sizeof (wchar_t));
+  dst[srclen] = 0;
   return dst;
 }
 
 #define CHAR_TO_WIDE(src, len) \
-  Char_to_wide ((src), (len), (wchar_t *)alloca ((i2wl ((src), (len)) + 1) * sizeof (wchar_t)))
+  Char_to_wide ((src), (len), (wchar_t *)alloca (((len) + 1) * sizeof (wchar_t)))
 
 void
 XMessageBox::add_button (UINT id, const Char *caption)
