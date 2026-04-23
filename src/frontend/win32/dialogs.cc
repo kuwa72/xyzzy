@@ -152,11 +152,11 @@ store_string (HWND list, lisp string, LVITEMW *lvi)
 {
   if (stringp (string))
     {
-      char *b = (char *)alloca (xstring_length (string) * 2 + 1);
-      w2s (b, string);
-      int wl = MultiByteToWideChar (932, 0, b, -1, 0, 0);
-      wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
-      MultiByteToWideChar (932, 0, b, -1, wb, wl);
+      /* Phase 2: Lisp string は UTF-16。直接 wchar_t バッファへ載せる。 */
+      int slen = xstring_length (string);
+      wchar_t *wb = (wchar_t *)alloca ((slen + 1) * sizeof (wchar_t));
+      memcpy (wb, xstring_contents (string), slen * sizeof (wchar_t));
+      wb[slen] = 0;
       lvi->pszText = wb;
     }
   else
@@ -1174,24 +1174,31 @@ Fdirectory_name_dialog (lisp keys)
   else
     ldefault = selected_buffer ()->ldirectory;
 
+  /* Phase 2: Lisp string (UTF-16) を wchar_t に直 copy。 */
   wchar_t wtitle[256];
   wchar_t *ptitle = 0;
   if (stringp (ltitle))
     {
-      char title[512];
-      w2s (title, ltitle);
-      MultiByteToWideChar (932, 0, title, -1, wtitle, numberof (wtitle));
+      int tl = xstring_length (ltitle);
+      if (tl >= (int) numberof (wtitle)) tl = numberof (wtitle) - 1;
+      memcpy (wtitle, xstring_contents (ltitle), tl * sizeof (wchar_t));
+      wtitle[tl] = 0;
       ptitle = wtitle;
     }
 
   wchar_t winitdir[PATH_MAX + 1];
   winitdir[0] = 0;
-  {
-    char initdir[PATH_MAX + 1];
-    w2s (initdir, ldefault);
-    map_sl_to_backsl (initdir);
-    MultiByteToWideChar (932, 0, initdir, -1, winitdir, PATH_MAX + 1);
-  }
+  if (stringp (ldefault))
+    {
+      int dl = xstring_length (ldefault);
+      if (dl > PATH_MAX) dl = PATH_MAX;
+      memcpy (winitdir, xstring_contents (ldefault), dl * sizeof (wchar_t));
+      winitdir[dl] = 0;
+      /* slash → backslash */
+      for (int i = 0; i < dl; i++)
+        if (winitdir[i] == L'/')
+          winitdir[i] = L'\\';
+    }
 
   BROWSEINFOW bi;
   bzero (&bi, sizeof bi);
