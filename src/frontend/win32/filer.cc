@@ -710,22 +710,32 @@ FilerView::sort (int param)
 void
 FilerView::set_title (const char *mask) const
 {
-  int l = xstring_length (fv_ldir) * 2 + 1;
+  /* Phase 2: Lisp string は UTF-16 code unit 列なので、cp932 経由せず
+     直接 wchar_t バッファへ memcpy する。mask は ASCII ワイルドカード
+     前提なので byte 単位で widen。 */
   lisp title = fv_parent->title ();
+  int wl = xstring_length (fv_ldir) + 1;
   if (stringp (title))
-    l += xstring_length (title) * 2 + 3;
+    wl += xstring_length (title) + 3;
   if (mask)
-    l += strlen (mask) + 1;
-  char *b0 = (char *)alloca (l);
-  char *b = w2s (b0, fv_ldir);
+    wl += (int) strlen (mask);
+  wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
+  wchar_t *w = wb;
+  memcpy (w, xstring_contents (fv_ldir),
+          xstring_length (fv_ldir) * sizeof (wchar_t));
+  w += xstring_length (fv_ldir);
   if (mask)
-    b = stpcpy (b, mask);
+    for (const char *p = mask; *p; p++)
+      *w++ = (wchar_t) (u_char) *p;
   if (stringp (title))
-    b = w2s (stpcpy (b, " - "), title);
-  {
-    WideStr wb0 (b0);
-    SetWindowTextW (fv_parent->id_hwnd, wb0);
-  }
+    {
+      *w++ = L' '; *w++ = L'-'; *w++ = L' ';
+      memcpy (w, xstring_contents (title),
+              xstring_length (title) * sizeof (wchar_t));
+      w += xstring_length (title);
+    }
+  *w = 0;
+  SetWindowTextW (fv_parent->id_hwnd, wb);
 }
 
 void
@@ -746,12 +756,12 @@ FilerView::set_path () const
 {
   if (fv_parent->dual_window_p ())
     {
-      char *b = (char *)alloca (xstring_length (fv_ldir) * 2 + 1);
-      w2s (b, fv_ldir);
-      {
-        WideStr wb (b);
-        SetWindowTextW (fv_hwnd_path, wb);
-      }
+      /* Phase 2: direct UTF-16 to SetWindowTextW。 */
+      int dlen = xstring_length (fv_ldir);
+      wchar_t *wb = (wchar_t *)alloca ((dlen + 1) * sizeof (wchar_t));
+      memcpy (wb, xstring_contents (fv_ldir), dlen * sizeof (wchar_t));
+      wb[dlen] = 0;
+      SetWindowTextW (fv_hwnd_path, wb);
     }
 }
 
