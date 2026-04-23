@@ -426,24 +426,19 @@ Funicode_char (lisp code)
   if (wc >= UNICODE_CHAR_LIMIT)
     return Qnil;
 
-  Char b[2];
+  /* Phase 2: Char is a UTF-16 code unit. BMP code points round-trip as the
+     Char value itself. Surrogate halves alone aren't complete code points
+     and return nil. Non-BMP code points need a surrogate-pair string. */
   if (wc < 0x10000)
     {
-      Char cc;
-      if (xsymbol_value (Vunicode_to_half_width) != Qnil
-          || (cc = wc2cp932 (ucs2_t (wc))) == Char (-1)
-          || ccs_1byte_94_charset_p (code_charset (cc)))
-        cc = w2i (ucs2_t (wc));
-      if (cc != Char (-1))
-        return make_char (cc);
-      b[0] = utf16_ucs2_to_undef_pair_high (ucs2_t (wc));
-      b[1] = utf16_ucs2_to_undef_pair_low (ucs2_t (wc));
+      ucs2_t c = ucs2_t (wc);
+      if (utf16_surrogate_high_p (c) || utf16_surrogate_low_p (c))
+        return Qnil;
+      return make_char (Char (c));
     }
-  else
-    {
-      b[0] = utf16_ucs4_to_pair_high (wc);
-      b[1] = utf16_ucs4_to_pair_low (wc);
-    }
+  Char b[2];
+  b[0] = utf16_ucs4_to_pair_high (wc);
+  b[1] = utf16_ucs4_to_pair_low (wc);
   return make_string (b, 2);
 }
 
