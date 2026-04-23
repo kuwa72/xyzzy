@@ -365,6 +365,7 @@
 (si::defun-builtin string-input-stream-p (stream))
 (si::defun-builtin string-output-stream-p (stream))
 (si::defun-builtin open (filename &key :direction :if-exists :if-does-not-exist :encoding :share))
+(si::defun-builtin detect-encoding-from-firstline (stream))
 (si::defun-builtin file-length (pathname))
 (si::defun-builtin file-write-time (filename))
 (si::defun-builtin set-file-write-time (filename universal-time))
@@ -648,6 +649,15 @@
 (si::defun-builtin get-key-state (vkey))
 (si::defun-builtin search-path (file &optional path ext))
 (si::defun-builtin *file-operation (operation from to &keys :allow-undo :files-only :no-connected-elements :no-ui :no-confirmation :no-confirm-mkdir :no-copy-security-attributes :no-error-ui :no-recursion :rename-on-collision :silent :want-nuke-warning))
+(si::defun-builtin process-terminal-p (process))
+(si::defun-builtin terminal-screen-line (process row))
+(si::defun-builtin terminal-screen-size (process))
+(si::defun-builtin terminal-cursor-position (process))
+(si::defun-builtin terminal-resize (process rows cols))
+(si::defun-builtin terminal-app-cursor-keys-p (process))
+(si::defun-builtin terminal-send-key (process key))
+(si::defun-builtin terminal-scroll-back (process delta))
+(si::defun-builtin terminal-scrollback-line (process index))
 
 (gc)
 
