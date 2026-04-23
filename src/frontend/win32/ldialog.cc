@@ -956,87 +956,105 @@ column_valid_p (lisp columns)
   return ncolumns;
 }
 
-static void
-item_string (lisp item, char *buf, int size)
+static int
+item_string (lisp item, Char *buf, int size)
 {
+  /* Phase 2: item 表示は UTF-16 Char 列で組み立てる。旧実装は DBCP 分岐で
+     Char を cp932 2-byte split していたが、Phase 2 では Char = UTF-16 code
+     unit なので単に書き込むだけで済む。Returns written length. */
   if (symbolp (item))
     item = xsymbol_name (item);
   if (stringp (item))
     {
-      char *b0 = buf, *b = buf, *be = buf + size - 2;
+      Char *b0 = buf, *b = buf, *be = buf + size - 2;
       const Char *p = xstring_contents (item), *pe = p + xstring_length (item);
       for (; p < pe && b < be; p++)
         {
           Char c = *p;
-          if (DBCP (c))
-            {
-              *b++ = char (c >> 8);
-              *b++ = char (c);
-            }
-          else if (c == '\n')
+          if (c == '\n')
             {
               *b++ = '\\';
-              *b++ = 'n';
+              if (b < be) *b++ = 'n';
               b0 = b;
             }
           else if (c == '\t')
             {
-              int col = b - b0;
+              int col = (int)(b - b0);
               int goal = ((col + app.default_tab_columns) / app.default_tab_columns
                           * app.default_tab_columns);
-              for (int n = min (goal - col, be - b); n > 0; n--)
+              for (int n = min (goal - col, (int)(be - b)); n > 0; n--)
                 *b++ = ' ';
             }
           else if (c == CC_DEL)
             {
               *b++ = '^';
-              *b++ = '?';
+              if (b < be) *b++ = '?';
             }
           else if (c < ' ')
             {
               *b++ = '^';
-              *b++ = c + '@';
+              if (b < be) *b++ = c + '@';
             }
           else
-            *b++ = char (c);
+            *b++ = c;
         }
       *b = 0;
+      return (int)(b - buf);
     }
   else if (bufferp (item))
     {
       Buffer *bp = xbuffer_bp (item);
       if (!bp)
-        strcpy (buf, "#<deleted buffer>");
+        {
+          static const Char dm[] = { '#', '<', 'd', 'e', 'l', 'e', 't', 'e', 'd',
+                                     ' ', 'b', 'u', 'f', 'f', 'e', 'r', '>', 0 };
+          int i = 0;
+          for (; dm[i] && i < size - 1; i++) buf[i] = dm[i];
+          buf[i] = 0;
+          return i;
+        }
       else
-        bp->buffer_name (buf, buf + size - 2);
+        {
+          Char *end = bp->buffer_name (buf, buf + size - 2);
+          *end = 0;
+          return (int)(end - buf);
+        }
     }
   else
     {
       long v;
       if (safe_fixnum_value (item, &v))
-        sprintf (buf, "%ld", v);
+        {
+          char tmp[32];
+          int n = sprintf (tmp, "%ld", v);
+          for (int i = 0; i < n && i < size - 1; i++) buf[i] = (Char)(u_char)tmp[i];
+          buf[n < size ? n : size - 1] = 0;
+          return n;
+        }
       else
-        *buf = 0;
+        {
+          *buf = 0;
+          return 0;
+        }
     }
 }
 
 static void
 draw_item (HDC hdc, const RECT &r, int x, lisp item, int right)
 {
-  char buf[2048];
-  item_string (item, buf, sizeof buf);
-  int l = strlen (buf);
-  wchar_t wbuf[2048];
-  int wl = cp932_to_wcs (buf, l, wbuf, 2048);
+  /* Phase 2: Char buffer (UTF-16) を直接 ExtTextOutW へ。 */
+  Char buf[2048];
+  int wl = item_string (item, buf, numberof (buf));
   if (right)
     {
       SIZE size;
-      GetTextExtentPoint32W (hdc, wbuf, wl, &size);
+      GetTextExtentPoint32W (hdc, (LPCWSTR) buf, wl, &size);
       ExtTextOutW (hdc, r.right - size.cx, r.top,
-                   ETO_OPAQUE | ETO_CLIPPED, &r, wbuf, wl, 0);
+                   ETO_OPAQUE | ETO_CLIPPED, &r, (LPCWSTR) buf, wl, 0);
     }
   else
-    ExtTextOutW (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r, wbuf, wl, 0);
+    ExtTextOutW (hdc, x, r.top, ETO_OPAQUE | ETO_CLIPPED, &r,
+                 (LPCWSTR) buf, wl, 0);
 }
 
 void
@@ -1114,11 +1132,24 @@ lb_match_p (int ch, const u_char *b)
 }
 
 static int
+lb_match_p (int ch, const Char *b)
+{
+  for (; *b; b++)
+    {
+      if (ch == char_upcase (*b))
+        return 1;
+      if (alphanumericp (*b) || !ascii_char_p (*b))
+        return -1;
+    }
+  return 0;
+}
+
+static int
 lb_match_p (int ch, lisp item)
 {
-  char buf[2048];
-  item_string (item, buf, sizeof buf);
-  return lb_match_p (ch, (const u_char *)buf);
+  Char buf[2048];
+  item_string (item, buf, numberof (buf));
+  return lb_match_p (ch, (const Char *) buf);
 }
 
 static int
