@@ -665,23 +665,26 @@ Fconvert_encoding_from_internal (lisp encoding, lisp input, lisp output)
 
 #include "kanjitab.h"
 
+/* Full-/half-width conversion (`map-to-*-width-*`) — Unicode-native.
+
+   Forward direction (halfwidth → fullwidth): halfwidth kana U+FF61-U+FF9F feeds
+   `to_full{hira,kata}_ff61_ff9f`; ASCII 0x20-0x7E feeds `to_full_20_7e`. Voicing
+   marks are absorbed in the backward compose pass that follows.
+
+   Reverse direction (fullwidth → halfwidth): non-voiced fullwidth chars look up
+   in `to_half_width_cjk` / `to_half_width_fullascii`. Voiced/semi-voiced
+   fullwidth kana are detected via `voiced_to_half_cjk` / `semi_voiced_to_half_cjk`
+   and emitted as {halfwidth base, ﾞ or ﾟ} pairs.                                */
 struct to_half
 {
-  int min, max;
-  const u_char *b;
+  Char min, max;
+  const Char *b;
 };
 
 static const to_half toh[] =
 {
-  {TO_HALF_WIDTH81_MIN, TO_HALF_WIDTH81_MAX, to_half_width_81},
-  {TO_HALF_WIDTH82_MIN, TO_HALF_WIDTH82_MAX, to_half_width_82},
-  {TO_HALF_WIDTH83_MIN, TO_HALF_WIDTH83_MAX, to_half_width_83},
-};
-
-static const to_half ssh[] =
-{
-  {VOICED_SOUND82_MIN, VOICED_SOUND82_MAX, voiced_sound_82},
-  {VOICED_SOUND83_MIN, VOICED_SOUND83_MAX, voiced_sound_83},
+  {CJK_RANGE_MIN, CJK_RANGE_MAX, to_half_width_cjk},
+  {FULL_ASCII_MIN, FULL_ASCII_MAX, to_half_width_fullascii},
 };
 
 #define ASC 1
@@ -704,54 +707,36 @@ map_flags (lisp keys)
 struct to_half_param
 {
   int flags;
-  Char fmin, fmax;
-  Char hmin, hmax;
+  Char skip_min, skip_max;   /* fullwidth range to preserve (other kana kind).  */
   to_half_param (lisp);
+  bool should_skip (Char c) const { return c >= skip_min && c <= skip_max; }
+  bool accept_half (Char c) const
+    {
+      if ((flags & ASC) && c >= 0x20 && c <= 0x7e)
+        return true;
+      if ((flags & (HIRA | KATA)) && c >= HALFWIDTH_KANA_MIN && c <= HALFWIDTH_KANA_MAX)
+        return true;
+      return false;
+    }
 };
 
 to_half_param::to_half_param (lisp keys)
 {
   flags = map_flags (keys);
+  skip_min = 0xffff;
+  skip_max = 0;
   if (!flags)
     return;
-
   switch (flags & (HIRA | KATA))
     {
     case HIRA:
-      fmin = FULL_WIDTH_KATAKANA_MIN;
-      fmax = FULL_WIDTH_KATAKANA_MAX;
+      skip_min = FULL_WIDTH_KATAKANA_MIN;
+      skip_max = FULL_WIDTH_KATAKANA_MAX;
       break;
-
     case KATA:
-      fmin = FULL_WIDTH_HIRAGANA_MIN;
-      fmax = FULL_WIDTH_HIRAGANA_MAX;
+      skip_min = FULL_WIDTH_HIRAGANA_MIN;
+      skip_max = FULL_WIDTH_HIRAGANA_MAX;
       break;
-
-    case HIRA | KATA:
-      fmin = 0xffff;
-      fmax = 0;
-      break;
-
-    default:
-      fmin = min (FULL_WIDTH_KATAKANA_MIN, FULL_WIDTH_HIRAGANA_MIN);
-      fmax = max (FULL_WIDTH_KATAKANA_MAX, FULL_WIDTH_HIRAGANA_MAX);
-      break;
-    }
-
-  if (flags & ASC)
-    {
-      hmin = 1;
-      hmax = (flags & (HIRA | KATA)) ? 0xff : 0x7f;
-    }
-  else if (flags & (HIRA | KATA))
-    {
-      hmin = 0x80;
-      hmax = 0xff;
-    }
-  else
-    {
-      hmin = 1;
-      hmax = 0;
     }
 }
 
@@ -771,49 +756,51 @@ Fmap_to_half_width_region (lisp from, lisp to, lisp keys)
 
   Point &point = wp->w_point;
   point_t p1 = point.p_point;
+  /* Forward pass: non-voiced fullwidth → halfwidth (single char replacement). */
   while (point.p_point < p2)
     {
       Char c = point.ch ();
-      if (c < thp.fmin || c > thp.fmax)
+      if (!thp.should_skip (c))
         for (int i = 0; i < numberof (toh); i++)
           if (c >= toh[i].min && c <= toh[i].max)
             {
-              c = toh[i].b[c - toh[i].min];
-              if (c >= thp.hmin && c <= thp.hmax)
-                point.ch () = c;
-              goto next;
+              Char h = toh[i].b[c - toh[i].min];
+              if (h && thp.accept_half (h))
+                point.ch () = h;
+              break;
             }
-    next:
       if (!bp->forward_char (point, 1))
         break;
     }
 
+  /* Backward pass: voiced/semi-voiced fullwidth kana → {halfwidth base, mark}. */
   if (thp.flags & (HIRA | KATA))
     {
       int nconv = 0;
       while (bp->forward_char (point, -1) && point.p_point >= p1)
         {
           Char c = point.ch ();
-          if (c < thp.fmin || c > thp.fmax)
-            for (int i = 0; i < numberof (ssh); i++)
-              if (c >= ssh[i].min && c <= ssh[i].max)
-                {
-                  c = ssh[i].b[c - ssh[i].min];
-                  if (c)
-                    {
-                      //                                 ゛             ゜
-                      point.ch () = c & 0x80 ? u_char (0xde) : u_char (0xdf);
-                      c |= 0x80;
-                      if (!bp->insert_chars_internal (point, &c, 1, 1))
-                        {
-                          bp->post_buffer_modified (Kmodify, point, p1, p2 + nconv);
-                          FEstorage_error ();
-                        }
-                      bp->forward_char (point, -1);
-                      nconv++;
-                    }
-                  break;
-                }
+          if (thp.should_skip (c))
+            continue;
+          if (c < CJK_RANGE_MIN || c > CJK_RANGE_MAX)
+            continue;
+          Char base = voiced_to_half_cjk[c - CJK_RANGE_MIN];
+          Char mark = HALFWIDTH_VOICED_MARK;
+          if (!base)
+            {
+              base = semi_voiced_to_half_cjk[c - CJK_RANGE_MIN];
+              mark = HALFWIDTH_SEMI_VOICED_MARK;
+            }
+          if (!base || !thp.accept_half (base) || !thp.accept_half (mark))
+            continue;
+          point.ch () = mark;
+          if (!bp->insert_chars_internal (point, &base, 1, 1))
+            {
+              bp->post_buffer_modified (Kmodify, point, p1, p2 + nconv);
+              FEstorage_error ();
+            }
+          bp->forward_char (point, -1);
+          nconv++;
         }
       bp->goto_char (point, p2 + nconv);
     }
@@ -838,7 +825,11 @@ Fmap_to_full_width_region (lisp from, lisp to, lisp keys)
   if (!flags)
     return Qnil;
 
-  const Char *tof = flags & HIRA ? to_fullhira_a1_df : to_fullkata_a1_df;
+  const Char *tof = flags & HIRA ? to_fullhira_ff61_ff9f : to_fullkata_ff61_ff9f;
+  const Char *voiced_from = flags & HIRA ? voiced_from_hira : voiced_from_kata;
+  const Char *semi_voiced_from = flags & HIRA ? semi_voiced_from_hira : semi_voiced_from_kata;
+  Char compose_min = flags & HIRA ? FULL_WIDTH_HIRAGANA_MIN : FULL_WIDTH_KATAKANA_MIN;
+  Char compose_max = flags & HIRA ? FULL_WIDTH_HIRAGANA_MAX : FULL_WIDTH_KATAKANA_MAX;
 
   Window *wp = selected_window ();
   Buffer *bp = wp->w_bufp;
@@ -849,17 +840,21 @@ Fmap_to_full_width_region (lisp from, lisp to, lisp keys)
 
   Point &point = wp->w_point;
   point_t p1 = point.p_point;
+  /* Forward pass: halfwidth → fullwidth (1:1; halfwidth ﾞ/ﾟ become fullwidth ゛/゜
+     that the backward pass below then consumes and composes with preceding kana). */
   while (point.p_point < p2)
     {
       Char c = point.ch ();
-      if (flags & (HIRA | KATA) && c >= 0xa1 && c <= 0xdf)
-        point.ch () = tof[c - 0xa1];
-      else if (flags & ASC && c >= 0x20 && c <= 0x7e)
+      if ((flags & (HIRA | KATA))
+          && c >= HALFWIDTH_KANA_MIN && c <= HALFWIDTH_KANA_MAX)
+        point.ch () = tof[c - HALFWIDTH_KANA_MIN];
+      else if ((flags & ASC) && c >= 0x20 && c <= 0x7e)
         point.ch () = to_full_20_7e[c - 0x20];
       if (!bp->forward_char (point, 1))
         break;
     }
 
+  /* Backward pass: absorb a ゛/゜ into the preceding unvoiced kana.               */
   if (flags & (HIRA | KATA))
     {
       int nconv = 0;
@@ -877,57 +872,20 @@ Fmap_to_full_width_region (lisp from, lisp to, lisp keys)
                 break;
               c = c2;
             }
-          if (flags & HIRA)
-            {
-              if (c2 < TO_HALF_WIDTH82_MIN || c2 > TO_HALF_WIDTH82_MAX)
-                continue;
-              c2 = to_half_width_82[c2 - TO_HALF_WIDTH82_MIN];
-              if (!c2)
-                continue;
-              if (c == VOICED_SOUND_MARK)
-                {
-                  if (c2 < 0xb6 || c2 > 0xce)
-                    continue;
-                  c2 = to_fullhira_voiced_b6_ce[c2 - 0xb6];
-                  if (!c2)
-                    continue;
-                }
-              else
-                {
-                  if (c2 < 0xca || c2 > 0xce)
-                    continue;
-                  c2 = to_fullhira_semi_voiced_ca_ce[c2 - 0xca];
-                }
-            }
-          else
-            {
-              if (c2 < TO_HALF_WIDTH83_MIN || c2 > TO_HALF_WIDTH83_MAX)
-                continue;
-              c2 = to_half_width_83[c2 - TO_HALF_WIDTH83_MIN];
-              if (!c2)
-                continue;
-              if (c == VOICED_SOUND_MARK)
-                {
-                  if (c2 < 0xb3 || c2 > 0xce)
-                    continue;
-                  c2 = to_fullkata_voiced_b3_ce[c2 - 0xb3];
-                  if (!c2)
-                    continue;
-                }
-              else
-                {
-                  if (c2 < 0xca || c2 > 0xce)
-                    continue;
-                  c2 = to_fullkata_semi_voiced_ca_ce[c2 - 0xca];
-                }
-            }
+          if (c2 < compose_min || c2 > compose_max)
+            continue;
+          Char composed = (c == VOICED_SOUND_MARK
+                           ? voiced_from[c2 - compose_min]
+                           : semi_voiced_from[c2 - compose_min]);
+          if (!composed)
+            continue;
           if (!bp->delete_region_internal (point, point.p_point,
                                            point.p_point + 1))
             {
               bp->post_buffer_modified (Kmodify, point, p1, p2 + nconv);
               FEstorage_error ();
             }
-          point.ch () = c2;
+          point.ch () = composed;
           nconv++;
         }
     done:
@@ -947,47 +905,52 @@ Fmap_to_half_width_string (lisp string, lisp keys)
   if (!thp.flags)
     return string;
 
+  /* Worst case: every fullwidth voiced kana becomes 2 halfwidth chars.           */
   safe_ptr <Char> s0 (new Char [xstring_length (string) * 2]);
   bcopy (xstring_contents (string), s0, xstring_length (string));
   Char *s, *se;
+  /* Forward pass: non-voiced fullwidth → halfwidth (in-place).                   */
   for (s = s0, se = s + xstring_length (string); s < se; s++)
     {
       Char c = *s;
-      if (c < thp.fmin || c > thp.fmax)
-        for (int i = 0; i < numberof (toh); i++)
+      if (thp.should_skip (c))
+        continue;
+      for (int i = 0; i < numberof (toh); i++)
+        if (c >= toh[i].min && c <= toh[i].max)
           {
-            if (c >= toh[i].min && c <= toh[i].max)
-              {
-                c = toh[i].b[c - toh[i].min];
-                if (c >= thp.hmin && c <= thp.hmax)
-                  *s = c;
-                goto next;
-              }
+            Char h = toh[i].b[c - toh[i].min];
+            if (h && thp.accept_half (h))
+              *s = h;
+            break;
           }
-    next:;
     }
 
   if (!(thp.flags & (HIRA | KATA)))
     return make_string (s0, xstring_length (string));
 
+  /* Backward voicing pass: decompose voiced kana into {base, mark}. Writes
+     backward into the second half of the buffer to avoid slide.                  */
   Char *de = s0 + xstring_length (string) * 2;
   Char *d = de;
   for (s = s0; se > s;)
     {
       Char c = *--se;
       *--d = c;
-      if (c < thp.fmin || c > thp.fmax)
-        for (int i = 0; i < numberof (ssh); i++)
-          if (c >= ssh[i].min && c <= ssh[i].max)
-            {
-              c = ssh[i].b[c - ssh[i].min];
-              if (c)
-                {
-                  *d = c & 0x80 ? u_char (0xde) : u_char (0xdf);
-                  *--d = c | 0x80;
-                }
-              break;
-            }
+      if (thp.should_skip (c))
+        continue;
+      if (c < CJK_RANGE_MIN || c > CJK_RANGE_MAX)
+        continue;
+      Char base = voiced_to_half_cjk[c - CJK_RANGE_MIN];
+      Char mark = HALFWIDTH_VOICED_MARK;
+      if (!base)
+        {
+          base = semi_voiced_to_half_cjk[c - CJK_RANGE_MIN];
+          mark = HALFWIDTH_SEMI_VOICED_MARK;
+        }
+      if (!base || !thp.accept_half (base) || !thp.accept_half (mark))
+        continue;
+      *d = mark;
+      *--d = base;
     }
   return make_string (d, de - d);
 }
@@ -1000,99 +963,54 @@ Fmap_to_full_width_string (lisp string, lisp keys)
   if (!flags)
     return string;
 
-  const Char *tof = flags & HIRA ? to_fullhira_a1_df : to_fullkata_a1_df;
+  const Char *tof = flags & HIRA ? to_fullhira_ff61_ff9f : to_fullkata_ff61_ff9f;
+  const Char *voiced_from = flags & HIRA ? voiced_from_hira : voiced_from_kata;
+  const Char *semi_voiced_from = flags & HIRA ? semi_voiced_from_hira : semi_voiced_from_kata;
+  Char compose_min = flags & HIRA ? FULL_WIDTH_HIRAGANA_MIN : FULL_WIDTH_KATAKANA_MIN;
+  Char compose_max = flags & HIRA ? FULL_WIDTH_HIRAGANA_MAX : FULL_WIDTH_KATAKANA_MAX;
 
-  safe_ptr <Char> s0 (new Char [xstring_length (string)]);
-  bcopy (xstring_contents (string), s0, xstring_length (string));
+  int n = xstring_length (string);
+  safe_ptr <Char> s0 (new Char [n]);
+  bcopy (xstring_contents (string), s0, n);
 
-  Char *s, *se;
-  for (s = s0, se = s + xstring_length (string); s < se; s++)
+  /* Forward pass: halfwidth → fullwidth (in-place; halfwidth ﾞ/ﾟ become ゛/゜).  */
+  for (Char *s = s0, *se = s + n; s < se; s++)
     {
       Char c = *s;
-      if (flags & (HIRA | KATA) && c >= 0xa1 && c <= 0xdf)
-        *s = tof[c - 0xa1];
-      else if (flags & ASC && c >= 0x20 && c <= 0x7e)
+      if ((flags & (HIRA | KATA))
+          && c >= HALFWIDTH_KANA_MIN && c <= HALFWIDTH_KANA_MAX)
+        *s = tof[c - HALFWIDTH_KANA_MIN];
+      else if ((flags & ASC) && c >= 0x20 && c <= 0x7e)
         *s = to_full_20_7e[c - 0x20];
     }
 
   if (!(flags & (HIRA | KATA)))
-    return make_string (s0, xstring_length (string));
+    return make_string (s0, n);
 
-#define PAD 0xa1
-  int npad = 0;
-  for (s = s0; se > s;)
+  /* Compose pass: base + ゛/゜ → voiced. Build output by scanning forward;
+     output length ≤ input length (never expands).                                */
+  safe_ptr <Char> out (new Char [n]);
+  Char *o = out;
+  int i = 0;
+  while (i < n)
     {
-      Char c = *--se, c2;
-      if (c != VOICED_SOUND_MARK && c != SEMI_VOICED_SOUND_MARK)
-        continue;
-      while (1)
+      Char c = s0[i];
+      if (i + 1 < n
+          && (s0[i + 1] == VOICED_SOUND_MARK || s0[i + 1] == SEMI_VOICED_SOUND_MARK)
+          && c >= compose_min && c <= compose_max)
         {
-          if (se == s)
-            goto done;
-          c2 = *--se;
-          if (c2 != VOICED_SOUND_MARK && c2 != SEMI_VOICED_SOUND_MARK)
-            break;
-          c = c2;
-        }
-      if (flags & HIRA)
-        {
-          if (c2 < TO_HALF_WIDTH82_MIN || c2 > TO_HALF_WIDTH82_MAX)
-            continue;
-          c2 = to_half_width_82[c2 - TO_HALF_WIDTH82_MIN];
-          if (!c2)
-            continue;
-          if (c == VOICED_SOUND_MARK)
+          Char composed = (s0[i + 1] == VOICED_SOUND_MARK
+                           ? voiced_from[c - compose_min]
+                           : semi_voiced_from[c - compose_min]);
+          if (composed)
             {
-              if (c2 < 0xb6 || c2 > 0xce)
-                continue;
-              c2 = to_fullhira_voiced_b6_ce[c2 - 0xb6];
-              if (!c2)
-                continue;
-            }
-          else
-            {
-              if (c2 < 0xca || c2 > 0xce)
-                continue;
-              c2 = to_fullhira_semi_voiced_ca_ce[c2 - 0xca];
+              *o++ = composed;
+              i += 2;
+              continue;
             }
         }
-      else
-        {
-          if (c2 < TO_HALF_WIDTH83_MIN || c2 > TO_HALF_WIDTH83_MAX)
-            continue;
-          c2 = to_half_width_83[c2 - TO_HALF_WIDTH83_MIN];
-          if (!c2)
-            continue;
-          if (c == VOICED_SOUND_MARK)
-            {
-              if (c2 < 0xb3 || c2 > 0xce)
-                continue;
-              c2 = to_fullkata_voiced_b3_ce[c2 - 0xb3];
-              if (!c2)
-                continue;
-            }
-          else
-            {
-              if (c2 < 0xca || c2 > 0xce)
-                continue;
-              c2 = to_fullkata_semi_voiced_ca_ce[c2 - 0xca];
-            }
-        }
-      se[1] = PAD;
-      *se = c2;
-      npad++;
+      *o++ = c;
+      i++;
     }
-done:
-
-  if (!npad)
-    return make_string (s0, xstring_length (string));
-
-  Char *p, *q, *pe;
-  for (p = s0, q = p, pe = p + xstring_length (string); p < pe;)
-    {
-      Char c = *p++;
-      if (c != PAD)
-        *q++ = c;
-    }
-  return make_string (s0, q - s0);
+  return make_string (out, o - out);
 }
