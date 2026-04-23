@@ -26,12 +26,12 @@ set_appid (IShellLinkA *sl, lisp lappid)
   if (!sysdep.Win6_1p ())
     return;
 
-  char *b = (char *)alloca (xstring_length (lappid) * 2 + 1);
-  w2s (b, lappid);
-
-  int l = (strlen (b) + 1);
-  wchar_t *w = (wchar_t *)alloca (l * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, b, -1, w, l);
+  /* Phase 2-5: PROPVARIANT VT_LPWSTR takes wchar_t. Copy the Lisp UTF-16
+     string straight in instead of detouring through cp932. */
+  int nlen = xstring_length (lappid);
+  wchar_t *w = (wchar_t *)alloca ((nlen + 1) * sizeof (wchar_t));
+  memcpy (w, xstring_contents (lappid), nlen * sizeof (wchar_t));
+  w[nlen] = 0;
 
   safe_com <IPropertyStore> store;
   ole_error (sl->QueryInterface (IID_PPV_ARGS(&store)));
