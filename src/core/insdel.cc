@@ -455,6 +455,61 @@ Buffer::pre_insert_chars (Point &point, int size_cu, int size_cp)
   return 1;
 }
 
+/* Phase 2-3: shift a single Char to the front of `target`, cascading to
+   c_next when target is already at TEXT_SIZE. Used to close a surrogate-pair
+   straddle by moving the dangling high into the next chunk along with the
+   low. Returns 0 if a cascade hits the tail without finding slack.          */
+static int
+push_cu_at_front (Chunk *target, Char c)
+{
+  if (!target)
+    return 0;
+  if (target->c_used < Chunk::TEXT_SIZE)
+    {
+      memmove (target->c_text + 1, target->c_text,
+               target->c_used * sizeof (Char));
+      target->c_text[0] = c;
+      target->c_used++;
+      return 1;
+    }
+  /* Full: cascade the tail CU forward first, then make room at the front. */
+  if (!push_cu_at_front (target->c_next,
+                         target->c_text[target->c_used - 1]))
+    return 0;
+  memmove (target->c_text + 1, target->c_text,
+           (target->c_used - 1) * sizeof (Char));
+  target->c_text[0] = c;
+  return 1;
+}
+
+/* Phase 2-3: walk chunks from `first` forward, closing any surrogate-pair
+   straddle (high at end of cp, low at start of cp->c_next) by shifting the
+   trailing high into the next chunk. Walks up to `budget_cu` worth of
+   content plus one extra chunk to cover tail slack. Call before the
+   c_nchars recount so counts reflect the post-shift layout.                 */
+static void
+fix_pair_straddles_forward (Chunk *first, int budget_cu)
+{
+  if (!first)
+    return;
+  int visited = 0;
+  Chunk *cp = first;
+  while (cp && cp->c_next && visited < budget_cu + Chunk::TEXT_SIZE)
+    {
+      Chunk *next = cp->c_next;
+      if (cp->c_used > 0 && next->c_used > 0
+          && is_high_surrogate (cp->c_text[cp->c_used - 1])
+          && is_low_surrogate (next->c_text[0]))
+        {
+          if (!push_cu_at_front (next, cp->c_text[cp->c_used - 1]))
+            break;
+          cp->c_used--;
+        }
+      visited += cp->c_used;
+      cp = next;
+    }
+}
+
 void
 Buffer::post_insert_chars (Point &point, int size_cu, int size_cp)
 {
@@ -469,6 +524,14 @@ Buffer::post_insert_chars (Point &point, int size_cu, int size_cp)
      - move_before_gap は c_prev の c_used を grow させ、w_point が cur
        (= prev->c_next) に進むケースでは forward walk が prev を覆わない。
        そこで c_prev を 1 つ recount する (touch していない場合は no-op)。 */
+
+  /* Phase 2-3: close any surrogate pair that got straddled across a chunk
+     boundary by the copy loop (data-aware chunk sizing was cheaper to avoid
+     at allocation time; fix up here before the c_nchars recount). */
+  fix_pair_straddles_forward (point.p_chunk->c_prev ? point.p_chunk->c_prev
+                                                    : point.p_chunk,
+                              size_cu);
+
   if (point.p_chunk->c_prev)
     {
       Chunk *pp = point.p_chunk->c_prev;
