@@ -362,6 +362,14 @@ map_backsl_to_sl (Char *p, int l)
       *p = '/';
 }
 
+void
+map_sl_to_backsl (Char *p, int l)
+{
+  for (int i = 0; i < l; i++, p++)
+    if (*p == '/')
+      *p = '\\';
+}
+
 static void
 coerce_to_pathname (lisp &pathname, pathbuf_t buf, const Char *&b, int &l)
 {

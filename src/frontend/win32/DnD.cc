@@ -218,13 +218,15 @@ make_idl (HWND hwnd, lisp ldir, void *param,
   safe_com <IShellFolder> desktop;
   ole_error (SHGetDesktopFolder (&desktop));
 
-  char *dir = (char *)alloca (xstring_length (ldir) * 2 + 1);
-  w2s (dir, ldir);
-  map_sl_to_backsl (dir);
-
-  int sz = max (int (strlen (dir) + 1), MAX_PATH) + MAX_PATH;
+  /* Phase 2-5: Lisp string is UTF-16; ParseDisplayName wants LPWSTR. Copy
+     the path straight into a wchar_t buffer with slack for trailing
+     processing, then fix up path separators in place. */
+  int dirlen = xstring_length (ldir);
+  int sz = max (dirlen + 1, MAX_PATH) + MAX_PATH;
   wchar_t *w = (wchar_t *)alloca (sz * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, dir, -1, w, sz);
+  memcpy (w, xstring_contents (ldir), dirlen * sizeof (wchar_t));
+  w[dirlen] = 0;
+  map_sl_to_backsl ((Char *)w, dirlen);
 
   ULONG eaten;
   safe_idl dir_idl (ialloc);
