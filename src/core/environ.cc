@@ -685,22 +685,25 @@ Fos_csd_version ()
 void
 init_environ ()
 {
-  char b[256];
-  DWORD n = sizeof b;
-  if (GetUserNameA (b, &n))
-    xsymbol_value (Vuser_name) = make_string (b);
+  wchar_t wb[256];
+  DWORD n = numberof (wb);
+  if (GetUserNameW (wb, &n))
+    /* GetUserNameW fills n as #chars including the null. make_string takes a
+       Char count excluding the null, hence n - 1. */
+    xsymbol_value (Vuser_name) = make_string ((const Char *)wb, n - 1);
   else
     xsymbol_value (Vuser_name) = make_string ("unknown");
 
-  n = sizeof b;
-  if (GetComputerNameA (b, &n))
-    xsymbol_value (Vmachine_name) = make_string (b);
+  n = numberof (wb);
+  if (GetComputerNameW (wb, &n))
+    xsymbol_value (Vmachine_name) = make_string ((const Char *)wb, n);
   else
     xsymbol_value (Vmachine_name) = make_string ("unknown");
 
-  char *processor_id = getenv ("PROCESSOR_IDENTIFIER");
+  const wchar_t *processor_id = _wgetenv (L"PROCESSOR_IDENTIFIER");
   if (processor_id)
-    xsymbol_value (Vmachine_version) = make_string (processor_id);
+    xsymbol_value (Vmachine_version) =
+      make_string ((const Char *)processor_id, wcslen (processor_id));
   else
     xsymbol_value (Vmachine_version) = Qnil;
 
@@ -977,13 +980,19 @@ environ::save_geometry ()
 lisp
 Fsi_environ ()
 {
+  /* Phase 2-5: use _wenviron so non-ASCII env values round-trip as UTF-16
+     without the w2s/s2w cp932 detour. _wenviron may be NULL until the CRT
+     initializes it (MS CRT populates on first _wgetenv / first wmain). A
+     harmless _wgetenv (L"") primes it. */
+  _wgetenv (L"");
   lisp r = Qnil;
-  for (char **e = _environ; *e; e++)
+  for (wchar_t **e = _wenviron; e && *e; e++)
     {
-      char *eq = strchr (*e, '=');
-      if (!eq) continue;
-      lisp env = xcons (make_string (*e, eq - *e),
-                        make_string (eq + 1));
+      const wchar_t *eq = wcschr (*e, L'=');
+      if (!eq)
+        continue;
+      lisp env = xcons (make_string ((const Char *)*e, eq - *e),
+                        make_string ((const Char *)(eq + 1), wcslen (eq + 1)));
       r = xcons (env, r);
     }
 
@@ -994,33 +1003,37 @@ lisp
 Fsi_getenv (lisp var)
 {
   check_string (var);
-  char *v = (char *)alloca (xstring_length (var) * 2 + 1);
-  w2s (v, var);
-  char *e = getenv (v);
-  return e ? make_string (e) : Qnil;
+  wchar_t *v = (wchar_t *)alloca ((xstring_length (var) + 1) * sizeof (wchar_t));
+  memcpy (v, xstring_contents (var), xstring_length (var) * sizeof (wchar_t));
+  v[xstring_length (var)] = 0;
+  const wchar_t *e = _wgetenv (v);
+  return e ? make_string ((const Char *)e, wcslen (e)) : Qnil;
 }
 
 lisp
 Fsi_putenv (lisp var, lisp val)
 {
   check_string (var);
-  int l = xstring_length (var) * 2 + 1 + 1;
+  size_t n = xstring_length (var) + 1 /*=*/ + 1 /*nul*/;
   if (val && val != Qnil)
     {
       check_string (val);
-      l += xstring_length (val) * 2;
+      n += xstring_length (val);
     }
 
-  char *v = (char *)alloca (l);
-  char *b = v;
-  v = w2s (v, var);
-  *v++ = '=';
+  wchar_t *b = (wchar_t *)alloca (n * sizeof (wchar_t));
+  wchar_t *v = b;
+  memcpy (v, xstring_contents (var), xstring_length (var) * sizeof (wchar_t));
+  v += xstring_length (var);
+  *v++ = L'=';
   if (val && val != Qnil)
-    w2s (v, val);
-  else
-    *v++ = 0;
+    {
+      memcpy (v, xstring_contents (val), xstring_length (val) * sizeof (wchar_t));
+      v += xstring_length (val);
+    }
+  *v = 0;
 
-  int r = _putenv (b);
+  int r = _wputenv (b);
   return (r < 0 || !val) ? Qnil : val;
 }
 
