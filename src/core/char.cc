@@ -549,86 +549,95 @@ Fiso_char_code (lisp lcc, lisp vender)
 lisp
 Fiso_code_char (lisp code, lisp charset, lisp vender)
 {
+  /* Map (code, charset) → legacy internal encoding value, then to UTF-16 via
+     i2w. Phase 2 buffer Char is a UTF-16 code unit, so make_char must receive
+     a Unicode code point — not a CP932/JIS/CCS slot value as it used to. */
   Char cc = (Char)fixnum_value (code);
+  Char internal;
   if (charset == Kus_ascii)
-    return make_char (cc & 127);
-  if (charset == Kjisx0201_kana)
-    return make_char ((cc & 127) | 128);
-  if (charset == Kiso8859_1)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_1 << 7)));
-  if (charset == Kiso8859_2)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_2 << 7)));
-  if (charset == Kiso8859_3)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_3 << 7)));
-  if (charset == Kiso8859_4)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_4 << 7)));
-  if (charset == Kiso8859_5)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_5 << 7)));
-  if (charset == Kiso8859_7)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_7 << 7)));
-  if (charset == Kiso8859_9)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_9 << 7)));
-  if (charset == Kiso8859_10)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_10 << 7)));
-  if (charset == Kiso8859_13)
-    return make_char (Char ((cc & 127) | (ccs_iso8859_13 << 7)));
-
-  int c1 = cc >> 8, c2 = cc & 255;
-  if (charset == Kbig5)
+    internal = cc & 127;
+  else if (charset == Kjisx0201_kana)
+    internal = (cc & 127) | 128;
+  else if (charset == Kiso8859_1)
+    internal = Char ((cc & 127) | (ccs_iso8859_1 << 7));
+  else if (charset == Kiso8859_2)
+    internal = Char ((cc & 127) | (ccs_iso8859_2 << 7));
+  else if (charset == Kiso8859_3)
+    internal = Char ((cc & 127) | (ccs_iso8859_3 << 7));
+  else if (charset == Kiso8859_4)
+    internal = Char ((cc & 127) | (ccs_iso8859_4 << 7));
+  else if (charset == Kiso8859_5)
+    internal = Char ((cc & 127) | (ccs_iso8859_5 << 7));
+  else if (charset == Kiso8859_7)
+    internal = Char ((cc & 127) | (ccs_iso8859_7 << 7));
+  else if (charset == Kiso8859_9)
+    internal = Char ((cc & 127) | (ccs_iso8859_9 << 7));
+  else if (charset == Kiso8859_10)
+    internal = Char ((cc & 127) | (ccs_iso8859_10 << 7));
+  else if (charset == Kiso8859_13)
+    internal = Char ((cc & 127) | (ccs_iso8859_13 << 7));
+  else
     {
-      if (c1 >= 0xa1 && c1 <= 0xf8 && c1 != 0xc8
-          && c2 >= 0x40 && c2 <= 0x7e || c2 >= 0xa1 && c2 <= 0xfe)
-        return make_char (big5_to_int (c1, c2));
-      return Qnil;
+      int c1 = cc >> 8, c2 = cc & 255;
+      if (charset == Kbig5)
+        {
+          if (!((c1 >= 0xa1 && c1 <= 0xf8 && c1 != 0xc8)
+                && ((c2 >= 0x40 && c2 <= 0x7e) || (c2 >= 0xa1 && c2 <= 0xfe))))
+            return Qnil;
+          internal = big5_to_int (c1, c2);
+        }
+      else
+        {
+          c1 &= 127;
+          c2 &= 127;
+          if (c1 <= 0x20 || c1 == 0x7f || c2 <= 0x20 || c2 == 0x7f)
+            return Qnil;
+          if (charset == Kjisx0208)
+            {
+              if (c1 >= 0x75
+                  && vender_depend_code (to_vender_code (vender)) == ENCODING_ISO_VENDER_OSFJVC)
+                c1 += 10;
+              internal = (j2sh (c1, c2) << 8) | j2sl (c1, c2);
+            }
+          else if (charset == Kjisx0212)
+            internal = jisx0212_to_internal (c1, c2,
+                                             (vender_depend_code (to_vender_code (vender))));
+          else if (charset == Kgb2312)
+            internal = gb2312_to_int (c1, c2);
+          else if (charset == Kksc5601)
+            internal = ksc5601_to_int (c1, c2);
+          else if (charset == Kbig5_1)
+            {
+              mule_g2b (ccs_big5_1, c1, c2);
+              internal = big5_to_int (c1, c2);
+            }
+          else if (charset == Kbig5_2)
+            {
+              mule_g2b (ccs_big5_2, c1, c2);
+              internal = big5_to_int (c1, c2);
+            }
+          else if (charset == Kcns11643_1)
+            {
+              init_cns11643_table ();
+              internal = cns11643_1_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
+              if (internal == Char (-1))
+                return Qnil;
+            }
+          else if (charset == Kcns11643_2)
+            {
+              init_cns11643_table ();
+              internal = cns11643_2_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
+              if (internal == Char (-1))
+                return Qnil;
+            }
+          else
+            return FEsimple_error (Eunknown_charset, charset);
+        }
     }
-
-  c1 &= 127;
-  c2 &= 127;
-  if (c1 <= 0x20 || c1 == 0x7f || c2 <= 0x20 || c2 == 0x7f)
+  ucs2_t wc = i2w (internal);
+  if (wc == ucs2_t (-1))
     return Qnil;
-
-  if (charset == Kjisx0208)
-    {
-      if (c1 >= 0x75
-          && vender_depend_code (to_vender_code (vender)) == ENCODING_ISO_VENDER_OSFJVC)
-        c1 += 10;
-      return make_char ((j2sh (c1, c2) << 8) | j2sl (c1, c2));
-    }
-  if (charset == Kjisx0212)
-    return make_char (jisx0212_to_internal (c1, c2,
-                                            (vender_depend_code (to_vender_code (vender)))));
-  if (charset == Kgb2312)
-    return make_char (gb2312_to_int (c1, c2));
-  if (charset == Kksc5601)
-    return make_char (ksc5601_to_int (c1, c2));
-  if (charset == Kbig5_1)
-    {
-      mule_g2b (ccs_big5_1, c1, c2);
-      return make_char (big5_to_int (c1, c2));
-    }
-  if (charset == Kbig5_2)
-    {
-      mule_g2b (ccs_big5_2, c1, c2);
-      return make_char (big5_to_int (c1, c2));
-    }
-  if (charset == Kcns11643_1)
-    {
-      init_cns11643_table ();
-      cc = cns11643_1_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
-      if (cc != Char (-1))
-        return make_char (cc);
-      return Qnil;
-    }
-  if (charset == Kcns11643_2)
-    {
-      init_cns11643_table ();
-      cc = cns11643_2_to_internal[c1 * 94 + c2 - (0x21 * 94 + 0x21)];
-      if (cc != Char (-1))
-        return make_char (cc);
-      return Qnil;
-    }
-
-  return FEsimple_error (Eunknown_charset, charset);
+  return make_char (Char (wc));
 }
 
 lisp
