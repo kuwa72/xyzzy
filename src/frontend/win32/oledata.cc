@@ -14,8 +14,11 @@ public:
 static lisp
 bstr2obj (BSTR bstr)
 {
-  USES_CONVERSION;
-  return make_string (bstr ? W2A (bstr) : "");
+  /* Phase 2: BSTR is UTF-16, Lisp string Char is also UTF-16. Skip the
+     W2A -> make_string(cp932) roundtrip that loses non-cp932 chars. */
+  if (!bstr)
+    return make_string ("");
+  return make_string ((const Char *)bstr, SysStringLen (bstr));
 }
 
 static BSTR
