@@ -820,7 +820,7 @@ print_engine::paint_ascii (PaintCtx &ctx, Char cc) const
 void
 print_engine::paint_kana (PaintCtx &ctx, Char cc) const
 {
-  ucs2_t wc = i2w (cc);
+  ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
   if (wc == ucs2_t (-1)) wc = L' ';
   SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
   ExtTextOutW (ctx.hdc, ctx.x + pe_offset[FONT_JP].x,
@@ -836,7 +836,7 @@ print_engine::paint_kanji (PaintCtx &ctx, Char cc) const
 {
   if (char_width (cc) == 2)
     {
-      ucs2_t wc = i2w (cc);
+      ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
       if (wc == ucs2_t (-1))
         wc = 0x30FB;  // U+30FB ・ (fallback)
       SelectObject (ctx.hdc, pe_hfonts[FONT_JP]);
@@ -862,7 +862,7 @@ void
 print_engine::paint_jisx0212 (PaintCtx &ctx, Char cc) const
 {
   int l = char_width (cc);
-  ucs2_t wc = i2w (cc);
+  ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
   if (wc != ucs2_t (-1))
     {
       int o = l == 2 ? pe_offset2x[FONT_JP] : pe_offset[FONT_JP].x;
@@ -885,7 +885,7 @@ print_engine::paint_jisx0212 (PaintCtx &ctx, Char cc) const
 void
 print_engine::paint_full_width (PaintCtx &ctx, Char cc, int f) const
 {
-  ucs2_t wc = i2w (cc);
+  ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
   if (wc != ucs2_t (-1))
     {
       SelectObject (ctx.hdc, pe_hfonts[f]);
@@ -906,7 +906,7 @@ print_engine::paint_full_width (PaintCtx &ctx, Char cc, int f) const
 void
 print_engine::paint_latin (PaintCtx &ctx, Char cc, int f) const
 {
-  ucs2_t wc = i2w (cc);
+  ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
   if (wc != ucs2_t (-1))
     {
       SelectObject (ctx.hdc, pe_hfonts[f]);
@@ -927,7 +927,7 @@ print_engine::paint_latin (PaintCtx &ctx, Char cc, int f) const
 void
 print_engine::paint_lucida (PaintCtx &ctx, Char cc) const
 {
-  ucs2_t wc = i2w (cc);
+  ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
   if (wc != ucs2_t (-1))
     {
       static LOGFONTW lfw = {0,0,0,0,0,0,0,0,0,0,0,0,0,LUCIDA_FACE_NAME_W};
@@ -2075,7 +2075,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
 
     case ccs_jisx0201_kana:
       {
-        ucs2_t wc = i2w (cc);
+        ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
         if (wc == ucs2_t (-1)) wc = L' ';
         SelectObject (gw.hdc, gw.hfonts[FONT_JP]);
         GetTextExtentPoint32W (gw.hdc, (LPCWSTR)&wc, 1, &sz);
@@ -2132,7 +2132,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
 
     case ccs_smlcdm:
       {
-        ucs2_t wc = i2w (cc);
+        ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
         if (wc != ucs2_t (-1))
           {
             const lucida_spacing *p = &lucida_spacing_table[wc - UNICODE_SMLCDM_MIN];
@@ -2153,7 +2153,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
 
     unicode_char:
       {
-        ucs2_t wc = i2w (cc);
+        ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
         if (wc != ucs2_t (-1))
           {
             SelectObject (gw.hdc, gw.hfonts[f]);
@@ -2171,7 +2171,7 @@ get_glyph_width (Char cc, const glyph_width &gw)
     default:
       if (char_width (cc) == 2)
         {
-          ucs2_t wc = i2w (cc);
+          ucs2_t wc = cc; /* Phase 2: Char は UTF-16 code unit */
           if (wc == ucs2_t (-1))
             wc = 0x30FB;  // U+30FB ・ (fallback)
           SelectObject (gw.hdc, gw.hfonts[FONT_JP]);

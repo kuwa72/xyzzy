@@ -153,9 +153,9 @@ status_area::char_unicode ()
     return calc_extent (ST_UNICODE, s_nil);
   if (wp->w_bufp->eobp (wp->w_point))
     return calc_extent (ST_UNICODE, s_eof);
-  ucs2_t wc = i2w (wp->w_point.ch ());
-  if (wc == ucs2_t (-1))
-    return calc_extent (ST_UNICODE, s_nil);
+  /* Phase 2: buffer Char は UTF-16 code unit。旧 i2w 経由は不要。
+     surrogate half も U+ 表示で問題なし。 */
+  ucs2_t wc = wp->w_point.ch ();
   char b[16];
   sprintf (b, " U+%04X ", wc);
   return calc_extent (ST_UNICODE, b);

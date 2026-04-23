@@ -2244,13 +2244,9 @@ Window::paint_terminal (HDC hdc, Terminal *term)
 
           int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
 
-          // Convert internal Char to wchar_t for ExtTextOutW
+          // Phase 2: Char is UTF-16 code unit, direct cast to wchar_t
           Char ich = tc->ch;
-          wchar_t wc;
-          if (ich == 0 || ich == ' ')
-            wc = L' ';
-          else
-            wc = i2w (ich);
+          wchar_t wc = (ich == 0 || ich == ' ') ? L' ' : (wchar_t) ich;
 
           int px = c * cellw + cellw / 2;
           RECT rc = { px, py, px + cw * cellw, py + cellh };

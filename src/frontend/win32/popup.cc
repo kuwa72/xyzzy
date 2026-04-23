@@ -269,11 +269,11 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
       popup_text = 0;
     }
 
-  int l = xstring_length (lstring) + 1;
-  wchar_t *p = (wchar_t *)xmalloc (l * sizeof (wchar_t));
-  for (int i = 0; i < xstring_length (lstring); i++)
-    p[i] = i2w (xstring_contents (lstring)[i]);
-  p[l - 1] = L'\0';
+  /* Phase 2: Lisp string Char は UTF-16 code unit なので直 memcpy。 */
+  int slen = xstring_length (lstring);
+  wchar_t *p = (wchar_t *)xmalloc ((slen + 1) * sizeof (wchar_t));
+  memcpy (p, xstring_contents (lstring), slen * sizeof (wchar_t));
+  p[slen] = L'\0';
   set_text (p, r);
   if (timeout > 0)
     SetTimer (hwnd_popup, TIMER_ID, timeout * 1000, 0);
