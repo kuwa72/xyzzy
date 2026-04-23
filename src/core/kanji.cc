@@ -684,17 +684,9 @@ static const to_half ssh[] =
   {VOICED_SOUND83_MIN, VOICED_SOUND83_MAX, voiced_sound_83},
 };
 
-#define CP932_GREEK_P(C) ((C) >= 0x839f && (C) <= 0x83d6)
-#define CP932_CYRILLIC_P(C) ((C) >= 0x8440 && (C) <= 0x8491)
-
-#define INTERNAL_GREEK_P(C) ((C) >= 0x3c1 && (C) <= 0x3f9)
-#define INTERNAL_CYRILLIC_P(C) ((C) >= 0x321 && (C) <= 0x371 && (C) != 0x370)
-
 #define ASC 1
 #define HIRA 2
 #define KATA 4
-#define GREEK 8
-#define CYRILLIC 16
 
 static int
 map_flags (lisp keys)
@@ -706,10 +698,6 @@ map_flags (lisp keys)
     flags |= HIRA;
   if (find_keyword_bool (Kkatakana, keys, 0))
     flags |= KATA;
-  if (find_keyword_bool (Kgreek, keys, 0))
-    flags |= GREEK;
-  if (find_keyword_bool (Kcyrillic, keys, 0))
-    flags |= CYRILLIC;
   return flags;
 }
 
@@ -795,13 +783,6 @@ Fmap_to_half_width_region (lisp from, lisp to, lisp keys)
                 point.ch () = c;
               goto next;
             }
-      if ((thp.flags & GREEK && CP932_GREEK_P (c))
-          || (thp.flags & CYRILLIC && CP932_CYRILLIC_P (c)))
-        {
-          c = w2i (i2w (c));
-          if (c != Char (-1))
-            point.ch () = c;
-        }
     next:
       if (!bp->forward_char (point, 1))
         break;
@@ -875,13 +856,6 @@ Fmap_to_full_width_region (lisp from, lisp to, lisp keys)
         point.ch () = tof[c - 0xa1];
       else if (flags & ASC && c >= 0x20 && c <= 0x7e)
         point.ch () = to_full_20_7e[c - 0x20];
-      else if ((flags & GREEK && INTERNAL_GREEK_P (c))
-               || (flags & CYRILLIC && INTERNAL_CYRILLIC_P (c)))
-        {
-          c = wc2cp932 (i2w (c));
-          if (c != Char (-1))
-            point.ch () = c;
-        }
       if (!bp->forward_char (point, 1))
         break;
     }
@@ -990,13 +964,6 @@ Fmap_to_half_width_string (lisp string, lisp keys)
                 goto next;
               }
           }
-      if ((thp.flags & GREEK && CP932_GREEK_P (c))
-          || (thp.flags & CYRILLIC && CP932_CYRILLIC_P (c)))
-        {
-          c = w2i (i2w (c));
-          if (c != Char (-1))
-            *s = c;
-        }
     next:;
     }
 
@@ -1046,13 +1013,6 @@ Fmap_to_full_width_string (lisp string, lisp keys)
         *s = tof[c - 0xa1];
       else if (flags & ASC && c >= 0x20 && c <= 0x7e)
         *s = to_full_20_7e[c - 0x20];
-      else if ((flags & GREEK && INTERNAL_GREEK_P (c))
-               || (flags & CYRILLIC && INTERNAL_CYRILLIC_P (c)))
-        {
-          c = wc2cp932 (i2w (c));
-          if (c != Char (-1))
-            *s = c;
-        }
     }
 
   if (!(flags & (HIRA | KATA)))
