@@ -394,10 +394,12 @@ Dialog::link_command (dlgctrl *c, UINT msg)
   lisp lurl = safe_find_keyword (Kurl, c->keyword ());
   if (!stringp (lurl))
     return;
-  char *url = (char *)alloca (xstring_length (lurl) * 2 + 1);
-  w2s (url, lurl);
+  /* Phase 2: Lisp URL は UTF-16。ShellExecuteW に直接渡す。 */
+  int ulen = xstring_length (lurl);
+  if (ulen >= MAX_PATH) ulen = MAX_PATH - 1;
   wchar_t wurl[MAX_PATH];
-  MultiByteToWideChar (932, 0, url, -1, wurl, MAX_PATH);
+  memcpy (wurl, xstring_contents (lurl), ulen * sizeof (wchar_t));
+  wurl[ulen] = 0;
   Fbegin_wait_cursor ();
   ShellExecuteW (get_active_window (), L"open", wurl, 0, 0, SW_SHOWNORMAL);
   Fend_wait_cursor ();
