@@ -261,9 +261,6 @@ Fcall_process (lisp cmd, lisp keys)
   PROCESS_INFORMATION pi;
   int result = CreateProcessA (0, cmdline, 0, 0, !no_std_handles,
                                (CREATE_DEFAULT_ERROR_MODE
-#ifdef UNICODE
-                                | CREATE_UNICODE_ENVIRONMENT
-#endif
                                 /*| CREATE_NEW_PROCESS_GROUP*/
                                 | NORMAL_PRIORITY_CLASS),
                                (void *)env.str (), dir, &si, &pi);
@@ -797,7 +794,7 @@ public:
         pClosePseudoConsole (p_hpc);
       delete p_term;
     }
-  void create (lisp command, lisp execdir);
+  void create (lisp command, lisp execdir, const char *env);
   virtual void wait_terminate ();
   virtual void signal ()
     {
@@ -822,7 +819,7 @@ public:
 };
 
 void
-ConPtyProcess::create (lisp command, lisp execdir)
+ConPtyProcess::create (lisp command, lisp execdir, const char *env)
 {
   char dir[PATH_MAX + 1];
   pathname2cstr (execdir, dir);
@@ -894,7 +891,7 @@ ConPtyProcess::create (lisp command, lisp execdir)
 
   PROCESS_INFORMATION pi;
   BOOL result = CreateProcessW (NULL, cmdline_w, NULL, NULL, FALSE,
-                                EXTENDED_STARTUPINFO_PRESENT, NULL,
+                                EXTENDED_STARTUPINFO_PRESENT, (void *)env,
                                 *dir ? dir_w : NULL,
                                 &siex.StartupInfo, &pi);
   if (pDeleteProcThreadAttributeList)
@@ -1240,9 +1237,6 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   PROCESS_INFORMATION pi;
   int result = CreateProcessA (0, cmdline, 0, 0, 1,
                                (CREATE_NEW_PROCESS_GROUP
-#ifdef UNICODE
-                                | CREATE_UNICODE_ENVIRONMENT
-#endif
                                 | CREATE_DEFAULT_ERROR_MODE
                                 | NORMAL_PRIORITY_CLASS),
                                (void *)env, dir, &si, &pi);
@@ -1332,7 +1326,7 @@ Fmake_process (lisp command, lisp keys)
       ConPtyProcess *cp = new ConPtyProcess (bp, process, Process::make_process_marker (bp));
       try
         {
-          cp->create (command, execdir);
+          cp->create (command, execdir, env.str ());
         }
       catch (nonlocal_jump &)
         {
