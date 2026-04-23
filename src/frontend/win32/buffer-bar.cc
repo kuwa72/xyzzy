@@ -25,16 +25,18 @@ buffer_bar::current () const
   return i >= 0 ? nth (i) : 0;
 }
 
-char *
-buffer_bar::set_buffer_name (const Buffer *bp, char *buf, int size)
+Char *
+buffer_bar::set_buffer_name (const Buffer *bp, Char *buf, int size)
 {
-  char *b = buf;
+  /* Phase 2: buffer 名は Lisp string (UTF-16) のまま Char 配列へ格納。 */
+  Char *b = buf;
+  Char *be = buf + size - 2;
   if (bp->b_modified)
     {
       *b++ = '*';
       *b++ = ' ';
     }
-  bp->buffer_name (b, buf + size - 2);
+  bp->buffer_name (b, be);
   return buf;
 }
 
@@ -43,11 +45,11 @@ buffer_bar::insert (const Buffer *bp, int i)
 {
   TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
-  char buf[BUFFER_NAME_MAX * 2 + 32];
-  set_buffer_name (bp, buf, sizeof buf);
-  wchar_t wbuf[BUFFER_NAME_MAX * 2 + 32];
-  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
-  ti.pszText = wbuf;
+  Char buf[BUFFER_NAME_MAX * 2 + 32];
+  int size = numberof (buf);
+  set_buffer_name (bp, buf, size);
+  buf[size - 1] = 0;  /* safety NUL */
+  ti.pszText = (LPWSTR) buf;
   ti.lParam = LPARAM (bp);
   return SendMessageW (b_hwnd, TCM_INSERTITEMW, i, LPARAM (&ti));
 }
@@ -57,11 +59,11 @@ buffer_bar::modify (const Buffer *bp, int i)
 {
   TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
-  char buf[BUFFER_NAME_MAX * 2 + 32];
-  set_buffer_name (bp, buf, sizeof buf);
-  wchar_t wbuf[BUFFER_NAME_MAX * 2 + 32];
-  MultiByteToWideChar (932, 0, buf, -1, wbuf, numberof (wbuf));
-  ti.pszText = wbuf;
+  Char buf[BUFFER_NAME_MAX * 2 + 32];
+  int size = numberof (buf);
+  set_buffer_name (bp, buf, size);
+  buf[size - 1] = 0;
+  ti.pszText = (LPWSTR) buf;
   ti.lParam = LPARAM (bp);
   return SendMessageW (b_hwnd, TCM_SETITEMW, i, LPARAM (&ti));
 }
@@ -162,8 +164,16 @@ void
 buffer_bar::draw_item (const draw_item_struct &dis)
 {
   Buffer *bp = (Buffer *)dis.data;
-  char buf[BUFFER_NAME_MAX * 2 + 32];
-  set_buffer_name (bp, buf, sizeof buf);
+  Char buf[BUFFER_NAME_MAX * 2 + 32];
+  Char *b = buf;
+  Char *be = buf + numberof (buf) - 2;
+  if (bp->b_modified)
+    {
+      *b++ = '*';
+      *b++ = ' ';
+    }
+  b = bp->buffer_name (b, be);
+  int l = (int)(b - buf);
 
   if (bp->b_modified)
     bp->b_buffer_bar_modified |= Buffer::BUFFER_BAR_LAST_MODIFIED_FLAG;
@@ -175,7 +185,7 @@ buffer_bar::draw_item (const draw_item_struct &dis)
   bp->b_buffer_bar_fg = fg;
   bp->b_buffer_bar_bg = bg;
 
-  tab_bar::draw_item (dis, buf, strlen (buf), fg, bg);
+  tab_bar::draw_item (dis, buf, l, fg, bg);
 }
 
 void

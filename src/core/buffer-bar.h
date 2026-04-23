@@ -23,7 +23,7 @@ private:
   Buffer *current () const;
   int insert (const Buffer *, int);
   int modify (const Buffer *, int);
-  static char *set_buffer_name (const Buffer *, char *, int);
+  static Char *set_buffer_name (const Buffer *, Char *, int);
   virtual int need_text (TOOLTIPTEXT &);
   virtual void draw_item (const draw_item_struct &);
   void insert_buffers ();

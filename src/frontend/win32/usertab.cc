@@ -159,9 +159,13 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
 void
 user_tab_bar::draw_item (const draw_item_struct &dis)
 {
+  /* Phase 2: tab label は UTF-16 で組み立てる。 */
   lisp name = item_name ((lisp)dis.data);
-  char buf[ITEM_NAME_MAX];
-  int l = w2s (buf, buf + sizeof buf, name) - buf;
+  Char buf[ITEM_NAME_MAX];
+  int cap = numberof (buf);
+  int l = xstring_length (name);
+  if (l > cap) l = cap;
+  memcpy (buf, xstring_contents (name), l * sizeof (Char));
   if (dis.state & ODS_SELECTED)
     tab_bar::draw_item (dis, buf, l,
                         get_misc_color (MC_TAB_SEL_FG),

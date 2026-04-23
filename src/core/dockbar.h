@@ -292,11 +292,13 @@ protected:
   void erase_bkgnd (HDC);
   int inverse_p () const {return style () & TCS_BOTTOM;}
   virtual void dock_edge ();
-  void draw_item (const draw_item_struct &, char *, int,
+  /* Phase 2: tab label は UTF-16 code unit で受け取る (Lisp 由来の buffer
+     名等が cp932 外 Unicode を含みうるため)。 */
+  void draw_item (const draw_item_struct &, Char *, int,
                   COLORREF, COLORREF) const;
   virtual void draw_item (const draw_item_struct &) {}
   virtual void update_ui ();
-  int abbrev_text (HDC, char *, int, int) const;
+  int abbrev_text (HDC, Char *, int, int) const;
   virtual void adjust_gripper (HDC, RECT &, const RECT &) const;
   int lbtn_down (int, int);
   int move_tab (int, int);

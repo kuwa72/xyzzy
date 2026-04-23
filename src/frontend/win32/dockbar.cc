@@ -648,37 +648,45 @@ tab_bar::calc_client_size (SIZE &sz, int vert) const
 }
 
 int
-tab_bar::abbrev_text (HDC hdc, char *s0, int l, int cx) const
+tab_bar::abbrev_text (HDC hdc, Char *s0, int l, int cx) const
 {
+  /* Phase 2: s0 は UTF-16 code unit 列。surrogate pair は 1 文字として
+     扱い、pair を割らないよう後ろから削る。 */
   cx -= t_dots;
   if (cx <= 0)
     return 0;
 
   SIZE sz;
-  wchar_t ws[1024];
-  char *se = s0 + l;
+  Char *se = s0 + l;
   do
     {
-      se = CharPrevA (s0, se);
       if (se == s0)
         break;
-      int wl = cp932_to_wcs (s0, se - s0, ws, 1024);
-      GetTextExtentPoint32W (hdc, ws, wl, &sz);
+      se--;
+      if (se > s0
+          && *se >= 0xDC00 && *se <= 0xDFFF
+          && se[-1] >= 0xD800 && se[-1] <= 0xDBFF)
+        se--;
+      GetTextExtentPoint32W (hdc, (LPCWSTR) s0, (int)(se - s0), &sz);
     }
   while (sz.cx > cx);
-  strcpy (se, "...");
-  return se - s0 + 3;
+  se[0] = '.';
+  se[1] = '.';
+  se[2] = '.';
+  return (int)(se - s0) + 3;
 }
 
 void
-tab_bar::draw_item (const draw_item_struct &dis, char *s, int l,
+tab_bar::draw_item (const draw_item_struct &dis, Char *s, int l,
                     COLORREF fg, COLORREF bg) const
 {
-  wchar_t ws[1024];
-  int wl = cp932_to_wcs (s, l, ws, 1024);
+  /* Phase 2: s は UTF-16 code unit 列なので wchar_t にそのまま渡せる。 */
+  if (l > 1023) l = 1023;
+  Char *ws = s;
+  int wl = l;
 
   SIZE sz;
-  GetTextExtentPoint32W (dis.hdc, ws, wl, &sz);
+  GetTextExtentPoint32W (dis.hdc, (LPCWSTR) ws, wl, &sz);
 
   int x, y;
   switch (edge ())
@@ -728,12 +736,17 @@ tab_bar::draw_item (const draw_item_struct &dis, char *s, int l,
                     we--;
                     if (we <= 0)
                       break;
-                    GetTextExtentPoint32W (dis.hdc, ws, we, &sz);
+                    /* Phase 2: surrogate pair を割らない */
+                    if (we > 0
+                        && ws[we] >= 0xDC00 && ws[we] <= 0xDFFF
+                        && ws[we - 1] >= 0xD800 && ws[we - 1] <= 0xDBFF)
+                      we--;
+                    GetTextExtentPoint32W (dis.hdc, (LPCWSTR) ws, we, &sz);
                   }
                 while (sz.cx > cx);
-                ws[we] = L'.';
-                ws[we + 1] = L'.';
-                ws[we + 2] = L'.';
+                ws[we] = '.';
+                ws[we + 1] = '.';
+                ws[we + 2] = '.';
                 wl = we + 3;
               }
             else
@@ -745,7 +758,8 @@ tab_bar::draw_item (const draw_item_struct &dis, char *s, int l,
 
   COLORREF ofg = SetTextColor (dis.hdc, fg);
   COLORREF obg = SetBkColor (dis.hdc, bg);
-  ExtTextOutW (dis.hdc, x, y, ETO_CLIPPED | ETO_OPAQUE, &dis.r, ws, wl, 0);
+  ExtTextOutW (dis.hdc, x, y, ETO_CLIPPED | ETO_OPAQUE, &dis.r,
+               (LPCWSTR) ws, wl, 0);
   SetTextColor (dis.hdc, ofg);
   SetBkColor (dis.hdc, obg);
   if (dis.state & ODS_SELECTED && GetFocus () == b_hwnd)
