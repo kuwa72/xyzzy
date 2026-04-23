@@ -129,6 +129,16 @@ Buffer::read_chunk (ReadFileContext &rfc, xread_stream &sin)
     }
 done:
   cp->c_used = p - cp->c_text;
+  /* Phase 2-3: chunk 境界で surrogate pair を割らない。最後の CU が high
+     surrogate なら (= low surrogate は次 chunk 先頭に行く) stream へ
+     putback し、この chunk からも外す。こうして次 chunk 先頭で pair 2 CU
+     が揃って読まれる。 */
+  if (cp->c_used > 0 && is_high_surrogate (cp->c_text[cp->c_used - 1]))
+    {
+      sin.putback (cp->c_text[cp->c_used - 1]);
+      cp->c_used--;
+      p--;
+    }
   cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
   cp->c_nlines = nlines;
   /* Phase 2-1: r_nchars は cp 単位 (b_nchars と整合)。 */

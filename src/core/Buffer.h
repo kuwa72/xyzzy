@@ -116,6 +116,49 @@ chunk_backward_cp (const Char *p, int cu_offset, int ncp)
 
 int unicode_width (unsigned int);  /* eaw.h */
 
+/* Phase 2-3: cp 数 → cu offset 逆引き (count_code_points の逆関数)。
+   ncp 個 cp 進めた cu offset を返す。chunk 末尾まで達した場合は c_used
+   で止める。 */
+static inline int
+cp_to_cu_in_chunk (const Char *p, int c_used, int ncp)
+{
+  int cu = 0;
+  while (ncp > 0 && cu < c_used)
+    {
+      if (is_high_surrogate (p[cu])
+          && cu + 1 < c_used
+          && is_low_surrogate (p[cu + 1]))
+        cu += 2;
+      else
+        cu += 1;
+      ncp--;
+    }
+  return cu;
+}
+
+/* Phase 2-3: offset が code point boundary か判定。offset が 0 / c_used
+   と等しい、あるいは text[offset] が low surrogate の直前 (= high surrogate
+   が text[offset-1]) でなければ true。 */
+static inline bool
+is_code_point_boundary (const Char *p, int c_used, int offset)
+{
+  if (offset <= 0 || offset >= c_used)
+    return true;
+  return !(is_high_surrogate (p[offset - 1]) && is_low_surrogate (p[offset]));
+}
+
+/* Phase 2-3: offset が surrogate pair を割る位置なら直前の cp 境界まで
+   戻す。分割に使う「安全な」offset を返す。 */
+static inline int
+safe_split_offset (const Char *p, int c_used, int offset)
+{
+  if (offset > 0 && offset < c_used
+      && is_high_surrogate (p[offset - 1])
+      && is_low_surrogate (p[offset]))
+    return offset - 1;
+  return offset;
+}
+
 /* Phase 2-1: surrogate pair からの display width 取得。pair 合成後の
    cp で unicode_width を引き、paint 側 (glyph_sbchar/dbchar) が emit
    する cell 数と同じ値を返す。0-width (非 BMP の tag / variation
