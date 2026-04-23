@@ -2,14 +2,46 @@
 #include "ed.h"
 #include "binfo.h"
 
-const char *const buffer_info::b_eol_name[] = {"lf", "crlf", "cr"};
+/* Phase 2: mode line は Char * (UTF-16) で組み立てる。旧実装は cp932
+   バイト列で組み立ててから最後に cp932_to_wcs していた。 */
 
-char *
-buffer_info::modified (char *b, int pound) const
+const Char *const buffer_info::b_eol_name[] =
+  {(const Char *)L"lf", (const Char *)L"crlf", (const Char *)L"cr"};
+
+static Char *
+stwncpy (Char *b, Char *be, const char *s, size_t max)
+{
+  size_t i;
+  for (i = 0; i < max && s[i] && b < be; i++)
+    *b++ = (Char)(u_char)s[i];
+  return b;
+}
+
+static Char *
+stwncpy (Char *b, Char *be, const Char *s, size_t max)
+{
+  size_t i;
+  for (i = 0; i < max && s[i] && b < be; i++)
+    *b++ = s[i];
+  return b;
+}
+
+static Char *
+copy_lisp_string (Char *b, Char *be, lisp str)
+{
+  int nlim = (int)(be - b);
+  int nstr = xstring_length (str);
+  int n = nstr < nlim ? nstr : nlim;
+  memcpy (b, xstring_contents (str), n * sizeof (Char));
+  return b + n;
+}
+
+Char *
+buffer_info::modified (Char *b, int pound) const
 {
   if (!pound)
     {
-      int c1 = '-', c2 = '-';
+      Char c1 = '-', c2 = '-';
       if (b_bufp->b_modified)
         c1 = c2 = '*';
       if (b_bufp->read_only_p ())
@@ -28,8 +60,8 @@ buffer_info::modified (char *b, int pound) const
   return b;
 }
 
-char *
-buffer_info::read_only (char *b, int pound) const
+Char *
+buffer_info::read_only (Char *b, int pound) const
 {
   if (b_bufp->read_only_p ())
     *b++ = '%';
@@ -40,8 +72,8 @@ buffer_info::read_only (char *b, int pound) const
   return b;
 }
 
-char *
-buffer_info::buffer_name (char *b, char *be) const
+Char *
+buffer_info::buffer_name (Char *b, Char *be) const
 {
   b = b_bufp->buffer_name (b, be);
   if (b == be - 1)
@@ -49,42 +81,42 @@ buffer_info::buffer_name (char *b, char *be) const
   return b;
 }
 
-char *
-buffer_info::file_name (char *b, char *be, int pound) const
+Char *
+buffer_info::file_name (Char *b, Char *be, int pound) const
 {
   lisp name;
   if (stringp (name = b_bufp->lfile_name)
       || stringp (name = b_bufp->lalternate_file_name))
     {
       if (!pound)
-        b = stpncpy (b, "File: ", be - b);
-      b = w2s (b, be, name);
+        b = stwncpy (b, be, "File: ", 6);
+      b = copy_lisp_string (b, be, name);
       if (b == be - 1)
         *b++ = ' ';
     }
   return b;
 }
 
-char *
-buffer_info::file_or_buffer_name (char *b, char *be, int pound) const
+Char *
+buffer_info::file_or_buffer_name (Char *b, Char *be, int pound) const
 {
-  char *bb = b;
+  Char *bb = b;
   b = file_name (b, be, pound);
   if (b == bb)
     b = buffer_name (b, be);
   return b;
 }
 
-static char *
-docopy (char *d, char *de, const char *s, int &f)
+static Char *
+docopy (Char *d, Char *de, const char *s, int &f)
 {
-  *d++ = f ? ' ' : ':';
+  if (d < de) *d++ = f ? ' ' : ':';
   f = 1;
-  return stpncpy (d, s, de - d);
+  return stwncpy (d, de, s, strlen (s));
 }
 
-char *
-buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
+Char *
+buffer_info::minor_mode (lisp x, Char *b, Char *be, int &f) const
 {
   for (int i = 0; i < 10; i++)
     if (consp (x) && symbolp (xcar (x))
@@ -99,9 +131,9 @@ buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
           }
         if (stringp (x))
           {
-            *b++ = f ? ' ' : ':';
+            if (b < be) *b++ = f ? ' ' : ':';
             f = 1;
-            return w2s (b, be, x);
+            return copy_lisp_string (b, be, x);
           }
       }
     else
@@ -109,13 +141,13 @@ buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
   return b;
 }
 
-char *
-buffer_info::mode_name (char *b, char *be, int c) const
+Char *
+buffer_info::mode_name (Char *b, Char *be, int c) const
 {
   int f = 0;
   lisp mode = symbol_value (Vmode_name, b_bufp);
   if (stringp (mode))
-    b = w2s (b, be, mode);
+    b = copy_lisp_string (b, be, mode);
 
   if (c == 'M')
     {
@@ -132,105 +164,137 @@ buffer_info::mode_name (char *b, char *be, int c) const
     switch (xprocess_status (b_bufp->lprocess))
       {
       case PS_RUN:
-        b = stpncpy (b, ":Run", be - b);
+        b = stwncpy (b, be, ":Run", 4);
         break;
 
       case PS_EXIT:
-        b = stpncpy (b, ":Exit", be - b);
+        b = stwncpy (b, be, ":Exit", 5);
         break;
       }
   return b;
 }
 
-char *
-buffer_info::ime_mode (char *b, char *be) const
+Char *
+buffer_info::progname (Char *b, Char *be) const
+{
+  return stwncpy (b, be, ProgramName, strlen (ProgramName));
+}
+
+Char *
+buffer_info::encoding (Char *b, Char *be) const
+{
+  return copy_lisp_string (b, be, xchar_encoding_name (b_bufp->lchar_encoding));
+}
+
+Char *
+buffer_info::eol_code (Char *b, Char *be) const
+{
+  const Char *s = b_eol_name[b_bufp->b_eol_code];
+  while (*s && b < be)
+    *b++ = *s++;
+  return b;
+}
+
+Char *
+buffer_info::ime_mode (Char *b, Char *be) const
 {
   if (!b_ime)
     return b;
   *b_ime = 1;
-  return stpncpy (b, (app.ime_open_mode == kbd_queue::IME_MODE_ON
-                      ? "\x82\xa0" : "--"),
-                  be - b);
+  if (app.ime_open_mode == kbd_queue::IME_MODE_ON)
+    {
+      if (b < be) *b++ = (Char)0x3042;  /* あ */
+    }
+  else
+    {
+      if (b < be) *b++ = '-';
+      if (b < be) *b++ = '-';
+    }
+  return b;
 }
 
-char *
-buffer_info::position (char *b, char *be) const
+Char *
+buffer_info::position (Char *b, Char *be) const
 {
   if (b_posp)
     *b_posp = b;
   else if (b_wp)
     {
       char tem[64];
-      sprintf (tem, "%d:%d", b_wp->w_plinenum, b_wp->w_column);
-      b = stpncpy (b, tem, be - b);
+      int tl = sprintf (tem, "%d:%d", b_wp->w_plinenum, b_wp->w_column);
+      b = stwncpy (b, be, tem, tl);
     }
   return b;
 }
 
-char *
-buffer_info::version (char *b, char *be, int pound) const
+Char *
+buffer_info::version (Char *b, Char *be, int pound) const
 {
-  return stpncpy (b, pound ? DisplayVersionString : VersionString, be - b);
+  const char *s = pound ? DisplayVersionString : VersionString;
+  return stwncpy (b, be, s, strlen (s));
 }
 
-char *
-buffer_info::host_name (char *b, char *be, int pound) const
+Char *
+buffer_info::host_name (Char *b, Char *be, int pound) const
 {
   if (*sysdep.host_name)
     {
-      if (pound)
+      if (pound && b < be)
         *b++ = '@';
-      b = stpncpy (b, sysdep.host_name, be - b);
+      b = stwncpy (b, be, sysdep.host_name, strlen (sysdep.host_name));
     }
   return b;
 }
 
-char *
-buffer_info::process_id (char *b, char *be) const
+Char *
+buffer_info::process_id (Char *b, Char *be) const
 {
   char tem[64];
-  sprintf_s (tem, sizeof tem, "%d", sysdep.process_id);
-  return stpncpy (b, tem, be - b);
+  int tl = sprintf_s (tem, sizeof tem, "%d", sysdep.process_id);
+  return stwncpy (b, be, tem, tl);
 }
 
-char *
-buffer_info::admin_user (char *b, char *be) const
+Char *
+buffer_info::admin_user (Char *b, Char *be) const
 {
   if (Fadmin_user_p () == Qt)
     {
-      int f = 0;
-      b = stpncpy (b, "\x8a\xc7\x97\x9d\x8e\xd2: ", be - b);
+      /* 管理者:  = U+7BA1 U+7406 U+8005 U+003A U+0020 */
+      static const Char label[] = { 0x7BA1, 0x7406, 0x8005, 0x003A, 0x0020, 0 };
+      for (const Char *p = label; *p && b < be; p++)
+        *b++ = *p;
     }
   return b;
 }
 
-char *
-buffer_info::percent (char *b, char *be) const
+Char *
+buffer_info::percent (Char *b, Char *be) const
 {
   if (b_percentp)
     *b_percentp = b;
   else if (b_bufp && b_wp)
     {
       char tem[64];
-	  if(b_bufp->b_nchars > 0)
-	      sprintf_s (tem, 64, "%d", (100*b_wp->w_point.p_point) / b_bufp->b_nchars);
-	  else
-		  sprintf_s (tem, 64, "100");
-      b = stpncpy (b, tem, be - b);
+      int tl;
+      if (b_bufp->b_nchars > 0)
+        tl = sprintf_s (tem, 64, "%d", (100 * b_wp->w_point.p_point) / b_bufp->b_nchars);
+      else
+        tl = sprintf_s (tem, 64, "100");
+      b = stwncpy (b, be, tem, tl);
     }
   return b;
 }
 
 
-char *
-buffer_info::format (lisp fmt, char *b, char *be) const
+Char *
+buffer_info::format (lisp fmt, Char *b, Char *be) const
 {
   if (b_posp)
     *b_posp = 0;
   if (b_ime)
     *b_ime = 0;
   if (b_percentp)
-	*b_percentp = 0;
+    *b_percentp = 0;
 
   const Char *p = xstring_contents (fmt);
   const Char *const pe = p + xstring_length (fmt);
@@ -241,9 +305,7 @@ buffer_info::format (lisp fmt, char *b, char *be) const
       if (c != '%')
         {
         normal_char:
-          if (DBCP (c))
-            *b++ = c >> 8;
-          *b++ = char (c);
+          if (b < be) *b++ = c;
         }
       else
         {
@@ -318,9 +380,9 @@ buffer_info::format (lisp fmt, char *b, char *be) const
               b = position (b, be);
               break;
 
-			case '/':
-			  b = percent (b, be);
-			  break;
+            case '/':
+              b = percent (b, be);
+              break;
 
             case '$':
               b = process_id (b, be);

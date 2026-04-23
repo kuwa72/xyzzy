@@ -1760,16 +1760,19 @@ mode_line_point_painter::paint_point (HDC hdc)
 void
 Window::paint_mode_line (HDC hdc)
 {
-  char *b0, *b;
-  char *posp = 0;
-  char *percentp = 0;
+  /* Phase 2: mode line は Char * (UTF-16 code unit) で組み立てて直接
+     ExtTextOutW へ渡す。旧実装は cp932 バイト列 → cp932_to_wcs で
+     非 cp932 chars が '?' に落ちていた。 */
+  Char *b0, *b;
+  Char *posp = 0;
+  Char *percentp = 0;
 
   w_ime_mode_line = 0;
   lisp fmt = symbol_value (Vmode_line_format, w_bufp);
   if (stringp (fmt))
     {
       int l = max (int (w_ch_max.cx), 512);
-      b0 = (char *)alloca (l + 10);
+      b0 = (Char *)alloca ((l + 10) * sizeof (Char));
       b = b0;
       *b++ = ' ';
 
@@ -1834,16 +1837,13 @@ Window::paint_mode_line (HDC hdc)
 
   if (painters.size() == 0)
     {
-      {
-        wchar_t wml[2048];
-        int wmll = cp932_to_wcs (b0, b - b0, wml, 2048);
-        ExtTextOutW (hdc, 1, 1 + app.modeline_param.m_exlead,
-                     ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
-      }
+      ExtTextOutW (hdc, 1, 1 + app.modeline_param.m_exlead,
+                   ETO_OPAQUE | ETO_CLIPPED, &r,
+                   (LPCWSTR)b0, int (b - b0), 0);
     }
   else
     {
-	  char *b1 = b0;
+	  Char *b1 = b0;
 	  for(std::list<mode_line_painter*>::iterator it = painters.begin(); it != painters.end(); it++)
 	  {
 		  mode_line_painter * painter = *it;
@@ -1856,29 +1856,26 @@ Window::paint_mode_line (HDC hdc)
 		  }
 		  else
 		  {
-			  wchar_t wml[2048];
-			  int wmll = cp932_to_wcs (b1, painter->get_posp() - b1, wml, 2048);
+			  int wmll = int (painter->get_posp() - b1);
 			  SIZE size;
-			  GetTextExtentPoint32W (hdc, wml, wmll, &size);
+			  GetTextExtentPoint32W (hdc, (LPCWSTR)b1, wmll, &size);
 
 			  point_start_px = r.left + size.cx;
 
 			  r.right = min (point_start_px, int (w_ml_size.cx - 1));
 			  ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
-						   ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
+						   ETO_OPAQUE | ETO_CLIPPED, &r,
+						   (LPCWSTR)b1, wmll, 0);
 		  }
 
 		  r.left = painter->first_paint(hdc, point_start_px);
 		  b1 = painter->get_posp();
 	  }
 
-      {
-        wchar_t wml[2048];
-        int wmll = cp932_to_wcs (b1, b - b1, wml, 2048);
-        r.right = w_ml_size.cx - 1;
-        ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
-                     ETO_OPAQUE | ETO_CLIPPED, &r, wml, wmll, 0);
-      }
+      r.right = w_ml_size.cx - 1;
+      ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
+                   ETO_OPAQUE | ETO_CLIPPED, &r,
+                   (LPCWSTR)b1, int (b - b1), 0);
     }
 
 

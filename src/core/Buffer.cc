@@ -740,6 +740,24 @@ Buffer::buffer_name (char *b, char *be) const
   return stpncpy (b, t, be - b);
 }
 
+Char *
+Buffer::buffer_name (Char *b, Char *be) const
+{
+  int nlim = (int)(be - b);
+  int nname = xstring_length (lbuffer_name);
+  int n = nname < nlim ? nname : nlim;
+  memcpy (b, xstring_contents (lbuffer_name), n * sizeof (Char));
+  b += n;
+  if (b >= be - 1 || b_version == 1)
+    return b;
+  char t[64];
+  int tl = sprintf (t, "<%d>", b_version);
+  int copy = tl < (int)(be - b) ? tl : (int)(be - b);
+  for (int i = 0; i < copy; i++)
+    *b++ = (Char)(u_char)t[i];
+  return b;
+}
+
 char *
 Buffer::quoted_buffer_name (char *b, char *be, int qc, int qe) const
 {
@@ -1318,13 +1336,13 @@ Buffer::refresh_title_bar () const
   lisp fmt = symbol_value (Vtitle_bar_format, this);
   if (stringp (fmt))
     {
-      char buf[512 + 10];
+      /* Phase 2: buffer_info::format は Char* (UTF-16) を書き出すので
+         直接 SetWindowTextW へ渡す。 */
+      Char buf[512 + 10];
       buffer_info binfo (0, this, 0, 0, 0);
-      *binfo.format (fmt, buf, buf + 512) = 0;
-      {
-        WideStr wbuf (buf);
-        SetWindowTextW (app.toplev, wbuf);
-      }
+      Char *end = binfo.format (fmt, buf, buf + 512);
+      *end = 0;
+      SetWindowTextW (app.toplev, (LPCWSTR)buf);
     }
   else
     {

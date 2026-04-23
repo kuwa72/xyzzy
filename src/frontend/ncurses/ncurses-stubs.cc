@@ -2229,10 +2229,10 @@ draw_modeline (Window *wp, int row, int col_offset, int cols)
   if (!bp)
     return;
 
-  // Format modeline using buffer_info (same as Win32 paint_mode_line)
+  // Phase 2: buffer_info::format writes Char * (UTF-16 code units).
   int l = cols + 10;
-  char *b0 = (char *)alloca (l);
-  char *b = b0;
+  Char *b0 = (Char *)alloca (l * sizeof (Char));
+  Char *b = b0;
   *b++ = ' ';
 
   lisp fmt = symbol_value (Vmode_line_format, bp);
@@ -2244,11 +2244,11 @@ draw_modeline (Window *wp, int row, int col_offset, int cols)
 
   int maxw = (cols < 1024) ? cols : 1024;
 
-  // Convert char buffer to wchar_t and draw
+  // Copy UTF-16 into wchar_t buffer for drawing
   wchar_t wbuf[1025];
   int wi = 0;
-  for (char *p = b0; p < b && wi < maxw; p++)
-    wbuf[wi++] = (wchar_t)(unsigned char)*p;
+  for (Char *p = b0; p < b && wi < maxw; p++)
+    wbuf[wi++] = (wchar_t)*p;
 
   // Pad with '-'
   while (wi < maxw)

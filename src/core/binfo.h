@@ -3,39 +3,41 @@
 
 #include "version.h"
 
+/* Phase 2: mode line buffer は UTF-16 code unit 列 (Char *)。以前は cp932
+   バイト列を組み立ててから cp932_to_wcs で wchar_t 化していたが、buffer
+   名 / ファイル名に cp932 外の Unicode (emoji, 非 JIS 漢字等) が含まれると
+   w2s で '?' 脱落していた。直接 Char で組み立てれば roundtrip なしで
+   ExtTextOutW へ渡せる。 */
 class buffer_info
 {
   const Window *const b_wp;
   const Buffer *const b_bufp;
-  char **const b_posp;
-  char **const b_percentp;
+  Char **const b_posp;
+  Char **const b_percentp;
   int *const b_ime;
-  static const char *const b_eol_name[];
+  static const Char *const b_eol_name[];
 
-  char *minor_mode (lisp, char *, char *, int &) const;
+  Char *minor_mode (lisp, Char *, Char *, int &) const;
 public:
-  buffer_info (const Window *wp, const Buffer *bp, char **posp, int *ime, char **percentp)
+  buffer_info (const Window *wp, const Buffer *bp, Char **posp, int *ime, Char **percentp)
        : b_wp (wp), b_bufp (bp), b_posp (posp), b_ime (ime), b_percentp(percentp) {}
-  char *format (lisp, char *, char *) const;
-  char *modified (char *, int) const;
-  char *read_only (char *, int) const;
-  char *progname (char *b, char *be) const
-    {return stpncpy (b, ProgramName, be - b);}
-  char *version (char *, char *, int) const;
-  char *buffer_name (char *, char *) const;
-  char *file_name (char *, char *, int) const;
-  char *file_or_buffer_name (char *, char *, int) const;
-  char *mode_name (char *, char *, int) const;
-  char *encoding (char *b, char *be) const
-    {return w2s (b, be, xchar_encoding_name (b_bufp->lchar_encoding));}
-  char *eol_code (char *b, char *be) const
-    {return stpncpy (b, b_eol_name[b_bufp->b_eol_code], be - b);}
-  char *ime_mode (char *, char *) const;
-  char *position (char *, char *) const;
-  char *host_name (char *, char *, int) const;
-  char *process_id (char *, char *) const;
-  char *admin_user (char *, char *) const;
-  char *percent(char *, char *) const;
+  Char *format (lisp, Char *, Char *) const;
+  Char *modified (Char *, int) const;
+  Char *read_only (Char *, int) const;
+  Char *progname (Char *b, Char *be) const;
+  Char *version (Char *, Char *, int) const;
+  Char *buffer_name (Char *, Char *) const;
+  Char *file_name (Char *, Char *, int) const;
+  Char *file_or_buffer_name (Char *, Char *, int) const;
+  Char *mode_name (Char *, Char *, int) const;
+  Char *encoding (Char *b, Char *be) const;
+  Char *eol_code (Char *b, Char *be) const;
+  Char *ime_mode (Char *, Char *) const;
+  Char *position (Char *, Char *) const;
+  Char *host_name (Char *, Char *, int) const;
+  Char *process_id (Char *, Char *) const;
+  Char *admin_user (Char *, Char *) const;
+  Char *percent(Char *, Char *) const;
 };
 
 #endif
