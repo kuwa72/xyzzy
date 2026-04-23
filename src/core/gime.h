@@ -38,7 +38,7 @@ public:
   BOOL ImmSetCompositionString (HIMC, DWORD, void *, DWORD, void *, DWORD);
   BOOL ImmConfigureIME (HKL, HWND, DWORD, REGISTERWORDA *);
   UINT ImmGetVirtualKey (HWND);
-  UINT ImmGetDescription (HKL, LPSTR, UINT);
+  UINT ImmGetDescription (HKL, LPWSTR, UINT);
   DWORD ImmGetProperty (HKL, DWORD);
 };
 

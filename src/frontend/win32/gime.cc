@@ -226,16 +226,16 @@ GlobalIME::ImmGetVirtualKey (HWND hwnd)
 }
 
 UINT
-GlobalIME::ImmGetDescription (HKL hkl, LPSTR buf, UINT size)
+GlobalIME::ImmGetDescription (HKL hkl, LPWSTR buf, UINT size)
 {
 #ifdef HAVE_DIMM_H
   if (gi_app)
     {
       UINT n;
-      return gi_app->GetDescriptionA (hkl, size, buf, &n) == S_OK ? n : 0;
+      return gi_app->GetDescriptionW (hkl, size, buf, &n) == S_OK ? n : 0;
     }
 #endif /* HAVE_DIMM_H */
-  return ::ImmGetDescriptionA (hkl, buf, size);
+  return ::ImmGetDescriptionW (hkl, buf, size);
 }
 
 DWORD

@@ -1468,8 +1468,11 @@ Fenable_global_ime (lisp f)
   return Qt;
 }
 
+/* Populate buf (UTF-16 Char array of `size` cells, including nul) with the
+   display name of the keyboard layout at hkl. Try the registry's "Layout
+   Text" REG_SZ first (already UTF-16); fall back to ImmGetDescriptionW. */
 static int
-get_kbd_layout_name (HKL hkl, char *buf, int size)
+get_kbd_layout_name (HKL hkl, Char *buf, int size)
 {
   Char k[256];
   _snwprintf ((wchar_t *)k, numberof (k),
@@ -1479,20 +1482,16 @@ get_kbd_layout_name (HKL hkl, char *buf, int size)
   if (!r.fail ())
     {
       static const Char layout_text[] = {'L','a','y','o','u','t',' ','T','e','x','t',0};
-      Char wbuf[256];
-      if (r.get (layout_text, wbuf, sizeof wbuf) > 0)
+      if (r.get (layout_text, buf, size * sizeof (Char)) > 0)
         {
-          int nchar = 0;
-          while (nchar < (int)numberof (wbuf) && wbuf[nchar]) nchar++;
-          size_t nb = w2sl (wbuf, nchar);
-          int copy = min<int> (nb, size - 1);
-          w2s (buf, buf + copy, wbuf, nchar);
-          buf[copy] = 0;
-          if (copy > 0)
+          buf[size - 1] = 0;
+          if (buf[0])
             return 1;
         }
     }
-  return app.kbdq.gime.ImmGetDescription (hkl, buf, size) > 0;
+  UINT n = app.kbdq.gime.ImmGetDescription (hkl, (LPWSTR)buf, size);
+  buf[size - 1] = 0;
+  return n > 0;
 }
 
 typedef UINT (WINAPI *GETKEYBOARDLAYOUTLIST)(int, HKL *);
@@ -1516,12 +1515,17 @@ Flist_kbd_layout ()
   lisp r = Qnil;
   for (int i = 0; i < n; i++)
     {
-      char buf[256];
-      if (get_kbd_layout_name (h[i], buf, sizeof buf)
-          || get_kbd_layout_name (HKL (HIWORD (h[i])), buf, sizeof buf))
-        r = xcons (xcons (make_fixnum (int (h[i])),
-                          make_string (buf)),
-                   r);
+      Char buf[256];
+      if (get_kbd_layout_name (h[i], buf, numberof (buf))
+          || get_kbd_layout_name (HKL (HIWORD (h[i])), buf, numberof (buf)))
+        {
+          int nchar = 0;
+          while (nchar < (int)numberof (buf) && buf[nchar])
+            nchar++;
+          r = xcons (xcons (make_fixnum (int (h[i])),
+                            make_string (buf, nchar)),
+                     r);
+        }
     }
   return r;
 }
@@ -1542,20 +1546,23 @@ Fselect_kbd_layout (lisp layout)
       if (!n)
         FEsimple_win32_error (GetLastError ());
 
-      char name[256];
-      w2s (name, name + sizeof name,
-           xstring_contents (layout), xstring_length (layout));
-
       int i;
       for (i = 0; i < n; i++)
         {
-          char buf[256];
-          if ((get_kbd_layout_name (h[i], buf, sizeof buf)
-               || get_kbd_layout_name (HKL (LOWORD (h[i])), buf, sizeof buf))
-              && !strcmp (buf, name))
+          Char buf[256];
+          if (get_kbd_layout_name (h[i], buf, numberof (buf))
+              || get_kbd_layout_name (HKL (LOWORD (h[i])), buf, numberof (buf)))
             {
-              hkl = h[i];
-              break;
+              int nchar = 0;
+              while (nchar < (int)numberof (buf) && buf[nchar])
+                nchar++;
+              if (nchar == xstring_length (layout)
+                  && !memcmp (buf, xstring_contents (layout),
+                              nchar * sizeof (Char)))
+                {
+                  hkl = h[i];
+                  break;
+                }
             }
         }
       if (i == n)
@@ -1580,10 +1587,15 @@ lisp
 Fcurrent_kbd_layout ()
 {
   HKL hkl = app.kbdq.get_kbd_layout ();
-  char buf[256];
-  if (get_kbd_layout_name (hkl, buf, sizeof buf)
-      || get_kbd_layout_name (HKL (HIWORD (hkl)), buf, sizeof buf))
-    return xcons (make_fixnum (int (hkl)), make_string (buf));
+  Char buf[256];
+  if (get_kbd_layout_name (hkl, buf, numberof (buf))
+      || get_kbd_layout_name (HKL (HIWORD (hkl)), buf, numberof (buf)))
+    {
+      int nchar = 0;
+      while (nchar < (int)numberof (buf) && buf[nchar])
+        nchar++;
+      return xcons (make_fixnum (int (hkl)), make_string (buf, nchar));
+    }
   return xcons (make_fixnum (int (hkl)), Qnil);
 }
 
