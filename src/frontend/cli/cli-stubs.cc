@@ -64,7 +64,7 @@ Sysdep::Sysdep ()
 {
   memset (this, 0, sizeof (*this));
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
-  GetVersionExA (&os_ver);
+  GetVersionExW (&os_ver);
   {
     wchar_t wcurdir[PATH_MAX];
     GetCurrentDirectoryW (numberof (wcurdir), wcurdir);

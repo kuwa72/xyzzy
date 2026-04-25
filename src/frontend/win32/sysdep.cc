@@ -8,7 +8,7 @@ Sysdep sysdep;
 Sysdep::Sysdep ()
 {
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
-  GetVersionExA (&os_ver);
+  GetVersionExW (&os_ver);
 
   init_wintype ();
   init_machine_type ();

@@ -710,7 +710,9 @@ init_environ ()
   xsymbol_value (Vos_major_version) = make_fixnum (sysdep.os_ver.dwMajorVersion);
   xsymbol_value (Vos_minor_version) = make_fixnum (sysdep.os_ver.dwMinorVersion);
   xsymbol_value (Vos_build_number) = make_fixnum (sysdep.os_ver.dwBuildNumber);
-  xsymbol_value (Vos_csd_version) = make_string (sysdep.os_ver.szCSDVersion);
+  xsymbol_value (Vos_csd_version) =
+    make_string ((const Char *)sysdep.os_ver.szCSDVersion,
+                 wcslen (sysdep.os_ver.szCSDVersion));
   xsymbol_value (Vprocess_id) = make_fixnum (sysdep.process_id);
 
 #ifdef _WIN32

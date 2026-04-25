@@ -489,7 +489,7 @@ cleanup_exception ()
     {
       fprintf (fp, "%s %s Crash log:\n\n", ProgramName, VersionString);
 
-      fprintf (fp, "Windows %s %d.%02d.%d %s\n\n",
+      fprintf (fp, "Windows %s %d.%02d.%d %ls\n\n",
                sysdep.windows_name,
                sysdep.os_ver.dwMajorVersion,
                sysdep.os_ver.dwMinorVersion,

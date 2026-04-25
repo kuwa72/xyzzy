@@ -625,6 +625,15 @@ typedef struct _OSVERSIONINFOA {
   char szCSDVersion[128];
 } OSVERSIONINFOA;
 
+typedef struct _OSVERSIONINFOW {
+  DWORD dwOSVersionInfoSize;
+  DWORD dwMajorVersion;
+  DWORD dwMinorVersion;
+  DWORD dwBuildNumber;
+  DWORD dwPlatformId;
+  WCHAR szCSDVersion[128];
+} OSVERSIONINFOW;
+
 typedef struct tagLOGFONTA {
   LONG lfHeight;
   LONG lfWidth;
@@ -1217,6 +1226,14 @@ inline BOOL QueryPerformanceCounter(LARGE_INTEGER *c) {
 
 // System info
 inline BOOL GetVersionExA(OSVERSIONINFOA *v) {
+  memset(v, 0, sizeof(*v));
+  v->dwMajorVersion = 10;
+  v->dwMinorVersion = 0;
+  v->dwPlatformId = VER_PLATFORM_WIN32_NT;
+  return TRUE;
+}
+
+inline BOOL GetVersionExW(OSVERSIONINFOW *v) {
   memset(v, 0, sizeof(*v));
   v->dwMajorVersion = 10;
   v->dwMinorVersion = 0;
