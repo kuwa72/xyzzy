@@ -36,7 +36,7 @@ public:
   BOOL ImmSetCompositionWindow (HIMC, COMPOSITIONFORM *);
   BOOL ImmSetOpenStatus (HIMC, BOOL);
   BOOL ImmSetCompositionString (HIMC, DWORD, void *, DWORD, void *, DWORD);
-  BOOL ImmConfigureIME (HKL, HWND, DWORD, REGISTERWORDA *);
+  BOOL ImmConfigureIME (HKL, HWND, DWORD, REGISTERWORDW *);
   UINT ImmGetVirtualKey (HWND);
   UINT ImmGetDescription (HKL, LPWSTR, UINT);
   DWORD ImmGetProperty (HKL, DWORD);

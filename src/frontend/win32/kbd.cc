@@ -1427,26 +1427,33 @@ Fpop_ime_composition_string ()
 lisp
 Fset_ime_read_string (lisp string)
 {
-  char *read;
+  /* Phase 2-5: hand the read string (UTF-16 Char) directly to
+     ImmSetCompositionStringW; no cp932 detour. */
+  wchar_t *read;
+  int read_len;
   if (!string || string == Qnil)
     {
       const ime_comp_queue::pair *p = app.ime_compq.fetch ();
       if (!p)
         return Qnil;
-      read = (char *)alloca (w2sl (p->read, p->readl) + 1);
-      w2s (read, p->read, p->readl);
+      read_len = p->readl;
+      read = (wchar_t *)alloca ((read_len + 1) * sizeof (wchar_t));
+      memcpy (read, p->read, read_len * sizeof (wchar_t));
+      read[read_len] = 0;
     }
   else
     {
       check_string (string);
-      read = (char *)alloca (w2sl (string) + 1);
-      w2s (read, string);
+      read_len = xstring_length (string);
+      read = (wchar_t *)alloca ((read_len + 1) * sizeof (wchar_t));
+      memcpy (read, xstring_contents (string), read_len * sizeof (wchar_t));
+      read[read_len] = 0;
     }
   HIMC hIMC = app.kbdq.gime.ImmGetContext (app.toplev);
   if (!hIMC)
     return Qnil;
   int f = app.kbdq.gime.ImmSetCompositionString (hIMC, SCS_SETSTR, 0, 0,
-                                                 read, strlen (read));
+                                                 read, read_len * sizeof (wchar_t));
   app.kbdq.gime.ImmReleaseContext (app.toplev, hIMC);
   return boole (f);
 }
@@ -1454,23 +1461,29 @@ Fset_ime_read_string (lisp string)
 lisp
 Fime_register_word_dialog (lisp lcomp, lisp lread)
 {
-  REGISTERWORDA rw;
+  /* Phase 2-5: REGISTERWORDW takes wchar_t fields. Copy Lisp UTF-16
+     contents directly. */
+  REGISTERWORDW rw;
   rw.lpWord = rw.lpReading = 0;
   if (lcomp && lcomp != Qnil)
     {
       check_string (lcomp);
-      rw.lpWord = (char *)alloca (w2sl (lcomp) + 1);
-      w2s (rw.lpWord, lcomp);
+      int n = xstring_length (lcomp);
+      rw.lpWord = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
+      memcpy (rw.lpWord, xstring_contents (lcomp), n * sizeof (wchar_t));
+      rw.lpWord[n] = 0;
     }
   if (lread && lread != Qnil)
     {
       check_string (lread);
-      rw.lpReading = (char *)alloca (w2sl (lread) + 2);
-      char *e = w2s (rw.lpReading, lread);
+      int n = xstring_length (lread);
+      rw.lpReading = (wchar_t *)alloca ((n + 2) * sizeof (wchar_t));
+      memcpy (rw.lpReading, xstring_contents (lread), n * sizeof (wchar_t));
+      rw.lpReading[n] = 0;
       if (sysdep.Win95p ())
         {
-          *e++ = ' ';
-          *e = 0;
+          rw.lpReading[n] = L' ';
+          rw.lpReading[n + 1] = 0;
         }
     }
   return boole (app.kbdq.gime.ImmConfigureIME (GetKeyboardLayout (0), app.toplev,

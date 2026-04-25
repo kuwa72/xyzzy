@@ -194,22 +194,26 @@ BOOL
 GlobalIME::ImmSetCompositionString (HIMC himc, DWORD index, void *comp,
                                     DWORD compl, void *read, DWORD readl)
 {
+  /* Phase 2-5: callers pass UTF-16 wchar_t buffers; route to the W API.
+     The void* parameters keep the wrapper signature stable. */
 #ifdef HAVE_DIMM_H
   if (gi_app)
-    return gi_app->SetCompositionStringA (himc, index, comp,
+    return gi_app->SetCompositionStringW (himc, index, comp,
                                           compl, read, readl) == S_OK;
 #endif /* HAVE_DIMM_H */
-  return ::ImmSetCompositionStringA (himc, index, comp, compl, read, readl);
+  return ::ImmSetCompositionStringW (himc, index, comp, compl, read, readl);
 }
 
 BOOL
-GlobalIME::ImmConfigureIME (HKL hkl, HWND hwnd, DWORD mode, REGISTERWORDA *data)
+GlobalIME::ImmConfigureIME (HKL hkl, HWND hwnd, DWORD mode, REGISTERWORDW *data)
 {
+  /* Phase 2-5: REGISTERWORDW carries wchar_t* fields, so register-word UI
+     gets non-cp932 readings/words verbatim. */
 #ifdef HAVE_DIMM_H
   if (gi_app)
-    return gi_app->ConfigureIMEA (hkl, hwnd, mode, data) == S_OK;
+    return gi_app->ConfigureIMEW (hkl, hwnd, mode, data) == S_OK;
 #endif /* HAVE_DIMM_H */
-  return ::ImmConfigureIMEA (hkl, hwnd, mode, data);
+  return ::ImmConfigureIMEW (hkl, hwnd, mode, data);
 }
 
 UINT
