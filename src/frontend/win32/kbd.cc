@@ -905,28 +905,15 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
           safe_ptr <Char> data0 (new Char [size + 2]);
           Char *const data = data0 + 1;
           bp->substring (p1, size, data);
-          char *b0 = (char *)(Char *)data0;
-          char *b1 = w2s (b0, data, r1 - p1);
-          char *b2 = w2s (b1, data + (r1 - p1), r2 - r1);
-          char *b3 = w2s (b2, data + (r2 - p1), p2 - r2);
-          if (!unicode_p)
+          if (unicode_p)
             {
-              reconv = (RECONVERTSTRING *)xmalloc (sizeof *reconv + (b3 - b0) + 1);
-              reconv->dwSize = sizeof *reconv + (b3 - b0) + 1;
-              reconv->dwVersion = 0;
-              reconv->dwStrLen = b3 - b0;
-              reconv->dwStrOffset = sizeof *reconv;
-              reconv->dwCompStrLen = b2 - b1;
-              reconv->dwCompStrOffset = b1 - b0;
-              reconv->dwTargetStrLen = b2 - b1;
-              reconv->dwTargetStrOffset = b1 - b0;
-              strcpy ((char *)(reconv + 1), b0);
-            }
-          else
-            {
-              int l1 = MultiByteToWideChar (932, 0, b0, b1 - b0, 0, 0);
-              int l2 = MultiByteToWideChar (932, 0, b1, b2 - b1, 0, 0);
-              int l3 = MultiByteToWideChar (932, 0, b2, b3 - b2, 0, 0);
+              /* Phase 2-5: data is already UTF-16; copy straight into the
+                 RECONVERTSTRING tail. The three segments split at r1-p1 and
+                 r2-p1 are contiguous in `data`, so the wchar_t offsets are
+                 just those substring lengths. */
+              int l1 = r1 - p1;
+              int l2 = r2 - r1;
+              int l3 = p2 - r2;
               int l = l1 + l2 + l3;
               size = sizeof *reconv + (l + 1) * sizeof (wchar_t);
               reconv = (RECONVERTSTRING *)xmalloc (size);
@@ -938,8 +925,24 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
               reconv->dwCompStrOffset = l1 * sizeof (wchar_t);
               reconv->dwTargetStrLen = l2;
               reconv->dwTargetStrOffset = l1 * sizeof (wchar_t);
-              MultiByteToWideChar (932, 0, b0, -1, (wchar_t *)(reconv + 1), l + 1);
+              memcpy ((wchar_t *)(reconv + 1), data, l * sizeof (wchar_t));
+              ((wchar_t *)(reconv + 1))[l] = 0;
+              return reconv->dwSize;
             }
+          char *b0 = (char *)(Char *)data0;
+          char *b1 = w2s (b0, data, r1 - p1);
+          char *b2 = w2s (b1, data + (r1 - p1), r2 - r1);
+          char *b3 = w2s (b2, data + (r2 - p1), p2 - r2);
+          reconv = (RECONVERTSTRING *)xmalloc (sizeof *reconv + (b3 - b0) + 1);
+          reconv->dwSize = sizeof *reconv + (b3 - b0) + 1;
+          reconv->dwVersion = 0;
+          reconv->dwStrLen = b3 - b0;
+          reconv->dwStrOffset = sizeof *reconv;
+          reconv->dwCompStrLen = b2 - b1;
+          reconv->dwCompStrOffset = b1 - b0;
+          reconv->dwTargetStrLen = b2 - b1;
+          reconv->dwTargetStrOffset = b1 - b0;
+          strcpy ((char *)(reconv + 1), b0);
           return reconv->dwSize;
         }
       catch (nonlocal_jump &)
@@ -973,18 +976,37 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       lisp b = multiple_value::value (0);
       lisp c = multiple_value::value (1);
 
+      long size;
+      if (unicode_p)
+        {
+          /* Phase 2-5: c / b are UTF-16 Lisp strings; copy directly into the
+             wchar_t tail of the RECONVERTSTRING. */
+          long numc = xstring_length (c);
+          long numo = xstring_length (b);
+          long len = (numc + 1) * sizeof (wchar_t);
+          long offset = numo * sizeof (wchar_t);
+          size = sizeof *rsbuf + len;
+          if (!rsbuf)
+            return size;
+          rsbuf->dwSize = size;
+          rsbuf->dwVersion = 0;
+          rsbuf->dwStrLen = len;
+          rsbuf->dwStrOffset = sizeof *rsbuf;
+          rsbuf->dwCompStrLen = 0;
+          rsbuf->dwCompStrOffset = 0;
+          rsbuf->dwTargetStrLen = 0;
+          rsbuf->dwTargetStrOffset = offset;
+          memcpy ((wchar_t *)(rsbuf + 1), xstring_contents (c),
+                  numc * sizeof (wchar_t));
+          ((wchar_t *)(rsbuf + 1))[numc] = 0;
+          return size;
+        }
+
       char *content = w2s (c);
       char *before = w2s (b);
       long len = strlen (content);
       long offset = strlen (before);
-      if (unicode_p)
-        {
-          int numc = MultiByteToWideChar (932, 0, content, len, 0, 0);
-          int numo = MultiByteToWideChar (932, 0, before, offset, 0, 0);
-          len = (numc + 1) * sizeof (wchar_t);
-          offset = numo * sizeof (wchar_t);
-        }
-      long size = sizeof *rsbuf + len;
+      size = sizeof *rsbuf + len;
 
       if (!rsbuf)
         return size;
@@ -998,10 +1020,7 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       rsbuf->dwTargetStrLen = 0;
       rsbuf->dwTargetStrOffset = offset;
 
-      if (!unicode_p)
-        strncpy ((char *)(rsbuf + 1), content, len);
-      else
-        MultiByteToWideChar (932, 0, content, -1, (wchar_t *)(rsbuf + 1), strlen (content));
+      strncpy ((char *)(rsbuf + 1), content, len);
 
       return size;
     }
