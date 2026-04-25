@@ -597,10 +597,14 @@ make_string_from_wcs (const wchar_t *ws)
   return make_string (buf, len);
 }
 
+/* Phase 2: Lisp string Char is UTF-16 code unit, same as wchar_t on Windows.
+   Copy contents then null-terminate. */
 static wchar_t *
 i2w_lisp (lisp x, wchar_t *buf)
 {
-  i2w (xstring_contents (x), xstring_length (x), (ucs2_t *)buf);
+  int n = xstring_length (x);
+  memcpy (buf, xstring_contents (x), n * sizeof (wchar_t));
+  buf[n] = 0;
   return buf;
 }
 
@@ -615,7 +619,9 @@ count_filter_size (lisp filters)
       lisp a = xcar (f), d = xcdr (f);
       check_string (a);
       check_string (d);
-      size += i2wl (a) + i2wl (d) + 2;
+      /* Each pair lays out as `[a]\0[d]\0`; +2 leaves the historical slack
+         the caller assumed. */
+      size += xstring_length (a) + 1 + xstring_length (d) + 1 + 2;
     }
   if (size)
     size++;
@@ -629,10 +635,14 @@ make_filter_string (wchar_t *b, lisp filters)
     {
       lisp f = xcar (filters);
       lisp a = xcar (f), d = xcdr (f);
-      b = (wchar_t *)i2w (xstring_contents (a), xstring_length (a), (ucs2_t *)b);
-      b++;
-      b = (wchar_t *)i2w (xstring_contents (d), xstring_length (d), (ucs2_t *)b);
-      b++;
+      int la = xstring_length (a);
+      memcpy (b, xstring_contents (a), la * sizeof (wchar_t));
+      b += la;
+      *b++ = 0;
+      int ld = xstring_length (d);
+      memcpy (b, xstring_contents (d), ld * sizeof (wchar_t));
+      b += ld;
+      *b++ = 0;
     }
   *b = 0;
 }
@@ -704,9 +714,10 @@ OFN::init_encoding_list ()
           && (!ofn_save || xchar_encoding_type (encoding) != encoding_auto_detect))
         {
           lisp name = xchar_encoding_display_name (encoding);
-          int len = i2wl (xstring_contents (name), xstring_length (name));
+          int len = xstring_length (name);
           wchar_t *b = (wchar_t *)alloca ((len + 1) * sizeof (wchar_t));
-          i2w (xstring_contents (name), xstring_length (name), (ucs2_t *)b);
+          memcpy (b, xstring_contents (name), len * sizeof (wchar_t));
+          b[len] = 0;
           int j = SendDlgItemMessageW (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
           if (j != CB_ERR)
             {
