@@ -172,11 +172,12 @@ Fget_special_folder_location (lisp place)
 
     case STRRET_WSTR:
       {
-        int l = 2 + WideCharToMultiByte (932, 0, name.pOleStr, -1, 0, 0, 0, 0);
-        char *b = (char *)alloca (l);
-        WideCharToMultiByte (932, 0, name.pOleStr, -1, b, l, 0, 0);
+        /* Phase 2-5: name.pOleStr is already UTF-16; hand it straight to
+           make_string instead of detouring through cp932. */
+        lisp r = make_string ((const Char *)name.pOleStr,
+                              wcslen (name.pOleStr));
         ialloc->Free (name.pOleStr);
-        return make_string (b);
+        return r;
       }
 
     case STRRET_OFFSET:
@@ -223,23 +224,26 @@ Fresolve_shortcut (lisp lshortcut)
 lisp
 Fole_drop_files (lisp lpath, lisp lclsid, lisp ldir, lisp lfiles)
 {
-  USES_CONVERSION;
-
-  char path[MAX_PATH + 1];
-  pathname2cstr (lpath, path);
-  map_sl_to_backsl (path);
-  wchar_t *wpath = A2W (path);
+  /* Phase 2-5: routes paths / clsid / dir / each file as UTF-16 directly,
+     no cp932 detour. */
+  wchar_t wpath[MAX_PATH + 1];
+  pathname2wstr (lpath, wpath);
+  map_sl_to_backsl ((Char *)wpath, (int)wcslen (wpath));
 
   check_string (lclsid);
-  wchar_t *wclsid = I2W (lclsid);
+  wchar_t *wclsid =
+    (wchar_t *)alloca ((xstring_length (lclsid) + 1) * sizeof (wchar_t));
+  memcpy (wclsid, xstring_contents (lclsid),
+          xstring_length (lclsid) * sizeof (wchar_t));
+  wclsid[xstring_length (lclsid)] = 0;
   CLSID clsid;
   if (FAILED (CLSIDFromString (wclsid, &clsid)))
     ole_error (CLSIDFromProgID (wclsid, &clsid));
 
-  char dir[PATH_MAX + 1];
-  pathname2cstr (ldir, dir);
-  map_sl_to_backsl (dir);
-  int maxl = strlen (dir);
+  wchar_t dir[PATH_MAX + 1];
+  pathname2wstr (ldir, dir);
+  map_sl_to_backsl ((Char *)dir, (int)wcslen (dir));
+  int maxl = (int)wcslen (dir);
 
   lisp f = lfiles;
   int nfiles;
@@ -264,7 +268,7 @@ Fole_drop_files (lisp lpath, lisp lclsid, lisp ldir, lisp lfiles)
 
   maxl++;
   wchar_t *wbuf = (wchar_t *)alloca (sizeof *wbuf * maxl);
-  MultiByteToWideChar (932, 0, dir, -1, wbuf, maxl);
+  wcscpy (wbuf, dir);
 
   ULONG eaten;
   safe_idl dir_idl (ialloc);
@@ -280,7 +284,10 @@ Fole_drop_files (lisp lpath, lisp lclsid, lisp ldir, lisp lfiles)
   int i;
   for (i = 0; i < nfiles && consp (f); i++, f = xcdr (f))
     {
-      i2w (xcar (f), (ucs2_t *)wbuf);
+      lisp s = xcar (f);
+      int n = xstring_length (s);
+      memcpy (wbuf, xstring_contents (s), n * sizeof (wchar_t));
+      wbuf[n] = 0;
       ole_error (sf->ParseDisplayName (0, 0, wbuf, &eaten, &idls[i], 0));
     }
 
