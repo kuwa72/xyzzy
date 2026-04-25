@@ -1347,7 +1347,11 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 inline WORD *
 Dialog::store_unicode (WORD *w, lisp string)
 {
-  return i2w (string, w) + 1;
+  /* Phase 2: Lisp string Char is UTF-16; memcpy + null. */
+  int n = xstring_length (string);
+  memcpy (w, xstring_contents (string), n * sizeof (WORD));
+  w[n] = 0;
+  return w + n + 1;
 }
 
 lisp
@@ -2025,12 +2029,13 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
 
   wchar_t *wb;
   if (!caption || caption == Qnil)
-    wb = L"";
+    wb = (wchar_t *)L"";
   else
     {
-      int wl = i2wl (caption);
-      wb = (wchar_t *)alloca (sizeof (wchar_t) * (wl + 1));
-      i2w (caption, (ucs2_t *)wb);
+      int wl = xstring_length (caption);
+      wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
+      memcpy (wb, xstring_contents (caption), wl * sizeof (wchar_t));
+      wb[wl] = 0;
     }
 
   PROPSHEETHEADERW psh;
