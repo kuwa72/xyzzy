@@ -25,6 +25,7 @@ void file_error (int, lisp);
 void file_error (int);
 int parse_namestring (Char *, const Char *, int, const Char *, int);
 char *pathname2cstr (lisp, char *);
+wchar_t *pathname2wstr (lisp, wchar_t *);
 int special_file_p (const char *);
 int sub_directory_p (char *, const char *);
 lisp make_path (const char *s, int append_slash = 1);

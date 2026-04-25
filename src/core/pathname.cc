@@ -635,6 +635,22 @@ pathname2cstr (lisp pathname, char *buf)
   return w2s (buf, p, pe - p);
 }
 
+/* Phase 2-5: Lisp pathname -> wchar_t* (UTF-16 end-to-end, no cp932 hop).
+   Writes the path into buf and null-terminates. Returns the position past
+   the trailing nul so callers can chain. buf must hold at least
+   xstring_length(pathname) + 1 wchar_t. */
+wchar_t *
+pathname2wstr (lisp pathname, wchar_t *buf)
+{
+  pathbuf_t tem;
+  const Char *p, *pe;
+  pathname = coerce_to_pathname (pathname, tem, p, pe);
+  int n = pe - p;
+  memcpy (buf, p, n * sizeof (wchar_t));
+  buf[n] = 0;
+  return buf + n + 1;
+}
+
 static int
 file_attributes (lisp pathname)
 {

@@ -587,16 +587,6 @@ map_sl_to_backsl_w (wchar_t *s)
     if (*s == L'/') *s = L'\\';
 }
 
-static wchar_t *
-pathname2wstr (lisp pathname, wchar_t *buf)
-{
-  char sjis[PATH_MAX + 1];
-  pathname2cstr (pathname, sjis);
-  // Convert SJIS to wide string via CP932
-  MultiByteToWideChar (932, 0, sjis, -1, buf, PATH_MAX);
-  return buf;
-}
-
 static lisp
 make_string_from_wcs (const wchar_t *ws)
 {

@@ -4,34 +4,39 @@
 #include "oleconv.h"
 #include "sysdep.h"
 
-static void
-set_desc (IShellLinkA *sl, lisp ldesc)
+/* Phase 2-5: copy a Lisp string into a wchar_t scratch buffer with a null
+   terminator, no cp932 detour. */
+static wchar_t *
+lisp_to_wstr (lisp s, wchar_t *buf)
 {
-  char *b = (char *)alloca (xstring_length (ldesc) * 2 + 1);
-  w2s (b, ldesc);
-  ole_error (sl->SetDescription (b));
+  int n = xstring_length (s);
+  memcpy (buf, xstring_contents (s), n * sizeof (wchar_t));
+  buf[n] = 0;
+  return buf;
 }
 
 static void
-set_args (IShellLinkA *sl, lisp largs)
+set_desc (IShellLinkW *sl, lisp ldesc)
 {
-  char *b = (char *)alloca (xstring_length (largs) * 2 + 1);
-  w2s (b, largs);
-  ole_error (sl->SetArguments (b));
+  wchar_t *w = (wchar_t *)alloca ((xstring_length (ldesc) + 1) * sizeof (wchar_t));
+  ole_error (sl->SetDescription (lisp_to_wstr (ldesc, w)));
 }
 
 static void
-set_appid (IShellLinkA *sl, lisp lappid)
+set_args (IShellLinkW *sl, lisp largs)
+{
+  wchar_t *w = (wchar_t *)alloca ((xstring_length (largs) + 1) * sizeof (wchar_t));
+  ole_error (sl->SetArguments (lisp_to_wstr (largs, w)));
+}
+
+static void
+set_appid (IShellLinkW *sl, lisp lappid)
 {
   if (!sysdep.Win6_1p ())
     return;
 
-  /* Phase 2-5: PROPVARIANT VT_LPWSTR takes wchar_t. Copy the Lisp UTF-16
-     string straight in instead of detouring through cp932. */
-  int nlen = xstring_length (lappid);
-  wchar_t *w = (wchar_t *)alloca ((nlen + 1) * sizeof (wchar_t));
-  memcpy (w, xstring_contents (lappid), nlen * sizeof (wchar_t));
-  w[nlen] = 0;
+  wchar_t *w = (wchar_t *)alloca ((xstring_length (lappid) + 1) * sizeof (wchar_t));
+  lisp_to_wstr (lappid, w);
 
   safe_com <IPropertyStore> store;
   ole_error (sl->QueryInterface (IID_PPV_ARGS(&store)));
@@ -74,11 +79,13 @@ Fcreate_shortcut (lisp lobject, lisp llink, lisp keys)
   if (lappid)
     check_string (lappid);
 
-  safe_com <IShellLinkA> sl;
+  /* Phase 2-5: IShellLinkW so paths / description / arguments preserve
+     non-cp932 characters end-to-end. */
+  safe_com <IShellLinkW> sl;
   ole_error (CoCreateInstance (CLSID_ShellLink, 0, CLSCTX_INPROC_SERVER,
-                               IID_IShellLinkA, (void **)&sl));
-  char path[PATH_MAX + 1];
-  pathname2cstr (lobject, path);
+                               IID_IShellLinkW, (void **)&sl));
+  wchar_t wpath[PATH_MAX + 1];
+  pathname2wstr (lobject, wpath);
 
   if (Ffile_directory_p (lobject))
     {
@@ -88,18 +95,15 @@ Fcreate_shortcut (lisp lobject, lisp llink, lisp keys)
       safe_com <IShellFolder> sf;
       ole_error (SHGetDesktopFolder (&sf));
 
-      map_sl_to_backsl (path);
-      int l = (strlen (path) + 1);
-      wchar_t *w = (wchar_t *)alloca (l * sizeof (wchar_t));
-      MultiByteToWideChar (932, 0, path, -1, w, l);
+      map_sl_to_backsl ((Char *)wpath, (int)wcslen (wpath));
 
       ULONG ul;
       safe_idl idl (ialloc);
-      ole_error (sf->ParseDisplayName (get_active_window (), 0, w, &ul, &idl, 0));
+      ole_error (sf->ParseDisplayName (get_active_window (), 0, wpath, &ul, &idl, 0));
       ole_error (sl->SetIDList (idl));
     }
   else
-    ole_error (sl->SetPath (path));
+    ole_error (sl->SetPath (wpath));
 
   if (ldesc)
     set_desc (sl, ldesc);
@@ -107,8 +111,8 @@ Fcreate_shortcut (lisp lobject, lisp llink, lisp keys)
     set_args (sl, largs);
   if (lworkdir)
     {
-      pathname2cstr (lworkdir, path);
-      ole_error (sl->SetWorkingDirectory (path));
+      pathname2wstr (lworkdir, wpath);
+      ole_error (sl->SetWorkingDirectory (wpath));
     }
   if (lshow)
     ole_error (sl->SetShowCmd (show));
@@ -118,11 +122,8 @@ Fcreate_shortcut (lisp lobject, lisp llink, lisp keys)
   safe_com <IPersistFile> pf;
   ole_error (sl->QueryInterface (IID_IPersistFile, (void **)&pf));
 
-  pathname2cstr (llink, path);
-  int l = (strlen (path) + 1);
-  wchar_t *w = (wchar_t *)alloca (l * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, path, -1, w, l);
-  ole_error (pf->Save (w, 1));
+  pathname2wstr (llink, wpath);
+  ole_error (pf->Save (wpath, 1));
 
   return Qt;
 }
@@ -189,35 +190,34 @@ Fget_special_folder_location (lisp place)
 lisp
 Fresolve_shortcut (lisp lshortcut)
 {
-  char shortcut[PATH_MAX + 1];
-  pathname2cstr (lshortcut, shortcut);
-  map_sl_to_backsl (shortcut);
-  int l = (strlen (shortcut) + 1);
-  wchar_t *w = (wchar_t *)alloca (l * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, shortcut, -1, w, l);
+  /* Phase 2-5: IShellLinkW carries the link path, target path and
+     description as wchar_t end-to-end. */
+  wchar_t shortcut[PATH_MAX + 1];
+  pathname2wstr (lshortcut, shortcut);
+  map_sl_to_backsl ((Char *)shortcut, (int)wcslen (shortcut));
 
-  safe_com <IShellLinkA> sl;
+  safe_com <IShellLinkW> sl;
   ole_error (CoCreateInstance (CLSID_ShellLink, 0, CLSCTX_INPROC_SERVER,
-                               IID_IShellLinkA, (void **)&sl));
+                               IID_IShellLinkW, (void **)&sl));
 
   safe_com <IPersistFile> pf;
   ole_error (sl->QueryInterface (IID_IPersistFile, (void **)&pf));
-  HRESULT hr = pf->Load (w, STGM_READ);
+  HRESULT hr = pf->Load (shortcut, STGM_READ);
   if (hr == E_FAIL)
     FEfile_error (Enot_a_shortcut, lshortcut);
   ole_error (hr);
 
-  WIN32_FIND_DATAA fd;
-  char path[PATH_MAX], desc[PATH_MAX];
-  ole_error (sl->GetPath (path, sizeof path, &fd, 0));
+  WIN32_FIND_DATAW fd;
+  wchar_t path[PATH_MAX], desc[PATH_MAX];
+  ole_error (sl->GetPath (path, numberof (path), &fd, 0));
   if (!*path)
     FEfile_error (Enot_a_shortcut, lshortcut);
-  ole_error (sl->GetDescription (desc, sizeof desc));
+  ole_error (sl->GetDescription (desc, numberof (desc)));
 
-  map_backsl_to_sl (path);
+  map_backsl_to_sl ((Char *)path, (int)wcslen (path));
   multiple_value::count () = 2;
-  multiple_value::value (1) = make_string (desc);
-  return make_string (path);
+  multiple_value::value (1) = make_string ((const Char *)desc, wcslen (desc));
+  return make_string ((const Char *)path, wcslen (path));
 }
 
 lisp
