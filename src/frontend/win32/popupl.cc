@@ -42,14 +42,11 @@ call_callback (HWND hwnd)
 
   DestroyWindow (hwnd);
 
-  int al = WideCharToMultiByte (932, 0, wbuf, -1, 0, 0, 0, 0);
-  char *buf = (char *)alloca (al);
-  WideCharToMultiByte (932, 0, wbuf, -1, buf, al, 0, 0);
-
   try
     {
+      /* Phase 2-5: hand the wide LB buffer straight to make_string. */
       funcall_1 (xsymbol_value (Vpopup_list_callback),
-                 make_string (buf));
+                 make_string ((const Char *)wbuf, wcslen (wbuf)));
     }
   catch (nonlocal_jump &)
     {

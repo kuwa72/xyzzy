@@ -148,12 +148,8 @@ get_window_text (HWND dlg, int id)
   *wb = 0;
   GetWindowTextW (hwnd, wb, l);
   if (*wb)
-    {
-      int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-      char *b = (char *)alloca (al);
-      WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
-      return make_string (b);
-    }
+    /* Phase 2-5: hand the wide buffer straight to make_string. */
+    return make_string ((const Char *)wb, wcslen (wb));
   return Qnil;
 }
 
@@ -559,10 +555,9 @@ Dialog::make_lb_string (int id, int getlen, int gettext, int idx)
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   if (SendDlgItemMessageW (d_hwnd, id, gettext, idx, LPARAM (wb)) == LB_ERR)
     *wb = 0;
-  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-  char *b = (char *)alloca (al);
-  WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
-  return make_string (b);
+  /* Phase 2-5: ListBox text is UTF-16; hand the buffer directly to
+     make_string and skip cp932. */
+  return make_string ((const Char *)wb, wcslen (wb));
 }
 
 lisp
@@ -1186,10 +1181,8 @@ lb_match_p (HWND hwnd, int index, int ch)
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   if (SendMessageW (hwnd, LB_GETTEXT, index, LPARAM (wb)) == LB_ERR)
     return 0;
-  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-  u_char *b = (u_char *)alloca (al);
-  WideCharToMultiByte (932, 0, wb, -1, (char *)b, al, 0, 0);
-  return lb_match_p (ch, b);
+  /* Phase 2-5: lb_match_p has a Char overload; skip the cp932 hop. */
+  return lb_match_p (ch, (const Char *)wb);
 }
 
 void

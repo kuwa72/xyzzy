@@ -1219,10 +1219,12 @@ Fdirectory_name_dialog (lisp keys)
   if (!ok)
     return Qnil;
 
-  char result[PATH_MAX + 1];
-  WideCharToMultiByte (932, 0, wpath, -1, result, sizeof result, 0, 0);
-  map_backsl_to_sl (result);
-  return make_string (result);
+  /* Phase 2-5: SHGetPathFromIDListW already returns UTF-16; copy directly
+     into a Lisp string and normalise separators in place. */
+  size_t wlen = wcslen (wpath);
+  lisp result = make_string ((const Char *)wpath, wlen);
+  map_backsl_to_sl (xstring_contents (result), xstring_length (result));
+  return result;
 }
 
 INT_PTR CALLBACK

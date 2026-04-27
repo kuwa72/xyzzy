@@ -891,10 +891,9 @@ FilerView::set_directory (lisp dir)
 
   wchar_t wcur[PATH_MAX];
   GetCurrentDirectoryW (numberof (wcur), wcur);
-  char cur[PATH_MAX];
-  WideCharToMultiByte (932, 0, wcur, -1, cur, sizeof cur, 0, 0);
   fv_parent->restore_dir ();
-  lisp lcur = make_string (cur);
+  /* Phase 2-5: cwd is UTF-16 already; skip the cp932 hop. */
+  lisp lcur = make_string ((const Char *)wcur, wcslen (wcur));
   map_backsl_to_sl (xstring_contents (lcur),
                     xstring_length (lcur));
   lcur = Fappend_trail_slash (lcur);
@@ -2399,11 +2398,9 @@ Filer::get_text ()
   if (!wl)
     return Qnil;
   wchar_t *wb = (wchar_t *)alloca ((wl + 2) * sizeof (wchar_t));
-  GetWindowTextW (hwnd, wb, wl + 1);
-  int l = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-  char *b = (char *)alloca (l + 1);
-  WideCharToMultiByte (932, 0, wb, -1, b, l + 1, 0, 0);
-  return make_string (b);
+  int got = GetWindowTextW (hwnd, wb, wl + 1);
+  /* Phase 2-5: hand the wide buffer to make_string directly. */
+  return make_string ((const Char *)wb, got);
 }
 
 void
