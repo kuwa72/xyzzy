@@ -1792,24 +1792,28 @@ print_engine::doprint1 (HWND hwnd)
                          pe_settings.ps_range_end))
     return bad_range (hwnd);
 
-  char *docname;
+  /* Phase 2-5: DOCINFOW takes wchar_t. When the doc name comes from a
+     Lisp string (UTF-16), copy it directly. Only the buffer-name fallback
+     still flows through cp932 because Buffer::buffer_name writes char*. */
+  wchar_t *wdocname;
   lisp name;
   if (stringp (name = pe_bp->lfile_name)
       || stringp (name = pe_bp->lalternate_file_name))
     {
-      docname = (char *)alloca (xstring_length (name) * 2 + 32);
-      w2s (docname, name);
+      int n = xstring_length (name);
+      wdocname = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
+      memcpy (wdocname, xstring_contents (name), n * sizeof (wchar_t));
+      wdocname[n] = 0;
     }
   else
     {
       int l = xstring_length (pe_bp->lbuffer_name) * 2 + 32;
-      docname = (char *)alloca (l);
+      char *docname = (char *)alloca (l);
       pe_bp->buffer_name (docname, docname + l);
+      int wdoclen = MultiByteToWideChar (932, 0, docname, -1, 0, 0);
+      wdocname = (wchar_t *)alloca (wdoclen * sizeof (wchar_t));
+      MultiByteToWideChar (932, 0, docname, -1, wdocname, wdoclen);
     }
-
-  int wdoclen = MultiByteToWideChar (932, 0, docname, -1, 0, 0);
-  wchar_t *wdocname = (wchar_t *)alloca (wdoclen * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, docname, -1, wdocname, wdoclen);
 
   SetAbortProc (pe_dev, abort_proc);
 
