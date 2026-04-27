@@ -301,15 +301,25 @@ Dialog::edit_command (dlgctrl *c, UINT msg)
 }
 
 lisp
-Dialog::check_result_type (dlgctrl *c, const char *s)
+Dialog::check_result_type (dlgctrl *c, const Char *w, int wlen)
 {
   lisp kwd = c->keyword ();
   lisp type = safe_find_keyword (Ktype, kwd);
   if (type != Qinteger)
-    return make_string (s);
+    return make_string (w, wlen);
+
+  /* For Qinteger, the typed text is digits (with optional sign / spaces),
+     all ASCII; folding into a cp932 buffer is loss-free here. Non-ASCII
+     characters can only fail check_integer_format, which is the same
+     outcome as an invalid integer. */
+  char buf[32];
+  int i, n_max = min<int> (wlen, (int)sizeof (buf) - 1);
+  for (i = 0; i < n_max; i++)
+    buf[i] = (w[i] < 128) ? (char)w[i] : '?';
+  buf[i] = 0;
 
   int n;
-  if (check_integer_format (s, &n))
+  if (check_integer_format (buf, &n))
     {
       long t;
       if ((!safe_fixnum_value (safe_find_keyword (Kmin, kwd), &t) || n >= t)
@@ -327,15 +337,12 @@ Dialog::edit_result (dlgctrl *c)
   HWND hwnd = GetDlgItem (d_hwnd, c->id ());
   int l = max (0L, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
-  GetWindowTextW (hwnd, wb, l);
-  int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-  char *b = (char *)alloca (al);
-  WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
+  int got = GetWindowTextW (hwnd, wb, l);
   lisp kwd = c->keyword ();
   lisp non_null = safe_find_keyword (Knon_null, kwd);
-  if (!*b && non_null != Qnil)
+  if (!got && non_null != Qnil)
     return warn (non_null);
-  return check_result_type (c, b);
+  return check_result_type (c, (const Char *)wb, got);
 }
 
 inline void
@@ -748,17 +755,15 @@ Dialog::combobox_result (dlgctrl *c)
       wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
       *wb = 0;
 
-      if (SendDlgItemMessageW (d_hwnd, id, WM_GETTEXT, l, LPARAM (wb)) >= 0)
+      LRESULT got = SendDlgItemMessageW (d_hwnd, id, WM_GETTEXT, l, LPARAM (wb));
+      if (got >= 0)
         {
-          int al = WideCharToMultiByte (932, 0, wb, -1, 0, 0, 0, 0);
-          char *b = (char *)alloca (al);
-          WideCharToMultiByte (932, 0, wb, -1, b, al, 0, 0);
-          if (!*b && non_null != Qnil)
+          if (!got && non_null != Qnil)
             return warn (non_null);
           if (must_match != Qnil && SendDlgItemMessageW (d_hwnd, id, CB_FINDSTRINGEXACT,
                                                          WPARAM (-1), LPARAM (wb)) == CB_ERR)
             return warn (must_match);
-          return check_result_type (c, b);
+          return check_result_type (c, (const Char *)wb, (int)got);
         }
       else
         {

@@ -112,7 +112,7 @@ protected:
   int send_ltext (int, int, WPARAM, lisp, dlg_txtwidth * = 0) const;
   void enable_windows (dlgctrl *, int);
   void invalidate_ctrls (dlgctrl *);
-  static lisp check_result_type (dlgctrl *, const char *);
+  static lisp check_result_type (dlgctrl *, const Char *, int);
   static lisp warn (lisp);
   lisp make_lb_string (int, int, int, int);
   int get_result (dlgctrl *);

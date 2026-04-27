@@ -2670,12 +2670,12 @@ Flist_xyzzy_windows ()
       if (!hwnd || i <= o)
         break;
       wchar_t wbuf[256];
-      if (GetWindowTextW (hwnd, wbuf, 256))
-        {
-          char buf[512];
-          WideCharToMultiByte (932, 0, wbuf, -1, buf, sizeof buf, 0, 0);
-          p = xcons (xcons (make_fixnum (i), make_string (buf)), p);
-        }
+      int got = GetWindowTextW (hwnd, wbuf, 256);
+      if (got)
+        /* Phase 2-5: hand the wide title straight to make_string. */
+        p = xcons (xcons (make_fixnum (i),
+                          make_string ((const Char *)wbuf, got)),
+                   p);
     }
   return Fnreverse (p);
 }
