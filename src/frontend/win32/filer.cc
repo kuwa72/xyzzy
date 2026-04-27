@@ -1570,10 +1570,11 @@ Filer::IdleProc ()
 static void
 add_combo (HWND combo, lisp string)
 {
-  char *b = (char *)alloca (xstring_length (string) * 2 + 1);
-  w2s (b, string);
+  /* Phase 2-5: Lisp string is UTF-16; copy directly to a wchar_t buffer. */
+  int n = min<int> (xstring_length (string), 1023);
   wchar_t wb[1024];
-  MultiByteToWideChar (932, 0, b, -1, wb, 1024);
+  memcpy (wb, xstring_contents (string), n * sizeof (wchar_t));
+  wb[n] = 0;
   SendMessageW (combo, CB_ADDSTRING, 0, LPARAM (wb));
 }
 
@@ -2137,11 +2138,10 @@ paint_text (HDC hdc, lisp string, const RECT &r)
   if (!stringp (string))
     return;
 
-  char *s = (char *)alloca (w2sl (string) + 1);
-  w2s (s, string);
-  WideStr ws (s);
+  /* Phase 2-5: Lisp string is UTF-16; ExtTextOutW takes wchar_t directly. */
   ExtTextOutW (hdc, r.left, r.top, ETO_CLIPPED | ETO_OPAQUE,
-               &r, ws, wcslen (ws), 0);
+               &r, (const wchar_t *)xstring_contents (string),
+               xstring_length (string), 0);
 }
 
 void
@@ -2407,10 +2407,11 @@ void
 Filer::set_text (lisp string)
 {
   check_string (string);
-  char *b = (char *)alloca (xstring_length (string) * 2 + 1);
-  w2s (b, string);
+  /* Phase 2-5: Lisp string is UTF-16; copy straight to wchar_t buffer. */
+  int n = min<int> (xstring_length (string), 255);
   wchar_t wb[256];
-  MultiByteToWideChar (932, 0, b, -1, wb, numberof (wb));
+  memcpy (wb, xstring_contents (string), n * sizeof (wchar_t));
+  wb[n] = 0;
   SetDlgItemTextW (id_hwnd, IDC_NAME, wb);
 }
 
