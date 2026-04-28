@@ -1829,40 +1829,46 @@ se_error (lisp lpath, int e)
 lisp
 Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
 {
-  char *path, *dir, *param;
+  /* Phase 2-5: route paths / params / verb to ShellExecuteW as UTF-16
+     end-to-end, no cp932 detour.                                            */
+  wchar_t wpath_buf[PATH_MAX + 1];
+  wchar_t wdir_buf[PATH_MAX + 1];
+  wchar_t *wpath = 0, *wdir = 0, *wparam = 0, *wverb = 0;
+
   if (ldir == Qt)
     {
       check_string (lpath);
-      path = (char *)alloca (xstring_length (lpath) * 2 + 1);
-      w2s (path, lpath);
-      dir = 0;
+      int n = xstring_length (lpath);
+      wpath = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
+      memcpy (wpath, xstring_contents (lpath), n * sizeof (wchar_t));
+      wpath[n] = 0;
     }
   else
     {
-      path = (char *)alloca (PATH_MAX + 1);
-      pathname2cstr (lpath, path);
-      map_sl_to_backsl (path);
+      pathname2wstr (lpath, wpath_buf);
+      map_sl_to_backsl ((Char *)wpath_buf, (int)wcslen (wpath_buf));
+      wpath = wpath_buf;
 
-      dir = (char *)alloca (PATH_MAX + 1);
       if (ldir && ldir != Qnil)
-        pathname2cstr (ldir, dir);
+        pathname2wstr (ldir, wdir_buf);
       else
-        pathname2cstr (Fdirectory_namestring (lpath), dir);
-      map_sl_to_backsl (dir);
+        pathname2wstr (Fdirectory_namestring (lpath), wdir_buf);
+      map_sl_to_backsl ((Char *)wdir_buf, (int)wcslen (wdir_buf));
+      wdir = wdir_buf;
     }
 
   if (lparam && lparam != Qnil)
     {
       check_string (lparam);
-      param = (char *)alloca (xstring_length (lparam) * 2 + 1);
-      w2s (param, lparam);
+      int n = xstring_length (lparam);
+      wparam = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
+      memcpy (wparam, xstring_contents (lparam), n * sizeof (wchar_t));
+      wparam[n] = 0;
     }
-  else
-    param = 0;
 
   UINT omode = SetErrorMode (0);
-  if (dir)
-    WINFS::SetCurrentDirectory (dir);
+  if (wdir)
+    ::SetCurrentDirectoryW (wdir);
 
   if (xsymbol_value (Vshell_execute_disregards_shift_key) != Qnil)
     {
@@ -1879,41 +1885,32 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
                                                               "ShellExecuteExW")
                        : 0);
 
-  char *verb = 0;
   lisp lverb = find_keyword (Kverb, keys);
   if (lverb != Qnil)
     {
       lverb = Fstring (lverb);
-      verb = (char *)alloca (xstring_length (lverb) * 2 + 1);
-      w2s (verb, lverb);
+      int n = xstring_length (lverb);
+      wverb = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
+      memcpy (wverb, xstring_contents (lverb), n * sizeof (wchar_t));
+      wverb[n] = 0;
     }
-
-  wchar_t wpath[PATH_MAX + 1];
-  if (path) MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
-  wchar_t wdir[PATH_MAX + 1];
-  if (dir) MultiByteToWideChar (932, 0, dir, -1, wdir, PATH_MAX + 1);
-  wchar_t wparam[4096];
-  if (param) MultiByteToWideChar (932, 0, param, -1, wparam, numberof (wparam));
-  wchar_t wverb[64];
-  if (verb) MultiByteToWideChar (932, 0, verb, -1, wverb, numberof (wverb));
 
   if (ex)
     {
       SHELLEXECUTEINFOW sei = {sizeof sei};
       sei.fMask = SEE_MASK_FLAG_NO_UI;
       sei.hwnd = get_active_window ();
-      sei.lpFile = path ? wpath : 0;
-      sei.lpParameters = param ? wparam : 0;
-      sei.lpDirectory = dir ? wdir : 0;
-      sei.lpVerb = verb ? wverb : 0;
+      sei.lpFile = wpath;
+      sei.lpParameters = wparam;
+      sei.lpDirectory = wdir;
+      sei.lpVerb = wverb;
       sei.nShow = SW_SHOW;
       e = (*ex)(&sei) ? 33 : DWORD (sei.hInstApp);
     }
   else
-    e = DWORD (ShellExecuteW (get_active_window (), verb ? wverb : L"open",
-                              path ? wpath : 0, param ? wparam : 0,
-                              dir ? wdir : 0, SW_SHOWNORMAL));
-  if (dir)
+    e = DWORD (ShellExecuteW (get_active_window (), wverb ? wverb : L"open",
+                              wpath, wparam, wdir, SW_SHOWNORMAL));
+  if (wdir)
     WINFS::SetCurrentDirectory (sysdep.curdir);
   SetErrorMode (omode);
   if (e <= 32)
