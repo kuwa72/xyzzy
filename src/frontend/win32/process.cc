@@ -878,13 +878,11 @@ ConPtyProcess::create (lisp command, lisp execdir, const char *env)
   siex.StartupInfo.cb = sizeof siex;
   siex.lpAttributeList = attr_list;
 
-  char *cmdline_a = (char *)alloca (xstring_length (command) * 2 + 1);
-  w2s (cmdline_a, command);
-
-  // Convert to wchar for CreateProcessW
-  int wclen = MultiByteToWideChar (932, 0, cmdline_a, -1, NULL, 0);
-  wchar_t *cmdline_w = (wchar_t *)alloca (wclen * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, cmdline_a, -1, cmdline_w, wclen);
+  /* Phase 2-5: command is UTF-16; copy directly to the cmdline buffer. */
+  int cmdline_len = xstring_length (command);
+  wchar_t *cmdline_w = (wchar_t *)alloca ((cmdline_len + 1) * sizeof (wchar_t));
+  memcpy (cmdline_w, xstring_contents (command), cmdline_len * sizeof (wchar_t));
+  cmdline_w[cmdline_len] = 0;
 
   wchar_t dir_w[PATH_MAX + 1];
   MultiByteToWideChar (932, 0, dir, -1, dir_w, PATH_MAX);
