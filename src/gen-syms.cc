@@ -1055,6 +1055,8 @@ static symbols sys[] =
   SI_DEFUN3 (load-ts-grammar, 2, 0, 0),
   SI_DEFUN3 (ts-query-buffer, 2, 1, 0),
   SI_DEFUN3 (ts-grammar-p, 1, 0, 0),
+  SI_DEFUN3 (ts-free-buffer-cache, 1, 0, 0),
+  SI_DEFUN3 (ts-buffer-cached-p, 1, 0, 0),
 
   MAKE_SYMBOL (ts-grammar, Qsi_ts_grammar),
 

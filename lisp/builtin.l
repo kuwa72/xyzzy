@@ -661,6 +661,8 @@
 (si::defun-builtin load-ts-grammar (dll-path lang-name))
 (si::defun-builtin ts-query-buffer (grammar query &optional buffer))
 (si::defun-builtin ts-grammar-p (object))
+(si::defun-builtin ts-free-buffer-cache (&optional buffer))
+(si::defun-builtin ts-buffer-cached-p (&optional buffer))
 
 (gc)
 

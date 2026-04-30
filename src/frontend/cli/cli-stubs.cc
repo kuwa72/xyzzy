@@ -633,6 +633,8 @@ lisp Fsi_set_last_win32_error (lisp) { return Qnil; }
 lisp Fsi_load_ts_grammar (lisp, lisp) { return Qnil; }
 lisp Fsi_ts_query_buffer (lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_ts_grammar_p (lisp) { return Qnil; }
+lisp Fsi_ts_free_buffer_cache (lisp) { return Qnil; }
+lisp Fsi_ts_buffer_cached_p (lisp) { return Qnil; }
 
 // ============================================================
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)

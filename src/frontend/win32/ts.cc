@@ -2,6 +2,53 @@
 #include "ed.h"
 #include "ts.h"
 #include <tree_sitter/api.h>
+#include <unordered_map>
+
+/* Per-buffer parse cache -------------------------------------------------- */
+
+struct lts_buf_cache
+{
+  TSParser         *parser;
+  TSTree           *tree;
+  const TSLanguage *lang;
+  long              revision;  /* b_modified_count at last parse */
+};
+
+static std::unordered_map<Buffer *, lts_buf_cache *> g_ts_cache;
+
+/* Return the cache entry for BP, creating one if necessary.
+   If the grammar changed, the old tree is discarded and the parser
+   is reconfigured. */
+static lts_buf_cache *
+get_buf_cache (Buffer *bp, const TSLanguage *lang)
+{
+  auto it = g_ts_cache.find (bp);
+  if (it != g_ts_cache.end ())
+    {
+      lts_buf_cache *c = it->second;
+      if (c->lang != lang)
+        {
+          if (c->tree)
+            { ts_tree_delete (c->tree); c->tree = nullptr; }
+          ts_parser_set_language (c->parser, lang);
+          c->lang     = lang;
+          c->revision = -1;
+        }
+      return c;
+    }
+
+  lts_buf_cache *c = new lts_buf_cache;
+  c->parser   = ts_parser_new ();
+  c->tree     = nullptr;
+  c->lang     = lang;
+  c->revision = -1;
+  if (c->parser)
+    ts_parser_set_language (c->parser, lang);
+  g_ts_cache[bp] = c;
+  return c;
+}
+
+/* -------------------------------------------------------------------------- */
 
 lts_grammar *
 make_ts_grammar ()
@@ -14,10 +61,7 @@ make_ts_grammar ()
   return p;
 }
 
-/* (si:load-ts-grammar DLL-PATH LANG-NAME)
-   DLL-PATH: path to grammar DLL (.so / .dll)
-   LANG-NAME: ASCII language name, e.g. "c"
-   Returns a ts-grammar object, or signals an error. */
+/* (si:load-ts-grammar DLL-PATH LANG-NAME) */
 lisp
 Fsi_load_ts_grammar (lisp lpath, lisp lname)
 {
@@ -32,7 +76,6 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
   memcpy (wpath, xstring_contents (lpath), plen * sizeof (wchar_t));
   wpath[plen] = 0;
 
-  /* Build entry point name: "tree_sitter_" + lang (ASCII only) */
   int nlen = xstring_length (lname);
   char entry[64];
   if (nlen > 40)
@@ -57,29 +100,26 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
   ts_lang_fn fn = (ts_lang_fn) GetProcAddress (h, entry);
   if (!fn)
     {
-      if (loaded_by_us)
-        FreeLibrary (h);
+      if (loaded_by_us) FreeLibrary (h);
       FEsimple_error (Ets_dll_entry_not_found, lname);
     }
 
   const void *lang = fn ();
   if (!lang)
     {
-      if (loaded_by_us)
-        FreeLibrary (h);
+      if (loaded_by_us) FreeLibrary (h);
       FEsimple_error (Ets_dll_entry_not_found, lname);
     }
 
   lts_grammar *g = make_ts_grammar ();
-  g->name = lname;
-  g->lang = lang;
-  g->hmod = h;
+  g->name   = lname;
+  g->lang   = lang;
+  g->hmod   = h;
   g->loaded = loaded_by_us;
   return g;
 }
 
-/* Flatten buffer chunks to a contiguous UTF-16 array.
-   Returns xmalloc'd buffer; caller must xfree.  *out_ncu receives code unit count. */
+/* Flatten buffer chunks into a contiguous UTF-16 array (xmalloc'd). */
 static Char *
 flatten_buffer (Buffer *bp, int *out_ncu)
 {
@@ -99,7 +139,7 @@ flatten_buffer (Buffer *bp, int *out_ncu)
   return buf;
 }
 
-/* Convert a code-unit offset to code-point offset by scanning chunks. */
+/* Convert a code-unit offset to code-point offset. */
 static point_t
 cu_to_cp (Buffer *bp, int cu_offset)
 {
@@ -115,7 +155,7 @@ cu_to_cp (Buffer *bp, int cu_offset)
           Char cc = *p++;
           cp++;
           if (cc >= 0xD800 && cc <= 0xDBFF && p < end && *p >= 0xDC00 && *p <= 0xDFFF)
-            p++;  /* surrogate pair: two cu = one cp */
+            p++;
         }
       remaining -= take;
     }
@@ -123,8 +163,8 @@ cu_to_cp (Buffer *bp, int cu_offset)
 }
 
 /* (si:ts-query-buffer GRAMMAR QUERY-SOURCE &optional BUFFER)
-   Parse BUFFER (default: current buffer) with GRAMMAR, run QUERY-SOURCE.
-   Returns a list of (CAPTURE-NAME START-CP END-CP) per capture, in order. */
+   Parse BUFFER with GRAMMAR using cached tree when possible, then run
+   QUERY-SOURCE.  Returns ((CAPTURE-NAME START-CP END-CP) ...). */
 lisp
 Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
 {
@@ -134,37 +174,35 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
 
   const TSLanguage *lang = (const TSLanguage *) xts_grammar_lang (lgrammar);
 
-  int ncu;
-  Char *text = flatten_buffer (bp, &ncu);
+  lts_buf_cache *c = get_buf_cache (bp, lang);
+  if (!c->parser)
+    FEsimple_error (Ets_parse_failed);
 
-  TSParser *parser = ts_parser_new ();
-  if (!parser)
+  /* Re-parse only when the buffer has been modified since last parse. */
+  if (c->revision != bp->b_modified_count || !c->tree)
     {
+      int ncu;
+      Char *text = flatten_buffer (bp, &ncu);
+
+      /* Pass old tree (may be NULL) for incremental subtree reuse. */
+      TSTree *new_tree = ts_parser_parse_string_encoding (
+        c->parser, c->tree,
+        (const char *) text,
+        (uint32_t)(ncu * sizeof (Char)),
+        TSInputEncodingUTF16LE);
+
       xfree (text);
-      FEsimple_error (Ets_parse_failed);
+
+      if (!new_tree)
+        FEsimple_error (Ets_parse_failed);
+
+      if (c->tree)
+        ts_tree_delete (c->tree);
+      c->tree     = new_tree;
+      c->revision = bp->b_modified_count;
     }
 
-  if (!ts_parser_set_language (parser, lang))
-    {
-      ts_parser_delete (parser);
-      xfree (text);
-      FEsimple_error (Ets_language_abi_mismatch);
-    }
-
-  TSTree *tree = ts_parser_parse_string_encoding (
-    parser, NULL,
-    (const char *) text,
-    (uint32_t)(ncu * sizeof (Char)),
-    TSInputEncodingUTF16LE);
-
-  if (!tree)
-    {
-      ts_parser_delete (parser);
-      xfree (text);
-      FEsimple_error (Ets_parse_failed);
-    }
-
-  /* Build query: convert UTF-16 query string to UTF-8 for ts_query_new */
+  /* Build and run query. */
   int qlen16 = xstring_length (lquery);
   int qbuf_size = qlen16 * 3 + 1;
   char *qbuf = (char *) xmalloc (qbuf_size);
@@ -180,15 +218,10 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
   xfree (qbuf);
 
   if (!query)
-    {
-      ts_tree_delete (tree);
-      ts_parser_delete (parser);
-      xfree (text);
-      FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset));
-    }
+    FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset));
 
   TSQueryCursor *cursor = ts_query_cursor_new ();
-  ts_query_cursor_exec (cursor, query, ts_tree_root_node (tree));
+  ts_query_cursor_exec (cursor, query, ts_tree_root_node (c->tree));
 
   lisp result = Qnil;
   TSQueryMatch match;
@@ -210,18 +243,45 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
           point_t end_cp   = cu_to_cp (bp, end_cu);
 
           lisp cap_name = make_string (name, (int) name_len);
-          lisp span = list (cap_name, make_fixnum (start_cp), make_fixnum (end_cp));
-          result = xcons (span, result);
+          result = xcons (list (cap_name, make_fixnum (start_cp), make_fixnum (end_cp)),
+                          result);
         }
     }
 
   ts_query_cursor_delete (cursor);
   ts_query_delete (query);
-  ts_tree_delete (tree);
-  ts_parser_delete (parser);
-  xfree (text);
 
   return Fnreverse (result);
+}
+
+/* (si:ts-free-buffer-cache &optional BUFFER)
+   Release cached TSTree/TSParser for BUFFER, freeing memory. */
+lisp
+Fsi_ts_free_buffer_cache (lisp lbuffer)
+{
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  auto it = g_ts_cache.find (bp);
+  if (it != g_ts_cache.end ())
+    {
+      lts_buf_cache *c = it->second;
+      if (c->tree)   ts_tree_delete (c->tree);
+      if (c->parser) ts_parser_delete (c->parser);
+      delete c;
+      g_ts_cache.erase (it);
+    }
+  return Qt;
+}
+
+/* (si:ts-buffer-cached-p &optional BUFFER)
+   Return t if BUFFER has a live parse-tree cache. */
+lisp
+Fsi_ts_buffer_cached_p (lisp lbuffer)
+{
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ())
+    return Qnil;
+  return it->second->tree ? Qt : Qnil;
 }
 
 lisp
