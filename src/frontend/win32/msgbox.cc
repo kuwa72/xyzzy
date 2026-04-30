@@ -339,22 +339,22 @@ XMessageBox::WndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   return 0;
 }
 
-// Button caption constants (internal Char encoding)
+// Button caption constants (UTF-16 code units)
 static const Char cap_ok[] = {'O', 'K', 0};
 // キャンセル
-static const Char cap_cancel[] = {0x834c, 0x8383, 0x8393, 0x835a, 0x838b, 0};
+static const Char cap_cancel[] = {0x30AD, 0x30E3, 0x30F3, 0x30BB, 0x30EB, 0};
 // 中止(&A)
-static const Char cap_abort[] = {0x9286, 0x8e7e, '(', '&', 'A', ')', 0};
+static const Char cap_abort[] = {0x4E2D, 0x6B62, '(', '&', 'A', ')', 0};
 // 再試行(&R)
-static const Char cap_retry[] = {0x8dc4, 0x8e8e, 0x8d73, '(', '&', 'R', ')', 0};
+static const Char cap_retry[] = {0x518D, 0x8A66, 0x884C, '(', '&', 'R', ')', 0};
 // 無視(&I)
-static const Char cap_ignore[] = {0x96b3, 0x8e8b, '(', '&', 'I', ')', 0};
+static const Char cap_ignore[] = {0x7121, 0x8996, '(', '&', 'I', ')', 0};
 // はい(&Y)
-static const Char cap_yes[] = {0x82cd, 0x82a2, '(', '&', 'Y', ')', 0};
+static const Char cap_yes[] = {0x306F, 0x3044, '(', '&', 'Y', ')', 0};
 // いいえ(&N)
-static const Char cap_no[] = {0x82a2, 0x82a2, 0x82a6, '(', '&', 'N', ')', 0};
+static const Char cap_no[] = {0x3044, 0x3044, 0x3048, '(', '&', 'N', ')', 0};
 // エラー (default title)
-static const Char cap_error[] = {0x8347, 0x8389, 0x815b, 0};
+static const Char cap_error[] = {0x30A8, 0x30E9, 0x30FC, 0};
 
 int
 XMessageBox::doit (HWND hwnd)
