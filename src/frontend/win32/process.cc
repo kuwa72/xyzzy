@@ -10,20 +10,28 @@ class EnvStrings
 {
   char *e_env;
   char *e_buf;
+  wchar_t *e_wenv;
+  wchar_t *e_wbuf;
 
   void set (char **, char **&, char *) const;
   char *set (char **, char **&, char *, lisp, lisp) const;
+  void wset (wchar_t **, wchar_t **&, wchar_t *) const;
   static int __cdecl compare (const void *p1, const void *p2)
     {return stricmp (*(char **)p1, *(char **)p2);}
+  static int __cdecl wcompare (const void *p1, const void *p2)
+    {return _wcsicmp (*(wchar_t **)p1, *(wchar_t **)p2);}
 public:
-  EnvStrings () : e_env (0), e_buf (0) {}
+  EnvStrings () : e_env (0), e_buf (0), e_wenv (0), e_wbuf (0) {}
   ~EnvStrings ()
     {
       xfree (e_buf);
       xfree (e_env);
+      xfree (e_wbuf);
+      xfree (e_wenv);
     }
   void setup (lisp);
   const char *str () const {return e_env;}
+  const wchar_t *wstr () const {return e_wenv;}
 };
 
 void
@@ -58,6 +66,26 @@ EnvStrings::set (char **nb, char **&ne, char *b, lisp var, lisp val) const
     b = w2s (b, val) + 1;
   set (nb, ne, b0);
   return b;
+}
+
+void
+EnvStrings::wset (wchar_t **nb, wchar_t **&ne, wchar_t *b) const
+{
+  wchar_t *eq = b;
+  if (*eq == L'=')
+    eq++;
+  eq = wcschr (eq, L'=');
+  if (!eq)
+    return;
+  int l = eq - b + 1;
+  for (; nb < ne; nb++)
+    if (!_wcsnicmp (b, *nb, l))
+      {
+        *nb = b[l] ? b : (wchar_t *)L"";
+        return;
+      }
+  if (b[l])
+    *ne++ = b;
 }
 
 void
@@ -130,6 +158,90 @@ EnvStrings::setup (lisp lenv)
     if (**np)
       p = stpcpy (p, *np) + 1;
   *p = 0;
+
+  // wide env block
+  {
+    size_t wn = 0, wl = 0;
+    for (lisp le = lenv; consp (le); le = xcdr (le), wn++)
+      {
+        lisp x = xcar (le);
+        wl += xstring_length (xcar (x)) + 2;
+        if (xcdr (x) != Qnil)
+          wl += xstring_length (xcdr (x));
+      }
+    for (int d = 0; d < 26; d++)
+      {
+        const char *dir = get_device_dir (d);
+        size_t x = strlen (dir);
+        if (x > 3)
+          {
+            wl += x + 7;
+            wn++;
+          }
+      }
+    for (wchar_t **we = _wenviron; *we; we++, wn++)
+      ;
+
+    size_t wl_bytes = wl * sizeof (wchar_t);
+    wl_bytes = (wl_bytes + sizeof (wchar_t *) - 1) / sizeof (wchar_t *) * sizeof (wchar_t *);
+    e_wbuf = (wchar_t *)xmalloc (wl_bytes + sizeof (wchar_t *) * wn);
+    wchar_t **wnb = (wchar_t **)((char *)e_wbuf + wl_bytes);
+    wchar_t **wne = wnb;
+    for (wchar_t **we = _wenviron; *we; we++)
+      *wne++ = *we;
+
+    wchar_t *wb = e_wbuf;
+    for (lisp le = lenv; consp (le); le = xcdr (le))
+      {
+        lisp x = xcar (le);
+        wchar_t *wb0 = wb;
+        size_t nlen = xstring_length (xcar (x));
+        memcpy (wb, xstring_contents (xcar (x)), nlen * sizeof (wchar_t));
+        wb += nlen;
+        *wb++ = L'=';
+        if (xcdr (x) == Qnil)
+          *wb++ = 0;
+        else
+          {
+            size_t vlen = xstring_length (xcdr (x));
+            memcpy (wb, xstring_contents (xcdr (x)), vlen * sizeof (wchar_t));
+            wb += vlen;
+            *wb++ = 0;
+          }
+        wset (wnb, wne, wb0);
+      }
+    for (int d = 0; d < 26; d++)
+      {
+        const char *dir = get_device_dir (d);
+        size_t x = strlen (dir);
+        if (x > 3)
+          {
+            wchar_t *wb0 = wb;
+            wb += swprintf (wb, 8, L"=%c:=%c:", 'A' + d, 'A' + d);
+            MultiByteToWideChar (CP_ACP, 0, dir, -1, wb, (int)x + 1);
+            wb += x + 1;
+            wset (wnb, wne, wb0);
+          }
+      }
+
+    qsort (wnb, wne - wnb, sizeof *wnb, wcompare);
+
+    size_t wenv_len = 1;
+    for (wchar_t **np = wnb; np < wne; np++)
+      if (**np)
+        wenv_len += wcslen (*np) + 1;
+
+    e_wenv = (wchar_t *)xmalloc (wenv_len * sizeof (wchar_t));
+    wchar_t *wp = e_wenv;
+    for (wchar_t **np = wnb; np < wne; np++)
+      if (**np)
+        {
+          size_t wl2 = wcslen (*np) + 1;
+          memcpy (wp, *np, wl2 * sizeof (wchar_t));
+          wp += wl2;
+        }
+    *wp = 0;
+  }
 }
 
 static void
@@ -201,8 +313,10 @@ Fcall_process (lisp cmd, lisp keys)
   EnvStrings env;
   env.setup (find_keyword (Kenviron, keys));
 
-  char *cmdline = (char *)alloca (xstring_length (cmd) * 2 + 1);
-  w2s (cmdline, cmd);
+  int cmd_wlen = xstring_length (cmd);
+  wchar_t *cmdline_w = (wchar_t *)alloca ((cmd_wlen + 1) * sizeof (wchar_t));
+  memcpy (cmdline_w, xstring_contents (cmd), cmd_wlen * sizeof (wchar_t));
+  cmdline_w[cmd_wlen] = 0;
 
   int no_std_handles = find_keyword_bool (Kno_std_handles, keys);
 
@@ -222,6 +336,9 @@ Fcall_process (lisp cmd, lisp keys)
   char dir[PATH_MAX + 1];
   pathname2cstr (exec_dir, dir);
   map_sl_to_backsl (dir);
+  wchar_t dir_w[PATH_MAX + 1];
+  pathname2wstr (exec_dir, dir_w);
+  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
 
   lisp lshow = find_keyword (Kshow, keys);
   int show = show_window_parameter (lshow, SW_SHOWNORMAL);
@@ -241,7 +358,7 @@ Fcall_process (lisp cmd, lisp keys)
   if (lstdout != lstderr)
     open_for_write (herr, errfile, lstderr, &sa);
 
-  STARTUPINFOA si;
+  STARTUPINFOW si;
   bzero (&si, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW;
@@ -259,11 +376,12 @@ Fcall_process (lisp cmd, lisp keys)
   WINFS::SetCurrentDirectory (dir);
 
   PROCESS_INFORMATION pi;
-  int result = CreateProcessA (0, cmdline, 0, 0, !no_std_handles,
+  int result = CreateProcessW (0, cmdline_w, 0, 0, !no_std_handles,
                                (CREATE_DEFAULT_ERROR_MODE
                                 /*| CREATE_NEW_PROCESS_GROUP*/
+                                | CREATE_UNICODE_ENVIRONMENT
                                 | NORMAL_PRIORITY_CLASS),
-                               (void *)env.str (), dir, &si, &pi);
+                               (void *)env.wstr (), dir_w, &si, &pi);
   int error = GetLastError ();
 
   w2s (dir, xsymbol_value (Qdefault_dir));
@@ -794,7 +912,7 @@ public:
         pClosePseudoConsole (p_hpc);
       delete p_term;
     }
-  void create (lisp command, lisp execdir, const char *env);
+  void create (lisp command, lisp execdir, const wchar_t *env);
   virtual void wait_terminate ();
   virtual void signal ()
     {
@@ -819,11 +937,11 @@ public:
 };
 
 void
-ConPtyProcess::create (lisp command, lisp execdir, const char *env)
+ConPtyProcess::create (lisp command, lisp execdir, const wchar_t *env)
 {
-  char dir[PATH_MAX + 1];
-  pathname2cstr (execdir, dir);
-  map_sl_to_backsl (dir);
+  wchar_t dir_w[PATH_MAX + 1];
+  pathname2wstr (execdir, dir_w);
+  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
 
   // Create pipes for ConPTY
   HANDLE pipe_pty_in, pipe_pty_out;  // pty side
@@ -884,13 +1002,11 @@ ConPtyProcess::create (lisp command, lisp execdir, const char *env)
   memcpy (cmdline_w, xstring_contents (command), cmdline_len * sizeof (wchar_t));
   cmdline_w[cmdline_len] = 0;
 
-  wchar_t dir_w[PATH_MAX + 1];
-  MultiByteToWideChar (932, 0, dir, -1, dir_w, PATH_MAX);
-
   PROCESS_INFORMATION pi;
   BOOL result = CreateProcessW (NULL, cmdline_w, NULL, NULL, FALSE,
-                                EXTENDED_STARTUPINFO_PRESENT, (void *)env,
-                                *dir ? dir_w : NULL,
+                                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                                (void *)env,
+                                *dir_w ? dir_w : NULL,
                                 &siex.StartupInfo, &pi);
   if (pDeleteProcThreadAttributeList)
     pDeleteProcThreadAttributeList (attr_list);
@@ -1062,7 +1178,7 @@ public:
       if (!WriteFile (p_out, s, l, &nwrite, 0))
         file_error (GetLastError ());
     }
-  void create (lisp, lisp, const char *, int);
+  void create (lisp, lisp, const wchar_t *, int);
   virtual int readin (u_char *, int);
 };
 
@@ -1170,11 +1286,14 @@ NormalProcess::signal_win95 ()
 }
 
 void
-NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
+NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
 {
   char dir[PATH_MAX + 1];
   pathname2cstr (execdir, dir);
   map_sl_to_backsl (dir);
+  wchar_t dir_w[PATH_MAX + 1];
+  pathname2wstr (execdir, dir_w);
+  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
 
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof sa;
@@ -1199,9 +1318,11 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   if (!event.valid ())
     file_error (GetLastError ());
 
-  char *cmdline = (char *)alloca (128 + xstring_length (command) * 2 + 1);
-  sprintf (cmdline, "xyzzyenv -s%u %u ", show, HANDLE (event));
-  w2s (cmdline + strlen (cmdline), command);
+  int cmd_wlen = xstring_length (command);
+  wchar_t *cmdline_w = (wchar_t *)alloca ((64 + cmd_wlen + 1) * sizeof (wchar_t));
+  int pfx = swprintf (cmdline_w, 64, L"xyzzyenv -s%u %u ", show, (ULONG_PTR)HANDLE (event));
+  memcpy (cmdline_w + pfx, xstring_contents (command), cmd_wlen * sizeof (wchar_t));
+  cmdline_w[pfx + cmd_wlen] = 0;
 
   u_int thread_id;
   HANDLE hread_thread = HANDLE (_beginthreadex (0, 0, Process::read_process, this,
@@ -1221,7 +1342,7 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   lisp lxshow = symbol_value (Vxyzzyenv_show_flag, selected_buffer ());
   int xshow = show_window_parameter (lxshow, SW_SHOWMINNOACTIVE);
 
-  STARTUPINFOA si;
+  STARTUPINFOW si;
   bzero (&si, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
@@ -1233,11 +1354,12 @@ NormalProcess::create (lisp command, lisp execdir, const char *env, int show)
   WINFS::SetCurrentDirectory (dir);
 
   PROCESS_INFORMATION pi;
-  int result = CreateProcessA (0, cmdline, 0, 0, 1,
+  int result = CreateProcessW (0, cmdline_w, 0, 0, 1,
                                (CREATE_NEW_PROCESS_GROUP
                                 | CREATE_DEFAULT_ERROR_MODE
+                                | CREATE_UNICODE_ENVIRONMENT
                                 | NORMAL_PRIORITY_CLASS),
-                               (void *)env, dir, &si, &pi);
+                               (void *)env, dir_w, &si, &pi);
   int error = GetLastError ();
 
   w2s (dir, xsymbol_value (Qdefault_dir));
@@ -1324,7 +1446,7 @@ Fmake_process (lisp command, lisp keys)
       ConPtyProcess *cp = new ConPtyProcess (bp, process, Process::make_process_marker (bp));
       try
         {
-          cp->create (command, execdir, env.str ());
+          cp->create (command, execdir, env.wstr ());
         }
       catch (nonlocal_jump &)
         {
@@ -1338,7 +1460,7 @@ Fmake_process (lisp command, lisp keys)
       NormalProcess *np = new NormalProcess (bp, process, Process::make_process_marker (bp));
       try
         {
-          np->create (command, execdir, env.str (), show);
+          np->create (command, execdir, env.wstr (), show);
         }
       catch (nonlocal_jump &)
         {
