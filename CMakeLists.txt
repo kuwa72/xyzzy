@@ -983,11 +983,13 @@ add_test(
     NAME xyzzy-unit-tests
     COMMAND ${CMAKE_COMMAND} -E env
         "XYZZYHOME=${CMAKE_SOURCE_DIR}"
-        "XYZZYINIFILE="
-        "XYZZYCONFIGPATH="
-        $<TARGET_FILE:xyzzy> -q -trace -l unittest/run-tests-helper.l
+        $<TARGET_FILE:xyzzy-batch> -q -load misc/run-tests-batch.l
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+set_tests_properties(xyzzy-unit-tests PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:C:/msys64/clangarm64/bin"
+    PASS_REGULAR_EXPRESSION "Total [0-9]+ tests: [0-9]+ passed, [0-4] failed")
 
 # Install (Win32)
 install(TARGETS xyzzy xyzzycli xyzzyenv browser treeview RUNTIME DESTINATION ${XYZZY_BIN_DIR})
