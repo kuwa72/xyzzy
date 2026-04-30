@@ -17,13 +17,13 @@ struct DdeCallbackInfo
   DWORD data2;
 };
 
-# define DDE_EXECUTE_ITEM ((char *)1)
+# define DDE_EXECUTE_ITEM ((wchar_t *)1)
 
 struct DdeItemList
 {
   HSZ hsz_item;
   HDDEDATA (CALLBACK *callback)(DdeCallbackInfo *);
-  const char *item;
+  const wchar_t *item;
   int (CALLBACK *matcher)(const DdeItemList *, HSZ);
 };
 
@@ -31,10 +31,10 @@ struct DdeTopicList
 {
   HSZ hsz_topic;
   DdeItemList *items;
-  const char *topic;
+  const wchar_t *topic;
 };
 
-extern const char DdeServerName[];
+extern const wchar_t DdeServerName[];
 extern DdeTopicList DdeServerTopicList[];
 
 #endif /* not DDE_CLIENT_ONLY */
@@ -61,7 +61,7 @@ protected:
       DdeString (const DdeString &);
       DdeString &operator = (const DdeString &);
     public:
-      DdeString (const char *string);
+      DdeString (const wchar_t *string);
       ~DdeString ();
       operator HSZ () const;
     };
@@ -84,13 +84,13 @@ public:
   ~Dde ();
   static void initialize ();
   static DWORD instance ();
-  static HCONV initiate (const char *, const char *);
+  static HCONV initiate (const wchar_t *, const wchar_t *);
   static void terminate (HCONV);
   static void execute (HCONV, long, const char *, int);
   static void execute (HCONV, long, const char *);
-  static void poke (HCONV, long, const char *, const char *, int);
-  static void poke (HCONV, long, const char *, const char *);
-  static HDDEDATA request (HCONV, long, const char *);
+  static void poke (HCONV, long, const wchar_t *, const char *, int);
+  static void poke (HCONV, long, const wchar_t *, const char *);
+  static HDDEDATA request (HCONV, long, const wchar_t *);
 };
 
 class DdeDataP
@@ -143,9 +143,9 @@ Dde::Exception::Exception ()
 }
 
 inline
-Dde::DdeString::DdeString (const char *string)
+Dde::DdeString::DdeString (const wchar_t *string)
 {
-  hsz = DdeCreateStringHandleA (instance (), *string ? string : " ", CP_WINANSI);
+  hsz = DdeCreateStringHandleW (instance (), *string ? string : L" ", CP_WINUNICODE);
   if (!hsz)
     throw Exception ();
 }
@@ -164,7 +164,7 @@ Dde::DdeString::operator HSZ () const
 }
 
 inline HCONV
-Dde::initiate (const char *serv, const char *topic)
+Dde::initiate (const wchar_t *serv, const wchar_t *topic)
 {
   DdeString xserv (serv), xtopic (topic);
   HCONV h = DdeConnect (instance (), xserv, xtopic, 0);
@@ -195,7 +195,7 @@ Dde::execute (HCONV hconv, long timeout, const char *data)
 }
 
 inline void
-Dde::poke (HCONV hconv, long timeout, const char *item, const char *data, int l)
+Dde::poke (HCONV hconv, long timeout, const wchar_t *item, const char *data, int l)
 {
   DdeString xitem (item);
   if (!DdeClientTransaction ((BYTE *)data, l, hconv, xitem,
@@ -204,13 +204,13 @@ Dde::poke (HCONV hconv, long timeout, const char *item, const char *data, int l)
 }
 
 inline void
-Dde::poke (HCONV hconv, long timeout, const char *item, const char *data)
+Dde::poke (HCONV hconv, long timeout, const wchar_t *item, const char *data)
 {
   poke (hconv, timeout, item, data, strlen (data) + 1);
 }
 
 inline HDDEDATA
-Dde::request (HCONV hconv, long timeout, const char *item)
+Dde::request (HCONV hconv, long timeout, const wchar_t *item)
 {
   DdeString xitem (item);
   HDDEDATA data = DdeClientTransaction (0, 0, hconv, xitem,

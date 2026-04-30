@@ -87,9 +87,9 @@ Dde::initialize ()
   if (dde_inst)
     return;
 #ifdef DDE_CLIENT_ONLY
-  int e = DdeInitializeA (&dde_inst, dde_callback, APPCMD_CLIENTONLY, 0);
+  int e = DdeInitializeW (&dde_inst, dde_callback, APPCMD_CLIENTONLY, 0);
 #else
-  int e = DdeInitializeA (&dde_inst, dde_callback, APPCMD_FILTERINITS, 0);
+  int e = DdeInitializeW (&dde_inst, dde_callback, APPCMD_FILTERINITS, 0);
 #endif
   if (e != DMLERR_NO_ERROR)
     throw Exception (e);
@@ -151,7 +151,7 @@ static osversion osver;
 int
 Dde::verify_context (CONVCONTEXT *cc)
 {
-  return (!cc || (cc->iCodePage == CP_WINANSI
+  return (!cc || ((cc->iCodePage == CP_WINUNICODE || cc->iCodePage == CP_WINUNICODE)
                   && cc->qos.ImpersonationLevel >= SecurityImpersonation));
 }
 
@@ -244,13 +244,13 @@ Dde::wild_connect (HSZ topic, HSZ service, CONVCONTEXT *cc)
 void
 Dde::create_strings ()
 {
-  hsz_server = DdeCreateStringHandleA (dde_inst, DdeServerName, CP_WINANSI);
+  hsz_server = DdeCreateStringHandleW (dde_inst,DdeServerName, CP_WINUNICODE);
   for (DdeTopicList *t = DdeServerTopicList; t->topic; t++)
     {
-      t->hsz_topic = DdeCreateStringHandleA (dde_inst, t->topic, CP_WINANSI);
+      t->hsz_topic = DdeCreateStringHandleW (dde_inst,t->topic, CP_WINUNICODE);
       for (DdeItemList *i = t->items; i->item; i++)
         if (i->item != DDE_EXECUTE_ITEM)
-          i->hsz_item = DdeCreateStringHandleA (dde_inst, i->item, CP_WINANSI);
+          i->hsz_item = DdeCreateStringHandleW (dde_inst,i->item, CP_WINUNICODE);
     }
 }
 

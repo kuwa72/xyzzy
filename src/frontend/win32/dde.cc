@@ -10,30 +10,30 @@ static HDDEDATA CALLBACK help_callback (DdeCallbackInfo *);
 static HDDEDATA CALLBACK eval_callback (DdeCallbackInfo *);
 static int CALLBACK eval_matcher (const DdeItemList *, HSZ);
 
-const char DdeServerName[] = "Xyzzy";
+const wchar_t DdeServerName[] = L"Xyzzy";
 
 static DdeItemList system_item_list[] =
 {
-  {0, topic_list_callback, "Topics"},
-  {0, item_list_callback, "SysItems"},
-  {0, formats_callback, "Formats"},
+  {0, topic_list_callback, L"Topics"},
+  {0, item_list_callback, L"SysItems"},
+  {0, formats_callback, L"Formats"},
 #ifdef notyet
-  {0, help_callback, "Help"},
+  {0, help_callback, L"Help"},
 #endif
   {0},
 };
 
 static DdeItemList lisp_item_list[] =
 {
-  {0, eval_callback, "Eval", eval_matcher},
+  {0, eval_callback, L"Eval", eval_matcher},
   {0, eval_callback, DDE_EXECUTE_ITEM},
   {0},
 };
 
 DdeTopicList DdeServerTopicList[] =
 {
-  {0, system_item_list, "System"},
-  {0, lisp_item_list, "Lisp"},
+  {0, system_item_list, L"System"},
+  {0, lisp_item_list, L"Lisp"},
   {0},
 };
 
@@ -90,10 +90,13 @@ Fdde_initiate (lisp lserv, lisp ltopic)
   lserv = Fstring (lserv);
   ltopic = Fstring (ltopic);
   lisp lconv = make_win32_dde_handle ();
-  char *serv = (char *)alloca (xstring_length (lserv) * 2 + 1);
-  w2s (serv, lserv);
-  char *topic = (char *)alloca (xstring_length (ltopic) * 2 + 1);
-  w2s (topic, ltopic);
+  int slen = xstring_length (lserv), tlen = xstring_length (ltopic);
+  wchar_t *serv = (wchar_t *)alloca ((slen + 1) * sizeof (wchar_t));
+  memcpy (serv, xstring_contents (lserv), slen * sizeof (wchar_t));
+  serv[slen] = 0;
+  wchar_t *topic = (wchar_t *)alloca ((tlen + 1) * sizeof (wchar_t));
+  memcpy (topic, xstring_contents (ltopic), tlen * sizeof (wchar_t));
+  topic[tlen] = 0;
   CALL_DDE (xwin32_dde_handle_hconv (lconv) = Dde::initiate (serv, topic));
   return lconv;
 }
@@ -137,8 +140,10 @@ Fdde_poke (lisp lconv, lisp litem, lisp ldata)
 {
   HCONV hconv = check_hconv (lconv);
   litem = Fstring (litem);
-  char *item = (char *)alloca (xstring_length (litem) * 2 + 1);
-  w2s (item, litem);
+  int ilen = xstring_length (litem);
+  wchar_t *item = (wchar_t *)alloca ((ilen + 1) * sizeof (wchar_t));
+  memcpy (item, xstring_contents (litem), ilen * sizeof (wchar_t));
+  item[ilen] = 0;
   ldata = Fstring (ldata);
   int l = w2sl (ldata) + 1;
   safe_ptr <char> data (new char [l]);
@@ -223,8 +228,10 @@ Fdde_request (lisp lconv, lisp ldata, lisp type)
   HCONV hconv = check_hconv (lconv);
   ldata = Fstring (ldata);
   dde_reqtype dr_type = req_type (type);
-  safe_ptr <char> data (new char [w2sl (ldata) + 1]);
-  w2s (data, ldata);
+  int dlen = xstring_length (ldata);
+  wchar_t *data = (wchar_t *)alloca ((dlen + 1) * sizeof (wchar_t));
+  memcpy (data, xstring_contents (ldata), dlen * sizeof (wchar_t));
+  data[dlen] = 0;
   lisp result = Qnil;
   try
     {
@@ -247,7 +254,7 @@ topic_list_callback (DdeCallbackInfo *dci)
 
   int nbytes = 0;
   for (DdeTopicList *t = DdeServerTopicList; t->topic; t++)
-    nbytes += strlen (t->topic) + 1;
+    nbytes += WideCharToMultiByte (CP_ACP, 0, t->topic, -1, 0, 0, 0, 0);
 
   HDDEDATA hdata = DdeCreateDataHandle (Dde::instance (), 0, 0, nbytes,
                                         dci->item, dci->fmt, 0);
@@ -261,7 +268,8 @@ topic_list_callback (DdeCallbackInfo *dci)
     }
   for (DdeTopicList *t = DdeServerTopicList; t->topic; t++)
     {
-      data = stpcpy (data, t->topic);
+      int n = WideCharToMultiByte (CP_ACP, 0, t->topic, -1, data, nbytes, 0, 0);
+      data += n - 1;
       *data++ = '\t';
     }
   data[-1] = 0;
@@ -287,7 +295,7 @@ item_list_callback (DdeCallbackInfo *dci)
   int nbytes = 0;
   for (DdeItemList *il = t->items; il->item; il++)
     if (il->item != DDE_EXECUTE_ITEM)
-      nbytes += strlen (il->item) + 1;
+      nbytes += WideCharToMultiByte (CP_ACP, 0, il->item, -1, 0, 0, 0, 0);
 
   HDDEDATA hdata = DdeCreateDataHandle (Dde::instance (), 0, 0, nbytes,
                                         dci->item, dci->fmt, 0);
@@ -302,7 +310,8 @@ item_list_callback (DdeCallbackInfo *dci)
   for (DdeItemList *il = t->items; il->item; il++)
     if (il->item != DDE_EXECUTE_ITEM)
       {
-        data = stpcpy (data, il->item);
+        int n = WideCharToMultiByte (CP_ACP, 0, il->item, -1, data, nbytes, 0, 0);
+        data += n - 1;
         *data++ = '\t';
       }
   data[-1] = 0;
@@ -345,10 +354,10 @@ help_callback (DdeCallbackInfo *dci)
 static int CALLBACK
 eval_matcher (const DdeItemList *il, HSZ hsz)
 {
-  char b[6];
-  if (!DdeQueryStringA (Dde::instance (), hsz, b, sizeof b, CP_WINANSI))
+  wchar_t b[6];
+  if (!DdeQueryStringW (Dde::instance (), hsz, b, 6, CP_WINUNICODE))
     return 0;
-  return !stricmp ("eval:", b);
+  return !_wcsicmp (L"eval:", b);
 }
 
 static HDDEDATA CALLBACK
@@ -363,10 +372,11 @@ eval_callback (DdeCallbackInfo *dci)
     case XTYP_REQUEST:
     case XTYP_ADVREQ:
       {
-        int l = DdeQueryStringA (Dde::instance (), dci->item, 0, 0, CP_WINANSI);
-        safe_ptr <char> data (new char [l + 2]);
-        DdeQueryStringA (Dde::instance (), dci->item, data, l + 1, CP_WINANSI);
-        string = make_string (data + 5);
+        int l = DdeQueryStringW (Dde::instance (), dci->item, 0, 0, CP_WINUNICODE);
+        safe_ptr <wchar_t> data (new wchar_t [l + 2]);
+        DdeQueryStringW (Dde::instance (), dci->item, data, l + 1, CP_WINUNICODE);
+        const wchar_t *p = (wchar_t *)data + 5;
+        string = make_string ((const Char *)p, wcslen (p));
         break;
       }
 
