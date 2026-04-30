@@ -133,7 +133,8 @@ enum lisp_object_type
   Treadtable,            // readtable
   Twait_object,          // wait-object
   Tchar_encoding,        // character encoding scheme
-  Tenvironment           // environment object
+  Tenvironment,          // environment object
+  Tts_grammar            // tree-sitter grammar
 };
 
 class lcons;

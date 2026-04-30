@@ -46,6 +46,7 @@ DECLARE_LDATA (loledata, Toledata)
 DECLARE_LDATA (lwait_object, Twait_object)
 DECLARE_LDATA (lchar_encoding, Tchar_encoding)
 DECLARE_LDATA (lenvironment, Tenvironment)
+DECLARE_LDATA (lts_grammar, Tts_grammar)
 /**/DECLARE_LDATA_END
 #undef DECLARE_LDATA_BEGIN
 #undef DECLARE_LDATA_END

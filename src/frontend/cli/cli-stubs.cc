@@ -630,6 +630,9 @@ lisp Fsi_make_c_function (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_last_win32_error () { return Qnil; }
 lisp Fsi_set_last_win32_error (lisp) { return Qnil; }
+lisp Fsi_load_ts_grammar (lisp, lisp) { return Qnil; }
+lisp Fsi_ts_query_buffer (lisp, lisp, lisp) { return Qnil; }
+lisp Fsi_ts_grammar_p (lisp) { return Qnil; }
 
 // ============================================================
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)

@@ -658,6 +658,7 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/dde.cc
     ${WIN32_DIR}/xdde.cc
     ${WIN32_DIR}/dll.cc
+    ${WIN32_DIR}/ts.cc
     ${WIN32_DIR}/DnD.cc
     ${WIN32_DIR}/clipboard.cc
     ${WIN32_DIR}/appid.cc
@@ -683,6 +684,7 @@ set(WIN32_SOURCES
 set(XYZZY_LINK_LIBS
     xyzzy-core
     ${ZLIB_LIBRARIES}
+    ${TREE_SITTER_LIBRARY}
     comctl32
     imm32
     mpr
@@ -706,6 +708,14 @@ else()
     target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 endif()
 target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
+# tree-sitter: prefer cmake-cache, fall back to MSYS2 CLANGARM64 default location
+find_path(TREE_SITTER_INCLUDE_DIR tree_sitter/api.h
+          PATHS "C:/msys64/clangarm64/include" NO_DEFAULT_PATH)
+find_library(TREE_SITTER_LIBRARY NAMES tree-sitter
+             PATHS "C:/msys64/clangarm64/lib" NO_DEFAULT_PATH)
+if(TREE_SITTER_INCLUDE_DIR)
+    target_include_directories(xyzzy PRIVATE "${TREE_SITTER_INCLUDE_DIR}")
+endif()
 target_link_libraries(xyzzy PRIVATE ${XYZZY_LINK_LIBS})
 
 # Static linking (no DLL dependencies on MSYS2 runtime)
@@ -736,6 +746,9 @@ else()
     target_compile_options(xyzzy-batch PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 endif()
 target_include_directories(xyzzy-batch PRIVATE ${ZLIB_INCLUDE_DIRS})
+if(TREE_SITTER_INCLUDE_DIR)
+    target_include_directories(xyzzy-batch PRIVATE "${TREE_SITTER_INCLUDE_DIR}")
+endif()
 target_link_libraries(xyzzy-batch PRIVATE ${XYZZY_LINK_LIBS})
 if(NOT MSVC)
     target_link_options(xyzzy-batch PRIVATE -static -Wl,--stack,0x2000000)

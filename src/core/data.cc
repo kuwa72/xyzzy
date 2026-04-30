@@ -2720,6 +2720,24 @@ rdump_object (FILE *fp, lenvironment *d, int n, const u_long used[LDATA_MAX_OBJE
       }
 }
 
+static void
+dump_object (FILE *, const lts_grammar *, int, const u_long [LDATA_MAX_OBJECTS_PER_LONG])
+{
+}
+
+static void
+rdump_object (FILE *fp, lts_grammar *d, int n, const u_long used[LDATA_MAX_OBJECTS_PER_LONG])
+{
+  for (lts_grammar *de = d + n; d < de; d++)
+    if (bitisset (used, bit_index (d)))
+      {
+        d->name = Qnil;
+        d->lang = 0;
+        d->hmod = 0;
+        d->loaded = 0;
+      }
+}
+
 template <class T, u_int F>
 void
 ldata <T, F>::dump_reps (FILE *fp)

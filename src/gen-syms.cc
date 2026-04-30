@@ -1051,6 +1051,13 @@ static symbols sys[] =
   MAKE_SYMBOL (c-callable, Qsi_c_callable),
   MAKE_SYMBOL (chunk, Qsi_chunk),
 
+  /* ts.cc */
+  SI_DEFUN3 (load-ts-grammar, 2, 0, 0),
+  SI_DEFUN3 (ts-query-buffer, 2, 1, 0),
+  SI_DEFUN3 (ts-grammar-p, 1, 0, 0),
+
+  MAKE_SYMBOL (ts-grammar, Qsi_ts_grammar),
+
   /* encdec.cc */
   SI_DEFUN3 (base64-decode, 1, 1, 0),
   SI_DEFUN3 (base64-encode, 1, 2, 0),
