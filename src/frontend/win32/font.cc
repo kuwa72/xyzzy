@@ -57,9 +57,9 @@ const FontSet::fontface FontSet::fs_default_face[] =
 int
 FontObject::create (const char *face, int h, int charset)
 {
-  LOGFONTA lf;
+  LOGFONTW lf;
   bzero (&lf, sizeof lf);
-  strcpy (lf.lfFaceName, face);
+  MultiByteToWideChar (CP_ACP, 0, face, -1, lf.lfFaceName, LF_FACESIZE);
   lf.lfHeight = h;
   lf.lfCharSet = charset;
   lf.lfPitchAndFamily = FIXED_PITCH;
@@ -67,19 +67,15 @@ FontObject::create (const char *face, int h, int charset)
 }
 
 int
-FontObject::create (const LOGFONTA &lf)
+FontObject::create (const LOGFONTW &lf)
 {
-  LOGFONTW lfw;
-  logfont_a_to_w (lf, lfw);
-  HFONT h = CreateFontIndirectW (&lfw);
+  HFONT h = CreateFontIndirectW (&lf);
   if (!h)
     return 0;
   if (fo_hfont)
     DeleteObject (fo_hfont);
   fo_hfont = h;
-  LOGFONTW lfw2;
-  GetObjectW (h, sizeof lfw2, &lfw2);
-  logfont_w_to_a (lfw2, fo_logfont);
+  GetObjectW (h, sizeof fo_logfont, &fo_logfont);
   return 1;
 }
 
@@ -115,7 +111,7 @@ FontObject::calc_offset (const SIZE &sz)
 }
 
 const bool
-FontObject::update (LOGFONTA &lf, const lisp keys, const bool recommend_size_p)
+FontObject::update (LOGFONTW &lf, const lisp keys, const bool recommend_size_p)
 {
   check_cons (keys);
   lisp lface = find_keyword (Kface, keys);
@@ -150,11 +146,14 @@ FontObject::update (LOGFONTA &lf, const lisp keys, const bool recommend_size_p)
   if (lface != Qnil)
     {
       check_string (lface);
-      char *face = (char *)alloca (xstring_length (lface) * 2 + 1);
-      w2s (face, lface);
-      if (strcmp (lf.lfFaceName, face) != 0)
+      int flen = xstring_length (lface);
+      const Char *fdata = xstring_contents (lface);
+      if ((size_t)flen != wcslen (lf.lfFaceName)
+          || memcmp (lf.lfFaceName, fdata, flen * sizeof (wchar_t)) != 0)
         {
-          strcpy (lf.lfFaceName, face);
+          int n = min (flen, LF_FACESIZE - 1);
+          memcpy (lf.lfFaceName, (const wchar_t *)fdata, n * sizeof (wchar_t));
+          lf.lfFaceName[n] = 0;
           update = true;
         }
     }
@@ -364,7 +363,7 @@ FontSet::create (const FontSetParam &param)
       for (int i = 1; i < FONT_MAX; i++)
         for (int h = fs_font[FONT_ASCII].size ().cy; h > 0; h--)
           {
-            LOGFONTA lf (param.fs_logfont[i]);
+            LOGFONTW lf (param.fs_logfont[i]);
             lf.lfHeight = h;
             lf.lfWidth = 0;
             fs_font[i].create (lf);
@@ -379,7 +378,7 @@ FontSet::create (const FontSetParam &param)
   for (int i = 0; i < FONT_MAX; i++)
     if (fs_font[i].size ().cx > fs_size.cx)
       {
-        LOGFONTA lf (param.fs_logfont[i]);
+        LOGFONTW lf (param.fs_logfont[i]);
         lf.lfWidth = fs_size.cx;
         fs_font[i].create (lf);
         fs_font[i].get_metrics (hdc, ex[i][0], ex[i][1]);
@@ -433,9 +432,7 @@ fix_charset_proc (ENUMLOGFONTW *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
       {
         if (font_exist_p (hdc, param.fs_logfont[i].lfFaceName, param.fs_logfont[i].lfCharSet))
           continue;
-        wchar_t wface[LF_FACESIZE];
-        cp932_to_wcs (param.fs_logfont[i].lfFaceName, -1, wface, LF_FACESIZE);
-        if (!wcscmp (elf->elfLogFont.lfFaceName, wface))
+        if (!wcscmp (elf->elfLogFont.lfFaceName, param.fs_logfont[i].lfFaceName))
           param.fs_logfont[i].lfCharSet = elf->elfLogFont.lfCharSet;
       }
   ReleaseDC (0, hdc);
@@ -463,7 +460,8 @@ FontSet::load_params (FontSetParam &param)
     {
       if (!*param.fs_logfont[i].lfFaceName)
         {
-          strcpy (param.fs_logfont[i].lfFaceName, default_face (i, 0));
+          MultiByteToWideChar (CP_ACP, 0, default_face (i, 0), -1,
+                               param.fs_logfont[i].lfFaceName, LF_FACESIZE);
           if (!i)
             {
               LOGFONTW lfw;
@@ -496,12 +494,12 @@ FontSet::make_alist () const
   lisp r = Qnil;
   for (int i = 0; i < FONT_MAX; i++)
     {
-      LOGFONTA lf = font (i).logfont ();
+      LOGFONTW lf = font (i).logfont ();
       int size = lf.lfHeight;
       if (!size_pixel_p ())
         size = FontObject::pixel_to_point (size);
       r = xcons (make_list (FontSet::lang_key (i),
-                            Kface, make_string (lf.lfFaceName),
+                            Kface, make_string ((const Char *)lf.lfFaceName, wcslen (lf.lfFaceName)),
                             Ksize, make_fixnum (size),
                             Ksize_pixel_p, boole (size_pixel_p ()),
                             0),
@@ -584,14 +582,14 @@ check_valid_font (const ENUMLOGFONTW *, const NEWTEXTMETRIC *,
 }
 
 bool
-font_exist_p (const HDC hdc, const char *face, BYTE charset)
+font_exist_p (const HDC hdc, const wchar_t *face, BYTE charset)
 {
   bool exists = false;
 
   LOGFONTW font;
-  memset (&font, 0, sizeof (LOGFONTW));
+  memset (&font, 0, sizeof font);
   font.lfCharSet = charset;
-  cp932_to_wcs (face, -1, font.lfFaceName, LF_FACESIZE);
+  wcsncpy (font.lfFaceName, face, LF_FACESIZE - 1);
 
   EnumFontFamiliesExW (hdc, &font,
                        FONTENUMPROCW (check_valid_font),

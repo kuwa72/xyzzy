@@ -32,7 +32,7 @@ public:
   HIMC ImmGetContext (HWND);
   BOOL ImmGetOpenStatus (HIMC);
   BOOL ImmReleaseContext (HWND, HIMC);
-  BOOL ImmSetCompositionFont (HIMC, LOGFONTA *);
+  BOOL ImmSetCompositionFont (HIMC, LOGFONTW *);
   BOOL ImmSetCompositionWindow (HIMC, COMPOSITIONFORM *);
   BOOL ImmSetOpenStatus (HIMC, BOOL);
   BOOL ImmSetCompositionString (HIMC, DWORD, void *, DWORD, void *, DWORD);

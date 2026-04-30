@@ -170,10 +170,8 @@ ChooseFontP::notify_lang (HWND hwnd, int code)
   if (i < 0 || i >= FONT_MAX)
     return;
 
-  wchar_t wface[LF_FACESIZE];
-  cp932_to_wcs (cf_param.fs_logfont[i].lfFaceName, -1, wface, LF_FACESIZE);
   int j = SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_FINDSTRINGEXACT,
-                              WPARAM (-1), LPARAM (wface));
+                              WPARAM (-1), LPARAM (cf_param.fs_logfont[i].lfFaceName));
   if (j == LB_ERR)
     j = 0;
   SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_SETCURSEL, j, 0);
@@ -232,7 +230,7 @@ ChooseFontP::notify_font_size (HWND hwnd, int code)
   lfw.lfCharSet = charset;
   wcscpy (lfw.lfFaceName, wname);
 
-  logfont_w_to_a (lfw, cf_param.fs_logfont[lang]);
+  cf_param.fs_logfont[lang] = lfw;
 
   HFONT hfont = CreateFontIndirectW (&lfw);
   HFONT hfdlg = HFONT (SendMessage (hwnd, WM_GETFONT, 0, 0));

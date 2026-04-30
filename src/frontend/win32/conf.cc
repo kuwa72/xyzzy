@@ -78,10 +78,12 @@ write_conf (const char *section, const char *name, const RECT &r)
 }
 
 void
-write_conf (const char *section, const char *name, const LOGFONTA &lf)
+write_conf (const char *section, const char *name, const LOGFONTW &lf)
 {
+  char face[LF_FACESIZE * 3];
+  WideCharToMultiByte (CP_ACP, 0, lf.lfFaceName, -1, face, sizeof face, 0, 0);
   char buf[128];
-  sprintf (buf, "%d,\"%s\",%d", lf.lfHeight, lf.lfFaceName, lf.lfCharSet);
+  sprintf (buf, "%d,\"%s\",%d", lf.lfHeight, face, lf.lfCharSet);
   write_ini (section, name, buf);
 }
 
@@ -195,7 +197,7 @@ read_conf (const char *section, const char *name, RECT &rr)
 }
 
 int
-read_conf (const char *section, const char *name, LOGFONTA &lf)
+read_conf (const char *section, const char *name, LOGFONTW &lf)
 {
   char buf[128];
   int l = read_conf (section, name, buf, sizeof buf);
@@ -203,8 +205,10 @@ read_conf (const char *section, const char *name, LOGFONTA &lf)
     return 0;
   memset (&lf, 0, sizeof lf);
   int h, cs;
-  if (sscanf (buf, "%d,\"%31[^\"]\",%d", &h, lf.lfFaceName, &cs) != 3)
+  char face[LF_FACESIZE];
+  if (sscanf (buf, "%d,\"%31[^\"]\",%d", &h, face, &cs) != 3)
     return 0;
+  MultiByteToWideChar (CP_ACP, 0, face, -1, lf.lfFaceName, LF_FACESIZE);
   lf.lfHeight = h;
   lf.lfCharSet = cs;
   return 1;
@@ -533,9 +537,13 @@ reg2ini_int (const char *key, ReadRegistry &r, const conf &cf, int l)
 static void
 reg2ini_logfont (const char *key, ReadRegistry &r, const conf &cf)
 {
-  LOGFONTA lf;
-  if (r.get (ASCII_W (cf.name), &lf, sizeof lf) == sizeof lf)
-    write_conf (key, cf.name, lf);
+  LOGFONTA lfa;
+  if (r.get (ASCII_W (cf.name), &lfa, sizeof lfa) == sizeof lfa)
+    {
+      LOGFONTW lfw;
+      logfont_a_to_w (lfa, lfw);
+      write_conf (key, cf.name, lfw);
+    }
 }
 
 static void

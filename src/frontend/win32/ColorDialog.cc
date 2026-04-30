@@ -627,7 +627,7 @@ ChooseFontPage::get_result ()
   for (i = 0; i < FONT_MAX; i++)
     if (cfp_font.cf_param.fs_logfont[i].lfHeight != cfp_param.fs_logfont[i].lfHeight
         || cfp_font.cf_param.fs_logfont[i].lfCharSet != cfp_param.fs_logfont[i].lfCharSet
-        || strcmp (cfp_font.cf_param.fs_logfont[i].lfFaceName, cfp_param.fs_logfont[i].lfFaceName))
+        || wcscmp (cfp_font.cf_param.fs_logfont[i].lfFaceName, cfp_param.fs_logfont[i].lfFaceName))
       {
         cfp_param.fs_logfont[i] = cfp_font.cf_param.fs_logfont[i];
         ccp_modified = 1;
@@ -678,7 +678,7 @@ ChooseFontPage::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGEW *psp)
     {
       LOGFONTW lfw;
       GetObjectW (app.text_font.font (i), sizeof lfw, &lfw);
-      logfont_w_to_a (lfw, cfp_param.fs_logfont[i]);
+      cfp_param.fs_logfont[i] = lfw;
     }
   cfp_param.fs_line_spacing = app.text_font.line_spacing ();
   cfp_param.fs_use_backsl = app.text_font.use_backsl_p ();

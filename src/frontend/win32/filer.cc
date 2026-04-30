@@ -87,7 +87,7 @@ FilerView::set_font () const
 {
   if (!filer_font.hfont ())
     {
-      LOGFONTA lf;
+      LOGFONTW lf;
       if (read_conf (cfgFont, cfgFiler, lf))
         {
           lf.lfCharSet = SHIFTJIS_CHARSET;
@@ -3257,13 +3257,13 @@ Fget_filer_font ()
   if (!filer_font.hfont ())
     return Qnil;
 
-  LOGFONTA lf = filer_font.logfont ();
+  LOGFONTW lf = filer_font.logfont ();
   int size = lf.lfHeight;
   BOOL size_pixel_p = app.text_font.size_pixel_p ();
   if (!size_pixel_p)
     size = FontObject::pixel_to_point (size);
 
-  return make_list (Kface, make_string (lf.lfFaceName),
+  return make_list (Kface, make_string ((const Char *)lf.lfFaceName, wcslen (lf.lfFaceName)),
                     Ksize, make_fixnum (size),
                     Ksize_pixel_p, boole (size_pixel_p),
                     0);
@@ -3272,7 +3272,7 @@ Fget_filer_font ()
 lisp
 Fset_filer_font (lisp keys)
 {
-  LOGFONTA lf = filer_font.logfont ();
+  LOGFONTW lf = filer_font.logfont ();
   lf.lfCharSet = SHIFTJIS_CHARSET;
   if (!FontObject::update (lf, keys, false))
     return Qnil;
