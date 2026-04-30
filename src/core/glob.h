@@ -3,6 +3,8 @@
 
 int wild_pathname_p (const char *);
 int pathname_match_p (const char *, const char *);
+int pathname_match_p (const char *, const wchar_t *);
+int pathname_match_p (const wchar_t *, const wchar_t *);
 
 # define GLOB_NOT '|'
 
@@ -19,6 +21,7 @@ public:
   ~file_masks ();
   void operator = (lisp);
   int match (const char *) const;
+  int match (const wchar_t *) const;
   int empty_p () const;
   void set_text (HWND) const;
 };

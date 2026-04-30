@@ -254,7 +254,8 @@ make_idl (HWND hwnd, lisp ldir, void *param,
                                -1, w, sz);
 #else
           const filer_data *f = (const filer_data *)lvi.lParam;
-          MultiByteToWideChar (932, 0, *f->name ? f->name : "..", -1, w, sz);
+          wcsncpy (w, *f->name ? f->name : L"..", sz);
+          w[sz - 1] = 0;
 #endif
           ole_error (sf->ParseDisplayName (hwnd, 0, w, &eaten,
                                            &idls[nstored], 0));
@@ -510,7 +511,11 @@ filer_drop_target::target_path (char *buf, const POINTL &pt)
     {
       fdt_hilited = index;
       if (*f->name)
-        strcpy (strappend (buf, f->name), "/");
+        {
+          char nbuf[MAX_PATH];
+          WideCharToMultiByte (CP_ACP, 0, f->name, -1, nbuf, MAX_PATH, 0, 0);
+          strcpy (strappend (buf, nbuf), "/");
+        }
       else
         {
           char *sl = find_last_slash (buf);

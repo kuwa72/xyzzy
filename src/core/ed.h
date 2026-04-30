@@ -312,6 +312,7 @@ protected:
 public:
   void restore ();
   int text (const char *);
+  int text (const wchar_t *);
   void puts (const Char *, int);
   int putc (Char);
   void newline ();

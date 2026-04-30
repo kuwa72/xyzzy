@@ -115,9 +115,7 @@ FilerView::set_colors () const
 int
 FilerView::chdir (lisp dir)
 {
-  char *b = (char *)alloca (xstring_length (dir) * 2 + 1);
-  w2s (b, dir);
-  return WINFS::SetCurrentDirectory (b);
+  return ::SetCurrentDirectoryW ((const wchar_t *)xstring_contents (dir));
 }
 
 int
@@ -131,25 +129,27 @@ FilerView::chdevdir (lisp dir)
 lisp
 FilerView::filename (const filer_data *d) const
 {
-  const char *name = *d->name ? d->name : "..";
+  const wchar_t *name = *d->name ? d->name : L"..";
+  int nl = (int) wcslen (name);
   int l = xstring_length (fv_ldir);
   int sl = (d->attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
-  lisp string = make_string (sl + l + s2wl (name));
-  bcopy (xstring_contents (fv_ldir), xstring_contents (string), l);
-  Char *b = s2w (&xstring_contents (string) [l], name);
+  lisp string = make_string (sl + l + nl);
+  bcopy (xstring_contents (fv_ldir), xstring_contents (string), l * sizeof (Char));
+  Char *b = &xstring_contents (string)[l];
+  memcpy (b, name, nl * sizeof (Char));
   if (sl)
-    *b = '/';
+    b[nl] = '/';
   return string;
 }
 
 int
-FilerView::load_contents (const char *mask)
+FilerView::load_contents (const wchar_t *mask)
 {
   if (!chdir (fv_ldir))
     file_error (GetLastError (), fv_ldir);
 
-  WIN32_FIND_DATAA fd;
-  HANDLE h = WINFS::FindFirstFile ("*", &fd);
+  WIN32_FIND_DATAW fd;
+  HANDLE h = FindFirstFileW (L"*", &fd);
   int error = GetLastError ();
   fv_parent->restore_dir ();
   if (h == INVALID_HANDLE_VALUE && error != ERROR_FILE_NOT_FOUND)
@@ -168,17 +168,17 @@ FilerView::load_contents (const char *mask)
           do
             {
 #ifndef PATHNAME_ESCAPE_TILDE
-              if (*fd.cFileName == '~' && !fd.cFileName[1])
+              if (fd.cFileName[0] == L'~' && !fd.cFileName[1])
                 continue;
 #endif
-              if (*fd.cFileName == '.')
+              if (fd.cFileName[0] == L'.')
                 {
                   if (!fd.cFileName[1])
                     continue;
-                  if (fd.cFileName[1] == '.' && !fd.cFileName[2])
+                  if (fd.cFileName[1] == L'.' && !fd.cFileName[2])
                     {
                       dotdot = 1;
-                      *fd.cFileName = 0;
+                      fd.cFileName[0] = 0;
                     }
                 }
 
@@ -207,7 +207,7 @@ FilerView::load_contents (const char *mask)
                 continue;
               new (this) filer_data (fd);
             }
-          while (WINFS::FindNextFile (h, &fd));
+          while (FindNextFileW (h, &fd));
         }
 
       if (!dotdot)
@@ -223,8 +223,9 @@ FilerView::load_contents (const char *mask)
             ;
           if (p != pe)
             {
-              FindClose (WINFS::FindFirstFile (".", &fd));
-              new (this) filer_data (fd.ftLastWriteTime);
+              WIN32_FIND_DATAW dotfd;
+              FindClose (FindFirstFileW (L".", &dotfd));
+              new (this) filer_data (dotfd.ftLastWriteTime);
             }
         }
     }
@@ -284,9 +285,9 @@ print_size (double d, char *b)
 }
 
 void
-FilerView::add_list_view (const char *last)
+FilerView::add_list_view (const wchar_t *last)
 {
-  char lastb[PATH_MAX * 2];
+  wchar_t lastb[MAX_PATH];
   if (last && !*last)
     last = 0;
   if (!last && stringp (fv_llastdir))
@@ -308,7 +309,11 @@ FilerView::add_list_view (const char *last)
               int e = xstring_length (fv_llastdir);
               if (e && xstring_contents (fv_llastdir) [e - 1] == '/')
                 e--;
-              w2s (lastb, xstring_contents (fv_llastdir) + l, e - l);
+              int cnt = e - l;
+              if (cnt > MAX_PATH - 1)
+                cnt = MAX_PATH - 1;
+              memcpy (lastb, xstring_contents (fv_llastdir) + l, cnt * sizeof (wchar_t));
+              lastb[cnt] = 0;
               if (*lastb)
                 last = lastb;
             }
@@ -330,7 +335,7 @@ FilerView::add_list_view (const char *last)
   for (find_chunk *fc = fv_chunk; fc; fc = fc->fc_cdr)
     for (filer_data *f = fc->fc_data, *fe = f + fc->fc_used; f < fe; f++)
       {
-        if (last && cur == -1 && strcaseeq (last, f->name))
+        if (last && cur == -1 && _wcsicmp (last, f->name) == 0)
           cur = i;
 
         LV_ITEM lvi;
@@ -367,16 +372,14 @@ FilerView::add_list_view (const char *last)
 }
 
 void
-FilerView::set_mask_text (const char *mask) const
+FilerView::set_mask_text (const wchar_t *mask) const
 {
   if (mask)
     {
-      char *b = (char *)alloca (strlen (mask) + 16);
-      stpcpy (stpcpy (b, "Mask: "), mask);
-      {
-        WideStr wb (b);
-        SetWindowTextW (fv_hwnd_mask, wb);
-      }
+      int ml = (int) wcslen (mask);
+      wchar_t *b = (wchar_t *)alloca ((ml + 16) * sizeof (wchar_t));
+      wcscpy (wcscpy (b, L"Mask: "), mask);
+      SetWindowTextW (fv_hwnd_mask, b);
     }
   else
     fv_masks.set_text (fv_hwnd_mask);
@@ -499,7 +502,8 @@ FilerView::dispinfo (LVITEMW *lv)
   switch (lv->iSubItem)
     {
     case 0:
-      MultiByteToWideChar (932, 0, *d->name ? d->name : "..", -1, fv_wbuf, MAX_PATH);
+      wcsncpy (fv_wbuf, *d->name ? d->name : L"..", MAX_PATH - 1);
+      fv_wbuf[MAX_PATH - 1] = 0;
       lv->pszText = fv_wbuf;
       if (lv->mask & LVIF_IMAGE)
         {
@@ -579,45 +583,33 @@ FilerView::dispinfo (LVITEMW *lv)
 }
 
 static int
-compare_filename (const char *s1, const char *s2, int param)
+compare_filename (const wchar_t *s1, const wchar_t *s2, int param)
 {
   if (!(param & FilerView::SORT_NUM))
     return (param & FilerView::SORT_CASE
-            ? strcmp (s1, s2) : sjis_strcasecmp (s1, s2));
+            ? wcscmp (s1, s2) : _wcsicmp (s1, s2));
 
-  extern u_char char_no_translate_table[];
-  extern u_char char_translate_downcase_table[];
-  const u_char *const translate = (param & FilerView::SORT_CASE
-                                   ? char_no_translate_table
-                                   : char_translate_downcase_table);
-  const u_char *p1 = (const u_char *)s1;
-  const u_char *p2 = (const u_char *)s2;
+  const wchar_t *p1 = s1;
+  const wchar_t *p2 = s2;
   while (*p1 && *p2)
     {
-      u_char c1 = *p1++, c2 = *p2++;
-      if (digit_char_p (c1) && digit_char_p (c2))
+      wchar_t c1 = *p1++, c2 = *p2++;
+      if (iswdigit (c1) && iswdigit (c2))
         {
-          int n1 = atoi (reinterpret_cast <const char *> (p1 - 1));
-          int n2 = atoi (reinterpret_cast <const char *> (p2 - 1));
+          int n1 = _wtoi (p1 - 1);
+          int n2 = _wtoi (p2 - 1);
           if (n1 != n2)
             return n1 - n2;
         }
       else
         {
-          c1 = translate[c1];
-          c2 = translate[c2];
-          if (c1 != c2)
-            return c1 - c2;
-          if (SJISP (c1) && *p1)
-            {
-              if (*p1 != *p2)
-                return *p1 - *p2;
-              p1++;
-              p2++;
-            }
+          wchar_t u1 = (param & FilerView::SORT_CASE) ? c1 : (wchar_t) towupper ((wint_t)c1);
+          wchar_t u2 = (param & FilerView::SORT_CASE) ? c2 : (wchar_t) towupper ((wint_t)c2);
+          if (u1 != u2)
+            return (int)u1 - (int)u2;
         }
     }
-  return *p1 - *p2;
+  return (int)*p1 - (int)*p2;
 }
 
 static int CALLBACK
@@ -653,13 +645,13 @@ compare_file (LPARAM p1, LPARAM p2, LPARAM param)
 
     case FilerView::SORT_EXT:
       {
-        const char *p1, *p2;
-        for (p1 = f1->name; *p1 == '.'; p1++)
+        const wchar_t *p1, *p2;
+        for (p1 = f1->name; *p1 == L'.'; p1++)
           ;
-        for (p2 = f2->name; *p2 == '.'; p2++)
+        for (p2 = f2->name; *p2 == L'.'; p2++)
           ;
-        p1 = jrindex (p1, '.');
-        p2 = jrindex (p2, '.');
+        p1 = wcsrchr (p1, L'.');
+        p2 = wcsrchr (p2, L'.');
         if (p1 && p2)
           d = compare_filename (p1, p2, param);
         else if (p1)
@@ -708,25 +700,25 @@ FilerView::sort (int param)
 }
 
 void
-FilerView::set_title (const char *mask) const
+FilerView::set_title (const wchar_t *mask) const
 {
-  /* Phase 2: Lisp string は UTF-16 code unit 列なので、cp932 経由せず
-     直接 wchar_t バッファへ memcpy する。mask は ASCII ワイルドカード
-     前提なので byte 単位で widen。 */
   lisp title = fv_parent->title ();
   int wl = xstring_length (fv_ldir) + 1;
   if (stringp (title))
     wl += xstring_length (title) + 3;
   if (mask)
-    wl += (int) strlen (mask);
+    wl += (int) wcslen (mask);
   wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
   wchar_t *w = wb;
   memcpy (w, xstring_contents (fv_ldir),
           xstring_length (fv_ldir) * sizeof (wchar_t));
   w += xstring_length (fv_ldir);
   if (mask)
-    for (const char *p = mask; *p; p++)
-      *w++ = (wchar_t) (u_char) *p;
+    {
+      int ml = (int) wcslen (mask);
+      memcpy (w, mask, ml * sizeof (wchar_t));
+      w += ml;
+    }
   if (stringp (title))
     {
       *w++ = L' '; *w++ = L'-'; *w++ = L' ';
@@ -745,8 +737,10 @@ FilerView::set_title () const
     set_title (0);
   else
     {
-      char *mask = (char *)alloca (xstring_length (fv_lmask) * 2 + 1);
-      w2s (mask, fv_lmask);
+      int ml = xstring_length (fv_lmask);
+      wchar_t *mask = (wchar_t *)alloca ((ml + 1) * sizeof (wchar_t));
+      memcpy (mask, xstring_contents (fv_lmask), ml * sizeof (wchar_t));
+      mask[ml] = 0;
       set_title (mask);
     }
 }
@@ -779,14 +773,14 @@ FilerView::reload (lisp lmask)
   wait_cursor wc;
   fv_subscribed = 0;
   fv_marks_changed = 1;
-  char last[MAX_PATH];
+  wchar_t last[MAX_PATH];
   *last = 0;
   if (fv_llastdir == fv_ldir
       || (stringp (fv_llastdir) && string_equal (fv_llastdir, fv_ldir)))
     {
       LV_ITEM lvi;
       if (find_focused (&lvi) >= 0)
-        strcpy (last, ((filer_data *)lvi.lParam)->name);
+        wcscpy (last, ((filer_data *)lvi.lParam)->name);
     }
   else
     {
@@ -796,11 +790,13 @@ FilerView::reload (lisp lmask)
     }
 
   fv_lmask = lmask ? lmask : Qnil;
-  char *mask;
+  wchar_t *mask;
   if (stringp (fv_lmask))
     {
-      mask = (char *)alloca (xstring_length (fv_lmask) * 2 + 1);
-      w2s (mask, fv_lmask);
+      int ml = xstring_length (fv_lmask);
+      mask = (wchar_t *)alloca ((ml + 1) * sizeof (wchar_t));
+      memcpy (mask, xstring_contents (fv_lmask), ml * sizeof (wchar_t));
+      mask[ml] = 0;
     }
   else
     mask = 0;
@@ -1111,16 +1107,20 @@ int
 FilerView::search (lisp string, lisp lstart, lisp lreverse, lisp lwild)
 {
   check_string (string);
-  char *pat = (char *)alloca (xstring_length (string) * 2 + 2);
-  char *pe = w2s (pat, string);
+  int sl = xstring_length (string);
+  wchar_t *pat = (wchar_t *)alloca ((sl + 2) * sizeof (wchar_t));
+  wchar_t *pe = (wchar_t *)memcpy (pat, xstring_contents (string),
+                                   sl * sizeof (wchar_t)) + sl;
 
   int inc = !lreverse || lreverse == Qnil ? 1 : -1;
   int wild = lwild && lwild != Qnil;
   if (wild && lwild != Qt)
     {
-      *pe++ = '*';
+      *pe++ = L'*';
       *pe = 0;
     }
+  else
+    *pe = 0;
 
   int index;
   if (!lstart || lstart == Qnil)
@@ -1148,10 +1148,10 @@ FilerView::search (lisp string, lisp lstart, lisp lreverse, lisp lwild)
       lvi.mask = LVIF_PARAM;
       if (ListView_GetItem (fv_hwnd, &lvi))
         {
-          const char *name = ((filer_data *)lvi.lParam)->name;
+          const wchar_t *name = ((filer_data *)lvi.lParam)->name;
           if (!*name)
-            name = "..";
-          if (wild ? pathname_match_p (pat, name) : !stricmp (pat, name))
+            name = L"..";
+          if (wild ? pathname_match_p (pat, name) : !_wcsicmp (pat, name))
             {
               ListView_SetItemState (fv_hwnd, index, LVIS_FOCUSED, LVIS_FOCUSED);
               ListView_EnsureVisible (fv_hwnd, index, 0);
@@ -1298,7 +1298,7 @@ FilerView::echo_filename ()
       if (find_focused (&lvi) >= 0)
         {
           const filer_data *f = (filer_data *)lvi.lParam;
-          app.status_window.text (*f->name ? f->name : "..");
+          app.status_window.text (*f->name ? f->name : L"..");
         }
       app.status_window.clear (1);
     }
@@ -1371,7 +1371,7 @@ FilerView::thread_main ()
       if (fv_stop_thread)
         break;
 
-      char *path;
+      wchar_t *path;
       int sequence;
       int len;
       find_chunk *chunk;
@@ -1381,9 +1381,9 @@ FilerView::thread_main ()
         if (!fv_icon_path || !fv_chunk)
           continue;
 
-        len = strlen (fv_icon_path);
-        path = (char *)alloca (len + MAX_PATH + 1);
-        strcpy (path, fv_icon_path);
+        len = (int) wcslen (fv_icon_path);
+        path = (wchar_t *)alloca ((len + MAX_PATH + 1) * sizeof (wchar_t));
+        wcscpy (path, fv_icon_path);
         sequence = fv_sequence;
         chunk = fv_chunk;
       }
@@ -1416,12 +1416,12 @@ FilerView::thread_main ()
                                && fd->icon_index != filer_data::ICON_INVALID_REF))
               continue;
 
-            strcpy (path + len, fd->name);
+            wcscpy (path + len, fd->name);
             attr = fd->attr;
           }
 
-          SHFILEINFOA fi;
-          if (!SHGetFileInfoA (path, attr, &fi, sizeof fi,
+          SHFILEINFOW fi;
+          if (!SHGetFileInfoW (path, attr, &fi, sizeof fi,
                                (SHGFI_ICON | SHGFI_OVERLAYINDEX
                                 | ((filer_font.size ().cy >= 32 ? SHGFI_LARGEICON : SHGFI_SMALLICON)))))
             continue;
@@ -1464,11 +1464,13 @@ FilerView::restart_thread ()
 {
   if (!fv_hthread)
     return;
-  char *path = (char *)malloc (xstring_length (fv_ldir) * 2 + 1);
+  int dl = xstring_length (fv_ldir);
+  wchar_t *path = (wchar_t *)malloc ((dl + 1) * sizeof (wchar_t));
   if (!path)
     return;
-  w2s (path, fv_ldir);
-  map_sl_to_backsl (path);
+  memcpy (path, xstring_contents (fv_ldir), dl * sizeof (wchar_t));
+  path[dl] = 0;
+  map_sl_to_backsl ((Char *)path, dl);
 
   ex_lock lock (fv_lockobj);
   if (fv_icon_path)
@@ -3216,8 +3218,14 @@ Filer::do_keyup ()
       else
         {
           lisp dir = v->get_directory ();
-          char *path = (char *)alloca (xstring_length (dir) * 2 + MAX_PATH + 1);
-          strcpy (w2s (path, dir), d->name);
+          int dlen = xstring_length (dir);
+          wchar_t *wpath = (wchar_t *)alloca ((dlen + MAX_PATH + 1) * sizeof (wchar_t));
+          memcpy (wpath, xstring_contents (dir), dlen * sizeof (wchar_t));
+          wcscpy (wpath + dlen, d->name);
+          int wlen = dlen + (int) wcslen (d->name);
+          int nbytes = WideCharToMultiByte (CP_ACP, 0, wpath, wlen, 0, 0, 0, 0) + 1;
+          char *path = (char *)alloca (nbytes);
+          path[WideCharToMultiByte (CP_ACP, 0, wpath, wlen, path, nbytes, 0, 0)] = 0;
           try
             {
               f_vbuffer.readin (&f_vwindow, path);

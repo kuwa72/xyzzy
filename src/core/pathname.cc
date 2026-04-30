@@ -815,6 +815,23 @@ match_suffixes (const char *name, lisp ignores)
   return 0;
 }
 
+int
+match_suffixes (const wchar_t *name, lisp ignores)
+{
+  int l = (int) wcslen (name);
+  for (; consp (ignores); ignores = xcdr (ignores))
+    {
+      lisp x = xcar (ignores);
+      if (!stringp (x))
+        continue;
+      int sl = xstring_length (x);
+      if (sl <= l
+          && !_wcsnicmp (name + l - sl, (const wchar_t *)xstring_contents (x), sl))
+        return 1;
+    }
+  return 0;
+}
+
 lisp
 Ffile_system_supports_long_file_name_p (lisp path)
 {

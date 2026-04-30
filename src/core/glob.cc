@@ -290,6 +290,203 @@ pathname_match_p (const char *pat, const char *str)
   return pathname_match_p1 (pat, str, nodot);
 }
 
+/* ASCII/SJIS pattern against wchar_t string — used by file_masks::match(wchar_t). */
+static int
+pathname_match_p1w (const char *pat, const wchar_t *str, int nodot)
+{
+  const u_char *p = (const u_char *)pat;
+  int unmatched_bracket = xsymbol_value (Vbrackets_is_wildcard_character) == Qnil;
+
+  while (1)
+    {
+      int c = *p++;
+      switch (c)
+        {
+        case 0:
+          return !*str;
+
+        case '[':
+          {
+            if (unmatched_bracket)
+              goto normal;
+            const u_char *pe = find_matched_bracket (p);
+            if (!pe)
+              {
+                unmatched_bracket = 1;
+                goto normal;
+              }
+            if (!*str)
+              return 0;
+            int not = 0;
+            if (*p == '^')
+              {
+                not = 1;
+                p++;
+              }
+            wchar_t sc = (wchar_t) towupper ((wint_t)*str);
+            while (p < pe)
+              {
+                int c2 = *p++;
+                if (SJISP (c2) && *p)
+                  {
+                    p++;
+                    /* SJIS 2-byte range in pattern: skip, won't match wchar_t */
+                  }
+                else if (*p == '-' && p + 1 < pe && !SJISP (p[1]))
+                  {
+                    if (sc >= (wchar_t) char_upcase (c2)
+                        && sc <= (wchar_t) char_upcase (p[1]))
+                      {
+                        not ^= 1;
+                        break;
+                      }
+                    p += 2;
+                  }
+                else if ((wchar_t) char_upcase (c2) == sc)
+                  {
+                    not ^= 1;
+                    break;
+                  }
+              }
+            if (!not)
+              return 0;
+            p = pe + 1;
+            str++;
+            break;
+          }
+
+        case '?':
+          if (!*str)
+            return 0;
+          if (nodot && *str == L'.')
+            return 0;
+          str++;
+          break;
+
+        case '*':
+          while (*p == '*')
+            p++;
+          if (!*p)
+            return 1;
+          while (1)
+            {
+              if (pathname_match_p1w ((const char *)p, str, nodot))
+                return 1;
+              if (!*str)
+                return 0;
+              if (nodot && *str == L'.')
+                return 0;
+              str++;
+            }
+          /* NOTREACHED */
+
+        case '.':
+          if (*str == L'.')
+            str++;
+          else
+            return !*p && !*str;
+          break;
+
+        default:
+        normal:
+          if (SJISP (c) && *p)
+            p++; /* skip SJIS second byte in pattern */
+          else if ((wchar_t) char_upcase (c) != (wchar_t) towupper ((wint_t)*str))
+            return 0;
+          str++;
+        }
+    }
+}
+
+int
+pathname_match_p (const char *pat, const wchar_t *str)
+{
+  int nodot = 0;
+  int l = strlen (pat);
+  if (l > 1 && pat[l - 1] == '.' && !check_kanji2 (pat, l - 1))
+    nodot = 1;
+  return pathname_match_p1w (pat, str, nodot);
+}
+
+int
+file_masks::match (const wchar_t *name) const
+{
+  if (empty_p ())
+    return 0;
+  int not = 0, match = 0;
+  for (char **p = fm_masks; *p; p++)
+    if (**p == GLOB_NOT)
+      {
+        match |= pathname_match_p (*p + 1, name);
+        not = 1;
+      }
+    else if (pathname_match_p (*p, name))
+      return 1;
+  return not ? !match : 0;
+}
+
+/* wchar_t pattern against wchar_t string — used by FilerView::search. */
+static int
+pathname_match_p1ww (const wchar_t *pat, const wchar_t *str, int nodot)
+{
+  while (1)
+    {
+      wchar_t c = *pat++;
+      switch (c)
+        {
+        case 0:
+          return !*str;
+
+        case L'?':
+          if (!*str)
+            return 0;
+          if (nodot && *str == L'.')
+            return 0;
+          str++;
+          break;
+
+        case L'*':
+          while (*pat == L'*')
+            pat++;
+          if (!*pat)
+            return 1;
+          while (1)
+            {
+              if (pathname_match_p1ww (pat, str, nodot))
+                return 1;
+              if (!*str)
+                return 0;
+              if (nodot && *str == L'.')
+                return 0;
+              str++;
+            }
+          /* NOTREACHED */
+
+        case L'.':
+          if (*str == L'.')
+            str++;
+          else
+            return !*pat && !*str;
+          break;
+
+        default:
+          if ((wchar_t) towupper ((wint_t)c) != (wchar_t) towupper ((wint_t)*str))
+            return 0;
+          str++;
+        }
+    }
+}
+
+int
+pathname_match_p (const wchar_t *pat, const wchar_t *str)
+{
+  int nodot = 0;
+  int l = (int) wcslen (pat);
+  if (l > 1 && pat[l - 1] == L'.')
+    nodot = 1;
+  return pathname_match_p1ww (pat, str, nodot);
+}
+
 #define DF_ABSOLUTE 1
 #define DF_RECURSIVE 2
 #define DF_FILE_ONLY 4

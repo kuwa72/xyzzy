@@ -193,6 +193,15 @@ StatusWindow::text (const char *s)
   return sw_last.l;
 }
 
+int
+StatusWindow::text (const wchar_t *s)
+{
+  SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM (s));
+  UpdateWindow (sw_hwnd);
+  sw_last.textf = 1;
+  return sw_last.l;
+}
+
 void
 StatusWindow::puts (const Char *b, int size)
 {
