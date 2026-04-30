@@ -78,6 +78,40 @@ configure_file(
 )
 
 # ============================================================
+# tree-sitter: build from source (static, no runtime DLL)
+# ============================================================
+include(FetchContent)
+cmake_policy(SET CMP0169 OLD)  # allow FetchContent_Populate (we manage targets ourselves)
+FetchContent_Declare(tree-sitter
+    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter
+    GIT_TAG        v0.26.2
+    GIT_SHALLOW    TRUE)
+FetchContent_GetProperties(tree-sitter)
+if(NOT tree-sitter_POPULATED)
+    FetchContent_Populate(tree-sitter)
+endif()
+add_library(tree-sitter-core STATIC
+    ${tree-sitter_SOURCE_DIR}/lib/src/lib.c)
+target_include_directories(tree-sitter-core PUBLIC
+    ${tree-sitter_SOURCE_DIR}/lib/include)
+
+FetchContent_Declare(tree-sitter-c
+    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-c
+    GIT_TAG        v0.24.1
+    GIT_SHALLOW    TRUE)
+FetchContent_GetProperties(tree-sitter-c)
+if(NOT tree-sitter-c_POPULATED)
+    FetchContent_Populate(tree-sitter-c)
+endif()
+add_library(tree-sitter-c-grammar SHARED
+    ${tree-sitter-c_SOURCE_DIR}/src/parser.c)
+target_include_directories(tree-sitter-c-grammar PRIVATE
+    ${tree-sitter-c_SOURCE_DIR}/src)
+set_target_properties(tree-sitter-c-grammar PROPERTIES
+    OUTPUT_NAME "tree-sitter-c"
+    PREFIX      "")
+
+# ============================================================
 # Find zlib (prefer static library for -static linking)
 # ============================================================
 set(CMAKE_FIND_LIBRARY_SUFFIXES_SAVE ${CMAKE_FIND_LIBRARY_SUFFIXES})
@@ -684,7 +718,7 @@ set(WIN32_SOURCES
 set(XYZZY_LINK_LIBS
     xyzzy-core
     ${ZLIB_LIBRARIES}
-    ${TREE_SITTER_LIBRARY}
+    tree-sitter-core
     comctl32
     imm32
     mpr
@@ -708,14 +742,6 @@ else()
     target_compile_options(xyzzy PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 endif()
 target_include_directories(xyzzy PRIVATE ${ZLIB_INCLUDE_DIRS})
-# tree-sitter: prefer cmake-cache, fall back to MSYS2 CLANGARM64 default location
-find_path(TREE_SITTER_INCLUDE_DIR tree_sitter/api.h
-          PATHS "C:/msys64/clangarm64/include" NO_DEFAULT_PATH)
-find_library(TREE_SITTER_LIBRARY NAMES tree-sitter
-             PATHS "C:/msys64/clangarm64/lib" NO_DEFAULT_PATH)
-if(TREE_SITTER_INCLUDE_DIR)
-    target_include_directories(xyzzy PRIVATE "${TREE_SITTER_INCLUDE_DIR}")
-endif()
 target_link_libraries(xyzzy PRIVATE ${XYZZY_LINK_LIBS})
 
 # Static linking (no DLL dependencies on MSYS2 runtime)
@@ -746,9 +772,6 @@ else()
     target_compile_options(xyzzy-batch PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${WIN32_DIR}" "SHELL:-iquote ${WIN32_DIR}/privctrl" "SHELL:-iquote ${GEN_DIR}")
 endif()
 target_include_directories(xyzzy-batch PRIVATE ${ZLIB_INCLUDE_DIRS})
-if(TREE_SITTER_INCLUDE_DIR)
-    target_include_directories(xyzzy-batch PRIVATE "${TREE_SITTER_INCLUDE_DIR}")
-endif()
 target_link_libraries(xyzzy-batch PRIVATE ${XYZZY_LINK_LIBS})
 if(NOT MSVC)
     target_link_options(xyzzy-batch PRIVATE -static -Wl,--stack,0x2000000)
