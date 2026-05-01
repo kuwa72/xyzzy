@@ -52,6 +52,10 @@
 ;;; refresh-screen is needed because refresh_buffer only sets WDF_WINDOW;
 ;;; the command loop calls refresh_screen at its top (before fetch), so
 ;;; without an explicit call here the display updates only on the next keypress.
+;;;
+;;; si:ts-query-buffer limits the C-side parse to 50 ms per call.  If the
+;;; parse timed out, si:ts-parse-complete-p returns nil and we reschedule
+;;; quickly (0.1 s) so tree-sitter resumes until the tree is complete.
 (defun ts-do-highlight ()
   (ignore-errors
     (let* ((buf   (selected-buffer))
@@ -61,7 +65,9 @@
                                       buf
                                       (car range) (cdr range))))
       (ts-apply-highlights buf spans)
-      (refresh-screen))))
+      (refresh-screen)
+      (unless (si:ts-parse-complete-p buf)
+        (start-timer 0.1 'ts-do-highlight t)))))
 
 ;;; Post-command hook: cancel pending timer and schedule a new one.
 (defun ts-schedule-highlight ()

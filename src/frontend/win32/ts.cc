@@ -11,7 +11,9 @@ struct lts_buf_cache
   TSParser         *parser;
   TSTree           *tree;
   const TSLanguage *lang;
-  long              revision;  /* b_modified_count at last parse */
+  long              revision;       /* b_modified_count of fully-parsed tree */
+  long              parse_revision; /* b_modified_count when in-progress parse started */
+  int               parse_in_progress; /* 1 while a parse is interrupted by timeout */
 };
 
 static std::unordered_map<Buffer *, lts_buf_cache *> g_ts_cache;
@@ -30,18 +32,22 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
         {
           if (c->tree)
             { ts_tree_delete (c->tree); c->tree = nullptr; }
+          /* ts_parser_set_language implicitly resets any interrupted parse. */
           ts_parser_set_language (c->parser, lang);
-          c->lang     = lang;
-          c->revision = -1;
+          c->lang              = lang;
+          c->revision          = -1;
+          c->parse_in_progress = 0;
         }
       return c;
     }
 
   lts_buf_cache *c = new lts_buf_cache;
-  c->parser   = ts_parser_new ();
-  c->tree     = nullptr;
-  c->lang     = lang;
-  c->revision = -1;
+  c->parser            = ts_parser_new ();
+  c->tree              = nullptr;
+  c->lang              = lang;
+  c->revision          = -1;
+  c->parse_revision    = -1;
+  c->parse_in_progress = 0;
   if (c->parser)
     ts_parser_set_language (c->parser, lang);
   g_ts_cache[bp] = c;
@@ -119,24 +125,58 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
   return g;
 }
 
-/* Flatten buffer chunks into a contiguous UTF-16 array (xmalloc'd). */
-static Char *
-flatten_buffer (Buffer *bp, int *out_ncu)
+/* TSInput callback: read directly from buffer chunks (no full-buffer copy).
+   Resumes correctly across parse interruptions because tree-sitter requests
+   bytes from the exact offset where it left off. */
+struct ts_parse_ctx
 {
-  int total = 0;
-  for (Chunk *c = bp->b_chunkb; c; c = c->c_next)
-    total += c->c_used;
+  Buffer        *bp;
+  Chunk         *chunk;
+  uint32_t       chunk_start_byte;
+  LARGE_INTEGER  t_start;
+  LARGE_INTEGER  t_freq;
+};
 
-  Char *buf = (Char *) xmalloc ((total + 1) * sizeof (Char));
-  Char *p = buf;
-  for (Chunk *c = bp->b_chunkb; c; c = c->c_next)
+static const char *
+ts_buf_read (void *payload, uint32_t byte_index, TSPoint /*pos*/,
+             uint32_t *bytes_read)
+{
+  ts_parse_ctx *ctx = (ts_parse_ctx *) payload;
+
+  /* Walk forward from cached position; restart from head if backtracking. */
+  if (!ctx->chunk || byte_index < ctx->chunk_start_byte)
     {
-      memcpy (p, c->c_text, c->c_used * sizeof (Char));
-      p += c->c_used;
+      ctx->chunk            = ctx->bp->b_chunkb;
+      ctx->chunk_start_byte = 0;
     }
-  buf[total] = 0;
-  *out_ncu = total;
-  return buf;
+  while (ctx->chunk)
+    {
+      uint32_t end = ctx->chunk_start_byte
+                     + (uint32_t) ctx->chunk->c_used * sizeof (Char);
+      if (byte_index < end)
+        break;
+      ctx->chunk_start_byte = end;
+      ctx->chunk            = ctx->chunk->c_next;
+    }
+  if (!ctx->chunk) { *bytes_read = 0; return ""; }
+
+  uint32_t off = byte_index - ctx->chunk_start_byte;
+  *bytes_read  = (uint32_t) ctx->chunk->c_used * sizeof (Char) - off;
+  return (const char *) ctx->chunk->c_text + off;
+}
+
+/* TSParseOptions progress callback: cancel after 50 ms to keep the
+   input thread responsive.  Tree-sitter resumes from the same offset
+   on the next call to ts_parser_parse_with_options. */
+static bool
+ts_progress_cb (TSParseState *state)
+{
+  ts_parse_ctx *ctx = (ts_parse_ctx *) state->payload;
+  LARGE_INTEGER now;
+  QueryPerformanceCounter (&now);
+  double ms = (double)(now.QuadPart - ctx->t_start.QuadPart)
+              * 1000.0 / ctx->t_freq.QuadPart;
+  return ms >= 50.0;
 }
 
 /* Convert a code-unit offset to code-point offset. */
@@ -181,28 +221,50 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
   if (!c->parser)
     FEsimple_error (Ets_parse_failed);
 
-  /* Re-parse only when the buffer has been modified since last parse. */
-  if (c->revision != bp->b_modified_count || !c->tree)
+  /* Re-parse when stale or when a previous parse was interrupted. */
+  if (!c->tree || c->parse_in_progress || c->revision != bp->b_modified_count)
     {
-      int ncu;
-      Char *text = flatten_buffer (bp, &ncu);
+      if (c->parse_in_progress && c->parse_revision != bp->b_modified_count)
+        {
+          /* Buffer changed while an interrupted parse was pending: discard. */
+          ts_parser_reset (c->parser);
+          c->parse_in_progress = 0;
+        }
 
-      /* Pass old tree (may be NULL) for incremental subtree reuse. */
-      TSTree *new_tree = ts_parser_parse_string_encoding (
-        c->parser, c->tree,
-        (const char *) text,
-        (uint32_t)(ncu * sizeof (Char)),
-        TSInputEncodingUTF16LE);
+      long cur_rev = bp->b_modified_count;
 
-      xfree (text);
+      /* Read directly from buffer chunks; no full-buffer copy needed.
+         Tree-sitter resumes from the interrupted byte offset on retry. */
+      ts_parse_ctx pctx;
+      pctx.bp               = bp;
+      pctx.chunk            = nullptr;
+      pctx.chunk_start_byte = 0;
+      QueryPerformanceFrequency (&pctx.t_freq);
+      QueryPerformanceCounter   (&pctx.t_start);
 
-      if (!new_tree)
-        FEsimple_error (Ets_parse_failed);
+      TSInput      input = { &pctx, ts_buf_read, TSInputEncodingUTF16LE };
+      TSParseOptions opts = { &pctx, ts_progress_cb };
 
-      if (c->tree)
-        ts_tree_delete (c->tree);
-      c->tree     = new_tree;
-      c->revision = bp->b_modified_count;
+      TSTree *new_tree = ts_parser_parse_with_options (c->parser, c->tree,
+                                                       input, opts);
+      if (new_tree)
+        {
+          if (c->tree)
+            ts_tree_delete (c->tree);
+          c->tree              = new_tree;
+          c->revision          = cur_rev;
+          c->parse_in_progress = 0;
+        }
+      else
+        {
+          /* Cancelled by timeout: remember revision so next call can resume
+             (same revision) or restart (different revision). */
+          c->parse_revision    = cur_rev;
+          c->parse_in_progress = 1;
+          if (!c->tree)
+            return Qnil;  /* no stale tree to fall back on yet */
+          /* Fall through and query the stale tree for this tick. */
+        }
     }
 
   /* Build and run query. */
@@ -291,6 +353,20 @@ Fsi_ts_buffer_cached_p (lisp lbuffer)
   if (it == g_ts_cache.end ())
     return Qnil;
   return it->second->tree ? Qt : Qnil;
+}
+
+/* (si:ts-parse-complete-p &optional BUFFER)
+   Return t if BUFFER has an up-to-date parse tree with no pending parse. */
+lisp
+Fsi_ts_parse_complete_p (lisp lbuffer)
+{
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ())
+    return Qnil;
+  lts_buf_cache *c = it->second;
+  return (c->tree && !c->parse_in_progress
+          && c->revision == bp->b_modified_count) ? Qt : Qnil;
 }
 
 lisp
