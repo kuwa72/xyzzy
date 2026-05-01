@@ -7,9 +7,9 @@
 (defvar *ts-c-grammar* nil)
 
 (defun ts-load-c-grammar ()
-  "Load the C grammar DLL (MSYS2 CLANGARM64 location)."
+  "Load the C grammar DLL (built by CMake)."
   (unless (and *ts-c-grammar* (si:ts-grammar-p *ts-c-grammar*))
-    (let ((dll "C:/msys64/clangarm64/lib/nvim/parser/c.so"))
+    (let ((dll (merge-pathnames "tree-sitter-c.dll" (si:system-root))))
       (setq *ts-c-grammar* (si:load-ts-grammar dll "c"))))
   *ts-c-grammar*)
 
@@ -27,7 +27,7 @@
   "Print tree-sitter capture spans to *Output*."
   (interactive)
   (let ((spans (ts-demo-query-buffer buffer)))
-    (with-output-to-buffer ("*ts-demo*")
+    (with-output-to-temp-buffer ("*ts-demo*")
       (format t "ts-demo: ~D spans~%" (length spans))
       (dolist (s spans)
         (format t "  ~A  [~D, ~D)~%" (first s) (second s) (third s))))))
@@ -41,17 +41,17 @@
     (save-excursion
       (set-buffer buf)
       ;; Clear existing ts textprops first
-      (remove-text-attributes 1 (buffer-size) 'ts-face)
+      (delete-text-attributes 'ts-face)
       (dolist (s spans)
-        (let* ((name   (first s))
-               (start  (1+ (second s)))   ; xyzzy uses 1-based points
-               (end    (1+ (third s)))
-               (face   (cond
-                         ((string= name "comment")        'comment)
-                         ((string= name "string")         'string)
-                         ((string= name "constant.numeric") 'keyword1)
-                         ((string= name "include")        'keyword2)
-                         ((string= name "function.call")  'keyword3)
+        (let* ((name  (first s))
+               (start (second s))
+               (end   (third s))
+               (fg    (cond
+                         ((string= name "comment")          2)  ; dark green
+                         ((string= name "string")           1)  ; dark red
+                         ((string= name "constant.numeric") 4)  ; dark blue
+                         ((string= name "include")          5)  ; dark magenta
+                         ((string= name "function.call")    6)  ; dark cyan
                          (t nil))))
-          (when face
-            (set-text-attribute start end 'ts-face face)))))))
+          (when fg
+            (set-text-attribute start end 'ts-face :foreground fg)))))))
