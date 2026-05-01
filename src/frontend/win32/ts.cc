@@ -4,26 +4,43 @@
 #include <tree_sitter/api.h>
 #include <unordered_map>
 
-/* Per-buffer parse cache -------------------------------------------------- */
+/* Raw capture span: byte offsets + capture index.  Produced by the background
+   query thread; converted to code-point offsets on the main thread. */
+struct ts_span_raw
+{
+  uint32_t start_byte;
+  uint32_t end_byte;
+  uint32_t cap_index;
+};
+
+/* Per-buffer parse + query cache -------------------------------------------*/
 
 struct lts_buf_cache
 {
   TSParser         *parser;
   TSTree           *tree;
-  TSQuery          *query;          /* compiled query (reused across calls) */
+  TSQuery          *query;          /* compiled query (read by bg thread too) */
   char             *query_src;      /* UTF-8 source of cached query */
-  TSQueryCursor    *cursor;         /* reused cursor (reset by exec each call) */
   const TSLanguage *lang;
   long              revision;       /* b_modified_count of fully-parsed tree */
   long              parse_revision; /* b_modified_count when in-progress parse started */
-  int               parse_in_progress; /* 1 while a parse is interrupted by timeout */
+  int               parse_in_progress;
+
+  /* Async query state ------------------------------------------------------- */
+  volatile LONG     bg_active;     /* 1 while bg thread is running */
+  volatile LONG     bg_cancel;     /* set to 1 to ask bg thread to stop early */
+  HANDLE            hthread;       /* bg thread handle (NULL if none started yet) */
+  ts_span_raw      *bg_spans;      /* results from last completed bg query */
+  uint32_t          bg_span_count;
+  long              bg_span_rev;   /* b_modified_count when bg_spans were produced */
+  TSPoint           bg_sp, bg_ep;  /* point range the results cover */
+  bool              bg_has_range;  /* false = full-buffer query */
 };
 
 static std::unordered_map<Buffer *, lts_buf_cache *> g_ts_cache;
 
-/* Return the cache entry for BP, creating one if necessary.
-   If the grammar changed, the old tree is discarded and the parser
-   is reconfigured. */
+/* Return the cache entry for BP, creating one if needed.
+   Grammar changes flush the tree and compiled query; bg state is also reset. */
 static lts_buf_cache *
 get_buf_cache (Buffer *bp, const TSLanguage *lang)
 {
@@ -33,10 +50,11 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
       lts_buf_cache *c = it->second;
       if (c->lang != lang)
         {
-          if (c->tree) { ts_tree_delete (c->tree); c->tree = nullptr; }
-          if (c->query) { ts_query_delete (c->query); c->query = nullptr; }
+          /* Grammar changed: discard tree and query.  bg thread should not be
+             running here in practice, but guard anyway. */
+          if (c->tree)      { ts_tree_delete (c->tree); c->tree = nullptr; }
+          if (c->query)     { ts_query_delete (c->query); c->query = nullptr; }
           xfree (c->query_src); c->query_src = nullptr;
-          /* ts_parser_set_language implicitly resets any interrupted parse. */
           ts_parser_set_language (c->parser, lang);
           c->lang              = lang;
           c->revision          = -1;
@@ -50,18 +68,26 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
   c->tree              = nullptr;
   c->query             = nullptr;
   c->query_src         = nullptr;
-  c->cursor            = ts_query_cursor_new ();
   c->lang              = lang;
   c->revision          = -1;
   c->parse_revision    = -1;
   c->parse_in_progress = 0;
+  c->bg_active         = 0;
+  c->bg_cancel         = 0;
+  c->hthread           = NULL;
+  c->bg_spans          = nullptr;
+  c->bg_span_count     = 0;
+  c->bg_span_rev       = -1;
+  c->bg_sp             = {0, 0};
+  c->bg_ep             = {0, 0};
+  c->bg_has_range      = false;
   if (c->parser)
     ts_parser_set_language (c->parser, lang);
   g_ts_cache[bp] = c;
   return c;
 }
 
-/* -------------------------------------------------------------------------- */
+/*---------------------------------------------------------------------------*/
 
 lts_grammar *
 make_ts_grammar ()
@@ -150,7 +176,6 @@ ts_buf_read (void *payload, uint32_t byte_index, TSPoint /*pos*/,
 {
   ts_parse_ctx *ctx = (ts_parse_ctx *) payload;
 
-  /* Walk forward from cached position; restart from head if backtracking. */
   if (!ctx->chunk || byte_index < ctx->chunk_start_byte)
     {
       ctx->chunk            = ctx->bp->b_chunkb;
@@ -172,9 +197,7 @@ ts_buf_read (void *payload, uint32_t byte_index, TSPoint /*pos*/,
   return (const char *) ctx->chunk->c_text + off;
 }
 
-/* TSParseOptions progress callback: cancel after 50 ms to keep the
-   input thread responsive.  Tree-sitter resumes from the same offset
-   on the next call to ts_parser_parse_with_options. */
+/* TSParseOptions progress callback: cancel after 50 ms. */
 static bool
 ts_progress_cb (TSParseState *state)
 {
@@ -186,7 +209,8 @@ ts_progress_cb (TSParseState *state)
   return ms >= 50.0;
 }
 
-/* Convert a code-unit offset to code-point offset. */
+/* Convert a code-unit offset to code-point offset.
+   Called on the main thread only (reads buffer chunks). */
 static point_t
 cu_to_cp (Buffer *bp, int cu_offset)
 {
@@ -209,14 +233,93 @@ cu_to_cp (Buffer *bp, int cu_offset)
   return cp;
 }
 
+/* Background query thread -------------------------------------------------- */
+
+struct ts_bg_job
+{
+  lts_buf_cache *cache;
+  TSTree        *tree;    /* ts_tree_copy() — bg thread owns, must delete */
+  TSQuery       *query;   /* read-only ref, protected by bg_active on main thread */
+  TSPoint        sp, ep;
+  bool           has_range;
+};
+
+static DWORD WINAPI
+ts_query_thread (LPVOID arg)
+{
+  ts_bg_job *job = (ts_bg_job *) arg;
+  lts_buf_cache *c = job->cache;
+
+  TSQueryCursor *cursor = ts_query_cursor_new ();
+
+  if (job->has_range)
+    {
+      /* Exec on the smallest named node containing the visible range.
+         For most code this is much smaller than the file root.
+         set_point_range then restricts which matches are returned. */
+      TSNode exec_root = ts_node_named_descendant_for_point_range (
+                           ts_tree_root_node (job->tree), job->sp, job->ep);
+      ts_query_cursor_exec (cursor, job->query, exec_root);
+      ts_query_cursor_set_point_range (cursor, job->sp, job->ep);
+    }
+  else
+    ts_query_cursor_exec (cursor, job->query, ts_tree_root_node (job->tree));
+
+  uint32_t alloc = 64, count = 0;
+  ts_span_raw *spans = (ts_span_raw *) malloc (alloc * sizeof (ts_span_raw));
+
+  TSQueryMatch match;
+  uint32_t tick = 0;
+  while (ts_query_cursor_next_match (cursor, &match))
+    {
+      /* Check cancellation every 64 matches to stay responsive. */
+      if (!(++tick & 63) && c->bg_cancel)
+        break;
+
+      for (uint16_t i = 0; i < match.capture_count; i++)
+        {
+          if (count >= alloc)
+            {
+              alloc *= 2;
+              spans = (ts_span_raw *) realloc (spans, alloc * sizeof (ts_span_raw));
+            }
+          const TSQueryCapture *cap = &match.captures[i];
+          spans[count].start_byte = ts_node_start_byte (cap->node);
+          spans[count].end_byte   = ts_node_end_byte   (cap->node);
+          spans[count].cap_index  = cap->index;
+          count++;
+        }
+    }
+
+  ts_query_cursor_delete (cursor);
+  ts_tree_delete (job->tree);  /* release our ts_tree_copy() ref */
+
+  if (!c->bg_cancel)
+    {
+      free (c->bg_spans);
+      c->bg_spans      = spans;
+      c->bg_span_count = count;
+    }
+  else
+    {
+      free (spans);
+      /* Leave bg_spans as-is (stale but harmless; cleared on next launch). */
+    }
+
+  /* Full memory barrier: span writes must be visible before bg_active → 0. */
+  InterlockedExchange (&c->bg_active, 0);
+  delete job;
+  return 0;
+}
+
 /* (si:ts-query-buffer GRAMMAR QUERY-SOURCE &optional BUFFER START-ROW END-ROW)
-   Parse BUFFER with GRAMMAR using cached tree when possible, then run
-   QUERY-SOURCE.  START-ROW / END-ROW are 0-based tree-sitter row numbers;
-   when given, ts_query_cursor_set_point_range filters captures to that
-   row band without any O(N) byte-offset scan.
-   Returns ((CAPTURE-NAME START-CP END-CP) ...). */
+   Parse BUFFER with GRAMMAR (with 50 ms timeout + resume), then run
+   QUERY-SOURCE asynchronously.  Returns cached spans on the tick after the
+   bg query thread finishes; returns nil while parsing or querying is in
+   progress.  START-ROW / END-ROW are 0-based tree-sitter row numbers. */
 lisp
-Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, lisp lend_row)
+Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
+                     lisp lstart_row, lisp lend_row)
 {
   check_ts_grammar (lgrammar);
   check_string (lquery);
@@ -228,20 +331,26 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
   if (!c->parser)
     FEsimple_error (Ets_parse_failed);
 
-  /* Re-parse when stale or when a previous parse was interrupted. */
+  /* --- Parse section (main thread, 50 ms slices) -------------------------- */
+
   if (!c->tree || c->parse_in_progress || c->revision != bp->b_modified_count)
     {
+      /* Buffer changed while a bg query was running: cancel it.
+         We must not touch c->query while bg_active is set. */
+      if (c->bg_active)
+        {
+          InterlockedExchange (&c->bg_cancel, 1);
+          return Qnil;
+        }
+
       if (c->parse_in_progress && c->parse_revision != bp->b_modified_count)
         {
-          /* Buffer changed while an interrupted parse was pending: discard. */
           ts_parser_reset (c->parser);
           c->parse_in_progress = 0;
         }
 
       long cur_rev = bp->b_modified_count;
 
-      /* Read directly from buffer chunks; no full-buffer copy needed.
-         Tree-sitter resumes from the interrupted byte offset on retry. */
       ts_parse_ctx pctx;
       pctx.bp               = bp;
       pctx.chunk            = nullptr;
@@ -264,17 +373,16 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
         }
       else
         {
-          /* Cancelled by timeout: remember revision so next call can resume
-             (same revision) or restart (different revision). */
           c->parse_revision    = cur_rev;
           c->parse_in_progress = 1;
           if (!c->tree)
-            return Qnil;  /* no stale tree to fall back on yet */
-          /* Fall through and query the stale tree for this tick. */
+            return Qnil;
+          /* Fall through: query the stale tree while parsing continues. */
         }
     }
 
-  /* Compile query only when the source string changes; reuse otherwise. */
+  /* --- Query compilation (main thread, cached) ---------------------------- */
+
   {
     int qlen16 = xstring_length (lquery);
     int qbuf_size = qlen16 * 3 + 1;
@@ -286,6 +394,10 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
 
     if (!c->query || !c->query_src || strcmp (qbuf, c->query_src) != 0)
       {
+        /* Must not delete c->query while bg thread is reading it. */
+        if (c->bg_active)
+          { xfree (qbuf); InterlockedExchange (&c->bg_cancel, 1); return Qnil; }
+
         if (c->query) ts_query_delete (c->query);
         xfree (c->query_src);
 
@@ -295,59 +407,85 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
                                  &qerr_offset, &qerr_type);
         if (!c->query)
           { xfree (qbuf); FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset)); }
-        c->query_src = qbuf;   /* transfer ownership */
+        c->query_src = qbuf;
+        free (c->bg_spans); c->bg_spans = nullptr; c->bg_span_count = 0;
+        c->bg_span_rev = -1;
       }
     else
       xfree (qbuf);
   }
 
-  TSQueryCursor *cursor = c->cursor;
-  if (lstart_row != Qnil && lend_row != Qnil)
-    {
-      TSPoint sp = { (uint32_t) fixnum_value (lstart_row), 0 };
-      TSPoint ep = { (uint32_t) fixnum_value (lend_row),   UINT32_MAX };
-      /* Use the smallest tree node that fully contains the visible row range
-         as the exec root.  For large flat nodes (e.g. a 5000-element array
-         initializer), this avoids O(N) linear sibling scans to reach the
-         visible portion.  set_point_range then restricts matches precisely. */
-      TSNode exec_root = ts_node_named_descendant_for_point_range (
-                           ts_tree_root_node (c->tree), sp, ep);
-      ts_query_cursor_exec (cursor, c->query, exec_root);
-      ts_query_cursor_set_point_range (cursor, sp, ep);
-    }
-  else
-    ts_query_cursor_exec (cursor, c->query, ts_tree_root_node (c->tree));
+  /* --- Async query -------------------------------------------------------- */
 
-  lisp result = Qnil;
-  TSQueryMatch match;
-  while (ts_query_cursor_next_match (cursor, &match))
+  bool has_range = (lstart_row != Qnil && lend_row != Qnil);
+  TSPoint sp = has_range ? TSPoint{ (uint32_t) fixnum_value (lstart_row), 0 }
+                         : TSPoint{ 0, 0 };
+  TSPoint ep = has_range ? TSPoint{ (uint32_t) fixnum_value (lend_row), UINT32_MAX }
+                         : TSPoint{ 0, 0 };
+
+  /* If bg thread is still running, wait for it. */
+  if (c->bg_active)
+    return Qnil;
+
+  /* If results from the last bg run are still fresh for this range+revision,
+     convert byte offsets to code-point offsets and return them. */
+  if (c->bg_spans
+      && c->bg_span_rev == bp->b_modified_count
+      && c->bg_has_range == has_range
+      && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row)))
     {
-      for (uint16_t i = 0; i < match.capture_count; i++)
+      lisp result = Qnil;
+      for (uint32_t i = 0; i < c->bg_span_count; i++)
         {
-          const TSQueryCapture *cap = &match.captures[i];
           uint32_t name_len;
-          const char *name = ts_query_capture_name_for_id (c->query, cap->index, &name_len);
-
-          uint32_t start_byte = ts_node_start_byte (cap->node);
-          uint32_t end_byte   = ts_node_end_byte   (cap->node);
-
-          int start_cu = (int)(start_byte / sizeof (Char));
-          int end_cu   = (int)(end_byte   / sizeof (Char));
-
+          const char *name = ts_query_capture_name_for_id (
+                               c->query, c->bg_spans[i].cap_index, &name_len);
+          int start_cu = (int)(c->bg_spans[i].start_byte / sizeof (Char));
+          int end_cu   = (int)(c->bg_spans[i].end_byte   / sizeof (Char));
           point_t start_cp = cu_to_cp (bp, start_cu);
           point_t end_cp   = cu_to_cp (bp, end_cu);
-
           lisp cap_name = make_string (name, (int) name_len);
-          result = xcons (list (cap_name, make_fixnum (start_cp), make_fixnum (end_cp)),
+          result = xcons (list (cap_name,
+                                make_fixnum (start_cp),
+                                make_fixnum (end_cp)),
                           result);
         }
+      return Fnreverse (result);
     }
 
-  return Fnreverse (result);
+  /* Launch background query thread.  Pass a ts_tree_copy() so the bg thread
+     has an independent reference; the main thread may replace c->tree freely
+     once bg_active is set. */
+  ts_bg_job *job = new ts_bg_job;
+  job->cache     = c;
+  job->tree      = ts_tree_copy (c->tree);
+  job->query     = c->query;
+  job->sp        = sp;
+  job->ep        = ep;
+  job->has_range = has_range;
+
+  c->bg_span_rev  = bp->b_modified_count;
+  c->bg_sp        = sp;
+  c->bg_ep        = ep;
+  c->bg_has_range = has_range;
+  InterlockedExchange (&c->bg_cancel, 0);
+  InterlockedExchange (&c->bg_active, 1);
+
+  if (c->hthread)
+    { CloseHandle (c->hthread); c->hthread = NULL; }
+
+  c->hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
+  if (!c->hthread)
+    {
+      InterlockedExchange (&c->bg_active, 0);
+      ts_tree_delete (job->tree);
+      delete job;
+    }
+
+  return Qnil;  /* results available on next tick */
 }
 
-/* (si:ts-free-buffer-cache &optional BUFFER)
-   Release cached TSTree/TSParser for BUFFER, freeing memory. */
+/* (si:ts-free-buffer-cache &optional BUFFER) */
 lisp
 Fsi_ts_free_buffer_cache (lisp lbuffer)
 {
@@ -356,10 +494,20 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
   if (it != g_ts_cache.end ())
     {
       lts_buf_cache *c = it->second;
+
+      /* Signal bg thread to stop and wait for it to finish. */
+      if (c->hthread)
+        {
+          InterlockedExchange (&c->bg_cancel, 1);
+          WaitForSingleObject (c->hthread, 5000);
+          CloseHandle (c->hthread);
+          c->hthread = NULL;
+        }
+
       if (c->tree)      ts_tree_delete (c->tree);
       if (c->query)     ts_query_delete (c->query);
       if (c->query_src) xfree (c->query_src);
-      if (c->cursor)    ts_query_cursor_delete (c->cursor);
+      if (c->bg_spans)  free (c->bg_spans);
       if (c->parser)    ts_parser_delete (c->parser);
       delete c;
       g_ts_cache.erase (it);
@@ -367,8 +515,7 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
   return Qt;
 }
 
-/* (si:ts-buffer-cached-p &optional BUFFER)
-   Return t if BUFFER has a live parse-tree cache. */
+/* (si:ts-buffer-cached-p &optional BUFFER) */
 lisp
 Fsi_ts_buffer_cached_p (lisp lbuffer)
 {
@@ -391,6 +538,18 @@ Fsi_ts_parse_complete_p (lisp lbuffer)
   lts_buf_cache *c = it->second;
   return (c->tree && !c->parse_in_progress
           && c->revision == bp->b_modified_count) ? Qt : Qnil;
+}
+
+/* (si:ts-query-pending-p &optional BUFFER)
+   Return t while the async query thread is running for BUFFER. */
+lisp
+Fsi_ts_query_pending_p (lisp lbuffer)
+{
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ())
+    return Qnil;
+  return it->second->bg_active ? Qt : Qnil;
 }
 
 lisp

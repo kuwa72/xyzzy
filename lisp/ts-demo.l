@@ -66,7 +66,8 @@
                                       (car range) (cdr range))))
       (ts-apply-highlights buf spans)
       (refresh-screen)
-      (unless (si:ts-parse-complete-p buf)
+      (when (or (not (si:ts-parse-complete-p buf))
+                (si:ts-query-pending-p buf))
         (start-timer 0.1 'ts-do-highlight t)))))
 
 ;;; Post-command hook: cancel pending timer and schedule a new one.
