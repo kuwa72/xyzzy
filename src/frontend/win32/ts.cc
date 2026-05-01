@@ -286,13 +286,21 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
     FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset));
 
   TSQueryCursor *cursor = ts_query_cursor_new ();
-  ts_query_cursor_exec (cursor, query, ts_tree_root_node (c->tree));
   if (lstart_row != Qnil && lend_row != Qnil)
     {
       TSPoint sp = { (uint32_t) fixnum_value (lstart_row), 0 };
       TSPoint ep = { (uint32_t) fixnum_value (lend_row),   UINT32_MAX };
+      /* Use the smallest tree node that fully contains the visible row range
+         as the exec root.  For large flat nodes (e.g. a 5000-element array
+         initializer), this avoids O(N) linear sibling scans to reach the
+         visible portion.  set_point_range then restricts matches precisely. */
+      TSNode exec_root = ts_node_named_descendant_for_point_range (
+                           ts_tree_root_node (c->tree), sp, ep);
+      ts_query_cursor_exec (cursor, query, exec_root);
       ts_query_cursor_set_point_range (cursor, sp, ep);
     }
+  else
+    ts_query_cursor_exec (cursor, query, ts_tree_root_node (c->tree));
 
   lisp result = Qnil;
   TSQueryMatch match;
