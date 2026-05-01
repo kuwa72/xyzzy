@@ -52,7 +52,10 @@
         (when fg
           (set-text-attribute start end 'ts-face :foreground fg))))))
 
-;;; One-shot timer target: highlight visible region of the current buffer.
+;;; One-shot timer target: highlight visible region and force a repaint.
+;;; refresh-screen is needed because refresh_buffer only sets WDF_WINDOW;
+;;; the command loop calls refresh_screen at its top (before fetch), so
+;;; without an explicit call here the display updates only on the next keypress.
 (defun ts-do-highlight ()
   (ignore-errors
     (let* ((buf   (selected-buffer))
@@ -61,7 +64,8 @@
            (spans (si:ts-query-buffer g *ts-c-highlight-query*
                                       buf
                                       (car range) (cdr range))))
-      (ts-apply-highlights buf spans))))
+      (ts-apply-highlights buf spans)
+      (refresh-screen))))
 
 ;;; Post-command hook: cancel pending timer and schedule a new one.
 (defun ts-schedule-highlight ()
