@@ -21,17 +21,13 @@
 (preproc_include) @include
 (call_expression function: (identifier) @function.call)")
 
-;;; Return (start-cp . end-cp) for the visible portion of the current buffer.
+;;; Return (start-row . end-row) as 0-based tree-sitter row numbers for the
+;;; visible window.  Row numbers are O(1) to obtain and passed directly to
+;;; ts_query_cursor_set_point_range, avoiding the O(N) cp->byte scan.
 (defun ts-visible-range ()
-  (let* ((start-line (get-window-start-line))
-         (nlines     (window-lines)))
-    (save-excursion
-      (goto-line start-line)
-      (goto-bol)
-      (let ((start (point)))
-        (forward-line (max 0 (1- nlines)))
-        (goto-eol)
-        (cons start (point))))))
+  (let* ((start-row (1- (get-window-start-line)))  ; xyzzy 1-based -> 0-based
+         (end-row   (+ start-row (window-lines))))
+    (cons start-row end-row)))
 
 (defun ts-apply-highlights (buf spans)
   "Clear ts-face textprops in BUF and apply SPANS."
