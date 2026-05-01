@@ -162,11 +162,39 @@ cu_to_cp (Buffer *bp, int cu_offset)
   return cp;
 }
 
-/* (si:ts-query-buffer GRAMMAR QUERY-SOURCE &optional BUFFER)
+/* Convert a code-point offset to byte offset (UTF-16LE: BMP=2, SMP=4). */
+static uint32_t
+cp_to_byte (Buffer *bp, point_t cp_offset)
+{
+  uint32_t bytes = 0;
+  point_t remaining = cp_offset;
+  for (Chunk *c = bp->b_chunkb; c && remaining > 0; c = c->c_next)
+    {
+      const Char *p = c->c_text;
+      const Char *end = p + c->c_used;
+      while (p < end && remaining > 0)
+        {
+          Char cc = *p++;
+          if (cc >= 0xD800 && cc <= 0xDBFF && p < end && *p >= 0xDC00 && *p <= 0xDFFF)
+            {
+              p++;
+              bytes += 4;
+            }
+          else
+            bytes += 2;
+          remaining--;
+        }
+    }
+  return bytes;
+}
+
+/* (si:ts-query-buffer GRAMMAR QUERY-SOURCE &optional BUFFER START-CP END-CP)
    Parse BUFFER with GRAMMAR using cached tree when possible, then run
-   QUERY-SOURCE.  Returns ((CAPTURE-NAME START-CP END-CP) ...). */
+   QUERY-SOURCE.  If START-CP and END-CP are given, only captures whose
+   start byte falls within [START-CP, END-CP) are returned.
+   Returns ((CAPTURE-NAME START-CP END-CP) ...). */
 lisp
-Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
+Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_cp, lisp lend_cp)
 {
   check_ts_grammar (lgrammar);
   check_string (lquery);
@@ -222,6 +250,12 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer)
 
   TSQueryCursor *cursor = ts_query_cursor_new ();
   ts_query_cursor_exec (cursor, query, ts_tree_root_node (c->tree));
+  if (lstart_cp != Qnil && lend_cp != Qnil)
+    {
+      uint32_t sb = cp_to_byte (bp, (point_t) fixnum_value (lstart_cp));
+      uint32_t eb = cp_to_byte (bp, (point_t) fixnum_value (lend_cp));
+      ts_query_cursor_set_byte_range (cursor, sb, eb);
+    }
 
   lisp result = Qnil;
   TSQueryMatch match;

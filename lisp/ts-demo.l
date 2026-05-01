@@ -1,8 +1,9 @@
-;;; tree-sitter demo: parse current buffer and list captures
+;;; tree-sitter demo: syntax highlighting for the visible window only
 ;;;
 ;;; Usage:
 ;;;   (load-library "ts-demo")
-;;;   (ts-demo-c-highlight)   ; highlight current buffer as C
+;;;   (ts-demo-highlight-on-idle)  ; enable for current buffer
+;;;   (ts-demo-stop-highlight)     ; disable
 
 (defvar *ts-c-grammar* nil)
 
@@ -13,45 +14,83 @@
       (setq *ts-c-grammar* (si:load-ts-grammar dll "c"))))
   *ts-c-grammar*)
 
-(defun ts-demo-query-buffer (&optional buffer)
-  "Run a basic highlight query on BUFFER and return the capture list."
-  (let ((g (ts-load-c-grammar))
-        (query "(comment) @comment
+(defconstant *ts-c-highlight-query*
+  "(comment) @comment
 (string_literal) @string
 (number_literal) @constant.numeric
 (preproc_include) @include
-(call_expression function: (identifier) @function.call)"))
-    (si:ts-query-buffer g query buffer)))
+(call_expression function: (identifier) @function.call)")
 
-(defun ts-demo-print-spans (&optional buffer)
-  "Print tree-sitter capture spans to *Output*."
+;;; Return (start-cp . end-cp) for the visible portion of the current buffer.
+(defun ts-visible-range ()
+  (let* ((start-line (get-window-start-line))
+         (nlines     (window-lines)))
+    (save-excursion
+      (goto-line start-line)
+      (goto-bol)
+      (let ((start (point)))
+        (forward-line (max 0 (1- nlines)))
+        (goto-eol)
+        (cons start (point))))))
+
+(defun ts-apply-highlights (buf spans)
+  "Clear ts-face textprops in BUF and apply SPANS."
+  (save-excursion
+    (set-buffer buf)
+    (delete-text-attributes 'ts-face)
+    (dolist (s spans)
+      (let* ((name  (first s))
+             (start (second s))
+             (end   (third s))
+             (fg    (cond
+                      ((string= name "comment")          2)  ; dark green
+                      ((string= name "string")           1)  ; dark red
+                      ((string= name "constant.numeric") 4)  ; dark blue
+                      ((string= name "include")          5)  ; dark magenta
+                      ((string= name "function.call")    6)  ; dark cyan
+                      (t nil))))
+        (when fg
+          (set-text-attribute start end 'ts-face :foreground fg))))))
+
+;;; One-shot timer target: highlight visible region of the current buffer.
+(defun ts-do-highlight ()
+  (ignore-errors
+    (let* ((buf   (selected-buffer))
+           (g     (ts-load-c-grammar))
+           (range (ts-visible-range))
+           (spans (si:ts-query-buffer g *ts-c-highlight-query*
+                                      buf
+                                      (car range) (cdr range))))
+      (ts-apply-highlights buf spans))))
+
+;;; Post-command hook: cancel pending timer and schedule a new one.
+(defun ts-schedule-highlight ()
+  (stop-timer 'ts-do-highlight)
+  (start-timer 0.3 'ts-do-highlight t))
+
+(defun ts-demo-highlight-on-idle ()
+  "Enable idle-based tree-sitter highlighting for the current buffer."
   (interactive)
-  (let ((spans (ts-demo-query-buffer buffer)))
+  (ts-load-c-grammar)
+  (add-hook '*post-command-hook* 'ts-schedule-highlight)
+  (ts-schedule-highlight))
+
+(defun ts-demo-stop-highlight ()
+  "Disable idle-based tree-sitter highlighting."
+  (interactive)
+  (stop-timer 'ts-do-highlight)
+  (delete-hook '*post-command-hook* 'ts-schedule-highlight)
+  (save-excursion
+    (delete-text-attributes 'ts-face)))
+
+;;; One-shot full-buffer query (for comparison / debugging).
+(defun ts-demo-print-spans (&optional buffer)
+  "Print tree-sitter capture spans to *ts-demo*."
+  (interactive)
+  (let ((spans (si:ts-query-buffer (ts-load-c-grammar)
+                                   *ts-c-highlight-query*
+                                   buffer)))
     (with-output-to-temp-buffer ("*ts-demo*")
       (format t "ts-demo: ~D spans~%" (length spans))
       (dolist (s spans)
         (format t "  ~A  [~D, ~D)~%" (first s) (second s) (third s))))))
-
-;;; Apply textprops based on tree-sitter captures
-(defun ts-demo-apply-highlights (&optional buffer)
-  "Apply tree-sitter based syntax highlighting to BUFFER as textprops."
-  (interactive)
-  (let* ((buf (or buffer (selected-buffer)))
-         (spans (ts-demo-query-buffer buf)))
-    (save-excursion
-      (set-buffer buf)
-      ;; Clear existing ts textprops first
-      (delete-text-attributes 'ts-face)
-      (dolist (s spans)
-        (let* ((name  (first s))
-               (start (second s))
-               (end   (third s))
-               (fg    (cond
-                         ((string= name "comment")          2)  ; dark green
-                         ((string= name "string")           1)  ; dark red
-                         ((string= name "constant.numeric") 4)  ; dark blue
-                         ((string= name "include")          5)  ; dark magenta
-                         ((string= name "function.call")    6)  ; dark cyan
-                         (t nil))))
-          (when fg
-            (set-text-attribute start end 'ts-face :foreground fg)))))))
