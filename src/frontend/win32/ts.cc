@@ -10,6 +10,9 @@ struct lts_buf_cache
 {
   TSParser         *parser;
   TSTree           *tree;
+  TSQuery          *query;          /* compiled query (reused across calls) */
+  char             *query_src;      /* UTF-8 source of cached query */
+  TSQueryCursor    *cursor;         /* reused cursor (reset by exec each call) */
   const TSLanguage *lang;
   long              revision;       /* b_modified_count of fully-parsed tree */
   long              parse_revision; /* b_modified_count when in-progress parse started */
@@ -30,8 +33,9 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
       lts_buf_cache *c = it->second;
       if (c->lang != lang)
         {
-          if (c->tree)
-            { ts_tree_delete (c->tree); c->tree = nullptr; }
+          if (c->tree) { ts_tree_delete (c->tree); c->tree = nullptr; }
+          if (c->query) { ts_query_delete (c->query); c->query = nullptr; }
+          xfree (c->query_src); c->query_src = nullptr;
           /* ts_parser_set_language implicitly resets any interrupted parse. */
           ts_parser_set_language (c->parser, lang);
           c->lang              = lang;
@@ -44,6 +48,9 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
   lts_buf_cache *c = new lts_buf_cache;
   c->parser            = ts_parser_new ();
   c->tree              = nullptr;
+  c->query             = nullptr;
+  c->query_src         = nullptr;
+  c->cursor            = ts_query_cursor_new ();
   c->lang              = lang;
   c->revision          = -1;
   c->parse_revision    = -1;
@@ -267,25 +274,34 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
         }
     }
 
-  /* Build and run query. */
-  int qlen16 = xstring_length (lquery);
-  int qbuf_size = qlen16 * 3 + 1;
-  char *qbuf = (char *) xmalloc (qbuf_size);
-  int qlen8 = WideCharToMultiByte (CP_UTF8, 0,
-                                   (LPCWSTR) xstring_contents (lquery), qlen16,
-                                   qbuf, qbuf_size - 1, NULL, NULL);
-  qbuf[qlen8] = 0;
+  /* Compile query only when the source string changes; reuse otherwise. */
+  {
+    int qlen16 = xstring_length (lquery);
+    int qbuf_size = qlen16 * 3 + 1;
+    char *qbuf = (char *) xmalloc (qbuf_size);
+    int qlen8 = WideCharToMultiByte (CP_UTF8, 0,
+                                     (LPCWSTR) xstring_contents (lquery), qlen16,
+                                     qbuf, qbuf_size - 1, NULL, NULL);
+    qbuf[qlen8] = 0;
 
-  uint32_t qerr_offset = 0;
-  TSQueryError qerr_type = TSQueryErrorNone;
-  TSQuery *query = ts_query_new (lang, qbuf, (uint32_t) qlen8,
+    if (!c->query || !c->query_src || strcmp (qbuf, c->query_src) != 0)
+      {
+        if (c->query) ts_query_delete (c->query);
+        xfree (c->query_src);
+
+        uint32_t qerr_offset = 0;
+        TSQueryError qerr_type = TSQueryErrorNone;
+        c->query = ts_query_new (lang, qbuf, (uint32_t) qlen8,
                                  &qerr_offset, &qerr_type);
-  xfree (qbuf);
+        if (!c->query)
+          { xfree (qbuf); FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset)); }
+        c->query_src = qbuf;   /* transfer ownership */
+      }
+    else
+      xfree (qbuf);
+  }
 
-  if (!query)
-    FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset));
-
-  TSQueryCursor *cursor = ts_query_cursor_new ();
+  TSQueryCursor *cursor = c->cursor;
   if (lstart_row != Qnil && lend_row != Qnil)
     {
       TSPoint sp = { (uint32_t) fixnum_value (lstart_row), 0 };
@@ -296,11 +312,11 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
          visible portion.  set_point_range then restricts matches precisely. */
       TSNode exec_root = ts_node_named_descendant_for_point_range (
                            ts_tree_root_node (c->tree), sp, ep);
-      ts_query_cursor_exec (cursor, query, exec_root);
+      ts_query_cursor_exec (cursor, c->query, exec_root);
       ts_query_cursor_set_point_range (cursor, sp, ep);
     }
   else
-    ts_query_cursor_exec (cursor, query, ts_tree_root_node (c->tree));
+    ts_query_cursor_exec (cursor, c->query, ts_tree_root_node (c->tree));
 
   lisp result = Qnil;
   TSQueryMatch match;
@@ -310,7 +326,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
         {
           const TSQueryCapture *cap = &match.captures[i];
           uint32_t name_len;
-          const char *name = ts_query_capture_name_for_id (query, cap->index, &name_len);
+          const char *name = ts_query_capture_name_for_id (c->query, cap->index, &name_len);
 
           uint32_t start_byte = ts_node_start_byte (cap->node);
           uint32_t end_byte   = ts_node_end_byte   (cap->node);
@@ -327,9 +343,6 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer, lisp lstart_row, 
         }
     }
 
-  ts_query_cursor_delete (cursor);
-  ts_query_delete (query);
-
   return Fnreverse (result);
 }
 
@@ -343,8 +356,11 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
   if (it != g_ts_cache.end ())
     {
       lts_buf_cache *c = it->second;
-      if (c->tree)   ts_tree_delete (c->tree);
-      if (c->parser) ts_parser_delete (c->parser);
+      if (c->tree)      ts_tree_delete (c->tree);
+      if (c->query)     ts_query_delete (c->query);
+      if (c->query_src) xfree (c->query_src);
+      if (c->cursor)    ts_query_cursor_delete (c->cursor);
+      if (c->parser)    ts_parser_delete (c->parser);
       delete c;
       g_ts_cache.erase (it);
     }
