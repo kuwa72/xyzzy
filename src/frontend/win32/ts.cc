@@ -252,25 +252,22 @@ ts_query_thread (LPVOID arg)
 
   TSQueryCursor *cursor = ts_query_cursor_new ();
 
-  if (job->has_range)
-    {
-      /* Exec on the smallest named node containing the visible range.
-         For most code this is much smaller than the file root.
-         set_point_range then restricts which matches are returned. */
-      TSNode exec_root = ts_node_named_descendant_for_point_range (
-                           ts_tree_root_node (job->tree), job->sp, job->ep);
-      ts_query_cursor_exec (cursor, job->query, exec_root);
+  {
+    TSNode root = ts_tree_root_node (job->tree);
+    ts_query_cursor_exec (cursor, job->query, root);
+    if (job->has_range)
       ts_query_cursor_set_point_range (cursor, job->sp, job->ep);
-    }
-  else
-    ts_query_cursor_exec (cursor, job->query, ts_tree_root_node (job->tree));
+  }
 
   uint32_t alloc = 64, count = 0;
   ts_span_raw *spans = (ts_span_raw *) malloc (alloc * sizeof (ts_span_raw));
+  if (!spans) { ts_query_cursor_delete (cursor); ts_tree_delete (job->tree);
+                InterlockedExchange (&c->bg_active, 0); delete job; return 0; }
 
   TSQueryMatch match;
   uint32_t tick = 0;
-  while (ts_query_cursor_next_match (cursor, &match))
+  bool oom = false;
+  while (!oom && ts_query_cursor_next_match (cursor, &match))
     {
       /* Check cancellation every 64 matches to stay responsive. */
       if (!(++tick & 63) && c->bg_cancel)
@@ -280,8 +277,12 @@ ts_query_thread (LPVOID arg)
         {
           if (count >= alloc)
             {
-              alloc *= 2;
-              spans = (ts_span_raw *) realloc (spans, alloc * sizeof (ts_span_raw));
+              uint32_t new_alloc = alloc * 2;
+              ts_span_raw *p = (ts_span_raw *) realloc (spans,
+                                                        new_alloc * sizeof (ts_span_raw));
+              if (!p) { oom = true; break; }
+              spans = p;
+              alloc = new_alloc;
             }
           const TSQueryCapture *cap = &match.captures[i];
           spans[count].start_byte = ts_node_start_byte (cap->node);
@@ -417,7 +418,9 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
 
   /* --- Async query -------------------------------------------------------- */
 
-  bool has_range = (lstart_row != Qnil && lend_row != Qnil);
+  /* Missing optional args arrive as null (0), not Qnil; guard both. */
+  bool has_range = (lstart_row && lstart_row != Qnil
+                    && lend_row   && lend_row   != Qnil);
   TSPoint sp = has_range ? TSPoint{ (uint32_t) fixnum_value (lstart_row), 0 }
                          : TSPoint{ 0, 0 };
   TSPoint ep = has_range ? TSPoint{ (uint32_t) fixnum_value (lend_row), UINT32_MAX }

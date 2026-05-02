@@ -30,23 +30,24 @@
     (cons start-row end-row)))
 
 (defun ts-apply-highlights (buf spans)
-  "Clear ts-face textprops in BUF and apply SPANS."
-  (save-excursion
-    (set-buffer buf)
-    (delete-text-attributes 'ts-face)
-    (dolist (s spans)
-      (let* ((name  (first s))
-             (start (second s))
-             (end   (third s))
-             (fg    (cond
-                      ((string= name "comment")          2)  ; dark green
-                      ((string= name "string")           1)  ; dark red
-                      ((string= name "constant.numeric") 4)  ; dark blue
-                      ((string= name "include")          5)  ; dark magenta
-                      ((string= name "function.call")    6)  ; dark cyan
-                      (t nil))))
-        (when fg
-          (set-text-attribute start end 'ts-face :foreground fg))))))
+  "Apply SPANS as ts-face textprops in BUF; no-op when SPANS is nil."
+  (when spans
+    (save-excursion
+      (set-buffer buf)
+      (delete-text-attributes 'ts-face)
+      (dolist (s spans)
+        (let* ((name  (first s))
+               (start (second s))
+               (end   (third s))
+               (fg    (cond
+                        ((string= name "comment")          2)  ; dark green
+                        ((string= name "string")           1)  ; dark red
+                        ((string= name "constant.numeric") 4)  ; dark blue
+                        ((string= name "include")          5)  ; dark magenta
+                        ((string= name "function.call")    6)  ; dark cyan
+                        (t nil))))
+          (when fg
+            (set-text-attribute start end 'ts-face :foreground fg)))))))
 
 ;;; One-shot timer target: highlight visible region and force a repaint.
 ;;; refresh-screen is needed because refresh_buffer only sets WDF_WINDOW;
@@ -57,23 +58,22 @@
 ;;; parse timed out, si:ts-parse-complete-p returns nil and we reschedule
 ;;; quickly (0.1 s) so tree-sitter resumes until the tree is complete.
 (defun ts-do-highlight ()
-  (ignore-errors
-    (let* ((buf   (selected-buffer))
-           (g     (ts-load-c-grammar))
-           (range (ts-visible-range))
-           (spans (si:ts-query-buffer g *ts-c-highlight-query*
-                                      buf
-                                      (car range) (cdr range))))
-      (ts-apply-highlights buf spans)
-      (refresh-screen)
-      (when (or (not (si:ts-parse-complete-p buf))
-                (si:ts-query-pending-p buf))
-        (start-timer 0.1 'ts-do-highlight t)))))
+  (let (buf)
+    (ignore-errors
+      (let* ((g     (ts-load-c-grammar))
+             (range (ts-visible-range))
+             (spans (si:ts-query-buffer g *ts-c-highlight-query*
+                                        (setq buf (selected-buffer))
+                                        (car range) (cdr range))))
+        (ts-apply-highlights buf spans)
+        (unless (and spans (si:ts-parse-complete-p buf))
+          (start-timer 0.1 'ts-do-highlight t))))
+    (refresh-screen)))  ; always refresh, even if highlights threw an error
 
 ;;; Post-command hook: cancel pending timer and schedule a new one.
 (defun ts-schedule-highlight ()
   (stop-timer 'ts-do-highlight)
-  (start-timer 0.3 'ts-do-highlight t))
+  (start-timer 0.1 'ts-do-highlight t))
 
 (defun ts-demo-highlight-on-idle ()
   "Enable idle-based tree-sitter highlighting for the current buffer."
