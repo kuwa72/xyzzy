@@ -53,8 +53,18 @@
           (start-timer 0.1 'ts-do-highlight t))))
     (refresh-screen)))  ; always refresh, even if highlights threw an error
 
-;;; Post-command hook: cancel pending timer and schedule a new one.
+;;; Post-command hook: apply cached highlights immediately (fast path),
+;;; then reschedule the bg parse timer.  Cached apply is pure C so it
+;;; completes in microseconds; xyzzy redraws naturally after each command
+;;; so no explicit refresh-screen is needed here.
 (defun ts-schedule-highlight ()
+  (ignore-errors
+    (let* ((g     (ts-load-c-grammar))
+           (range (ts-visible-range)))
+      (si:ts-apply-highlights g *ts-c-highlight-query*
+                              (selected-buffer)
+                              (car range) (cdr range)
+                              'ts-face *ts-c-color-alist*)))
   (stop-timer 'ts-do-highlight)
   (start-timer 0.1 'ts-do-highlight t))
 
