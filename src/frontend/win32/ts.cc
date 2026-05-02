@@ -783,53 +783,74 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
   if (c->bg_active) { SwitchToThread (); return Qnil; }
 
   /* Cache hit: bg_active is 0 here so bg_spans is stable.
-     Apply whatever spans are cached for the current revision, even if the
-     visible range has shifted since the last query.  If the range changed,
-     launch a new bg query immediately so fresh spans arrive soon; do NOT
-     update bg_span_rev so the old spans remain the cache value until the
-     new query completes. */
+     Strategy depends on whether the new range overlaps the cached range:
+     - Overlapping (small scroll): apply cached spans immediately so the
+       display stays highlighted during key repeat, then launch a bg query
+       for the new range so fresh spans arrive soon.
+     - Non-overlapping (large jump like M-< / M->): cached spans are for a
+       completely different part of the file.  Touching textprops would
+       delete visible highlights and replace them with invisible ones.
+       Instead, just launch the bg query and return nil; the caller will
+       retry once the bg query completes. */
   if (c->bg_spans && c->bg_span_rev == bp->b_modified_count)
     {
       bool range_match = c->bg_has_range == has_range
           && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row));
+      bool range_overlaps = !has_range || !c->bg_has_range
+          || (c->bg_sp.row < ep.row && sp.row < c->bg_ep.row);
 
-      uint32_t nsp = c->bg_span_count;
-      using cu_slot = std::pair<uint32_t, uint32_t>;
-      cu_slot *slots  = nsp ? (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot)) : nullptr;
-      point_t *cp_out = nsp ? (point_t *) malloc (nsp * 2 * sizeof (point_t)) : nullptr;
-      bool ok = (nsp == 0) || (slots && cp_out
-                               && ts_batch_cu_to_cp (bp, c->bg_spans, nsp, slots, cp_out));
-
-      ts_delete_textprops_tag (bp, ltag);
-
-      if (ok && nsp > 0)
-        for (uint32_t i = 0; i < nsp; i++)
-          {
-            int fg = ts_lookup_color (c->query, c->bg_spans[i].cap_index, lcolors);
-            if (fg < 0) continue;
-            int attrib = (fg & (GLYPH_TEXTPROP_NCOLORS - 1)) << GLYPH_TEXTPROP_FG_SHIFT_BITS;
-            textprop *p = bp->add_textprop (cp_out[i*2], cp_out[i*2+1]);
-            if (p) { p->t_attrib = attrib; p->t_tag = ltag; bp->b_textprop_cache = p; }
-          }
-
-      free (slots); free (cp_out);
-
-      if (!range_match)
+      if (range_overlaps)
         {
-          /* bg_spans fully consumed above; safe to start new query now. */
-          c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
-          ts_bg_job *job = new ts_bg_job;
-          job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
-          job->sp = sp; job->ep = ep; job->has_range = has_range;
-          InterlockedExchange (&c->bg_cancel, 0);
-          InterlockedExchange (&c->bg_active, 1);
-          if (c->hthread) { CloseHandle (c->hthread); c->hthread = NULL; }
-          c->hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
-          if (!c->hthread) { InterlockedExchange (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+          uint32_t nsp = c->bg_span_count;
+          using cu_slot = std::pair<uint32_t, uint32_t>;
+          cu_slot *slots  = nsp ? (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot)) : nullptr;
+          point_t *cp_out = nsp ? (point_t *) malloc (nsp * 2 * sizeof (point_t)) : nullptr;
+          bool ok = (nsp == 0) || (slots && cp_out
+                                   && ts_batch_cu_to_cp (bp, c->bg_spans, nsp, slots, cp_out));
+
+          ts_delete_textprops_tag (bp, ltag);
+
+          if (ok && nsp > 0)
+            for (uint32_t i = 0; i < nsp; i++)
+              {
+                int fg = ts_lookup_color (c->query, c->bg_spans[i].cap_index, lcolors);
+                if (fg < 0) continue;
+                int attrib = (fg & (GLYPH_TEXTPROP_NCOLORS - 1)) << GLYPH_TEXTPROP_FG_SHIFT_BITS;
+                textprop *p = bp->add_textprop (cp_out[i*2], cp_out[i*2+1]);
+                if (p) { p->t_attrib = attrib; p->t_tag = ltag; bp->b_textprop_cache = p; }
+              }
+
+          free (slots); free (cp_out);
+
+          if (!range_match)
+            {
+              /* bg_spans consumed; safe to launch new query for shifted range. */
+              c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
+              ts_bg_job *job = new ts_bg_job;
+              job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
+              job->sp = sp; job->ep = ep; job->has_range = has_range;
+              InterlockedExchange (&c->bg_cancel, 0);
+              InterlockedExchange (&c->bg_active, 1);
+              if (c->hthread) { CloseHandle (c->hthread); c->hthread = NULL; }
+              c->hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
+              if (!c->hthread) { InterlockedExchange (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+            }
+
+          bp->refresh_buffer ();
+          return Qt;
         }
 
-      bp->refresh_buffer ();
-      return Qt;
+      /* Non-overlapping range: launch bg query without touching textprops. */
+      c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
+      ts_bg_job *job2 = new ts_bg_job;
+      job2->cache = c; job2->tree = ts_tree_copy (c->tree); job2->query = c->query;
+      job2->sp = sp; job2->ep = ep; job2->has_range = has_range;
+      InterlockedExchange (&c->bg_cancel, 0);
+      InterlockedExchange (&c->bg_active, 1);
+      if (c->hthread) { CloseHandle (c->hthread); c->hthread = NULL; }
+      c->hthread = CreateThread (NULL, 0, ts_query_thread, job2, 0, NULL);
+      if (!c->hthread) { InterlockedExchange (&c->bg_active, 0); ts_tree_delete (job2->tree); delete job2; }
+      return Qnil;
     }
 
   /* Cache miss (no spans or stale revision): launch bg query thread. */
