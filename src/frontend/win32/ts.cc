@@ -492,20 +492,84 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       && c->bg_has_range == has_range
       && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row)))
     {
+      uint32_t nsp = c->bg_span_count;
+
+      /* Convert all span byte offsets to code-point offsets in a single
+         forward buffer scan.  The naive approach calls cu_to_cp() once per
+         endpoint, each restarting from byte 0 — O(N×M) for N buffer chars
+         and M spans.  Sorting the 2M endpoints and scanning once gives
+         O(N + M log M), cutting a ~40 ms hitch to ~1 ms for large files. */
+      /* pair<cu, tag>, tag = i*2+is_end */
+      using cu_slot = std::pair<uint32_t, uint32_t>;
+      cu_slot *slots  = (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot));
+      point_t *cp_out = (point_t *) malloc (nsp * 2 * sizeof (point_t));
+
+      if (slots && cp_out)
+        {
+          for (uint32_t i = 0; i < nsp; i++)
+            {
+              slots[i*2  ] = { c->bg_spans[i].start_byte / (uint32_t)sizeof(Char), i*2   };
+              slots[i*2+1] = { c->bg_spans[i].end_byte   / (uint32_t)sizeof(Char), i*2+1 };
+            }
+          std::sort (slots, slots + nsp * 2,
+                     [](const cu_slot &a, const cu_slot &b) { return a.first < b.first; });
+
+          /* Single forward scan. */
+          point_t  cp     = 0;
+          uint32_t cur_cu = 0;
+          Chunk   *ch     = bp->b_chunkb;
+          uint32_t ch_cu0 = 0;
+          for (uint32_t e = 0; e < nsp * 2; e++)
+            {
+              uint32_t target = slots[e].first;
+              while (cur_cu < target)
+                {
+                  if (!ch) break;
+                  uint32_t ch_end = ch_cu0 + (uint32_t) ch->c_used;
+                  const Char *p = ch->c_text + (cur_cu - ch_cu0);
+                  while (cur_cu < target && cur_cu < ch_end)
+                    {
+                      Char cc = *p++;
+                      cp++; cur_cu++;
+                      if (cc >= 0xD800 && cc <= 0xDBFF
+                          && cur_cu < ch_end
+                          && *p >= 0xDC00 && *p <= 0xDFFF)
+                        { p++; cur_cu++; } /* surrogate pair: 2 cu = 1 cp */
+                    }
+                  if (cur_cu >= ch_end) { ch_cu0 += ch->c_used; ch = ch->c_next; }
+                }
+              cp_out[slots[e].second] = cp;
+            }
+          free (slots); slots = nullptr;
+
+          lisp result = Qnil;
+          for (uint32_t i = 0; i < nsp; i++)
+            {
+              uint32_t name_len;
+              const char *name = ts_query_capture_name_for_id (
+                                   c->query, c->bg_spans[i].cap_index, &name_len);
+              result = xcons (list (make_string (name, (int) name_len),
+                                    make_fixnum (cp_out[i*2]),
+                                    make_fixnum (cp_out[i*2+1])),
+                              result);
+            }
+          free (cp_out);
+          return Fnreverse (result);
+        }
+
+      /* OOM fallback: per-span conversion (O(N×M) but always correct). */
+      free (slots); free (cp_out);
       lisp result = Qnil;
-      for (uint32_t i = 0; i < c->bg_span_count; i++)
+      for (uint32_t i = 0; i < nsp; i++)
         {
           uint32_t name_len;
           const char *name = ts_query_capture_name_for_id (
                                c->query, c->bg_spans[i].cap_index, &name_len);
           int start_cu = (int)(c->bg_spans[i].start_byte / sizeof (Char));
           int end_cu   = (int)(c->bg_spans[i].end_byte   / sizeof (Char));
-          point_t start_cp = cu_to_cp (bp, start_cu);
-          point_t end_cp   = cu_to_cp (bp, end_cu);
-          lisp cap_name = make_string (name, (int) name_len);
-          result = xcons (list (cap_name,
-                                make_fixnum (start_cp),
-                                make_fixnum (end_cp)),
+          result = xcons (list (make_string (name, (int) name_len),
+                                make_fixnum (cu_to_cp (bp, start_cu)),
+                                make_fixnum (cu_to_cp (bp, end_cu))),
                           result);
         }
       return Fnreverse (result);
