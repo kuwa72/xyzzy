@@ -22,11 +22,13 @@
 (call_expression function: (identifier) @function.call)")
 
 ;;; Return (start-row . end-row) as 0-based tree-sitter row numbers for the
-;;; visible window.  Row numbers are O(1) to obtain and passed directly to
-;;; ts_query_cursor_set_point_range, avoiding the O(N) cp->byte scan.
+;;; query range.  We extend 5 rows above and below the visible window so that
+;;; a few lines of key-repeat scroll in either direction keep the newly
+;;; revealed edge line inside the cached range, avoiding a one-line gap.
 (defun ts-visible-range ()
-  (let* ((start-row (1- (get-window-start-line)))  ; xyzzy 1-based -> 0-based
-         (end-row   (+ start-row (window-lines))))
+  (let* ((win-start (1- (get-window-start-line)))  ; xyzzy 1-based -> 0-based
+         (start-row (max 0 (- win-start 5)))
+         (end-row   (+ win-start (window-lines) 5)))
     (cons start-row end-row)))
 
 (defconstant *ts-c-color-alist*
