@@ -606,6 +606,225 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
   return Qnil;
 }
 
+/* --- Helpers for si:ts-apply-highlights ---------------------------------- */
+
+/* Delete all textprops with tag == ltag from bp directly. */
+static void
+ts_delete_textprops_tag (Buffer *bp, lisp ltag)
+{
+  textprop *prev = nullptr;
+  for (textprop *t = bp->b_textprop, *next; t; t = next)
+    {
+      next = t->t_next;
+      if (t->t_tag == ltag)
+        {
+          if (prev) prev->t_next = next;
+          else      bp->b_textprop = next;
+          if (bp->b_textprop_cache == t) bp->b_textprop_cache = nullptr;
+          bp->free_textprop (t);
+        }
+      else
+        prev = t;
+    }
+}
+
+/* Compare ASCII tree-sitter capture name with a Lisp string (UTF-16).
+   Works correctly for names that are pure ASCII (all ts capture names are). */
+static bool
+ts_ascii_match (const char *name, uint32_t len, lisp lstr)
+{
+  if (!stringp (lstr) || (uint32_t) xstring_length (lstr) != len) return false;
+  const Char *p = xstring_contents (lstr);
+  for (uint32_t i = 0; i < len; i++)
+    if (p[i] != (unsigned char) name[i]) return false;
+  return true;
+}
+
+/* Look up the fg color for capture CAP_IDX in LCOLORS alist.
+   LCOLORS: ((name-string . fg-fixnum) ...).  Returns -1 if not found. */
+static int
+ts_lookup_color (TSQuery *query, uint32_t cap_idx, lisp lcolors)
+{
+  uint32_t name_len;
+  const char *name = ts_query_capture_name_for_id (query, cap_idx, &name_len);
+  for (lisp a = lcolors; consp (a); a = xcdr (a))
+    {
+      lisp entry = xcar (a);
+      if (consp (entry) && ts_ascii_match (name, name_len, xcar (entry))
+          && fixnump (xcdr (entry)))
+        return (int) fixnum_value (xcdr (entry));
+    }
+  return -1;
+}
+
+/* Batch cu→cp conversion: fills cp_out[0..2*nsp) from bg_spans.
+   Returns true on success; on failure cp_out is left in an indeterminate state. */
+static bool
+ts_batch_cu_to_cp (Buffer *bp, const ts_span_raw *spans, uint32_t nsp,
+                   std::pair<uint32_t,uint32_t> *slots, point_t *cp_out)
+{
+  using cu_slot = std::pair<uint32_t, uint32_t>;
+  for (uint32_t i = 0; i < nsp; i++)
+    {
+      slots[i*2  ] = { spans[i].start_byte / (uint32_t) sizeof (Char), i*2   };
+      slots[i*2+1] = { spans[i].end_byte   / (uint32_t) sizeof (Char), i*2+1 };
+    }
+  std::sort (slots, slots + nsp * 2,
+             [](const cu_slot &a, const cu_slot &b) { return a.first < b.first; });
+  point_t  cp     = 0;
+  uint32_t cur_cu = 0;
+  Chunk   *ch     = bp->b_chunkb;
+  uint32_t ch_cu0 = 0;
+  for (uint32_t e = 0; e < nsp * 2; e++)
+    {
+      uint32_t target = slots[e].first;
+      while (cur_cu < target)
+        {
+          if (!ch) break;
+          uint32_t ch_end = ch_cu0 + (uint32_t) ch->c_used;
+          const Char *p = ch->c_text + (cur_cu - ch_cu0);
+          while (cur_cu < target && cur_cu < ch_end)
+            {
+              Char cc = *p++; cp++; cur_cu++;
+              if (cc >= 0xD800 && cc <= 0xDBFF && cur_cu < ch_end
+                  && *p >= 0xDC00 && *p <= 0xDFFF)
+                { p++; cur_cu++; }
+            }
+          if (cur_cu >= ch_end) { ch_cu0 += ch->c_used; ch = ch->c_next; }
+        }
+      cp_out[slots[e].second] = cp;
+    }
+  return true;
+}
+
+/* (si:ts-apply-highlights grammar query buffer start-row end-row tag colors)
+   colors: alist of (name-string . fg-color-fixnum)
+   Manages bg parse/query threads (same as si:ts-query-buffer), then when spans
+   are ready applies textprops directly in C — no Lisp list allocation.
+   Returns t when highlights were applied, nil while bg work is pending. */
+lisp
+Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
+                         lisp lstart_row, lisp lend_row,
+                         lisp ltag, lisp lcolors)
+{
+  check_ts_grammar (lgrammar);
+  check_string (lquery);
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  const TSLanguage *lang = (const TSLanguage *) xts_grammar_lang (lgrammar);
+  lts_buf_cache *c = get_buf_cache (bp, lang);
+  if (!c->parser) FEsimple_error (Ets_parse_failed);
+
+  /* Install completed bg parse result. */
+  if (!c->parse_bg_active && c->parse_result)
+    {
+      if (c->parse_hthread) { CloseHandle (c->parse_hthread); c->parse_hthread = NULL; }
+      if (c->parse_result_rev == bp->b_modified_count)
+        { if (c->tree) ts_tree_delete (c->tree); c->tree = c->parse_result; c->revision = c->parse_result_rev; }
+      else
+        ts_tree_delete (c->parse_result);
+      c->parse_result = nullptr;
+    }
+
+  /* Ensure tree is up-to-date. */
+  if (!c->tree || c->revision != bp->b_modified_count)
+    {
+      if (c->bg_active) { InterlockedExchange (&c->bg_cancel, 1); return Qnil; }
+      if (c->parse_bg_active && c->parse_bg_rev == bp->b_modified_count) { SwitchToThread (); return Qnil; }
+      if (c->parse_bg_active) { InterlockedExchange (&c->parse_bg_cancel, 1); return Qnil; }
+
+      long cur_rev = bp->b_modified_count;
+      uint32_t total_bytes = 0;
+      for (Chunk *ch = bp->b_chunkb; ch; ch = ch->c_next)
+        total_bytes += (uint32_t) ch->c_used * sizeof (Char);
+      char *snapshot = (char *) malloc (total_bytes ? total_bytes : 1);
+      if (!snapshot) return Qnil;
+      char *p = snapshot;
+      for (Chunk *ch = bp->b_chunkb; ch; ch = ch->c_next)
+        { uint32_t n = (uint32_t) ch->c_used * sizeof (Char); memcpy (p, ch->c_text, n); p += n; }
+      ts_parse_job *job = new ts_parse_job;
+      job->cache = c; job->snapshot = snapshot; job->snap_size = total_bytes; job->revision = cur_rev;
+      if (c->parse_hthread) { CloseHandle (c->parse_hthread); c->parse_hthread = NULL; }
+      InterlockedExchange (&c->parse_bg_cancel, 0);
+      InterlockedExchange (&c->parse_bg_active, 1);
+      c->parse_bg_rev = cur_rev;
+      c->parse_hthread = CreateThread (NULL, 0, ts_parse_thread, job, 0, NULL);
+      if (!c->parse_hthread) { InterlockedExchange (&c->parse_bg_active, 0); free (snapshot); delete job; }
+      return Qnil;
+    }
+
+  /* Compile query (cached). */
+  {
+    int qlen16 = xstring_length (lquery);
+    int qbuf_size = qlen16 * 3 + 1;
+    char *qbuf = (char *) xmalloc (qbuf_size);
+    int qlen8 = WideCharToMultiByte (CP_UTF8, 0, (LPCWSTR) xstring_contents (lquery), qlen16,
+                                     qbuf, qbuf_size - 1, NULL, NULL);
+    qbuf[qlen8] = 0;
+    if (!c->query || !c->query_src || strcmp (qbuf, c->query_src) != 0)
+      {
+        if (c->bg_active) { xfree (qbuf); InterlockedExchange (&c->bg_cancel, 1); return Qnil; }
+        if (c->query) ts_query_delete (c->query);
+        xfree (c->query_src);
+        uint32_t qerr_offset = 0; TSQueryError qerr_type = TSQueryErrorNone;
+        c->query = ts_query_new (lang, qbuf, (uint32_t) qlen8, &qerr_offset, &qerr_type);
+        if (!c->query) { xfree (qbuf); FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset)); }
+        c->query_src = qbuf;
+        free (c->bg_spans); c->bg_spans = nullptr; c->bg_span_count = 0; c->bg_span_rev = -1;
+      }
+    else
+      xfree (qbuf);
+  }
+
+  /* Resolve range args. */
+  bool has_range = (lstart_row && lstart_row != Qnil && lend_row && lend_row != Qnil);
+  TSPoint sp = has_range ? TSPoint{ (uint32_t) fixnum_value (lstart_row), 0 } : TSPoint{ 0, 0 };
+  TSPoint ep = has_range ? TSPoint{ (uint32_t) fixnum_value (lend_row), UINT32_MAX } : TSPoint{ 0, 0 };
+
+  if (c->bg_active) { SwitchToThread (); return Qnil; }
+
+  /* Cache hit: apply textprops directly. */
+  if (c->bg_spans
+      && c->bg_span_rev == bp->b_modified_count
+      && c->bg_has_range == has_range
+      && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row)))
+    {
+      uint32_t nsp = c->bg_span_count;
+      using cu_slot = std::pair<uint32_t, uint32_t>;
+      cu_slot *slots  = nsp ? (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot)) : nullptr;
+      point_t *cp_out = nsp ? (point_t *) malloc (nsp * 2 * sizeof (point_t)) : nullptr;
+      bool ok = (nsp == 0) || (slots && cp_out
+                               && ts_batch_cu_to_cp (bp, c->bg_spans, nsp, slots, cp_out));
+
+      ts_delete_textprops_tag (bp, ltag);
+
+      if (ok && nsp > 0)
+        for (uint32_t i = 0; i < nsp; i++)
+          {
+            int fg = ts_lookup_color (c->query, c->bg_spans[i].cap_index, lcolors);
+            if (fg < 0) continue;
+            int attrib = (fg & (GLYPH_TEXTPROP_NCOLORS - 1)) << GLYPH_TEXTPROP_FG_SHIFT_BITS;
+            textprop *p = bp->add_textprop (cp_out[i*2], cp_out[i*2+1]);
+            if (p) { p->t_attrib = attrib; p->t_tag = ltag; bp->b_textprop_cache = p; }
+          }
+
+      free (slots); free (cp_out);
+      bp->refresh_buffer ();
+      return Qt;
+    }
+
+  /* Cache miss: launch bg query thread. */
+  ts_bg_job *job = new ts_bg_job;
+  job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
+  job->sp = sp; job->ep = ep; job->has_range = has_range;
+  c->bg_span_rev = bp->b_modified_count; c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
+  InterlockedExchange (&c->bg_cancel, 0);
+  InterlockedExchange (&c->bg_active, 1);
+  if (c->hthread) { CloseHandle (c->hthread); c->hthread = NULL; }
+  c->hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
+  if (!c->hthread) { InterlockedExchange (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+  return Qnil;
+}
+
 /* (si:ts-free-buffer-cache &optional BUFFER) */
 lisp
 Fsi_ts_free_buffer_cache (lisp lbuffer)

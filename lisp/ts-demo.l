@@ -29,44 +29,27 @@
          (end-row   (+ start-row (window-lines))))
     (cons start-row end-row)))
 
-(defun ts-apply-highlights (buf spans)
-  "Apply SPANS as ts-face textprops in BUF; no-op when SPANS is nil."
-  (when spans
-    (save-excursion
-      (set-buffer buf)
-      (delete-text-attributes 'ts-face)
-      (dolist (s spans)
-        (let* ((name  (first s))
-               (start (second s))
-               (end   (third s))
-               (fg    (cond
-                        ((string= name "comment")          2)  ; dark green
-                        ((string= name "string")           1)  ; dark red
-                        ((string= name "constant.numeric") 4)  ; dark blue
-                        ((string= name "include")          5)  ; dark magenta
-                        ((string= name "function.call")    6)  ; dark cyan
-                        (t nil))))
-          (when fg
-            (set-text-attribute start end 'ts-face :foreground fg)))))))
+(defconstant *ts-c-color-alist*
+  '(("comment"          . 2)
+    ("string"           . 1)
+    ("constant.numeric" . 4)
+    ("include"          . 5)
+    ("function.call"    . 6)))
 
 ;;; One-shot timer target: highlight visible region and force a repaint.
-;;; refresh-screen is needed because refresh_buffer only sets WDF_WINDOW;
-;;; the command loop calls refresh_screen at its top (before fetch), so
-;;; without an explicit call here the display updates only on the next keypress.
-;;;
-;;; si:ts-query-buffer limits the C-side parse to 50 ms per call.  If the
-;;; parse timed out, si:ts-parse-complete-p returns nil and we reschedule
-;;; quickly (0.1 s) so tree-sitter resumes until the tree is complete.
+;;; si:ts-apply-highlights manages bg parse/query threads and applies textprops
+;;; directly in C (no Lisp list).  Returns t when done, nil while pending.
+;;; refresh-screen is always called so the display updates without a keypress.
 (defun ts-do-highlight ()
   (let (buf)
     (ignore-errors
       (let* ((g     (ts-load-c-grammar))
-             (range (ts-visible-range))
-             (spans (si:ts-query-buffer g *ts-c-highlight-query*
-                                        (setq buf (selected-buffer))
-                                        (car range) (cdr range))))
-        (ts-apply-highlights buf spans)
-        (unless (and spans (si:ts-parse-complete-p buf))
+             (range (ts-visible-range)))
+        (setq buf (selected-buffer))
+        (unless (si:ts-apply-highlights g *ts-c-highlight-query*
+                                        buf
+                                        (car range) (cdr range)
+                                        'ts-face *ts-c-color-alist*)
           (start-timer 0.1 'ts-do-highlight t))))
     (refresh-screen)))  ; always refresh, even if highlights threw an error
 
