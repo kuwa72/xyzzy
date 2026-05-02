@@ -782,12 +782,17 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
 
   if (c->bg_active) { SwitchToThread (); return Qnil; }
 
-  /* Cache hit: apply textprops directly. */
-  if (c->bg_spans
-      && c->bg_span_rev == bp->b_modified_count
-      && c->bg_has_range == has_range
-      && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row)))
+  /* Cache hit: bg_active is 0 here so bg_spans is stable.
+     Apply whatever spans are cached for the current revision, even if the
+     visible range has shifted since the last query.  If the range changed,
+     launch a new bg query immediately so fresh spans arrive soon; do NOT
+     update bg_span_rev so the old spans remain the cache value until the
+     new query completes. */
+  if (c->bg_spans && c->bg_span_rev == bp->b_modified_count)
     {
+      bool range_match = c->bg_has_range == has_range
+          && (!has_range || (c->bg_sp.row == sp.row && c->bg_ep.row == ep.row));
+
       uint32_t nsp = c->bg_span_count;
       using cu_slot = std::pair<uint32_t, uint32_t>;
       cu_slot *slots  = nsp ? (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot)) : nullptr;
@@ -808,11 +813,26 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
           }
 
       free (slots); free (cp_out);
+
+      if (!range_match)
+        {
+          /* bg_spans fully consumed above; safe to start new query now. */
+          c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
+          ts_bg_job *job = new ts_bg_job;
+          job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
+          job->sp = sp; job->ep = ep; job->has_range = has_range;
+          InterlockedExchange (&c->bg_cancel, 0);
+          InterlockedExchange (&c->bg_active, 1);
+          if (c->hthread) { CloseHandle (c->hthread); c->hthread = NULL; }
+          c->hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
+          if (!c->hthread) { InterlockedExchange (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+        }
+
       bp->refresh_buffer ();
       return Qt;
     }
 
-  /* Cache miss: launch bg query thread. */
+  /* Cache miss (no spans or stale revision): launch bg query thread. */
   ts_bg_job *job = new ts_bg_job;
   job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
   job->sp = sp; job->ep = ep; job->has_range = has_range;
