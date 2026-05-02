@@ -362,7 +362,10 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       TSInput      input = { &pctx, ts_buf_read, TSInputEncodingUTF16LE };
       TSParseOptions opts = { &pctx, ts_progress_cb };
 
-      TSTree *new_tree = ts_parser_parse_with_options (c->parser, c->tree,
+      /* Always do a full re-parse: we never call ts_tree_edit to inform
+         tree-sitter of edits, so passing the old tree causes incorrect
+         incremental results (wrong node positions after any edit). */
+      TSTree *new_tree = ts_parser_parse_with_options (c->parser, nullptr,
                                                        input, opts);
       if (new_tree)
         {
