@@ -945,3 +945,66 @@ Fsi_ts_grammar_p (lisp x)
 {
   return ts_grammar_p (x) ? Qt : Qnil;
 }
+
+/* Convert a code-point offset to byte offset for tree-sitter positioning. */
+static uint32_t
+cp_to_byte (Buffer *bp, point_t target_cp)
+{
+  uint32_t byte_off = 0;
+  point_t cp = 0;
+  for (Chunk *ch = bp->b_chunkb; ch && cp < target_cp; ch = ch->c_next)
+    {
+      const Char *p = ch->c_text;
+      const Char *end = p + ch->c_used;
+      while (p < end && cp < target_cp)
+        {
+          Char cc = *p++;
+          cp++;
+          byte_off += (uint32_t) sizeof (Char);
+          if (cc >= 0xD800 && cc <= 0xDBFF && p < end
+              && *p >= 0xDC00 && *p <= 0xDFFF)
+            { p++; byte_off += (uint32_t) sizeof (Char); }
+        }
+    }
+  return byte_off;
+}
+
+/* (si:ts-node-ancestors grammar buffer point)
+   Returns a list of (type start-cp end-cp) from the named node at POINT
+   up to the parse tree root (innermost first).
+   Returns nil when no up-to-date tree is available yet. */
+lisp
+Fsi_ts_node_ancestors (lisp lgrammar, lisp lbuffer, lisp lpoint)
+{
+  check_ts_grammar (lgrammar);
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+  check_integer (lpoint);
+  const TSLanguage *lang = (const TSLanguage *) xts_grammar_lang (lgrammar);
+
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ())
+    return Qnil;
+  lts_buf_cache *c = it->second;
+  if (!c->tree || c->revision != bp->b_modified_count)
+    return Qnil;
+
+  uint32_t byte_off = cp_to_byte (bp, (point_t) fixnum_value (lpoint));
+
+  TSNode root = ts_tree_root_node (c->tree);
+  TSNode node = ts_node_named_descendant_for_byte_range (root, byte_off, byte_off);
+
+  lisp result = Qnil;
+  while (!ts_node_is_null (node))
+    {
+      const char *type    = ts_node_type (node);
+      point_t start_cp    = cu_to_cp (bp, (int)(ts_node_start_byte (node) / sizeof (Char)));
+      point_t end_cp      = cu_to_cp (bp, (int)(ts_node_end_byte   (node) / sizeof (Char)));
+      result = xcons (list (make_string (type, (int) strlen (type)),
+                            make_fixnum (start_cp),
+                            make_fixnum (end_cp)),
+                      result);
+      node = ts_node_parent (node);
+    }
+
+  return Fnreverse (result);
+}

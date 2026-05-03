@@ -1,18 +1,107 @@
-;;; tree-sitter demo: syntax highlighting for the visible window only
+;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; tree-sitter: syntax highlighting and indentation
 ;;;
 ;;; Usage:
 ;;;   (load-library "ts-demo")
-;;;   (ts-demo-highlight-on-idle)  ; enable for current buffer
-;;;   (ts-demo-stop-highlight)     ; disable
+;;;   (ts-demo-c-mode-install)     ; register C and set up keys (once)
+;;;
+;;; Keys added to *c-mode-map* by ts-demo-c-mode-install:
+;;;   TAB      ts-c-indent-line        ; tree-sitter indent (fallback: calc-c-indent)
+;;;   C-c C-t  ts-demo-show-ancestors  ; show node chain at point
+;;;   C-c C-i  ts-demo-test-indent     ; show what ts indent column would be
 
-(defvar *ts-c-grammar* nil)
+(in-package "editor")
 
-(defun ts-load-c-grammar ()
-  "Load the C grammar DLL (built by CMake)."
-  (unless (and *ts-c-grammar* (si:ts-grammar-p *ts-c-grammar*))
-    (let ((dll (merge-pathnames "tree-sitter-c.dll" (si:system-root))))
-      (setq *ts-c-grammar* (si:load-ts-grammar dll "c"))))
-  *ts-c-grammar*)
+;;; --- Configuration -------------------------------------------------------
+
+(defvar *ts-grammar-directory* (si:system-root)
+  "Directory searched for grammar DLLs (tree-sitter-<lang>.dll).")
+
+(defvar *ts-grammar-suffix* ".dll"
+  "File extension for grammar shared libraries (.dll / .so / .dylib).")
+
+;;; --- Grammar registry ----------------------------------------------------
+
+(defvar *ts-grammar-registry* (make-hash-table)
+  "Hash table mapping mode symbol -> (grammar query colors).")
+
+(defun ts-grammar-file (lang-name)
+  "Return the path to the grammar DLL for LANG-NAME."
+  (merge-pathnames (concat "tree-sitter-" lang-name *ts-grammar-suffix*)
+                   *ts-grammar-directory*))
+
+(defun ts-register-mode (mode lang-name query colors)
+  "Register tree-sitter support for MODE.
+LANG-NAME names the grammar DLL (e.g. \"c\", \"cpp\").
+QUERY is the highlight query string.
+COLORS is an alist of (capture-name . fg-color-number)."
+  (let* ((dll  (ts-grammar-file lang-name))
+         (gram (si:load-ts-grammar dll lang-name)))
+    (setf (gethash mode *ts-grammar-registry*)
+          (list gram query colors))
+    gram))
+
+;;; --- Buffer-local state --------------------------------------------------
+
+(defvar-local *ts-highlight-active* nil)
+(defvar-local *ts-buffer-grammar*   nil)
+(defvar-local *ts-buffer-query*     nil)
+(defvar-local *ts-buffer-colors*    nil)
+
+(defun ts-enable-for-buffer ()
+  "Enable tree-sitter highlighting for the current buffer (uses buffer-mode)."
+  (interactive)
+  (let ((entry (gethash buffer-mode *ts-grammar-registry*)))
+    (when entry
+      (setq *ts-buffer-grammar*   (first  entry)
+            *ts-buffer-query*     (second entry)
+            *ts-buffer-colors*    (third  entry)
+            *ts-highlight-active* t)
+      (add-hook '*post-command-hook* 'ts-schedule-highlight)
+      (ts-schedule-highlight))))
+
+(defun ts-disable-for-buffer ()
+  "Disable tree-sitter highlighting for the current buffer."
+  (interactive)
+  (setq *ts-highlight-active* nil)
+  (stop-timer 'ts-do-highlight)
+  (save-excursion
+    (delete-text-attributes 'ts-face)))
+
+;;; --- Highlight scheduling (generic) -------------------------------------
+
+(defun ts-visible-range ()
+  "Return (start-row . end-row) as 0-based rows for the visible window ±5."
+  (let* ((win-start (1- (get-window-start-line)))
+         (start-row (max 0 (- win-start 5)))
+         (end-row   (+ win-start (window-lines) 5)))
+    (cons start-row end-row)))
+
+(defun ts-do-highlight ()
+  "Timer target: apply highlights for the current buffer if ts is active."
+  (ignore-errors
+    (when *ts-highlight-active*
+      (let ((range (ts-visible-range)))
+        (unless (si:ts-apply-highlights *ts-buffer-grammar* *ts-buffer-query*
+                                        (selected-buffer)
+                                        (car range) (cdr range)
+                                        'ts-face *ts-buffer-colors*)
+          (start-timer 0.1 'ts-do-highlight t)))))
+  (refresh-screen))
+
+(defun ts-schedule-highlight ()
+  "Post-command hook: apply cached highlights immediately, then reschedule."
+  (when *ts-highlight-active*
+    (ignore-errors
+      (let ((range (ts-visible-range)))
+        (si:ts-apply-highlights *ts-buffer-grammar* *ts-buffer-query*
+                                (selected-buffer)
+                                (car range) (cdr range)
+                                'ts-face *ts-buffer-colors*)))
+    (stop-timer 'ts-do-highlight)
+    (start-timer 0.1 'ts-do-highlight t)))
+
+;;; --- C-specific: query and colors ---------------------------------------
 
 (defconstant *ts-c-highlight-query*
   "(comment) @comment
@@ -21,16 +110,6 @@
 (preproc_include) @include
 (call_expression function: (identifier) @function.call)")
 
-;;; Return (start-row . end-row) as 0-based tree-sitter row numbers for the
-;;; query range.  We extend 5 rows above and below the visible window so that
-;;; a few lines of key-repeat scroll in either direction keep the newly
-;;; revealed edge line inside the cached range, avoiding a one-line gap.
-(defun ts-visible-range ()
-  (let* ((win-start (1- (get-window-start-line)))  ; xyzzy 1-based -> 0-based
-         (start-row (max 0 (- win-start 5)))
-         (end-row   (+ win-start (window-lines) 5)))
-    (cons start-row end-row)))
-
 (defconstant *ts-c-color-alist*
   '(("comment"          . 2)
     ("string"           . 1)
@@ -38,61 +117,120 @@
     ("include"          . 5)
     ("function.call"    . 6)))
 
-;;; One-shot timer target: highlight visible region and force a repaint.
-;;; si:ts-apply-highlights manages bg parse/query threads and applies textprops
-;;; directly in C (no Lisp list).  Returns t when done, nil while pending.
-;;; refresh-screen is always called so the display updates without a keypress.
-(defun ts-do-highlight ()
-  (let (buf)
-    (ignore-errors
-      (let* ((g     (ts-load-c-grammar))
-             (range (ts-visible-range)))
-        (setq buf (selected-buffer))
-        (unless (si:ts-apply-highlights g *ts-c-highlight-query*
-                                        buf
-                                        (car range) (cdr range)
-                                        'ts-face *ts-c-color-alist*)
-          (start-timer 0.1 'ts-do-highlight t))))
-    (refresh-screen)))  ; always refresh, even if highlights threw an error
+;;; --- C-specific: indentation --------------------------------------------
 
-;;; Post-command hook: apply cached highlights immediately (fast path),
-;;; then reschedule the bg parse timer.  Cached apply is pure C so it
-;;; completes in microseconds; xyzzy redraws naturally after each command
-;;; so no explicit refresh-screen is needed here.
-(defun ts-schedule-highlight ()
-  (ignore-errors
-    (let* ((g     (ts-load-c-grammar))
-           (range (ts-visible-range)))
-      (si:ts-apply-highlights g *ts-c-highlight-query*
-                              (selected-buffer)
-                              (car range) (cdr range)
-                              'ts-face *ts-c-color-alist*)))
-  (stop-timer 'ts-do-highlight)
-  (start-timer 0.1 'ts-do-highlight t))
-
-(defun ts-demo-highlight-on-idle ()
-  "Enable idle-based tree-sitter highlighting for the current buffer."
-  (interactive)
-  (ts-load-c-grammar)
-  (add-hook '*post-command-hook* 'ts-schedule-highlight)
-  (ts-schedule-highlight))
-
-(defun ts-demo-stop-highlight ()
-  "Disable idle-based tree-sitter highlighting."
-  (interactive)
-  (stop-timer 'ts-do-highlight)
-  (delete-hook '*post-command-hook* 'ts-schedule-highlight)
+(defun ts-c-indent-of-cp (cp)
+  "Column of the first non-whitespace char on the line containing CP."
   (save-excursion
-    (delete-text-attributes 'ts-face)))
+    (goto-char cp)
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (current-column)))
 
-;;; One-shot full-buffer query (for comparison / debugging).
+(defun ts-c-find-ancestor (ancestors &rest types)
+  "Return the first entry in ANCESTORS whose type is one of TYPES."
+  (dolist (a ancestors)
+    (when (member (first a) types :test #'string=)
+      (return a))))
+
+(defun ts-c-calc-indent ()
+  "Calculate C indent column using tree-sitter.  Returns column or nil.
+nil means no parse tree yet; caller falls back to calc-c-indent."
+  (save-excursion
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (let* ((g         *ts-buffer-grammar*)
+           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
+      (when (null ancestors)
+        (return-from ts-c-calc-indent nil))
+      (let ((compound  (ts-c-find-ancestor ancestors "compound_statement"))
+            (case-stmt (ts-c-find-ancestor ancestors "case_statement")))
+        (cond
+          ((looking-for "}")
+           (if compound (ts-c-indent-of-cp (second compound)) 0))
+          ((looking-for "#")
+           (if c-preprocessor-offset c-preprocessor-offset 0))
+          ((looking-at "\\(case[^A-Za-z0-9_]\\|default[ \t]*:\\)")
+           (if compound
+               (max 0 (+ (ts-c-indent-of-cp (second compound))
+                         c-indent-level c-label-offset))
+             0))
+          (case-stmt
+           (+ (ts-c-indent-of-cp (second case-stmt)) c-indent-level))
+          (compound
+           (+ (ts-c-indent-of-cp (second compound)) c-indent-level))
+          (t 0))))))
+
+(defun ts-c-indent-line ()
+  "TAB handler: tree-sitter indent with fallback to calc-c-indent."
+  (interactive "*")
+  (if (or (not (interactive-p))
+          *c-tab-always-indent*
+          (save-excursion
+            (skip-chars-backward " \t")
+            (bolp)))
+      (case (save-excursion
+              (goto-bol)
+              (parse-point-syntax))
+        (:string)
+        (:comment
+         (let ((column (calc-c-comment-indent)))
+           (when (integerp column)
+             (smart-indentation column))))
+        (t
+         (let ((column (or (ts-c-calc-indent) (calc-c-indent))))
+           (when (integerp column)
+             (smart-indentation column)))))
+    (insert "\t"))
+  t)
+
+;;; --- Debug utilities ----------------------------------------------------
+
+(defun ts-demo-show-ancestors ()
+  "Show tree-sitter node chain at point in *ts-ancestors* buffer."
+  (interactive)
+  (let* ((g         *ts-buffer-grammar*)
+         (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
+    (if (null ancestors)
+        (message "ts: no parse tree yet")
+      (progn
+        (message "ts: ~A" (first (first ancestors)))
+        (with-output-to-temp-buffer ("*ts-ancestors*")
+          (dolist (a ancestors)
+            (format t "~A  [~D, ~D)~%" (first a) (second a) (third a))))))))
+
+(defun ts-demo-test-indent ()
+  "Show what ts-c-calc-indent would return for the current line."
+  (interactive)
+  (let ((col (ts-c-calc-indent)))
+    (if (integerp col)
+        (message "ts-indent: ~D  (current: ~D)"
+                 col
+                 (save-excursion
+                   (goto-bol) (skip-chars-forward " \t") (current-column)))
+      (message "ts-indent: no parse tree yet"))))
+
 (defun ts-demo-print-spans (&optional buffer)
   "Print tree-sitter capture spans to *ts-demo*."
   (interactive)
-  (let ((spans (si:ts-query-buffer (ts-load-c-grammar)
-                                   *ts-c-highlight-query*
+  (let ((spans (si:ts-query-buffer *ts-buffer-grammar*
+                                   *ts-buffer-query*
                                    buffer)))
     (with-output-to-temp-buffer ("*ts-demo*")
       (format t "ts-demo: ~D spans~%" (length spans))
       (dolist (s spans)
         (format t "  ~A  [~D, ~D)~%" (first s) (second s) (third s))))))
+
+;;; --- C-mode setup -------------------------------------------------------
+
+(defun ts-demo-c-mode-install ()
+  "Register C grammar and set up keys in *c-mode-map*."
+  (interactive)
+  (ts-register-mode 'c-mode "c" *ts-c-highlight-query* *ts-c-color-alist*)
+  (define-key *c-mode-map* #\TAB           'ts-c-indent-line)
+  (define-key *c-mode-map* '(#\C-c #\C-t)  'ts-demo-show-ancestors)
+  (define-key *c-mode-map* '(#\C-c #\C-i)  'ts-demo-test-indent)
+  (add-hook '*c-mode-hook* 'ts-enable-for-buffer)
+  (when (eq buffer-mode 'c-mode)
+    (ts-enable-for-buffer))
+  (message "ts-demo: c-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
