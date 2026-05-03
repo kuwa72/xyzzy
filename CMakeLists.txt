@@ -108,8 +108,29 @@ add_library(tree-sitter-c-grammar SHARED
 target_include_directories(tree-sitter-c-grammar PRIVATE
     ${tree-sitter-c_SOURCE_DIR}/src)
 set_target_properties(tree-sitter-c-grammar PROPERTIES
-    OUTPUT_NAME "tree-sitter-c"
-    PREFIX      "")
+    OUTPUT_NAME               "tree-sitter-c"
+    PREFIX                    ""
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/c")
+
+FetchContent_Declare(tree-sitter-cpp
+    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-cpp
+    GIT_TAG        v0.23.4
+    GIT_SHALLOW    TRUE)
+FetchContent_GetProperties(tree-sitter-cpp)
+if(NOT tree-sitter-cpp_POPULATED)
+    FetchContent_Populate(tree-sitter-cpp)
+endif()
+file(GLOB tree-sitter-cpp-sources
+    "${tree-sitter-cpp_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-cpp_SOURCE_DIR}/src/scanner.c"
+    "${tree-sitter-cpp_SOURCE_DIR}/src/scanner.cc")
+add_library(tree-sitter-cpp-grammar SHARED ${tree-sitter-cpp-sources})
+target_include_directories(tree-sitter-cpp-grammar PRIVATE
+    ${tree-sitter-cpp_SOURCE_DIR}/src)
+set_target_properties(tree-sitter-cpp-grammar PROPERTIES
+    OUTPUT_NAME               "tree-sitter-cpp"
+    PREFIX                    ""
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/cpp")
 
 # ============================================================
 # Find zlib (prefer static library for -static linking)
