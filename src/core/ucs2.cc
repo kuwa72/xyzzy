@@ -2,7 +2,6 @@
 #include "cdecl.h"
 #include "charset.h"
 #include "ucs2tab.h"
-#include "char-width.h"
 
 wc2int_hash wc2int_iso8859_1_hash;
 wc2int_hash wc2int_iso8859_2_hash;

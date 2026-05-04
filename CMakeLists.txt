@@ -276,7 +276,6 @@ set(GEN_SRC1_SOURCES
     ${SRC_DIR}/gen-main.cc
     ${SRC_DIR}/gen-stdafx.cc
     ${SRC_DIR}/dpp.cc
-    ${SRC_DIR}/gen-char-width.cc
     ${SRC_DIR}/gen-ctab.cc
     ${SRC_DIR}/gen-fontrange.cc
     ${SRC_DIR}/gen-ibmext.cc
@@ -309,15 +308,6 @@ add_custom_command(
     DEPENDS gen-src1 ${SRC_DIR}/num-arith.d ${SRC_DIR}/dpp.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating num-arith.h"
-)
-
-# gen-char-width > char-width.h
-add_custom_command(
-    OUTPUT ${GEN_DIR}/char-width.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-char-width > ${GEN_DIR}/char-width.h
-    DEPENDS gen-src1
-    WORKING_DIRECTORY ${SRC_DIR}
-    COMMENT "Generating char-width.h"
 )
 
 # gen-ctab > chtab.cc
@@ -392,7 +382,6 @@ add_custom_command(
 add_custom_target(gen-src1-run
     DEPENDS
         ${GEN_DIR}/num-arith.h
-        ${GEN_DIR}/char-width.h
         ${GEN_DIR}/chtab.cc
         ${GEN_DIR}/ibmext.h
         ${GEN_DIR}/iso2022state.h
@@ -451,7 +440,6 @@ set(GEN_SRC1_SOURCES
     ${SRC_DIR}/gen-main.cc
     ${SRC_DIR}/gen-stdafx.cc
     ${SRC_DIR}/dpp.cc
-    ${SRC_DIR}/gen-char-width.cc
     ${SRC_DIR}/gen-ctab.cc
     ${SRC_DIR}/gen-fontrange.cc
     ${SRC_DIR}/gen-ibmext.cc
@@ -476,13 +464,6 @@ add_custom_command(
     DEPENDS gen-src1 ${SRC_DIR}/num-arith.d ${SRC_DIR}/dpp.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating num-arith.h"
-)
-add_custom_command(
-    OUTPUT ${GEN_DIR}/char-width.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-char-width > ${GEN_DIR}/char-width.h
-    DEPENDS gen-src1
-    WORKING_DIRECTORY ${SRC_DIR}
-    COMMENT "Generating char-width.h"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/chtab.cc
@@ -542,7 +523,6 @@ add_custom_command(
 add_custom_target(gen-src1-run
     DEPENDS
         ${GEN_DIR}/num-arith.h
-        ${GEN_DIR}/char-width.h
         ${GEN_DIR}/chtab.cc
         ${GEN_DIR}/ibmext.h
         ${GEN_DIR}/iso2022state.h

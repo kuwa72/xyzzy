@@ -1,5 +1,4 @@
 void dpp (int argc, char **argv);
-void gen_char_width (int argc, char **argv);
 void gen_ctab (int argc, char **argv);
 void gen_fontrange (int argc, char **argv);
 void gen_ibmext (int argc, char **argv);
@@ -15,7 +14,6 @@ void gen_utf2sjis (int argc, char **argv);
 const gensrc_action actions[] =
 {
   {"dpp", dpp},
-  {"gen-char-width", gen_char_width},
   {"gen-ctab", gen_ctab},
   {"gen-fontrange", gen_fontrange},
   {"gen-ibmext", gen_ibmext},
