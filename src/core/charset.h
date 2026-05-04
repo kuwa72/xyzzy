@@ -59,8 +59,6 @@
 #define ccs_big5_1                 15
 #define ccs_big5_2                 16
 #define  ccs_big5                  ccs_big5_1
-#define ccs_utf16_undef_char_high  17
-#define ccs_utf16_undef_char_low   18
 #define ccs_utf16_surrogate_high   19
 #define ccs_utf16_surrogate_low    20
 #define ccs_cns11643_1             21
@@ -102,9 +100,6 @@
 #define CCS_BIG5_MIN                 0xa000
 #define CCS_BIG5_MAX                 0xd5f7
 
-#define CCS_UTF16_UNDEF_CHAR_HIGH    0xd600
-#define CCS_UTF16_UNDEF_CHAR_LOW     0xd700
-
 #define CCS_UTF16_SURROGATE_HIGH_MIN 0xd800
 #define CCS_UTF16_SURROGATE_HIGH_MAX 0xdbff
 #define CCS_UTF16_SURROGATE_LOW_MIN  0xdc00
@@ -135,8 +130,6 @@
 #define ccsf_ksc5601                (1 << ccs_ksc5601)
 #define ccsf_gb2312                 (1 << ccs_gb2312)
 #define ccsf_big5                   (1 << ccs_big5)
-#define ccsf_utf16_undef_char_high  (1 << ccs_utf16_undef_char_high)
-#define ccsf_utf16_undef_char_low   (1 << ccs_utf16_undef_char_low)
 #define ccsf_utf16_surrogate_high   (1 << ccs_utf16_surrogate_high)
 #define ccsf_utf16_surrogate_low    (1 << ccs_utf16_surrogate_low)
 #define ccsf_georgian               (1 << ccs_georgian)
@@ -149,8 +142,6 @@
   (ccsf_iso8859_1 | ccsf_iso8859_2 | ccsf_iso8859_3 | ccsf_iso8859_4 \
    | ccsf_iso8859_5 | ccsf_iso8859_7 | ccsf_iso8859_9 | ccsf_iso8859_10 \
    | ccsf_iso8859_13)
-#define ccsf_utf16_undef_char \
-  (ccsf_utf16_undef_char_high | ccsf_utf16_undef_char_low)
 #define ccsf_utf16_surrogate \
   (ccsf_utf16_surrogate_high | ccsf_utf16_surrogate_low)
 
@@ -158,7 +149,7 @@
   (ccsf_iso8859 | ccsf_jisx0212 | ccsf_gb2312 | ccsf_ksc5601 | ccsf_big5 \
    | ccsf_georgian | ccsf_ipa | ccsf_smlcdm | ccsf_ujp | ccsf_ulatin)
 #define ccsf_not_cp932 \
-  (ccsf_utf16_surrogate | ccsf_utf16_undef_char)
+  ccsf_utf16_surrogate
 
 #define CP_JAPANESE       932
 #define CP_KOREAN         949
@@ -438,44 +429,6 @@ static inline ucs2_t
 utf16_ucs4_to_pair_low (ucs4_t c)
 {
   return ucs2_t (((c - 0x10000) & 1023) + CCS_UTF16_SURROGATE_LOW_MIN);
-}
-
-static inline int
-utf16_undef_char_high_p (ucs2_t c)
-{
-#ifdef UNICODE
-  return 0;
-#else
-  return (c & 0xff00) == CCS_UTF16_UNDEF_CHAR_HIGH;
-#endif
-}
-
-static inline int
-utf16_undef_char_low_p (ucs2_t c)
-{
-#ifdef UNICODE
-  return 0;
-#else
-  return (c & 0xff00) == CCS_UTF16_UNDEF_CHAR_LOW;
-#endif
-}
-
-static inline ucs2_t
-utf16_undef_pair_to_ucs2 (ucs2_t hi, ucs2_t lo)
-{
-  return hi * 256 + lo - (CCS_UTF16_UNDEF_CHAR_HIGH * 256 + CCS_UTF16_UNDEF_CHAR_LOW);
-}
-
-static inline ucs2_t
-utf16_ucs2_to_undef_pair_high (ucs2_t c)
-{
-  return ucs2_t (((c >> 8) & 255) + CCS_UTF16_UNDEF_CHAR_HIGH);
-}
-
-static inline ucs2_t
-utf16_ucs2_to_undef_pair_low (ucs2_t c)
-{
-  return ucs2_t ((c & 255) + CCS_UTF16_UNDEF_CHAR_LOW);
 }
 
 static inline int

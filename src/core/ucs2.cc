@@ -493,11 +493,6 @@ init_charset_category ()
   SET_CCS_RANGE (CCS_GB2312_MIN, CCS_GB2312_MAX, ccs_gb2312);
   SET_CCS_RANGE (CCS_BIG5_MIN, CCS_BIG5_MAX, ccs_big5);
 
-  code_charset_table[CCS_UTF16_UNDEF_CHAR_HIGH >> 7] = ccs_utf16_undef_char_high;
-  code_charset_table[(CCS_UTF16_UNDEF_CHAR_HIGH >> 7) + 1] = ccs_utf16_undef_char_high;
-  code_charset_table[CCS_UTF16_UNDEF_CHAR_LOW >> 7] = ccs_utf16_undef_char_low;
-  code_charset_table[(CCS_UTF16_UNDEF_CHAR_LOW >> 7) + 1] = ccs_utf16_undef_char_low;
-
   SET_CCS_RANGE (CCS_UTF16_SURROGATE_HIGH_MIN, CCS_UTF16_SURROGATE_HIGH_MAX,
                  ccs_utf16_surrogate_high);
   SET_CCS_RANGE (CCS_UTF16_SURROGATE_LOW_MIN, CCS_UTF16_SURROGATE_LOW_MAX,

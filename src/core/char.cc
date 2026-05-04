@@ -26,11 +26,11 @@ Fgraphic_char_p (lisp cc)
     return Qt;
   if (c < 0x100)
     return Qnil;
-  if (code_charset_bit (c) & (ccsf_utf16_undef_char | ccsf_utf16_surrogate))
+  if (code_charset_bit (c) & ccsf_utf16_surrogate)
     return Qnil;
-  /* Phase 2: Char は UTF-16 code unit。旧 i2w (old internal → UCS2) lookup は
-     UTF-16 codepoint を誤って -1 判定するので不要。surrogate と undef_char を
-     上で弾いているので、残りは graphic-char。 */
+  /* Phase 2: Char は UTF-16 code unit。surrogate half は non-graphic。
+     D600-D7FF (旧 internal encoding の undef_char 域) は正当な Unicode
+     コードポイントなので graphic 扱いにする。 */
   return Qt;
 #endif
 }
