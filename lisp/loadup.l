@@ -61,6 +61,7 @@
 (si:*load-library "lispmode") (gc)
 (si:*load-library "c-mode") (gc)
 (si:*load-library "cc-mode") (gc)
+(si:*load-library "ts") (gc)
 (si:*load-library "textmode") (gc)
 #+ncurses (si:*load-library "errors.l") #-ncurses (si:*load-library "errors") (gc)
 (si:*load-library "grep") (gc)
