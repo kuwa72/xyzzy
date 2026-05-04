@@ -277,13 +277,16 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
   (message "ts:c-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
 
 (defun ts-c++-mode-install ()
-  "Register C++ grammar and enable highlighting for c++-mode."
+  "Register C++ grammar and enable highlighting/indent for c++-mode."
   (interactive)
   (ts-register-mode 'c++-mode :lang "cpp" :colors *ts-c-color-alist*)
+  (define-key *c++-mode-map* #\TAB           'ts-c-indent-line)
+  (define-key *c++-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
+  (define-key *c++-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
   (add-hook '*c++-mode-hook* 'ts-enable-for-buffer)
   (when (eq buffer-mode 'c++-mode)
     (ts-enable-for-buffer))
-  (message "ts:c++-mode installed"))
+  (message "ts:c++-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
 
 ;;; --- Perl-mode setup ----------------------------------------------------
 
