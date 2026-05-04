@@ -241,9 +241,11 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
             (format t "~A  [~D, ~D)~%" (first a) (second a) (third a))))))))
 
 (defun ts-test-indent ()
-  "Show what ts-c-calc-indent would return for the current line."
+  "Show what the ts indent calculator would return for the current line."
   (interactive)
-  (let ((col (ts-c-calc-indent)))
+  (let ((col (case buffer-mode
+               (perl-mode (ts-perl-calc-indent))
+               (t         (ts-c-calc-indent)))))
     (if (integerp col)
         (message "ts-indent: ~D  (current: ~D)"
                  col
@@ -288,6 +290,47 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
     (ts-enable-for-buffer))
   (message "ts:c++-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
 
+;;; --- Perl-specific: indentation -----------------------------------------
+
+(defun ts-perl-block-owner (ancestors)
+  "Return the ancestor that owns the innermost Perl block."
+  (do ((rest ancestors (cdr rest)))
+      ((null rest) nil)
+    (when (string= (first (car rest)) "block")
+      (return (cadr rest)))))
+
+(defun ts-perl-calc-indent ()
+  "Calculate Perl indent column using tree-sitter. Returns column or nil."
+  (save-excursion
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (let* ((g         *ts-buffer-grammar*)
+           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
+      (when (null ancestors)
+        (return-from ts-perl-calc-indent nil))
+      (let* ((block    (ts-c-find-ancestor ancestors "block"))
+             (owner    (ts-perl-block-owner ancestors))
+             (base-cp  (second (or owner block))))
+        (cond
+          ((looking-for "}")
+           (if base-cp (ts-c-indent-of-cp base-cp) 0))
+          (block
+           (+ (ts-c-indent-of-cp base-cp) c-indent-level))
+          (t 0))))))
+
+(defun ts-perl-indent-line ()
+  "TAB handler for Perl: tree-sitter indent with fallback to c-indent-line."
+  (interactive "*")
+  (if (or (not (interactive-p))
+          (save-excursion
+            (skip-chars-backward " \t")
+            (bolp)))
+      (let ((column (or (ts-perl-calc-indent) (calc-c-indent))))
+        (when (integerp column)
+          (smart-indentation column)))
+    (insert "\t"))
+  t)
+
 ;;; --- Perl-mode setup ----------------------------------------------------
 
 (defvar *ts-perl-color-alist*
@@ -298,9 +341,13 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
     ("function.def" . 10))) ; dark green
 
 (defun ts-perl-mode-install ()
-  "Register Perl grammar and enable highlighting for perl-mode."
+  "Register Perl grammar and enable highlighting/indent for perl-mode."
   (interactive)
+  (require "perl")
   (ts-register-mode 'perl-mode :colors *ts-perl-color-alist*)
+  (define-key *perl-mode-map* #\TAB           'ts-perl-indent-line)
+  (define-key *perl-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
+  (define-key *perl-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
   (add-hook '*perl-mode-hook* 'ts-enable-for-buffer)
   (when (eq buffer-mode 'perl-mode)
     (ts-enable-for-buffer))
