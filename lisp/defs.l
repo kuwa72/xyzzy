@@ -37,7 +37,7 @@
 			    ("\\.lisp$" . lisp-mode)
 			    ("\\.txt$" . text-mode)
 			    ("\\.log$" . text-mode)
-			    ("\\.html?$" . html-mode)
+			    ("\\.s?html?$" . html+-mode)
 			    ("\\.toml$" . toml-mode)
 			    ("\\.xml$" . xml-mode)
 			    ("\\.xsl$" . xml-mode)
@@ -259,8 +259,8 @@
 (export 'calc)
 (autoload 'calc "calc" t)
 
-(export 'html-mode)
-(autoload 'html-mode "htmlmode" t)
+(export 'html+-mode)
+(autoload 'html+-mode "html+-mode" t)
 
 (export 'pascal-mode)
 (autoload 'pascal-mode "pascal" t)
