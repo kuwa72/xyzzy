@@ -132,6 +132,31 @@ set_target_properties(tree-sitter-cpp-grammar PROPERTIES
     PREFIX                    ""
     RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/cpp")
 
+FetchContent_Declare(tree-sitter-perl
+    GIT_REPOSITORY https://github.com/tree-sitter-perl/tree-sitter-perl
+    GIT_TAG        release
+    GIT_SHALLOW    TRUE)
+FetchContent_GetProperties(tree-sitter-perl)
+if(NOT tree-sitter-perl_POPULATED)
+    FetchContent_Populate(tree-sitter-perl)
+endif()
+foreach(_hdr array.h ts_assert.h)
+    file(COPY ${tree-sitter_SOURCE_DIR}/lib/src/${_hdr}
+         DESTINATION ${tree-sitter-perl_SOURCE_DIR}/src/tree_sitter/)
+endforeach()
+file(COPY ${tree-sitter_SOURCE_DIR}/lib/src/parser.h
+     DESTINATION ${tree-sitter-perl_SOURCE_DIR}/src/tree_sitter/)
+file(GLOB tree-sitter-perl-sources
+    "${tree-sitter-perl_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-perl_SOURCE_DIR}/src/scanner.c")
+add_library(tree-sitter-perl-grammar SHARED ${tree-sitter-perl-sources})
+target_include_directories(tree-sitter-perl-grammar PRIVATE
+    ${tree-sitter-perl_SOURCE_DIR}/src)
+set_target_properties(tree-sitter-perl-grammar PROPERTIES
+    OUTPUT_NAME               "tree-sitter-perl"
+    PREFIX                    ""
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/perl")
+
 # ============================================================
 # Find zlib (prefer static library for -static linking)
 # ============================================================

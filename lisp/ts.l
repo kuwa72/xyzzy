@@ -132,12 +132,6 @@ COLORS is an alist of (capture-name . fg-color-number)."
 
 ;;; --- C-specific: query and colors ---------------------------------------
 
-(defconstant *ts-c-highlight-query*
-  "(comment) @comment
-(string_literal) @string
-(number_literal) @constant.numeric
-(preproc_include) @include
-(call_expression function: (identifier) @function.call)")
 
 (defvar *ts-c-color-alist*
   '(("comment"          . 15)   ; gray
@@ -273,7 +267,7 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
 (defun ts-c-mode-install ()
   "Register C grammar and set up keys in *c-mode-map*."
   (interactive)
-  (ts-register-mode 'c-mode :query *ts-c-highlight-query* :colors *ts-c-color-alist*)
+  (ts-register-mode 'c-mode :colors *ts-c-color-alist*)
   (define-key *c-mode-map* #\TAB           'ts-c-indent-line)
   (define-key *c-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
   (define-key *c-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
@@ -290,3 +284,21 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
   (when (eq buffer-mode 'c++-mode)
     (ts-enable-for-buffer))
   (message "ts:c++-mode installed"))
+
+;;; --- Perl-mode setup ----------------------------------------------------
+
+(defvar *ts-perl-color-alist*
+  '(("comment"      . 15)   ; gray
+    ("string"       .  9)   ; dark red
+    ("number"       . 13)   ; purple
+    ("variable"     . 11)   ; dark cyan
+    ("function.def" . 10))) ; dark green
+
+(defun ts-perl-mode-install ()
+  "Register Perl grammar and enable highlighting for perl-mode."
+  (interactive)
+  (ts-register-mode 'perl-mode :colors *ts-perl-color-alist*)
+  (add-hook '*perl-mode-hook* 'ts-enable-for-buffer)
+  (when (eq buffer-mode 'perl-mode)
+    (ts-enable-for-buffer))
+  (message "ts:perl-mode installed"))

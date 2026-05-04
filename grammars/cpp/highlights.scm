@@ -1,15 +1,13 @@
 ; Comments
 (comment) @comment
 
-; Literals
+; Strings
 (string_literal) @string
 (raw_string_literal) @string
 (char_literal) @string
+
+; Numbers
 (number_literal) @number
-(true) @number
-(false) @number
-(null) @number
-(nullptr) @number
 
 ; Preprocessor
 (preproc_include) @preproc
@@ -24,4 +22,3 @@
 ; Functions
 (function_declarator declarator: (identifier) @function.def)
 (call_expression function: (identifier) @function.call)
-(call_expression function: (field_expression field: (field_identifier) @function.call))
