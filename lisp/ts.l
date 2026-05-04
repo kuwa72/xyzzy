@@ -291,7 +291,7 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
   '(("comment"      . 15)   ; gray
     ("string"       .  9)   ; dark red
     ("number"       . 13)   ; purple
-    ("variable"     . 11)   ; dark cyan
+    ("variable"     . 14)   ; dark teal
     ("function.def" . 10))) ; dark green
 
 (defun ts-perl-mode-install ()
