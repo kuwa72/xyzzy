@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ modern, develop ]
+    branches: [ modern, develop, unicode ]
   pull_request:
-    branches: [ modern, develop ]
+    branches: [ modern, develop, unicode ]
   workflow_call:
 
 jobs:
