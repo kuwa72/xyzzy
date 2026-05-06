@@ -61,7 +61,7 @@ typedef uint64_t u_int64_t;
 typedef uintptr_t pointer_t;
 
 typedef u_int16_t Char;
-# define CHAR_LIMIT 0x10000
+# define CHAR_LIMIT 0x110000  /* full Unicode scalar value space (U+0000..U+10FFFF + 1) */
 typedef u_long lChar;
 const lChar lChar_EOF = lChar (-1);
 

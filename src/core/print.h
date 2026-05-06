@@ -134,7 +134,7 @@ struct glyph_width
   HDC hdc;
   const HFONT *hfonts;
   int height;
-  short pixel[CHAR_LIMIT];
+  short pixel[0x10000];  /* BMP glyph-width cache (U+0000..U+FFFF); non-BMP computed on demand */
 };
 
 struct PaintCtx;

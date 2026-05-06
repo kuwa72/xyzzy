@@ -137,7 +137,7 @@ charclass::copy (Char *b, cc &f, int size) const
   return b;
 }
 
-#define REPEAT_INFINITY (CHAR_LIMIT - 1)
+#define REPEAT_INFINITY 0xFFFF  /* sentinel for unlimited repetition; must not equal any valid char code */
 
 class regexp_compile
 {
@@ -515,7 +515,7 @@ regexp_compile::branch (Char *b)
   Char *p = r_branch_start;
   memmove (p + 2, p, sizeof (Char) * (b - p));
   b += 2;
-  if (b - p >= CHAR_LIMIT)
+  if (b - p >= 0x10000)  /* branch offset must fit in Char (uint16_t) */
     error (Eregexp_too_long);
   p[0] = BRANCH;
   p[1] = b - p;
@@ -563,7 +563,7 @@ regexp_compile::closure (Char *b, int min, int max, int shortest)
     p[0] = shortest ? SHORTEST_CLOSURE_SIMPLE : CLOSURE_SIMPLE;
   else
     p[0] = shortest ? SHORTEST_CLOSURE : CLOSURE;
-  if (b - p >= CHAR_LIMIT)
+  if (b - p >= 0x10000)  /* closure offset must fit in Char (uint16_t) */
     error (Eregexp_too_long);
   p[1] = min;
   p[2] = max;
@@ -926,7 +926,7 @@ regexp_compile::compile (const Char *pattern, int size)
         default:
         normal_char:
           if (!r_normal_char || r_normal_char + *r_normal_char + 1 != b
-              || *r_normal_char >= CHAR_LIMIT - 1
+              || *r_normal_char >= REPEAT_INFINITY
               || (p < pe && (*p == '*' || *p == '+' || *p == '?'))
               || (p < pe - 1 && *p == '\\' && p[1] == '{'))
             {
