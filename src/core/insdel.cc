@@ -1184,9 +1184,11 @@ Buffer::substring (point_t p1, point_t p2) const
   p2 = min (max (p2, b_contents.p1), b_contents.p2);
   if (p1 > p2)
     swap (p1, p2);
-  /* Phase 2-1: p1/p2 は cp 単位。string 長は cu 数なので、範囲を
-     cu に換算してから alloc する。surrogate pair を含む範囲を
-     cp 数で alloc すると pair の片側が欠ける。 */
+  /* p1/p2 are cp (code-point) offsets; p2-p1 is the exact number of
+     code points in the range.  cu_size is the number of UTF-16 code
+     units to scan (>= cp count because each surrogate pair is 2 cu
+     but 1 cp).  Allocate by cp count so the Lisp string length equals
+     the number of characters, not the number of code units. */
   Point ps, pe;
   set_point (ps, p1);
   set_point (pe, p2);
@@ -1200,7 +1202,7 @@ Buffer::substring (point_t p1, point_t p2) const
         cu_size += c->c_used;
       cu_size += pe.p_offset;
     }
-  lisp x = make_string (cu_size);
+  lisp x = make_string (int (p2 - p1));
   substring (ps, cu_size, xstring_contents (x));
   return x;
 }

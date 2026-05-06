@@ -862,20 +862,28 @@
 		   ""
 		 (let* ((c (following-char))
 			(code (char-code c))
-			;; Phase 2-1 interim: cursor が surrogate pair に
-			;; 乗ってる時、buffer-substring で pair 全体の string
-			;; を取って絵文字のまま表示 & 完全 cp を合成する
-			;; (Phase 3 で Lisp char が UTF-32 になれば不要)
+			;; Buffer is UTF-16; following-char returns the high
+			;; surrogate code unit for non-BMP chars.  Detect the
+			;; pair and peek at the low surrogate via save-excursion:
+			;; forward-char skips the pair as 1 cp, so preceding-char
+			;; at the new position is the low surrogate code unit.
+			;; buffer-substring returns a length-1 Phase-3 ucs4_t
+			;; string for the emoji (correct display via ~A).
+			;; TODO: simplify once CHAR_LIMIT is bumped to 0x110000.
 			(pair-p (and (<= #xD800 code #xDBFF) (< point end)))
 			(s (if pair-p
 			       (buffer-substring point (1+ point))
 			     (string c)))
-			(cp (if (and pair-p
-				     (= (length s) 2)
-				     (<= #xDC00 (char-code (schar s 1)) #xDFFF))
-				(+ #x10000
-				   (ash (- code #xD800) 10)
-				   (- (char-code (schar s 1)) #xDC00))
+			(cp (if pair-p
+				(let ((lo (char-code
+					   (save-excursion
+					     (forward-char)
+					     (preceding-char)))))
+				  (if (<= #xDC00 lo #xDFFF)
+				      (+ #x10000
+					 (ash (- code #xD800) 10)
+					 (- lo #xDC00))
+				    (char-unicode c)))
 			      (char-unicode c))))
 		   (multiple-value-bind (ccode charset)
 		       (iso-char-code c)
