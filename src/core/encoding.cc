@@ -1697,13 +1697,17 @@ utf16_to_utf8_stream::refill ()
       if (c == eof)
         break;
 
-      ucs2_t wc = ucs2_t (c);
-      ucs4_t lc = wc;
-      if (utf16_surrogate_high_p (wc))
+      /* xinput_buffer_stream already combines surrogate pairs into full
+         ucs4_t code points (>= 0x10000 for non-BMP).  Don't truncate
+         to ucs2_t here; only attempt surrogate combining when the value
+         is actually a surrogate high (still possible from raw-UTF-16
+         input streams).  */
+      ucs4_t lc = ucs4_t (c);
+      if (utf16_surrogate_high_p (ucs2_t (lc)))
         {
           c = s_in.get ();
           if (utf16_surrogate_low_p (ucs2_t (c)))
-            lc = utf16_pair_to_ucs4 (wc, ucs2_t (c));
+            lc = utf16_pair_to_ucs4 (ucs2_t (lc), ucs2_t (c));
           else
             s_in.putback (c);
         }
