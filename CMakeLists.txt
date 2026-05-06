@@ -157,6 +157,37 @@ set_target_properties(tree-sitter-perl-grammar PROPERTIES
     PREFIX                    ""
     RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/perl")
 
+FetchContent_Declare(tree-sitter-markdown
+    GIT_REPOSITORY https://github.com/tree-sitter-grammars/tree-sitter-markdown
+    GIT_TAG        v0.3.2
+    GIT_SHALLOW    TRUE)
+FetchContent_GetProperties(tree-sitter-markdown)
+if(NOT tree-sitter-markdown_POPULATED)
+    FetchContent_Populate(tree-sitter-markdown)
+endif()
+# Block grammar
+file(GLOB tree-sitter-markdown-block-sources
+    "${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown/src/parser.c"
+    "${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown/src/scanner.c")
+add_library(tree-sitter-markdown-grammar SHARED ${tree-sitter-markdown-block-sources})
+target_include_directories(tree-sitter-markdown-grammar PRIVATE
+    ${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown/src)
+set_target_properties(tree-sitter-markdown-grammar PROPERTIES
+    OUTPUT_NAME               "tree-sitter-markdown"
+    PREFIX                    ""
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/markdown")
+# Inline grammar
+file(GLOB tree-sitter-markdown-inline-sources
+    "${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown-inline/src/parser.c"
+    "${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown-inline/src/scanner.c")
+add_library(tree-sitter-markdown-inline-grammar SHARED ${tree-sitter-markdown-inline-sources})
+target_include_directories(tree-sitter-markdown-inline-grammar PRIVATE
+    ${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown-inline/src)
+set_target_properties(tree-sitter-markdown-inline-grammar PROPERTIES
+    OUTPUT_NAME               "tree-sitter-markdown-inline"
+    PREFIX                    ""
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/markdown")
+
 # ============================================================
 # Find zlib (prefer static library for -static linking)
 # ============================================================

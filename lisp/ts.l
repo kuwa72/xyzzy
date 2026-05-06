@@ -352,3 +352,30 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
   (when (eq buffer-mode 'perl-mode)
     (ts-enable-for-buffer))
   (message "ts:perl-mode installed"))
+
+;;; --- Markdown-specific: colors ------------------------------------------
+
+(defvar *ts-markdown-color-alist*
+  '(("heading.1"      .  4)   ; blue   — h1
+    ("heading.2"      . 11)   ; cyan   — h2
+    ("heading.3"      . 10)   ; green  — h3
+    ("heading.4"      . 14)   ; teal   — h4-h6
+    ("heading.setext" .  4)   ; blue   — setext underline
+    ("code"           . 15)   ; gray   — fenced/indented code block
+    ("code.info"      . 14)   ; teal   — language tag after ```
+    ("quote"          .  9)   ; dark red — block quote marker
+    ("list.marker"    . 13)   ; purple — list item markers
+    ("hr"             . 15)   ; gray   — thematic break
+    ("link"           .  9)   ; dark red — link URL
+    ("link.label"     . 10))) ; green  — link label
+
+;;; --- Markdown-mode setup ------------------------------------------------
+
+(defun ts-markdown-mode-install ()
+  "Register Markdown (block) grammar and enable highlighting for markdown-mode."
+  (interactive)
+  (ts-register-mode 'markdown-mode :lang "markdown" :colors *ts-markdown-color-alist*)
+  (add-hook '*markdown-mode-hook* 'ts-enable-for-buffer)
+  (when (eq buffer-mode 'markdown-mode)
+    (ts-enable-for-buffer))
+  (message "ts:markdown-mode installed"))
