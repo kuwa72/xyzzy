@@ -273,6 +273,11 @@ stream_encoding (lisp lencoding)
     return lstream::ENCODE_RAW;
   if (lencoding == Kbinary)
     return lstream::ENCODE_BINARY;
+  /* Phase 3: expose UTF-8 modes so Lisp callers can write/read non-SJIS
+     code points losslessly (e.g. .lc bytecode strings whose opcodes are
+     stored as raw Unicode code points). */
+  if (lencoding == Kutf8)
+    return lstream::ENCODE_CANON_UTF8;
   FEprogram_error (Einvalid_encoding_option, lencoding);
   return 0;
 }
@@ -769,12 +774,16 @@ buffer_stream_eob (const Buffer *bp, lisp stream)
 }
 
 static void
-write_buffer_stream (lisp stream, const Char *b, size_t size)
+write_buffer_stream (lisp stream, const ucs4_t *b, size_t size)
 {
   Point point;
   Buffer *bp = buffer_stream_point (stream, point);
   bp->check_read_only ();
-  bp->insert_chars (point, b, size);
+  /* Buffers store Char (UTF-16). Convert ucs4_t→Char (BMP: exact; non-BMP: truncate). */
+  Char *tmp = (Char *)alloca (sizeof (Char) * size);
+  for (size_t i = 0; i < size; i++)
+    tmp[i] = Char (b[i]);
+  bp->insert_chars (point, tmp, size);
   xmarker_point (xbuffer_stream_marker (stream)) = point.p_point;
 }
 
@@ -1886,12 +1895,11 @@ stream_linenum (lisp stream)
     return xstream_linenum (stream);
 }
 
-/* Phase 2: Char は UTF-16 code unit。byte 出力経路では encoding に応じて
-   cp932 / utf-8 に変換する。pre-Phase-2 は DBCP (Char>=0x100) を SJIS lead/trail
-   と見做して hi/lo byte split していたが、Phase 2 では Char が Unicode に
-   なったので wc2cp932 / UTF-8 encode を挟む必要がある。 */
+/* Phase 3: ucs4_t code point。byte 出力経路では encoding に応じて
+   cp932 / utf-8 に変換する。non-BMP は UTF-8 で 4-byte encode、
+   SJIS 系では '?' にフォールバック。 */
 static void
-putc_encoded (Char cc, char enc, void (*put) (int, void *), void *arg)
+putc_encoded (ucs4_t cc, char enc, void (*put) (int, void *), void *arg)
 {
   if (enc == lstream::ENCODE_CANON_UTF8 || enc == lstream::ENCODE_RAW_UTF8)
     {
@@ -1904,9 +1912,16 @@ putc_encoded (Char cc, char enc, void (*put) (int, void *), void *arg)
           put (0xC0 | (cc >> 6), arg);
           put (0x80 | (cc & 0x3F), arg);
         }
-      else
+      else if (cc < 0x10000)
         {
           put (0xE0 | (cc >> 12), arg);
+          put (0x80 | ((cc >> 6) & 0x3F), arg);
+          put (0x80 | (cc & 0x3F), arg);
+        }
+      else
+        {
+          put (0xF0 | (cc >> 18), arg);
+          put (0x80 | ((cc >> 12) & 0x3F), arg);
           put (0x80 | ((cc >> 6) & 0x3F), arg);
           put (0x80 | (cc & 0x3F), arg);
         }
@@ -1920,7 +1935,9 @@ putc_encoded (Char cc, char enc, void (*put) (int, void *), void *arg)
   /* SJIS 系 */
   if (enc == lstream::ENCODE_CANON && cc == '\n')
     put ('\r', arg);
-  Char sjis = cc < 0x80 ? cc : wc2cp932 (cc);
+  Char sjis = (cc > 0xFFFF) ? Char (-1)
+              : (cc < 0x80) ? Char (cc)
+              : wc2cp932 (ucs2_t (cc));
   if (sjis == Char (-1))
     put ('?', arg);
   else if (DBCP (sjis))
@@ -1945,21 +1962,21 @@ put_to_sock (int c, void *arg)
 }
 
 static void
-putc_file_stream (lisp stream, Char cc)
+putc_file_stream (lisp stream, ucs4_t cc)
 {
   putc_encoded (cc, xfile_stream_encoding (stream),
                 put_to_file, xfile_stream_output (stream));
 }
 
 static void
-putc_sock_stream (lisp stream, Char cc)
+putc_sock_stream (lisp stream, ucs4_t cc)
 {
   putc_encoded (cc, xsocket_stream_encoding (stream),
                 put_to_sock, xsocket_stream_sock (stream));
 }
 
 void
-writec_stream (lisp stream, Char cc)
+writec_stream (lisp stream, ucs4_t cc)
 {
   while (1)
     {
@@ -2054,7 +2071,7 @@ writec_stream (lisp stream, Char cc)
 }
 
 void
-write_stream (lisp stream, const Char *b, size_t size)
+write_stream (lisp stream, const ucs4_t *b, size_t size)
 {
   while (1)
     {
@@ -2091,7 +2108,7 @@ write_stream (lisp stream, const Char *b, size_t size)
                 if (!xarray_adjustable (string))
                   FEprogram_error (Evector_is_not_adjustable, string);
                 need = (need + 128) & ~127;
-                realloc_element (string, need - room, sizeof (Char));
+                realloc_element (string, need - room, sizeof (ucs4_t));
               }
             bcopy (b, &xstring_contents (string) [xstring_length (string)], size);
             xstring_length (string) += size;

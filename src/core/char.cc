@@ -436,7 +436,7 @@ Funicode_char (lisp code)
         return Qnil;
       return make_char (Char (c));
     }
-  Char b[2];
+  ucs4_t b[2];
   b[0] = utf16_ucs4_to_pair_high (wc);
   b[1] = utf16_ucs4_to_pair_low (wc);
   return make_string (b, 2);
@@ -446,6 +446,12 @@ lisp
 Fiso_char_code (lisp lcc, lisp vender)
 {
   check_char (lcc);
+  /* Initialize the secondary value before any early return path so that
+     callers reading value(1) (e.g. Fiso_char_charset) don't see stale
+     data from a previous call. The DEFCHAR early-return below otherwise
+     leaves whatever happened to be in value(1) from the prior caller. */
+  multiple_value::count () = 2;
+  multiple_value::value (1) = Qnil;
   Char cc = xchar_code (lcc);
   if (cc != DEFCHAR)
     {
@@ -453,8 +459,6 @@ Fiso_char_code (lisp lcc, lisp vender)
       if (cc == DEFCHAR)
         return Qnil;
     }
-  multiple_value::count () = 2;
-  multiple_value::value (1) = Qnil;
   int ccs = code_charset (cc);
   switch (ccs)
     {

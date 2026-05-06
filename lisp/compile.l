@@ -216,9 +216,17 @@
   (with-open-file (os (compile-file-pathname filename)
 		      :direction :output
 		      :if-exists :supersede
-		      :if-does-not-exist :create)
-    (when encoding
-      (format os ";;; -*- Mode: Lisp; Encoding: ~A; -*-~%" encoding))
+		      :if-does-not-exist :create
+		      ;; Phase 3: bytecode strings contain raw Unicode code
+		      ;; points used as opcodes (e.g. 33266 = BCnull). UTF-8
+		      ;; preserves these losslessly; the legacy cp932 default
+		      ;; would replace unsupported code points with '?' (0x3F)
+		      ;; and silently corrupt bytecode.
+		      :encoding :utf8)
+    ;; Always emit an Encoding marker so the loader switches the input
+    ;; stream to UTF-8 (.lc loader skips full encoding auto-detection,
+    ;; but will honour an explicit -*- Encoding: utf-8 -*- on line 1).
+    (format os ";;; -*- Mode: Lisp; Encoding: utf-8; -*-~%")
     (let ((*macro-environment* nil)
 	  (*special-variables* nil)
 	  (*constant-variables* nil)

@@ -21,7 +21,7 @@ public:
   void start ();
   lisp parse_integer (int);
   lisp parse_number ();
-  static lisp parse_fraction (const Char *, int, int);
+  static lisp parse_fraction (const ucs4_t *, int, int);
   int dot_token_p ();
 };
 
@@ -49,7 +49,10 @@ Token::start ()
 inline void
 Token::add (lChar c)
 {
-  StrBuf::add (Char (c));
+  /* Cast to ucs4_t so we hit StrBuf::add(ucs4_t) — promoting Char (which
+     is still u_int16_t) goes through the int overload that masks with
+     0xff and silently corrupts non-ASCII code points. */
+  StrBuf::add (ucs4_t (c));
   tk_index++;
 }
 
@@ -88,10 +91,10 @@ Token::add_colon (lChar c)
 }
 
 lisp
-Token::parse_fraction (const Char *p0, int l, int base)
+Token::parse_fraction (const ucs4_t *p0, int l, int base)
 {
   bignum_rep *r;
-  Char *p = ato_bignum_rep (r, p0, l, base);
+  ucs4_t *p = ato_bignum_rep (r, p0, l, base);
   lisp num = make_integer (r);
   l -= p - p0 + 1;
   return make_ratio (num, make_integer (ato_bignum_rep (p + 1, l, base)));
@@ -104,12 +107,12 @@ Token::parse_integer (int base)
     return 0;
   finish ();
   int l = length ();
-  const Char *p;
+  const ucs4_t *p;
   if (linear_p ())
     p = *this;
   else
     {
-      Char *b = (Char *)alloca (sizeof (Char) * l);
+      ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
       copy (b);
       p = b;
     }
@@ -140,12 +143,12 @@ Token::parse_number ()
     return 0;
   finish ();
   int l = length ();
-  const Char *p;
+  const ucs4_t *p;
   if (linear_p ())
     p = *this;
   else
     {
-      Char *b = (Char *)alloca (sizeof (Char) * l);
+      ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
       copy (b);
       p = b;
     }
@@ -205,7 +208,7 @@ Token::dot_token_p ()
     return 0;
   finish ();
   for (const strbuf_chunk *cp = sb_chunk; cp; cp = cp->cdr)
-    for (const Char *p = cp->contents, *pe = cp->used; p < pe; p++)
+    for (const ucs4_t *p = cp->contents, *pe = cp->used; p < pe; p++)
       if (*p != '.')
         return 0;
   return 1;
@@ -833,7 +836,7 @@ dispmacro_reader (lisp stream, Char ch)
 }
 
 static Char
-parse_digit_char (lisp stream, Token &token, const Char *p, const Char *pe)
+parse_digit_char (lisp stream, Token &token, const ucs4_t *p, const ucs4_t *pe)
 {
   int base;
   if (*p == 'x' || *p == 'X')
@@ -881,7 +884,7 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
     return Qnil;
 
   int l = token.length ();
-  const Char *p = token;
+  const ucs4_t *p = token;
 
   int ctl = 0, meta = 0, shift = 0;
 
@@ -1943,7 +1946,7 @@ Fread_line_into (lisp string, lisp stream, lisp eof_error_p, lisp eof_value)
   t.finish ();
   int l = t.length ();
   if (l > xstring_dimension (string))
-    realloc_element (string, (l - xstring_dimension (string) + 127) & ~127, sizeof (Char));
+    realloc_element (string, (l - xstring_dimension (string) + 127) & ~127, sizeof (ucs4_t));
   t.copy (xstring_contents (string));
   xstring_length (string) = l;
   return string;
@@ -1963,13 +1966,13 @@ Fread_into (lisp string, lisp stream, lisp eof_error_p, lisp eof_value, lisp max
       if (l <= 0 || l > xstring_dimension (string))
         FErange_error (max_length);
     }
-  Char *p = xstring_contents (string), *const pe = p + l;
+  ucs4_t *p = xstring_contents (string), *const pe = p + l;
   for (; p < pe; p++)
     {
       lChar c = readc_stream (stream);
       if (c == lChar_EOF)
         break;
-      *p = Char (c);
+      *p = ucs4_t (c);
     }
   xstring_length (string) = p - xstring_contents (string);
   if (!xstring_length (string) && xstring_dimension (string))
@@ -2118,15 +2121,14 @@ load_file (lisp filename, lisp realname, lisp if_does_not_exist,
         return Qnil;
     }
 
-  // Detect encoding marker only for .l source files, not .lc bytecode
-  if (file_stream_p (stream)
-      && stringp (filename)
-      && !(xstring_length (filename) >= 3
-           && streq (xstring_contents (filename) + xstring_length (filename) - 3,
-                     3, ".lc")))
+  // Detect encoding marker on line 1 of any source/byte-code file.
+  // Phase 3: .lc bytecode strings contain non-SJIS code points so the
+  // compiler now emits ";;; -*- Encoding: utf-8 -*-" headers. Honour
+  // them on load so the bytes round-trip losslessly.
+  if (file_stream_p (stream))
     detect_file_encoding (stream);
 
-  Char buf[PATH_MAX * 2], *b = buf;
+  ucs4_t buf[PATH_MAX * 2], *b = buf;
   if (verbose)
     {
       if (stringp (filename)

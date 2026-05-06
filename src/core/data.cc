@@ -874,7 +874,18 @@ gc_mark_object ()
       gc_mark_object (lp->lex_var);
       gc_mark_object (lp->lex_fns);
       gc_mark_object (lp->lex_frame);
+      gc_mark_object (lp->lex_ltail);
     }
+
+  /* Mark the multiple-value buffer. Functions like Fiso_char_charset
+     stash secondary return values here across the call boundary; if
+     these are not rooted, GC can free them while they are still in use. */
+  {
+    multiple_value_data *mv = multiple_value::data ();
+    if (mv)
+      for (int i = 0; i < MULTIPLE_VALUES_LIMIT; i++)
+        gc_mark_object (mv->values[i]);
+  }
 
   for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
     gc_mark_object (wp->lwp);
@@ -992,6 +1003,7 @@ destruct_regexp (lisp regexp)
 int ldataP::ld_nwasted;
 char *ldataP::ld_upper_bound;
 char *ldataP::ld_lower_bound;
+
 
 #define DECLARE_LDATA(a, b) \
   template<> ldataP ldata <a, b>::l_ld{}; \
@@ -1709,7 +1721,7 @@ dump_object (FILE *fp, const lsimple_string *d, int n,
     if (bitisset (used, bit_index (d)))
       {
         writef (fp, &d->length, sizeof d->length);
-        writef (fp, d->contents, sizeof (Char) * d->length);
+        writef (fp, d->contents, sizeof (ucs4_t) * d->length);
       }
 }
 
@@ -1721,8 +1733,8 @@ rdump_object (FILE *fp, lsimple_string *d, int n,
     if (bitisset (used, bit_index (d)))
       {
         readf (fp, &d->length, sizeof d->length);
-        d->contents = xmalloc (sizeof (Char) * d->length);
-        readf (fp, d->contents, sizeof (Char) * d->length);
+        d->contents = xmalloc (sizeof (ucs4_t) * d->length);
+        readf (fp, d->contents, sizeof (ucs4_t) * d->length);
       }
 }
 
@@ -1740,7 +1752,7 @@ dump_object (FILE *fp, const lcomplex_string *d, int n,
         writef (fp, &d->has_fillp, sizeof d->has_fillp);
         writef (fp, &d->dimension, sizeof d->dimension);
         if (d->displaced_to == Qnil)
-          writef (fp, d->contents, sizeof (Char) * d->dimension);
+          writef (fp, d->contents, sizeof (ucs4_t) * d->dimension);
         else
           dump_displaced_offset (fp, d);
       }
@@ -1761,8 +1773,8 @@ rdump_object (FILE *fp, lcomplex_string *d, int n,
         readf (fp, &d->dimension, sizeof d->dimension);
         if (d->displaced_to == Qnil)
           {
-            d->contents = xmalloc (sizeof (Char) * d->dimension);
-            readf (fp, d->contents, sizeof (Char) * d->dimension);
+            d->contents = xmalloc (sizeof (ucs4_t) * d->dimension);
+            readf (fp, d->contents, sizeof (ucs4_t) * d->dimension);
           }
         else
           rdump_displaced_offset (fp, d);

@@ -205,9 +205,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "imagehdr")
-  (require "html-kwd")
-  (require "foreign")
-  (require "wip/winapi"))
+  (require "html-kwd"))
 
 (in-package "editor")
 
@@ -251,7 +249,6 @@
 	  html+-check-match-tag
 	  html+-insert-break
 	  html+-insert-image
-	  html+-insert-internet-shortcut
 	  html+-insert-path
 	  html+-forward-tag
 	  html+-backward-tag
@@ -363,7 +360,6 @@
   (define-key *html+-mode-map* #\C-:	'html+-check-match-tag)
   (define-key *html+-mode-map* #\C-j	'html+-insert-break)
   (define-key *html+-mode-map* '(#\C-x #\C-i)	'html+-insert-image)
-  (define-key *html+-mode-map* '(#\C-x #\C-@)	'html+-insert-internet-shortcut)
   (define-key *html+-mode-map* '(#\C-x #\C-j)	'html+-insert-path)
   (define-key *html+-mode-map* '(#\C-x #\C-m)	'html+-select-link-dialog)
   (define-key *html+-mode-map* '(#\ESC #\RET)	'html+-select-buffer-dialog)
@@ -1032,34 +1028,6 @@
     (progn
       (message "ファイルが見当たらないのですが、、、")
       (insert (format nil "<img src=\"~A\" alt=\"\">" (adjust-path f))))))
-
-; -------------------------------
-; インターネットショートカットの挿入
-; 【Sun, 20 Jan 2002 15:59:23 +0900】
-(c:define-dll-entry
-  winapi:DWORD
-  GetPrivateProfileString
-  (winapi:LPCSTR winapi:LPCSTR winapi:LPCSTR winapi:LPCSTR winapi:DWORD winapi:LPCSTR)
-  "kernel32" "GetPrivateProfileStringA")
-
-(defun html+-insert-internet-shortcut (f)
-  (interactive "*FInsert Internet Shortcut: ")
-  "html+-mode: インターネットショートカットの挿入"
-  (unless (string-matchp "^\\(.*\\)\.url$" (file-namestring f))
-    (message "インターネットショートカットでは無いと思われます")
-    (return-from html+-insert-internet-shortcut nil))
-  (when (parse-point-syntax)
-    (message "へんなところです")
-    (return-from html+-insert-internet-shortcut nil))
-  (let* ((ttl (match-string 1))
-	 (sec (si:make-string-chunk "InternetShortcut"))
-	 (key (si:make-string-chunk "URL"))
-	 (non (si:make-string-chunk ""))
-	 (sz 500)
-	 (url (si:make-chunk nil sz))
-	 (file (si:make-string-chunk (map-slash-to-backslash f))))
-    (GetPrivateProfileString sec key non url sz file)
-    (insert (format nil "<a href=\"~A\">~A</a>" (si:unpack-string url 0) ttl))))
 
 ; -------------------------------
 ; 相対／絶対パスの挿入

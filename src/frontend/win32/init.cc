@@ -995,6 +995,51 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
             }
           catch (nonlocal_jump &)
             {
+              /* Batch mode: surface startup-time conditions on stderr.
+                 Without this they are silently swallowed by the GUI msgbox
+                 path and the operator only sees an empty exit. We skip
+                 Qexit_this_level since (kill-xyzzy) is the normal exit
+                 path and has no diagnostic value. */
+              if (g_batch_mode)
+                {
+                  nonlocal_data *nld = nonlocal_jump::data ();
+                  if (nld->type != Qexit_this_level
+                      && nld->id && nld->id != Qnil)
+                    {
+                      try
+                        {
+                          lisp cs = Fsi_condition_string (nld->id);
+                          if (stringp (cs) && xstring_length (cs) > 0)
+                            {
+                              const ucs4_t *s = xstring_contents (cs);
+                              int l = xstring_length (cs);
+                              fprintf (stderr, "xyzzy-batch: ");
+                              for (int i = 0; i < l; i++)
+                                {
+                                  ucs4_t c = s[i];
+                                  if (c < 0x80) fputc ((char)c, stderr);
+                                  else if (c < 0x800) {
+                                    fputc (0xC0 | (c >> 6), stderr);
+                                    fputc (0x80 | (c & 0x3F), stderr);
+                                  } else if (c < 0x10000) {
+                                    fputc (0xE0 | (c >> 12), stderr);
+                                    fputc (0x80 | ((c >> 6) & 0x3F), stderr);
+                                    fputc (0x80 | (c & 0x3F), stderr);
+                                  } else {
+                                    fputc (0xF0 | (c >> 18), stderr);
+                                    fputc (0x80 | ((c >> 12) & 0x3F), stderr);
+                                    fputc (0x80 | ((c >> 6) & 0x3F), stderr);
+                                    fputc (0x80 | (c & 0x3F), stderr);
+                                  }
+                                }
+                              fputc ('\n', stderr);
+                              fflush (stderr);
+                            }
+                        }
+                      catch (...) {}
+                      app.exit_code = 1;
+                    }
+                }
               print_condition (nonlocal_jump::data ());
             }
 

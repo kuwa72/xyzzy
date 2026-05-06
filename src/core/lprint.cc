@@ -526,14 +526,14 @@ print_list (wStream &stream, const print_control &pc, lisp object, int level)
 static int
 symbol_name_need_escape_p (lisp readtab, const print_control &pc, lisp object)
 {
-  const Char *p0 = xstring_contents (object);
-  const Char *pe = p0 + xstring_length (object);
+  const ucs4_t *p0 = xstring_contents (object);
+  const ucs4_t *pe = p0 + xstring_length (object);
 
   if (p0 == pe || stdchar_non_terminating_macro_p (xreadtable_rep (readtab), *p0))
     return 1;
 
   u_char ctype = 0;
-  const Char *p;
+  const ucs4_t *p;
   for (p = p0; p < pe; p++)
     {
       switch (stdchar_type (xreadtable_rep (readtab), *p))
@@ -599,7 +599,7 @@ print_symbol_name (wStream &stream, const print_control &pc, lisp object)
   if (escape)
     stream.add ('|');
 
-  for (const Char *p = xstring_contents (object), *pe = p + xstring_length (object);
+  for (const ucs4_t *p = xstring_contents (object), *pe = p + xstring_length (object);
        p < pe; p++)
     {
       switch (stdchar_type (xreadtable_rep (readtab), *p))
@@ -979,40 +979,32 @@ print_string (wStream &stream, const print_control &pc, lisp object)
   else
     {
       stream.add ('"');
-      for (const Char *p = xstring_contents (object), *pe = p + xstring_length (object);
+      for (const ucs4_t *p = xstring_contents (object), *pe = p + xstring_length (object);
            p < pe; p++)
         {
-          Char c = *p;
-          if (DBCP (c))
+          ucs4_t c = *p;
+          if (c >= 0x80)
+            stream.add (c);
+          else if (c == '"' || c == '\\')
             {
-              if (SJISP (c >> 8))
-                stream.add (c);
-              else
-                {
-                  stream.add ('\\');
-                  stream.add ('X');
-                  stream.add (downcase_digit_char[(c >> 12) & 15]);
-                  stream.add (downcase_digit_char[(c >> 8) & 15]);
-                  stream.add (downcase_digit_char[(c >> 4) & 15]);
-                  stream.add (downcase_digit_char[(c >> 0) & 15]);
-                }
+              stream.add ('\\');
+              stream.add (c);
+            }
+          else if (c < 0x20 || c == 0x7f)
+            {
+              /* Use lowercase \x with 2 hex digits to match the reader's
+                 2-digit \x escape (lread.cc 'case x:'). The 4-digit \X
+                 form is reserved for DBCP-style 16-bit escapes; emitting
+                 \X with only 2 digits caused the reader to greedily eat
+                 the next character if it happened to be a hex digit
+                 (e.g. \X0A followed by '0' read as 0x0A0 = 0xA0). */
+              stream.add ('\\');
+              stream.add ('x');
+              stream.add (downcase_digit_char[(c >> 4) & 15]);
+              stream.add (downcase_digit_char[(c >> 0) & 15]);
             }
           else
-            {
-              if (SJISP (c))
-                {
-                  stream.add ('\\');
-                  stream.add ('x');
-                  stream.add (downcase_digit_char[(c >> 4) & 15]);
-                  stream.add (downcase_digit_char[(c >> 0) & 15]);
-                }
-              else
-                {
-                  if (c == '"' || c == '\\')
-                    stream.add ('\\');
-                  stream.add (c);
-                }
-            }
+            stream.add (c);
         }
       stream.add ('"');
     }
@@ -1387,7 +1379,11 @@ print_error (wStream &stream, const print_control &, lisp object)
                                        0, xerror_number (object), GetUserDefaultLangID (),
                                        wbuf, numberof (wbuf), (va_list *)args);
           if (wlen)
-            stream.add ((const Char *)wbuf, wlen);
+            {
+              ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * wlen);
+              for (DWORD wi = 0; wi < wlen; wi++) tmp[wi] = ucs4_t (wbuf[wi]);
+              stream.add (tmp, wlen);
+            }
           else
             {
               char buf[64];
@@ -1844,8 +1840,8 @@ class Format
   int atsign;
   int colon;
 
-  const Char *ctl;
-  const Char *ctle;
+  const ucs4_t *ctl;
+  const ucs4_t *ctle;
   lisp *args;
   int nargs;
   int index;
@@ -1854,7 +1850,7 @@ class Format
   enum {IL_ILLEGAL, IL_EXIT, IL_NOT_EXIT};
   int in_loop;
 
-  Char fetch (message_code = Eend_of_ctl_string);
+  ucs4_t fetch (message_code = Eend_of_ctl_string);
   int args_left () const;
   lisp getarg ();
   int param_is_given (int = 0) const;
@@ -1864,13 +1860,13 @@ class Format
   void not_colon_atsign () const;
   void absolute_goto (int);
   void relative_goto (int);
-  Char char_param (int, Char) const;
+  ucs4_t char_param (int, ucs4_t) const;
   int integer_param (int, int) const;
   int integer_param_min (int, int, int) const;
   int integer_param_minmax (int, int, int, int) const;
   void error (message_code) const;
 
-  void s_exp (wStream &, Char);
+  void s_exp (wStream &, ucs4_t);
   void integer (wStream &, lisp, int, int);
   void integer (wStream &, int);
   void radix (wStream &);
@@ -1894,23 +1890,23 @@ class Format
   void iteration (wStream &);
   void up_and_out (wStream &);
 
-  Char colon_atsign (Char);
-  Char prefix_parameters ();
-  Format (const Char *, int, int, bool);
+  ucs4_t colon_atsign (ucs4_t);
+  ucs4_t prefix_parameters ();
+  Format (const ucs4_t *, int, int, bool);
   void setarg (lisp *, lisp);
   void process (wStream &);
 
   friend class SaveCtlString;
-  friend void format_internal (wStream &, const Char *, int, lisp, int, bool);
+  friend void format_internal (wStream &, const ucs4_t *, int, lisp, int, bool);
   friend lisp format (lisp, lisp, lisp, bool);
 };
 
 class SaveCtlString
 {
   Format &fmt;
-  const Char *ctl;
-  const Char *ctle;
-  SaveCtlString (Format &, const Char *, int);
+  const ucs4_t *ctl;
+  const ucs4_t *ctle;
+  SaveCtlString (Format &, const ucs4_t *, int);
   ~SaveCtlString ();
   friend Format;
 };
@@ -1924,7 +1920,7 @@ public:
 };
 
 inline
-SaveCtlString::SaveCtlString (Format &f, const Char *p, int size)
+SaveCtlString::SaveCtlString (Format &f, const ucs4_t *p, int size)
      : fmt (f)
 {
   ctl = fmt.ctl;
@@ -1940,7 +1936,7 @@ SaveCtlString::~SaveCtlString ()
   fmt.ctle = ctle;
 }
 
-Format::Format (const Char *p, int size, int il, bool backward_compat_p)
+Format::Format (const ucs4_t *p, int size, int il, bool backward_compat_p)
      : backward_compat_p (backward_compat_p)
 {
   ctl = p;
@@ -1965,7 +1961,7 @@ Format::error (message_code e) const
   FEformat_error (e);
 }
 
-inline Char
+inline ucs4_t
 Format::fetch (message_code e)
 {
   if (ctl == ctle)
@@ -2037,15 +2033,15 @@ Format::relative_goto (int n)
   absolute_goto (index + n);
 }
 
-Char
-Format::char_param (int i, Char defalt) const
+ucs4_t
+Format::char_param (int i, ucs4_t defalt) const
 {
   assert (i >= 0 && i < PARAM_MAX);
   if (i >= nparams || param[i].type == FMT_NIL)
     return defalt;
   if (param[i].type != FMT_CHAR)
     error (Eillegal_parameter_type);
-  return Char (param[i].value);
+  return ucs4_t (param[i].value);
 }
 
 int
@@ -2078,13 +2074,13 @@ Format::integer_param_minmax (int i, int defalt, int min, int max) const
 }
 
 void
-Format::s_exp (wStream &stream, Char c)
+Format::s_exp (wStream &stream, ucs4_t c)
 {
   max_param (4);
   int mincol = integer_param_min (0, 0, 0);
   int colinc = integer_param_min (1, 1, 1);
   int minpad = integer_param_min (2, 0, 0);
-  Char padchar = char_param (3, ' ');
+  ucs4_t padchar = char_param (3, ' ');
 
   int ocol = stream.columns ();
   wStream tem (ocol);
@@ -2133,8 +2129,8 @@ Format::integer (wStream &stream, lisp linteger, int base, int istart)
 {
   max_param (4 + istart);
   int mincol = integer_param_min (istart, 0, 0);
-  Char padchar = char_param (istart + 1, ' ');
-  Char commachar = char_param (istart + 2, ',');
+  ucs4_t padchar = char_param (istart + 1, ' ');
+  ucs4_t commachar = char_param (istart + 2, ',');
   int commaint = integer_param_min (istart + 3, 3, 1);
 
   print_control pc (base);
@@ -2389,7 +2385,7 @@ Format::character (wStream &stream)
   max_param (0);
   lisp x = getarg ();
   check_char (x);
-  Char c = xchar_code (x);
+  ucs4_t c = ucs4_t (xchar_code (x));
   if (colon)
     print_char (stream, c, 0);
   else if (atsign)
@@ -2422,8 +2418,8 @@ Format::fixed_format (wStream &stream)
   int w = integer_param_min (0, 0, 0);
   int d = integer_param_min (1, 0, 0);
   int k = integer_param (2, 0);
-  Char overflow = char_param (3, 0);
-  Char padchar = char_param (4, ' ');
+  ucs4_t overflow = char_param (3, 0);
+  ucs4_t padchar = char_param (4, ' ');
   lisp lnumber = getarg ();
 
   fmt_float f (lnumber);
@@ -2570,12 +2566,12 @@ Format::exp_format (wStream &stream)
   int d = integer_param_min (1, 0, 0);
   int e = integer_param_min (2, 0, 0);
   int k = integer_param (3, 1);
-  Char overflow = char_param (4, 0);
-  Char padchar = char_param (5, ' ');
+  ucs4_t overflow = char_param (4, 0);
+  ucs4_t padchar = char_param (5, ' ');
   lisp lnumber = getarg ();
   fmt_float f (lnumber);
-  Char expchar = char_param (6, (f.fmt != default_float_format ()
-                                 ? f.fmt & ~NF_FLOAT : 'e'));
+  ucs4_t expchar = char_param (6, (f.fmt != default_float_format ()
+                                   ? f.fmt & ~NF_FLOAT : 'e'));
 
   if (!f.b0)
     {
@@ -2722,8 +2718,8 @@ Format::general_format (wStream &stream)
   if (dd >= 0 && dd <= d)
     {
       int ee = param_is_given (2) ? integer_param_min (2, 0, 0) + 2 : 4;
-      Char overflow = char_param (4, 0);
-      Char padchar = char_param (5, ' ');
+      ucs4_t overflow = char_param (4, 0);
+      ucs4_t padchar = char_param (5, ' ');
       if (param_is_given (0))
         param[0].value = integer_param_min (0, 0, 0) - ee;
       else
@@ -2770,7 +2766,7 @@ Format::dollar_format (wStream &stream)
   int d = integer_param_min (0, 2, 0);
   int n = integer_param_min (1, 1, 0);
   int w = integer_param_min (2, 0, 0);
-  Char padchar = char_param (3, ' ');
+  ucs4_t padchar = char_param (3, ' ');
 
   f.roundf (d);
 
@@ -2969,12 +2965,12 @@ Format::indirection (wStream &stream)
     }
 }
 
-static const Char *
-skip_ctl_string (const Char *p, const Char *pe, Char search, Char open)
+static const ucs4_t *
+skip_ctl_string (const ucs4_t *p, const ucs4_t *pe, ucs4_t search, ucs4_t open)
 {
   while (p < pe)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (c != '~')
         continue;
 
@@ -3080,8 +3076,8 @@ void
 Format::case_conversion (wStream &stream)
 {
   max_param (0);
-  const Char *next = skip_ctl_string (ctl, ctle, ')', '(');
-  const Char *p, *pe;
+  const ucs4_t *next = skip_ctl_string (ctl, ctle, ')', '(');
+  const ucs4_t *p, *pe;
   for (p = ctl, pe = next - 1; *pe != '~'; pe--)
     ;
 
@@ -3107,8 +3103,8 @@ void
 Format::conditional (wStream &stream)
 {
   not_colon_atsign ();
-  const Char *next = skip_ctl_string (ctl, ctle, ']', '[');
-  const Char *p, *pe;
+  const ucs4_t *next = skip_ctl_string (ctl, ctle, ']', '[');
+  const ucs4_t *p, *pe;
 
   if (colon)
     {
@@ -3145,8 +3141,8 @@ Format::conditional (wStream &stream)
         n = fixnum_value (getarg ());
       else
         n = integer_param (0, 0);
-      const Char *match = 0, *matche;
-      const Char *defalt = 0;
+      const ucs4_t *match = 0, *matche;
+      const ucs4_t *defalt = 0;
       p = ctl;
       for (int i = 0;; i++)
         {
@@ -3193,8 +3189,8 @@ void
 Format::iteration (wStream &stream)
 {
   max_param (1);
-  const Char *next = skip_ctl_string (ctl, ctle, '}', '{');
-  const Char *p, *pe;
+  const ucs4_t *next = skip_ctl_string (ctl, ctle, '}', '{');
+  const ucs4_t *p, *pe;
   for (p = ctl, pe = next - 1; *pe != '~'; pe--)
     ;
   int once_at_least = pe[1] == ':';
@@ -3355,8 +3351,8 @@ Format::up_and_out (wStream &)
   throw UpAndOut (colon);
 }
 
-Char
-Format::colon_atsign (Char c)
+ucs4_t
+Format::colon_atsign (ucs4_t c)
 {
   while (1)
     {
@@ -3370,10 +3366,10 @@ Format::colon_atsign (Char c)
     }
 }
 
-Char
+ucs4_t
 Format::prefix_parameters ()
 {
-  Char c = colon_atsign (fetch ());
+  ucs4_t c = colon_atsign (fetch ());
   while (1)
     {
       int sign = 0;
@@ -3466,7 +3462,7 @@ Format::process (wStream &stream)
 {
   while (ctl < ctle)
     {
-      Char c = *ctl++;
+      ucs4_t c = *ctl++;
       if (c != '~')
         {
           stream.add (c);
@@ -3674,7 +3670,7 @@ Fwrite_to_string (lisp object, lisp keys)
 }
 
 void
-format_internal (wStream &stream, const Char *p, int size, lisp args, int in_loop, bool backward_compat_p)
+format_internal (wStream &stream, const ucs4_t *p, int size, lisp args, int in_loop, bool backward_compat_p)
 {
   lisp l = Flist_length (args);
   if (l == Qnil)
@@ -3894,7 +3890,7 @@ msgbox_captions (lisp *lcaptions, lisp args)
 }
 
 static int
-count_crlf (const Char *p, const Char *pe)
+count_crlf (const ucs4_t *p, const ucs4_t *pe)
 {
   int l;
   for (l = 0; p < pe; p++)
@@ -3903,7 +3899,7 @@ count_crlf (const Char *p, const Char *pe)
 }
 
 static void
-copy_crlf (Char *b, const Char *p, const Char *pe)
+copy_crlf (ucs4_t *b, const ucs4_t *p, const ucs4_t *pe)
 {
   for (; p < pe; p++)
     if (*p == '\r')
@@ -3923,11 +3919,13 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
   check_string (lmsg);
   int l = count_crlf (xstring_contents (lmsg),
                       xstring_contents (lmsg) + xstring_length (lmsg));
-  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1));
-  copy_crlf (msg,
+  ucs4_t *msg4 = (ucs4_t *)alloca (sizeof (ucs4_t) * (l + 1));
+  copy_crlf (msg4,
              xstring_contents (lmsg),
              xstring_contents (lmsg) + xstring_length (lmsg));
-  msg[l] = 0;
+  msg4[l] = 0;
+  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1));
+  for (int mi = 0; mi <= l; mi++) msg[mi] = Char (msg4[mi]);
 
   const Char *title;
   if (!ltitle || ltitle == Qnil)
@@ -3935,7 +3933,11 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
   else
     {
       check_string (ltitle);
-      title = xstring_contents (ltitle);
+      int tl = xstring_length (ltitle);
+      const ucs4_t *ts = xstring_contents (ltitle);
+      Char *tb = (Char *)alloca (sizeof (Char) * (tl + 1));
+      for (int ti = 0; ti <= tl; ti++) tb[ti] = Char (ts[ti]);
+      title = tb;
     }
 
   msgbox_styles mb;
@@ -3953,7 +3955,11 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
       if (x && x != Qnil)
         {
           check_string (x);
-          captions[i] = xstring_contents (x);
+          int cl = xstring_length (x);
+          const ucs4_t *cs = xstring_contents (x);
+          Char *cb = (Char *)alloca (sizeof (Char) * (cl + 1));
+          for (int ci = 0; ci <= cl; ci++) cb[ci] = Char (cs[ci]);
+          captions[i] = cb;
         }
     }
 
@@ -3981,14 +3987,16 @@ putmsg (wStream &stream, int msgboxp, int style, int beep)
 {
   stream.finish ();
   int l = stream.length ();
-  Char *b = (Char *)alloca (sizeof (Char) * (l + 1));
+  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * (l + 1));
   stream.copy (b);
   b[l] = 0;
 
   if (msgboxp)
     {
+      Char *bc = (Char *)alloca (sizeof (Char) * (l + 1));
+      for (int bi = 0; bi <= l; bi++) bc[bi] = Char (b[bi]);
       app.status_window.clear ();
-      return MsgBox (get_active_window (), b, TitleBarStringC, style, beep);
+      return MsgBox (get_active_window (), bc, TitleBarStringC, style, beep);
     }
   else
     {
@@ -4119,7 +4127,7 @@ Fsi_condition_string (lisp cc)
   print_condition (stream, cc);
   stream.finish ();
   int l = stream.length ();
-  Char *b = (Char *)alloca (sizeof (Char) * l);
+  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
   stream.copy (b);
   return make_string (b, l);
 }
@@ -4346,7 +4354,7 @@ format_yes_or_no_p (message_code m, ...)
   vsprintf (buf, fmt, ap);
   va_end (ap);
   Char wbuf[2048];
-  *s2w (wbuf, buf) = 0;
+  *s2w_u16 (wbuf, buf) = 0;
   return MsgBox (get_active_window (), wbuf, TitleBarStringC,
                  MB_YESNO | MB_ICONQUESTION, 1) == IDYES;
 }
@@ -4358,7 +4366,7 @@ print_key_sequence (char *b, char *be, Char c)
   print_char (stream, c, 0);
   stream.finish ();
   int l = stream.length ();
-  Char *w = (Char *)alloca (sizeof (Char) * l);
+  ucs4_t *w = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
   stream.copy (w);
   return w2s (b, be, w, l);
 }
