@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "ts.h"
 #include <tree_sitter/api.h>
+#include <algorithm>
 #include <unordered_map>
 
 /* Raw capture span: byte offsets + capture index.  Produced by the background
