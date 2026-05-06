@@ -812,7 +812,7 @@ Fparse_char_encoding_string (lisp laccept, lisp string, lisp keys)
   string_start_end (string, start, end,
                     find_keyword (Kstart, keys, make_fixnum (0)),
                     find_keyword (Kend, keys, Qnil));
-  for (const Char *p = xstring_contents (string) + start,
+  for (const ucs4_t *p = xstring_contents (string) + start,
        *const pe = xstring_contents (string) + end;
        p < pe; p++)
     if (!parse_encoding_exec (*p, accept, found))

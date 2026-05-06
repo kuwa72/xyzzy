@@ -34,7 +34,7 @@ class status_area
   int char_code ();
   int char_unicode ();
   int time ();
-  void parse_format (const Char *, int);
+  void parse_format (const ucs4_t *, int);
   static lisp format_modified_p ();
   static int char_ext (HDC hdc, char c)
     {

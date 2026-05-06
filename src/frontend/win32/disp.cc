@@ -1505,12 +1505,12 @@ Window::paint_minibuffer_message (lisp string)
   glyph_t *ge = g + w_ch_max.cx;
   *g++ = ' ';
 
-  const Char *p = xstring_contents (string);
-  const Char *pe = p + xstring_length (string);
+  const ucs4_t *p = xstring_contents (string);
+  const ucs4_t *pe = p + xstring_length (string);
 
   while (g < ge && p < pe)
     {
-      Char cc = *p++;
+      ucs4_t cc = *p++;
       if (cc < ' ')
         {
           if (g + 1 == ge)
@@ -1527,16 +1527,7 @@ Window::paint_minibuffer_message (lisp string)
         }
       else
         {
-          /* 5b-2: surrogate pair 合成 (intra-buffer のみ、chunk 境界はない) */
-          u_int32_t cp = cc;
-          if (cc >= 0xD800 && cc <= 0xDBFF
-              && p < pe && *p >= 0xDC00 && *p <= 0xDFFF)
-            {
-              cp = 0x10000u
-                   + ((u_int32_t (cc) - 0xD800u) << 10)
-                   + (u_int32_t (*p) - 0xDC00u);
-              p++;
-            }
+          u_int32_t cp = u_int32_t (cc);
           int w = unicode_width (cp);
           if (w == 2)
             {

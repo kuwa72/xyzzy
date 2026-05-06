@@ -906,19 +906,19 @@ Fmap_to_half_width_string (lisp string, lisp keys)
     return string;
 
   /* Worst case: every fullwidth voiced kana becomes 2 halfwidth chars.           */
-  safe_ptr <Char> s0 (new Char [xstring_length (string) * 2]);
+  safe_ptr <ucs4_t> s0 (new ucs4_t [xstring_length (string) * 2]);
   bcopy (xstring_contents (string), s0, xstring_length (string));
-  Char *s, *se;
+  ucs4_t *s, *se;
   /* Forward pass: non-voiced fullwidth → halfwidth (in-place).                   */
   for (s = s0, se = s + xstring_length (string); s < se; s++)
     {
-      Char c = *s;
+      ucs4_t c = *s;
       if (thp.should_skip (c))
         continue;
       for (int i = 0; i < numberof (toh); i++)
         if (c >= toh[i].min && c <= toh[i].max)
           {
-            Char h = toh[i].b[c - toh[i].min];
+            ucs4_t h = toh[i].b[c - toh[i].min];
             if (h && thp.accept_half (h))
               *s = h;
             break;
@@ -930,18 +930,18 @@ Fmap_to_half_width_string (lisp string, lisp keys)
 
   /* Backward voicing pass: decompose voiced kana into {base, mark}. Writes
      backward into the second half of the buffer to avoid slide.                  */
-  Char *de = s0 + xstring_length (string) * 2;
-  Char *d = de;
+  ucs4_t *de = s0 + xstring_length (string) * 2;
+  ucs4_t *d = de;
   for (s = s0; se > s;)
     {
-      Char c = *--se;
+      ucs4_t c = *--se;
       *--d = c;
       if (thp.should_skip (c))
         continue;
       if (c < CJK_RANGE_MIN || c > CJK_RANGE_MAX)
         continue;
-      Char base = voiced_to_half_cjk[c - CJK_RANGE_MIN];
-      Char mark = HALFWIDTH_VOICED_MARK;
+      ucs4_t base = voiced_to_half_cjk[c - CJK_RANGE_MIN];
+      ucs4_t mark = HALFWIDTH_VOICED_MARK;
       if (!base)
         {
           base = semi_voiced_to_half_cjk[c - CJK_RANGE_MIN];
@@ -970,13 +970,13 @@ Fmap_to_full_width_string (lisp string, lisp keys)
   Char compose_max = flags & HIRA ? FULL_WIDTH_HIRAGANA_MAX : FULL_WIDTH_KATAKANA_MAX;
 
   int n = xstring_length (string);
-  safe_ptr <Char> s0 (new Char [n]);
+  safe_ptr <ucs4_t> s0 (new ucs4_t [n]);
   bcopy (xstring_contents (string), s0, n);
 
   /* Forward pass: halfwidth → fullwidth (in-place; halfwidth ﾞ/ﾟ become ゛/゜).  */
-  for (Char *s = s0, *se = s + n; s < se; s++)
+  for (ucs4_t *s = s0, *se = s + n; s < se; s++)
     {
-      Char c = *s;
+      ucs4_t c = *s;
       if ((flags & (HIRA | KATA))
           && c >= HALFWIDTH_KANA_MIN && c <= HALFWIDTH_KANA_MAX)
         *s = tof[c - HALFWIDTH_KANA_MIN];
@@ -989,17 +989,17 @@ Fmap_to_full_width_string (lisp string, lisp keys)
 
   /* Compose pass: base + ゛/゜ → voiced. Build output by scanning forward;
      output length ≤ input length (never expands).                                */
-  safe_ptr <Char> out (new Char [n]);
-  Char *o = out;
+  safe_ptr <ucs4_t> out (new ucs4_t [n]);
+  ucs4_t *o = out;
   int i = 0;
   while (i < n)
     {
-      Char c = s0[i];
+      ucs4_t c = s0[i];
       if (i + 1 < n
           && (s0[i + 1] == VOICED_SOUND_MARK || s0[i + 1] == SEMI_VOICED_SOUND_MARK)
           && c >= compose_min && c <= compose_max)
         {
-          Char composed = (s0[i + 1] == VOICED_SOUND_MARK
+          ucs4_t composed = (s0[i + 1] == VOICED_SOUND_MARK
                            ? voiced_from[c - compose_min]
                            : semi_voiced_from[c - compose_min]);
           if (composed)

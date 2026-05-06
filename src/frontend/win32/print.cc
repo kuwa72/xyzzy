@@ -1400,7 +1400,7 @@ print_engine::fmt_filename_short (char *b, char *be)
       && !stringp (name = pe_bp->lalternate_file_name))
     return fmt_buffer_name (b, be);
 
-  const Char *p0, *pe, *p;
+  const ucs4_t *p0, *pe, *p;
   for (p0 = xstring_contents (name),
        pe = p0 + xstring_length (name), p = pe;
        p > p0 && p[-1] != '/' && p[-1] != '\\';
@@ -1800,10 +1800,8 @@ print_engine::doprint1 (HWND hwnd)
   if (stringp (name = pe_bp->lfile_name)
       || stringp (name = pe_bp->lalternate_file_name))
     {
-      int n = xstring_length (name);
-      wdocname = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
-      memcpy (wdocname, xstring_contents (name), n * sizeof (wchar_t));
-      wdocname[n] = 0;
+      wdocname = (wchar_t *)alloca (i2wl (name) * sizeof (wchar_t));
+      i2w (name, (ucs2_t *)wdocname);
     }
   else
     {

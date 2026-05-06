@@ -1358,6 +1358,14 @@ Regexp::eobp (const re_point &point) const
 }
 
 void
+Regexp::compile (const ucs4_t *p, int size, int use_fastmap)
+{
+  Char *cp = (Char *)alloca (size * sizeof (Char));
+  for (int i = 0; i < size; i++) cp[i] = Char (p[i]);
+  compile (cp, size, use_fastmap);
+}
+
+void
 Regexp::compile (const Char *p, int size, int use_fastmap)
 {
   regexp_compile re (re_translate, re_syntax_table);
@@ -2519,6 +2527,14 @@ Regexp::regs_cu_to_cp (const Buffer *bp)
 }
 
 int
+Regexp::search (const ucs4_t *string, int size, int offset)
+{
+  Char *cp = (Char *)alloca (size * sizeof (Char));
+  for (int i = 0; i < size; i++) cp[i] = Char (string[i]);
+  return search (cp, size, offset);
+}
+
+int
 Regexp::search (const Char *string, int size, int offset)
 {
   Chunk chunk;
@@ -2653,6 +2669,14 @@ Regexp::search_backward (const Buffer *bp, const Point &start,
 }
 
 int
+Regexp::match (const ucs4_t *string, int size, int offset)
+{
+  Char *cp = (Char *)alloca (size * sizeof (Char));
+  for (int i = 0; i < size; i++) cp[i] = Char (string[i]);
+  return match (cp, size, offset);
+}
+
+int
 Regexp::match (const Char *string, int size, int offset)
 {
   Chunk chunk;
@@ -2688,6 +2712,14 @@ Regexp::match (const Buffer *bp, const Point &start,
   if (r)
     regs_cu_to_cp (bp);
   return r;
+}
+
+int
+Regexp::smart_case_fold_p (const ucs4_t *p, int l)
+{
+  Char *cp = (Char *)alloca (l * sizeof (Char));
+  for (int i = 0; i < l; i++) cp[i] = Char (p[i]);
+  return smart_case_fold_p (cp, l);
 }
 
 int

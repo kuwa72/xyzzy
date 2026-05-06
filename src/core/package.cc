@@ -676,7 +676,7 @@ Fsi_set_package_documentation (lisp package, lisp documentation)
 }
 
 static lisp
-lookup (u_int hash, const Char *s, int size, lisp vector)
+lookup (u_int hash, const ucs4_t *s, int size, lisp vector)
 {
   for (lisp p = xvector_contents (vector) [hash % u_int (xvector_length (vector))];
        consp (p); p = xcdr (p))
@@ -693,18 +693,18 @@ lookup (u_int hash, const Char *s, int size, lisp vector)
 }
 
 void
-maybe_symbol_string::parse (Char *&xb, int &xl)
+maybe_symbol_string::parse (ucs4_t *&xb, int &xl)
 {
-  Char *b = xb;
-  Char *be = b + xl;
-  for (Char *colon = b; colon < be; colon++)
+  ucs4_t *b = xb;
+  ucs4_t *be = b + xl;
+  for (ucs4_t *colon = b; colon < be; colon++)
     if (*colon == ':')
       {
         if (colon == b)
           package = xsymbol_value (Vkeyword_package);
         else
           {
-            temporary_string t ((Char *)b, colon - b);
+            temporary_string t (b, colon - b);
             lisp pkg = Ffind_package (t.string ());
             if (pkg != Qnil)
               package = pkg;
@@ -732,7 +732,7 @@ Flookup_symbol (lisp from, lisp to, lisp package)
     swap (p1, p2);
 
   int l = p2 - p1;
-  Char *b = (Char *)alloca (sizeof *b * l);
+  ucs4_t *b = (ucs4_t *)alloca (sizeof *b * l);
   bp->substring (p1, l, b);
 
   maybe_symbol_string mss (package);
@@ -756,7 +756,7 @@ Flookup_symbol (lisp from, lisp to, lisp package)
     return symbol;
 
   const readtab_rep *readtab = xreadtable_rep (current_readtable ());
-  for (const Char *p = b, *pe = p + l; p < pe; p++)
+  for (const ucs4_t *p = b, *pe = p + l; p < pe; p++)
     if (stdchar_type (readtab, *p) != SCT_CONSTITUENT)
       return Qnil;
 

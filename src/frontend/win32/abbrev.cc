@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "oleconv.h"
 
 /* Phase 2-5: take an in-place wchar_t buffer (null-terminated, with
    capacity for at least wcslen(wbuf) + 3 to prepend "...") and abbreviate
@@ -144,12 +145,10 @@ Fabbreviate_display_string (lisp string, lisp maxlen, lisp pathname_p)
   int l = fixnum_value (maxlen);
   if (l <= 0)
     return make_string ("");
-  int slen = xstring_length (string);
-  /* +4 for "..." plus terminator. abbreviate_string may write up to
-     slen + 3 + null. */
-  wchar_t *wbuf = (wchar_t *)alloca ((slen + 4) * sizeof (wchar_t));
-  memcpy (wbuf, xstring_contents (string), slen * sizeof (wchar_t));
-  wbuf[slen] = 0;
+  /* Convert ucs4 → UTF-16 (worst case 2x), reserve +4 for "..." plus
+     terminator. abbreviate_string may write up to slen + 3 + null. */
+  wchar_t *wbuf = (wchar_t *)alloca ((i2wl (string) + 4) * sizeof (wchar_t));
+  i2w (string, (ucs2_t *)wbuf);
   if (!abbrev_string (wbuf, l, pathname_p && pathname_p != Qnil))
     return string;
   return make_string ((const Char *)wbuf, (size_t)wcslen (wbuf));

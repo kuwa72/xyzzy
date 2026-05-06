@@ -102,10 +102,9 @@ WriteRegistry::remove (const Char *key) const
 static Char *
 lisp_to_wsz (lisp s)
 {
-  int l = xstring_length (s);
-  Char *b = (Char *)alloca ((l + 1) * sizeof (Char));
-  memcpy (b, xstring_contents (s), l * sizeof (Char));
-  b[l] = 0;
+  /* Phase 3: ucs4 → UTF-16 (worst case 2x for non-BMP). */
+  Char *b = (Char *)alloca (i2wl (s) * sizeof (Char));
+  i2w (s, (ucs2_t *)b);
   return b;
 }
 
@@ -1005,9 +1004,9 @@ lisp
 Fsi_getenv (lisp var)
 {
   check_string (var);
-  wchar_t *v = (wchar_t *)alloca ((xstring_length (var) + 1) * sizeof (wchar_t));
-  memcpy (v, xstring_contents (var), xstring_length (var) * sizeof (wchar_t));
-  v[xstring_length (var)] = 0;
+  /* Phase 3: ucs4 → UTF-16. */
+  wchar_t *v = (wchar_t *)alloca (i2wl (var) * sizeof (wchar_t));
+  i2w (var, (ucs2_t *)v);
   const wchar_t *e = _wgetenv (v);
   return e ? make_string ((const Char *)e, wcslen (e)) : Qnil;
 }
@@ -1016,24 +1015,21 @@ lisp
 Fsi_putenv (lisp var, lisp val)
 {
   check_string (var);
-  size_t n = xstring_length (var) + 1 /*=*/ + 1 /*nul*/;
+  /* Phase 3: ucs4 var/val → UTF-16 (worst case 2x). */
+  size_t n = (i2wl (var) - 1) + 1 /*=*/ + 1 /*nul*/;
   if (val && val != Qnil)
     {
       check_string (val);
-      n += xstring_length (val);
+      n += i2wl (val) - 1;
     }
 
   wchar_t *b = (wchar_t *)alloca (n * sizeof (wchar_t));
-  wchar_t *v = b;
-  memcpy (v, xstring_contents (var), xstring_length (var) * sizeof (wchar_t));
-  v += xstring_length (var);
+  ucs2_t *v = i2w (var, (ucs2_t *)b);
   *v++ = L'=';
   if (val && val != Qnil)
-    {
-      memcpy (v, xstring_contents (val), xstring_length (val) * sizeof (wchar_t));
-      v += xstring_length (val);
-    }
-  *v = 0;
+    i2w (val, v);                 // value + NUL
+  else
+    *v = 0;
 
   int r = _wputenv (b);
   return (r < 0 || !val) ? Qnil : val;

@@ -192,11 +192,12 @@ copy_to_edit (NcCtl *c, lisp str)
 {
   if (stringp (str))
     {
-      int len = xstring_length (str);
-      if (len > EDIT_MAX - 1) len = EDIT_MAX - 1;
-      memcpy (c->ebuf, xstring_contents (str), len * sizeof (Char));
-      c->elen = len;
-      c->epos = len;
+      /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
+      int len = min<int> (xstring_length (str), (EDIT_MAX - 1) / 2);
+      ucs2_t *we = i2w (xstring_contents (str), len, (ucs2_t *)c->ebuf);
+      int wlen = (int)(we - (ucs2_t *)c->ebuf);
+      c->elen = wlen;
+      c->epos = wlen;
     }
   else if (fixnump (str))
     {

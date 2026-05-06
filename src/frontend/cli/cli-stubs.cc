@@ -109,8 +109,8 @@ int StatusWindow::text (const char *s)
     fprintf (stderr, "[status] %s\n", s);
   return 1;
 }
-void StatusWindow::puts (const Char *, int) {}
-int StatusWindow::putc (Char) { return 0; }
+void StatusWindow::puts (const ucs4_t *, int) {}
+int StatusWindow::putc (ucs4_t) { return 0; }
 void StatusWindow::newline () {}
 void StatusWindow::puts (const char *, int) {}
 void StatusWindow::puts (int, int) {}
@@ -184,10 +184,10 @@ lisp load_default (lisp, int) { return Qnil; }
 lisp load_history (lisp, int) { return Qnil; }
 lisp load_history (lisp, int, lisp) { return Qnil; }
 lisp load_title (lisp, int) { return Qnil; }
-lisp read_minibuffer (const Char *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int) { return Qnil; }
-lisp complete_read (const Char *, long, lisp, lisp, lisp, lisp, int, int) { return Qnil; }
-lisp read_filename (const Char *, long, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp minibuffer_read_integer (const Char *, long) { return Qnil; }
+lisp read_minibuffer (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int) { return Qnil; }
+lisp complete_read (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int) { return Qnil; }
+lisp read_filename (const ucs4_t *, long, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp minibuffer_read_integer (const ucs4_t *, long) { return Qnil; }
 
 // ============================================================
 // process.cc stubs
@@ -638,6 +638,7 @@ lisp Fsi_ts_buffer_cached_p (lisp) { return Qnil; }
 lisp Fsi_ts_parse_complete_p (lisp) { return Qt; }
 lisp Fsi_ts_query_pending_p (lisp) { return Qnil; }
 lisp Fsi_ts_apply_highlights (lisp, lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fsi_ts_node_ancestors (lisp, lisp, lisp) { return Qnil; }
 
 // ============================================================
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)
@@ -705,22 +706,22 @@ lisp Fabbreviate_display_string (lisp string, lisp, lisp) { return string; }
 
 #include "binfo.h"
 
-const char *const buffer_info::b_eol_name[] = {"lf", "crlf", "cr"};
+const Char *const buffer_info::b_eol_name[] = {nullptr, nullptr, nullptr};
 
-char *buffer_info::format (lisp, char *b, char *) const { *b = 0; return b; }
-char *buffer_info::modified (char *b, int) const { *b = 0; return b; }
-char *buffer_info::read_only (char *b, int) const { *b = 0; return b; }
-char *buffer_info::version (char *b, char *, int) const { *b = 0; return b; }
-char *buffer_info::buffer_name (char *b, char *) const { *b = 0; return b; }
-char *buffer_info::file_name (char *b, char *, int) const { *b = 0; return b; }
-char *buffer_info::file_or_buffer_name (char *b, char *, int) const { *b = 0; return b; }
-char *buffer_info::mode_name (char *b, char *, int) const { *b = 0; return b; }
-char *buffer_info::ime_mode (char *b, char *) const { *b = 0; return b; }
-char *buffer_info::position (char *b, char *) const { *b = 0; return b; }
-char *buffer_info::host_name (char *b, char *, int) const { *b = 0; return b; }
-char *buffer_info::process_id (char *b, char *) const { *b = 0; return b; }
-char *buffer_info::admin_user (char *b, char *) const { *b = 0; return b; }
-char *buffer_info::percent (char *b, char *) const { *b = 0; return b; }
+Char *buffer_info::format (lisp, Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::modified (Char *b, int) const { *b = 0; return b; }
+Char *buffer_info::read_only (Char *b, int) const { *b = 0; return b; }
+Char *buffer_info::version (Char *b, Char *, int) const { *b = 0; return b; }
+Char *buffer_info::buffer_name (Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::file_name (Char *b, Char *, int) const { *b = 0; return b; }
+Char *buffer_info::file_or_buffer_name (Char *b, Char *, int) const { *b = 0; return b; }
+Char *buffer_info::mode_name (Char *b, Char *, int) const { *b = 0; return b; }
+Char *buffer_info::ime_mode (Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::position (Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::host_name (Char *b, Char *, int) const { *b = 0; return b; }
+Char *buffer_info::process_id (Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::admin_user (Char *b, Char *) const { *b = 0; return b; }
+Char *buffer_info::percent (Char *b, Char *) const { *b = 0; return b; }
 
 // ============================================================
 // Keyboard/Input stubs

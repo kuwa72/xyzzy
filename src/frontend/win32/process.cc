@@ -161,13 +161,14 @@ EnvStrings::setup (lisp lenv)
 
   // wide env block
   {
+    /* Phase 3: env block は UTF-16 で連結。サイズは i2wl ベースで算出。 */
     size_t wn = 0, wl = 0;
     for (lisp le = lenv; consp (le); le = xcdr (le), wn++)
       {
         lisp x = xcar (le);
-        wl += xstring_length (xcar (x)) + 2;
+        wl += (i2wl (xcar (x)) - 1) + 2;       // name + '=' + '\0'
         if (xcdr (x) != Qnil)
-          wl += xstring_length (xcdr (x));
+          wl += (i2wl (xcdr (x)) - 1);          // value
       }
     for (int d = 0; d < 26; d++)
       {
@@ -195,18 +196,15 @@ EnvStrings::setup (lisp lenv)
       {
         lisp x = xcar (le);
         wchar_t *wb0 = wb;
-        size_t nlen = xstring_length (xcar (x));
-        memcpy (wb, xstring_contents (xcar (x)), nlen * sizeof (wchar_t));
-        wb += nlen;
+        ucs2_t *we = i2w (xcar (x), (ucs2_t *)wb);
+        wb = (wchar_t *)we;            // i2w 末尾の NUL を '=' で上書き
         *wb++ = L'=';
         if (xcdr (x) == Qnil)
           *wb++ = 0;
         else
           {
-            size_t vlen = xstring_length (xcdr (x));
-            memcpy (wb, xstring_contents (xcdr (x)), vlen * sizeof (wchar_t));
-            wb += vlen;
-            *wb++ = 0;
+            we = i2w (xcdr (x), (ucs2_t *)wb);
+            wb = (wchar_t *)we + 1;    // value 末尾 NUL を保持して次 entry へ
           }
         wset (wnb, wne, wb0);
       }
@@ -313,10 +311,9 @@ Fcall_process (lisp cmd, lisp keys)
   EnvStrings env;
   env.setup (find_keyword (Kenviron, keys));
 
-  int cmd_wlen = xstring_length (cmd);
-  wchar_t *cmdline_w = (wchar_t *)alloca ((cmd_wlen + 1) * sizeof (wchar_t));
-  memcpy (cmdline_w, xstring_contents (cmd), cmd_wlen * sizeof (wchar_t));
-  cmdline_w[cmd_wlen] = 0;
+  /* Phase 3: ucs4 → UTF-16. */
+  wchar_t *cmdline_w = (wchar_t *)alloca (i2wl (cmd) * sizeof (wchar_t));
+  i2w (cmd, (ucs2_t *)cmdline_w);
 
   int no_std_handles = find_keyword_bool (Kno_std_handles, keys);
 
@@ -338,7 +335,7 @@ Fcall_process (lisp cmd, lisp keys)
   map_sl_to_backsl (dir);
   wchar_t dir_w[PATH_MAX + 1];
   pathname2wstr (exec_dir, dir_w);
-  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
+  map_sl_to_backsl (dir_w, (int)wcslen (dir_w));
 
   lisp lshow = find_keyword (Kshow, keys);
   int show = show_window_parameter (lshow, SW_SHOWNORMAL);
@@ -394,7 +391,7 @@ Fcall_process (lisp cmd, lisp keys)
   CloseHandle (pi.hThread);
   if (wait == Qt)
     {
-      Char cc = 0;
+      ucs4_t cc = 0;
       temporary_string tem (&cc, 0);
       Fsi_minibuffer_message (tem.string (), Qt);
       wait_process_terminate (pi.hProcess);
@@ -418,7 +415,7 @@ class Process
 protected:
   struct read_data
     {
-      const Char *data;
+      const ucs4_t *data;
       int size;
       int done;
     };
@@ -457,7 +454,7 @@ public:
   virtual void insert_process_output (void *);
   lisp process_buffer () const {return p_bufp->lbp;}
   void flush_input ();
-  void store_output (const Char *, int);
+  void store_output (const ucs4_t *, int);
   virtual int readin (u_char *, int) = 0;
   int incode_modified_p () const
     {return xprocess_incode (p_proc) != p_last_incode;}
@@ -568,7 +565,7 @@ Process::insert_process_output (void *p)
   try
     {
       read_data *r = (read_data *)p;
-      const Char *data;
+      const ucs4_t *udata = nullptr;
       int size;
       if (r)
         {
@@ -580,7 +577,7 @@ Process::insert_process_output (void *p)
               p_osbuf.add (r->data, r->size);
               return;
             }
-          data = r->data;
+          udata = r->data;
           size = r->size;
         }
       else
@@ -602,14 +599,14 @@ Process::insert_process_output (void *p)
 
           if (!lstring)
             return;
-          data = xstring_contents (lstring);
+          udata = xstring_contents (lstring);
           size = xstring_length (lstring);
         }
 
       if (p_filter != Qnil)
         {
           dynamic_bind d (Vinhibit_quit, Qt);
-          lisp s = lstring ? lstring : make_string (data, size);
+          lisp s = lstring ? lstring : make_string (udata, size);
           lstring = 0;
           funcall_2 (p_filter, p_proc, s);
         }
@@ -623,7 +620,7 @@ Process::insert_process_output (void *p)
           Point point;
           p_bufp->set_point (point, xmarker_point (p_marker));
           p_bufp->check_read_only ();
-          p_bufp->insert_chars (point, data, size);
+          p_bufp->insert_chars (point, udata, size);
           xmarker_point (p_marker) += size;
           if (goto_tail)
             p_bufp->goto_char (wp->w_point, xmarker_point (p_marker));
@@ -663,7 +660,7 @@ read_process_output (WPARAM wparam, LPARAM lparam)
 }
 
 void
-Process::store_output (const Char *w, int l)
+Process::store_output (const ucs4_t *w, int l)
 {
   if (!l)
     return;
@@ -704,7 +701,7 @@ Process::store_output (const Char *w, int l)
 class process_output_stream: public Char_output_wstream
 {
   Process &p_proc;
-  virtual void swrite (const Char *w, int l)
+  virtual void swrite (const ucs4_t *w, int l)
     {p_proc.store_output (w, l);}
 public:
   process_output_stream (Process &proc) : p_proc (proc) {}
@@ -773,7 +770,7 @@ Process::flush_input ()
   if (p_input_stream)
     {
       int l;
-      const Char *b;
+      const ucs4_t *b;
       p_input_stream->flush (b, l);
       if (l)
         store_output (b, l);
@@ -941,7 +938,7 @@ ConPtyProcess::create (lisp command, lisp execdir, const wchar_t *env)
 {
   wchar_t dir_w[PATH_MAX + 1];
   pathname2wstr (execdir, dir_w);
-  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
+  map_sl_to_backsl (dir_w, (int)wcslen (dir_w));
 
   // Create pipes for ConPTY
   HANDLE pipe_pty_in, pipe_pty_out;  // pty side
@@ -996,11 +993,9 @@ ConPtyProcess::create (lisp command, lisp execdir, const wchar_t *env)
   siex.StartupInfo.cb = sizeof siex;
   siex.lpAttributeList = attr_list;
 
-  /* Phase 2-5: command is UTF-16; copy directly to the cmdline buffer. */
-  int cmdline_len = xstring_length (command);
-  wchar_t *cmdline_w = (wchar_t *)alloca ((cmdline_len + 1) * sizeof (wchar_t));
-  memcpy (cmdline_w, xstring_contents (command), cmdline_len * sizeof (wchar_t));
-  cmdline_w[cmdline_len] = 0;
+  /* Phase 3: ucs4 command → UTF-16 cmdline buffer. */
+  wchar_t *cmdline_w = (wchar_t *)alloca (i2wl (command) * sizeof (wchar_t));
+  i2w (command, (ucs2_t *)cmdline_w);
 
   PROCESS_INFORMATION pi;
   BOOL result = CreateProcessW (NULL, cmdline_w, NULL, NULL, FALSE,
@@ -1293,7 +1288,7 @@ NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
   map_sl_to_backsl (dir);
   wchar_t dir_w[PATH_MAX + 1];
   pathname2wstr (execdir, dir_w);
-  map_sl_to_backsl ((Char *)dir_w, (int)wcslen (dir_w));
+  map_sl_to_backsl (dir_w, (int)wcslen (dir_w));
 
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof sa;
@@ -1318,11 +1313,10 @@ NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
   if (!event.valid ())
     file_error (GetLastError ());
 
-  int cmd_wlen = xstring_length (command);
-  wchar_t *cmdline_w = (wchar_t *)alloca ((64 + cmd_wlen + 1) * sizeof (wchar_t));
+  /* Phase 3: ucs4 → UTF-16 で prefix の後に追記。 */
+  wchar_t *cmdline_w = (wchar_t *)alloca ((64 + i2wl (command)) * sizeof (wchar_t));
   int pfx = swprintf (cmdline_w, 64, L"xyzzyenv -s%u %u ", show, (ULONG_PTR)HANDLE (event));
-  memcpy (cmdline_w + pfx, xstring_contents (command), cmd_wlen * sizeof (wchar_t));
-  cmdline_w[pfx + cmd_wlen] = 0;
+  i2w (command, (ucs2_t *)(cmdline_w + pfx));
 
   u_int thread_id;
   HANDLE hread_thread = HANDLE (_beginthreadex (0, 0, Process::read_process, this,
@@ -1958,32 +1952,28 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
   if (ldir == Qt)
     {
       check_string (lpath);
-      int n = xstring_length (lpath);
-      wpath = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
-      memcpy (wpath, xstring_contents (lpath), n * sizeof (wchar_t));
-      wpath[n] = 0;
+      wpath = (wchar_t *)alloca (i2wl (lpath) * sizeof (wchar_t));
+      i2w (lpath, (ucs2_t *)wpath);
     }
   else
     {
       pathname2wstr (lpath, wpath_buf);
-      map_sl_to_backsl ((Char *)wpath_buf, (int)wcslen (wpath_buf));
+      map_sl_to_backsl (wpath_buf, (int)wcslen (wpath_buf));
       wpath = wpath_buf;
 
       if (ldir && ldir != Qnil)
         pathname2wstr (ldir, wdir_buf);
       else
         pathname2wstr (Fdirectory_namestring (lpath), wdir_buf);
-      map_sl_to_backsl ((Char *)wdir_buf, (int)wcslen (wdir_buf));
+      map_sl_to_backsl (wdir_buf, (int)wcslen (wdir_buf));
       wdir = wdir_buf;
     }
 
   if (lparam && lparam != Qnil)
     {
       check_string (lparam);
-      int n = xstring_length (lparam);
-      wparam = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
-      memcpy (wparam, xstring_contents (lparam), n * sizeof (wchar_t));
-      wparam[n] = 0;
+      wparam = (wchar_t *)alloca (i2wl (lparam) * sizeof (wchar_t));
+      i2w (lparam, (ucs2_t *)wparam);
     }
 
   UINT omode = SetErrorMode (0);
@@ -2009,10 +1999,8 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
   if (lverb != Qnil)
     {
       lverb = Fstring (lverb);
-      int n = xstring_length (lverb);
-      wverb = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
-      memcpy (wverb, xstring_contents (lverb), n * sizeof (wchar_t));
-      wverb[n] = 0;
+      wverb = (wchar_t *)alloca (i2wl (lverb) * sizeof (wchar_t));
+      i2w (lverb, (ucs2_t *)wverb);
     }
 
   if (ex)

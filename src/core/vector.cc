@@ -271,7 +271,7 @@ adjust_vector (lisp vector, lisp extension)
 static inline void
 adjust_string (lisp string, lisp extension)
 {
-  realloc_element (string, check_extension (extension), sizeof (Char));
+  realloc_element (string, check_extension (extension), sizeof (ucs4_t));
 }
 
 /*GENERIC_FUNCTION:VECTOR*/

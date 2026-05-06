@@ -269,11 +269,9 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
       popup_text = 0;
     }
 
-  /* Phase 2: Lisp string Char は UTF-16 code unit なので直 memcpy。 */
-  int slen = xstring_length (lstring);
-  wchar_t *p = (wchar_t *)xmalloc ((slen + 1) * sizeof (wchar_t));
-  memcpy (p, xstring_contents (lstring), slen * sizeof (wchar_t));
-  p[slen] = L'\0';
+  /* Phase 3: ucs4 → UTF-16 (worst case 2x for non-BMP). */
+  wchar_t *p = (wchar_t *)xmalloc (i2wl (lstring) * sizeof (wchar_t));
+  i2w (lstring, (ucs2_t *)p);
   set_text (p, r);
   if (timeout > 0)
     SetTimer (hwnd_popup, TIMER_ID, timeout * 1000, 0);

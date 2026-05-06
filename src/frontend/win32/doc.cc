@@ -66,6 +66,15 @@ apropos_doc (const Char *p, int l)
   return make_string (p0, p - p0);
 }
 
+static lisp
+apropos_doc (const ucs4_t *p, int l)
+{
+  const ucs4_t *p0, *pe;
+  for (p0 = p, pe = p + l; p < pe && *p != '\n'; p++)
+    ;
+  return make_string (p0, p - p0);
+}
+
 lisp
 Fsi_get_documentation_string (lisp symbol, lisp indicator, lisp apropos, lisp lpath)
 {

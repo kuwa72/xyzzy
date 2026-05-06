@@ -853,7 +853,7 @@ self_test_minibuffer ()
     close (g_log_fd);
 }
 
-lisp read_minibuffer (const Char *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
+lisp read_minibuffer (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
 
 // Common Lisp engine initialization (shared by all frontends)
 static void

@@ -1438,6 +1438,26 @@ ato_bignum_rep (const Char *p, int pl, int radix)
   return r;
 }
 
+ucs4_t *
+ato_bignum_rep (bignum_rep *&br, const ucs4_t *p, int pl, int radix)
+{
+  Char *tmp = new Char[pl];
+  for (int i = 0; i < pl; i++)
+    tmp[i] = Char (p[i]);
+  Char *r = ato_bignum_rep (br, tmp, pl, radix);
+  int consumed = int (r - tmp);
+  delete[] tmp;
+  return const_cast<ucs4_t *>(p) + consumed;
+}
+
+bignum_rep *
+ato_bignum_rep (const ucs4_t *p, int pl, int radix)
+{
+  bignum_rep *r;
+  ato_bignum_rep (r, p, pl, radix);
+  return r;
+}
+
 bignum_rep *
 double_to_bignum_rep_ratio (double x, bignum_rep **denp)
 {

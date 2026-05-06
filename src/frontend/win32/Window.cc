@@ -203,14 +203,14 @@ StatusWindow::text (const wchar_t *s)
 }
 
 void
-StatusWindow::puts (const Char *b, int size)
+StatusWindow::puts (const ucs4_t *b, int size)
 {
-  for (const Char *be = b + size; b < be; b++)
+  for (const ucs4_t *be = b + size; b < be; b++)
     putc (*b);
 }
 
 int
-StatusWindow::putc (Char c)
+StatusWindow::putc (ucs4_t c)
 {
   if (c == '\n')
     newline ();
@@ -227,12 +227,12 @@ StatusWindow::putc (Char c)
           *sw_b++ = '^';
           if (sw_b == sw_buf + TEXT_MAX)
             return 0;
-          *sw_b++ = c == CC_DEL ? '?' : c + '@';
+          *sw_b++ = c == CC_DEL ? '?' : ucs2_t (c) + '@';
         }
       else
-        /* Phase 2: Char は既に UTF-16 code unit (buffer 由来・.lc UTF-16
-           コンパイル後の Lisp literal 由来いずれも)。i2w 変換は不要。 */
-        *sw_b++ = c;
+        /* Phase 3: ucs4_t code point; BMP chars fit in ucs2_t directly.
+           Non-BMP would need surrogate pairs, but cp932 is BMP-only. */
+        *sw_b++ = ucs2_t (c);
     }
   return 1;
 }

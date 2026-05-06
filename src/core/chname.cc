@@ -96,7 +96,7 @@ static const print_char_name char_bit_names[] =
 };
 
 static inline int
-seql (const Char *p1, const u_char *p2)
+seql (const ucs4_t *p1, const u_char *p2)
 {
   for (; *p2; p1++, p2++)
     if (char_upcase (*p1) != _char_upcase (*p2))
@@ -105,7 +105,7 @@ seql (const Char *p1, const u_char *p2)
 }
 
 static inline int
-sequal (const Char *p1, const u_char *p2)
+sequal (const ucs4_t *p1, const u_char *p2)
 {
   for (; *p2; p1++, p2++)
     if (*p1 != *p2)
@@ -114,7 +114,7 @@ sequal (const Char *p1, const u_char *p2)
 }
 
 Char
-standard_char_name2Char (const Char *name, int l)
+standard_char_name2Char (const ucs4_t *name, int l)
 {
   for (const print_char_name *p = standard_char_names,
        *pe = p + numberof (standard_char_names);
@@ -125,7 +125,7 @@ standard_char_name2Char (const Char *name, int l)
 }
 
 Char
-function_char_name2Char (const Char *name, int l)
+function_char_name2Char (const ucs4_t *name, int l)
 {
   for (const print_char_name *p = function_char_names,
        *pe = p + numberof (function_char_names);
@@ -136,7 +136,7 @@ function_char_name2Char (const Char *name, int l)
 }
 
 Char
-char_bit_name2Char (const Char *name, int l, int &xl)
+char_bit_name2Char (const ucs4_t *name, int l, int &xl)
 {
   for (const print_char_name *p = char_bit_names,
        *pe = p + numberof (char_bit_names);

@@ -18,10 +18,10 @@ update_column (int column, Char c)
 }
 
 int
-update_column (int column, const Char *s, int size)
+update_column (int column, const ucs4_t *s, int size)
 {
-  for (const Char *se = s + size; s < se; s++)
-    column = update_column (column, *s);
+  for (const ucs4_t *se = s + size; s < se; s++)
+    column = update_column (column, Char (*s));
   return column;
 }
 
@@ -65,16 +65,13 @@ s2wl (const char *string)
   return s - (const u_char *)string - l;
 }
 
-/* Phase 2: s2w は C string (msgdef 等の SJIS リテラル / Win32 API の
-   ANSI 結果) を Lisp string の Char 列 (= UTF-16 code unit) に変換する。
-   旧実装は SJIS 2-byte を `(*s << 8) | s[1]` でそのまま Char 値として
-   格納していたが、Lisp string として読まれる先が UTF-16 前提になった
-   ため、i2w で SJIS-packed → UCS2 変換を行う。ASCII / halfwidth kana
-   単 byte も i2w table index で identity / UCS2 変換が成立する。 */
-Char *
-s2w (Char *b, size_t size, const char **string)
+/* Phase 3: s2w converts C string (SJIS literals / Win32 ANSI results) to
+   Lisp string ucs4_t array. Each SJIS sequence is converted to a Unicode
+   code point via i2w (which returns UCS-2; all cp932 chars are BMP). */
+ucs4_t *
+s2w (ucs4_t *b, size_t size, const char **string)
 {
-  Char *be = b + size;
+  ucs4_t *be = b + size;
   const u_char *s = (const u_char *)*string;
   while (b < be && *s)
     {
@@ -96,8 +93,8 @@ s2w (Char *b, size_t size, const char **string)
   return b;
 }
 
-Char *
-s2w (Char *b, const char *string)
+ucs4_t *
+s2w (ucs4_t *b, const char *string)
 {
   const u_char *s = (const u_char *)string;
   while (*s)
@@ -118,16 +115,34 @@ s2w (Char *b, const char *string)
   return b;
 }
 
-Char *
+ucs4_t *
 s2w (const char *string, size_t size)
 {
-  Char *b = (Char *)xmalloc (sizeof (Char) * size);
+  ucs4_t *b = (ucs4_t *)xmalloc (sizeof (ucs4_t) * size);
   s2w (b, string);
   return b;
 }
 
+Char *
+s2w_u16 (Char *b, const char *string)
+{
+  /* SJIS → UTF-16 (Char/ucs2_t) directly, for Win32 API call sites. */
+  const u_char *s = (const u_char *)string;
+  while (*s)
+    {
+      if (SJISP (*s) && s[1])
+        {
+          *b++ = i2w (Char ((*s << 8) | s[1]));
+          s += 2;
+        }
+      else
+        *b++ = i2w (*s++);
+    }
+  return b;
+}
+
 void
-a2w (Char *b, const char *string, size_t size)
+a2w (ucs4_t *b, const char *string, size_t size)
 {
   const u_char *s = (const u_char *)string;
   const u_char *se = s + size;
@@ -135,10 +150,10 @@ a2w (Char *b, const char *string, size_t size)
     *b++ = *s++;
 }
 
-Char *
-a2w (Char *b, size_t size, const char **string)
+ucs4_t *
+a2w (ucs4_t *b, size_t size, const char **string)
 {
-  Char *be = b + size;
+  ucs4_t *be = b + size;
   const u_char *s = (const u_char *)*string;
   while (b < be && *s)
     *b++ = *s++;
@@ -146,35 +161,43 @@ a2w (Char *b, size_t size, const char **string)
   return b;
 }
 
-Char *
-a2w (Char *b, const char *string)
+ucs4_t *
+a2w (ucs4_t *b, const char *string)
 {
   for (const u_char *s = (const u_char *)string; *s;)
     *b++ = *s++;
   return b;
 }
 
-Char *
+ucs4_t *
 a2w (const char *string, size_t size)
 {
-  Char *b = (Char *)xmalloc (sizeof (Char) * size);
+  ucs4_t *b = (ucs4_t *)xmalloc (sizeof (ucs4_t) * size);
   a2w (b, string, size);
   return b;
 }
 
-/* Phase 2: w2s は UTF-16 code unit の Char 列を SJIS byte 列に変換して
-   Windows ANSI API (CreateProcessA / ANSI status-window等) に渡すための
-   経路。旧実装は Char 値を SJIS-packed と仮定してそのまま byte split して
-   いたが、Phase 2 で Char が真の UTF-16 になったため wc2cp932 で cp932
-   へ変換する必要がある。マップ不能 (non-SJIS BMP) は '?'。surrogate pair
-   は SJIS に非 BMP 対応がないので '?' 2 つに落ちる。 */
+/* Phase 3: w2s converts Lisp string ucs4_t array to SJIS byte sequence for
+   Windows ANSI APIs. Non-BMP and non-cp932 chars map to '?'. */
 static inline Char
-wc_to_sjis (Char cc)
+wc_to_sjis (ucs4_t cc)
 {
   if (cc < 0x80)
-    return cc;
-  Char sjis = wc2cp932 (cc);
+    return Char (cc);
+  if (cc > 0xFFFF)
+    return Char ('?');
+  Char sjis = wc2cp932 (ucs2_t (cc));
   return sjis == Char (-1) ? Char ('?') : sjis;
+}
+
+size_t
+w2sl (const ucs4_t *s, size_t size)
+{
+  size_t l = 0;
+  for (const ucs4_t *se = s + size; s < se; s++)
+    if (DBCP (wc_to_sjis (*s)))
+      l++;
+  return size + l;
 }
 
 size_t
@@ -182,15 +205,15 @@ w2sl (const Char *s, size_t size)
 {
   size_t l = 0;
   for (const Char *se = s + size; s < se; s++)
-    if (DBCP (wc_to_sjis (*s)))
+    if (DBCP (wc_to_sjis (ucs4_t (*s))))
       l++;
   return size + l;
 }
 
 char *
-w2s (char *b, const Char *s, size_t size)
+w2s (char *b, const ucs4_t *s, size_t size)
 {
-  for (const Char *se = s + size; s < se; s++)
+  for (const ucs4_t *se = s + size; s < se; s++)
     {
       Char sjis = wc_to_sjis (*s);
       if (DBCP (sjis))
@@ -202,7 +225,21 @@ w2s (char *b, const Char *s, size_t size)
 }
 
 char *
-w2s (const Char *s, size_t size)
+w2s (char *b, const Char *s, size_t size)
+{
+  for (const Char *se = s + size; s < se; s++)
+    {
+      Char sjis = wc_to_sjis (ucs4_t (*s));
+      if (DBCP (sjis))
+        *b++ = sjis >> 8;
+      *b++ = char (sjis);
+    }
+  *b = 0;
+  return b;
+}
+
+char *
+w2s (const ucs4_t *s, size_t size)
 {
   char *b = (char *)xmalloc (w2sl (s, size) + 1);
   w2s (b, s, size);
@@ -210,10 +247,10 @@ w2s (const Char *s, size_t size)
 }
 
 char *
-w2s (char *b, char *be, const Char *s, size_t size)
+w2s (char *b, char *be, const ucs4_t *s, size_t size)
 {
   be--;
-  for (const Char *se = s + size; s < se && b < be; s++)
+  for (const ucs4_t *se = s + size; s < se && b < be; s++)
     {
       Char sjis = wc_to_sjis (*s);
       if (DBCP (sjis))
@@ -229,24 +266,26 @@ w2s (char *b, char *be, const Char *s, size_t size)
 }
 
 char *
-w2s_quote (char *b, char *be, const Char *s, size_t size, int qc, int qe)
+w2s_quote (char *b, char *be, const ucs4_t *s, size_t size, int qc, int qe)
 {
   be--;
-  for (const Char *se = s + size; s < se && b < be; s++)
+  Char sjis_qc = wc_to_sjis (ucs4_t (qc));
+  for (const ucs4_t *se = s + size; s < se && b < be; s++)
     {
-      if (DBCP (*s))
+      Char sjis = wc_to_sjis (*s);
+      if (DBCP (sjis))
         {
           if (b == be - 1)
             break;
-          *b++ = *s >> 8;
+          *b++ = sjis >> 8;
         }
-      else if (*s == qc)
+      else if (sjis == sjis_qc)
         {
           if (b == be - 1)
             break;
           *b++ = qe;
         }
-      *b++ = char (*s);
+      *b++ = char (sjis);
     }
   *b = 0;
   return b;
@@ -275,10 +314,9 @@ s2wl (const char *string, const char *se, int zero_term)
   return s - (const u_char *)string - l;
 }
 
-Char *
-s2w (Char *b, const char *string, const char *se, int zero_term)
+ucs4_t *
+s2w (ucs4_t *b, const char *string, const char *se, int zero_term)
 {
-  /* Phase 2: 上記 s2w overload と同じく SJIS → UTF-16 変換。 */
   const u_char *s = (const u_char *)string;
   while (s < (const u_char *)se && (!zero_term || *s))
     {
@@ -299,17 +337,18 @@ s2w (Char *b, const char *string, const char *se, int zero_term)
 }
 
 void
-w2s_chunk (char *b, char *be, const Char *s, size_t size)
+w2s_chunk (char *b, char *be, const ucs4_t *s, size_t size)
 {
-  for (const Char *se = s + size; s < se && b < be; s++)
+  for (const ucs4_t *se = s + size; s < se && b < be; s++)
     {
-      if (DBCP (*s))
+      Char sjis = wc_to_sjis (*s);
+      if (DBCP (sjis))
         {
           if (b == be - 1)
             break;
-          *b++ = *s >> 8;
+          *b++ = sjis >> 8;
         }
-      *b++ = char (*s);
+      *b++ = char (sjis);
     }
   if (b < be)
     *b = 0;
@@ -335,7 +374,7 @@ lisp
 make_string (const char *string, size_t size)
 {
   lisp p = make_simple_string ();
-  Char *b = (Char *)xmalloc (size * sizeof (Char));
+  ucs4_t *b = (ucs4_t *)xmalloc (size * sizeof (ucs4_t));
   xstring_contents (p) = b;
   xstring_length (p) = size;
   s2w (b, size, &string);
@@ -352,12 +391,33 @@ make_string_simple (const char *string, size_t size)
 }
 
 lisp
-make_string (const Char *string, size_t size)
+make_string (const ucs4_t *string, size_t size)
 {
   lisp p = make_simple_string ();
-  xstring_contents (p) = (Char *)xmemdup (string, size * sizeof (Char));
+  xstring_contents (p) = (ucs4_t *)xmemdup (string, size * sizeof (ucs4_t));
   xstring_length (p) = size;
   return p;
+}
+
+lisp
+make_string (const Char *string, size_t size)
+{
+  /* Convert UTF-16 (Win32 wchar_t / Char) → ucs4_t Lisp string.
+     BMP code points map 1:1; surrogate pairs are decoded to single code points. */
+  ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * size);
+  size_t n = 0;
+  for (size_t i = 0; i < size; i++)
+    {
+      ucs2_t c = ucs2_t (string[i]);
+      if (utf16_surrogate_high_p (c) && i + 1 < size
+          && utf16_surrogate_low_p (ucs2_t (string[i + 1])))
+        {
+          tmp[n++] = utf16_pair_to_ucs4 (c, ucs2_t (string[++i]));
+        }
+      else
+        tmp[n++] = c;
+    }
+  return make_string (tmp, n);
 }
 
 lisp
@@ -368,10 +428,10 @@ copy_string (lisp p)
 }
 
 lisp
-make_string (Char c, size_t size)
+make_string (ucs4_t c, size_t size)
 {
   lisp p = make_simple_string ();
-  Char *d = (Char *)xmalloc (size * sizeof (Char));
+  ucs4_t *d = (ucs4_t *)xmalloc (size * sizeof (ucs4_t));
   xstring_contents (p) = d;
   xstring_length (p) = size;
   bfill (d, int (size), c);
@@ -379,11 +439,11 @@ make_string (Char c, size_t size)
 }
 
 lisp
-make_complex_string (Char c, int fillp, int size, int adjustable)
+make_complex_string (ucs4_t c, int fillp, int size, int adjustable)
 {
   assert (fillp <= size);
   lisp p = make_complex_string ();
-  Char *d = (Char *)xmalloc (size * sizeof (Char));
+  ucs4_t *d = (ucs4_t *)xmalloc (size * sizeof (ucs4_t));
   xstring_contents (p) = d;
   xstring_length (p) = fillp >= 0 ? fillp : size;
   xstring_dimension (p) = size;
@@ -397,7 +457,7 @@ lisp
 make_string (size_t size)
 {
   lisp p = make_simple_string ();
-  xstring_contents (p) = (Char *)xmalloc (size * sizeof (Char));
+  xstring_contents (p) = (ucs4_t *)xmalloc (size * sizeof (ucs4_t));
   xstring_length (p) = size;
   return p;
 }
@@ -409,7 +469,7 @@ make_string_from_list (lisp list)
   for (lisp x = list; consp (x); x = xcdr (x), l++)
     check_char (xcar (x));
   lisp string = make_string (l);
-  Char *s = xstring_contents (string);
+  ucs4_t *s = xstring_contents (string);
   for (lisp x = list; consp (x); x = xcdr (x))
     *s++ = xchar_code (xcar (x));
   return string;
@@ -423,18 +483,29 @@ make_string_from_vector (lisp vector)
   for (p = xvector_contents (vector), pe = p + xvector_length (vector); p < pe; p++)
     check_char (*p);
   lisp string = make_string (xvector_length (vector));
-  Char *s = xstring_contents (string);
+  ucs4_t *s = xstring_contents (string);
   for (p = xvector_contents (vector); p < pe; p++)
     *s++ = xchar_code (*p);
   return string;
 }
 
 int
-string_equalp (const Char *p1, int l1, const char *p2, int l2)
+string_equalp (const ucs4_t *p1, int l1, const char *p2, int l2)
 {
   if (l1 != l2)
     return 0;
-  for (const Char *pe = p1 + l1; p1 < pe; p1++, p2++)
+  for (const ucs4_t *pe = p1 + l1; p1 < pe; p1++, p2++)
+    if (char_upcase (*p1) != char_upcase (ucs4_t (u_char (*p2))))
+      return 0;
+  return 1;
+}
+
+int
+string_equalp (const ucs4_t *p1, int l1, const ucs4_t *p2, int l2)
+{
+  if (l1 != l2)
+    return 0;
+  for (const ucs4_t *pe = p1 + l1; p1 < pe; p1++, p2++)
     if (char_upcase (*p1) != char_upcase (*p2))
       return 0;
   return 1;
@@ -467,7 +538,7 @@ coerce_to_string (lisp x, int copy)
     {
       if (charp (x))
         {
-          Char c = xchar_code (x);
+          ucs4_t c = xchar_code (x);
           return make_string (&c, 1);
         }
     }
@@ -548,10 +619,10 @@ Fsi_set_schar (lisp string, lisp index, lisp value)
   return value;
 }
 
-static const Char *
+static const ucs4_t *
 string_compare1 (lisp string1, lisp string2, lisp keys,
-                 const Char *&p, const Char *&pe,
-                 const Char *&q, const Char *&qe)
+                 const ucs4_t *&p, const ucs4_t *&pe,
+                 const ucs4_t *&q, const ucs4_t *&qe)
 {
   string1 = coerce_to_string (string1, 0);
   int start1, end1;
@@ -576,8 +647,8 @@ string_compare1 (lisp string1, lisp string2, lisp keys,
 static int
 string_compare (lisp string1, lisp string2, lisp keys, int &l)
 {
-  const Char *p, *pe, *q, *qe;
-  const Char *p0 = string_compare1 (string1, string2, keys, p, pe, q, qe);
+  const ucs4_t *p, *pe, *q, *qe;
+  const ucs4_t *p0 = string_compare1 (string1, string2, keys, p, pe, q, qe);
   while (1)
     {
       if (p == pe)
@@ -593,7 +664,7 @@ string_compare (lisp string1, lisp string2, lisp keys, int &l)
       if (*p != *q)
         {
           l = p - p0;
-          return *p - *q;
+          return int (*p) - int (*q);
         }
       p++;
       q++;
@@ -603,8 +674,8 @@ string_compare (lisp string1, lisp string2, lisp keys, int &l)
 static int
 string_comparep (lisp string1, lisp string2, lisp keys, int &l)
 {
-  const Char *p, *pe, *q, *qe;
-  const Char *p0 = string_compare1 (string1, string2, keys, p, pe, q, qe);
+  const ucs4_t *p, *pe, *q, *qe;
+  const ucs4_t *p0 = string_compare1 (string1, string2, keys, p, pe, q, qe);
   while (1)
     {
       if (p == pe)
@@ -617,12 +688,12 @@ string_comparep (lisp string1, lisp string2, lisp keys, int &l)
           l = p - p0;
           return 1;
         }
-      Char c1 = char_upcase (*p);
-      Char c2 = char_upcase (*q);
+      ucs4_t c1 = char_upcase (*p);
+      ucs4_t c2 = char_upcase (*q);
       if (c1 != c2)
         {
           l = p - p0;
-          return c1 - c2;
+          return int (c1) - int (c2);
         }
       p++;
       q++;
@@ -632,7 +703,7 @@ string_comparep (lisp string1, lisp string2, lisp keys, int &l)
 lisp
 Fstring_equal (lisp x, lisp y, lisp keys)
 {
-  const Char *p, *pe, *q, *qe;
+  const ucs4_t *p, *pe, *q, *qe;
   string_compare1 (x, y, keys, p, pe, q, qe);
   return boole (pe - p == qe - q && !bcmp (p, q, pe - p));
 }
@@ -640,7 +711,7 @@ Fstring_equal (lisp x, lisp y, lisp keys)
 lisp
 Fstring_equalp (lisp x, lisp y, lisp keys)
 {
-  const Char *p, *pe, *q, *qe;
+  const ucs4_t *p, *pe, *q, *qe;
   string_compare1 (x, y, keys, p, pe, q, qe);
   return boole (string_equalp (p, pe - p, q, qe - q));
 }
@@ -742,30 +813,30 @@ Fsubstring (lisp string, lisp lstart, lisp lend)
 }
 
 static inline int
-match_char_bag (Char c, lisp bag)
+match_char_bag (ucs4_t c, lisp bag)
 {
   assert (stringp (bag));
-  for (const Char *p = xstring_contents (bag), *pe = p + xstring_length (bag);
+  for (const ucs4_t *p = xstring_contents (bag), *pe = p + xstring_length (bag);
        p < pe; p++)
     if (c == *p)
       return 1;
   return 0;
 }
 
-static const Char *
-left_trim (const Char *p0, int l, lisp bag)
+static const ucs4_t *
+left_trim (const ucs4_t *p0, int l, lisp bag)
 {
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   for (p = p0, pe = p + l; p < pe; p++)
     if (!match_char_bag (*p, bag))
       break;
   return p;
 }
 
-static const Char *
-right_trim (const Char *p0, int l, lisp bag)
+static const ucs4_t *
+right_trim (const ucs4_t *p0, int l, lisp bag)
 {
-  const Char *p;
+  const ucs4_t *p;
   for (p = p0 + l; p > p0; p--)
     if (!match_char_bag (p[-1], bag))
       break;
@@ -776,16 +847,16 @@ static inline int
 left_trim (lisp string, lisp bag)
 {
   assert (stringp (string));
-  return (left_trim (xstring_contents (string), xstring_length (string), bag)
-          - xstring_contents (string));
+  return int (left_trim (xstring_contents (string), xstring_length (string), bag)
+              - xstring_contents (string));
 }
 
 static inline int
 right_trim (lisp string, lisp bag)
 {
   assert (stringp (string));
-  return (right_trim (xstring_contents (string), xstring_length (string), bag)
-          - xstring_contents (string));
+  return int (right_trim (xstring_contents (string), xstring_length (string), bag)
+              - xstring_contents (string));
 }
 
 lisp
@@ -845,7 +916,7 @@ Fnstring_upcase (lisp string, lisp keys)
   string_start_end (string, start, end,
                     find_keyword (Kstart, keys, make_fixnum (0)),
                     find_keyword (Kend, keys, Qnil));
-  for (Char *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
+  for (ucs4_t *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
        p < pe; p++)
     *p = char_upcase (*p);
   return string;
@@ -858,7 +929,7 @@ Fnstring_downcase (lisp string, lisp keys)
   string_start_end (string, start, end,
                     find_keyword (Kstart, keys, make_fixnum (0)),
                     find_keyword (Kend, keys, Qnil));
-  for (Char *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
+  for (ucs4_t *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
        p < pe; p++)
     *p = char_downcase (*p);
   return string;
@@ -872,7 +943,7 @@ Fnstring_capitalize (lisp string, lisp keys)
                     find_keyword (Kstart, keys, make_fixnum (0)),
                     find_keyword (Kend, keys, Qnil));
   int f = 1;
-  for (Char *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
+  for (ucs4_t *p = xstring_contents (string) + start, *pe = xstring_contents (string) + end;
        p < pe; p++)
     {
       if (alphanumericp (*p))
@@ -896,7 +967,7 @@ Fstring (lisp x)
 }
 
 static void
-trim (const Char *&p0, const Char *&pe, lisp bag)
+trim (const ucs4_t *&p0, const ucs4_t *&pe, lisp bag)
 {
   if (p0 != pe)
     {
@@ -921,8 +992,8 @@ Fsplit_string (lisp string, lisp lsep, lisp ignore_empty, lisp char_bag)
         char_bag = 0;
     }
 
-  const Char *p = xstring_contents (string);
-  const Char *pe = p + xstring_length (string);
+  const ucs4_t *p = xstring_contents (string);
+  const ucs4_t *pe = p + xstring_length (string);
   if (p == pe)
     return Qnil;
 
@@ -930,13 +1001,13 @@ Fsplit_string (lisp string, lisp lsep, lisp ignore_empty, lisp char_bag)
 
   if (charp (lsep) || xstring_length (lsep) == 1)
     {
-      Char sep = charp (lsep) ? xchar_code (lsep) : *xstring_contents (lsep);
+      ucs4_t sep = charp (lsep) ? xchar_code (lsep) : *xstring_contents (lsep);
       do
         {
-          const Char *p0 = p;
+          const ucs4_t *p0 = p;
           for (; p < pe && *p != sep; p++)
             ;
-          const Char *pe = p;
+          const ucs4_t *pe = p;
           if (char_bag)
             trim (p0, pe, char_bag);
           if (p0 != pe || empty_ok)
@@ -950,10 +1021,10 @@ Fsplit_string (lisp string, lisp lsep, lisp ignore_empty, lisp char_bag)
         return char_bag ? Fstring_trim (char_bag, string) : string;
       do
         {
-          const Char *p0 = p;
+          const ucs4_t *p0 = p;
           for (; p < pe && !match_char_bag (*p, lsep); p++)
             ;
-          const Char *pe = p;
+          const ucs4_t *pe = p;
           if (char_bag)
             trim (p0, pe, char_bag);
           if (p0 != pe || empty_ok)
@@ -968,14 +1039,14 @@ lisp
 Fquote_string (lisp string, lisp search, lisp quote)
 {
   check_string (string);
-  const Char *s = xstring_contents (string);
-  const Char *se = s + xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+  const ucs4_t *se = s + xstring_length (string);
 
   check_char (search);
-  Char sch = xchar_code (search);
+  ucs4_t sch = xchar_code (search);
 
   check_char (quote);
-  Char qch = xchar_code (quote);
+  ucs4_t qch = xchar_code (quote);
 
   int count = 0;
   while (s < se)
@@ -988,11 +1059,11 @@ Fquote_string (lisp string, lisp search, lisp quote)
   s = xstring_contents (string);
 
   lisp string2 = make_string (xstring_length (string) + count);
-  Char *d = xstring_contents (string2);
+  ucs4_t *d = xstring_contents (string2);
 
   while (s < se)
     {
-      Char c = *s++;
+      ucs4_t c = *s++;
       if (c == sch)
         *d++ = qch;
       *d++ = c;
@@ -1003,8 +1074,8 @@ Fquote_string (lisp string, lisp search, lisp quote)
 lisp
 parse_integer (lisp string, int start, int &end, int radix, int junk_allowed)
 {
-  const Char *p = xstring_contents (string) + start;
-  const Char *pe = xstring_contents (string) + end;
+  const ucs4_t *p = xstring_contents (string) + start;
+  const ucs4_t *pe = xstring_contents (string) + end;
 
   if (junk_allowed)
     {
@@ -1020,7 +1091,7 @@ parse_integer (lisp string, int start, int &end, int radix, int junk_allowed)
 
   bignum_rep *rep;
   p = ato_bignum_rep (rep, p, pe - p, radix);
-  end = p - xstring_contents (string);
+  end = int (p - xstring_contents (string));
   return p == pe ? make_integer (rep) : Qnil;
 }
 
@@ -1055,9 +1126,9 @@ Fabbreviate_string_column (lisp string, lisp column)
 {
   check_string (string);
   int n = fixnum_value (column);
-  const Char *const p0 = xstring_contents (string);
-  const Char *const pe = p0 + xstring_length (string);
-  const Char *p = p0;
+  const ucs4_t *const p0 = xstring_contents (string);
+  const ucs4_t *const pe = p0 + xstring_length (string);
+  const ucs4_t *p = p0;
   for (int c = 0; c < n && p < pe; p++)
     {
       c += char_width (*p);
@@ -1068,7 +1139,7 @@ Fabbreviate_string_column (lisp string, lisp column)
 }
 
 static int
-escseq_p (const Char *&p, const Char *pe)
+escseq_p (const ucs4_t *&p, const ucs4_t *pe)
 {
   if (p == pe)
     return -1;
@@ -1107,7 +1178,7 @@ escseq_p (const Char *&p, const Char *pe)
       break;
     }
 
-  const Char *p1 = p + 1;
+  const ucs4_t *p1 = p + 1;
   if (p1 == pe)
     return -1;
   int n = digit_char (*p1);
@@ -1128,15 +1199,15 @@ lisp
 Fdecode_escape_sequence (lisp string, lisp regexpp)
 {
   check_string (string);
-  const Char *p = xstring_contents (string);
-  const Char *const pe = p + xstring_length (string);
+  const ucs4_t *p = xstring_contents (string);
+  const ucs4_t *const pe = p + xstring_length (string);
   char tem[1024];
   StrBuf sb (tem, sizeof tem);
   int mod = 0;
 
   while (p < pe)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (c == '\\' && p < pe)
         {
           if (*p == '\\')
@@ -1152,7 +1223,7 @@ Fdecode_escape_sequence (lisp string, lisp regexpp)
               int n = escseq_p (p, pe);
               if (n >= 0)
                 {
-                  c = n;
+                  c = ucs4_t (n);
                   mod = 1;
                 }
             }

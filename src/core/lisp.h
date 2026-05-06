@@ -585,15 +585,15 @@ save_multiple_value::~save_multiple_value ()
    ならんので、あまり使える場所がない。*/
 class temporary_string
 {
-  Char *save;
+  ucs4_t *save;
 public:
-  temporary_string (Char *, int);
+  temporary_string (ucs4_t *, int);
   ~temporary_string ();
   static lisp string ();
 };
 
 inline
-temporary_string::temporary_string (Char *s, int l)
+temporary_string::temporary_string (ucs4_t *s, int l)
 {
   assert (stringp (xsymbol_name (Qtemporary_string)));
   assert (!xstring_length (xsymbol_name (Qtemporary_string)));

@@ -6,17 +6,17 @@
 
 typedef xoutput_stream <u_char> byte_output_stream;
 typedef xinput_stream <u_char> byte_input_stream;
-typedef xoutput_stream <Char> Char_output_stream;
-typedef xinput_stream <Char> Char_input_stream;
+typedef xoutput_stream <ucs4_t> Char_output_stream;
+typedef xinput_stream <ucs4_t> Char_input_stream;
 
 class byte_input_string_stream: public byte_input_stream
 {
   u_char s_buf[1024];
-  const Char *s_wp;
-  const Char *const s_we;
+  const ucs4_t *s_wp;
+  const ucs4_t *const s_we;
   virtual int refill ();
 public:
-  byte_input_string_stream (const Char *b, int l)
+  byte_input_string_stream (const ucs4_t *b, int l)
        : s_wp (b), s_we (b + l) {}
   byte_input_string_stream (lisp string)
        : s_wp (xstring_contents (string)),
@@ -38,13 +38,13 @@ class byte_output_wstream: public byte_output_stream
 protected:
   byte_output_wstream () : byte_output_stream (s_buf, s_buf + sizeof s_buf) {}
   virtual u_char *sflush (u_char *, u_char *, int);
-  virtual void swrite (const Char *, int) = 0;
+  virtual void swrite (const ucs4_t *, int) = 0;
 };
 
 class byte_output_string_stream: public byte_output_wstream, public StrBuf
 {
   char s_buf[2040];
-  virtual void swrite (const Char *b, int l) {add (b, l);}
+  virtual void swrite (const ucs4_t *b, int l) {add (b, l);}
 public:
   byte_output_string_stream () : StrBuf (s_buf, sizeof s_buf) {}
 };
@@ -52,7 +52,7 @@ public:
 class byte_output_streams_stream: public byte_output_wstream
 {
   lisp s_stream;
-  virtual void swrite (const Char *b, int l)
+  virtual void swrite (const ucs4_t *b, int l)
     {write_stream (s_stream, b, l);}
 public:
   byte_output_streams_stream (lisp stream) : s_stream (stream) {}
@@ -60,17 +60,21 @@ public:
 
 class Char_input_string_stream: public Char_input_stream
 {
+  ucs4_t s_buf[1024];
+  const ucs4_t *s_wp;
+  const ucs4_t *const s_we;
+  virtual int refill ();
 public:
-  Char_input_string_stream (const Char *b, int l)
-       : Char_input_stream (b, b + l) {}
+  Char_input_string_stream (const ucs4_t *b, int l)
+       : s_wp (b), s_we (b + l) {}
   Char_input_string_stream (lisp string)
-       : Char_input_stream (xstring_contents (string),
-                            xstring_contents (string) + xstring_length (string)) {}
+       : s_wp (xstring_contents (string)),
+         s_we (xstring_contents (string) + xstring_length (string)) {}
 };
 
 class Char_input_streams_stream: public Char_input_stream
 {
-  Char s_buf[1024];
+  ucs4_t s_buf[1024];
   lisp s_stream;
   virtual int refill ();
 public:
@@ -79,18 +83,18 @@ public:
 
 class Char_output_wstream: public Char_output_stream
 {
-  Char s_buf[1024];
+  ucs4_t s_buf[1024];
 protected:
   Char_output_wstream () : Char_output_stream (s_buf, s_buf + numberof (s_buf)) {}
-  virtual Char *sflush (Char *b, Char *e, int)
+  virtual ucs4_t *sflush (ucs4_t *b, ucs4_t *e, int)
     {if (b != e) swrite (b, e - b); return b;}
-  virtual void swrite (const Char *, int) = 0;
+  virtual void swrite (const ucs4_t *, int) = 0;
 };
 
 class Char_output_string_stream: public Char_output_wstream, public StrBuf
 {
   char s_buf[2040];
-  virtual void swrite (const Char *b, int l) {add (b, l);}
+  virtual void swrite (const ucs4_t *b, int l) {add (b, l);}
 public:
   Char_output_string_stream () : StrBuf (s_buf, sizeof s_buf) {}
 };
@@ -98,7 +102,7 @@ public:
 class Char_output_streams_stream: public Char_output_wstream
 {
   lisp s_stream;
-  virtual void swrite (const Char *b, int l)
+  virtual void swrite (const ucs4_t *b, int l)
     {write_stream (s_stream, b, l);}
 public:
   Char_output_streams_stream (lisp stream) : s_stream (stream) {}

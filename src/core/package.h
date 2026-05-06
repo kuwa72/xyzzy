@@ -101,12 +101,12 @@ int count_symbols (lisp vector);
 class maybe_symbol_string
 {
   lisp package;
-  const Char *pkge;
+  const ucs4_t *pkge;
 public:
   maybe_symbol_string (lisp pkg) : package (pkg), pkge (0) {}
   lisp current_package () const {return package;}
-  void parse (Char *&b, int &l);
-  const Char *pkg_end () const {return pkge;}
+  void parse (ucs4_t *&b, int &l);
+  const ucs4_t *pkg_end () const {return pkge;}
 };
 
 #endif

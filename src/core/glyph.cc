@@ -179,7 +179,7 @@ Window::kwdmatch (lisp kwdhash, const Char *p, const Chunk *cp,
   p++;
   const Char *pe = cp->c_text + cp->c_used;
 
-  Char buf[MAX_KWDLEN];
+  ucs4_t buf[MAX_KWDLEN];
   int l = 1, sl = 1;
   int f_pound = tab->flags & SYNTAX_OPT_CPP && cc == '#';
   buf[0] = cc;
@@ -858,11 +858,11 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
         {
           for (const u_char *u = (u_char *)w_bufp->b_prompt_arg; *u && g < ge;)
             *g++ = ga (*u++);
-          const Char *s = w_bufp->b_prompt;
-          const Char *se = s + w_bufp->b_prompt_length;
+          const ucs4_t *s = w_bufp->b_prompt;
+          const ucs4_t *se = s + w_bufp->b_prompt_length;
           while (s < se && g < ge)
             {
-              Char cc = *s++;
+              ucs4_t cc = *s++;
               if (cc < ' ')
                 {
                   if (g + 1 == ge)
@@ -879,8 +879,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                 }
               else
                 {
-                  int extra = 0;
-                  u_int32_t cp = fold_surrogate (cc, s, se, extra);
+                  u_int32_t cp = u_int32_t (cc);
                   int w = unicode_width (cp);
                   if (w == 2)
                     {

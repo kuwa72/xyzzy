@@ -136,16 +136,16 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
   if (plen > PATH_MAX)
     FEsimple_error (Epath_name_too_long, lpath);
 
-  wchar_t wpath[PATH_MAX + 1];
-  memcpy (wpath, xstring_contents (lpath), plen * sizeof (wchar_t));
-  wpath[plen] = 0;
+  /* Phase 3: ucs4 → UTF-16, worst-case 2x for non-BMP. */
+  wchar_t wpath[2 * PATH_MAX + 1];
+  i2w (lpath, (ucs2_t *)wpath);
 
   int nlen = xstring_length (lname);
   char entry[64];
   if (nlen > 40)
     nlen = 40;
   strcpy (entry, "tree_sitter_");
-  const Char *nc = xstring_contents (lname);
+  const ucs4_t *nc = xstring_contents (lname);
   for (int i = 0; i < nlen; i++)
     entry[12 + i] = (char)(nc[i] & 0x7f);
   entry[12 + nlen] = 0;
@@ -442,11 +442,14 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
   /* --- Query compilation (main thread, cached) ---------------------------- */
 
   {
-    int qlen16 = xstring_length (lquery);
+    /* Phase 3: ucs4 query → UTF-16 → UTF-8 (tree-sitter wants UTF-8). */
+    int wcap = i2wl (lquery);
+    wchar_t *wbuf = (wchar_t *)alloca (wcap * sizeof (wchar_t));
+    i2w (lquery, (ucs2_t *)wbuf);
+    int qlen16 = wcap - 1;
     int qbuf_size = qlen16 * 3 + 1;
     char *qbuf = (char *) xmalloc (qbuf_size);
-    int qlen8 = WideCharToMultiByte (CP_UTF8, 0,
-                                     (LPCWSTR) xstring_contents (lquery), qlen16,
+    int qlen8 = WideCharToMultiByte (CP_UTF8, 0, wbuf, qlen16,
                                      qbuf, qbuf_size - 1, NULL, NULL);
     qbuf[qlen8] = 0;
 
@@ -634,7 +637,7 @@ static bool
 ts_ascii_match (const char *name, uint32_t len, lisp lstr)
 {
   if (!stringp (lstr) || (uint32_t) xstring_length (lstr) != len) return false;
-  const Char *p = xstring_contents (lstr);
+  const ucs4_t *p = xstring_contents (lstr);
   for (uint32_t i = 0; i < len; i++)
     if (p[i] != (unsigned char) name[i]) return false;
   return true;
@@ -754,10 +757,14 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
 
   /* Compile query (cached). */
   {
-    int qlen16 = xstring_length (lquery);
+    /* Phase 3: ucs4 query → UTF-16 → UTF-8. */
+    int wcap = i2wl (lquery);
+    wchar_t *wbuf = (wchar_t *)alloca (wcap * sizeof (wchar_t));
+    i2w (lquery, (ucs2_t *)wbuf);
+    int qlen16 = wcap - 1;
     int qbuf_size = qlen16 * 3 + 1;
     char *qbuf = (char *) xmalloc (qbuf_size);
-    int qlen8 = WideCharToMultiByte (CP_UTF8, 0, (LPCWSTR) xstring_contents (lquery), qlen16,
+    int qlen8 = WideCharToMultiByte (CP_UTF8, 0, wbuf, qlen16,
                                      qbuf, qbuf_size - 1, NULL, NULL);
     qbuf[qlen8] = 0;
     if (!c->query || !c->query_src || strcmp (qbuf, c->query_src) != 0)

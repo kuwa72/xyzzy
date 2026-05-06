@@ -14,12 +14,10 @@ Frun_winhelp (lisp file, lisp topic)
     return boole (WinHelpW (app.toplev, wpath, HELP_CONTENTS, 0));
 
   check_string (topic);
-  /* Phase 2: Lisp string は UTF-16 なので直接 wchar_t に memcpy。 */
-  int tlen = xstring_length (topic);
-  if (tlen > 1023) tlen = 1023;
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
+  int tlen = min<int> (xstring_length (topic), 511);
   wchar_t wb[1024];
-  memcpy (wb, xstring_contents (topic), tlen * sizeof (wchar_t));
-  wb[tlen] = 0;
+  i2w (xstring_contents (topic), tlen, (ucs2_t *)wb);
   return boole (WinHelpW (app.toplev, wpath, HELP_PARTIALKEY, (DWORD_PTR)wb));
 }
 
@@ -448,17 +446,13 @@ Fhtml_help (lisp lfile, lisp lkeyword)
   if (!HtmlHelp)
     FEsimple_error (Ehtml_help_does_not_supported);
 
-  /* Phase 2: Lisp string は UTF-16。cp932 経由を省いて直接 wchar_t へ。 */
-  int flen = xstring_length (lfile);
-  if (flen > PATH_MAX) flen = PATH_MAX;
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
+  int flen = min<int> (xstring_length (lfile), PATH_MAX / 2);
   wchar_t wfile[PATH_MAX + 1];
-  memcpy (wfile, xstring_contents (lfile), flen * sizeof (wchar_t));
-  wfile[flen] = 0;
-  int klen = xstring_length (lkeyword);
-  if (klen > 1023) klen = 1023;
+  i2w (xstring_contents (lfile), flen, (ucs2_t *)wfile);
+  int klen = min<int> (xstring_length (lkeyword), 511);
   wchar_t wkeyword[1024];
-  memcpy (wkeyword, xstring_contents (lkeyword), klen * sizeof (wchar_t));
-  wkeyword[klen] = 0;
+  i2w (xstring_contents (lkeyword), klen, (ucs2_t *)wkeyword);
 
   HH_AKLINK link = {sizeof link};
   link.pszKeywords = wkeyword;

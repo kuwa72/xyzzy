@@ -413,9 +413,9 @@ sockssl::verify_certificate (const char *server_name, DWORD cert_flags)
   policy_https.fdwChecks = cert_flags;
 
   size_t len = strlen (server_name) + 1;
-  Char *w = (Char *)alloca (len * sizeof (Char));
-  a2w (w, server_name, len);
-  policy_https.pwszServerName = (WCHAR *)w;
+  WCHAR *w = (WCHAR *)alloca (len * sizeof (WCHAR));
+  for (size_t i = 0; i < len; i++) w[i] = WCHAR ((unsigned char)server_name[i]);
+  policy_https.pwszServerName = w;
 
   memset (&policy_para, 0, sizeof (policy_para));
   policy_para.cbSize = sizeof (policy_para);

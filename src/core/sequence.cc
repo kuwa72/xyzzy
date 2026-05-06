@@ -322,7 +322,7 @@ copy_into_list (lisp list, lisp sequences)
 
         case SEQ_STRING:
           {
-            for (const Char *s = xstring_contents (seq), *se = s + xstring_length (seq);
+            for (const ucs4_t *s = xstring_contents (seq), *se = s + xstring_length (seq);
                  s < se && consp (list); s++, list = xcdr (list))
               xcar (list) = make_char (*s);
             break;
@@ -375,7 +375,7 @@ copy_into_vector (lisp vector, lisp sequences)
         case SEQ_STRING:
           {
             l = min ((int)(ve - v), xstring_length (seq));
-            for (const Char *s = xstring_contents (seq), *se = s + l;
+            for (const ucs4_t *s = xstring_contents (seq), *se = s + l;
                  s < se; s++)
               *v++ = make_char (*s);
             break;
@@ -404,7 +404,7 @@ copy_into_string (lisp string, lisp sequences)
 
   if (!l)
     return;
-  Char *s = xstring_contents (string), *se = s + l;
+  ucs4_t *s = xstring_contents (string), *se = s + l;
   for (; consp (sequences); sequences = xcdr (sequences))
     {
       lisp seq = xcar (sequences);
@@ -501,7 +501,7 @@ Ffill (lisp seq, lisp item, lisp keys)
     case SEQ_STRING:
       seq_start_end (xstring_length (seq), start, end, lstart, lend);
       check_char (item);
-      bfill (xstring_contents (seq), start, end, xchar_code (item));
+      bfill (xstring_contents (seq), start, end, ucs4_t (xchar_code (item)));
       break;
     }
   return seq;
@@ -588,8 +588,8 @@ Freplace (lisp seq1, lisp seq2, lisp keys)
             seq_start_end (xstring_length (seq2), start2, end2, lstart2, lend2);
             l = min (end1 - start1, end2 - start2);
             seq1 = Fnthcdr (make_fixnum (start1), seq1);
-            Char *s = xstring_contents (seq2) + start2;
-            Char *se = s + l;
+            ucs4_t *s = xstring_contents (seq2) + start2;
+            ucs4_t *se = s + l;
             for (; s < se; s++, seq1 = xcdr (seq1))
               {
                 assert (consp (seq1));
@@ -648,7 +648,7 @@ Freplace (lisp seq1, lisp seq2, lisp keys)
             l = min (end1 - start1, end2 - start2);
             lisp *v = xvector_contents (seq1) + start1;
             lisp *ve = v + l;
-            Char *s = xstring_contents (seq2) + start2;
+            ucs4_t *s = xstring_contents (seq2) + start2;
             while (v < ve)
               *v++ = make_char (*s++);
           }
@@ -674,8 +674,8 @@ Freplace (lisp seq1, lisp seq2, lisp keys)
                 assert (consp (p));
                 check_char (xcar (p));
               }
-            Char *s = xstring_contents (seq1) + start1;
-            Char *se = s + l;
+            ucs4_t *s = xstring_contents (seq1) + start1;
+            ucs4_t *se = s + l;
             for (lisp p = seq2; s < se; p = xcdr (p), s++)
               *s = xchar_code (xcar (p));
           }
@@ -689,7 +689,7 @@ Freplace (lisp seq1, lisp seq2, lisp keys)
             lisp *ve = v0 + l;
             for (lisp *v = v0; v < ve; v++)
               check_char (*v);
-            Char *s = xstring_contents (seq1) + start1;
+            ucs4_t *s = xstring_contents (seq1) + start1;
             for (lisp *v = v0; v < ve; v++, s++)
               *s = xchar_code (*v);
           }
@@ -699,10 +699,10 @@ Freplace (lisp seq1, lisp seq2, lisp keys)
           {
             seq_start_end (xstring_length (seq2), start2, end2, lstart2, lend2);
             l = min (end1 - start1, end2 - start2);
-            Char *d = xstring_contents (seq1) + start1;
-            Char *de = d + l;
-            const Char *s = xstring_contents (seq2) + start2;
-            const Char *se = s + l;
+            ucs4_t *d = xstring_contents (seq1) + start1;
+            ucs4_t *de = d + l;
+            const ucs4_t *s = xstring_contents (seq2) + start2;
+            const ucs4_t *se = s + l;
             if (s != d)
               {
                 if (d < s)
@@ -958,7 +958,7 @@ position_find (lisp seq, test_proc &test, lisp keys, lisp &pos, lisp &found)
     case SEQ_STRING:
       {
         seq_start_end (xstring_length (seq), start, end, lstart, lend);
-        Char *s = xstring_contents (seq);
+        ucs4_t *s = xstring_contents (seq);
         if (from_end == Qnil)
           {
             for (i = start; i < end; i++)
@@ -1092,6 +1092,12 @@ sort (const sort_testproc &test, key_t *base, int num, key_t *tem)
 
 static inline int
 sort_protect_gc (Char *, int)
+{
+  return 0;
+}
+
+static inline int
+sort_protect_gc (ucs4_t *, int)
 {
   return 0;
 }

@@ -102,28 +102,28 @@ file_error (int e)
   FEwin32_file_error (xsymbol_value (file_error_condition (e)), e);
 }
 
-static Char *
-skip_device_or_host (const Char *p, const Char *pe)
+static ucs4_t *
+skip_device_or_host (const ucs4_t *p, const ucs4_t *pe)
 {
   if (pe - p < 2)
-    return (Char *)p;
-  if (dir_separator_p (*p) && dir_separator_p (p[1]))
+    return (ucs4_t *)p;
+  if (dir_separator_p (int (*p)) && dir_separator_p (int (p[1])))
     {
       // skip hostname
-      for (p += 2; p < pe && !dir_separator_p (*p); p++)
+      for (p += 2; p < pe && !dir_separator_p (int (*p)); p++)
         ;
       // skip shared name
       if (p < pe)
-        for (p++; p < pe && !dir_separator_p (*p); p++)
+        for (p++; p < pe && !dir_separator_p (int (*p)); p++)
           ;
     }
   else if (alpha_char_p (*p) && p[1] == ':')
     p += 2;
-  return (Char *)p;
+  return (ucs4_t *)p;
 }
 
-static Char *
-copy_Chars (Char *b, const Char *p, const Char *pe)
+static ucs4_t *
+copy_Chars (ucs4_t *b, const ucs4_t *p, const ucs4_t *pe)
 {
   int l = pe - p;
   bcopy (p, b, l);
@@ -155,8 +155,8 @@ get_device_dir (int c)
   return devdirs[c];
 }
 
-static Char *
-get_device_dir (Char *b, const Char *p, int l)
+static ucs4_t *
+get_device_dir (ucs4_t *b, const ucs4_t *p, int l)
 {
   if (l == 2 && alpha_char_p (*p) && p[1] == ':'
       && *devdirs[_char_downcase (*p) - 'a'])
@@ -166,14 +166,14 @@ get_device_dir (Char *b, const Char *p, int l)
   w2s (buf, p, l);
   if (WINFS::GetFullPathName (buf, sizeof path, path, &tem))
     {
-      Char *be = s2w (b, path);
+      ucs4_t *be = s2w (b, path);
       return copy_Chars (b, skip_device_or_host (b, be), be);
     }
   return b;
 }
 
 static void
-parse_name_simple (pathname &path, const Char *p, const Char *pe)
+parse_name_simple (pathname &path, const ucs4_t *p, const ucs4_t *pe)
 {
   path.dev = p;
   path.deve = skip_device_or_host (p, pe);
@@ -182,9 +182,9 @@ parse_name_simple (pathname &path, const Char *p, const Char *pe)
 }
 
 static void
-parse_name (pathname &path, const Char *p, const Char *pe)
+parse_name (pathname &path, const ucs4_t *p, const ucs4_t *pe)
 {
-  const Char *t = skip_device_or_host (p, pe);
+  const ucs4_t *t = skip_device_or_host (p, pe);
   if (t == p)
     path.dev = path.deve = 0;
   else
@@ -197,15 +197,15 @@ parse_name (pathname &path, const Char *p, const Char *pe)
   path.trail = p;
   path.traile = pe;
   pe--;
-  const Char *pe2 = pe - 1;
+  const ucs4_t *pe2 = pe - 1;
   while (p < pe)
     {
-      while (p < pe && dir_separator_p (*p))
+      while (p < pe && dir_separator_p (int (*p)))
         {
           p++;
-          if (dir_separator_p (*p))  //  `//' or `\\'
+          if (dir_separator_p (int (*p)))  //  `//' or `\\'
             path.trail = p;
-          else if (*p == '~' && (p == pe || dir_separator_p (p[1])))
+          else if (*p == '~' && (p == pe || dir_separator_p (int (p[1]))))
             {
               path.trail = p;
               p++;
@@ -218,22 +218,22 @@ parse_name (pathname &path, const Char *p, const Char *pe)
               path.trail = p;
             }
         }
-      while (p < pe && !dir_separator_p (*p))
+      while (p < pe && !dir_separator_p (int (*p)))
         p++;
     }
 }
 
 int
-parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, int dl)
+parse_namestring (pathbuf_t buf, const ucs4_t *name, int nl, const ucs4_t *defalt, int dl)
 {
   pathname path, tem;
 
   parse_name (path, name, name + nl);
-  const Char *trail = path.trail;
-  const Char *traile = path.traile;
+  const ucs4_t *trail = path.trail;
+  const ucs4_t *traile = path.traile;
 
   if (trail < traile && *trail == '~'
-      && (trail + 1 == traile || dir_separator_p (trail[1])))
+      && (trail + 1 == traile || dir_separator_p (int (trail[1]))))
     {
       lisp home = xsymbol_value (Qhome_dir);
       parse_name_simple (tem, xstring_contents (home),
@@ -250,10 +250,10 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
   if (path.dev == path.deve)
     path.dev = 0;
 
-  Char *b = buf;
-  Char *root;
+  ucs4_t *b = buf;
+  ucs4_t *root;
 
-  int abs = trail < traile && dir_separator_p (*trail);
+  int abs = trail < traile && dir_separator_p (int (*trail));
   if (path.dev && abs)
     {
       b = root = copy_Chars (b, path.dev, path.deve);
@@ -275,7 +275,7 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
             b = copy_Chars (b, tem.trail, tem.traile);
           else
             b = get_device_dir (b, path.dev, l);
-          if (b == buf || !dir_separator_p (b[-1]))
+          if (b == buf || !dir_separator_p (int (b[-1])))
             *b++ = SEPCHAR;
           b = copy_Chars (b, trail, traile);
         }
@@ -285,28 +285,28 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
 
   if (trail != path.trail)
     {
-      if (b == buf || !dir_separator_p (b[-1]))
+      if (b == buf || !dir_separator_p (int (b[-1])))
         *b++ = SEPCHAR;
       b = copy_Chars (b, path.trail, path.traile);
     }
   *b = 0;
 
-  Char *p = root, *pe = b;
+  ucs4_t *p = root, *pe = b;
   b = root;
   while (p < pe)
     {
-      if (dir_separator_p (*p))
+      if (dir_separator_p (int (*p)))
         {
           if (p + 1 < pe && p[1] == '.')
             {
-              if (p + 2 == pe || !p[2] || dir_separator_p (p[2]))
+              if (p + 2 == pe || !p[2] || dir_separator_p (int (p[2])))
                 {
                   p += 2;
                   continue;
                 }
-              else if (p[2] == '.' && (p + 3 == pe || !p[3] || dir_separator_p (p[3])))
+              else if (p[2] == '.' && (p + 3 == pe || !p[3] || dir_separator_p (int (p[3]))))
                 {
-                  for (; b > root && !dir_separator_p (b[-1]); b--)
+                  for (; b > root && !dir_separator_p (int (b[-1])); b--)
                     ;
                   if (b != root)
                     b--;
@@ -319,7 +319,7 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
     }
   if (b == root)
     *b++ = SEPCHAR;
-  else if (b > root + 1 && dir_separator_p (b[-1]))
+  else if (b > root + 1 && dir_separator_p (int (b[-1])))
     b--;
 
   if (b[-1] == '.')
@@ -327,9 +327,9 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
       for (p = b - 1; p > root && p[-1] == '.'; p--)
         ;
       if (p[-1] != SEPCHAR)
-        for (const Char *q = p; q > root;)
+        for (const ucs4_t *q = p; q > root;)
           {
-            Char c = *--q;
+            ucs4_t c = *--q;
             if (c == SEPCHAR)
               {
                 b = p;
@@ -346,8 +346,8 @@ parse_namestring (pathbuf_t buf, const Char *name, int nl, const Char *defalt, i
 lisp
 make_path (const char *s, int append_slash)
 {
-  Char *b = (Char *)alloca ((strlen (s) + 1) * sizeof (Char));
-  Char *be = s2w (b, s);
+  ucs4_t *b = (ucs4_t *)alloca ((strlen (s) + 1) * sizeof (ucs4_t));
+  ucs4_t *be = s2w (b, s);
   map_backsl_to_sl (b, be - b);
   if (append_slash && be != b && be[-1] != '/')
     *be++ = '/';
@@ -355,7 +355,7 @@ make_path (const char *s, int append_slash)
 }
 
 void
-map_backsl_to_sl (Char *p, int l)
+map_backsl_to_sl (ucs4_t *p, int l)
 {
   for (int i = 0; i < l; i++, p++)
     if (*p == '\\')
@@ -363,7 +363,7 @@ map_backsl_to_sl (Char *p, int l)
 }
 
 void
-map_sl_to_backsl (Char *p, int l)
+map_sl_to_backsl (ucs4_t *p, int l)
 {
   for (int i = 0; i < l; i++, p++)
     if (*p == '/')
@@ -371,7 +371,7 @@ map_sl_to_backsl (Char *p, int l)
 }
 
 static void
-coerce_to_pathname (lisp &pathname, pathbuf_t buf, const Char *&b, int &l)
+coerce_to_pathname (lisp &pathname, pathbuf_t buf, const ucs4_t *&b, int &l)
 {
   if (stringp (pathname))
     {
@@ -408,7 +408,7 @@ default_directory ()
 }
 
 static lisp
-coerce_to_pathname (lisp pathname, pathbuf_t buf, const Char *&b, const Char *&be)
+coerce_to_pathname (lisp pathname, pathbuf_t buf, const ucs4_t *&b, const ucs4_t *&be)
 {
   lisp d = default_directory ();
   b = xstring_contents (d);
@@ -422,7 +422,7 @@ lisp
 Fmerge_pathnames (lisp pathname, lisp defaults)
 {
   lisp d = default_directory ();
-  const Char *b = xstring_contents (d);
+  const ucs4_t *b = xstring_contents (d);
   int l = xstring_length (d);
   pathbuf_t buf1, buf2;
   if (defaults && defaults != Qnil)
@@ -451,12 +451,12 @@ has_trail_slash_p (lisp pathname, int dot)
 {
   if (stringp (pathname) && xstring_length (pathname))
     {
-      const Char *p = xstring_contents (pathname);
-      if (dir_separator_p (p[xstring_length (pathname) - 1]))
+      const ucs4_t *p = xstring_contents (pathname);
+      if (dir_separator_p (int (p[xstring_length (pathname) - 1])))
         return 1;
       if (dot && p[xstring_length (pathname) - 1] == '.'
           && (xstring_length (pathname) == 1
-              || dir_separator_p (p[xstring_length (pathname) - 2])))
+              || dir_separator_p (int (p[xstring_length (pathname) - 2]))))
         return 1;
     }
   return 0;
@@ -490,9 +490,9 @@ Ffile_namestring (lisp pathname)
     return make_string ("");
 
   pathbuf_t buf;
-  const Char *p0, *pe;
+  const ucs4_t *p0, *pe;
   pathname = coerce_to_pathname (pathname, buf, p0, pe);
-  for (const Char *p = pe; p > p0; p--)
+  for (const ucs4_t *p = pe; p > p0; p--)
     if (p[-1] == SEPCHAR)
       return make_string (p, pe - p);
   return pathname;
@@ -503,14 +503,14 @@ Fdirectory_namestring (lisp pathname)
 {
   int dirp = has_trail_slash_p (pathname, 1);
   pathbuf_t buf;
-  const Char *p0, *pe;
+  const ucs4_t *p0, *pe;
   pathname = coerce_to_pathname (pathname, buf, p0, pe);
   if (dirp && p0 != pe)
     {
       if (p0 != buf)
         bcopy (p0, buf, pe - p0);
-      Char *be = buf + (pe - p0);
-      if (!dir_separator_p (be[-1]))
+      ucs4_t *be = buf + (pe - p0);
+      if (!dir_separator_p (int (be[-1])))
         *be++ = '/';
       if (stringp (pathname)
           && be - buf == xstring_length (pathname)
@@ -518,7 +518,7 @@ Fdirectory_namestring (lisp pathname)
         return pathname;
       return make_string (buf, be - buf);
     }
-  for (const Char *p = pe; p > p0; p--)
+  for (const ucs4_t *p = pe; p > p0; p--)
     if (p[-1] == SEPCHAR)
       return make_string (p0, p - p0);
   return make_string ("");
@@ -528,14 +528,14 @@ lisp
 Fpathname_host (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *p0, *pe;
+  const ucs4_t *p0, *pe;
   pathname = coerce_to_pathname (pathname, buf, p0, pe);
   if (pe - p0 < 3)
     return Qnil;
   if (*p0 != SEPCHAR || p0[1] != SEPCHAR)
     return Qnil;
   p0 += 2;
-  const Char *p;
+  const ucs4_t *p;
   for (p = p0; p < pe && *p != SEPCHAR; p++)
     ;
   if (p == p0)
@@ -547,7 +547,7 @@ lisp
 Fpathname_device (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   pathname = coerce_to_pathname (pathname, buf, p, pe);
   if (pe - p < 2)
     return Qnil;
@@ -560,7 +560,7 @@ lisp
 Fpathname_directory (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   pathname = coerce_to_pathname (pathname, buf, p, pe);
   lisp dirs = Qnil;
   if (p + 3 <= pe && *p == SEPCHAR && p[1] == SEPCHAR)
@@ -571,7 +571,7 @@ Fpathname_directory (lisp pathname)
 
   while (p < pe)
     {
-      const Char *p0 = p;
+      const ucs4_t *p0 = p;
       for (; p < pe && *p != SEPCHAR; p++)
         ;
       if (p == pe)
@@ -583,21 +583,21 @@ Fpathname_directory (lisp pathname)
   return Fnreverse (dirs);
 }
 
-static const Char *
+static const ucs4_t *
 pathname_name_type (lisp pathname, pathbuf_t buf,
-                    const Char *&name, const Char *&name_e,
-                    const Char *&type, const Char *&type_e)
+                    const ucs4_t *&name, const ucs4_t *&name_e,
+                    const ucs4_t *&type, const ucs4_t *&type_e)
 {
-  const Char *p0, *pe;
+  const ucs4_t *p0, *pe;
   pathname = coerce_to_pathname (pathname, buf, p0, pe);
-  const Char *p;
+  const ucs4_t *p;
   for (p = pe; p > p0; p--)
     if (p[-1] == SEPCHAR)
       break;
-  const Char *dot;
+  const ucs4_t *dot;
   for (dot = p; dot < pe && *dot == '.'; dot++)
     ;
-  const Char *p2;
+  const ucs4_t *p2;
   for (p2 = pe; p2 > dot; p2--)
     if (p2[-1] == '.')
       break;
@@ -612,7 +612,7 @@ lisp
 Fpathname_name (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *name, *name_e, *type, *type_e;
+  const ucs4_t *name, *name_e, *type, *type_e;
   pathname_name_type (pathname, buf, name, name_e, type, type_e);
   return name == name_e ? Qnil : make_string (name, name_e - name);
 }
@@ -621,7 +621,7 @@ lisp
 Fpathname_type (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *name, *name_e, *type, *type_e;
+  const ucs4_t *name, *name_e, *type, *type_e;
   pathname_name_type (pathname, buf, name, name_e, type, type_e);
   return type == type_e ? Qnil : make_string (type, type_e - type);
 }
@@ -630,7 +630,7 @@ char *
 pathname2cstr (lisp pathname, char *buf)
 {
   pathbuf_t tem;
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   pathname = coerce_to_pathname (pathname, tem, p, pe);
   return w2s (buf, p, pe - p);
 }
@@ -643,10 +643,11 @@ wchar_t *
 pathname2wstr (lisp pathname, wchar_t *buf)
 {
   pathbuf_t tem;
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   pathname = coerce_to_pathname (pathname, tem, p, pe);
   int n = pe - p;
-  memcpy (buf, p, n * sizeof (wchar_t));
+  for (int i = 0; i < n; i++)
+    buf[i] = wchar_t (p[i]);
   buf[n] = 0;
   return buf + n + 1;
 }
@@ -785,7 +786,7 @@ Ftruename (lisp pathname)
     }
   map_backsl_to_sl (truename);
 
-  Char w[PATH_MAX + 1];
+  ucs4_t w[PATH_MAX + 1];
   int l = s2w (w, truename) - w;
   if (stringp (pathname) && l == xstring_length (pathname)
       && !bcmp (w, xstring_contents (pathname), l))
@@ -824,9 +825,12 @@ match_suffixes (const wchar_t *name, lisp ignores)
       lisp x = xcar (ignores);
       if (!stringp (x))
         continue;
-      int sl = xstring_length (x);
+      /* Phase 3: ucs4 suffix → UTF-16 で _wcsnicmp 比較。 */
+      ucs2_t *wx = (ucs2_t *)alloca (i2wl (x) * sizeof (ucs2_t));
+      ucs2_t *wxe = i2w (x, wx);
+      int sl = (int)(wxe - wx);
       if (sl <= l
-          && !_wcsnicmp (name + l - sl, (const wchar_t *)xstring_contents (x), sl))
+          && !_wcsnicmp (name + l - sl, (const wchar_t *)wx, sl))
         return 1;
     }
   return 0;
@@ -836,11 +840,11 @@ lisp
 Ffile_system_supports_long_file_name_p (lisp path)
 {
   pathbuf_t buf;
-  const Char *p, *pe;
+  const ucs4_t *p, *pe;
   coerce_to_pathname (path, buf, p, pe);
   if (pe - p < 2)
     return Qnil;
-  Char *t = skip_device_or_host (p, pe);
+  ucs4_t *t = skip_device_or_host (p, pe);
   if (p != buf)
     bcopy (p, buf, t - p);
   t = buf + (t - p);
@@ -949,14 +953,14 @@ lisp
 Fcompile_file_pathname (lisp pathname)
 {
   pathbuf_t buf;
-  const Char *name, *name_e, *type, *type_e;
-  const Char *p0 = pathname_name_type (pathname, buf, name, name_e, type, type_e);
+  const ucs4_t *name, *name_e, *type, *type_e;
+  const ucs4_t *p0 = pathname_name_type (pathname, buf, name, name_e, type, type_e);
   if (name == name_e)
     return Qnil;
   int l = type_e - p0;
   if (p0 != buf)
     bcopy (p0, buf, l);
-  Char *b = buf + l;
+  ucs4_t *b = buf + l;
   if (type_e - type == 1 && (*type == 'l' || *type == 'L'))
     *b++ = *type == 'l' ? 'c' : 'C';
   else
@@ -1311,7 +1315,7 @@ rename_short_name (const char *fpath, const char *tname, const char *longname)
   map_backsl_to_sl (tempname);
   sprintf (buf, get_message_string (Erename_failed), tempname, realpath);
   Char wbuf[PATH_MAX * 3];
-  *s2w (wbuf, buf) = 0;
+  *s2w_u16 (wbuf, buf) = 0;
   MsgBox (get_active_window (), wbuf, TitleBarStringC,
           MB_OK | MB_ICONEXCLAMATION,
           xsymbol_value (Vbeep_on_error) != Qnil);
@@ -1722,13 +1726,13 @@ Fdelete_directory (lisp dirname, lisp keys)
 }
 
 static lisp
-map_sl (lisp path, Char from, Char to)
+map_sl (lisp path, ucs4_t from, ucs4_t to)
 {
   check_string (path);
-  Char *p0 = (Char *)alloca (xstring_length (path) * sizeof *p0);
+  ucs4_t *p0 = (ucs4_t *)alloca (xstring_length (path) * sizeof *p0);
   bcopy (xstring_contents (path), p0, xstring_length (path));
   int f = 0;
-  for (Char *p = p0, *pe = p0 + xstring_length (path); p < pe; p++)
+  for (ucs4_t *p = p0, *pe = p0 + xstring_length (path); p < pe; p++)
     if (*p == from)
       {
         *p = to;
@@ -2483,7 +2487,7 @@ Fget_short_path_name (lisp lpath)
     file_error (GetLastError (), lpath);
   map_backsl_to_sl (spath);
   if (stringp (lpath) && xstring_length (lpath)
-      && dir_separator_p (xstring_contents (lpath)[xstring_length (lpath) - 1]))
+      && dir_separator_p (int (xstring_contents (lpath)[xstring_length (lpath) - 1])))
     {
       char *sl = find_last_slash (spath);
       if (sl && sl[1])

@@ -186,7 +186,7 @@ public:
   lisp *bc_locals;
   int bc_nlocals;
 
-  Char *bc_opecode;
+  ucs4_t *bc_opecode;
   int bc_pcb;
   int bc_pce;
   int bc_pc;
@@ -231,7 +231,7 @@ public:
 
   void process (lex_env &, int, int);
 
-  ByteCode (lisp *, int, lisp *, int, lisp *, int, Char *, int);
+  ByteCode (lisp *, int, lisp *, int, lisp *, int, ucs4_t *, int);
 };
 
 inline void
@@ -1553,7 +1553,7 @@ after_jump:
 
 inline
 ByteCode::ByteCode (lisp *frame, int nframe, lisp *stack, int nstack,
-                    lisp *constant, int nconstant, Char *string, int slen)
+                    lisp *constant, int nconstant, ucs4_t *string, int slen)
      : bc_stackb (stack), bc_stacke (stack + nstack), bc_stackp (stack),
        bc_constants (constant), bc_nconstants (nconstant), bc_locals (frame),
        bc_nlocals (nframe), bc_opecode (string),
@@ -1590,7 +1590,7 @@ Fsi_byte_code (lisp arg, lex_env &lex)
   int slen = xstring_length (byte_string);
   if (slen < 3)
     FEinvalid_byte_code ();
-  Char *string = xstring_contents (byte_string);
+  ucs4_t *string = xstring_contents (byte_string);
   int nstack_frame = string[0];
   int stack_depth = string[1];
   int nargs = string[2];

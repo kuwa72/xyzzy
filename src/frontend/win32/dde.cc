@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "xdde.h"
 #include "safe_ptr.h"
+#include "oleconv.h"
 
 static HDDEDATA CALLBACK topic_list_callback (DdeCallbackInfo *);
 static HDDEDATA CALLBACK item_list_callback (DdeCallbackInfo *);
@@ -90,13 +91,8 @@ Fdde_initiate (lisp lserv, lisp ltopic)
   lserv = Fstring (lserv);
   ltopic = Fstring (ltopic);
   lisp lconv = make_win32_dde_handle ();
-  int slen = xstring_length (lserv), tlen = xstring_length (ltopic);
-  wchar_t *serv = (wchar_t *)alloca ((slen + 1) * sizeof (wchar_t));
-  memcpy (serv, xstring_contents (lserv), slen * sizeof (wchar_t));
-  serv[slen] = 0;
-  wchar_t *topic = (wchar_t *)alloca ((tlen + 1) * sizeof (wchar_t));
-  memcpy (topic, xstring_contents (ltopic), tlen * sizeof (wchar_t));
-  topic[tlen] = 0;
+  wchar_t *serv = I2W (lserv);
+  wchar_t *topic = I2W (ltopic);
   CALL_DDE (xwin32_dde_handle_hconv (lconv) = Dde::initiate (serv, topic));
   return lconv;
 }
@@ -140,10 +136,7 @@ Fdde_poke (lisp lconv, lisp litem, lisp ldata)
 {
   HCONV hconv = check_hconv (lconv);
   litem = Fstring (litem);
-  int ilen = xstring_length (litem);
-  wchar_t *item = (wchar_t *)alloca ((ilen + 1) * sizeof (wchar_t));
-  memcpy (item, xstring_contents (litem), ilen * sizeof (wchar_t));
-  item[ilen] = 0;
+  wchar_t *item = I2W (litem);
   ldata = Fstring (ldata);
   int l = w2sl (ldata) + 1;
   safe_ptr <char> data (new char [l]);
@@ -206,7 +199,7 @@ req_value (dde_reqtype type, const DdeData &data)
         int l = data.length ();
         lisp x = make_string (l);
         const u_char *s = (const u_char *)data.data ();
-        for (Char *d = xstring_contents (x), *de = d + l; d < de; d++, s++)
+        for (ucs4_t *d = xstring_contents (x), *de = d + l; d < de; d++, s++)
           *d = *s;
         return x;
       }
@@ -228,10 +221,7 @@ Fdde_request (lisp lconv, lisp ldata, lisp type)
   HCONV hconv = check_hconv (lconv);
   ldata = Fstring (ldata);
   dde_reqtype dr_type = req_type (type);
-  int dlen = xstring_length (ldata);
-  wchar_t *data = (wchar_t *)alloca ((dlen + 1) * sizeof (wchar_t));
-  memcpy (data, xstring_contents (ldata), dlen * sizeof (wchar_t));
-  data[dlen] = 0;
+  wchar_t *data = I2W (ldata);
   lisp result = Qnil;
   try
     {

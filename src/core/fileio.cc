@@ -871,11 +871,12 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
   return fail;
 }
 
-class xinput_buffer_stream: public xinput_stream <Char>
+class xinput_buffer_stream: public xinput_stream <ucs4_t>
 {
   const Chunk *s_cp;
   int s_offset;
   long s_rest;
+  ucs4_t s_buf[Chunk::TEXT_SIZE];
 
   virtual int refill ()
     {
@@ -890,8 +891,19 @@ class xinput_buffer_stream: public xinput_stream <Char>
           if (!s_cp)
             return eof;
         }
-      int c = setbuf (s_cp->c_text + s_offset,
-                      s_cp->c_text + s_offset + nchars);
+      /* Convert Char (UTF-16) → ucs4_t; decode surrogate pairs. */
+      const Char *src = s_cp->c_text + s_offset;
+      ucs4_t *dst = s_buf;
+      for (int i = 0; i < nchars; )
+        {
+          ucs2_t c = ucs2_t (src[i++]);
+          if (utf16_surrogate_high_p (c) && i < nchars
+              && utf16_surrogate_low_p (ucs2_t (src[i])))
+            *dst++ = utf16_pair_to_ucs4 (c, ucs2_t (src[i++]));
+          else
+            *dst++ = c;
+        }
+      int c = setbuf (s_buf, dst);
       s_rest -= nchars;
       s_cp = s_cp->c_next;
       s_offset = 0;

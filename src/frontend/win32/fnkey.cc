@@ -81,14 +81,17 @@ FKWin::paint_text (HDC hdc, int n, const RECT &br, int offset) const
   if (fk_vkey & FVK_CONTROL)
     n += CTRL_OFFSET;
 
-  /* Phase 2: Lisp string は既に UTF-16。旧 w2s→cp932_to_wcs 往復は不要。 */
+  /* Phase 3: function-bar label を ucs4 → UTF-16 化して描画。 */
   lisp label = xvector_contents (xsymbol_value (Vfunction_bar_labels))[n];
   const wchar_t *ws = L"";
   int wl = 0;
+  wchar_t wbuf[2048];
   if (stringp (label))
     {
-      ws = (const wchar_t *) xstring_contents (label);
-      wl = min (xstring_length (label), 1024);
+      int slen = min<int> (xstring_length (label), 1023);
+      ucs2_t *we = i2w (xstring_contents (label), slen, (ucs2_t *)wbuf);
+      ws = wbuf;
+      wl = (int)(we - (ucs2_t *)wbuf);
     }
   ExtTextOutW (hdc, r.left + 2, r.top + 2, ETO_CLIPPED | ETO_OPAQUE,
                &r, ws, wl, 0);

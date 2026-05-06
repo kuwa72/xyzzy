@@ -147,12 +147,15 @@ FontObject::update (LOGFONTW &lf, const lisp keys, const bool recommend_size_p)
     {
       check_string (lface);
       int flen = xstring_length (lface);
-      const Char *fdata = xstring_contents (lface);
-      if ((size_t)flen != wcslen (lf.lfFaceName)
-          || memcmp (lf.lfFaceName, fdata, flen * sizeof (wchar_t)) != 0)
+      const ucs4_t *fdata = xstring_contents (lface);
+      bool face_match = ((size_t)flen == wcslen (lf.lfFaceName));
+      for (int i = 0; face_match && i < flen; i++)
+        if (lf.lfFaceName[i] != wchar_t (fdata[i]))
+          face_match = false;
+      if (!face_match)
         {
           int n = min (flen, LF_FACESIZE - 1);
-          memcpy (lf.lfFaceName, (const wchar_t *)fdata, n * sizeof (wchar_t));
+          for (int i = 0; i < n; i++) lf.lfFaceName[i] = wchar_t (fdata[i]);
           lf.lfFaceName[n] = 0;
           update = true;
         }

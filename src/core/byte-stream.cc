@@ -2,19 +2,19 @@
 #include "ed.h"
 #include "byte-stream.h"
 
-// Phase 2: Char は UTF-16 code unit。byte stream は Lisp 文字列を「原文の
-// バイト列」として扱いたいので、< 256 の Char は raw byte としてそのまま、
-// 256 以上は cp932 へ変換してから 1–2 byte 出力する。pre-Phase-2 は Char
-// 自体が SJIS-packed value で直 byte-split していたが、Phase 2 以降は
-// "あ" リテラルが U+3042 になったため wc2cp932 ブリッジが必要。
+/* Phase 3: Lisp strings store ucs4_t code points. To emit as bytes,
+   BMP chars that fit in 1 byte go raw; others are converted via cp932.
+   Non-BMP and non-cp932 chars map to '?'. */
 static inline void
-emit_char_as_bytes (u_char *&b, Char cc)
+emit_char_as_bytes (u_char *&b, ucs4_t cc)
 {
   if (cc < 0x100)
     *b++ = u_char (cc);
+  else if (cc > 0xFFFF)
+    *b++ = '?';
   else
     {
-      Char sjis = wc2cp932 (cc);
+      Char sjis = wc2cp932 (ucs2_t (cc));
       if (sjis == Char (-1))
         *b++ = '?';
       else if (DBCP (sjis))
@@ -45,7 +45,7 @@ byte_input_streams_stream::refill ()
       lChar lcc = readc_stream (s_stream);
       if (lcc == lChar_EOF)
         break;
-      emit_char_as_bytes (b, Char (lcc));
+      emit_char_as_bytes (b, ucs4_t (lcc));
     }
   return setbuf (s_buf, b);
 }
@@ -53,29 +53,37 @@ byte_input_streams_stream::refill ()
 u_char *
 byte_output_wstream::sflush (u_char *b0, u_char *be, int)
 {
-  // Phase 2: 内部 Char は UTF-16 code unit。byte stream 出力は「この
-  // バイト列を Lisp 文字列として保持する」ため、1 byte = 1 Char で透過的に
-  // 格納する (<0x100)。旧実装は SJIS lead+trail を 1 Char に pack していたが、
-  // Phase 2 では Lisp 文字列の意味論が Unicode になったので pack 不可。
-  Char *w, wbuf[sizeof s_buf];
+  /* Phase 3: bytes from the encoding layer are single-byte values
+     (0-255 per encoded byte). Store each as a ucs4_t in the StrBuf. */
+  ucs4_t wbuf[sizeof s_buf];
   u_char *b = b0;
-  for (w = wbuf; b < be;)
-    *w++ = *b++;
+  ucs4_t *w = wbuf;
+  while (b < be)
+    *w++ = ucs4_t (*b++);
   if (w - wbuf)
     swrite (wbuf, w - wbuf);
   return b0;
 }
 
 int
+Char_input_string_stream::refill ()
+{
+  ucs4_t *b = s_buf, *const be = s_buf + numberof (s_buf);
+  while (b < be && s_wp < s_we)
+    *b++ = *s_wp++;
+  return setbuf (s_buf, b);
+}
+
+int
 Char_input_streams_stream::refill ()
 {
-  Char *b = s_buf, *const be = s_buf + numberof (s_buf);
+  ucs4_t *b = s_buf, *const be = s_buf + numberof (s_buf);
   while (b < be)
     {
       lChar lcc = readc_stream (s_stream);
       if (lcc == lChar_EOF)
         break;
-      *b++ = Char (lcc);
+      *b++ = ucs4_t (lcc);
     }
   return setbuf (s_buf, b);
 }

@@ -1862,8 +1862,8 @@ process_interactive_string (lisp fmt, lisp args)
 {
   check_string (fmt);
 
-  const Char *p = xstring_contents (fmt);
-  const Char *pe = p + xstring_length (fmt);
+  const ucs4_t *p = xstring_contents (fmt);
+  const ucs4_t *pe = p + xstring_length (fmt);
 
   if (p == pe)
     return Qnil;
@@ -1895,7 +1895,7 @@ process_interactive_string (lisp fmt, lisp args)
       xsymbol_value (Vnext_prefix_value) = Qnil;
 
       int opt_arg = -1;
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (digit_char_p (c))
         {
           opt_arg = c - '0';
@@ -1904,7 +1904,7 @@ process_interactive_string (lisp fmt, lisp args)
           c = *p++;
         }
 
-      const Char *p0;
+      const ucs4_t *p0;
       for (p0 = p; p < pe && *p != '\n'; p++)
         ;
 

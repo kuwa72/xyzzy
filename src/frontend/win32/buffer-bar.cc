@@ -124,11 +124,9 @@ buffer_bar::need_text (TOOLTIPTEXT &ttt)
   else
     x = bp->lbuffer_name;
 
-  /* Phase 2: internal encoding is now UTF-16; copy directly, no SJIS roundtrip */
-  int len = xstring_length (x);
-  if (len > TTBUFSIZE - 1) len = TTBUFSIZE - 1;
-  memcpy (b_ttbufw, xstring_contents (x), len * sizeof (wchar_t));
-  b_ttbufw[len] = 0;
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case surrogate expansion. */
+  int len = min<int> (xstring_length (x), (TTBUFSIZE - 1) / 2);
+  i2w (xstring_contents (x), len, (ucs2_t *)b_ttbufw);
   ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;

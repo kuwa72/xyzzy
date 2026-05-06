@@ -611,7 +611,7 @@ Fgethash_region (lisp from, lisp to, lisp hash_table, lisp defalt)
   if (p1 > p2)
     swap (p1, p2);
   int l = p2 - p1;
-  Char *b = (Char *)alloca (sizeof *b * l);
+  ucs4_t *b = (ucs4_t *)alloca (sizeof *b * l);
   bp->substring (p1, l, b);
   temporary_string t (b, l);
   return Fgethash (t.string (), hash_table, defalt);

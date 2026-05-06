@@ -144,6 +144,18 @@ bcmp (const Char *p1, const Char *p2, size_t size)
   return memcmp (p1, p2, sizeof (Char) * size);
 }
 
+inline void
+bcopy (const ucs4_t *src, ucs4_t *dst, size_t size)
+{
+  memcpy (dst, src, sizeof (ucs4_t) * size);
+}
+
+inline int
+bcmp (const ucs4_t *p1, const ucs4_t *p2, size_t size)
+{
+  return memcmp (p1, p2, sizeof (ucs4_t) * size);
+}
+
 template <class T>
 inline T *
 bfill (T *p0, int start, int end, T x)

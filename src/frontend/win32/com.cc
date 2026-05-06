@@ -4,29 +4,16 @@
 #include "oleconv.h"
 #include "sysdep.h"
 
-/* Phase 2-5: copy a Lisp string into a wchar_t scratch buffer with a null
-   terminator, no cp932 detour. */
-static wchar_t *
-lisp_to_wstr (lisp s, wchar_t *buf)
-{
-  int n = xstring_length (s);
-  memcpy (buf, xstring_contents (s), n * sizeof (wchar_t));
-  buf[n] = 0;
-  return buf;
-}
-
 static void
 set_desc (IShellLinkW *sl, lisp ldesc)
 {
-  wchar_t *w = (wchar_t *)alloca ((xstring_length (ldesc) + 1) * sizeof (wchar_t));
-  ole_error (sl->SetDescription (lisp_to_wstr (ldesc, w)));
+  ole_error (sl->SetDescription (I2W (ldesc)));
 }
 
 static void
 set_args (IShellLinkW *sl, lisp largs)
 {
-  wchar_t *w = (wchar_t *)alloca ((xstring_length (largs) + 1) * sizeof (wchar_t));
-  ole_error (sl->SetArguments (lisp_to_wstr (largs, w)));
+  ole_error (sl->SetArguments (I2W (largs)));
 }
 
 static void
@@ -35,8 +22,7 @@ set_appid (IShellLinkW *sl, lisp lappid)
   if (!sysdep.Win6_1p ())
     return;
 
-  wchar_t *w = (wchar_t *)alloca ((xstring_length (lappid) + 1) * sizeof (wchar_t));
-  lisp_to_wstr (lappid, w);
+  wchar_t *w = I2W (lappid);
 
   safe_com <IPropertyStore> store;
   ole_error (sl->QueryInterface (IID_PPV_ARGS(&store)));
@@ -95,7 +81,7 @@ Fcreate_shortcut (lisp lobject, lisp llink, lisp keys)
       safe_com <IShellFolder> sf;
       ole_error (SHGetDesktopFolder (&sf));
 
-      map_sl_to_backsl ((Char *)wpath, (int)wcslen (wpath));
+      map_sl_to_backsl (wpath, (int)wcslen (wpath));
 
       ULONG ul;
       safe_idl idl (ialloc);
@@ -195,7 +181,7 @@ Fresolve_shortcut (lisp lshortcut)
      description as wchar_t end-to-end. */
   wchar_t shortcut[PATH_MAX + 1];
   pathname2wstr (lshortcut, shortcut);
-  map_sl_to_backsl ((Char *)shortcut, (int)wcslen (shortcut));
+  map_sl_to_backsl (shortcut, (int)wcslen (shortcut));
 
   safe_com <IShellLinkW> sl;
   ole_error (CoCreateInstance (CLSID_ShellLink, 0, CLSCTX_INPROC_SERVER,
@@ -215,7 +201,7 @@ Fresolve_shortcut (lisp lshortcut)
     FEfile_error (Enot_a_shortcut, lshortcut);
   ole_error (sl->GetDescription (desc, numberof (desc)));
 
-  map_backsl_to_sl ((Char *)path, (int)wcslen (path));
+  map_backsl_to_sl (path, (int)wcslen (path));
   multiple_value::count () = 2;
   multiple_value::value (1) = make_string ((const Char *)desc, wcslen (desc));
   return make_string ((const Char *)path, wcslen (path));
@@ -228,21 +214,21 @@ Fole_drop_files (lisp lpath, lisp lclsid, lisp ldir, lisp lfiles)
      no cp932 detour. */
   wchar_t wpath[MAX_PATH + 1];
   pathname2wstr (lpath, wpath);
-  map_sl_to_backsl ((Char *)wpath, (int)wcslen (wpath));
+  map_sl_to_backsl (wpath, (int)wcslen (wpath));
 
   check_string (lclsid);
-  wchar_t *wclsid =
-    (wchar_t *)alloca ((xstring_length (lclsid) + 1) * sizeof (wchar_t));
-  memcpy (wclsid, xstring_contents (lclsid),
-          xstring_length (lclsid) * sizeof (wchar_t));
-  wclsid[xstring_length (lclsid)] = 0;
+  int wclsid_l = xstring_length (lclsid);
+  wchar_t *wclsid = (wchar_t *)alloca ((wclsid_l + 1) * sizeof (wchar_t));
+  const ucs4_t *wclsid_src = xstring_contents (lclsid);
+  for (int i = 0; i < wclsid_l; i++) wclsid[i] = wchar_t (wclsid_src[i]);
+  wclsid[wclsid_l] = 0;
   CLSID clsid;
   if (FAILED (CLSIDFromString (wclsid, &clsid)))
     ole_error (CLSIDFromProgID (wclsid, &clsid));
 
   wchar_t dir[PATH_MAX + 1];
   pathname2wstr (ldir, dir);
-  map_sl_to_backsl ((Char *)dir, (int)wcslen (dir));
+  map_sl_to_backsl (dir, (int)wcslen (dir));
   int maxl = (int)wcslen (dir);
 
   lisp f = lfiles;
@@ -285,10 +271,7 @@ Fole_drop_files (lisp lpath, lisp lclsid, lisp ldir, lisp lfiles)
   for (i = 0; i < nfiles && consp (f); i++, f = xcdr (f))
     {
       lisp s = xcar (f);
-      int n = xstring_length (s);
-      memcpy (wbuf, xstring_contents (s), n * sizeof (wchar_t));
-      wbuf[n] = 0;
-      ole_error (sf->ParseDisplayName (0, 0, wbuf, &eaten, &idls[i], 0));
+      ole_error (sf->ParseDisplayName (0, 0, I2W (s), &eaten, &idls[i], 0));
     }
 
   safe_com <IDataObject> data_obj;

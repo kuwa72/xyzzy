@@ -979,10 +979,9 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       long size;
       if (unicode_p)
         {
-          /* Phase 2-5: c / b are UTF-16 Lisp strings; copy directly into the
-             wchar_t tail of the RECONVERTSTRING. */
-          long numc = xstring_length (c);
-          long numo = xstring_length (b);
+          /* Phase 3: ucs4 → UTF-16, then fill RECONVERTSTRING tail. */
+          long numc = i2wl (c) - 1;       // UTF-16 code units, exclude terminator
+          long numo = i2wl (b) - 1;
           long len = (numc + 1) * sizeof (wchar_t);
           long offset = numo * sizeof (wchar_t);
           size = sizeof *rsbuf + len;
@@ -996,9 +995,7 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
           rsbuf->dwCompStrOffset = 0;
           rsbuf->dwTargetStrLen = 0;
           rsbuf->dwTargetStrOffset = offset;
-          memcpy ((wchar_t *)(rsbuf + 1), xstring_contents (c),
-                  numc * sizeof (wchar_t));
-          ((wchar_t *)(rsbuf + 1))[numc] = 0;
+          i2w (c, (ucs2_t *)(rsbuf + 1));
           return size;
         }
 
@@ -1444,10 +1441,10 @@ Fset_ime_read_string (lisp string)
   else
     {
       check_string (string);
-      read_len = xstring_length (string);
-      read = (wchar_t *)alloca ((read_len + 1) * sizeof (wchar_t));
-      memcpy (read, xstring_contents (string), read_len * sizeof (wchar_t));
-      read[read_len] = 0;
+      /* Phase 3: ucs4 → UTF-16. */
+      read = (wchar_t *)alloca (i2wl (string) * sizeof (wchar_t));
+      ucs2_t *we = i2w (string, (ucs2_t *)read);
+      read_len = (int)(we - (ucs2_t *)read);
     }
   HIMC hIMC = app.kbdq.gime.ImmGetContext (app.toplev);
   if (!hIMC)
@@ -1461,29 +1458,24 @@ Fset_ime_read_string (lisp string)
 lisp
 Fime_register_word_dialog (lisp lcomp, lisp lread)
 {
-  /* Phase 2-5: REGISTERWORDW takes wchar_t fields. Copy Lisp UTF-16
-     contents directly. */
+  /* Phase 3: REGISTERWORDW takes wchar_t fields. ucs4 → UTF-16 で詰める。 */
   REGISTERWORDW rw;
   rw.lpWord = rw.lpReading = 0;
   if (lcomp && lcomp != Qnil)
     {
       check_string (lcomp);
-      int n = xstring_length (lcomp);
-      rw.lpWord = (wchar_t *)alloca ((n + 1) * sizeof (wchar_t));
-      memcpy (rw.lpWord, xstring_contents (lcomp), n * sizeof (wchar_t));
-      rw.lpWord[n] = 0;
+      rw.lpWord = (wchar_t *)alloca (i2wl (lcomp) * sizeof (wchar_t));
+      i2w (lcomp, (ucs2_t *)rw.lpWord);
     }
   if (lread && lread != Qnil)
     {
       check_string (lread);
-      int n = xstring_length (lread);
-      rw.lpReading = (wchar_t *)alloca ((n + 2) * sizeof (wchar_t));
-      memcpy (rw.lpReading, xstring_contents (lread), n * sizeof (wchar_t));
-      rw.lpReading[n] = 0;
+      rw.lpReading = (wchar_t *)alloca ((i2wl (lread) + 1) * sizeof (wchar_t));
+      ucs2_t *we = i2w (lread, (ucs2_t *)rw.lpReading);
       if (sysdep.Win95p ())
         {
-          rw.lpReading[n] = L' ';
-          rw.lpReading[n + 1] = 0;
+          *we++ = L' ';
+          *we = 0;
         }
     }
   return boole (app.kbdq.gime.ImmConfigureIME (GetKeyboardLayout (0), app.toplev,
@@ -1578,6 +1570,11 @@ Fselect_kbd_layout (lisp layout)
       if (!n)
         FEsimple_win32_error (GetLastError ());
 
+      /* Phase 3: layout の ucs4 → UTF-16 化して、OS が返した Char[] (UTF-16)
+         と code-unit space で比較する。 */
+      ucs2_t *wlay = (ucs2_t *)alloca (i2wl (layout) * sizeof (ucs2_t));
+      ucs2_t *wlay_end = i2w (layout, wlay);
+      int wlay_len = (int)(wlay_end - wlay);
       int i;
       for (i = 0; i < n; i++)
         {
@@ -1588,9 +1585,8 @@ Fselect_kbd_layout (lisp layout)
               int nchar = 0;
               while (nchar < (int)numberof (buf) && buf[nchar])
                 nchar++;
-              if (nchar == xstring_length (layout)
-                  && !memcmp (buf, xstring_contents (layout),
-                              nchar * sizeof (Char)))
+              if (nchar == wlay_len
+                  && !memcmp (buf, wlay, nchar * sizeof (Char)))
                 {
                   hkl = h[i];
                   break;

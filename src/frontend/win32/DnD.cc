@@ -224,9 +224,10 @@ make_idl (HWND hwnd, lisp ldir, void *param,
   int dirlen = xstring_length (ldir);
   int sz = max (dirlen + 1, MAX_PATH) + MAX_PATH;
   wchar_t *w = (wchar_t *)alloca (sz * sizeof (wchar_t));
-  memcpy (w, xstring_contents (ldir), dirlen * sizeof (wchar_t));
+  const ucs4_t *ldir_s = xstring_contents (ldir);
+  for (int i = 0; i < dirlen; i++) w[i] = wchar_t (ldir_s[i]);
   w[dirlen] = 0;
-  map_sl_to_backsl ((Char *)w, dirlen);
+  map_sl_to_backsl (w, dirlen);
 
   ULONG eaten;
   safe_idl dir_idl (ialloc);
@@ -1122,8 +1123,11 @@ text_drop_target::Drop (IDataObject *data_obj, DWORD key,
               if (make_string_from_clipboard_text (x, ptr, etc.cfFormat,
                                                    ENCODING_LANG_NIL))
                 {
-                  bp->insert_chars (app.drop_window->w_point,
-                                    xstring_contents (x), xstring_length (x));
+                  int xlen = xstring_length (x);
+                  const ucs4_t *xuc = xstring_contents (x);
+                  Char *xc = (Char *)alloca (xlen * sizeof (Char));
+                  for (int i = 0; i < xlen; i++) xc[i] = Char (xuc[i]);
+                  bp->insert_chars (app.drop_window->w_point, xc, xlen);
                   hr = S_OK;
                 }
             }
@@ -1270,7 +1274,8 @@ text_data_object::GetData (FORMATETC *etc, STGMEDIUM *medium)
                   if (p)
                     {
                       p->size = xstring_length (string);
-                      bcopy (xstring_contents (string), p->data, p->size);
+                      const ucs4_t *src = xstring_contents (string);
+                      for (int i = 0; i < p->size; i++) p->data[i] = Char (src[i]);
                       GlobalUnlock (h);
                     }
                   else

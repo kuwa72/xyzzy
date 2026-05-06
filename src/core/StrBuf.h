@@ -10,14 +10,14 @@ protected:
   struct strbuf_chunk
     {
       strbuf_chunk *cdr;
-      Char *used;
-      Char contents[1];
+      ucs4_t *used;
+      ucs4_t contents[1];
     };
 
   strbuf_chunk *sb_chunk;
   int sb_chunk_size;
-  Char *sb_next;
-  Char *sb_limit;
+  ucs4_t *sb_next;
+  ucs4_t *sb_limit;
   int sb_finished;
 
   virtual void alloc ();
@@ -39,19 +39,20 @@ public:
   void empty ();
   int empty_p () const;
 
+  void add (ucs4_t);
   void add (int);
-  void add (Char);
+  void fill (ucs4_t, int);
   void fill (int, int);
-  void fill (Char, int);
   void add (const char *);
+  void add (const ucs4_t *, int);
   void add (const Char *, int);
   void add (StrBuf &);
   void add_simple (const char *);
   void add_simple (const char *, int);
 
   void finish ();
-  void copy (Char *);
-  operator const Char * () const;
+  void copy (ucs4_t *);
+  operator const ucs4_t * () const;
   int length () const;
   lisp make_string ();
   lisp make_substring (int, int);
@@ -65,7 +66,7 @@ StrBuf::StrBuf (void *p, int size)
   assert (p);
   assert (size >= sizeof (strbuf_chunk));
   sb_initial_buffer = p;
-  sb_chunk_size = (size - offsetof (strbuf_chunk, contents)) / sizeof (Char);
+  sb_chunk_size = (size - offsetof (strbuf_chunk, contents)) / sizeof (ucs4_t);
   init ();
 }
 
@@ -92,7 +93,7 @@ StrBuf::empty ()
 }
 
 inline void
-StrBuf::add (Char c)
+StrBuf::add (ucs4_t c)
 {
   assert (!sb_finished);
   if (sb_next == sb_limit)
@@ -103,17 +104,17 @@ StrBuf::add (Char c)
 inline void
 StrBuf::add (int c)
 {
-  add (Char (c & 0xff));
+  add (ucs4_t (c & 0xff));
 }
 
 inline void
 StrBuf::fill (int c, int n)
 {
-  fill (Char (c & 0xff), n);
+  fill (ucs4_t (c & 0xff), n);
 }
 
 inline
-StrBuf::operator const Char * () const
+StrBuf::operator const ucs4_t * () const
 {
   return sb_chunk->contents;
 }

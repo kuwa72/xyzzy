@@ -275,13 +275,98 @@ parse_number_format (const Char *p, const Char *pe, int base)
 }
 
 int
+parse_number_format (const ucs4_t *p, const ucs4_t *pe, int base)
+{
+  ucs4_t expchar = 'e';
+  int f = 0;
+  if (p < pe && (*p == '+' || *p == '-'))
+    p++;
+  if (p < pe && digit_char (*p) < base)
+    {
+      f |= NF_LEADNUM;
+      for (p++; p < pe && digit_char (*p) < base; p++)
+        ;
+    }
+  if (p < pe && *p == '.')
+    {
+      f |= NF_DOT;
+      p++;
+    }
+  if (p < pe && *p == '/')
+    {
+      f |= NF_SLASH;
+      p++;
+    }
+  if (p < pe && digit_char (*p) < base)
+    {
+      f |= NF_TRAILNUM;
+      for (p++; p < pe && digit_char (*p) < base; p++)
+        ;
+    }
+  if (p < pe)
+    {
+      ucs4_t c = char_downcase (*p);
+      switch (c)
+        {
+        case 'e':
+        case 's':
+        case 'f':
+        case 'd':
+        case 'l':
+          f |= NF_EXPCHAR;
+          expchar = c;
+          p++;
+        }
+    }
+  if (p < pe && (*p == '+' || *p == '-'))
+    {
+      f |= NF_EXPSIGN;
+      p++;
+    }
+  if (p < pe && digit_char_p (*p))
+    {
+      f |= NF_EXPNUM;
+      for (p++; p < pe && digit_char_p (*p); p++)
+        ;
+    }
+
+  if ((f & (NF_EXP | NF_EXPSIGN)) == NF_EXPSIGN)
+    return NF_BAD;
+  f &= ~NF_EXPSIGN;
+
+  if (p == pe)
+    {
+      switch (f)
+        {
+        case NF_LEADNUM:
+          return NF_INTEGER;
+
+        case NF_LEADNUM | NF_DOT:
+          return NF_INTEGER_DOT;
+
+        case NF_LEADNUM | NF_SLASH | NF_TRAILNUM:
+          return NF_FRACTION;
+
+        case NF_DOT | NF_TRAILNUM:
+        case NF_DOT | NF_TRAILNUM | NF_EXP:
+        case NF_LEADNUM | NF_DOT | NF_TRAILNUM:
+        case NF_LEADNUM | NF_DOT | NF_TRAILNUM | NF_EXP:
+        case NF_LEADNUM | NF_EXP:
+        case NF_LEADNUM | NF_DOT | NF_EXP:
+          return NF_FLOAT | expchar;
+        }
+    }
+  return NF_BAD;
+}
+
+int
 check_integer_format (const char *s, int *n)
 {
-  Char *b = (Char *)alloca (strlen (s) * 2);
-  Char *be = s2w (b, s);
+  ucs4_t *b = (ucs4_t *)alloca (strlen (s) * sizeof (ucs4_t));
+  ucs4_t *be = s2w (b, s);
   for (; b < be && (*b == ' ' || *b == '\t'); b++)
     ;
-  for (; be > b && (b[-1] == ' ' || b[-1] == '\t'); b--)
+  for (; be > b && (be[-1] == ' ' || be[-1] == '\t'); be--)
     ;
 
   switch (parse_number_format (b, be, 10))
@@ -302,6 +387,37 @@ streq (const Char *p, int l, const char *s)
   for (const Char *pe = p + l; p < pe; p++, s++)
     if (*p != *s)
       return 0;
+  return 1;
+}
+
+int
+streq (const ucs4_t *p, int l, const char *s)
+{
+  for (const ucs4_t *pe = p + l; p < pe; p++, s++)
+    if (*p != (u_char)*s)
+      return 0;
+  return 1;
+}
+
+int
+strequal (const char *cp, const ucs4_t *Cp)
+{
+  while (*cp)
+    {
+      if (*Cp++ != (u_char)*cp++)
+        return 0;
+    }
+  return !*Cp;
+}
+
+int
+strequal (const char *cp, const ucs4_t *Cp, int l)
+{
+  for (const ucs4_t *Ce = Cp + l; Cp < Ce; Cp++)
+    {
+      if (*Cp != (u_char)*cp++)
+        return 0;
+    }
   return 1;
 }
 
@@ -540,21 +656,34 @@ frameDC::frame_rect (const RECT &r, int w) const
 #endif // _WIN32
 
 ucs2_t *
-i2w (const Char *p, int l, ucs2_t *b)
+i2w (const ucs4_t *p, int l, ucs2_t *b)
 {
-  /* Phase 2: Lisp string の Char は既に UTF-16 code unit。旧 internal→UCS2
-     table lookup は不要 (BMP CJK を誤変換する)。surrogate pair もそのまま
-     通せば Windows API (CF_UNICODETEXT, MENUITEMINFO 等) が正しく扱う。 */
-  memcpy (b, p, l * sizeof (ucs2_t));
-  b[l] = 0;
-  return b + l;
+  /* Phase 3: Lisp string stores ucs4_t code points. Convert to UTF-16 for
+     Windows APIs. BMP chars map 1:1; non-BMP emit surrogate pairs. */
+  ucs2_t *out = b;
+  for (int i = 0; i < l; i++)
+    {
+      ucs4_t cp = p[i];
+      if (cp < 0x10000)
+        *out++ = ucs2_t (cp);
+      else
+        {
+          cp -= 0x10000;
+          *out++ = ucs2_t (0xD800 + (cp >> 10));
+          *out++ = ucs2_t (0xDC00 + (cp & 0x3FF));
+        }
+    }
+  *out = 0;
+  return out;
 }
 
 int
-i2wl (const Char *p, int l)
+i2wl (const ucs4_t *p, int l)
 {
-  /* Phase 2: Char count == ucs2_t count (+1 for terminator). */
-  (void) p;
-  return l + 1;
+  /* Phase 3: count UTF-16 code units needed, plus terminator. */
+  int n = 1;
+  for (int i = 0; i < l; i++)
+    n += (p[i] >= 0x10000) ? 2 : 1;
+  return n;
 }
 

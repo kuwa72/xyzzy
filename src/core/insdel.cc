@@ -656,6 +656,14 @@ Buffer::insert_chars (Point &point, const Char *string, int length)
   post_buffer_modified (Kinsert, point, opoint, point.p_point);
 }
 
+void
+Buffer::insert_chars (Point &point, const ucs4_t *string, int length)
+{
+  Char *tmp = (Char *)alloca (length * sizeof (Char));
+  for (int i = 0; i < length; i++) tmp[i] = Char (string[i]);
+  insert_chars (point, tmp, length);
+}
+
 lisp
 Finsert (lisp args)
 {
@@ -684,8 +692,12 @@ Finsert (lisp args)
         }
       else if (stringp (x))
         {
-          ichars[i].string = xstring_contents (x);
-          ichars[i].length = xstring_length (x);
+          int len = xstring_length (x);
+          const ucs4_t *src = xstring_contents (x);
+          Char *dst = (Char *)alloca (sizeof (Char) * len);
+          for (int k = 0; k < len; k++) dst[k] = Char (src[k]);
+          ichars[i].string = dst;
+          ichars[i].length = len;
         }
       else if (i && i == nargs - 1)
         {
@@ -1128,6 +1140,41 @@ Buffer::substring (point_t point, int size, Char *b) const
   Point p;
   set_point (p, point);
   substring (p, size, b);
+}
+
+void
+Buffer::substring (point_t pt, int size, ucs4_t *b) const
+{
+  Point p;
+  set_point (p, pt);
+  substring (p, size, b);
+}
+
+void
+Buffer::substring (const Point &point, int size, ucs4_t *b) const
+{
+  const Chunk *cp = point.p_chunk;
+  int off = point.p_offset;
+  int rem = size;  // remaining input Char (UTF-16) code units
+  while (rem > 0)
+    {
+      int n = min (cp->c_used - off, rem);
+      const Char *src = cp->c_text + off;
+      for (int i = 0; i < n; i++, rem--)
+        {
+          ucs2_t c = ucs2_t (src[i]);
+          if (utf16_surrogate_high_p (c) && i + 1 < n
+              && utf16_surrogate_low_p (ucs2_t (src[i + 1])))
+            {
+              *b++ = utf16_pair_to_ucs4 (c, ucs2_t (src[++i]));
+              rem--;
+            }
+          else
+            *b++ = c;
+        }
+      off = 0;
+      cp = cp->c_next;
+    }
 }
 
 lisp

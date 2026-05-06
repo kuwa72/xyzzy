@@ -24,12 +24,12 @@ Debug (char *format, ...)
 }
 
 void
-Debug (const Char *b, size_t size)
+Debug (const ucs4_t *b, size_t size)
 {
   if (size <= 0)
     return;
 
-  char *msg = (char *)alloca (size * 2 + 1);
+  char *msg = (char *)alloca (size * 3 + 1);
   w2s (msg, b, size);
 #ifdef _WIN32
   OutputDebugStringA (msg);

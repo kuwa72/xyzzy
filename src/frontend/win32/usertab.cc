@@ -146,11 +146,9 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
   lisp tt = get_tooltip_text (item_tooltip (item));
   if (!stringp (tt))
     return 0;
-  /* Phase 2: internal encoding is now UTF-16; copy directly, no SJIS roundtrip */
-  int len = xstring_length (tt);
-  if (len > TTBUFSIZE - 1) len = TTBUFSIZE - 1;
-  memcpy (b_ttbufw, xstring_contents (tt), len * sizeof (wchar_t));
-  b_ttbufw[len] = 0;
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case surrogate expansion. */
+  int len = min<int> (xstring_length (tt), (TTBUFSIZE - 1) / 2);
+  i2w (xstring_contents (tt), len, (ucs2_t *)b_ttbufw);
   ttt.lpszText = b_ttbufw;
   ttt.hinst = 0;
   return 1;
@@ -159,13 +157,12 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
 void
 user_tab_bar::draw_item (const draw_item_struct &dis)
 {
-  /* Phase 2: tab label は UTF-16 で組み立てる。 */
+  /* Phase 3: tab label は ucs4 → UTF-16 (Char = u_int16_t) に変換。 */
   lisp name = item_name ((lisp)dis.data);
   Char buf[ITEM_NAME_MAX];
-  int cap = numberof (buf);
-  int l = xstring_length (name);
-  if (l > cap) l = cap;
-  memcpy (buf, xstring_contents (name), l * sizeof (Char));
+  int slen = min<int> (xstring_length (name), numberof (buf) / 2);
+  ucs2_t *we = i2w (xstring_contents (name), slen, (ucs2_t *)buf);
+  int l = (int)(we - (ucs2_t *)buf);
   if (dis.state & ODS_SELECTED)
     tab_bar::draw_item (dis, buf, l,
                         get_misc_color (MC_TAB_SEL_FG),
@@ -221,12 +218,10 @@ user_tab_bar::add_item (lisp item, lisp name, lisp tooltip, lisp menu,
       break;
     }
 
-  /* Phase 2: Lisp string is UTF-16, TCITEMW takes wchar_t*. Copy + null
-     terminate instead of going through cp932. */
+  /* Phase 3: ucs4 → UTF-16, truncate by code points to fit worst-case 2x. */
   wchar_t wbuf[ITEM_NAME_MAX];
-  int wn = min<int> (xstring_length (name), numberof (wbuf) - 1);
-  memcpy (wbuf, xstring_contents (name), wn * sizeof (wchar_t));
-  wbuf[wn] = 0;
+  int slen = min<int> (xstring_length (name), (numberof (wbuf) - 1) / 2);
+  i2w (xstring_contents (name), slen, (ucs2_t *)wbuf);
 
   TCITEMW ti;
   ti.mask = TCIF_TEXT | TCIF_PARAM;
@@ -251,9 +246,8 @@ user_tab_bar::modify_item (lisp item, lisp name, lisp tooltip, lisp menu)
       check_string (name);
 
       wchar_t wbuf[ITEM_NAME_MAX];
-      int wn = min<int> (xstring_length (name), numberof (wbuf) - 1);
-      memcpy (wbuf, xstring_contents (name), wn * sizeof (wchar_t));
-      wbuf[wn] = 0;
+      int slen = min<int> (xstring_length (name), (numberof (wbuf) - 1) / 2);
+      i2w (xstring_contents (name), slen, (ucs2_t *)wbuf);
 
       TCITEMW ti;
       ti.mask = TCIF_TEXT;

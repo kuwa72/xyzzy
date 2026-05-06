@@ -414,16 +414,16 @@ print_object (FILE *fp, lisp object, int f)
                 ;
               else if (stringp (object))
                 {
-                  const Char *p = xstring_contents (object);
-                  const Char *const pe = p + xstring_length (object);
+                  const ucs4_t *p = xstring_contents (object);
+                  const ucs4_t *const pe = p + xstring_length (object);
                   if (IsBadStringPtrA ((char *)p, sizeof *p * xstring_length (object)))
                     fprintf (fp, "(Invalid String)");
                   else
                     for (; p < pe; p++)
                       {
-                        if (DBCP (*p))
-                          putc (*p >> 8, fp);
-                        putc (*p, fp);
+                        if (DBCP (Char (*p)))
+                          putc (Char (*p) >> 8, fp);
+                        putc (u_char (*p), fp);
                       }
                 }
               else
@@ -541,7 +541,7 @@ cleanup_exception ()
           "\x8e\xa9\x93\xae\x83\x5a\x81\x5b\x83\x75\x82\xb5\x82\xc4\x82\xdd\x82\xdc\x82\xb7\x82\xa9\x81\x48");
 
   Char wmsg[1024];
-  *s2w (wmsg, msg) = 0;
+  *s2w_u16 (wmsg, msg) = 0;
   if (MsgBox (get_active_window (), wmsg, TitleBarStringC,
               MB_ICONHAND | MB_YESNO, 1) != IDYES)
     return;

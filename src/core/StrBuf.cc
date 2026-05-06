@@ -27,7 +27,7 @@ StrBuf::empty_p () const
 }
 
 void
-StrBuf::copy (Char *b)
+StrBuf::copy (ucs4_t *b)
 {
   assert (sb_finished);
   for (const strbuf_chunk *cp = sb_chunk; cp; cp = cp->cdr)
@@ -73,7 +73,7 @@ StrBuf::alloc ()
 {
   assert (sb_chunk ? sb_limit == sb_chunk->contents + sb_chunk_size : 1);
   strbuf_chunk *p = (strbuf_chunk *)xmalloc (sizeof (strbuf_chunk)
-                                             + sizeof (Char) * (sb_chunk_size - 1));
+                                             + sizeof (ucs4_t) * (sb_chunk_size - 1));
   if (sb_chunk)
     sb_chunk->used = sb_limit;
   p->cdr = sb_chunk;
@@ -83,7 +83,7 @@ StrBuf::alloc ()
 }
 
 void
-StrBuf::fill (Char c, int size)
+StrBuf::fill (ucs4_t c, int size)
 {
   assert (!sb_finished);
   if (!size)
@@ -111,7 +111,7 @@ StrBuf::fill (Char c, int size)
 }
 
 void
-StrBuf::add (const Char *s, int size)
+StrBuf::add (const ucs4_t *s, int size)
 {
   assert (!sb_finished);
   if (!size)
@@ -135,6 +135,19 @@ StrBuf::add (const Char *s, int size)
           rest = min (size, sb_chunk_size);
         }
       sb_next += rest;
+    }
+}
+
+void
+StrBuf::add (const Char *s, int size)
+{
+  for (int i = 0; i < size; )
+    {
+      ucs4_t cp = s[i++];
+      if (cp >= 0xD800 && cp <= 0xDBFF && i < size
+          && s[i] >= 0xDC00 && s[i] <= 0xDFFF)
+        cp = 0x10000u + ((cp - 0xD800u) << 10) + (s[i++] - 0xDC00u);
+      add (cp);
     }
 }
 
@@ -194,7 +207,7 @@ StrBuf::make_string ()
   int l = length ();
   if (!l)
     make_string_simple ("", 0);
-  Char *b = (Char *)xmalloc (sizeof (Char) * l);
+  ucs4_t *b = (ucs4_t *)xmalloc (sizeof (ucs4_t) * l);
   copy (b);
   lisp string = make_simple_string ();
   xstring_contents (string) = b;
@@ -213,7 +226,7 @@ StrBuf::make_substring (int start, int end)
   l = end - start;
   if (l <= 0)
     make_string_simple ("", 0);
-  Char *p = (Char *)xmalloc (sizeof (Char) * l);
+  ucs4_t *p = (ucs4_t *)xmalloc (sizeof (ucs4_t) * l);
   lisp string = make_simple_string ();
   xstring_contents (string) = p;
   xstring_length (string) = l;
@@ -252,8 +265,8 @@ StrBuf::dump (strbuf_chunk *cp) const
   if (!cp)
     return;
   dump (cp->cdr);
-  Char *p = cp->contents;
-  Char *pe = cp == sb_chunk ? sb_next : p + sb_chunk_size;
+  ucs4_t *p = cp->contents;
+  ucs4_t *pe = cp == sb_chunk ? sb_next : p + sb_chunk_size;
   for (; p < pe; p++)
     {
       if (*p >= 0x100)

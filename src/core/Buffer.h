@@ -590,7 +590,7 @@ struct Buffer
   lisp lmarkers; // XXX
 
   u_char b_minibufferp;
-  const Char *b_prompt;
+  const ucs4_t *b_prompt;
   int b_prompt_length;
   int b_prompt_columns;
   char b_prompt_arg[16];
@@ -707,6 +707,7 @@ struct Buffer
     }
 
   void insert_chars (Point &, const Char *, int);
+  void insert_chars (Point &, const ucs4_t *, int);
   void insert_chars (Window *, const Char *, int, int);
   void insert_chars (Window *, const insertChars *, int, int);
   int insert_chars_internal (Point &, const Char *, int, int);
@@ -751,6 +752,8 @@ struct Buffer
 
   void substring (const Point &, int, Char *) const;
   void substring (point_t, int, Char *) const;
+  void substring (const Point &, int, ucs4_t *) const;
+  void substring (point_t, int, ucs4_t *) const;
   lisp substring (point_t, point_t) const;
 
   Buffer (lisp, lisp, lisp, int = 0);
@@ -759,7 +762,7 @@ struct Buffer
   static Buffer *create_buffer (lisp, lisp, lisp);
   void link_list ();
   void unlink_list () const;
-  static Buffer *find_buffer (const Char *, int, long);
+  static Buffer *find_buffer (const ucs4_t *, int, long);
   static Buffer *find_buffer (lisp, long, int);
   static Buffer *make_internal_buffer (const char *);
   void set_local_variable (lisp, lisp);

@@ -98,11 +98,14 @@ protected:
 
 public:
   void compile (const Char *, int, int);
+  void compile (const ucs4_t *, int, int);
   void compile (lisp, int);
   int search (const Char *, int, int);
+  int search (const ucs4_t *, int, int);
   int search (const Buffer *, const Point &, point_t, point_t, point_t, lChar);
   int search_backward (const Buffer *, const Point &, point_t, point_t, point_t, lChar);
   int match (const Char *, int, int);
+  int match (const ucs4_t *, int, int);
   int match (const Buffer *, const Point &, point_t, point_t);
   Regexp (const u_char *translate, const syntax_table *syntax_tab)
        : re_pattern (0), re_translate (translate),
@@ -114,6 +117,7 @@ public:
         free (re_pattern);
     }
   static int smart_case_fold_p (const Char *, int);
+  static int smart_case_fold_p (const ucs4_t *, int);
   const Region &range () const {return re_range;}
   point_t last_match () const {return re_last_match;}
   lChar last_match_char () const {return re_last_match_char;}

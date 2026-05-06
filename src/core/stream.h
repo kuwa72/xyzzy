@@ -369,8 +369,8 @@ xwstream_stream_wstream (lisp x)
   return (wStream *&)((lstream *)x)->output;
 }
 
-void write_stream (lisp, const Char *, size_t);
-void writec_stream (lisp, Char);
+void write_stream (lisp, const ucs4_t *, size_t);
+void writec_stream (lisp, ucs4_t);
 int unreadc_stream (lChar, lisp);
 lChar peekc_stream (lisp);
 lChar readc_stream (lisp);

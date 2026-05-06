@@ -137,14 +137,14 @@ int StatusWindow::text (const char *s)
 }
 
 void
-StatusWindow::puts (const Char *b, int size)
+StatusWindow::puts (const ucs4_t *b, int size)
 {
-  for (const Char *be = b + size; b < be; b++)
+  for (const ucs4_t *be = b + size; b < be; b++)
     putc (*b);
 }
 
 int
-StatusWindow::putc (Char c)
+StatusWindow::putc (ucs4_t c)
 {
   if (c == '\n')
     newline ();
@@ -158,7 +158,7 @@ StatusWindow::putc (Char c)
             *sw_b++ = ' ';
         }
       else
-        *sw_b++ = i2w (c);
+        *sw_b++ = ucs2_t (c);
     }
   return 1;
 }
@@ -364,7 +364,7 @@ void command_loop ();
 lisp Fsi_throw_error (lisp);
 
 lisp
-read_minibuffer (const Char *prompt, long prompt_length, lisp def,
+read_minibuffer (const ucs4_t *prompt, long prompt_length, lisp def,
                  lisp type, lisp compl, lisp history,
                  int noselect, int completion, int must_match,
                  lisp title, int opt_arg)
@@ -513,7 +513,7 @@ read_minibuffer (const Char *prompt, long prompt_length, lisp def,
 }
 
 lisp
-complete_read (const Char *prompt, long prompt_length, lisp def,
+complete_read (const ucs4_t *prompt, long prompt_length, lisp def,
                lisp type, lisp compl, lisp history,
                int must_match, int opt_arg)
 {
@@ -546,7 +546,7 @@ complete_read (const Char *prompt, long prompt_length, lisp def,
 }
 
 lisp
-read_filename (const Char *prompt, long prompt_length, lisp type,
+read_filename (const ucs4_t *prompt, long prompt_length, lisp type,
                lisp title, lisp defalt, lisp history)
 {
   Buffer *bp = selected_buffer ();
@@ -565,7 +565,7 @@ read_filename (const Char *prompt, long prompt_length, lisp type,
 }
 
 lisp
-minibuffer_read_integer (const Char *prompt, long prompt_length)
+minibuffer_read_integer (const ucs4_t *prompt, long prompt_length)
 {
   lisp string = read_minibuffer (prompt, prompt_length, Qnil, Kinteger, Qnil, Kinteger,
                                  0, 0, 0, Qnil, -1);

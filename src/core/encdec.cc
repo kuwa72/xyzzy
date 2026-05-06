@@ -98,18 +98,18 @@ Fsi_www_url_encode (lisp input, lisp output, lisp literal_chars)
   else if (literal_chars != Qt)
     {
       check_string (literal_chars);
-      const Char *p = xstring_contents (literal_chars);
-      const Char *const pe = p + xstring_length (literal_chars);
+      const ucs4_t *p = xstring_contents (literal_chars);
+      const ucs4_t *const pe = p + xstring_length (literal_chars);
       while (p < pe)
         {
-          Char c = *p++;
+          ucs4_t c = *p++;
           if (p < pe - 1 && *p == '-')
             {
-              Char c2 = p[1];
+              ucs4_t c2 = p[1];
               p += 2;
               if (c < sizeof lc)
                 {
-                  c2 = min (c2, Char (sizeof lc));
+                  c2 = min (c2, ucs4_t (sizeof lc));
                   for (; c <= c2; c++)
                     lc[c] = 1;
                 }

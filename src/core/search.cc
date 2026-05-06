@@ -91,14 +91,14 @@ save_match (const Regexp &re, lisp str)
 #define BM_HASH(c) ((c) & 0xFFu)
 
 static void
-bm_compilef (int *BM, const Char *pattern, int patlen, int case_fold)
+bm_compilef (int *BM, const ucs4_t *pattern, int patlen, int case_fold)
 {
   for (int i = 0; i < 256; i++)
     BM[i] = patlen;
 
   for (int i = patlen - 1; i >= 0; i--)
     {
-      Char cc = *pattern++;
+      ucs4_t cc = *pattern++;
       int c = BM_HASH (cc);
       if (case_fold && alpha_char_p (cc))
         BM[_char_transpose_case (c)] = i;
@@ -107,7 +107,7 @@ bm_compilef (int *BM, const Char *pattern, int patlen, int case_fold)
 }
 
 static void
-bm_compileb (int *BM, const Char *pattern, int patlen, int case_fold)
+bm_compileb (int *BM, const ucs4_t *pattern, int patlen, int case_fold)
 {
   int i;
   for (i = 0; i < 256; i++)
@@ -115,7 +115,7 @@ bm_compileb (int *BM, const Char *pattern, int patlen, int case_fold)
 
   for (i = patlen - 1, pattern += patlen; i >= 0; i--)
     {
-      Char cc = *--pattern;
+      ucs4_t cc = *--pattern;
       int c = BM_HASH (cc);
       if (case_fold && alpha_char_p (cc))
         BM[_char_transpose_case (c)] = i;
@@ -512,8 +512,8 @@ scan_last_match (const Buffer *bp, lisp keys, lChar &ch)
 static int
 smart_case_fold_string_p (lisp string)
 {
-  const Char *s = xstring_contents (string);
-  const Char *const se = s + xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+  const ucs4_t *const se = s + xstring_length (string);
   for (; s < se; s++)
     if (upper_char_p (*s))
       return 0;
@@ -555,20 +555,22 @@ Fscan_buffer (lisp pattern, lisp keys)
           && smart_case_fold_string_p (pattern))
         flags |= SF_CASE_FOLD;
 
-      if (flags & SF_REVERSE)
-        {
-          bm_compileb (BM, xstring_contents (pattern), xstring_length (pattern),
-                       flags & SF_CASE_FOLD);
-          result = bp->scan_backward (wp->w_point, xstring_contents (pattern),
-                                      xstring_length (pattern), BM, limit, flags);
-        }
-      else
-        {
-          bm_compilef (BM, xstring_contents (pattern), xstring_length (pattern),
-                       flags & SF_CASE_FOLD);
-          result = bp->scan_forward (wp->w_point, xstring_contents (pattern),
-                                     xstring_length (pattern), BM, limit, flags);
-        }
+      {
+        int plen = xstring_length (pattern);
+        const ucs4_t *puc = xstring_contents (pattern);
+        Char *cpat = (Char *)alloca (plen * sizeof (Char));
+        for (int i = 0; i < plen; i++) cpat[i] = Char (puc[i]);
+        if (flags & SF_REVERSE)
+          {
+            bm_compileb (BM, puc, plen, flags & SF_CASE_FOLD);
+            result = bp->scan_backward (wp->w_point, cpat, plen, BM, limit, flags);
+          }
+        else
+          {
+            bm_compilef (BM, puc, plen, flags & SF_CASE_FOLD);
+            result = bp->scan_forward (wp->w_point, cpat, plen, BM, limit, flags);
+          }
+      }
     }
 
   wp->w_disp_flags |= Window::WDF_GOAL_COLUMN;
@@ -718,8 +720,8 @@ Fregexp_quote (lisp string)
   check_string (string);
 
   int count = 0;
-  const Char *p = xstring_contents (string);
-  const Char *pe = p + xstring_length (string);
+  const ucs4_t *p = xstring_contents (string);
+  const ucs4_t *pe = p + xstring_length (string);
   while (p < pe)
     switch (*p++)
       {
@@ -744,11 +746,11 @@ Fregexp_quote (lisp string)
   p = xstring_contents (string);
 
   lisp string2 = make_string (xstring_length (string) + count);
-  Char *p2 = xstring_contents (string2);
+  ucs4_t *p2 = xstring_contents (string2);
 
   while (p < pe)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       switch (c)
         {
         case '^':
@@ -814,8 +816,8 @@ Flooking_for (lisp string, lisp case_fold)
   const Chunk *cp = wp->w_point.p_chunk;
   const Char *p = cp->c_text + wp->w_point.p_offset;
   const Char *pe = cp->c_text + cp->c_used;
-  const Char *s = xstring_contents (string);
-  const Char *se = s + xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+  const ucs4_t *se = s + xstring_length (string);
 
   int cf = (case_fold == Ksmart
             ? smart_case_fold_string_p (string)
@@ -829,9 +831,9 @@ Flooking_for (lisp string, lisp case_fold)
           p = cp->c_text;
           pe = p + cp->c_used;
         }
-      Char c1 = *s++;
+      ucs4_t c1 = *s++;
       Char c2 = *p++;
-      if (cf ? char_upcase (c1) != char_upcase (c2) : c1 != c2)
+      if (cf ? char_upcase (int (c1)) != char_upcase (int (c2)) : c1 != ucs4_t (c2))
         return Qnil;
     }
 
@@ -850,8 +852,8 @@ Flooking_back (lisp string, lisp case_fold)
 
   const Chunk *cp = wp->w_point.p_chunk;
   const Char *p = cp->c_text + wp->w_point.p_offset;
-  const Char *s = xstring_contents (string);
-  const Char *se = s + xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+  const ucs4_t *se = s + xstring_length (string);
 
   int cf = (case_fold == Ksmart
             ? smart_case_fold_string_p (string)
@@ -864,9 +866,9 @@ Flooking_back (lisp string, lisp case_fold)
           cp = cp->c_prev;
           p = cp->c_text + cp->c_used;
         }
-      Char c1 = *--se;
+      ucs4_t c1 = *--se;
       Char c2 = *--p;
-      if (cf ? char_upcase (c1) != char_upcase (c2) : c1 != c2)
+      if (cf ? char_upcase (int (c1)) != char_upcase (int (c2)) : c1 != ucs4_t (c2))
         return Qnil;
     }
 
@@ -883,8 +885,8 @@ skip_chars (lisp chars, int dir)
 
   u_long lo[256][(256 + sizeof (u_long) - 1) / sizeof (u_long)];
 
-  const Char *p = xstring_contents (chars);
-  const Char *pe = p + xstring_length (chars);
+  const ucs4_t *p = xstring_contents (chars);
+  const ucs4_t *pe = p + xstring_length (chars);
 
   if (p == pe)
     return Qnil;
@@ -900,10 +902,10 @@ skip_chars (lisp chars, int dir)
 
   while (p < pe)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (p < pe - 1 && *p == '-')
         {
-          Char c2 = p[1];
+          ucs4_t c2 = p[1];
           p += 2;
           for (; c <= c2; c++)
             {
@@ -973,8 +975,8 @@ skip_syntax_spec (lisp syntax_spec, int dir)
   bzero (buf, sizeof buf);
 
   check_string (syntax_spec);
-  const Char *p = xstring_contents (syntax_spec);
-  const Char *pe = p + xstring_length (syntax_spec);
+  const ucs4_t *p = xstring_contents (syntax_spec);
+  const ucs4_t *pe = p + xstring_length (syntax_spec);
   if (p == pe)
     return Qnil;
 
@@ -989,7 +991,7 @@ skip_syntax_spec (lisp syntax_spec, int dir)
 
   while (p < pe)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (!ascii_char_p (c) || syntax_spec_table[c] == -1)
         FEsimple_error (Einvalid_syntax_spec, syntax_spec);
       buf[syntax_spec_table[c]] = 1;
@@ -1043,7 +1045,7 @@ Fskip_syntax_spec_backward (lisp syntax_spec)
 static int
 re_tag_p (lisp string)
 {
-  for (const Char *p = xstring_contents (string), *pe = p + xstring_length (string) - 1;
+  for (const ucs4_t *p = xstring_contents (string), *pe = p + xstring_length (string) - 1;
        p < pe; p++)
     if (*p == '\\')
       return 1;
@@ -1085,21 +1087,25 @@ static void
 replace_match (Window *wp, lisp string, int literal)
 {
   Buffer *bp = wp->w_bufp;
+  int slen = xstring_length (string);
+  const ucs4_t *suc = xstring_contents (string);
+  Char *sc = (Char *)alloca (slen * sizeof (Char));
+  for (int i = 0; i < slen; i++) sc[i] = Char (suc[i]);
+
   if (literal)
     {
-      int l = min (xstring_length (string), int (re_regs.end[0] - re_regs.start[0]));
+      int l = min (slen, int (re_regs.end[0] - re_regs.start[0]));
       if (l)
         {
           bp->goto_char (wp->w_point, re_regs.start[0]);
-          bp->overwrite_chars (wp, xstring_contents (string), l);
+          bp->overwrite_chars (wp, sc, l);
         }
       if (re_regs.start[0] + l != re_regs.end[0])
         bp->delete_region (wp, re_regs.start[0] + l, re_regs.end[0]);
-      else if (l != xstring_length (string))
+      else if (l != slen)
         {
           bp->goto_char (wp->w_point, re_regs.start[0] + l);
-          bp->insert_chars (wp, xstring_contents (string) + l,
-                            xstring_length (string) - l, 1);
+          bp->insert_chars (wp, sc + l, slen - l, 1);
         }
       else
         bp->goto_char (wp->w_point, re_regs.end[0]);
@@ -1112,8 +1118,8 @@ replace_match (Window *wp, lisp string, int literal)
       bp->substring (re_regs.start[0], l, b);
       bp->delete_region (wp, re_regs.start[0], re_regs.end[0]);
 
-      const Char *p = xstring_contents (string);
-      const Char *pe = p + xstring_length (string);
+      const Char *p = sc;
+      const Char *pe = sc + slen;
       const Char *p0 = p;
       int fconv = NOCASECONV;
       Point conv_point;
@@ -1222,13 +1228,16 @@ Freplace_buffer (lisp pattern, lisp replacement, lisp keys)
 
   int delete_regexp = 0;
   int BM[256];
+  int plen = stringp (pattern) ? xstring_length (pattern) : 0;
+  Char *cpat = plen ? (Char *)alloca (plen * sizeof (Char)) : nullptr;
   if (!regexp)
     {
       if (flags & SF_SMART_CASE_FOLD
           && smart_case_fold_string_p (pattern))
         flags |= SF_CASE_FOLD;
-      bm_compilef (BM, xstring_contents (pattern), xstring_length (pattern),
-                   flags & SF_CASE_FOLD);
+      const ucs4_t *puc = xstring_contents (pattern);
+      for (int i = 0; i < plen; i++) cpat[i] = Char (puc[i]);
+      bm_compilef (BM, puc, plen, flags & SF_CASE_FOLD);
     }
   else if (!regexpp (pattern))
     {
@@ -1242,8 +1251,7 @@ Freplace_buffer (lisp pattern, lisp replacement, lisp keys)
   while ((regexp
           ? bp->re_scan_buffer (wp->w_point, pattern, limit,
                                 last_match, last_match_char, flags)
-          : bp->scan_forward (wp->w_point, xstring_contents (pattern),
-                              xstring_length (pattern), BM, limit, flags))
+          : bp->scan_forward (wp->w_point, cpat, plen, BM, limit, flags))
          && re_regs.start[0] >= 0)
     {
       if (re_regs.start[0] != re_regs.end[0]
@@ -1343,26 +1351,26 @@ Fstore_match_data (lisp data)
 }
 
 static void
-ss_add (StrBuf &sb, Char cc, int &fconv)
+ss_add (StrBuf &sb, ucs4_t cc, int &fconv)
 {
   switch (fconv)
     {
     case UPCASE_ONE:
-      sb.add (char_upcase (cc));
+      sb.add (ucs4_t (char_upcase (int (cc))));
       fconv = NOCASECONV;
       break;
 
     case DOWNCASE_ONE:
-      sb.add (char_downcase (cc));
+      sb.add (ucs4_t (char_downcase (int (cc))));
       fconv = NOCASECONV;
       break;
 
     case UPCASE_CHARS:
-      sb.add (char_upcase (cc));
+      sb.add (ucs4_t (char_upcase (int (cc))));
       break;
 
     case DOWNCASE_CHARS:
-      sb.add (char_downcase (cc));
+      sb.add (ucs4_t (char_downcase (int (cc))));
       break;
 
     default:
@@ -1374,14 +1382,14 @@ ss_add (StrBuf &sb, Char cc, int &fconv)
 static void
 substitute_string (StrBuf &sb, lisp string, lisp replacement)
 {
-  const Char *r = xstring_contents (replacement);
-  const Char *const re = r + xstring_length (replacement);
+  const ucs4_t *r = xstring_contents (replacement);
+  const ucs4_t *const re = r + xstring_length (replacement);
   point_t l = xstring_length (string);
   int fconv = NOCASECONV;
 
   while (r < re)
     {
-      Char c = *r++;
+      ucs4_t c = *r++;
       if (c != '\\')
         ss_add (sb, c, fconv);
       else

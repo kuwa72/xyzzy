@@ -27,12 +27,16 @@ long log2 (u_long);
 # define  NF_FLOAT_L (NF_FLOAT | 'l')
 
 int parse_number_format (const Char *, const Char *, int);
+int parse_number_format (const ucs4_t *, const ucs4_t *, int);
 int check_integer_format (const char *, int *);
 int default_float_format ();
 
 int streq (const Char *, int, const char *);
+int streq (const ucs4_t *, int, const char *);
 int strequal (const char *, const Char *);
 int strequal (const char *, const Char *, int);
+int strequal (const char *, const ucs4_t *);
+int strequal (const char *, const ucs4_t *, int);
 int sjis_strcasecmp (const char *, const char *);
 static inline int
 strcaseeq (const char *s1, const char *s2)

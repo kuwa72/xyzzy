@@ -6,7 +6,7 @@
 
 # include "array.h"
 
-# define MAX_STRING_LENGTH (INT_MAX / sizeof (Char))
+# define MAX_STRING_LENGTH (INT_MAX / sizeof (ucs4_t))
 
 class lsimple_string: public lbase_vector
 {
@@ -37,11 +37,11 @@ check_simple_string (lisp x)
 # define xstring_length xvector_length
 # define xstring_dimension xvector_dimension
 
-inline Char *&
+inline ucs4_t *&
 xstring_contents (lisp x)
 {
   assert (stringp (x));
-  return (Char *&)xbase_vector_contents (x);
+  return (ucs4_t *&)xbase_vector_contents (x);
 }
 
 inline lsimple_string *
@@ -70,7 +70,8 @@ string_equal (lisp x, lisp y)
                     xstring_length (x)));
 }
 
-int string_equalp (const Char *, int, const char *, int);
+int string_equalp (const ucs4_t *, int, const char *, int);
+int string_equalp (const ucs4_t *, int, const ucs4_t *, int);
 int string_equalp (const Char *, int, const Char *, int);
 
 inline int
@@ -85,28 +86,33 @@ int string_equalp (lisp, int, lisp, int, int);
 lisp parse_integer (lisp, int, int &, int, int);
 
 int update_column (int, Char);
-int update_column (int, const Char *, int);
+int update_column (int, const ucs4_t *, int);
 int update_column (int, Char, int);
+inline int update_column (int col, ucs4_t c) { return update_column (col, Char (c)); }
+inline int update_column (int col, ucs4_t c, int n) { return update_column (col, Char (c), n); }
 size_t s2wl (const char *);
-Char *s2w (Char *, size_t, const char **);
-Char *s2w (Char *, const char *);
-Char *s2w (const char *, size_t);
-Char *a2w (Char *, size_t, const char **);
-void a2w (Char *, const char *, size_t);
-Char *a2w (Char *, const char *);
-Char *a2w (const char *, size_t);
+ucs4_t *s2w (ucs4_t *, size_t, const char **);
+ucs4_t *s2w (ucs4_t *, const char *);
+ucs4_t *s2w (const char *, size_t);
+ucs4_t *a2w (ucs4_t *, size_t, const char **);
+void a2w (ucs4_t *, const char *, size_t);
+ucs4_t *a2w (ucs4_t *, const char *);
+ucs4_t *a2w (const char *, size_t);
+size_t w2sl (const ucs4_t *, size_t);
 size_t w2sl (const Char *, size_t);
+char *w2s (char *, const ucs4_t *, size_t);
 char *w2s (char *, const Char *, size_t);
-char *w2s (const Char *, size_t);
-char *w2s (char *, char *, const Char *, size_t);
-char *w2s_quote (char *, char *, const Char *, size_t, int, int);
+char *w2s (const ucs4_t *, size_t);
+char *w2s (char *, char *, const ucs4_t *, size_t);
+char *w2s_quote (char *, char *, const ucs4_t *, size_t, int, int);
 
 size_t s2wl (const char *string, const char *se, int zero_term);
-Char *s2w (Char *b, const char *string, const char *se, int zero_term);
-void w2s_chunk (char *, char *, const Char *, size_t);
+ucs4_t *s2w (ucs4_t *b, const char *string, const char *se, int zero_term);
+void w2s_chunk (char *, char *, const ucs4_t *, size_t);
 
-ucs2_t *i2w (const Char *, int, ucs2_t *);
-int i2wl (const Char *, int);
+ucs2_t *i2w (const ucs4_t *, int, ucs2_t *);
+int i2wl (const ucs4_t *, int);
+Char *s2w_u16 (Char *, const char *);  /* SJIS → UTF-16 for Win32 API use */
 
 lisp coerce_to_string (lisp, int);
 
@@ -114,9 +120,10 @@ lisp make_string (const char *);
 lisp make_string (const u_char *);
 lisp make_string (const char *, size_t);
 lisp make_string_simple (const char *, size_t);
-lisp make_string (const Char *, size_t);
-lisp make_string (Char, size_t);
-lisp make_complex_string (Char, int, int, int);
+lisp make_string (const ucs4_t *, size_t);
+lisp make_string (const Char *, size_t);   // UTF-16 (Win32 wchar_t) → ucs4_t Lisp string
+lisp make_string (ucs4_t, size_t);
+lisp make_complex_string (ucs4_t, int, int, int);
 lisp make_string_from_list (lisp);
 lisp make_string_from_vector (lisp);
 lisp make_string (size_t);
@@ -125,8 +132,8 @@ lisp copy_string (lisp);
 void string_start_end (lisp, int &, int &, lisp, lisp);
 lisp subseq_string (lisp, lisp, lisp);
 
-u_int hashpjw (const Char *, int);
-u_int ihashpjw (const Char *, int);
+u_int hashpjw (const ucs4_t *, int);
+u_int ihashpjw (const ucs4_t *, int);
 
 inline u_int
 hashpjw (lisp string)

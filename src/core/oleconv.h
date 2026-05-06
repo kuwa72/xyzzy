@@ -20,7 +20,7 @@ _w2a_helper (char *a, const wchar_t *w, int l)
 }
 
 static inline wchar_t *
-_i2w_helper (wchar_t *w, const Char *p, int l)
+_i2w_helper (wchar_t *w, const ucs4_t *p, int l)
 {
   i2w (p, l, (ucs2_t *)w);
   return w;
@@ -29,7 +29,7 @@ _i2w_helper (wchar_t *w, const Char *p, int l)
 #define USES_CONVERSION int _convert; _convert
 
 #define I2W(x) \
-  (_i2w_helper ((wchar_t *)alloca ((xstring_length (x) + 1) * sizeof (wchar_t)), \
+  (_i2w_helper ((wchar_t *)alloca ((2 * xstring_length (x) + 1) * sizeof (wchar_t)), \
                 xstring_contents (x), xstring_length (x)))
 
 #endif /* _oleconv_h_ */

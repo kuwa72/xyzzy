@@ -245,7 +245,7 @@ status_area::update ()
         parse_format (xstring_contents (fmt), xstring_length (fmt));
       else
         {
-          Char c = 't';
+          ucs4_t c = 't';
           parse_format (&c, 1);
         }
     }
@@ -271,12 +271,12 @@ status_area::timer ()
 }
 
 void
-status_area::parse_format (const Char *p, int l)
+status_area::parse_format (const ucs4_t *p, int l)
 {
   s_nitems = 0;
   s_flags = 0;
 
-  for (const Char *const pe = p + l; p < pe; p++)
+  for (const ucs4_t *const pe = p + l; p < pe; p++)
     {
       int n;
       switch (*p)

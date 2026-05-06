@@ -489,7 +489,7 @@ create_default_buffers ()
 }
 
 Buffer *
-Buffer::find_buffer (const Char *name, int l, long version)
+Buffer::find_buffer (const ucs4_t *name, int l, long version)
 {
   Buffer *bp;
   for (bp = b_blist; bp; bp = bp->b_next)
@@ -506,17 +506,17 @@ Buffer::find_buffer (lisp name, long version, int do_parse)
   if (!xstring_length (name))
     return 0;
 
-  const Char *p0 = xstring_contents (name);
+  const ucs4_t *p0 = xstring_contents (name);
 
   Buffer *bp = find_buffer (p0, xstring_length (name), version);
   if (bp || version != -1 || !do_parse)
     return bp;
 
-  const Char *p = p0 + xstring_length (name) - 1;
+  const ucs4_t *p = p0 + xstring_length (name) - 1;
   if (*p != '>')
     return 0;
 
-  for (p--; p > p0 && digit_char_p (*p); p--)
+  for (p--; p > p0 && digit_char_p (Char (*p)); p--)
     ;
   if (p == p0 || *p != '<')
     return 0;
@@ -743,11 +743,26 @@ Buffer::buffer_name (char *b, char *be) const
 Char *
 Buffer::buffer_name (Char *b, Char *be) const
 {
-  int nlim = (int)(be - b);
+  /* Phase 3: ucs4 buffer-name → UTF-16 with bounds + surrogate split. */
   int nname = xstring_length (lbuffer_name);
-  int n = nname < nlim ? nname : nlim;
-  memcpy (b, xstring_contents (lbuffer_name), n * sizeof (Char));
-  b += n;
+  const ucs4_t *p = xstring_contents (lbuffer_name);
+  ucs2_t *out = (ucs2_t *)b;
+  ucs2_t *out_end = (ucs2_t *)be;
+  for (int i = 0; i < nname && out < out_end; i++)
+    {
+      ucs4_t cp = p[i];
+      if (cp < 0x10000)
+        *out++ = ucs2_t (cp);
+      else if (out + 1 < out_end)
+        {
+          cp -= 0x10000;
+          *out++ = ucs2_t (0xD800 + (cp >> 10));
+          *out++ = ucs2_t (0xDC00 + (cp & 0x3FF));
+        }
+      else
+        break;
+    }
+  b = (Char *)out;
   if (b >= be - 1 || b_version == 1)
     return b;
   char t[64];
@@ -972,11 +987,11 @@ Fbuffer_name (lisp buffer)
   if (bp->b_version == 1)
     return bp->lbuffer_name;
 
-  Char buf[BUFFER_NAME_MAX * 2];
+  ucs4_t buf[BUFFER_NAME_MAX * 2];
   bcopy (xstring_contents (bp->lbuffer_name), buf, xstring_length (bp->lbuffer_name));
   char v[64];
   sprintf (v, "<%d>", bp->b_version);
-  Char *be = s2w (buf + xstring_length (bp->lbuffer_name), v);
+  ucs4_t *be = s2w (buf + xstring_length (bp->lbuffer_name), v);
   return make_string (buf, be - buf);
 }
 
@@ -1293,7 +1308,9 @@ Buffer::kill_xyzzy (int query)
 #ifdef _WIN32
   Filer::close_mlfiler ();
 #endif
-  selected_buffer ()->safe_run_hook (Vkill_xyzzy_hook, 1);
+  Buffer *bp = selected_buffer ();
+  if (bp)
+    bp->safe_run_hook (Vkill_xyzzy_hook, 1);
   PostQuitMessage (0);
   return 1;
 }
@@ -1741,11 +1758,11 @@ chars_equal (lisp x, lisp y)
     return 0;
   if (!stringp (x))
     return 1;
-  const Char *const p0 = xstring_contents (x);
-  const Char *const pe = p0 + xstring_length (x);
-  const Char *const q0 = xstring_contents (y);
-  const Char *const qe = q0 + xstring_length (y);
-  const Char *p, *q;
+  const ucs4_t *const p0 = xstring_contents (x);
+  const ucs4_t *const pe = p0 + xstring_length (x);
+  const ucs4_t *const q0 = xstring_contents (y);
+  const ucs4_t *const qe = q0 + xstring_length (y);
+  const ucs4_t *p, *q;
   for (p = p0; p < pe; p++)
     {
       for (q = q0; q < qe && *p != *q; q++)
@@ -1764,9 +1781,10 @@ chars_equal (lisp x, lisp y)
 }
 
 static int __cdecl
-compare_Char (const void *p1, const void *p2)
+compare_ucs4 (const void *p1, const void *p2)
 {
-  return *(const Char *)p1 - *(const Char *)p2;
+  ucs4_t a = *(const ucs4_t *)p1, b = *(const ucs4_t *)p2;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 static lisp
@@ -1778,10 +1796,10 @@ check_kinsoku_chars (lisp string)
   int l = xstring_length (string);
   if (l <= 1)
     return string;
-  Char *const p0 = (Char *)alloca (sizeof (Char) * l);
+  ucs4_t *const p0 = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
   bcopy (xstring_contents (string), p0, l);
-  qsort (p0, l, sizeof *p0, compare_Char);
-  Char *p = p0, *const pe = p + l, *d = p0;
+  qsort (p0, l, sizeof *p0, compare_ucs4);
+  ucs4_t *p = p0, *const pe = p + l, *d = p0;
   *d++ = *p++;
   for (; p < pe; p++)
     if (*p != d[-1])

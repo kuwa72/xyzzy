@@ -152,11 +152,9 @@ store_string (HWND list, lisp string, LVITEMW *lvi)
 {
   if (stringp (string))
     {
-      /* Phase 2: Lisp string は UTF-16。直接 wchar_t バッファへ載せる。 */
-      int slen = xstring_length (string);
-      wchar_t *wb = (wchar_t *)alloca ((slen + 1) * sizeof (wchar_t));
-      memcpy (wb, xstring_contents (string), slen * sizeof (wchar_t));
-      wb[slen] = 0;
+      /* Phase 3: ucs4 → UTF-16 で ListView へ。 */
+      wchar_t *wb = (wchar_t *)alloca (i2wl (string) * sizeof (wchar_t));
+      i2w (string, (ucs2_t *)wb);
       lvi->pszText = wb;
     }
   else
@@ -376,12 +374,14 @@ select_buffer_comparator::compare_buffer (LPARAM p1, LPARAM p2)
         }
       if (!stringp (n2))
         return 1;
+      /* Phase 3: ucs4 buffer 同士の比較。byte 数を sizeof(ucs4_t) で正規化。 */
       int d = (item == 2 || xsymbol_value (Vbuffer_list_sort_ignore_case) == Qnil
                ? bcmp (xstring_contents (n1), xstring_contents (n2),
-                       min (xstring_length (n1), xstring_length (n2)))
+                       sizeof (ucs4_t) * min (xstring_length (n1),
+                                              xstring_length (n2)))
                : memicmp (xstring_contents (n1), xstring_contents (n2),
-                          sizeof (Char) * min (xstring_length (n1),
-                                               xstring_length (n2))));
+                          sizeof (ucs4_t) * min (xstring_length (n1),
+                                                 xstring_length (n2))));
       if (!d)
         {
           d = xstring_length (n1) - xstring_length (n2);
@@ -597,14 +597,12 @@ make_string_from_wcs (const wchar_t *ws)
   return make_string (buf, len);
 }
 
-/* Phase 2: Lisp string Char is UTF-16 code unit, same as wchar_t on Windows.
-   Copy contents then null-terminate. */
+/* Phase 3: ucs4 Lisp string → UTF-16 wchar_t buffer.
+   Caller must size buf for i2wl(x) wchar units. */
 static wchar_t *
 i2w_lisp (lisp x, wchar_t *buf)
 {
-  int n = xstring_length (x);
-  memcpy (buf, xstring_contents (x), n * sizeof (wchar_t));
-  buf[n] = 0;
+  i2w (x, (ucs2_t *)buf);
   return buf;
 }
 
@@ -619,9 +617,9 @@ count_filter_size (lisp filters)
       lisp a = xcar (f), d = xcdr (f);
       check_string (a);
       check_string (d);
-      /* Each pair lays out as `[a]\0[d]\0`; +2 leaves the historical slack
-         the caller assumed. */
-      size += xstring_length (a) + 1 + xstring_length (d) + 1 + 2;
+      /* Phase 3: each pair `[a]\0[d]\0` in UTF-16 code units;
+         +2 leaves historical slack. */
+      size += (i2wl (a) - 1) + 1 + (i2wl (d) - 1) + 1 + 2;
     }
   if (size)
     size++;
@@ -635,14 +633,10 @@ make_filter_string (wchar_t *b, lisp filters)
     {
       lisp f = xcar (filters);
       lisp a = xcar (f), d = xcdr (f);
-      int la = xstring_length (a);
-      memcpy (b, xstring_contents (a), la * sizeof (wchar_t));
-      b += la;
-      *b++ = 0;
-      int ld = xstring_length (d);
-      memcpy (b, xstring_contents (d), ld * sizeof (wchar_t));
-      b += ld;
-      *b++ = 0;
+      ucs2_t *we = i2w (a, (ucs2_t *)b);
+      b = (wchar_t *)we + 1;             // skip the NUL appended by i2w
+      we = i2w (d, (ucs2_t *)b);
+      b = (wchar_t *)we + 1;
     }
   *b = 0;
 }
@@ -714,10 +708,8 @@ OFN::init_encoding_list ()
           && (!ofn_save || xchar_encoding_type (encoding) != encoding_auto_detect))
         {
           lisp name = xchar_encoding_display_name (encoding);
-          int len = xstring_length (name);
-          wchar_t *b = (wchar_t *)alloca ((len + 1) * sizeof (wchar_t));
-          memcpy (b, xstring_contents (name), len * sizeof (wchar_t));
-          b[len] = 0;
+          wchar_t *b = (wchar_t *)alloca (i2wl (name) * sizeof (wchar_t));
+          i2w (name, (ucs2_t *)b);
           int j = SendDlgItemMessageW (ofn_hwnd, IDC_CHAR_ENCODING, CB_ADDSTRING, 0, LPARAM (b));
           if (j != CB_ERR)
             {
@@ -1016,7 +1008,7 @@ Ffile_name_dialog (lisp keys)
   if (stringp (ltitle))
     {
       ofn.ofn_ok_button = 1;
-      title = (wchar_t *)alloca ((xstring_length (ltitle) + 1) * sizeof (wchar_t));
+      title = (wchar_t *)alloca (i2wl (ltitle) * sizeof (wchar_t));
       i2w_lisp (ltitle, title);
     }
   ofn.lpstrTitle = title;
@@ -1024,7 +1016,7 @@ Ffile_name_dialog (lisp keys)
   wchar_t *ext = 0;
   if (stringp (lext))
     {
-      ext = (wchar_t *)alloca ((xstring_length (lext) + 1) * sizeof (wchar_t));
+      ext = (wchar_t *)alloca (i2wl (lext) * sizeof (wchar_t));
       i2w_lisp (lext, ext);
     }
   ofn.lpstrDefExt = ext;
@@ -1175,15 +1167,13 @@ Fdirectory_name_dialog (lisp keys)
   else
     ldefault = selected_buffer ()->ldirectory;
 
-  /* Phase 2: Lisp string (UTF-16) を wchar_t に直 copy。 */
+  /* Phase 3: ucs4 → UTF-16 へ変換 (worst case 2x)。 */
   wchar_t wtitle[256];
   wchar_t *ptitle = 0;
   if (stringp (ltitle))
     {
-      int tl = xstring_length (ltitle);
-      if (tl >= (int) numberof (wtitle)) tl = numberof (wtitle) - 1;
-      memcpy (wtitle, xstring_contents (ltitle), tl * sizeof (wchar_t));
-      wtitle[tl] = 0;
+      int tl = min<int> (xstring_length (ltitle), (int) numberof (wtitle) / 2 - 1);
+      i2w (xstring_contents (ltitle), tl, (ucs2_t *)wtitle);
       ptitle = wtitle;
     }
 
@@ -1191,12 +1181,11 @@ Fdirectory_name_dialog (lisp keys)
   winitdir[0] = 0;
   if (stringp (ldefault))
     {
-      int dl = xstring_length (ldefault);
-      if (dl > PATH_MAX) dl = PATH_MAX;
-      memcpy (winitdir, xstring_contents (ldefault), dl * sizeof (wchar_t));
-      winitdir[dl] = 0;
+      int dl = min<int> (xstring_length (ldefault), PATH_MAX / 2);
+      ucs2_t *we = i2w (xstring_contents (ldefault), dl, (ucs2_t *)winitdir);
+      int wlen = (int)(we - (ucs2_t *)winitdir);
       /* slash → backslash */
-      for (int i = 0; i < dl; i++)
+      for (int i = 0; i < wlen; i++)
         if (winitdir[i] == L'/')
           winitdir[i] = L'\\';
     }

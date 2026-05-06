@@ -24,10 +24,12 @@ bstr2obj (BSTR bstr)
 static BSTR
 obj2bstr (lisp obj)
 {
-  /* Phase 2: Lisp string is UTF-16; BSTR is UTF-16. Let SysAllocStringLen
-     do the copy rather than going through i2w/i2wl helpers. */
-  BSTR bstr = SysAllocStringLen ((const OLECHAR *)xstring_contents (obj),
-                                 xstring_length (obj));
+  /* Phase 3: ucs4 → UTF-16, then SysAllocStringLen. BSTR is UTF-16. */
+  int wcap = i2wl (obj);
+  wchar_t *wbuf = (wchar_t *)alloca (wcap * sizeof (wchar_t));
+  ucs2_t *we = i2w (obj, (ucs2_t *)wbuf);
+  BSTR bstr = SysAllocStringLen ((const OLECHAR *)wbuf,
+                                 (UINT)(we - (ucs2_t *)wbuf));
   if (!bstr)
     FEstorage_error ();
   return bstr;

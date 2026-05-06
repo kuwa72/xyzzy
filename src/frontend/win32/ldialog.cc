@@ -3,6 +3,7 @@
 #include "ldialog.h"
 #include "ColorDialog.h"
 #include "privctrl.h"
+#include "oleconv.h"
 
 dlgctrl *
 Dialog::get_item (int id) const
@@ -80,13 +81,10 @@ Dialog::send_ltext (int id, int msg, WPARAM wparam, lisp init, dlg_txtwidth *dt)
     init = xchar_encoding_display_name (init);
   if (stringp (init))
     {
-      /* Phase 2: Lisp string は UTF-16。w2s→cp932→wchar の roundtrip は
-         dialog listbox items / ラベル等で mojibake の原因になる。
-         xstring_contents を直接 SendDlgItemMessageW に渡す。 */
-      int wl = xstring_length (init);
-      wchar_t *wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
-      memcpy (wb, xstring_contents (init), wl * sizeof (wchar_t));
-      wb[wl] = 0;
+      /* Phase 3: ucs4 → UTF-16 で dialog item へ送る。 */
+      wchar_t *wb = (wchar_t *)alloca (i2wl (init) * sizeof (wchar_t));
+      ucs2_t *we = i2w (xstring_contents (init), xstring_length (init), (ucs2_t *)wb);
+      int wl = (int)(we - (ucs2_t *)wb);
       if (dt)
         {
           SIZE sz;
@@ -397,12 +395,10 @@ Dialog::link_command (dlgctrl *c, UINT msg)
   lisp lurl = safe_find_keyword (Kurl, c->keyword ());
   if (!stringp (lurl))
     return;
-  /* Phase 2: Lisp URL は UTF-16。ShellExecuteW に直接渡す。 */
-  int ulen = xstring_length (lurl);
-  if (ulen >= MAX_PATH) ulen = MAX_PATH - 1;
+  /* Phase 3: ucs4 URL → UTF-16, truncate input to fit worst-case 2x. */
+  int ulen = min<int> (xstring_length (lurl), (MAX_PATH - 1) / 2);
   wchar_t wurl[MAX_PATH];
-  memcpy (wurl, xstring_contents (lurl), ulen * sizeof (wchar_t));
-  wurl[ulen] = 0;
+  i2w (xstring_contents (lurl), ulen, (ucs2_t *)wurl);
   Fbegin_wait_cursor ();
   ShellExecuteW (get_active_window (), L"open", wurl, 0, 0, SW_SHOWNORMAL);
   Fend_wait_cursor ();
@@ -967,10 +963,10 @@ item_string (lisp item, Char *buf, int size)
   if (stringp (item))
     {
       Char *b0 = buf, *b = buf, *be = buf + size - 2;
-      const Char *p = xstring_contents (item), *pe = p + xstring_length (item);
+      const ucs4_t *p = xstring_contents (item), *pe = p + xstring_length (item);
       for (; p < pe && b < be; p++)
         {
-          Char c = *p;
+          ucs4_t c = *p;
           if (c == '\n')
             {
               *b++ = '\\';
@@ -993,10 +989,10 @@ item_string (lisp item, Char *buf, int size)
           else if (c < ' ')
             {
               *b++ = '^';
-              if (b < be) *b++ = c + '@';
+              if (b < be) *b++ = Char (c + '@');
             }
           else
-            *b++ = c;
+            *b++ = Char (c);
         }
       *b = 0;
       return (int)(b - buf);
@@ -1345,11 +1341,10 @@ ldialog_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 inline WORD *
 Dialog::store_unicode (WORD *w, lisp string)
 {
-  /* Phase 2: Lisp string Char is UTF-16; memcpy + null. */
-  int n = xstring_length (string);
-  memcpy (w, xstring_contents (string), n * sizeof (WORD));
-  w[n] = 0;
-  return w + n + 1;
+  /* Phase 3: ucs4 → UTF-16 (DLGTEMPLATEEX expects UTF-16). */
+  ucs2_t *we = i2w (xstring_contents (string), xstring_length (string),
+                    (ucs2_t *)w);
+  return (WORD *)(we + 1);
 }
 
 lisp
@@ -2029,12 +2024,7 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
   if (!caption || caption == Qnil)
     wb = (wchar_t *)L"";
   else
-    {
-      int wl = xstring_length (caption);
-      wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
-      memcpy (wb, xstring_contents (caption), wl * sizeof (wchar_t));
-      wb[wl] = 0;
-    }
+    wb = I2W (caption);
 
   PROPSHEETHEADERW psh;
   psh.dwSize = sizeof psh;

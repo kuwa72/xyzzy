@@ -23,14 +23,18 @@ void file_error (message_code, lisp);
 void file_error (message_code);
 void file_error (int, lisp);
 void file_error (int);
-int parse_namestring (Char *, const Char *, int, const Char *, int);
+int parse_namestring (ucs4_t *, const ucs4_t *, int, const ucs4_t *, int);
 char *pathname2cstr (lisp, char *);
 wchar_t *pathname2wstr (lisp, wchar_t *);
 int special_file_p (const char *);
 int sub_directory_p (char *, const char *);
 lisp make_path (const char *s, int append_slash = 1);
-void map_backsl_to_sl (Char *, int);
-void map_sl_to_backsl (Char *, int);
+void map_backsl_to_sl (ucs4_t *, int);
+void map_sl_to_backsl (ucs4_t *, int);
+inline void map_backsl_to_sl (wchar_t *p, int n)
+  {for (int i = 0; i < n; i++) if (p[i] == '\\') p[i] = '/';}
+inline void map_sl_to_backsl (wchar_t *p, int n)
+  {for (int i = 0; i < n; i++) if (p[i] == '/') p[i] = '\\';}
 int match_suffixes (const char *, lisp);
 int match_suffixes (const wchar_t *, lisp);
 int set_device_dir (const char *, int);
@@ -105,15 +109,15 @@ lisp load_default (lisp, int);
 lisp load_history (lisp, int);
 lisp load_history (lisp, int, lisp);
 lisp load_title (lisp, int);
-lisp read_minibuffer (const Char *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
-lisp complete_read (const Char *, long, lisp, lisp, lisp, lisp, int, int);
-lisp read_filename (const Char *, long, lisp, lisp, lisp, lisp);
-lisp minibuffer_read_integer (const Char *, long);
+lisp read_minibuffer (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
+lisp complete_read (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int);
+lisp read_filename (const ucs4_t *, long, lisp, lisp, lisp, lisp);
+lisp minibuffer_read_integer (const ucs4_t *, long);
 
 /* chname.cc */
-Char standard_char_name2Char (const Char *, int);
-Char function_char_name2Char (const Char *, int);
-Char char_bit_name2Char (const Char *, int, int &);
+Char standard_char_name2Char (const ucs4_t *, int);
+Char function_char_name2Char (const ucs4_t *, int);
+Char char_bit_name2Char (const ucs4_t *, int, int &);
 const char *function_Char2name (Char);
 const char *standard_Char2name (Char);
 

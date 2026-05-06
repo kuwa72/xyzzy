@@ -4,6 +4,6 @@
 #include "cdecl.h"
 
 void Debug (char *format, ...);
-void Debug (const Char *b, size_t size);
+void Debug (const ucs4_t *b, size_t size);
 
 #endif /* _debug_h_ */

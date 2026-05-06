@@ -217,17 +217,17 @@ make_cf_wtext (CLIPBOARDTEXT &clp, lisp string)
      internal encoding 用) は撤廃。surrogate pair も buffer 上の 2 つの
      Char をそのまま 2 wchar として書き出すだけで Windows 側に正しく
      伝わる。 */
-  const Char *s = xstring_contents (string);
-  const Char *const se = s + xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+  const ucs4_t *const se = s + xstring_length (string);
 
   int extra = 0;
-  for (const Char *p = s; p < se; p++)
+  for (const ucs4_t *p = s; p < se; p++)
     if (*p == '\n')
       extra++;
 
   clp.fmt = CF_UNICODETEXT;
   ucs2_t *b = (ucs2_t *) galloc (clp,
-                                 (xstring_length (string) + extra + 1)
+                                 (2 * xstring_length (string) + extra + 1)
                                  * sizeof *b);
   if (!b)
     return 0;
@@ -236,7 +236,15 @@ make_cf_wtext (CLIPBOARDTEXT &clp, lisp string)
     {
       if (*s == '\n')
         *b++ = '\r';
-      *b++ = (ucs2_t) *s;
+      ucs4_t cp = *s;
+      if (cp < 0x10000)
+        *b++ = ucs2_t (cp);
+      else
+        {
+          cp -= 0x10000;
+          *b++ = ucs2_t (0xD800 + (cp >> 10));
+          *b++ = ucs2_t (0xDC00 + (cp & 0x3FF));
+        }
     }
   *b = 0;
 
@@ -398,7 +406,7 @@ make_string_from_cf_text (lisp lstring, const u_char *s)
   xinput_strstream str1 (ss, sl);
   encoding_input_stream_helper is1 (encoding, str1);
   int l = is1->total_length ();
-  Char *b = (Char *)malloc (l * sizeof *b);
+  ucs4_t *b = (ucs4_t *)malloc (l * sizeof *b);
   if (!b)
     return 0;
   xstring_contents (lstring) = b;
@@ -454,7 +462,7 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int /*lang*/)
      Char 列) にコピー。\r\n → \n の正規化のみ。lang による translate
      table (旧 internal encoding 向け) は撤廃。 */
   int l = count_cf_wtext_length (s);
-  Char *b = (Char *) malloc (l * sizeof *b);
+  ucs4_t *b = (ucs4_t *) malloc (l * sizeof *b);
   if (!b)
     return 0;
   xstring_contents (lstring) = b;
@@ -464,7 +472,7 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int /*lang*/)
     {
       if (*s == '\r' && s[1] == '\n')
         continue;
-      *b++ = (Char) *s;
+      *b++ = ucs4_t (*s);
     }
 
   return 1;

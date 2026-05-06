@@ -219,6 +219,8 @@ bignum_rep *lcm (const bignum_rep *, const bignum_rep *);
 bignum_rep *isqrt (const bignum_rep *);
 Char *ato_bignum_rep (bignum_rep *&, const Char *, int, int);
 bignum_rep *ato_bignum_rep (const Char *, int, int);
+ucs4_t *ato_bignum_rep (bignum_rep *&, const ucs4_t *, int, int);
+bignum_rep *ato_bignum_rep (const ucs4_t *, int, int);
 void lognot (bignum_rep *&, const bignum_rep *);
 void logope (bignum_rep *&, logope_code,
              const bignum_rep *, const bignum_rep *);

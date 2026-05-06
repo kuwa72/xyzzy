@@ -1130,20 +1130,21 @@ word_wrap (const Buffer *bp, fold_info &f)
 #endif
 
 static inline int
-in_chars (Char c, const Char *p, const Char *const pe)
+in_chars (Char c, const ucs4_t *p, const ucs4_t *const pe)
 {
-  if (p == pe || c > pe[-1])
+  ucs4_t cu = ucs4_t (c);
+  if (p == pe || cu > pe[-1])
     return 0;
-  for (; p < pe && *p <= c; p++)
-    if (c == *p)
+  for (; p < pe && *p <= cu; p++)
+    if (cu == *p)
       return 1;
   return 0;
 }
 
 static int
 kinsoku_bwd (fold_info &f, Char nextch, int limit,
-             const Char *bchars, const Char *bcharsl,
-             const Char *echars, const Char *echarsl)
+             const ucs4_t *bchars, const ucs4_t *bcharsl,
+             const ucs4_t *echars, const ucs4_t *echarsl)
 {
   Chunk *cp = f.cp;
   const Char *p = f.p;
@@ -1184,8 +1185,8 @@ kinsoku_bwd (fold_info &f, Char nextch, int limit,
 
 static int
 kinsoku_fwd (fold_info &f, Char prevch, int limit,
-             const Char *bchars, const Char *bcharsl,
-             const Char *echars, const Char *echarsl)
+             const ucs4_t *bchars, const ucs4_t *bcharsl,
+             const ucs4_t *echars, const ucs4_t *echarsl)
 {
   Chunk *cp = f.cp;
   const Char *p = f.p;
@@ -1228,7 +1229,7 @@ kinsoku_fwd (fold_info &f, Char prevch, int limit,
 static void
 kinsoku (const Buffer *bp, fold_info &f, const fold_parameter &param)
 {
-  const Char *bchars, *bcharsl, *echars, *echarsl;
+  const ucs4_t *bchars, *bcharsl, *echars, *echarsl;
   lisp x = bp->kinsoku_bol_chars ();
   if (stringp (x))
     {
@@ -2699,7 +2700,7 @@ Fcount_column (lisp string, lisp start, lisp lbuffer)
   int tab = ((!lbuffer || lbuffer == Qnil)
              ? app.default_tab_columns
              : Buffer::coerce_to_buffer (lbuffer)->b_tab_columns);
-  for (const Char *p = xstring_contents (string), *pe = p + xstring_length (string);
+  for (const ucs4_t *p = xstring_contents (string), *pe = p + xstring_length (string);
        p < pe; p++)
     column += char_columns (*p, column, tab);
   return make_fixnum (column);

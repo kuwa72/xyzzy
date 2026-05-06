@@ -97,12 +97,12 @@ void
 fast_sjis_to_utf16_stream::refill_internal ()
 {
   const u_char *rs, *rse;
-  Char *rd, *rde;
+  ucs4_t *rd, *rde;
   s_in.begin_direct_input (rs, rse);
   begin_direct_output (rd, rde);
 
   const u_char *s = rs, *const se = rse;
-  Char *d = rd, *const de = rde;
+  ucs4_t *d = rd, *const de = rde;
   for (; d < de && s < se; d++)
     {
       int c1 = *s++;
@@ -1262,7 +1262,7 @@ utf16_to_iso2022_stream::select_designation (int ccs) const
   return 0;
 }
 
-utf16_to_iso2022_stream::utf16_to_iso2022_stream (xinput_stream <Char> &in,
+utf16_to_iso2022_stream::utf16_to_iso2022_stream (xinput_stream <ucs4_t> &in,
                                                         eol_code eol,
                                                         int flags,
                                                         const u_char *initial,
@@ -1742,7 +1742,7 @@ static const char b64chars[] =
 static const char imap4_b64chars[] =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
 
-utf16_to_utf7_stream::utf16_to_utf7_stream (xinput_stream <Char> &in,
+utf16_to_utf7_stream::utf16_to_utf7_stream (xinput_stream <ucs4_t> &in,
                                                   eol_code eol, int flags)
      : utf16_to_utf_stream (in, eol, flags & ~ENCODING_UTF_SIGNATURE),
        s_nb (0),
@@ -2619,7 +2619,7 @@ encoding_input_stream_helper::encoding_input_stream_helper (lisp encoding,
     }
 }
 
-encoding_output_stream_helper::encoding_output_stream_helper (lisp encoding, xinput_stream <Char> &in,
+encoding_output_stream_helper::encoding_output_stream_helper (lisp encoding, xinput_stream <ucs4_t> &in,
                                                               eol_code eol)
 {
   assert (char_encoding_p (encoding));

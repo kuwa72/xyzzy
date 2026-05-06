@@ -20,7 +20,7 @@ load_default (const char *fmt, lisp keys, int number)
   char b[32];
   sprintf (b, fmt, number);
   int l = strlen (b);
-  Char w[32];
+  ucs4_t w[32];
   a2w (w, b, l);
   temporary_string t (w, l);
   lisp var = Ffind_symbol (t.string (), xsymbol_value (Vkeyword_package));
@@ -58,9 +58,12 @@ insert_default (Window *wp, lisp def, int noselect)
   point_t opoint = wp->w_point.p_point;
   if (stringp (def))
     {
+      int deflen = xstring_length (def);
+      const ucs4_t *defuc = xstring_contents (def);
+      Char *defc = (Char *)alloca (deflen * sizeof (Char));
+      for (int i = 0; i < deflen; i++) defc[i] = Char (defuc[i]);
       if (!wp->w_bufp->insert_chars_internal (wp->w_point,
-                                              xstring_contents (def),
-                                              xstring_length (def), 1))
+                                              defc, deflen, 1))
         return 0;
       if (noselect)
         return 1;
@@ -72,16 +75,16 @@ insert_default (Window *wp, lisp def, int noselect)
 }
 
 static int
-count_prompt_columns (const Char *s, int l)
+count_prompt_columns (const ucs4_t *s, int l)
 {
   int n = 0;
-  for (const Char *se = s + l; s < se; s++)
-    n += char_width (*s);
+  for (const ucs4_t *se = s + l; s < se; s++)
+    n += char_width (lChar (*s));
   return n;
 }
 
 lisp
-read_minibuffer (const Char *prompt, long prompt_length, lisp def,
+read_minibuffer (const ucs4_t *prompt, long prompt_length, lisp def,
                  lisp type, lisp compl, lisp history,
                  int noselect, int completion, int must_match,
                  lisp title, int opt_arg)
@@ -224,7 +227,7 @@ read_minibuffer (const Char *prompt, long prompt_length, lisp def,
 }
 
 lisp
-complete_read (const Char *prompt, long prompt_length, lisp def,
+complete_read (const ucs4_t *prompt, long prompt_length, lisp def,
                lisp type, lisp compl, lisp history,
                int must_match, int opt_arg)
 {
@@ -258,7 +261,7 @@ complete_read (const Char *prompt, long prompt_length, lisp def,
             package = lpkg;
         }
 
-      Char *b = xstring_contents (string);
+      ucs4_t *b = xstring_contents (string);
       int l = xstring_length (string);
 
       maybe_symbol_string mss (package);
@@ -280,7 +283,7 @@ complete_read (const Char *prompt, long prompt_length, lisp def,
 }
 
 lisp
-read_filename (const Char *prompt, long prompt_length, lisp type,
+read_filename (const ucs4_t *prompt, long prompt_length, lisp type,
                lisp title, lisp defalt, lisp history)
 {
   Buffer *bp = selected_buffer ();
@@ -299,7 +302,7 @@ read_filename (const Char *prompt, long prompt_length, lisp type,
 }
 
 lisp
-minibuffer_read_integer (const Char *prompt, long prompt_length)
+minibuffer_read_integer (const ucs4_t *prompt, long prompt_length)
 {
   lisp string = read_minibuffer (prompt, prompt_length, Qnil, Kinteger, Qnil, Kinteger,
                                  0, 0, 0, Qnil, -1);
@@ -457,13 +460,13 @@ completion::fix_match_len ()
   if (c_item == Qnil || !c_word || c_match_len <= c_target_len)
     return;
 
-  const Char *p = xstring_contents (c_item) + c_target_len;
-  const Char *pe = xstring_contents (c_item) + c_match_len;
+  const ucs4_t *p = xstring_contents (c_item) + c_target_len;
+  const ucs4_t *pe = xstring_contents (c_item) + c_match_len;
 
   if (p < pe)
     {
-      word_state ws (xsyntax_table (selected_buffer ()->lsyntax_table), *p);
-      for (; p < pe && ws.forward (*p) != word_state::not_inword; p++)
+      word_state ws (xsyntax_table (selected_buffer ()->lsyntax_table), Char (*p));
+      for (; p < pe && ws.forward (Char (*p)) != word_state::not_inword; p++)
         ;
     }
 
@@ -474,11 +477,13 @@ void
 completion::adjust_prefix (lisp prefix)
 {
   int l = xstring_length (prefix) + c_match_len;
-  Char *b = (Char *)alloca (sizeof (Char) * l);
-  bcopy (xstring_contents (prefix), b, xstring_length (prefix));
+  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
+  memcpy (b, xstring_contents (prefix), xstring_length (prefix) * sizeof (ucs4_t));
   if (stringp (c_item))
-    bcopy (xstring_contents (c_item), b + xstring_length (prefix), c_match_len);
-  if (l == xstring_length (c_string) && !bcmp (b, xstring_contents (c_string), l))
+    memcpy (b + xstring_length (prefix), xstring_contents (c_item),
+            c_match_len * sizeof (ucs4_t));
+  if (l == xstring_length (c_string)
+      && !memcmp (b, xstring_contents (c_string), l * sizeof (ucs4_t)))
     c_result = c_string;
   else
     c_result = make_string (b, l);
@@ -530,7 +535,7 @@ completion::complete_symbol ()
         package = lpkg;
     }
 
-  Char *b = xstring_contents (c_target);
+  ucs4_t *b = xstring_contents (c_target);
   int l = xstring_length (c_target);
 
   maybe_symbol_string mss (package);
@@ -645,9 +650,9 @@ completion::complete_filename (const char *path, lisp show_dots, lisp ignores)
 lisp
 completion::split_pathname ()
 {
-  const Char *p0 = xstring_contents (c_target);
-  const Char *pe = p0 + xstring_length (c_target);
-  const Char *p;
+  const ucs4_t *p0 = xstring_contents (c_target);
+  const ucs4_t *pe = p0 + xstring_length (c_target);
+  const ucs4_t *p;
   for (p = pe;
        p > p0 && p[-1] != ':' && p[-1] != '/' && p[-1] != '\\';
        p--)
@@ -676,8 +681,8 @@ completion::split_pathname ()
       if (xstring_length (x)
           && xstring_contents (x)[xstring_length (x) - 1] != '/')
         {
-          Char *b = (Char *)xmalloc ((xstring_length (x) + 1) * sizeof (Char));
-          bcopy (xstring_contents (x), b, xstring_length (x));
+          ucs4_t *b = (ucs4_t *)xmalloc ((xstring_length (x) + 1) * sizeof (ucs4_t));
+          memcpy (b, xstring_contents (x), xstring_length (x) * sizeof (ucs4_t));
           b[xstring_length (x)++] = '/';
           xfree (xstring_contents (x));
           xstring_contents (x) = b;
@@ -691,12 +696,12 @@ completion::split_pathname ()
 int
 completion::complete_UNC (lisp &directory)
 {
-  const Char *p0 = xstring_contents (directory);
-  const Char *pe = p0 + xstring_length (directory);
+  const ucs4_t *p0 = xstring_contents (directory);
+  const ucs4_t *pe = p0 + xstring_length (directory);
   int l = pe - p0;
   if (l < 2 || *p0 != '/' || p0[1] != '/')
     return 0;
-  const Char *p;
+  const ucs4_t *p;
   for (p = p0 + 2; p < pe && *p != '/'; p++)
     ;
   for (; pe > p && pe[-1] == '/'; pe--)

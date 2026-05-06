@@ -171,16 +171,14 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
   for (lisp p = list; consp (p); p = xcdr (p))
     {
       lisp s = xcar (p);
-      /* Phase 2: Lisp string Char は UTF-16 code unit。cp932 経由の
-         roundtrip を避けて直接 wchar_t バッファへ載せる。 */
-      int slen = xstring_length (s);
-      if (slen >= 1024) slen = 1023;
+      /* Phase 3: ucs4 → UTF-16, truncate by code points (not mid-surrogate). */
+      int slen = min<int> (xstring_length (s), 511);
       wchar_t wb[1024];
-      memcpy (wb, xstring_contents (s), slen * sizeof (wchar_t));
-      wb[slen] = 0;
+      ucs2_t *we = i2w (xstring_contents (s), slen, (ucs2_t *)wb);
+      int wlen = (int)(we - (ucs2_t *)wb);
       SendMessageW (hwnd_popup, LB_ADDSTRING, 0, LPARAM (wb));
       SIZE ext;
-      GetTextExtentPoint32W (hdc, wb, slen, &ext);
+      GetTextExtentPoint32W (hdc, wb, wlen, &ext);
       sz.cx = max (sz.cx, ext.cx);
       sz.cy += ext.cy;
     }

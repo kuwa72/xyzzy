@@ -114,10 +114,10 @@ public:
        : xinput_stream <u_char> ((const u_char *)s, (const u_char *)s + l) {}
 };
 
-class xinput_wstrstream: public xinput_stream <Char>
+class xinput_wstrstream: public xinput_stream <ucs4_t>
 {
 public:
-  xinput_wstrstream (const Char *s, int l) : xinput_stream <Char> (s, s + l) {}
+  xinput_wstrstream (const ucs4_t *s, int l) : xinput_stream <ucs4_t> (s, s + l) {}
 };
 
 template <class Ti, class To>
@@ -130,10 +130,10 @@ public:
   const xinput_stream <Ti> &input_stream () const {return s_in;}
 };
 
-class xread_stream: public xfilter_stream <u_char, Char>
+class xread_stream: public xfilter_stream <u_char, ucs4_t>
 {
 protected:
-  xread_stream (xinput_stream <u_char> &in) : xfilter_stream <u_char, Char> (in) {}
+  xread_stream (xinput_stream <u_char> &in) : xfilter_stream <u_char, ucs4_t> (in) {}
 };
 
 template <class T, int SZ, int PAD>
@@ -158,14 +158,14 @@ public:
   void end_direct_output (T *p) {b_bp = p;}
 };
 
-class xbuffered_read_stream: public xread_stream, protected xtemp_buffer <Char, 4096, 32>
+class xbuffered_read_stream: public xread_stream, protected xtemp_buffer <ucs4_t, 4096, 32>
 {
 protected:
   xbuffered_read_stream (xinput_stream <u_char> &in) : xread_stream (in) {}
   virtual int refill ();
   virtual void refill_internal () = 0;
 public:
-  void flush (const Char *&b, int &l)
+  void flush (const ucs4_t *&b, int &l)
     {
       b = head ();
       l = length ();
@@ -369,15 +369,15 @@ public:
        : xbuffered_read_stream (in), s_translate (translate) {}
 };
 
-class xwrite_stream: public xfilter_stream <Char, u_char>,
+class xwrite_stream: public xfilter_stream <ucs4_t, u_char>,
                      protected xtemp_buffer <u_char, 4096, 16>
 {
 protected:
   eol_code s_eol;
   long s_nlines;
 
-  xwrite_stream (xinput_stream <Char> &in, eol_code eol)
-       : xfilter_stream <Char, u_char> (in), s_eol (eol), s_nlines (0) {}
+  xwrite_stream (xinput_stream <ucs4_t> &in, eol_code eol)
+       : xfilter_stream <ucs4_t, u_char> (in), s_eol (eol), s_nlines (0) {}
   void puteol ();
   int finish () {return setbuf (head (), tail ());}
 public:
@@ -389,7 +389,7 @@ class utf16_to_sjis_stream: public xwrite_stream
 protected:
   virtual int refill ();
 public:
-  utf16_to_sjis_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_sjis_stream (xinput_stream <ucs4_t> &in, eol_code eol)
        : xwrite_stream (in, eol) {}
 };
 
@@ -398,7 +398,7 @@ class utf16_to_big5_stream: public xwrite_stream
 protected:
   virtual int refill ();
 public:
-  utf16_to_big5_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_big5_stream (xinput_stream <ucs4_t> &in, eol_code eol)
        : xwrite_stream (in, eol) {init_wc2big5_table ();}
 };
 
@@ -407,7 +407,7 @@ class utf16_to_binary_stream: public xwrite_stream
 protected:
   virtual int refill ();
 public:
-  utf16_to_binary_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_binary_stream (xinput_stream <ucs4_t> &in, eol_code eol)
        : xwrite_stream (in, eol) {}
 };
 
@@ -441,14 +441,14 @@ protected:
   int designate (u_char);
   int select_designation (int) const;
 public:
-  utf16_to_iso2022_stream (xinput_stream <Char> &, eol_code, int, const u_char *,
+  utf16_to_iso2022_stream (xinput_stream <ucs4_t> &, eol_code, int, const u_char *,
                               const u_int *, int);
 };
 
 class utf16_to_euckr_stream: public utf16_to_iso2022_stream
 {
 public:
-  utf16_to_euckr_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_euckr_stream (xinput_stream <ucs4_t> &in, eol_code eol)
        : utf16_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
                                                | ENCODING_ISO_ASCII_CTRL
                                                | ENCODING_ISO_SHORT_FORM),
@@ -459,7 +459,7 @@ public:
 class utf16_to_eucgb_stream: public utf16_to_iso2022_stream
 {
 public:
-  utf16_to_eucgb_stream (xinput_stream <Char> &in, eol_code eol)
+  utf16_to_eucgb_stream (xinput_stream <ucs4_t> &in, eol_code eol)
        : utf16_to_iso2022_stream (in, eol, (ENCODING_ISO_ASCII_EOL
                                                | ENCODING_ISO_ASCII_CTRL
                                                | ENCODING_ISO_SHORT_FORM),
@@ -471,7 +471,7 @@ class utf16_to_utf_stream: public xwrite_stream
 {
 protected:
   const int s_flags;
-  utf16_to_utf_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags)
        : xwrite_stream (in, eol), s_flags (flags) {}
   int getw () const;
 };
@@ -482,7 +482,7 @@ protected:
   int s_bom;
   virtual int refill ();
 public:
-  utf16_to_utf16le_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf16le_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags)
        : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
@@ -493,7 +493,7 @@ protected:
   int s_bom;
   virtual int refill ();
 public:
-  utf16_to_utf16be_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf16be_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags)
        : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
@@ -504,7 +504,7 @@ protected:
   int s_bom;
   virtual int refill ();
 public:
-  utf16_to_utf8_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf8_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags)
        : utf16_to_utf_stream (in, eol, flags),
          s_bom (flags & ENCODING_UTF_SIGNATURE) {}
 };
@@ -523,7 +523,7 @@ protected:
   virtual int refill ();
   void encode_b64 ();
 public:
-  utf16_to_utf7_stream (xinput_stream <Char> &in, eol_code eol, int flags);
+  utf16_to_utf7_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags);
 };
 
 class utf16_to_utf5_stream: public utf16_to_utf_stream
@@ -531,7 +531,7 @@ class utf16_to_utf5_stream: public utf16_to_utf_stream
 protected:
   virtual int refill ();
 public:
-  utf16_to_utf5_stream (xinput_stream <Char> &in, eol_code eol, int flags)
+  utf16_to_utf5_stream (xinput_stream <ucs4_t> &in, eol_code eol, int flags)
        : utf16_to_utf_stream (in, eol, flags) {}
 };
 
@@ -543,7 +543,7 @@ protected:
   virtual int refill ();
   static const wc2int_hash &charset_hash (int);
 public:
-  utf16_to_iso8859_stream (xinput_stream <Char> &in, eol_code eol, int charset)
+  utf16_to_iso8859_stream (xinput_stream <ucs4_t> &in, eol_code eol, int charset)
        : xwrite_stream (in, eol), s_charset (charset),
          s_hash (charset_hash (charset)) {}
 };
@@ -554,7 +554,7 @@ protected:
   const wc2int_hash &s_hash;
   virtual int refill ();
 public:
-  utf16_to_windows_codepage_stream (xinput_stream <Char> &in, eol_code eol, const wc2int_hash &hash)
+  utf16_to_windows_codepage_stream (xinput_stream <ucs4_t> &in, eol_code eol, const wc2int_hash &hash)
        : xwrite_stream (in, eol), s_hash (hash) {}
 };
 
@@ -758,7 +758,7 @@ class encoding_output_stream_helper
     } s_xbuf;
   xwrite_stream *s_stream;
 public:
-  encoding_output_stream_helper (lisp, xinput_stream <Char> &, eol_code);
+  encoding_output_stream_helper (lisp, xinput_stream <ucs4_t> &, eol_code);
   ~encoding_output_stream_helper () {delete s_stream;}
   operator xwrite_stream & () const {return *s_stream;}
   xwrite_stream *operator -> () const {return s_stream;}

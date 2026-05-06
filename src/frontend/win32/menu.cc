@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "oleconv.h"
 
 #define xwin32_menu_items xwin32_menu_command
 
@@ -196,12 +197,7 @@ add_menu (lisp lmenu, lisp item, UINT flags, const char *name, UINT id)
 static void
 add_menu (lisp lmenu, lisp item, lisp name, UINT flags, UINT id)
 {
-  /* Phase 2: Lisp string is UTF-16 and append_menu_w takes wchar_t*. Copy
-     plus null terminator, no encoding conversion needed. */
-  int wl = xstring_length (name);
-  wchar_t *wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
-  memcpy (wb, xstring_contents (name), wl * sizeof (wchar_t));
-  wb[wl] = 0;
+  wchar_t *wb = I2W (name);
   lisp new_items = xcons (item, xwin32_menu_items (lmenu));
   if (!append_menu_w (xwin32_menu_handle (lmenu), flags, id, wb))
     {
@@ -339,10 +335,7 @@ insert_menu (lisp lmenu, int pos, lisp item, UINT flags, const char *name, UINT 
 static void
 insert_menu (lisp lmenu, int pos, lisp item, lisp name, UINT flags, UINT id)
 {
-  int wl = xstring_length (name);
-  wchar_t *wb = (wchar_t *)alloca ((wl + 1) * sizeof (wchar_t));
-  memcpy (wb, xstring_contents (name), wl * sizeof (wchar_t));
-  wb[wl] = 0;
+  wchar_t *wb = I2W (name);
 
   int l = xlist_length (xwin32_menu_items (lmenu));
   if (pos >= l)

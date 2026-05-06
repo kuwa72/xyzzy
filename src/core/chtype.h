@@ -347,6 +347,10 @@ inline Char char_upcase (Char c)
   {return ascii_char_p (c) ? Char (_char_upcase (c)) : c;}
 inline Char char_transpose_case (Char c)
   {return alpha_char_p (c) ? (Char)_char_transpose_case (c) : c;}
+inline ucs4_t char_downcase (ucs4_t c)
+  {return ascii_char_p (int (c)) ? ucs4_t (_char_downcase (int (c))) : c;}
+inline ucs4_t char_upcase (ucs4_t c)
+  {return ascii_char_p (int (c)) ? ucs4_t (_char_upcase (int (c))) : c;}
 
 inline int
 _digit_char (int c)

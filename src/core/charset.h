@@ -379,6 +379,13 @@ char_width (Char cc)
   return w == 0 ? 1 : w;
 }
 
+static inline int
+char_width (ucs4_t cc)
+{
+  int w = unicode_width (cc);
+  return w == 0 ? 1 : w;
+}
+
 static inline const ucs2_t &
 i2w (Char cc)
 {

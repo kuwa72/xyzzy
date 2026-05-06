@@ -3,14 +3,14 @@
 
 # define WPATH_MAX (PATH_MAX / 2)
 
-typedef Char pathbuf_t[WPATH_MAX * 2 + 1];
+typedef ucs4_t pathbuf_t[WPATH_MAX * 2 + 1];
 
 struct pathname
 {
-  const Char *dev;
-  const Char *deve;
-  const Char *trail;
-  const Char *traile;
+  const ucs4_t *dev;
+  const ucs4_t *deve;
+  const ucs4_t *trail;
+  const ucs4_t *traile;
 };
 
 # define SEPCHAR '/'

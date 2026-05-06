@@ -195,7 +195,7 @@ dispatch (lChar cc)
           lisp name = xsymbol_name (command);
           if (stringp (name))
             {
-              const Char *s = xstring_contents (name);
+              const ucs4_t *s = xstring_contents (name);
               int l = xstring_length (name);
               char mb[128];
               int mi = 0;
@@ -279,7 +279,7 @@ run_command:
           lisp name = xsymbol_name (nld->type);
           if (stringp (name))
             {
-              const Char *s = xstring_contents (name);
+              const ucs4_t *s = xstring_contents (name);
               int l = xstring_length (name);
               char mb[128];
               int mi = 0;
@@ -297,7 +297,7 @@ run_command:
               lisp cs = Fsi_condition_string (nld->id);
               if (stringp (cs))
                 {
-                  const Char *s = xstring_contents (cs);
+                  const ucs4_t *s = xstring_contents (cs);
                   int l = xstring_length (cs);
                   char mb[512];
                   int mi = 0;

@@ -115,7 +115,10 @@ FilerView::set_colors () const
 int
 FilerView::chdir (lisp dir)
 {
-  return ::SetCurrentDirectoryW ((const wchar_t *)xstring_contents (dir));
+  /* Phase 3: ucs4 → UTF-16. */
+  wchar_t *wb = (wchar_t *)alloca (i2wl (dir) * sizeof (wchar_t));
+  i2w (dir, (ucs2_t *)wb);
+  return ::SetCurrentDirectoryW (wb);
 }
 
 int
@@ -134,9 +137,9 @@ FilerView::filename (const filer_data *d) const
   int l = xstring_length (fv_ldir);
   int sl = (d->attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
   lisp string = make_string (sl + l + nl);
-  bcopy (xstring_contents (fv_ldir), xstring_contents (string), l * sizeof (Char));
-  Char *b = &xstring_contents (string)[l];
-  memcpy (b, name, nl * sizeof (Char));
+  memcpy (xstring_contents (string), xstring_contents (fv_ldir), l * sizeof (ucs4_t));
+  ucs4_t *b = xstring_contents (string) + l;
+  for (int i = 0; i < nl; i++) b[i] = ucs4_t (name[i]);
   if (sl)
     b[nl] = '/';
   return string;
@@ -212,8 +215,8 @@ FilerView::load_contents (const wchar_t *mask)
 
       if (!dotdot)
         {
-          const Char *p = xstring_contents (fv_ldir);
-          const Char *pe = p + xstring_length (fv_ldir);
+          const ucs4_t *p = xstring_contents (fv_ldir);
+          const ucs4_t *pe = p + xstring_length (fv_ldir);
           if (p + 2 < pe && *p == '/' && p[1] == '/')
             for (p += 2; p < pe && *p++ != '/';)
               ;
@@ -296,7 +299,7 @@ FilerView::add_list_view (const wchar_t *last)
       if (xstring_length (fv_llastdir) >= l
           && !memicmp (xstring_contents (fv_llastdir),
                        xstring_contents (fv_ldir),
-                       l * sizeof (Char)))
+                       l * sizeof (ucs4_t)))
         {
           if (l && xstring_contents (fv_llastdir) [l - 1] == '/')
             ;
@@ -312,8 +315,10 @@ FilerView::add_list_view (const wchar_t *last)
               int cnt = e - l;
               if (cnt > MAX_PATH - 1)
                 cnt = MAX_PATH - 1;
-              memcpy (lastb, xstring_contents (fv_llastdir) + l, cnt * sizeof (wchar_t));
-              lastb[cnt] = 0;
+              /* Phase 3: ucs4 範囲を UTF-16 へ変換。 */
+              ucs2_t *we = i2w (xstring_contents (fv_llastdir) + l, cnt,
+                                (ucs2_t *)lastb);
+              (void)we;  // i2w が NUL 終端する
               if (*lastb)
                 last = lastb;
             }
@@ -702,17 +707,16 @@ FilerView::sort (int param)
 void
 FilerView::set_title (const wchar_t *mask) const
 {
+  /* Phase 3: ucs4 文字列を UTF-16 で連結 (worst case 2x)。 */
   lisp title = fv_parent->title ();
-  int wl = xstring_length (fv_ldir) + 1;
+  int wl = i2wl (fv_ldir);
   if (stringp (title))
-    wl += xstring_length (title) + 3;
+    wl += i2wl (title) + 3;
   if (mask)
     wl += (int) wcslen (mask);
   wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
-  wchar_t *w = wb;
-  memcpy (w, xstring_contents (fv_ldir),
-          xstring_length (fv_ldir) * sizeof (wchar_t));
-  w += xstring_length (fv_ldir);
+  ucs2_t *w = (ucs2_t *)wb;
+  w = i2w (fv_ldir, w);                 // i2w が NUL 終端、w は NUL 位置
   if (mask)
     {
       int ml = (int) wcslen (mask);
@@ -722,9 +726,7 @@ FilerView::set_title (const wchar_t *mask) const
   if (stringp (title))
     {
       *w++ = L' '; *w++ = L'-'; *w++ = L' ';
-      memcpy (w, xstring_contents (title),
-              xstring_length (title) * sizeof (wchar_t));
-      w += xstring_length (title);
+      w = i2w (title, w);
     }
   *w = 0;
   SetWindowTextW (fv_parent->id_hwnd, wb);
@@ -737,10 +739,8 @@ FilerView::set_title () const
     set_title (0);
   else
     {
-      int ml = xstring_length (fv_lmask);
-      wchar_t *mask = (wchar_t *)alloca ((ml + 1) * sizeof (wchar_t));
-      memcpy (mask, xstring_contents (fv_lmask), ml * sizeof (wchar_t));
-      mask[ml] = 0;
+      wchar_t *mask = (wchar_t *)alloca (i2wl (fv_lmask) * sizeof (wchar_t));
+      i2w (fv_lmask, (ucs2_t *)mask);
       set_title (mask);
     }
 }
@@ -750,11 +750,9 @@ FilerView::set_path () const
 {
   if (fv_parent->dual_window_p ())
     {
-      /* Phase 2: direct UTF-16 to SetWindowTextW。 */
-      int dlen = xstring_length (fv_ldir);
-      wchar_t *wb = (wchar_t *)alloca ((dlen + 1) * sizeof (wchar_t));
-      memcpy (wb, xstring_contents (fv_ldir), dlen * sizeof (wchar_t));
-      wb[dlen] = 0;
+      /* Phase 3: ucs4 → UTF-16 で SetWindowTextW へ。 */
+      wchar_t *wb = (wchar_t *)alloca (i2wl (fv_ldir) * sizeof (wchar_t));
+      i2w (fv_ldir, (ucs2_t *)wb);
       SetWindowTextW (fv_hwnd_path, wb);
     }
 }
@@ -793,10 +791,8 @@ FilerView::reload (lisp lmask)
   wchar_t *mask;
   if (stringp (fv_lmask))
     {
-      int ml = xstring_length (fv_lmask);
-      mask = (wchar_t *)alloca ((ml + 1) * sizeof (wchar_t));
-      memcpy (mask, xstring_contents (fv_lmask), ml * sizeof (wchar_t));
-      mask[ml] = 0;
+      mask = (wchar_t *)alloca (i2wl (fv_lmask) * sizeof (wchar_t));
+      i2w (fv_lmask, (ucs2_t *)mask);
     }
   else
     mask = 0;
@@ -964,8 +960,8 @@ FilerView::get_drive () const
 {
   if (xstring_length (fv_ldir) >= 2)
     {
-      const Char *p = xstring_contents (fv_ldir);
-      if (alpha_char_p (*p) && p[1] == ':')
+      const ucs4_t *p = xstring_contents (fv_ldir);
+      if (alpha_char_p (lChar (*p)) && p[1] == ':')
         return make_char (*p);
     }
   return Qnil;
@@ -1107,10 +1103,10 @@ int
 FilerView::search (lisp string, lisp lstart, lisp lreverse, lisp lwild)
 {
   check_string (string);
-  int sl = xstring_length (string);
-  wchar_t *pat = (wchar_t *)alloca ((sl + 2) * sizeof (wchar_t));
-  wchar_t *pe = (wchar_t *)memcpy (pat, xstring_contents (string),
-                                   sl * sizeof (wchar_t)) + sl;
+  /* Phase 3: ucs4 → UTF-16 で pattern を構築 (worst case 2x + '*' + NUL)。 */
+  wchar_t *pat = (wchar_t *)alloca ((i2wl (string) + 1) * sizeof (wchar_t));
+  ucs2_t *pe_u = i2w (string, (ucs2_t *)pat);
+  wchar_t *pe = (wchar_t *)pe_u;
 
   int inc = !lreverse || lreverse == Qnil ? 1 : -1;
   int wild = lwild && lwild != Qnil;
@@ -1464,13 +1460,14 @@ FilerView::restart_thread ()
 {
   if (!fv_hthread)
     return;
-  int dl = xstring_length (fv_ldir);
-  wchar_t *path = (wchar_t *)malloc ((dl + 1) * sizeof (wchar_t));
+  /* Phase 3: ucs4 path → UTF-16, slash→backslash in place. */
+  int wcap = i2wl (fv_ldir);
+  wchar_t *path = (wchar_t *)malloc (wcap * sizeof (wchar_t));
   if (!path)
     return;
-  memcpy (path, xstring_contents (fv_ldir), dl * sizeof (wchar_t));
-  path[dl] = 0;
-  map_sl_to_backsl ((Char *)path, dl);
+  i2w (fv_ldir, (ucs2_t *)path);
+  for (int i = 0; i < wcap - 1; i++)
+    if (path[i] == L'/') path[i] = L'\\';
 
   ex_lock lock (fv_lockobj);
   if (fv_icon_path)
@@ -1572,11 +1569,10 @@ Filer::IdleProc ()
 static void
 add_combo (HWND combo, lisp string)
 {
-  /* Phase 2-5: Lisp string is UTF-16; copy directly to a wchar_t buffer. */
-  int n = min<int> (xstring_length (string), 1023);
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
+  int n = min<int> (xstring_length (string), 511);
   wchar_t wb[1024];
-  memcpy (wb, xstring_contents (string), n * sizeof (wchar_t));
-  wb[n] = 0;
+  i2w (xstring_contents (string), n, (ucs2_t *)wb);
   SendMessageW (combo, CB_ADDSTRING, 0, LPARAM (wb));
 }
 
@@ -2140,10 +2136,12 @@ paint_text (HDC hdc, lisp string, const RECT &r)
   if (!stringp (string))
     return;
 
-  /* Phase 2-5: Lisp string is UTF-16; ExtTextOutW takes wchar_t directly. */
+  /* Phase 3: ucs4 → UTF-16 で ExtTextOutW へ。 */
+  int slen = xstring_length (string);
+  wchar_t *wb = (wchar_t *)alloca (i2wl (string) * sizeof (wchar_t));
+  ucs2_t *we = i2w (xstring_contents (string), slen, (ucs2_t *)wb);
   ExtTextOutW (hdc, r.left, r.top, ETO_CLIPPED | ETO_OPAQUE,
-               &r, (const wchar_t *)xstring_contents (string),
-               xstring_length (string), 0);
+               &r, wb, (int)(we - (ucs2_t *)wb), 0);
 }
 
 void
@@ -2409,11 +2407,10 @@ void
 Filer::set_text (lisp string)
 {
   check_string (string);
-  /* Phase 2-5: Lisp string is UTF-16; copy straight to wchar_t buffer. */
-  int n = min<int> (xstring_length (string), 255);
+  /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
+  int n = min<int> (xstring_length (string), 127);
   wchar_t wb[256];
-  memcpy (wb, xstring_contents (string), n * sizeof (wchar_t));
-  wb[n] = 0;
+  i2w (xstring_contents (string), n, (ucs2_t *)wb);
   SetDlgItemTextW (id_hwnd, IDC_NAME, wb);
 }
 
@@ -3218,9 +3215,11 @@ Filer::do_keyup ()
       else
         {
           lisp dir = v->get_directory ();
-          int dlen = xstring_length (dir);
-          wchar_t *wpath = (wchar_t *)alloca ((dlen + MAX_PATH + 1) * sizeof (wchar_t));
-          memcpy (wpath, xstring_contents (dir), dlen * sizeof (wchar_t));
+          /* Phase 3: ucs4 dir → UTF-16, append d->name (already wchar_t). */
+          int dwlen_max = i2wl (dir);  // includes terminator
+          wchar_t *wpath = (wchar_t *)alloca ((dwlen_max + MAX_PATH) * sizeof (wchar_t));
+          ucs2_t *we = i2w (dir, (ucs2_t *)wpath);
+          int dlen = (int)(we - (ucs2_t *)wpath);
           wcscpy (wpath + dlen, d->name);
           int wlen = dlen + (int) wcslen (d->name);
           int nbytes = WideCharToMultiByte (CP_ACP, 0, wpath, wlen, 0, 0, 0, 0) + 1;

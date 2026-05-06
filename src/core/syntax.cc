@@ -2174,12 +2174,19 @@ Fforward_identifier (lisp beg, lisp end, lisp igcase)
   Window *wp = selected_window ();
   wp->w_disp_flags |= Window::WDF_GOAL_COLUMN;
   Point point (wp->w_point);
-  if (!wp->w_bufp->forward_identifier (point,
-                                       xstring_contents (beg),
-                                       xstring_length (beg),
-                                       end ? xstring_contents (end) : 0,
-                                       end ? xstring_length (end) : 0,
-                                       igcase != Qnil))
+  int bl = xstring_length (beg);
+  const ucs4_t *buc = xstring_contents (beg);
+  Char *bc = (Char *)alloca (bl * sizeof (Char));
+  for (int i = 0; i < bl; i++) bc[i] = Char (buc[i]);
+  int el = end ? xstring_length (end) : 0;
+  Char *ec = 0;
+  if (end)
+    {
+      const ucs4_t *euc = xstring_contents (end);
+      ec = (Char *)alloca (el * sizeof (Char));
+      for (int i = 0; i < el; i++) ec[i] = Char (euc[i]);
+    }
+  if (!wp->w_bufp->forward_identifier (point, bc, bl, ec, el, igcase != Qnil))
     return Qnil;
   wp->w_point = point;
   return Qt;
@@ -2198,12 +2205,19 @@ Fbackward_identifier (lisp beg, lisp end, lisp igcase)
   Window *wp = selected_window ();
   wp->w_disp_flags |= Window::WDF_GOAL_COLUMN;
   Point point (wp->w_point);
-  if (!wp->w_bufp->backward_identifier (point,
-                                        xstring_contents (beg),
-                                        xstring_length (beg),
-                                        end ? xstring_contents (end) : 0,
-                                        end ? xstring_length (end) : 0,
-                                        igcase != Qnil))
+  int bl = xstring_length (beg);
+  const ucs4_t *buc = xstring_contents (beg);
+  Char *bc = (Char *)alloca (bl * sizeof (Char));
+  for (int i = 0; i < bl; i++) bc[i] = Char (buc[i]);
+  int el = end ? xstring_length (end) : 0;
+  Char *ec = 0;
+  if (end)
+    {
+      const ucs4_t *euc = xstring_contents (end);
+      ec = (Char *)alloca (el * sizeof (Char));
+      for (int i = 0; i < el; i++) ec[i] = Char (euc[i]);
+    }
+  if (!wp->w_bufp->backward_identifier (point, bc, bl, ec, el, igcase != Qnil))
     return Qnil;
   wp->w_point = point;
   return Qt;

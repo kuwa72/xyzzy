@@ -61,15 +61,14 @@ Fsi_load_dll_module (lisp lname)
   if (dll != Qnil)
     return dll;
 
-  /* Phase 2-5: lname is UTF-16; copy straight into wname for the W APIs.
+  /* Phase 3: lname is ucs4; convert to UTF-16 (worst case 2x for non-BMP).
      Bypass WINFS::LoadLibrary's askpass retry (only matters for network
      shares with credentials, rarely the path for Lisp-loaded DLLs).      */
   int nlen = xstring_length (lname);
   if (nlen > PATH_MAX)
     FEsimple_error (Epath_name_too_long, lname);
-  wchar_t wname[PATH_MAX + 1];
-  memcpy (wname, xstring_contents (lname), nlen * sizeof (wchar_t));
-  wname[nlen] = 0;
+  wchar_t wname[2 * PATH_MAX + 1];
+  i2w (lname, (ucs2_t *)wname);
 
   dll = make_dll_module ();
   lisp list = xcons (dll, xsymbol_value (Vdll_module_list));

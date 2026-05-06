@@ -32,17 +32,17 @@ wStream::case_conversion (wStream &src, int colon, int atsign)
   if (colon && atsign)
     {
       for (const strbuf_chunk *cp = src.sb_chunk; cp; cp = cp->cdr)
-        for (const Char *p = cp->contents, *pe = cp->used; p < pe; p++)
+        for (const ucs4_t *p = cp->contents, *pe = cp->used; p < pe; p++)
           add (char_upcase (*p));
     }
   else if (colon)
     {
       int f = 1;
       for (const strbuf_chunk *cp = src.sb_chunk; cp; cp = cp->cdr)
-        for (const Char *p = cp->contents, *pe = cp->used; p < pe; p++)
+        for (const ucs4_t *p = cp->contents, *pe = cp->used; p < pe; p++)
           {
-            Char c = *p;
-            if (alphanumericp (c))
+            ucs4_t c = *p;
+            if (alphanumericp (lChar (c)))
               {
                 if (f)
                   add (char_upcase (c));
@@ -61,7 +61,7 @@ wStream::case_conversion (wStream &src, int colon, int atsign)
     {
       int f = 1;
       for (const strbuf_chunk *cp = src.sb_chunk; cp; cp = cp->cdr)
-        for (const Char *p = cp->contents, *pe = cp->used; p < pe; p++)
+        for (const ucs4_t *p = cp->contents, *pe = cp->used; p < pe; p++)
           {
             if (f)
               add (char_upcase (*p));
@@ -73,7 +73,7 @@ wStream::case_conversion (wStream &src, int colon, int atsign)
   else
     {
       for (const strbuf_chunk *cp = src.sb_chunk; cp; cp = cp->cdr)
-        for (const Char *p = cp->contents, *pe = cp->used; p < pe; p++)
+        for (const ucs4_t *p = cp->contents, *pe = cp->used; p < pe; p++)
           add (char_downcase (*p));
     }
 }

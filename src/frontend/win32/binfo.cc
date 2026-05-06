@@ -29,11 +29,26 @@ stwncpy (Char *b, Char *be, const Char *s, size_t max)
 static Char *
 copy_lisp_string (Char *b, Char *be, lisp str)
 {
-  int nlim = (int)(be - b);
+  /* Phase 3: ucs4 → UTF-16 で Char buffer に詰める (surrogate pair も発出)。 */
   int nstr = xstring_length (str);
-  int n = nstr < nlim ? nstr : nlim;
-  memcpy (b, xstring_contents (str), n * sizeof (Char));
-  return b + n;
+  const ucs4_t *p = xstring_contents (str);
+  ucs2_t *out = (ucs2_t *)b;
+  ucs2_t *out_end = (ucs2_t *)be;
+  for (int i = 0; i < nstr && out < out_end; i++)
+    {
+      ucs4_t cp = p[i];
+      if (cp < 0x10000)
+        *out++ = ucs2_t (cp);
+      else if (out + 1 < out_end)
+        {
+          cp -= 0x10000;
+          *out++ = ucs2_t (0xD800 + (cp >> 10));
+          *out++ = ucs2_t (0xDC00 + (cp & 0x3FF));
+        }
+      else
+        break;
+    }
+  return (Char *)out;
 }
 
 Char *
@@ -296,16 +311,16 @@ buffer_info::format (lisp fmt, Char *b, Char *be) const
   if (b_percentp)
     *b_percentp = 0;
 
-  const Char *p = xstring_contents (fmt);
-  const Char *const pe = p + xstring_length (fmt);
+  const ucs4_t *p = xstring_contents (fmt);
+  const ucs4_t *const pe = p + xstring_length (fmt);
 
   while (p < pe && b < be)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (c != '%')
         {
         normal_char:
-          if (b < be) *b++ = c;
+          if (b < be) *b++ = Char (c);
         }
       else
         {

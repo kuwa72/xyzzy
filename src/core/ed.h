@@ -314,8 +314,8 @@ public:
   void restore ();
   int text (const char *);
   int text (const wchar_t *);
-  void puts (const Char *, int);
-  int putc (Char);
+  void puts (const ucs4_t *, int);
+  int putc (ucs4_t);
   void newline ();
   void puts (const char *, int);
   void puts (int, int);
