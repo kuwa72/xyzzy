@@ -127,7 +127,7 @@ make_ts_grammar ()
 }
 
 /* (si:load-ts-grammar DLL-PATH LANG-NAME) */
-lisp
+lisp __stdcall
 Fsi_load_ts_grammar (lisp lpath, lisp lname)
 {
   check_string (lpath);
@@ -197,7 +197,10 @@ struct ts_parse_job
   long           revision;
 };
 
-static const char *
+/* These callbacks are called by tree-sitter-core.lib which is compiled without
+   /Gz, so it uses __cdecl for function pointer calls.  Explicit __cdecl here
+   prevents /Gz from making these __stdcall, which would corrupt the stack. */
+static const char * __cdecl
 ts_snap_read (void *payload, uint32_t byte_index, TSPoint /*pos*/,
               uint32_t *bytes_read)
 {
@@ -207,8 +210,7 @@ ts_snap_read (void *payload, uint32_t byte_index, TSPoint /*pos*/,
   return job->snapshot + byte_index;
 }
 
-/* Progress callback: cancel parse when flagged by the main thread. */
-static bool
+static bool __cdecl
 ts_parse_cancel_cb (TSParseState *state)
 {
   ts_parse_job *job = (ts_parse_job *) state->payload;
@@ -221,8 +223,13 @@ ts_parse_thread (LPVOID arg)
   ts_parse_job *job = (ts_parse_job *) arg;
   lts_buf_cache *c = job->cache;
 
-  TSInput input = { job, ts_snap_read, TSInputEncodingUTF16LE };
-  TSParseOptions opts = { job, ts_parse_cancel_cb };
+  /* On x86 MSVC /Gz: TSInput::read and TSParseOptions::progress_callback are
+     implicitly __stdcall typed, but tree-sitter-core calls them as __cdecl.
+     Cast from __cdecl to the member's type; the stored address is correct. */
+#pragma warning(suppress: 4191)
+  TSInput input = { job, (decltype(TSInput::read))ts_snap_read, TSInputEncodingUTF16LE };
+#pragma warning(suppress: 4191)
+  TSParseOptions opts = { job, (decltype(TSParseOptions::progress_callback))ts_parse_cancel_cb };
 
   /* Always full-parse (nullptr old tree): ts_tree_edit is not connected, so
      passing an old tree produces incorrect node positions after any edit. */
@@ -348,7 +355,7 @@ ts_query_thread (LPVOID arg)
    then run QUERY-SOURCE asynchronously.  Returns cached spans when the bg
    query thread finishes; returns nil while parsing or querying is in progress.
    START-ROW / END-ROW are 0-based tree-sitter row numbers. */
-lisp
+lisp __stdcall
 Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
                      lisp lstart_row, lisp lend_row)
 {
@@ -706,7 +713,7 @@ ts_batch_cu_to_cp (Buffer *bp, const ts_span_raw *spans, uint32_t nsp,
    Manages bg parse/query threads (same as si:ts-query-buffer), then when spans
    are ready applies textprops directly in C — no Lisp list allocation.
    Returns t when highlights were applied, nil while bg work is pending. */
-lisp
+lisp __stdcall
 Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
                          lisp lstart_row, lisp lend_row,
                          lisp ltag, lisp lcolors)
@@ -875,7 +882,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
 }
 
 /* (si:ts-free-buffer-cache &optional BUFFER) */
-lisp
+lisp __stdcall
 Fsi_ts_free_buffer_cache (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -912,7 +919,7 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
 }
 
 /* (si:ts-buffer-cached-p &optional BUFFER) */
-lisp
+lisp __stdcall
 Fsi_ts_buffer_cached_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -924,7 +931,7 @@ Fsi_ts_buffer_cached_p (lisp lbuffer)
 
 /* (si:ts-parse-complete-p &optional BUFFER)
    Return t if BUFFER has an up-to-date parse tree with no pending bg parse. */
-lisp
+lisp __stdcall
 Fsi_ts_parse_complete_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -938,7 +945,7 @@ Fsi_ts_parse_complete_p (lisp lbuffer)
 
 /* (si:ts-query-pending-p &optional BUFFER)
    Return t while the async query thread is running for BUFFER. */
-lisp
+lisp __stdcall
 Fsi_ts_query_pending_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -948,7 +955,7 @@ Fsi_ts_query_pending_p (lisp lbuffer)
   return it->second->bg_active ? Qt : Qnil;
 }
 
-lisp
+lisp __stdcall
 Fsi_ts_grammar_p (lisp x)
 {
   return ts_grammar_p (x) ? Qt : Qnil;
@@ -981,7 +988,7 @@ cp_to_byte (Buffer *bp, point_t target_cp)
    Returns a list of (type start-cp end-cp) from the named node at POINT
    up to the parse tree root (innermost first).
    Returns nil when no up-to-date tree is available yet. */
-lisp
+lisp __stdcall
 Fsi_ts_node_ancestors (lisp lgrammar, lisp lbuffer, lisp lpoint)
 {
   check_ts_grammar (lgrammar);
