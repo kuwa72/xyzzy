@@ -659,9 +659,21 @@ Buffer::insert_chars (Point &point, const Char *string, int length)
 void
 Buffer::insert_chars (Point &point, const ucs4_t *string, int length)
 {
-  Char *tmp = (Char *)alloca (length * sizeof (Char));
-  for (int i = 0; i < length; i++) tmp[i] = Char (string[i]);
-  insert_chars (point, tmp, length);
+  Char *tmp = (Char *)alloca (length * 2 * sizeof (Char));
+  Char *dst = tmp;
+  for (int i = 0; i < length; i++)
+    {
+      ucs4_t cp = string[i];
+      if (cp < 0x10000)
+        *dst++ = Char (cp);
+      else
+        {
+          cp -= 0x10000;
+          *dst++ = Char (0xD800 + (cp >> 10));
+          *dst++ = Char (0xDC00 + (cp & 0x3FF));
+        }
+    }
+  insert_chars (point, tmp, dst - tmp);
 }
 
 lisp
@@ -694,10 +706,22 @@ Finsert (lisp args)
         {
           int len = xstring_length (x);
           const ucs4_t *src = xstring_contents (x);
-          Char *dst = (Char *)alloca (sizeof (Char) * len);
-          for (int k = 0; k < len; k++) dst[k] = Char (src[k]);
+          Char *dst = (Char *)alloca (sizeof (Char) * len * 2);
+          Char *p = dst;
+          for (int k = 0; k < len; k++)
+            {
+              ucs4_t cp = src[k];
+              if (cp < 0x10000)
+                *p++ = Char (cp);
+              else
+                {
+                  cp -= 0x10000;
+                  *p++ = Char (0xD800 + (cp >> 10));
+                  *p++ = Char (0xDC00 + (cp & 0x3FF));
+                }
+            }
           ichars[i].string = dst;
-          ichars[i].length = len;
+          ichars[i].length = p - dst;
         }
       else if (i && i == nargs - 1)
         {
