@@ -3924,8 +3924,15 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
              xstring_contents (lmsg),
              xstring_contents (lmsg) + xstring_length (lmsg));
   msg4[l] = 0;
-  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1));
-  for (int mi = 0; mi <= l; mi++) msg[mi] = Char (msg4[mi]);
+  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1) * 2);
+  Char *msgdp = msg;
+  for (int mi = 0; mi < l; mi++)
+    {
+      ucs4_t mc = msg4[mi];
+      if (mc < 0x10000) *msgdp++ = Char (mc);
+      else { mc -= 0x10000; *msgdp++ = Char (0xD800 + (mc >> 10)); *msgdp++ = Char (0xDC00 + (mc & 0x3FF)); }
+    }
+  *msgdp = 0;
 
   const Char *title;
   if (!ltitle || ltitle == Qnil)
@@ -3935,8 +3942,15 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
       check_string (ltitle);
       int tl = xstring_length (ltitle);
       const ucs4_t *ts = xstring_contents (ltitle);
-      Char *tb = (Char *)alloca (sizeof (Char) * (tl + 1));
-      for (int ti = 0; ti <= tl; ti++) tb[ti] = Char (ts[ti]);
+      Char *tb = (Char *)alloca (sizeof (Char) * (tl + 1) * 2);
+      Char *tbdp = tb;
+      for (int ti = 0; ti < tl; ti++)
+        {
+          ucs4_t tc = ts[ti];
+          if (tc < 0x10000) *tbdp++ = Char (tc);
+          else { tc -= 0x10000; *tbdp++ = Char (0xD800 + (tc >> 10)); *tbdp++ = Char (0xDC00 + (tc & 0x3FF)); }
+        }
+      *tbdp = 0;
       title = tb;
     }
 
@@ -3957,8 +3971,15 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
           check_string (x);
           int cl = xstring_length (x);
           const ucs4_t *cs = xstring_contents (x);
-          Char *cb = (Char *)alloca (sizeof (Char) * (cl + 1));
-          for (int ci = 0; ci <= cl; ci++) cb[ci] = Char (cs[ci]);
+          Char *cb = (Char *)alloca (sizeof (Char) * (cl + 1) * 2);
+          Char *cbdp = cb;
+          for (int ci = 0; ci < cl; ci++)
+            {
+              ucs4_t cc = cs[ci];
+              if (cc < 0x10000) *cbdp++ = Char (cc);
+              else { cc -= 0x10000; *cbdp++ = Char (0xD800 + (cc >> 10)); *cbdp++ = Char (0xDC00 + (cc & 0x3FF)); }
+            }
+          *cbdp = 0;
           captions[i] = cb;
         }
     }
@@ -3993,8 +4014,15 @@ putmsg (wStream &stream, int msgboxp, int style, int beep)
 
   if (msgboxp)
     {
-      Char *bc = (Char *)alloca (sizeof (Char) * (l + 1));
-      for (int bi = 0; bi <= l; bi++) bc[bi] = Char (b[bi]);
+      Char *bc = (Char *)alloca (sizeof (Char) * (l + 1) * 2);
+      Char *bcdp = bc;
+      for (int bi = 0; bi < l; bi++)
+        {
+          ucs4_t bcc = b[bi];
+          if (bcc < 0x10000) *bcdp++ = Char (bcc);
+          else { bcc -= 0x10000; *bcdp++ = Char (0xD800 + (bcc >> 10)); *bcdp++ = Char (0xDC00 + (bcc & 0x3FF)); }
+        }
+      *bcdp = 0;
       app.status_window.clear ();
       return MsgBox (get_active_window (), bc, TitleBarStringC, style, beep);
     }

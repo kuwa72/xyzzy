@@ -1265,17 +1265,30 @@ text_data_object::GetData (FORMATETC *etc, STGMEDIUM *medium)
             }
           else
             {
+              int str_cp = xstring_length (string);
+              const ucs4_t *src = xstring_contents (string);
               h = GlobalAlloc (GMEM_MOVEABLE,
                                (offsetof (xyzzytext_header, data)
-                                + sizeof (Char) * xstring_length (string)));
+                                + sizeof (Char) * str_cp * 2));
               if (h)
                 {
                   xyzzytext_header *p = (xyzzytext_header *)GlobalLock (h);
                   if (p)
                     {
-                      p->size = xstring_length (string);
-                      const ucs4_t *src = xstring_contents (string);
-                      for (int i = 0; i < p->size; i++) p->data[i] = Char (src[i]);
+                      Char *dp = p->data;
+                      for (int i = 0; i < str_cp; i++)
+                        {
+                          ucs4_t cp = src[i];
+                          if (cp < 0x10000)
+                            *dp++ = Char (cp);
+                          else
+                            {
+                              cp -= 0x10000;
+                              *dp++ = Char (0xD800 + (cp >> 10));
+                              *dp++ = Char (0xDC00 + (cp & 0x3FF));
+                            }
+                        }
+                      p->size = dp - p->data;
                       GlobalUnlock (h);
                     }
                   else

@@ -1133,25 +1133,41 @@ static void
 replace_match (Window *wp, lisp string, int literal)
 {
   Buffer *bp = wp->w_bufp;
-  int slen = xstring_length (string);
+  int slen_cp = xstring_length (string);
   const ucs4_t *suc = xstring_contents (string);
-  Char *sc = (Char *)alloca (slen * sizeof (Char));
-  for (int i = 0; i < slen; i++) sc[i] = Char (suc[i]);
+  Char *sc = (Char *)alloca (slen_cp * 2 * sizeof (Char));
+  Char *dp = sc;
+  for (int i = 0; i < slen_cp; i++)
+    {
+      ucs4_t cp = suc[i];
+      if (cp < 0x10000)
+        *dp++ = Char (cp);
+      else
+        {
+          cp -= 0x10000;
+          *dp++ = Char (0xD800 + (cp >> 10));
+          *dp++ = Char (0xDC00 + (cp & 0x3FF));
+        }
+    }
+  int slen = dp - sc;  /* code unit count */
 
   if (literal)
     {
-      int l = min (slen, int (re_regs.end[0] - re_regs.start[0]));
-      if (l)
+      int l_cp = min (slen_cp, int (re_regs.end[0] - re_regs.start[0]));
+      int l_cu = 0;
+      for (int i = 0; i < l_cp; i++)
+        l_cu += (suc[i] >= 0x10000) ? 2 : 1;
+      if (l_cu)
         {
           bp->goto_char (wp->w_point, re_regs.start[0]);
-          bp->overwrite_chars (wp, sc, l);
+          bp->overwrite_chars (wp, sc, l_cu);
         }
-      if (re_regs.start[0] + l != re_regs.end[0])
-        bp->delete_region (wp, re_regs.start[0] + l, re_regs.end[0]);
-      else if (l != slen)
+      if (re_regs.start[0] + l_cp != re_regs.end[0])
+        bp->delete_region (wp, re_regs.start[0] + l_cp, re_regs.end[0]);
+      else if (l_cu != slen)
         {
-          bp->goto_char (wp->w_point, re_regs.start[0] + l);
-          bp->insert_chars (wp, sc + l, slen - l, 1);
+          bp->goto_char (wp->w_point, re_regs.start[0] + l_cp);
+          bp->insert_chars (wp, sc + l_cu, slen - l_cu, 1);
         }
       else
         bp->goto_char (wp->w_point, re_regs.end[0]);

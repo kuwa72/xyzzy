@@ -779,11 +779,21 @@ write_buffer_stream (lisp stream, const ucs4_t *b, size_t size)
   Point point;
   Buffer *bp = buffer_stream_point (stream, point);
   bp->check_read_only ();
-  /* Buffers store Char (UTF-16). Convert ucs4_t→Char (BMP: exact; non-BMP: truncate). */
-  Char *tmp = (Char *)alloca (sizeof (Char) * size);
+  Char *tmp = (Char *)alloca (sizeof (Char) * size * 2);
+  Char *dp = tmp;
   for (size_t i = 0; i < size; i++)
-    tmp[i] = Char (b[i]);
-  bp->insert_chars (point, tmp, size);
+    {
+      ucs4_t cp = b[i];
+      if (cp < 0x10000)
+        *dp++ = Char (cp);
+      else
+        {
+          cp -= 0x10000;
+          *dp++ = Char (0xD800 + (cp >> 10));
+          *dp++ = Char (0xDC00 + (cp & 0x3FF));
+        }
+    }
+  bp->insert_chars (point, tmp, dp - tmp);
   xmarker_point (xbuffer_stream_marker (stream)) = point.p_point;
 }
 
