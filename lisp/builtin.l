@@ -663,6 +663,10 @@
 (si::defun-builtin ts-grammar-p (object))
 (si::defun-builtin ts-free-buffer-cache (&optional buffer))
 (si::defun-builtin ts-buffer-cached-p (&optional buffer))
+(si::defun-builtin ts-apply-highlights (buffer))
+(si::defun-builtin ts-query-pending-p (&optional buffer))
+(si::defun-builtin ts-parse-complete-p (&optional buffer))
+(si::defun-builtin ts-node-ancestors (node))
 
 (gc)
 
