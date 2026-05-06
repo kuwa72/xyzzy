@@ -229,10 +229,14 @@ StatusWindow::putc (ucs4_t c)
             return 0;
           *sw_b++ = c == CC_DEL ? '?' : ucs2_t (c) + '@';
         }
-      else
-        /* Phase 3: ucs4_t code point; BMP chars fit in ucs2_t directly.
-           Non-BMP would need surrogate pairs, but cp932 is BMP-only. */
+      else if (c < 0x10000)
         *sw_b++ = ucs2_t (c);
+      else if (sw_b + 1 < sw_buf + TEXT_MAX)
+        {
+          ucs4_t v = c - 0x10000;
+          *sw_b++ = ucs2_t (0xD800 + (v >> 10));
+          *sw_b++ = ucs2_t (0xDC00 + (v & 0x3FF));
+        }
     }
   return 1;
 }
