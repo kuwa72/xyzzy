@@ -107,6 +107,22 @@ bm_compilef (int *BM, const ucs4_t *pattern, int patlen, int case_fold)
 }
 
 static void
+bm_compilef (int *BM, const Char *pattern, int patlen, int case_fold)
+{
+  for (int i = 0; i < 256; i++)
+    BM[i] = patlen;
+
+  for (int i = patlen - 1; i >= 0; i--)
+    {
+      Char cc = *pattern++;
+      int c = BM_HASH (cc);
+      if (case_fold && alpha_char_p (cc))
+        BM[_char_transpose_case (c)] = i;
+      BM[c] = i;
+    }
+}
+
+static void
 bm_compileb (int *BM, const ucs4_t *pattern, int patlen, int case_fold)
 {
   int i;
@@ -116,6 +132,23 @@ bm_compileb (int *BM, const ucs4_t *pattern, int patlen, int case_fold)
   for (i = patlen - 1, pattern += patlen; i >= 0; i--)
     {
       ucs4_t cc = *--pattern;
+      int c = BM_HASH (cc);
+      if (case_fold && alpha_char_p (cc))
+        BM[_char_transpose_case (c)] = i;
+      BM[c] = i;
+    }
+}
+
+static void
+bm_compileb (int *BM, const Char *pattern, int patlen, int case_fold)
+{
+  int i;
+  for (i = 0; i < 256; i++)
+    BM[i] = patlen;
+
+  for (i = patlen - 1, pattern += patlen; i >= 0; i--)
+    {
+      Char cc = *--pattern;
       int c = BM_HASH (cc);
       if (case_fold && alpha_char_p (cc))
         BM[_char_transpose_case (c)] = i;
@@ -556,18 +589,31 @@ Fscan_buffer (lisp pattern, lisp keys)
         flags |= SF_CASE_FOLD;
 
       {
-        int plen = xstring_length (pattern);
+        int plen_cp = xstring_length (pattern);
         const ucs4_t *puc = xstring_contents (pattern);
-        Char *cpat = (Char *)alloca (plen * sizeof (Char));
-        for (int i = 0; i < plen; i++) cpat[i] = Char (puc[i]);
+        Char *cpat = (Char *)alloca (plen_cp * 2 * sizeof (Char));
+        Char *dp = cpat;
+        for (int i = 0; i < plen_cp; i++)
+          {
+            ucs4_t cp = puc[i];
+            if (cp < 0x10000)
+              *dp++ = Char (cp);
+            else
+              {
+                cp -= 0x10000;
+                *dp++ = Char (0xD800 + (cp >> 10));
+                *dp++ = Char (0xDC00 + (cp & 0x3FF));
+              }
+          }
+        int plen = dp - cpat;
         if (flags & SF_REVERSE)
           {
-            bm_compileb (BM, puc, plen, flags & SF_CASE_FOLD);
+            bm_compileb (BM, cpat, plen, flags & SF_CASE_FOLD);
             result = bp->scan_backward (wp->w_point, cpat, plen, BM, limit, flags);
           }
         else
           {
-            bm_compilef (BM, puc, plen, flags & SF_CASE_FOLD);
+            bm_compilef (BM, cpat, plen, flags & SF_CASE_FOLD);
             result = bp->scan_forward (wp->w_point, cpat, plen, BM, limit, flags);
           }
       }
@@ -1228,16 +1274,30 @@ Freplace_buffer (lisp pattern, lisp replacement, lisp keys)
 
   int delete_regexp = 0;
   int BM[256];
-  int plen = stringp (pattern) ? xstring_length (pattern) : 0;
-  Char *cpat = plen ? (Char *)alloca (plen * sizeof (Char)) : nullptr;
+  int plen_cp = stringp (pattern) ? xstring_length (pattern) : 0;
+  Char *cpat = plen_cp ? (Char *)alloca (plen_cp * 2 * sizeof (Char)) : nullptr;
+  int plen = 0;
   if (!regexp)
     {
       if (flags & SF_SMART_CASE_FOLD
           && smart_case_fold_string_p (pattern))
         flags |= SF_CASE_FOLD;
       const ucs4_t *puc = xstring_contents (pattern);
-      for (int i = 0; i < plen; i++) cpat[i] = Char (puc[i]);
-      bm_compilef (BM, puc, plen, flags & SF_CASE_FOLD);
+      Char *dp = cpat;
+      for (int i = 0; i < plen_cp; i++)
+        {
+          ucs4_t cp = puc[i];
+          if (cp < 0x10000)
+            *dp++ = Char (cp);
+          else
+            {
+              cp -= 0x10000;
+              *dp++ = Char (0xD800 + (cp >> 10));
+              *dp++ = Char (0xDC00 + (cp & 0x3FF));
+            }
+        }
+      plen = dp - cpat;
+      bm_compilef (BM, cpat, plen, flags & SF_CASE_FOLD);
     }
   else if (!regexpp (pattern))
     {
