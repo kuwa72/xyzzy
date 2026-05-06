@@ -60,10 +60,22 @@ insert_default (Window *wp, lisp def, int noselect)
     {
       int deflen = xstring_length (def);
       const ucs4_t *defuc = xstring_contents (def);
-      Char *defc = (Char *)alloca (deflen * sizeof (Char));
-      for (int i = 0; i < deflen; i++) defc[i] = Char (defuc[i]);
+      Char *defc = (Char *)alloca (deflen * 2 * sizeof (Char));
+      Char *dp = defc;
+      for (int i = 0; i < deflen; i++)
+        {
+          ucs4_t cp = defuc[i];
+          if (cp < 0x10000)
+            *dp++ = Char (cp);
+          else
+            {
+              cp -= 0x10000;
+              *dp++ = Char (0xD800 + (cp >> 10));
+              *dp++ = Char (0xDC00 + (cp & 0x3FF));
+            }
+        }
       if (!wp->w_bufp->insert_chars_internal (wp->w_point,
-                                              defc, deflen, 1))
+                                              defc, dp - defc, 1))
         return 0;
       if (noselect)
         return 1;
