@@ -633,6 +633,7 @@ Buffer::insert_chars (Window *wp, const insertChars *ic, int n, int repeat)
   if (!insert_chars_internal (wp->w_point, ic, n, repeat))
     FEstorage_error ();
   post_buffer_modified (Kinsert, wp->w_point, opoint, wp->w_point.p_point);
+  if (g_ts_post_edit) g_ts_post_edit (this, opoint, wp->w_point.p_point);
 }
 
 void
@@ -644,6 +645,7 @@ Buffer::insert_chars (Window *wp, const Char *string, int length, int repeat)
   if (!insert_chars_internal (wp->w_point, string, length, repeat))
     FEstorage_error ();
   post_buffer_modified (Kinsert, wp->w_point, opoint, wp->w_point.p_point);
+  if (g_ts_post_edit) g_ts_post_edit (this, opoint, wp->w_point.p_point);
 }
 
 void
@@ -654,6 +656,7 @@ Buffer::insert_chars (Point &point, const Char *string, int length)
   if (!insert_chars_internal (point, string, length, 1))
     FEstorage_error ();
   post_buffer_modified (Kinsert, point, opoint, point.p_point);
+  if (g_ts_post_edit) g_ts_post_edit (this, opoint, point.p_point);
 }
 
 void
@@ -1106,10 +1109,12 @@ Buffer::delete_region (Window *wp, point_t from, point_t to)
 {
   prepare_modify_buffer ();
   wp->w_disp_flags |= Window::WDF_GOAL_COLUMN;
+  if (g_ts_pre_edit) g_ts_pre_edit (this, from, to);
   if (!delete_region_internal (wp->w_point, from, to))
     FEstorage_error ();
   post_buffer_modified (Kdelete, wp->w_point,
                         wp->w_point.p_point, wp->w_point.p_point);
+  if (g_ts_post_edit) g_ts_post_edit (this, from, from);
 }
 
 lisp
@@ -1130,10 +1135,12 @@ Fdelete_region (lisp from, lisp to)
 void
 Buffer::overwrite_chars (Window *wp, const Char *p, int size)
 {
+  if (g_ts_pre_edit) g_ts_pre_edit (this, wp->w_point.p_point, wp->w_point.p_point + size);
   prepare_modify_region (wp, wp->w_point.p_point, wp->w_point.p_point + size);
   copy_chunk (p, wp->w_point.p_chunk, wp->w_point.p_offset, size);
   post_buffer_modified (Kmodify, wp->w_point,
                         wp->w_point.p_point, wp->w_point.p_point + size);
+  if (g_ts_post_edit) g_ts_post_edit (this, wp->w_point.p_point, wp->w_point.p_point + size);
 }
 
 void

@@ -1097,4 +1097,11 @@ struct ReadFileContext
 void create_default_buffers ();
 void discard_insert_undo (UndoInfo *);
 
+/* C-level tree-sitter edit hooks set by ts.cc at startup (main thread only).
+   pre_edit:  called before delete/overwrite with the cp range being removed.
+   post_edit: called after every edit with (start_cp, new_end_cp). */
+typedef void (*ts_edit_fn)(Buffer *, point_t start, point_t end_pos);
+extern ts_edit_fn g_ts_pre_edit;
+extern ts_edit_fn g_ts_post_edit;
+
 #endif

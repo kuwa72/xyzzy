@@ -12,6 +12,8 @@
 
 fixed_heap Chunk::c_heap (sizeof (Char) * TEXT_SIZE);
 fixed_heap Chunk::c_breaks_heap (BREAKS_SIZE);
+ts_edit_fn g_ts_pre_edit  = nullptr;
+ts_edit_fn g_ts_post_edit = nullptr;
 Buffer *Buffer::b_blist;
 Buffer *Buffer::b_dlist;
 Buffer *Buffer::b_last_selected_buffer;

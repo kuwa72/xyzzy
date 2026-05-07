@@ -126,10 +126,18 @@ make_ts_grammar ()
   return p;
 }
 
+static void ts_pre_edit_hook  (Buffer *, point_t, point_t);
+static void ts_post_edit_hook (Buffer *, point_t, point_t);
+
 /* (si:load-ts-grammar DLL-PATH LANG-NAME) */
 lisp __stdcall
 Fsi_load_ts_grammar (lisp lpath, lisp lname)
 {
+  if (!g_ts_pre_edit)
+    {
+      g_ts_pre_edit  = ts_pre_edit_hook;
+      g_ts_post_edit = ts_post_edit_hook;
+    }
   check_string (lpath);
   check_string (lname);
 
@@ -195,6 +203,7 @@ struct ts_parse_job
   char          *snapshot;  /* malloc'd flat copy of buffer (UTF-16LE bytes) */
   uint32_t       snap_size;
   long           revision;
+  TSTree        *old_tree;  /* ts_tree_copy() for incremental parse; thread owns it */
 };
 
 /* These callbacks are called by tree-sitter-core.lib which is compiled without
@@ -231,10 +240,10 @@ ts_parse_thread (LPVOID arg)
 #pragma warning(suppress: 4191)
   TSParseOptions opts = { job, (decltype(TSParseOptions::progress_callback))ts_parse_cancel_cb };
 
-  /* Always full-parse (nullptr old tree): ts_tree_edit is not connected, so
-     passing an old tree produces incorrect node positions after any edit. */
-  TSTree *new_tree = ts_parser_parse_with_options (c->parser, nullptr, input, opts);
+  TSTree *old_tree = job->old_tree;
+  TSTree *new_tree = ts_parser_parse_with_options (c->parser, old_tree, input, opts);
 
+  if (old_tree) ts_tree_delete (old_tree);
   free (job->snapshot);
 
   if (new_tree && !c->parse_bg_cancel)
@@ -273,6 +282,100 @@ cu_to_cp (Buffer *bp, int cu_offset)
       remaining -= take;
     }
   return cp;
+}
+
+/* Incremental parse: ts_tree_edit hooks ------------------------------------
+   Walk the buffer computing (code-unit index, TSPoint) for one or two cp
+   positions in a single pass (start <= end guaranteed by callers).          */
+
+static void
+cp_to_cu_pt2 (Buffer *bp, point_t cp_a, point_t cp_b,
+              uint32_t *cu_a, TSPoint *pt_a,
+              uint32_t *cu_b, TSPoint *pt_b)
+{
+  uint32_t cu = 0, row = 0, col = 0;
+  point_t  pos = 0;
+  bool     hit_a = (cp_a == 0);
+  if (hit_a) { *cu_a = 0; *pt_a = {0, 0}; }
+
+  for (Chunk *ch = bp->b_chunkb; ch; ch = ch->c_next)
+    {
+      const Char *p   = ch->c_text;
+      const Char *end = p + ch->c_used;
+      while (p < end)
+        {
+          if (pos == cp_b)
+            { *cu_b = cu; *pt_b = {row, col}; return; }
+          Char cc = *p++;
+          pos++;  cu++;
+          if (cc == '\n') { row++; col = 0; }
+          else             col += sizeof (Char);
+          if (cc >= 0xD800 && cc <= 0xDBFF
+              && p < end && *p >= 0xDC00 && *p <= 0xDFFF)
+            { p++; cu++; col += sizeof (Char); }
+          if (pos == cp_a && !hit_a)
+            { *cu_a = cu; *pt_a = {row, col}; hit_a = true; }
+        }
+    }
+  if (!hit_a) { *cu_a = cu; *pt_a = {row, col}; }
+  *cu_b = cu; *pt_b = {row, col};
+}
+
+struct ts_pending_edit
+{
+  bool     valid;
+  uint32_t start_cu, old_end_cu;
+  TSPoint  start_pt, old_end_pt;
+};
+static ts_pending_edit g_pending_edit;
+
+static void
+ts_pre_edit_hook (Buffer *bp, point_t start_cp, point_t old_end_cp)
+{
+  g_pending_edit.valid = false;
+  if (g_ts_cache.find (bp) == g_ts_cache.end ()) return;
+  cp_to_cu_pt2 (bp, start_cp, old_end_cp,
+                &g_pending_edit.start_cu,   &g_pending_edit.start_pt,
+                &g_pending_edit.old_end_cu, &g_pending_edit.old_end_pt);
+  g_pending_edit.valid = true;
+}
+
+static void
+ts_post_edit_hook (Buffer *bp, point_t start_cp, point_t new_end_cp)
+{
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ()) return;
+  lts_buf_cache *c = it->second;
+  if (!c->tree) return;
+
+  TSInputEdit edit;
+  if (g_pending_edit.valid)
+    {
+      /* Delete or overwrite: pre_edit supplied pre-modification positions. */
+      edit.start_byte    = g_pending_edit.start_cu   * sizeof (Char);
+      edit.old_end_byte  = g_pending_edit.old_end_cu * sizeof (Char);
+      edit.start_point   = g_pending_edit.start_pt;
+      edit.old_end_point = g_pending_edit.old_end_pt;
+      /* Delete: new_end == start.  Overwrite (same size): new_end == old_end. */
+      edit.new_end_byte  = (new_end_cp == start_cp)
+                           ? edit.start_byte : edit.old_end_byte;
+      edit.new_end_point = (new_end_cp == start_cp)
+                           ? edit.start_point : edit.old_end_point;
+      g_pending_edit.valid = false;
+    }
+  else
+    {
+      /* Insert: old range was empty at start_cp. */
+      uint32_t scu, ecu; TSPoint spt, ept;
+      cp_to_cu_pt2 (bp, start_cp, new_end_cp, &scu, &spt, &ecu, &ept);
+      edit.start_byte    = scu * sizeof (Char);
+      edit.old_end_byte  = scu * sizeof (Char);
+      edit.start_point   = spt;
+      edit.old_end_point = spt;
+      edit.new_end_byte  = ecu * sizeof (Char);
+      edit.new_end_point = ept;
+    }
+  ts_tree_edit (c->tree, &edit);
 }
 
 /* Background query thread -------------------------------------------------- */
@@ -431,6 +534,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       job->snapshot  = snapshot;
       job->snap_size = total_bytes;
       job->revision  = cur_rev;
+      job->old_tree  = c->tree ? ts_tree_copy (c->tree) : nullptr;
 
       if (c->parse_hthread) { CloseHandle (c->parse_hthread); c->parse_hthread = NULL; }
       InterlockedExchange (&c->parse_bg_cancel, 0);
