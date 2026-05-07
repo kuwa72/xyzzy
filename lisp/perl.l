@@ -130,3 +130,61 @@
 	(format t "~A~A~D" (buffer-substring opoint (point)) file opoint)
 	(incf count))))
   count)
+
+;;; --- tree-sitter: Perl ---------------------------------------------------
+
+(defvar *ts-perl-color-alist*
+  '(("comment"      . 15)   ; gray
+    ("string"       .  9)   ; dark red
+    ("number"       . 13)   ; purple
+    ("variable"     . 14)   ; dark teal
+    ("function.def" . 10))) ; dark green
+
+(defun ts-perl-block-owner (ancestors)
+  "Return the ancestor controlling the innermost Perl block."
+  (do ((rest ancestors (cdr rest)))
+      ((null rest) nil)
+    (when (string= (first (car rest)) "block")
+      (return (cadr rest)))))
+
+(defun ts-perl-calc-indent ()
+  "Calculate Perl indent column using tree-sitter.  Returns column or nil."
+  (save-excursion
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (let* ((g         *ts-buffer-grammar*)
+           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
+      (when (null ancestors)
+        (return-from ts-perl-calc-indent nil))
+      (let* ((block    (ts-c-find-ancestor ancestors "block"))
+             (owner    (ts-perl-block-owner ancestors))
+             (base-cp  (second (or owner block))))
+        (cond
+          ((looking-for "}")
+           (if base-cp (ts-c-indent-of-cp base-cp) 0))
+          (block
+           (+ (ts-c-indent-of-cp base-cp) c-indent-level))
+          (t 0))))))
+
+(defun ts-perl-indent-line ()
+  "TAB handler for Perl: tree-sitter indent with fallback to calc-c-indent."
+  (interactive "*")
+  (if (or (not (interactive-p))
+          (save-excursion
+            (skip-chars-backward " \t")
+            (bolp)))
+      (let ((column (or (ts-perl-calc-indent) (calc-c-indent))))
+        (when (integerp column)
+          (smart-indentation column)))
+    (insert "\t"))
+  t)
+
+(defun ts-perl-mode-enable ()
+  (setq *ts-calc-indent-function* #'ts-perl-calc-indent)
+  (ts-enable-for-buffer))
+
+(ignore-errors (ts-register-mode 'perl-mode :colors *ts-perl-color-alist*))
+(define-key *perl-mode-map* #\TAB           'ts-perl-indent-line)
+(define-key *perl-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
+(define-key *perl-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
+(add-hook '*perl-mode-hook* 'ts-perl-mode-enable)

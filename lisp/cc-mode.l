@@ -135,3 +135,15 @@
 
 (export 'decode-c-mode)
 (setf (symbol-function 'decode-c-mode) #'detect-c-or-c++-mode)
+
+;;; --- tree-sitter: C++ ---------------------------------------------------
+
+(defun ts-c++-mode-enable ()
+  (setq *ts-calc-indent-function* #'ts-c-calc-indent)
+  (ts-enable-for-buffer))
+
+(ignore-errors (ts-register-mode 'c++-mode :lang "cpp" :colors *ts-c-color-alist*))
+(define-key *c++-mode-map* #\TAB           'ts-c-indent-line)
+(define-key *c++-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
+(define-key *c++-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
+(add-hook '*c++-mode-hook* 'ts-c++-mode-enable)

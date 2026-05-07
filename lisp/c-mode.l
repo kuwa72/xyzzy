@@ -325,3 +325,101 @@
   (when *c-comment-column*
     (setq comment-column *c-comment-column*))
   (run-hooks '*c-mode-hook*))
+
+;;; --- tree-sitter: C -------------------------------------------------------
+
+(defvar *ts-c-color-alist*
+  '(("comment"          . 15)   ; gray
+    ("string"           .  9)   ; dark red
+    ("number"           . 13)   ; purple
+    ("preproc"          . 14)   ; teal
+    ("keyword"          . 12)   ; dark blue
+    ("keyword.type"     . 12)
+    ("keyword.modifier" . 12)
+    ("type.builtin"     . 12)
+    ("type"             . 13)   ; purple
+    ("function.def"     . 10)   ; dark green
+    ("function.call"    . 10)))
+
+(defun ts-c-indent-of-cp (cp)
+  "Column of the first non-whitespace char on the line containing CP."
+  (save-excursion
+    (goto-char cp)
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (current-column)))
+
+(defun ts-c-find-ancestor (ancestors &rest types)
+  "Return the first entry in ANCESTORS whose type is one of TYPES."
+  (dolist (a ancestors)
+    (when (member (first a) types :test #'string=)
+      (return a))))
+
+(defun ts-c-compound-owner (ancestors)
+  "Return the ancestor controlling the innermost compound_statement."
+  (do ((rest ancestors (cdr rest)))
+      ((null rest) nil)
+    (when (string= (first (car rest)) "compound_statement")
+      (return (cadr rest)))))
+
+(defun ts-c-calc-indent ()
+  "Calculate C indent column using tree-sitter.  Returns column or nil."
+  (save-excursion
+    (goto-bol)
+    (skip-chars-forward " \t")
+    (let* ((g         *ts-buffer-grammar*)
+           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
+      (when (null ancestors)
+        (return-from ts-c-calc-indent nil))
+      (let* ((compound  (ts-c-find-ancestor ancestors "compound_statement"))
+             (owner     (ts-c-compound-owner ancestors))
+             (base-cp   (second (or owner compound)))
+             (case-stmt (ts-c-find-ancestor ancestors "case_statement")))
+        (cond
+          ((looking-for "}")
+           (if base-cp (ts-c-indent-of-cp base-cp) 0))
+          ((looking-for "#")
+           (if c-preprocessor-offset c-preprocessor-offset 0))
+          ((looking-at "\\(case[^A-Za-z0-9_]\\|default[ \t]*:\\)")
+           (if base-cp
+               (max 0 (+ (ts-c-indent-of-cp base-cp)
+                         c-indent-level c-label-offset))
+             0))
+          (case-stmt
+           (+ (ts-c-indent-of-cp (second case-stmt)) c-indent-level))
+          (compound
+           (+ (ts-c-indent-of-cp base-cp) c-indent-level))
+          (t 0))))))
+
+(defun ts-c-indent-line ()
+  "TAB handler: tree-sitter indent with fallback to calc-c-indent."
+  (interactive "*")
+  (if (or (not (interactive-p))
+          *c-tab-always-indent*
+          (save-excursion
+            (skip-chars-backward " \t")
+            (bolp)))
+      (case (save-excursion
+              (goto-bol)
+              (parse-point-syntax))
+        (:string)
+        (:comment
+         (let ((column (calc-c-comment-indent)))
+           (when (integerp column)
+             (smart-indentation column))))
+        (t
+         (let ((column (or (ts-c-calc-indent) (calc-c-indent))))
+           (when (integerp column)
+             (smart-indentation column)))))
+    (insert "\t"))
+  t)
+
+(defun ts-c-mode-enable ()
+  (setq *ts-calc-indent-function* #'ts-c-calc-indent)
+  (ts-enable-for-buffer))
+
+(ignore-errors (ts-register-mode 'c-mode :colors *ts-c-color-alist*))
+(define-key *c-mode-map* #\TAB           'ts-c-indent-line)
+(define-key *c-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
+(define-key *c-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
+(add-hook '*c-mode-hook* 'ts-c-mode-enable)

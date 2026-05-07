@@ -1,15 +1,15 @@
 ;;; -*- Mode: Lisp; Package: EDITOR -*-
-;;; tree-sitter: syntax highlighting and indentation
+;;; tree-sitter: generic syntax highlighting infrastructure
 ;;;
-;;; Usage:
-;;;   (load-library "ts")
-;;;   (ts-c-mode-install)     ; register C and set up keys (once)
-;;;   (ts-c++-mode-install)   ; register C++ (once)
+;;; Language-specific support lives in the respective mode files:
+;;;   c-mode.l   — C and C++ (colors, indentation, key bindings)
+;;;   cc-mode.l  — C++ key bindings and grammar registration
+;;;   perl.l     — Perl (colors, indentation, key bindings)
+;;;   markdown.l — Markdown (colors)
 ;;;
-;;; Keys added to *c-mode-map* by ts-c-mode-install:
-;;;   TAB      ts-c-indent-line        ; tree-sitter indent (fallback: calc-c-indent)
-;;;   C-c C-t  ts-show-ancestors  ; show node chain at point
-;;;   C-c C-i  ts-test-indent     ; show what ts indent column would be
+;;; Debug commands bound by mode setup:
+;;;   C-c C-t  ts-show-ancestors  — show node chain at point
+;;;   C-c C-i  ts-test-indent     — show ts indent column for current line
 
 (in-package "editor")
 
@@ -76,6 +76,9 @@ COLORS is an alist of (capture-name . fg-color-number)."
 (defvar-local *ts-buffer-grammar*   nil)
 (defvar-local *ts-buffer-query*     nil)
 (defvar-local *ts-buffer-colors*    nil)
+(defvar-local *ts-calc-indent-function* nil
+  "Mode-specific indent calculator. Set by each mode's ts enable hook.
+Called by ts-test-indent with no arguments; should return a column or nil.")
 
 (defun ts-enable-for-buffer ()
   "Enable tree-sitter highlighting for the current buffer (uses buffer-mode)."
@@ -97,7 +100,7 @@ COLORS is an alist of (capture-name . fg-color-number)."
   (save-excursion
     (delete-text-attributes 'ts-face)))
 
-;;; --- Highlight scheduling (generic) -------------------------------------
+;;; --- Highlight scheduling ------------------------------------------------
 
 (defun ts-visible-range ()
   "Return (start-row . end-row) as 0-based rows for the visible window ±5."
@@ -130,102 +133,7 @@ COLORS is an alist of (capture-name . fg-color-number)."
     (stop-timer 'ts-do-highlight)
     (start-timer 0.1 'ts-do-highlight t)))
 
-;;; --- C-specific: query and colors ---------------------------------------
-
-
-(defvar *ts-c-color-alist*
-  '(("comment"          . 15)   ; gray
-    ("string"           .  9)   ; dark red
-    ("number"           . 13)   ; purple
-    ("preproc"          . 14)   ; teal
-    ("keyword"          . 12)   ; dark blue
-    ("keyword.type"     . 12)
-    ("keyword.modifier" . 12)
-    ("type.builtin"     . 12)
-    ("type"             . 13)   ; purple
-    ("function.def"     . 10)   ; dark green
-    ("function.call"    . 10)))
-
-;;; --- C-specific: indentation --------------------------------------------
-
-(defun ts-c-indent-of-cp (cp)
-  "Column of the first non-whitespace char on the line containing CP."
-  (save-excursion
-    (goto-char cp)
-    (goto-bol)
-    (skip-chars-forward " \t")
-    (current-column)))
-
-(defun ts-c-find-ancestor (ancestors &rest types)
-  "Return the first entry in ANCESTORS whose type is one of TYPES."
-  (dolist (a ancestors)
-    (when (member (first a) types :test #'string=)
-      (return a))))
-
-(defun ts-c-compound-owner (ancestors)
-  "Return the ancestor that owns the innermost compound_statement.
-Uses the controlling statement (if/for/function_definition/…) rather than
-the compound's own '{' position, so brace placement style does not affect
-the base column for indent calculation."
-  (do ((rest ancestors (cdr rest)))
-      ((null rest) nil)
-    (when (string= (first (car rest)) "compound_statement")
-      (return (cadr rest)))))
-
-(defun ts-c-calc-indent ()
-  "Calculate C indent column using tree-sitter.  Returns column or nil.
-nil means no parse tree yet; caller falls back to calc-c-indent."
-  (save-excursion
-    (goto-bol)
-    (skip-chars-forward " \t")
-    (let* ((g         *ts-buffer-grammar*)
-           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
-      (when (null ancestors)
-        (return-from ts-c-calc-indent nil))
-      (let* ((compound  (ts-c-find-ancestor ancestors "compound_statement"))
-             (owner     (ts-c-compound-owner ancestors))
-             (base-cp   (second (or owner compound)))
-             (case-stmt (ts-c-find-ancestor ancestors "case_statement")))
-        (cond
-          ((looking-for "}")
-           (if base-cp (ts-c-indent-of-cp base-cp) 0))
-          ((looking-for "#")
-           (if c-preprocessor-offset c-preprocessor-offset 0))
-          ((looking-at "\\(case[^A-Za-z0-9_]\\|default[ \t]*:\\)")
-           (if base-cp
-               (max 0 (+ (ts-c-indent-of-cp base-cp)
-                         c-indent-level c-label-offset))
-             0))
-          (case-stmt
-           (+ (ts-c-indent-of-cp (second case-stmt)) c-indent-level))
-          (compound
-           (+ (ts-c-indent-of-cp base-cp) c-indent-level))
-          (t 0))))))
-
-(defun ts-c-indent-line ()
-  "TAB handler: tree-sitter indent with fallback to calc-c-indent."
-  (interactive "*")
-  (if (or (not (interactive-p))
-          *c-tab-always-indent*
-          (save-excursion
-            (skip-chars-backward " \t")
-            (bolp)))
-      (case (save-excursion
-              (goto-bol)
-              (parse-point-syntax))
-        (:string)
-        (:comment
-         (let ((column (calc-c-comment-indent)))
-           (when (integerp column)
-             (smart-indentation column))))
-        (t
-         (let ((column (or (ts-c-calc-indent) (calc-c-indent))))
-           (when (integerp column)
-             (smart-indentation column)))))
-    (insert "\t"))
-  t)
-
-;;; --- Debug utilities ----------------------------------------------------
+;;; --- Debug utilities -----------------------------------------------------
 
 (defun ts-show-ancestors ()
   "Show tree-sitter node chain at point in *ts-ancestors* buffer."
@@ -243,18 +151,18 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
 (defun ts-test-indent ()
   "Show what the ts indent calculator would return for the current line."
   (interactive)
-  (let ((col (case buffer-mode
-               (perl-mode (ts-perl-calc-indent))
-               (t         (ts-c-calc-indent)))))
-    (if (integerp col)
-        (message "ts-indent: ~D  (current: ~D)"
-                 col
-                 (save-excursion
-                   (goto-bol) (skip-chars-forward " \t") (current-column)))
-      (message "ts-indent: no parse tree yet"))))
+  (if (null *ts-calc-indent-function*)
+      (message "ts-indent: not available in this mode")
+    (let ((col (funcall *ts-calc-indent-function*)))
+      (if (integerp col)
+          (message "ts-indent: ~D  (current: ~D)"
+                   col
+                   (save-excursion
+                     (goto-bol) (skip-chars-forward " \t") (current-column)))
+        (message "ts-indent: no parse tree yet")))))
 
 (defun ts-print-spans (&optional buffer)
-  "Print tree-sitter capture spans to *ts-demo*."
+  "Print tree-sitter capture spans to *ts*."
   (interactive)
   (let ((spans (si:ts-query-buffer *ts-buffer-grammar*
                                    *ts-buffer-query*
@@ -263,119 +171,3 @@ nil means no parse tree yet; caller falls back to calc-c-indent."
       (format t "ts:~D spans~%" (length spans))
       (dolist (s spans)
         (format t "  ~A  [~D, ~D)~%" (first s) (second s) (third s))))))
-
-;;; --- C-mode setup -------------------------------------------------------
-
-(defun ts-c-mode-install ()
-  "Register C grammar and set up keys in *c-mode-map*."
-  (interactive)
-  (ts-register-mode 'c-mode :colors *ts-c-color-alist*)
-  (define-key *c-mode-map* #\TAB           'ts-c-indent-line)
-  (define-key *c-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
-  (define-key *c-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
-  (add-hook '*c-mode-hook* 'ts-enable-for-buffer)
-  (when (eq buffer-mode 'c-mode)
-    (ts-enable-for-buffer))
-  (message "ts:c-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
-
-(defun ts-c++-mode-install ()
-  "Register C++ grammar and enable highlighting/indent for c++-mode."
-  (interactive)
-  (ts-register-mode 'c++-mode :lang "cpp" :colors *ts-c-color-alist*)
-  (define-key *c++-mode-map* #\TAB           'ts-c-indent-line)
-  (define-key *c++-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
-  (define-key *c++-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
-  (add-hook '*c++-mode-hook* 'ts-enable-for-buffer)
-  (when (eq buffer-mode 'c++-mode)
-    (ts-enable-for-buffer))
-  (message "ts:c++-mode installed (C-c C-t = ancestors, C-c C-i = indent)"))
-
-;;; --- Perl-specific: indentation -----------------------------------------
-
-(defun ts-perl-block-owner (ancestors)
-  "Return the ancestor that owns the innermost Perl block."
-  (do ((rest ancestors (cdr rest)))
-      ((null rest) nil)
-    (when (string= (first (car rest)) "block")
-      (return (cadr rest)))))
-
-(defun ts-perl-calc-indent ()
-  "Calculate Perl indent column using tree-sitter. Returns column or nil."
-  (save-excursion
-    (goto-bol)
-    (skip-chars-forward " \t")
-    (let* ((g         *ts-buffer-grammar*)
-           (ancestors (and g (si:ts-node-ancestors g (selected-buffer) (point)))))
-      (when (null ancestors)
-        (return-from ts-perl-calc-indent nil))
-      (let* ((block    (ts-c-find-ancestor ancestors "block"))
-             (owner    (ts-perl-block-owner ancestors))
-             (base-cp  (second (or owner block))))
-        (cond
-          ((looking-for "}")
-           (if base-cp (ts-c-indent-of-cp base-cp) 0))
-          (block
-           (+ (ts-c-indent-of-cp base-cp) c-indent-level))
-          (t 0))))))
-
-(defun ts-perl-indent-line ()
-  "TAB handler for Perl: tree-sitter indent with fallback to c-indent-line."
-  (interactive "*")
-  (if (or (not (interactive-p))
-          (save-excursion
-            (skip-chars-backward " \t")
-            (bolp)))
-      (let ((column (or (ts-perl-calc-indent) (calc-c-indent))))
-        (when (integerp column)
-          (smart-indentation column)))
-    (insert "\t"))
-  t)
-
-;;; --- Perl-mode setup ----------------------------------------------------
-
-(defvar *ts-perl-color-alist*
-  '(("comment"      . 15)   ; gray
-    ("string"       .  9)   ; dark red
-    ("number"       . 13)   ; purple
-    ("variable"     . 14)   ; dark teal
-    ("function.def" . 10))) ; dark green
-
-(defun ts-perl-mode-install ()
-  "Register Perl grammar and enable highlighting/indent for perl-mode."
-  (interactive)
-  (require "perl")
-  (ts-register-mode 'perl-mode :colors *ts-perl-color-alist*)
-  (define-key *perl-mode-map* #\TAB           'ts-perl-indent-line)
-  (define-key *perl-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
-  (define-key *perl-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
-  (add-hook '*perl-mode-hook* 'ts-enable-for-buffer)
-  (when (eq buffer-mode 'perl-mode)
-    (ts-enable-for-buffer))
-  (message "ts:perl-mode installed"))
-
-;;; --- Markdown-specific: colors ------------------------------------------
-
-(defvar *ts-markdown-color-alist*
-  '(("heading.1"      .  4)   ; blue   — h1
-    ("heading.2"      . 11)   ; cyan   — h2
-    ("heading.3"      . 10)   ; green  — h3
-    ("heading.4"      . 14)   ; teal   — h4-h6
-    ("heading.setext" .  4)   ; blue   — setext underline
-    ("code"           . 15)   ; gray   — fenced/indented code block
-    ("code.info"      . 14)   ; teal   — language tag after ```
-    ("quote"          .  9)   ; dark red — block quote marker
-    ("list.marker"    . 13)   ; purple — list item markers
-    ("hr"             . 15)   ; gray   — thematic break
-    ("link"           .  9)   ; dark red — link URL
-    ("link.label"     . 10))) ; green  — link label
-
-;;; --- Markdown-mode setup ------------------------------------------------
-
-(defun ts-markdown-mode-install ()
-  "Register Markdown (block) grammar and enable highlighting for markdown-mode."
-  (interactive)
-  (ts-register-mode 'markdown-mode :lang "markdown" :colors *ts-markdown-color-alist*)
-  (add-hook '*markdown-mode-hook* 'ts-enable-for-buffer)
-  (when (eq buffer-mode 'markdown-mode)
-    (ts-enable-for-buffer))
-  (message "ts:markdown-mode installed"))
