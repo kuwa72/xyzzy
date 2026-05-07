@@ -466,6 +466,26 @@ typedef int64_t (*dll_f11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
 typedef int64_t (*dll_f12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
                            int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
 
+typedef double (*dll_df0)();
+typedef double (*dll_df1)(int64_t);
+typedef double (*dll_df2)(int64_t, int64_t);
+typedef double (*dll_df3)(int64_t, int64_t, int64_t);
+typedef double (*dll_df4)(int64_t, int64_t, int64_t, int64_t);
+typedef double (*dll_df5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef double (*dll_df6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef double (*dll_df7)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t);
+typedef double (*dll_df8)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t, int64_t);
+typedef double (*dll_df9)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                          int64_t, int64_t, int64_t);
+typedef double (*dll_df10)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t);
+typedef double (*dll_df11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t, int64_t);
+typedef double (*dll_df12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                           int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
 /* Returns 1 on success, 0 on SEH exception, -1 on invalid arg count. */
 static int
 call_dll_seh (FARPROC proc, int64_t *a, int total, int64_t *result)
@@ -491,6 +511,41 @@ call_dll_seh (FARPROC proc, int64_t *a, int total, int64_t *result)
                                            a[8], a[9], a[10]); break;
         case 12: *result = ((dll_f12)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
                                            a[8], a[9], a[10], a[11]); break;
+        default:
+          return -1;
+        }
+      return 1;
+    }
+  __except (seh_exception_filter (GetExceptionInformation ()))
+    {
+      return 0;
+    }
+}
+
+static int
+call_dll_seh_double (FARPROC proc, int64_t *a, int total, double *result)
+{
+  __try
+    {
+      switch (total)
+        {
+        case 0:  *result = ((dll_df0)proc)(); break;
+        case 1:  *result = ((dll_df1)proc)(a[0]); break;
+        case 2:  *result = ((dll_df2)proc)(a[0], a[1]); break;
+        case 3:  *result = ((dll_df3)proc)(a[0], a[1], a[2]); break;
+        case 4:  *result = ((dll_df4)proc)(a[0], a[1], a[2], a[3]); break;
+        case 5:  *result = ((dll_df5)proc)(a[0], a[1], a[2], a[3], a[4]); break;
+        case 6:  *result = ((dll_df6)proc)(a[0], a[1], a[2], a[3], a[4], a[5]); break;
+        case 7:  *result = ((dll_df7)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+        case 8:  *result = ((dll_df8)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]); break;
+        case 9:  *result = ((dll_df9)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                           a[8]); break;
+        case 10: *result = ((dll_df10)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                            a[8], a[9]); break;
+        case 11: *result = ((dll_df11)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                            a[8], a[9], a[10]); break;
+        case 12: *result = ((dll_df12)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                                            a[8], a[9], a[10], a[11]); break;
         default:
           return -1;
         }
@@ -773,6 +828,30 @@ funcall_dll (lisp fn, lisp arglist)
     }
 #else /* !_MSC_VER */
   {
+    u_char rt = xdll_function_return_type (fn);
+    if (rt == CTYPE_DOUBLE || rt == CTYPE_FLOAT)
+      {
+        double dr = 0.0;
+        int seh_result = call_dll_seh_double (proc, a, total, &dr);
+        if (seh_result == -1)
+          {
+            FEprogram_error (Edll_not_initialized, fn);
+            return Qnil;
+          }
+        if (seh_result == 0)
+          {
+            EXCEPTION_POINTERS ep;
+            ep.ExceptionRecord = &Win32Exception::r;
+            ep.ContextRecord = &Win32Exception::c;
+            Win32Exception exc (Win32Exception::code, &ep);
+            exc.throw_lisp_error ();
+          }
+        save_last_error ();
+        if (rt == CTYPE_DOUBLE)
+          return make_double_float (dr);
+        return make_single_float ((float)dr);
+      }
+
     int seh_result = call_dll_seh (proc, a, total, &r);
     if (seh_result == -1)
       {

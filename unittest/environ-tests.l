@@ -8,11 +8,12 @@
       (delete-buffer b))))
 
 (defun my-environ ()
-  (mapcar #'(lambda (kv)
-              (let ((pos (position #\= kv)))
-                (cons (subseq kv 0 pos)
-                      (subseq kv (1+ pos)))))
-          (split-string (execute-shell-command-string "cmd.exe /c set") #\LFD)))
+  (remove-if #'(lambda (pair) (string= (car pair) "PROMPT"))
+    (mapcar #'(lambda (kv)
+                (let ((pos (position #\= kv)))
+                  (cons (subseq kv 0 pos)
+                        (subseq kv (1+ pos)))))
+            (split-string (execute-shell-command-string "cmd.exe /c set") #\LFD))))
 
 (deftest test-environ-1 ()
   (equal (sort (my-environ) #'string< :key 'car)
