@@ -311,7 +311,7 @@ load_default_impl (const char *fmt, lisp keys, int number)
   char b[32];
   sprintf (b, fmt, number);
   int l = strlen (b);
-  Char w[32];
+  ucs4_t w[32];
   a2w (w, b, l);
   temporary_string t (w, l);
   lisp var = Ffind_symbol (t.string (), xsymbol_value (Vkeyword_package));
@@ -352,10 +352,10 @@ create_minibuffer ()
 }
 
 static int
-count_prompt_columns (const Char *s, int l)
+count_prompt_columns (const ucs4_t *s, int l)
 {
   int n = 0;
-  for (const Char *se = s + l; s < se; s++)
+  for (const ucs4_t *se = s + l; s < se; s++)
     n += char_width (*s);
   return n;
 }
@@ -429,9 +429,25 @@ read_minibuffer (const ucs4_t *prompt, long prompt_length, lisp def,
   // !noselect: insert text, select it (cursor at start, selection to end)
   if (stringp (def))
     {
-      bp->insert_chars_internal (mini->w_point,
-                                 xstring_contents (def),
-                                 xstring_length (def), 1);
+      // insert_chars_internal takes UTF-16 Char*; expand the ucs4 default
+      // (surrogate pairs for non-BMP), mirroring win32 minibuf insert_default.
+      int deflen = xstring_length (def);
+      const ucs4_t *defuc = xstring_contents (def);
+      Char *defc = (Char *)alloca (deflen * 2 * sizeof (Char));
+      Char *dp = defc;
+      for (int i = 0; i < deflen; i++)
+        {
+          ucs4_t cp = defuc[i];
+          if (cp < 0x10000)
+            *dp++ = Char (cp);
+          else
+            {
+              cp -= 0x10000;
+              *dp++ = Char (0xD800 + (cp >> 10));
+              *dp++ = Char (0xDC00 + (cp & 0x3FF));
+            }
+        }
+      bp->insert_chars_internal (mini->w_point, defc, dp - defc, 1);
       // noselect=1: cursor already at end, nothing to do
       // noselect=0: would need selection — skip for now (rare case)
     }
@@ -1416,6 +1432,12 @@ int assert_failed (const char *file, int line)
 #include <time.h>
 #include <unistd.h>
 
+// BUTTON5_PRESSED (mouse wheel down) is only defined when ncurses is built
+// with NCURSES_MOUSE_VERSION >= 2; the wheel-down case is a no-op without it.
+#ifndef BUTTON5_PRESSED
+# define BUTTON5_PRESSED 0
+#endif
+
 // ---- popup_string state ----
 static WINDOW *g_popup_win;          // ncurses overlay window (null = hidden)
 static int g_popup_timeout_ms;       // timeout in ms, -1 = infinite
@@ -1679,14 +1701,54 @@ lisp Fabbreviate_display_string (lisp string, lisp, lisp) { return string; }
 
 #include "binfo.h"
 
-const char *const buffer_info::b_eol_name[] = {"lf", "crlf", "cr"};
+/* Phase 2 (issue #13 / UTF-16): mode line は Char * (UTF-16 code unit 列) で
+   組み立てる。core の binfo.h が char* → Char* に切り替わったため、win32 の
+   src/frontend/win32/binfo.cc と同じ Char* 実装に揃える。ime_mode のみ
+   ncurses 固有 (端末任せで常に "--")。 */
 
-char *
-buffer_info::modified (char *b, int pound) const
+const Char *const buffer_info::b_eol_name[] =
+  {(const Char *)L"lf", (const Char *)L"crlf", (const Char *)L"cr"};
+
+static Char *
+stwncpy (Char *b, Char *be, const char *s, size_t max)
+{
+  size_t i;
+  for (i = 0; i < max && s[i] && b < be; i++)
+    *b++ = (Char)(u_char)s[i];
+  return b;
+}
+
+static Char *
+copy_lisp_string (Char *b, Char *be, lisp str)
+{
+  /* ucs4 → UTF-16 で Char buffer に詰める (surrogate pair も発出)。 */
+  int nstr = xstring_length (str);
+  const ucs4_t *p = xstring_contents (str);
+  ucs2_t *out = (ucs2_t *)b;
+  ucs2_t *out_end = (ucs2_t *)be;
+  for (int i = 0; i < nstr && out < out_end; i++)
+    {
+      ucs4_t cp = p[i];
+      if (cp < 0x10000)
+        *out++ = ucs2_t (cp);
+      else if (out + 1 < out_end)
+        {
+          cp -= 0x10000;
+          *out++ = ucs2_t (0xD800 + (cp >> 10));
+          *out++ = ucs2_t (0xDC00 + (cp & 0x3FF));
+        }
+      else
+        break;
+    }
+  return (Char *)out;
+}
+
+Char *
+buffer_info::modified (Char *b, int pound) const
 {
   if (!pound)
     {
-      int c1 = '-', c2 = '-';
+      Char c1 = '-', c2 = '-';
       if (b_bufp->b_modified)
         c1 = c2 = '*';
       if (b_bufp->read_only_p ())
@@ -1705,8 +1767,8 @@ buffer_info::modified (char *b, int pound) const
   return b;
 }
 
-char *
-buffer_info::read_only (char *b, int pound) const
+Char *
+buffer_info::read_only (Char *b, int pound) const
 {
   if (b_bufp->read_only_p ())
     *b++ = '%';
@@ -1717,8 +1779,8 @@ buffer_info::read_only (char *b, int pound) const
   return b;
 }
 
-char *
-buffer_info::buffer_name (char *b, char *be) const
+Char *
+buffer_info::buffer_name (Char *b, Char *be) const
 {
   b = b_bufp->buffer_name (b, be);
   if (b == be - 1)
@@ -1726,42 +1788,42 @@ buffer_info::buffer_name (char *b, char *be) const
   return b;
 }
 
-char *
-buffer_info::file_name (char *b, char *be, int pound) const
+Char *
+buffer_info::file_name (Char *b, Char *be, int pound) const
 {
   lisp name;
   if (stringp (name = b_bufp->lfile_name)
       || stringp (name = b_bufp->lalternate_file_name))
     {
       if (!pound)
-        b = stpncpy (b, "File: ", be - b);
-      b = w2s (b, be, name);
+        b = stwncpy (b, be, "File: ", 6);
+      b = copy_lisp_string (b, be, name);
       if (b == be - 1)
         *b++ = ' ';
     }
   return b;
 }
 
-char *
-buffer_info::file_or_buffer_name (char *b, char *be, int pound) const
+Char *
+buffer_info::file_or_buffer_name (Char *b, Char *be, int pound) const
 {
-  char *bb = b;
+  Char *bb = b;
   b = file_name (b, be, pound);
   if (b == bb)
     b = buffer_name (b, be);
   return b;
 }
 
-static char *
-binfo_docopy (char *d, char *de, const char *s, int &f)
+static Char *
+docopy (Char *d, Char *de, const char *s, int &f)
 {
-  *d++ = f ? ' ' : ':';
+  if (d < de) *d++ = f ? ' ' : ':';
   f = 1;
-  return stpncpy (d, s, de - d);
+  return stwncpy (d, de, s, strlen (s));
 }
 
-char *
-buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
+Char *
+buffer_info::minor_mode (lisp x, Char *b, Char *be, int &f) const
 {
   for (int i = 0; i < 10; i++)
     if (consp (x) && symbolp (xcar (x))
@@ -1776,9 +1838,9 @@ buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
           }
         if (stringp (x))
           {
-            *b++ = f ? ' ' : ':';
+            if (b < be) *b++ = f ? ' ' : ':';
             f = 1;
-            return w2s (b, be, x);
+            return copy_lisp_string (b, be, x);
           }
       }
     else
@@ -1786,20 +1848,20 @@ buffer_info::minor_mode (lisp x, char *b, char *be, int &f) const
   return b;
 }
 
-char *
-buffer_info::mode_name (char *b, char *be, int c) const
+Char *
+buffer_info::mode_name (Char *b, Char *be, int c) const
 {
   int f = 0;
   lisp mode = symbol_value (Vmode_name, b_bufp);
   if (stringp (mode))
-    b = w2s (b, be, mode);
+    b = copy_lisp_string (b, be, mode);
 
   if (c == 'M')
     {
       if (b_bufp->b_narrow_depth)
-        b = binfo_docopy (b, be, "Narrow", f);
+        b = docopy (b, be, "Narrow", f);
       if (Fkbd_macro_saving_p () != Qnil)
-        b = binfo_docopy (b, be, "Def", f);
+        b = docopy (b, be, "Def", f);
       for (lisp al = xsymbol_value (Vminor_mode_alist);
            consp (al); al = xcdr (al))
         b = minor_mode (xcar (al), b, be, f);
@@ -1809,94 +1871,119 @@ buffer_info::mode_name (char *b, char *be, int c) const
     switch (xprocess_status (b_bufp->lprocess))
       {
       case PS_RUN:
-        b = stpncpy (b, ":Run", be - b);
+        b = stwncpy (b, be, ":Run", 4);
         break;
 
       case PS_EXIT:
-        b = stpncpy (b, ":Exit", be - b);
+        b = stwncpy (b, be, ":Exit", 5);
         break;
       }
   return b;
 }
 
-char *
-buffer_info::ime_mode (char *b, char *be) const
+Char *
+buffer_info::progname (Char *b, Char *be) const
+{
+  return stwncpy (b, be, ProgramName, strlen (ProgramName));
+}
+
+Char *
+buffer_info::encoding (Char *b, Char *be) const
+{
+  return copy_lisp_string (b, be, xchar_encoding_name (b_bufp->lchar_encoding));
+}
+
+Char *
+buffer_info::eol_code (Char *b, Char *be) const
+{
+  const Char *s = b_eol_name[b_bufp->b_eol_code];
+  while (*s && b < be)
+    *b++ = *s++;
+  return b;
+}
+
+Char *
+buffer_info::ime_mode (Char *b, Char *be) const
 {
   // ncurses: IME is handled by the terminal, always show "--"
   if (!b_ime)
     return b;
   *b_ime = 1;
-  return stpncpy (b, "--", be - b);
+  if (b < be) *b++ = '-';
+  if (b < be) *b++ = '-';
+  return b;
 }
 
-char *
-buffer_info::position (char *b, char *be) const
+Char *
+buffer_info::position (Char *b, Char *be) const
 {
   if (b_posp)
     *b_posp = b;
   else if (b_wp)
     {
       char tem[64];
-      snprintf (tem, sizeof tem, "%d:%d", b_wp->w_plinenum, b_wp->w_column);
-      b = stpncpy (b, tem, be - b);
+      int tl = snprintf (tem, sizeof tem, "%d:%d", b_wp->w_plinenum, b_wp->w_column);
+      b = stwncpy (b, be, tem, tl);
     }
   return b;
 }
 
-char *
-buffer_info::version (char *b, char *be, int pound) const
+Char *
+buffer_info::version (Char *b, Char *be, int pound) const
 {
-  return stpncpy (b, pound ? DisplayVersionString : VersionString, be - b);
+  const char *s = pound ? DisplayVersionString : VersionString;
+  return stwncpy (b, be, s, strlen (s));
 }
 
-char *
-buffer_info::host_name (char *b, char *be, int pound) const
+Char *
+buffer_info::host_name (Char *b, Char *be, int pound) const
 {
   if (*sysdep.host_name)
     {
-      if (pound)
+      if (pound && b < be)
         *b++ = '@';
-      b = stpncpy (b, sysdep.host_name, be - b);
+      b = stwncpy (b, be, sysdep.host_name, strlen (sysdep.host_name));
     }
   return b;
 }
 
-char *
-buffer_info::process_id (char *b, char *be) const
+Char *
+buffer_info::process_id (Char *b, Char *be) const
 {
   char tem[64];
-  snprintf (tem, sizeof tem, "%d", sysdep.process_id);
-  return stpncpy (b, tem, be - b);
+  int tl = snprintf (tem, sizeof tem, "%d", sysdep.process_id);
+  return stwncpy (b, be, tem, tl);
 }
 
-char *
-buffer_info::admin_user (char *b, char *be) const
+Char *
+buffer_info::admin_user (Char *b, Char *be) const
 {
   if (Fadmin_user_p () == Qt)
-    b = stpncpy (b, "root: ", be - b);
+    b = stwncpy (b, be, "root: ", 6);
   return b;
 }
 
-char *
-buffer_info::percent (char *b, char *be) const
+Char *
+buffer_info::percent (Char *b, Char *be) const
 {
   if (b_percentp)
     *b_percentp = b;
   else if (b_bufp && b_wp)
     {
       char tem[64];
+      int tl;
       if (b_bufp->b_nchars > 0)
-        snprintf (tem, sizeof tem, "%d",
-                  (int)((100 * (long long)b_wp->w_point.p_point) / b_bufp->b_nchars));
+        tl = snprintf (tem, sizeof tem, "%d",
+                       (int)((100 * (long long)b_wp->w_point.p_point) / b_bufp->b_nchars));
       else
-        snprintf (tem, sizeof tem, "100");
-      b = stpncpy (b, tem, be - b);
+        tl = snprintf (tem, sizeof tem, "100");
+      b = stwncpy (b, be, tem, tl);
     }
   return b;
 }
 
-char *
-buffer_info::format (lisp fmt, char *b, char *be) const
+Char *
+buffer_info::format (lisp fmt, Char *b, Char *be) const
 {
   if (b_posp)
     *b_posp = 0;
@@ -1905,18 +1992,16 @@ buffer_info::format (lisp fmt, char *b, char *be) const
   if (b_percentp)
     *b_percentp = 0;
 
-  const Char *p = xstring_contents (fmt);
-  const Char *const pe = p + xstring_length (fmt);
+  const ucs4_t *p = xstring_contents (fmt);
+  const ucs4_t *const pe = p + xstring_length (fmt);
 
   while (p < pe && b < be)
     {
-      Char c = *p++;
+      ucs4_t c = *p++;
       if (c != '%')
         {
         normal_char:
-          if (DBCP (c))
-            *b++ = c >> 8;
-          *b++ = char (c);
+          if (b < be) *b++ = Char (c);
         }
       else
         {
@@ -2382,12 +2467,12 @@ draw_status_line (int row, int cols)
   lisp msg = xsymbol_value (Vminibuffer_message);
   if (stringp (msg))
     {
-      const Char *s = xstring_contents (msg);
+      const ucs4_t *s = xstring_contents (msg);
       int len = xstring_length (msg);
       int x = 0;
       for (int i = 0; i < len && x < cols; i++)
         {
-          Char c = s[i];
+          ucs4_t c = s[i];
           if (c < 0x20)
             ; // skip control chars
           else if (c < 0x80)
@@ -2397,11 +2482,11 @@ draw_status_line (int row, int cols)
             }
           else
             {
-              ucs2_t wc = i2w (c);
+              wchar_t wc = (wchar_t)c;
               if (wc != 0)
                 {
                   cchar_t cc;
-                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  wchar_t ws[2] = {wc, 0};
                   setcchar (&cc, ws, 0, 0, NULL);
                   mvadd_wch (row, x, &cc);
                   int w = wcwidth ((wchar_t)wc);
@@ -3749,14 +3834,14 @@ base64_decode (const std::string &in)
   return out;
 }
 
-// Convert internal Char string to UTF-8
+// Convert a ucs4 code-point string to UTF-8.
 static std::string
-utf16_to_utf8 (const Char *s, int len)
+utf16_to_utf8 (const ucs4_t *s, int len)
 {
   std::string out;
   for (int i = 0; i < len; i++)
     {
-      ucs2_t wc = i2w (s[i]);
+      ucs4_t wc = s[i];
       if (wc < 0x80)
         out += (char)wc;
       else if (wc < 0x800)
@@ -3764,9 +3849,16 @@ utf16_to_utf8 (const Char *s, int len)
           out += (char)(0xc0 | (wc >> 6));
           out += (char)(0x80 | (wc & 0x3f));
         }
-      else
+      else if (wc < 0x10000)
         {
           out += (char)(0xe0 | (wc >> 12));
+          out += (char)(0x80 | ((wc >> 6) & 0x3f));
+          out += (char)(0x80 | (wc & 0x3f));
+        }
+      else
+        {
+          out += (char)(0xf0 | (wc >> 18));
+          out += (char)(0x80 | ((wc >> 12) & 0x3f));
           out += (char)(0x80 | ((wc >> 6) & 0x3f));
           out += (char)(0x80 | (wc & 0x3f));
         }
@@ -3803,10 +3895,9 @@ utf8_to_internal_string (const std::string &utf8)
           while (i < len && (utf8[i] & 0xc0) == 0x80) i++;
           wc = '?';
         }
-      Char ic = w2i (wc);
-      if (ic == Char (-1))
-        ic = '?';
-      chars.push_back (ic);
+      // wc is a Unicode (BMP) code point decoded from UTF-8; make_string
+      // takes UTF-16 Char units, so store it directly — no cp932 w2i fold.
+      chars.push_back ((Char)wc);
     }
   if (chars.empty ())
     return make_simple_string ();
@@ -4365,8 +4456,8 @@ completion::fix_match_len ()
   if (c_item == Qnil || !c_word || c_match_len <= c_target_len)
     return;
 
-  const Char *p = xstring_contents (c_item) + c_target_len;
-  const Char *pe = xstring_contents (c_item) + c_match_len;
+  const ucs4_t *p = xstring_contents (c_item) + c_target_len;
+  const ucs4_t *pe = xstring_contents (c_item) + c_match_len;
 
   if (p < pe)
     {
@@ -4438,7 +4529,7 @@ completion::complete_symbol ()
         package = lpkg;
     }
 
-  Char *b = xstring_contents (c_target);
+  ucs4_t *b = xstring_contents (c_target);
   int l = xstring_length (c_target);
 
   maybe_symbol_string mss (package);
@@ -4547,9 +4638,9 @@ completion::complete_filename_scan (const char *path, lisp show_dots, lisp ignor
 lisp
 completion::split_pathname ()
 {
-  const Char *p0 = xstring_contents (c_target);
-  const Char *pe = p0 + xstring_length (c_target);
-  const Char *p;
+  const ucs4_t *p0 = xstring_contents (c_target);
+  const ucs4_t *pe = p0 + xstring_length (c_target);
+  const ucs4_t *p;
   for (p = pe; p > p0 && p[-1] != '/'; p--)
     ;
   set_target (make_string (p, pe - p));
@@ -4560,8 +4651,8 @@ completion::split_pathname ()
       if (xstring_length (x)
           && xstring_contents (x)[xstring_length (x) - 1] != '/')
         {
-          Char *b = (Char *)xmalloc ((xstring_length (x) + 1) * sizeof (Char));
-          bcopy (xstring_contents (x), b, xstring_length (x));
+          ucs4_t *b = (ucs4_t *)xmalloc ((xstring_length (x) + 1) * sizeof (ucs4_t));
+          bcopy (xstring_contents (x), b, xstring_length (x) * sizeof (ucs4_t));
           b[xstring_length (x)++] = '/';
           xfree (xstring_contents (x));
           xstring_contents (x) = b;
@@ -4797,7 +4888,7 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
     timeout = fixnum_value (ltimeout);
 
   check_string (lstring);
-  const Char *str = xstring_contents (lstring);
+  const ucs4_t *str = xstring_contents (lstring);
   int slen = xstring_length (lstring);
 
   // Erase any existing popup
@@ -4834,15 +4925,14 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
           int w = 0;
           for (int j = line_start; j < i; j++)
             {
-              Char c = str[j];
+              ucs4_t c = str[j];
               if (c < 0x20)
                 continue;
               else if (c < 0x80)
                 w++;
               else
                 {
-                  ucs2_t wc = i2w (c);
-                  int cw = wcwidth ((wchar_t)wc);
+                  int cw = wcwidth ((wchar_t)c);
                   w += (cw > 0) ? cw : 1;
                 }
             }
@@ -4986,7 +5076,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
 
   // Collect strings and compute max display width
   struct popup_item {
-    const Char *str;
+    const ucs4_t *str;
     int len;
     int display_width;
     lisp lstr;
@@ -5006,15 +5096,14 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
       int w = 0;
       for (int i = 0; i < items[idx].len; i++)
         {
-          Char c = items[idx].str[i];
+          ucs4_t c = items[idx].str[i];
           if (c < 0x20)
             continue;
           else if (c < 0x80)
             w++;
           else
             {
-              ucs2_t wc = i2w (c);
-              int cw = wcwidth ((wchar_t)wc);
+              int cw = wcwidth ((wchar_t)c);
               w += (cw > 0) ? cw : 1;
             }
         }
@@ -5739,7 +5828,7 @@ collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enable
       lisp name = xwin32_menu_name (x);
       if (stringp (name))
         {
-          const Char *src = xstring_contents (name);
+          const ucs4_t *src = xstring_contents (name);
           int slen = xstring_length (name);
           int di = 0;
           for (int si = 0; si < slen && di < 254; si++)
@@ -5749,12 +5838,12 @@ collect_menu_items (lisp lmenu, menu_entry *entries, int max_entries, int enable
                   // Next char is accelerator
                   if (si + 1 < slen && src[si + 1] != '&')
                     {
-                      wchar_t wc = (wchar_t)i2w (src[si + 1]);
+                      wchar_t wc = (wchar_t)src[si + 1];
                       e.accel = (wc < 128) ? tolower (wc) : wc;
                     }
                   continue; // Skip '&' marker
                 }
-              e.label[di++] = (wchar_t)i2w (src[si]);
+              e.label[di++] = (wchar_t)src[si];
             }
           e.label[di] = 0;
           e.label_len = di;

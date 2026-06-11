@@ -82,12 +82,12 @@ static int
 render_text (WINDOW *win, lisp text, int max_w)
 {
   if (!stringp (text)) return 0;
-  const Char *s = xstring_contents (text);
+  const ucs4_t *s = xstring_contents (text);
   int len = xstring_length (text);
   int col = 0;
   for (int i = 0; i < len && col < max_w; i++)
     {
-      Char c = s[i];
+      ucs4_t c = s[i];
       if (c == '&' && i + 1 < len)
         {
           i++;
@@ -101,11 +101,10 @@ render_text (WINDOW *win, lisp text, int max_w)
         }
       else
         {
-          ucs2_t wc = i2w (c);
-          int cw = wcwidth ((wchar_t)wc);
+          int cw = wcwidth ((wchar_t)c);
           if (cw <= 0) cw = 1;
           if (col + cw > max_w) break;
-          wchar_t ws[2] = {(wchar_t)wc, 0};
+          wchar_t ws[2] = {(wchar_t)c, 0};
           waddnwstr (win, ws, 1);
           col += cw;
         }
@@ -114,6 +113,7 @@ render_text (WINDOW *win, lisp text, int max_w)
 }
 
 // Render Char buffer to ncurses, return display width
+// Render a UTF-16 Char buffer (the edit control's ebuf) to ncurses.
 static int
 render_chars (WINDOW *win, const Char *buf, int len, int max_w)
 {
@@ -129,11 +129,10 @@ render_chars (WINDOW *win, const Char *buf, int len, int max_w)
         }
       else
         {
-          ucs2_t wc = i2w (c);
-          int cw = wcwidth ((wchar_t)wc);
+          int cw = wcwidth ((wchar_t)c);
           if (cw <= 0) cw = 1;
           if (col + cw > max_w) break;
-          wchar_t ws[2] = {(wchar_t)wc, 0};
+          wchar_t ws[2] = {(wchar_t)c, 0};
           waddnwstr (win, ws, 1);
           col += cw;
         }
@@ -154,8 +153,7 @@ chars_display_width (const Char *buf, int len)
         w++;
       else
         {
-          ucs2_t wc = i2w (c);
-          int cw = wcwidth ((wchar_t)wc);
+          int cw = wcwidth ((wchar_t)c);
           w += (cw > 0) ? cw : 1;
         }
     }
@@ -167,19 +165,18 @@ static int
 text_display_width (lisp text)
 {
   if (!stringp (text)) return 0;
-  const Char *s = xstring_contents (text);
+  const ucs4_t *s = xstring_contents (text);
   int len = xstring_length (text);
   int w = 0;
   for (int i = 0; i < len; i++)
     {
-      Char c = s[i];
+      ucs4_t c = s[i];
       if (c == '&' && i + 1 < len) { i++; c = s[i]; }
       if (c < 0x20) continue;
       if (c < 0x80) w++;
       else
         {
-          ucs2_t wc = i2w (c);
-          int cw = wcwidth ((wchar_t)wc);
+          int cw = wcwidth ((wchar_t)c);
           w += (cw > 0) ? cw : 1;
         }
     }
@@ -339,8 +336,7 @@ draw_control (WINDOW *win, NcCtl *c, int focused, int win_row_off)
               if (consp (val))
                 val = xcar (val);
               if (stringp (val))
-                render_chars (win, xstring_contents (val),
-                              xstring_length (val), inner);
+                render_text (win, val, inner);
             }
         }
       int x, y;
@@ -1159,11 +1155,10 @@ Fdialog_box (lisp dialog, lisp init, lisp handlers)
                   NcCtl *c = &ctls[focus];
                   if (c->elen < EDIT_MAX - 1)
                     {
-                      Char ch;
-                      if (wch < 0x80)
-                        ch = (Char)wch;
-                      else
-                        ch = w2i ((ucs2_t)wch);
+                      // ebuf is UTF-16; wch is a Unicode code point from
+                      // ncurses. Store the BMP code unit directly (core is
+                      // UCS-4 now — no cp932 w2i folding).
+                      Char ch = (Char)wch;
 
                       memmove (c->ebuf + c->epos + 1, c->ebuf + c->epos,
                                (c->elen - c->epos) * sizeof (Char));
@@ -2013,7 +2008,8 @@ Fproperty_sheet (lisp pages, lisp caption, lisp lstart_page)
                   NcCtl *c = &pctls[focus];
                   if (c->elen < EDIT_MAX - 1)
                     {
-                      Char ch = (wch < 0x80) ? (Char)wch : w2i ((ucs2_t)wch);
+                      // ebuf is UTF-16; store the Unicode code unit directly.
+                      Char ch = (Char)wch;
                       memmove (c->ebuf + c->epos + 1, c->ebuf + c->epos,
                                (c->elen - c->epos) * sizeof (Char));
                       c->ebuf[c->epos] = ch;

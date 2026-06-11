@@ -315,6 +315,32 @@ inline int kana_char_p (lChar c)
 inline int kanji_char_p (lChar c)
   {return DBCP (c);}
 
+// On LP64 (macOS / Linux) lChar (u_long, 64-bit) and ucs4_t (u_int32_t) are
+// distinct types, so a ucs4_t argument is ambiguous between the int / Char /
+// lChar overloads above. Add ucs4_t overloads to give it an exact match. On
+// LLP64 (Win32) u_long is 32-bit and lChar == ucs4_t, so these would redefine
+// the lChar versions — guard them out there.
+#ifdef __LP64__
+inline int SBCP (ucs4_t c)
+  {return c < 256;}
+inline int DBCP (ucs4_t c)
+  {return c >= 256 && c < CHAR_LIMIT;}
+inline int digit_char_p (ucs4_t c)
+  {return ascii_char_p (int (c)) && digit_char_p (int (c));}
+inline int upper_char_p (ucs4_t c)
+  {return ascii_char_p (int (c)) && upper_char_p (int (c));}
+inline int lower_char_p (ucs4_t c)
+  {return ascii_char_p (int (c)) && lower_char_p (int (c));}
+inline int alpha_char_p (ucs4_t c)
+  {return ascii_char_p (int (c)) && alpha_char_p (int (c));}
+inline int alphanumericp (ucs4_t c)
+  {return ascii_char_p (int (c)) && alphanumericp (int (c));}
+inline int kana_char_p (ucs4_t c)
+  {return SBCP (c) && kana_char_p (int (c));}
+inline int kanji_char_p (ucs4_t c)
+  {return DBCP (c);}
+#endif /* __LP64__ */
+
 inline int
 _char_downcase (int c)
 {

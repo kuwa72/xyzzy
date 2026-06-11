@@ -977,6 +977,11 @@ typedef struct tagREGISTERWORDA {
   LPSTR lpWord;
 } REGISTERWORDA;
 
+typedef struct tagREGISTERWORDW {
+  LPWSTR lpReading;
+  LPWSTR lpWord;
+} REGISTERWORDW;
+
 // SYSTEMTIME
 typedef struct _SYSTEMTIME {
   WORD wYear; WORD wMonth; WORD wDayOfWeek; WORD wDay;
@@ -1263,6 +1268,23 @@ inline BOOL GetComputerNameA(LPSTR buf, DWORD *len) {
   return FALSE;
 }
 
+// GetComputerNameW: on success *len reports the character count excluding the
+// terminating null (Win32 semantics).
+inline BOOL GetComputerNameW(LPWSTR buf, DWORD *len) {
+  char tmp[256];
+  if (buf && len && *len && gethostname(tmp, sizeof tmp) == 0) {
+    tmp[sizeof tmp - 1] = 0;
+    DWORD l = (DWORD)strlen(tmp);
+    if (l < *len) {
+      for (DWORD i = 0; i < l; i++) buf[i] = (wchar_t)(unsigned char)tmp[i];
+      buf[l] = 0;
+      *len = l;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 inline DWORD GetCurrentProcessId() { return (DWORD)getpid(); }
 inline HANDLE GetCurrentProcess() { return (HANDLE)(intptr_t)-1; }
 inline DWORD GetCurrentThreadId() { return (DWORD)(uintptr_t)pthread_self(); }
@@ -1511,6 +1533,23 @@ inline BOOL GetUserNameA(LPSTR buf, DWORD *len) {
   return FALSE;
 }
 
+// GetUserNameW: *len reports the buffer size on entry and, on success, the
+// number of characters copied including the terminating null (Win32 semantics).
+inline BOOL GetUserNameW(LPWSTR buf, DWORD *len) {
+  const char *user = getenv("USER");
+  if (!user) user = getenv("LOGNAME");
+  if (user && buf && len) {
+    DWORD l = (DWORD)strlen(user);
+    if (l + 1 <= *len) {
+      for (DWORD i = 0; i < l; i++) buf[i] = (wchar_t)(unsigned char)user[i];
+      buf[l] = 0;
+      *len = l + 1;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 // Window placement
 inline BOOL GetWindowPlacement(HWND, WINDOWPLACEMENT*) { return FALSE; }
 
@@ -1736,6 +1775,7 @@ inline uintptr_t _beginthreadex(void*, unsigned, unsigned int (*)(void*), void*,
 #define _chgsign(x) (-(x))
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
+#define _wcsnicmp(a,b,n) wcsncasecmp((a),(b),(n))
 #define memicmp(a,b,n) strncasecmp((const char*)(a),(const char*)(b),(n))
 #define _memicmp(a,b,n) strncasecmp((const char*)(a),(const char*)(b),(n))
 #define _environ environ

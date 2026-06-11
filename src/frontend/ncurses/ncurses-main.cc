@@ -233,22 +233,24 @@ init_load_path ()
   lisp mod = xsymbol_value (Qmodule_dir);
   if (mod != Qnil && stringp (mod))
     {
-      const Char *s = xstring_contents (mod);
+      const ucs4_t *s = xstring_contents (mod);
       int l = xstring_length (mod);
 
       // module_dir/site-lisp/
-      Char buf[PATH_MAX];
+      ucs4_t buf[PATH_MAX];
       const char *site = "site-lisp/";
-      bcopy (s, buf, l);
+      for (int i = 0; i < l; i++)
+        buf[i] = s[i];
       for (int i = 0; site[i]; i++)
-        buf[l + i] = site[i];
+        buf[l + i] = (ucs4_t)(u_char)site[i];
       p = xcons (make_string (buf, l + 10), p);
 
       // module_dir/lisp/
       const char *lisp_dir = "lisp/";
-      bcopy (s, buf, l);
+      for (int i = 0; i < l; i++)
+        buf[i] = s[i];
       for (int i = 0; lisp_dir[i]; i++)
-        buf[l + i] = lisp_dir[i];
+        buf[l + i] = (ucs4_t)(u_char)lisp_dir[i];
       p = xcons (make_string (buf, l + 5), p);
 
       // module_dir itself
@@ -787,9 +789,9 @@ self_test_minibuffer ()
     app.kbdq.putc (0x0d);
 
     const char *prompt = "Test: ";
-    Char wprompt[16];
+    ucs4_t wprompt[16];
     for (int i = 0; prompt[i]; i++)
-      wprompt[i] = prompt[i];
+      wprompt[i] = (ucs4_t)(unsigned char)prompt[i];
 
     lisp result = Qnil;
     try
@@ -884,7 +886,7 @@ load_startup (void (*slog)(const char *))
       if (mod != Qnil && stringp (mod))
         {
           char mpath[PATH_MAX];
-          const Char *ms = xstring_contents (mod);
+          const ucs4_t *ms = xstring_contents (mod);
           int ml = xstring_length (mod);
           int i;
           for (i = 0; i < ml && i < PATH_MAX - 20; i++)
@@ -912,18 +914,15 @@ load_startup (void (*slog)(const char *))
     {
       if (slog) slog ("startup.l FAILED");
       nonlocal_data *nld = nonlocal_jump::data ();
-      // Convert lisp string (internal Char*) to UTF-8 via internal2wc_table
+      // Convert lisp string (ucs4 code points) to UTF-8 for the log.
       auto lisp2mb = [](lisp s, char *buf, int bufsz) {
         if (!stringp (s)) return;
-        const Char *p = xstring_contents (s);
+        const ucs4_t *p = xstring_contents (s);
         int l = xstring_length (s);
         int mi = 0;
         for (int j = 0; j < l && mi < bufsz - 5; j++)
           {
-            // Convert xyzzy internal Char to UCS-2
-            ucs2_t wc = i2w (p[j]);
-            if (wc == ucs2_t (-1))
-              wc = '?';
+            ucs4_t wc = p[j];
             if (wc < 0x80)
               buf[mi++] = (char)wc;
             else if (wc < 0x800)
@@ -931,9 +930,16 @@ load_startup (void (*slog)(const char *))
                 buf[mi++] = (char)(0xC0 | (wc >> 6));
                 buf[mi++] = (char)(0x80 | (wc & 0x3F));
               }
-            else
+            else if (wc < 0x10000)
               {
                 buf[mi++] = (char)(0xE0 | (wc >> 12));
+                buf[mi++] = (char)(0x80 | ((wc >> 6) & 0x3F));
+                buf[mi++] = (char)(0x80 | (wc & 0x3F));
+              }
+            else
+              {
+                buf[mi++] = (char)(0xF0 | (wc >> 18));
+                buf[mi++] = (char)(0x80 | ((wc >> 12) & 0x3F));
                 buf[mi++] = (char)(0x80 | ((wc >> 6) & 0x3F));
                 buf[mi++] = (char)(0x80 | (wc & 0x3F));
               }

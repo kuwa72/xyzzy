@@ -684,6 +684,7 @@ Fos_csd_version ()
 void
 init_environ ()
 {
+#ifdef _WIN32
   wchar_t wb[256];
   DWORD n = numberof (wb);
   if (GetUserNameW (wb, &n))
@@ -705,13 +706,46 @@ init_environ ()
       make_string ((const Char *)processor_id, wcslen (processor_id));
   else
     xsymbol_value (Vmachine_version) = Qnil;
+#else
+  /* Non-Win32: wchar_t is 4 bytes here, so the (const Char *) reinterpret cast
+     the Win32 path uses on wchar_t buffers does not apply. Read the values as
+     POSIX byte strings and let make_string() decode them. */
+  {
+    const char *user = getenv ("USER");
+    if (!user) user = getenv ("LOGNAME");
+    xsymbol_value (Vuser_name) = make_string (user ? user : "unknown");
+
+    char host[256];
+    if (gethostname (host, sizeof host) == 0)
+      {
+        host[sizeof host - 1] = 0;
+        xsymbol_value (Vmachine_name) = make_string (host);
+      }
+    else
+      xsymbol_value (Vmachine_name) = make_string ("unknown");
+
+    const char *processor_id = getenv ("PROCESSOR_IDENTIFIER");
+    if (!processor_id) processor_id = getenv ("HOSTTYPE");
+    xsymbol_value (Vmachine_version) =
+      processor_id ? make_string (processor_id) : Qnil;
+  }
+#endif
 
   xsymbol_value (Vos_major_version) = make_fixnum (sysdep.os_ver.dwMajorVersion);
   xsymbol_value (Vos_minor_version) = make_fixnum (sysdep.os_ver.dwMinorVersion);
   xsymbol_value (Vos_build_number) = make_fixnum (sysdep.os_ver.dwBuildNumber);
-  xsymbol_value (Vos_csd_version) =
-    make_string ((const Char *)sysdep.os_ver.szCSDVersion,
-                 wcslen (sysdep.os_ver.szCSDVersion));
+#ifdef _WIN32
+  /* szCSDVersion is WCHAR[] (UTF-16); read it as a Char run. wcslen can't be
+     used since wchar_t is 4 bytes on some platforms — measure it ourselves. */
+  {
+    const Char *csd = (const Char *)sysdep.os_ver.szCSDVersion;
+    size_t csd_len = 0;
+    while (csd[csd_len]) csd_len++;
+    xsymbol_value (Vos_csd_version) = make_string (csd, csd_len);
+  }
+#else
+  xsymbol_value (Vos_csd_version) = make_string ("");
+#endif
   xsymbol_value (Vprocess_id) = make_fixnum (sysdep.process_id);
 
 #ifdef _WIN32
@@ -981,12 +1015,13 @@ environ::save_geometry ()
 lisp
 Fsi_environ ()
 {
+  lisp r = Qnil;
+#ifdef _WIN32
   /* Phase 2-5: use _wenviron so non-ASCII env values round-trip as UTF-16
      without the w2s/s2w cp932 detour. _wenviron may be NULL until the CRT
      initializes it (MS CRT populates on first _wgetenv / first wmain). A
      harmless _wgetenv (L"") primes it. */
   _wgetenv (L"");
-  lisp r = Qnil;
   for (wchar_t **e = _wenviron; e && *e; e++)
     {
       const wchar_t *eq = wcschr (*e, L'=');
@@ -996,6 +1031,18 @@ Fsi_environ ()
                         make_string ((const Char *)(eq + 1), wcslen (eq + 1)));
       r = xcons (env, r);
     }
+#else
+  /* Non-Win32: walk the POSIX environ as byte strings; make_string decodes. */
+  for (char **e = environ; e && *e; e++)
+    {
+      const char *eq = strchr (*e, '=');
+      if (!eq)
+        continue;
+      lisp env = xcons (make_string (*e, eq - *e),
+                        make_string (eq + 1, strlen (eq + 1)));
+      r = xcons (env, r);
+    }
+#endif
 
   return Fnreverse (r);
 }
@@ -1004,17 +1051,26 @@ lisp
 Fsi_getenv (lisp var)
 {
   check_string (var);
+#ifdef _WIN32
   /* Phase 3: ucs4 → UTF-16. */
   wchar_t *v = (wchar_t *)alloca (i2wl (var) * sizeof (wchar_t));
   i2w (var, (ucs2_t *)v);
   const wchar_t *e = _wgetenv (v);
   return e ? make_string ((const Char *)e, wcslen (e)) : Qnil;
+#else
+  /* Non-Win32: encode the name to a POSIX byte string and decode the result. */
+  char *v = (char *)alloca (xstring_length (var) * 2 + 1);
+  w2s (v, var);
+  const char *e = getenv (v);
+  return e ? make_string (e) : Qnil;
+#endif
 }
 
 lisp
 Fsi_putenv (lisp var, lisp val)
 {
   check_string (var);
+#ifdef _WIN32
   /* Phase 3: ucs4 var/val → UTF-16 (worst case 2x). */
   size_t n = (i2wl (var) - 1) + 1 /*=*/ + 1 /*nul*/;
   if (val && val != Qnil)
@@ -1033,6 +1089,27 @@ Fsi_putenv (lisp var, lisp val)
 
   int r = _wputenv (b);
   return (r < 0 || !val) ? Qnil : val;
+#else
+  /* Non-Win32: build "name=value" as a POSIX byte string for putenv. */
+  int l = xstring_length (var) * 2 + 1 + 1;
+  if (val && val != Qnil)
+    {
+      check_string (val);
+      l += xstring_length (val) * 2;
+    }
+
+  char *v = (char *)alloca (l);
+  char *b = v;
+  v = w2s (v, var);
+  *v++ = '=';
+  if (val && val != Qnil)
+    w2s (v, val);
+  else
+    *v++ = 0;
+
+  int r = _putenv (b);
+  return (r < 0 || !val) ? Qnil : val;
+#endif
 }
 
 lisp

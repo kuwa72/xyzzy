@@ -137,18 +137,13 @@ wchar_to_lchar (wchar_t wc)
   if (wc == 0x0a)
     wc = 0x0d;
 
-  if (wc < 0x80)
+  // core is now UTF-16/UCS-4 internally: pass the Unicode code point
+  // straight through as a LCKIND_CHAR lChar (LCKIND_CHAR == 0, and the
+  // 21-bit payload field holds any code point up to 0x10FFFF).
+  // No more w2i() folding into the old cp932 internal encoding.
+  if (wc > 0)
     return (lChar)wc;
 
-  // BMP range: use w2i() lookup table
-  if (wc <= 0xffff)
-    {
-      Char c = w2i ((ucs2_t)wc);
-      if (c != 0)
-        return (lChar)c;
-    }
-
-  // Outside BMP or unmapped: return as-is (will display as unknown)
   return lChar_EOF;
 }
 
