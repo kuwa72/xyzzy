@@ -762,9 +762,12 @@ Window::paint_glyphs (Painter &painter, const glyph_t *gstart, const glyph_t *g,
 }
 
 void
-Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
-                    char *buf, int y, const INT *padding) const
+Window::paint_line (Painter &painter, glyph_data *ogd, const glyph_data *ngd,
+                    char *buf, int y) const
 {
+  /* issue #13 step 3f: glyph drawing / blank fills via Painter; the
+     ScrollWindow/ValidateRect scroll-blit optimization stays on the
+     w_hwnd member (window-content scroll, not a Painter drawing op). */
   const glyph_t *n = ngd->gd_cc, *ne = n + ngd->gd_len;
   glyph_t *o = ogd->gd_cc, *oe = o + ogd->gd_len;
 
@@ -799,8 +802,8 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
             n++, o++;
         }
       else
-        PatBlt (hdc, ((ogd->gd_len - 1) * app.text_font.cell ().cx + app.text_font.cell ().cx / 2), y,
-                app.text_font.cell ().cx, app.text_font.cell ().cy, PATCOPY);
+        painter.fill_rect (((ogd->gd_len - 1) * app.text_font.cell ().cx + app.text_font.cell ().cx / 2), y,
+                           app.text_font.cell ().cx, app.text_font.cell ().cy, w_colors[WCOLOR_BACK]);
     }
 
   const glyph_t *nls = n;
@@ -810,7 +813,7 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
 
   if (!dl)
     {
-      paint_glyphs (hdc, hdcmem, ngd->gd_cc, nfd, nls, buf, padding,
+      paint_glyphs (painter, ngd->gd_cc, nfd, nls, buf,
                     ((nfd - ngd->gd_cc - 1) * app.text_font.cell ().cx
                      + app.text_font.cell ().cx / 2),
                     y, 0);
@@ -821,18 +824,17 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
     {
       if (ogd->gd_len - (ols - ogd->gd_cc) <= 3)
         {
-          paint_glyphs (hdc, hdcmem, ngd->gd_cc, nfd, ne, buf, padding,
+          paint_glyphs (painter, ngd->gd_cc, nfd, ne, buf,
                         ((nfd - ngd->gd_cc - 1) * app.text_font.cell ().cx
                          + app.text_font.cell ().cx / 2),
                         y, 0);
           if (dl < 0 && ogd->gd_len > ngd->gd_len)
-            PatBlt (hdc,
-                    ((ngd->gd_len - 1) * app.text_font.cell ().cx
-                     + app.text_font.cell ().cx / 2),
-                    y,
-                    (ogd->gd_len - ngd->gd_len) * app.text_font.cell ().cx,
-                    app.text_font.cell ().cy,
-                    PATCOPY);
+            painter.fill_rect (((ngd->gd_len - 1) * app.text_font.cell ().cx
+                                + app.text_font.cell ().cx / 2),
+                               y,
+                               (ogd->gd_len - ngd->gd_len) * app.text_font.cell ().cx,
+                               app.text_font.cell ().cy,
+                               w_colors[WCOLOR_BACK]);
         }
       else
         {
@@ -869,7 +871,7 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
                         }
                       else if (glyph_width (*g) == 2)
                         l = 2;
-                      paint_glyphs (hdc, hdcmem, ngd->gd_cc, g, g + l, buf, padding,
+                      paint_glyphs (painter, ngd->gd_cc, g, g + l, buf,
                                     (x - 1) * app.text_font.cell ().cx + app.text_font.cell ().cx / 2,
                                     y, 0);
                     }
@@ -877,9 +879,9 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
               r.left = ((ngd->gd_len - 1) * app.text_font.cell ().cx
                         + app.text_font.cell ().cx / 2);
               ValidateRect (w_hwnd, &r);
-              PatBlt (hdc, r.left, r.top,
-                      r.right - r.left, app.text_font.cell ().cy,
-                      PATCOPY);
+              painter.fill_rect (r.left, r.top,
+                                 r.right - r.left, app.text_font.cell ().cy,
+                                 w_colors[WCOLOR_BACK]);
             }
           else
             {
@@ -887,7 +889,7 @@ Window::paint_line (HDC hdc, HDC hdcmem, glyph_data *ogd, const glyph_data *ngd,
                          + app.text_font.cell ().cx / 2);
               ValidateRect (w_hwnd, &r);
             }
-          paint_glyphs (hdc, hdcmem, ngd->gd_cc, nfd, nls, buf, padding,
+          paint_glyphs (painter, ngd->gd_cc, nfd, nls, buf,
                         ((nfd - ngd->gd_cc - 1) * app.text_font.cell ().cx
                          + app.text_font.cell ().cx / 2),
                         y, 0);
@@ -1222,22 +1224,8 @@ Window::find_motion () const
 }
 
 void
-Window::paint_region (HDC hdc, int from, int to) const
+Window::paint_region (Painter &painter, int from, int to) const
 {
-  HGDIOBJ of = SelectObject (hdc, app.text_font.font (FONT_ASCII));
-  HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
-  HGDIOBJ obr = SelectObject (hdc, CreateSolidBrush (w_colors[WCOLOR_BACK]));
-
-  INT *padding;
-  if (!app.text_font.need_pad_p ())
-    padding = 0;
-  else
-    {
-      padding = (INT *)alloca (sizeof *padding * w_ch_max.cx);
-      for (int i = 0; i < w_ch_max.cx; i++)
-        padding[i] = app.text_font.cell ().cx;
-    }
   char *buf = (char *)alloca (w_ch_max.cx + 3);
   glyph_data **g = w_glyphs.g_rep->gr_nglyph + from;
   glyph_data **og = w_glyphs.g_rep->gr_oglyph + from;
@@ -1245,14 +1233,25 @@ Window::paint_region (HDC hdc, int from, int to) const
        y < ye; y += app.text_font.cell ().cy, g++, og++)
     if ((*g)->gd_mod)
       {
-        paint_line (hdc, hdcmem, *og, *g, buf, y, padding);
+        paint_line (painter, *og, *g, buf, y);
         (*g)->gd_mod = 0;
       }
+}
 
+/* issue #13 step 3f: HDC entry point builds the glyph-atlas memory DC and a
+   Win32Painter, then delegates. (The FONT_ASCII select / WCOLOR_BACK brush
+   / padding the old HDC version set up are gone: paint_glyphs picks its own
+   per-charset font, blank fills go through painter.fill_rect, and padding
+   was dead in the glyph path.) */
+void
+Window::paint_region (HDC hdc, int from, int to) const
+{
+  HDC hdcmem = CreateCompatibleDC (hdc);
+  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  Win32Painter painter (hdc, hdcmem);
+  paint_region (painter, from, to);
   SelectObject (hdcmem, obm);
   DeleteDC (hdcmem);
-  SelectObject (hdc, of);
-  DeleteObject (SelectObject (hdc, obr));
 }
 
 // Window::redraw_window() moved to core/glyph.cc

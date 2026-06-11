@@ -565,9 +565,14 @@ struct Window
   // issue #13 step 2: Painter& variant, runs alongside the HDC one above.
   void paint_glyphs (struct Painter &, const glyph_t *, const glyph_t *,
                      const glyph_t *, char *, int, int, int) const;
-  void paint_line (HDC, HDC, glyph_data *, const glyph_data *,
-                   char *, int, const INT *) const;
+  // issue #13 step 3f: paint_line/region/window take Painter&. paint_line's
+  // only caller is paint_region, so it has no HDC overload; region/window
+  // keep HDC wrappers for the WndProc / refresh call sites.
+  void paint_line (struct Painter &, glyph_data *, const glyph_data *,
+                   char *, int) const;
+  void paint_window (struct Painter &) const;
   void paint_window (HDC) const;
+  void paint_region (struct Painter &, int, int) const;
   void paint_region (HDC, int, int) const;
   void paint_terminal (HDC, class Terminal *);
   int refresh_terminal (int f);
@@ -752,6 +757,12 @@ inline void
 Window::paint_background (HDC hdc) const
 {
   paint_background (hdc, 0, 0, w_rect.right, w_rect.bottom);
+}
+
+inline void
+Window::paint_window (Painter &painter) const
+{
+  paint_region (painter, 0, w_ch_max.cy);
 }
 
 inline void
