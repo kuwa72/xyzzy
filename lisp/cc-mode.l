@@ -146,5 +146,4 @@
 (define-key *c++-mode-map* #\TAB           'ts-c-indent-line)
 (define-key *c++-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
 (define-key *c++-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
-(define-key *c++-mode-map* '(#\C-c #\C-o)  'ts-outline)
 (add-hook '*c++-mode-hook* 'ts-c++-mode-enable)
