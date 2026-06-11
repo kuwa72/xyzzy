@@ -574,7 +574,8 @@ struct Window
   void paint_window (HDC) const;
   void paint_region (struct Painter &, int, int) const;
   void paint_region (HDC, int, int) const;
-  void paint_terminal (HDC, class Terminal *);
+  void paint_terminal (struct Painter &, class Terminal *);  // issue #13 step 3g
+  void paint_terminal (HDC, class Terminal *);               // wraps the Painter& one
   int refresh_terminal (int f);
   void find_motion () const;
   void redraw_window (Point &, long, int, int) const;

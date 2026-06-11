@@ -2334,8 +2334,14 @@ term_color_to_rgb (uint8_t tc)
 }
 
 void
-Window::paint_terminal (HDC hdc, Terminal *term)
+Window::paint_terminal (Painter &painter, Terminal *term)
 {
+  /* issue #13 step 3g: terminal grid rendering via Painter. The terminal
+     itself (Terminal, an escape-sequence parser / virtual screen in
+     core/term.h) is platform-neutral and the PTY backend (ConPTY vs pty)
+     lives in the process layer, so the only Win32 residual here is the
+     cursor cell, drawn with InvertRect (no neutral Painter equivalent);
+     it uses the hdc obtained from the Win32Painter (documented). */
   int cellw = app.text_font.cell ().cx;
   int cellh = app.text_font.cell ().cy;
   int trows = term->rows ();
@@ -2343,7 +2349,6 @@ Window::paint_terminal (HDC hdc, Terminal *term)
 
   const FontObject &ascii_font = app.text_font.font (FONT_ASCII);
   const FontObject &jp_font = app.text_font.font (FONT_JP);
-  HGDIOBJ of = SelectObject (hdc, ascii_font);
 
   // Terminal defaults: white on black (like a real terminal)
   COLORREF def_fg = RGB(192, 192, 192);
@@ -2357,11 +2362,8 @@ Window::paint_terminal (HDC hdc, Terminal *term)
           if (r >= trows || c >= tcols)
             {
               // Beyond terminal grid — fill with background
-              RECT rc = { c * cellw + cellw / 2, py,
-                          w_client.cx, py + cellh };
-              HBRUSH hbr = CreateSolidBrush (def_bg);
-              FillRect (hdc, &rc, hbr);
-              DeleteObject (hbr);
+              int x = c * cellw + cellw / 2;
+              painter.fill_rect (x, py, w_client.cx - x, cellh, def_bg);
               c = w_ch_max.cx;
               continue;
             }
@@ -2387,68 +2389,34 @@ Window::paint_terminal (HDC hdc, Terminal *term)
 
           int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
 
-          // Phase 2: Char is UTF-16 code unit, direct cast to wchar_t
+          // Phase 2: Char is UTF-16 code unit
           Char ich = tc->ch;
-          wchar_t wc = (ich == 0 || ich == ' ') ? L' ' : (wchar_t) ich;
+          Char wc = (ich == 0 || ich == ' ') ? L' ' : ich;
 
           int px = c * cellw + cellw / 2;
           RECT rc = { px, py, px + cw * cellw, py + cellh };
 
-          SetTextColor (hdc, fg);
-          SetBkColor (hdc, bg);
-
-          if (tc->wide == 1)
-            {
-              // Wide character — use CJK font
-              HGDIOBJ prev = SelectObject (hdc, jp_font);
-              ExtTextOutW (hdc, px + jp_font.offset ().x,
-                           py + jp_font.offset ().y,
-                           ETO_CLIPPED | ETO_OPAQUE, &rc, &wc, 1, 0);
-              SelectObject (hdc, prev);
-            }
-          else
-            {
-              ExtTextOutW (hdc, px + ascii_font.offset ().x,
-                           py + ascii_font.offset ().y,
-                           ETO_CLIPPED | ETO_OPAQUE, &rc, &wc, 1, 0);
-            }
+          int role = (tc->wide == 1) ? FONT_JP : FONT_ASCII;
+          const FontObject &cell_font = (tc->wide == 1) ? jp_font : ascii_font;
+          painter.draw_text_chars (px + cell_font.offset ().x,
+                                   py + cell_font.offset ().y,
+                                   &wc, 1, fg, bg, role, &rc, true);
 
           if (attrs & TATTR_UNDERLINE)
-            {
-              HPEN pen = CreatePen (PS_SOLID, 1, fg);
-              HGDIOBJ op = SelectObject (hdc, pen);
-              MoveToEx (hdc, px, py + cellh - 1, 0);
-              LineTo (hdc, px + cw * cellw, py + cellh - 1);
-              SelectObject (hdc, op);
-              DeleteObject (pen);
-            }
+            painter.draw_hline (px, px + cw * cellw, py + cellh - 1, fg);
 
           if (attrs & TATTR_BOLD)
-            {
-              // Draw again offset by 1 pixel for bold effect
-              SetBkMode (hdc, TRANSPARENT);
-              if (tc->wide == 1)
-                {
-                  HGDIOBJ prev = SelectObject (hdc, jp_font);
-                  ExtTextOutW (hdc, px + jp_font.offset ().x + 1,
-                               py + jp_font.offset ().y,
-                               ETO_CLIPPED, &rc, &wc, 1, 0);
-                  SelectObject (hdc, prev);
-                }
-              else
-                {
-                  ExtTextOutW (hdc, px + ascii_font.offset ().x + 1,
-                               py + ascii_font.offset ().y,
-                               ETO_CLIPPED, &rc, &wc, 1, 0);
-                }
-              SetBkMode (hdc, OPAQUE);
-            }
+            // Draw again offset by 1 pixel for bold effect (transparent)
+            painter.draw_text_chars (px + cell_font.offset ().x + 1,
+                                     py + cell_font.offset ().y,
+                                     &wc, 1, fg, bg, role, &rc, false);
 
           c += cw;
         }
     }
 
-  // Draw cursor
+  // Draw cursor — InvertRect has no neutral Painter equivalent; use the
+  // Win32Painter's hdc directly (this is the Win32 terminal impl).
   int cr = term->cursor_row ();
   int cc = term->cursor_col ();
   if (cr >= 0 && cr < trows && cc >= 0 && cc < tcols
@@ -2456,21 +2424,21 @@ Window::paint_terminal (HDC hdc, Terminal *term)
     {
       int cpx = cc * cellw + cellw / 2;
       int cpy = cr * cellh;
-      // Invert cursor cell
       RECT crc = { cpx, cpy, cpx + cellw, cpy + cellh };
-      InvertRect (hdc, &crc);
+      InvertRect (static_cast <Win32Painter &> (painter).hdc (), &crc);
     }
 
   // Fill area below terminal rows
   if (trows < w_ch_max.cy)
-    {
-      RECT rc = { 0, trows * cellh, w_client.cx, w_client.cy };
-      HBRUSH hbr = CreateSolidBrush (def_bg);
-      FillRect (hdc, &rc, hbr);
-      DeleteObject (hbr);
-    }
+    painter.fill_rect (0, trows * cellh, w_client.cx, w_client.cy - trows * cellh, def_bg);
+}
 
-  SelectObject (hdc, of);
+/* issue #13 step 3g: HDC entry point wraps the Painter& version. */
+void
+Window::paint_terminal (HDC hdc, Terminal *term)
+{
+  Win32Painter painter (hdc, 0);
+  paint_terminal (painter, term);
 }
 
 int
