@@ -4,6 +4,22 @@
 #include <tree_sitter/api.h>
 #include <algorithm>
 #include <unordered_map>
+#include <cstdio>
+#include <cstdarg>
+
+static void
+ts_log (const char *fmt, ...)
+{
+  FILE *f = fopen ("C:/tmp/ts-outline.log", "a");
+  if (!f) return;
+  SYSTEMTIME st; GetLocalTime (&st);
+  fprintf (f, "%02d:%02d:%02d.%03d [tid=%lu] ",
+           st.wHour, st.wMinute, st.wSecond, st.wMilliseconds,
+           (unsigned long) GetCurrentThreadId ());
+  va_list ap; va_start (ap, fmt); vfprintf (f, fmt, ap); va_end (ap);
+  fputc ('\n', f);
+  fclose (f);
+}
 
 /* Raw capture span: byte offsets + capture index.  Produced by the background
    query thread; converted to code-point offsets on the main thread. */
@@ -33,7 +49,7 @@ struct lts_buf_cache
   long              parse_result_rev; /* revision parse_result corresponds to */
   long              parse_bg_rev;     /* revision currently being parsed */
 
-  /* Background query state ------------------------------------------------- */
+  /* Background highlight-query state --------------------------------------- */
   volatile LONG     bg_active;     /* 1 while bg query thread is running */
   volatile LONG     bg_cancel;     /* set to 1 to ask bg thread to stop early */
   HANDLE            hthread;       /* bg query thread handle */
@@ -42,6 +58,16 @@ struct lts_buf_cache
   long              bg_span_rev;   /* b_modified_count when bg_spans were produced */
   TSPoint           bg_sp, bg_ep;  /* point range the results cover */
   bool              bg_has_range;  /* false = full-buffer query */
+
+  /* Background outline-query state (separate from highlight, no interference) */
+  TSQuery          *oq;            /* compiled outline query */
+  char             *oq_src;        /* UTF-8 source for cache check */
+  volatile LONG     oq_active;
+  volatile LONG     oq_cancel;
+  HANDLE            oq_hthread;
+  ts_span_raw      *oq_spans;
+  uint32_t          oq_span_count;
+  long              oq_span_rev;
 };
 
 static std::unordered_map<Buffer *, lts_buf_cache *> g_ts_cache;
@@ -72,10 +98,19 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
               CloseHandle (c->parse_hthread); c->parse_hthread = NULL;
               InterlockedExchange (&c->parse_bg_active, 0);
             }
+          if (c->oq_hthread)
+            {
+              InterlockedExchange (&c->oq_cancel, 1);
+              WaitForSingleObject (c->oq_hthread, 5000);
+              CloseHandle (c->oq_hthread); c->oq_hthread = NULL;
+              InterlockedExchange (&c->oq_active, 0);
+            }
           if (c->parse_result) { ts_tree_delete (c->parse_result); c->parse_result = nullptr; }
           if (c->tree)      { ts_tree_delete (c->tree); c->tree = nullptr; }
           if (c->query)     { ts_query_delete (c->query); c->query = nullptr; }
           xfree (c->query_src); c->query_src = nullptr;
+          if (c->oq)        { ts_query_delete (c->oq); c->oq = nullptr; }
+          xfree (c->oq_src); c->oq_src = nullptr;
           ts_parser_set_language (c->parser, lang);
           c->lang              = lang;
           c->revision          = -1;
@@ -107,6 +142,14 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
   c->bg_sp             = {0, 0};
   c->bg_ep             = {0, 0};
   c->bg_has_range      = false;
+  c->oq                = nullptr;
+  c->oq_src            = nullptr;
+  c->oq_active         = 0;
+  c->oq_cancel         = 0;
+  c->oq_hthread        = NULL;
+  c->oq_spans          = nullptr;
+  c->oq_span_count     = 0;
+  c->oq_span_rev       = -1;
   if (c->parser)
     ts_parser_set_language (c->parser, lang);
   g_ts_cache[bp] = c;
@@ -387,6 +430,7 @@ struct ts_bg_job
   TSQuery       *query;   /* read-only ref, valid while bg_active is set */
   TSPoint        sp, ep;
   bool           has_range;
+  bool           is_outline; /* true = store results in oq_* fields */
 };
 
 static DWORD WINAPI
@@ -394,6 +438,9 @@ ts_query_thread (LPVOID arg)
 {
   ts_bg_job *job = (ts_bg_job *) arg;
   lts_buf_cache *c = job->cache;
+
+  ts_log ("ts_query_thread START is_outline=%d query=%p tree=%p",
+          (int)job->is_outline, job->query, job->tree);
 
   TSQueryCursor *cursor = ts_query_cursor_new ();
 
@@ -414,7 +461,7 @@ ts_query_thread (LPVOID arg)
   bool oom = false;
   while (!oom && ts_query_cursor_next_match (cursor, &match))
     {
-      if (!(++tick & 63) && c->bg_cancel)
+      if (!(++tick & 63) && (job->is_outline ? c->oq_cancel : c->bg_cancel))
         break;
 
       for (uint16_t i = 0; i < match.capture_count; i++)
@@ -439,16 +486,26 @@ ts_query_thread (LPVOID arg)
   ts_query_cursor_delete (cursor);
   ts_tree_delete (job->tree);
 
-  if (!c->bg_cancel)
+  ts_log ("ts_query_thread DONE is_outline=%d count=%u oom=%d cancel=%d",
+          (int)job->is_outline, count, (int)oom,
+          (int)(job->is_outline ? c->oq_cancel : c->bg_cancel));
+
+  if (job->is_outline)
     {
-      free (c->bg_spans);
-      c->bg_spans      = spans;
-      c->bg_span_count = count;
+      if (!c->oq_cancel)
+        { free (c->oq_spans); c->oq_spans = spans; c->oq_span_count = count; }
+      else
+        free (spans);
+      InterlockedExchange (&c->oq_active, 0);
     }
   else
-    free (spans);
-
-  InterlockedExchange (&c->bg_active, 0);
+    {
+      if (!c->bg_cancel)
+        { free (c->bg_spans); c->bg_spans = spans; c->bg_span_count = count; }
+      else
+        free (spans);
+      InterlockedExchange (&c->bg_active, 0);
+    }
   delete job;
   return 0;
 }
@@ -573,6 +630,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
 
         if (c->query) ts_query_delete (c->query);
         xfree (c->query_src);
+        c->query = nullptr; c->query_src = nullptr;
 
         uint32_t qerr_offset = 0;
         TSQueryError qerr_type = TSQueryErrorNone;
@@ -692,7 +750,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
 
   /* Launch background query thread.  ts_tree_copy() gives the bg thread its
      own reference; the main thread may update c->tree freely thereafter. */
-  ts_bg_job *job = new ts_bg_job;
+  ts_bg_job *job = new ts_bg_job{};
   job->cache     = c;
   job->tree      = ts_tree_copy (c->tree);
   job->query     = c->query;
@@ -858,6 +916,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
         { uint32_t n = (uint32_t) ch->c_used * sizeof (Char); memcpy (p, ch->c_text, n); p += n; }
       ts_parse_job *job = new ts_parse_job;
       job->cache = c; job->snapshot = snapshot; job->snap_size = total_bytes; job->revision = cur_rev;
+      job->old_tree = c->tree ? ts_tree_copy (c->tree) : nullptr;
       if (c->parse_hthread) { CloseHandle (c->parse_hthread); c->parse_hthread = NULL; }
       InterlockedExchange (&c->parse_bg_cancel, 0);
       InterlockedExchange (&c->parse_bg_active, 1);
@@ -884,6 +943,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
         if (c->bg_active) { xfree (qbuf); InterlockedExchange (&c->bg_cancel, 1); return Qnil; }
         if (c->query) ts_query_delete (c->query);
         xfree (c->query_src);
+        c->query = nullptr; c->query_src = nullptr;
         uint32_t qerr_offset = 0; TSQueryError qerr_type = TSQueryErrorNone;
         c->query = ts_query_new (lang, qbuf, (uint32_t) qlen8, &qerr_offset, &qerr_type);
         if (!c->query) { xfree (qbuf); FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset)); }
@@ -945,7 +1005,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
             {
               /* bg_spans consumed; safe to launch new query for shifted range. */
               c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
-              ts_bg_job *job = new ts_bg_job;
+              ts_bg_job *job = new ts_bg_job{};
               job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
               job->sp = sp; job->ep = ep; job->has_range = has_range;
               InterlockedExchange (&c->bg_cancel, 0);
@@ -961,7 +1021,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
 
       /* Non-overlapping range: launch bg query without touching textprops. */
       c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
-      ts_bg_job *job2 = new ts_bg_job;
+      ts_bg_job *job2 = new ts_bg_job{};
       job2->cache = c; job2->tree = ts_tree_copy (c->tree); job2->query = c->query;
       job2->sp = sp; job2->ep = ep; job2->has_range = has_range;
       InterlockedExchange (&c->bg_cancel, 0);
@@ -973,7 +1033,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
     }
 
   /* Cache miss (no spans or stale revision): launch bg query thread. */
-  ts_bg_job *job = new ts_bg_job;
+  ts_bg_job *job = new ts_bg_job{};
   job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
   job->sp = sp; job->ep = ep; job->has_range = has_range;
   c->bg_span_rev = bp->b_modified_count; c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
@@ -1010,11 +1070,22 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
           c->parse_hthread = NULL;
         }
 
+      if (c->oq_hthread)
+        {
+          InterlockedExchange (&c->oq_cancel, 1);
+          WaitForSingleObject (c->oq_hthread, 5000);
+          CloseHandle (c->oq_hthread);
+          c->oq_hthread = NULL;
+        }
+
       if (c->parse_result) ts_tree_delete (c->parse_result);
       if (c->tree)         ts_tree_delete (c->tree);
       if (c->query)        ts_query_delete (c->query);
       if (c->query_src)    xfree (c->query_src);
       if (c->bg_spans)     free (c->bg_spans);
+      if (c->oq)           ts_query_delete (c->oq);
+      if (c->oq_src)       xfree (c->oq_src);
+      if (c->oq_spans)     free (c->oq_spans);
       if (c->parser)       ts_parser_delete (c->parser);
       delete c;
       g_ts_cache.erase (it);
@@ -1126,4 +1197,168 @@ Fsi_ts_node_ancestors (lisp lgrammar, lisp lbuffer, lisp lpoint)
     }
 
   return Fnreverse (result);
+}
+
+/* (si:ts-query-buffer-sync GRAMMAR QUERY BUFFER)
+   Async outline query using a dedicated oq_* cache slot (never interferes
+   with the highlight query).  Returns nil + starts background thread on
+   cache miss; returns (capture-name start-cp end-cp) list when ready. */
+lisp __stdcall
+Fsi_ts_query_buffer_sync (lisp lgrammar, lisp lquery, lisp lbuffer)
+{
+  check_ts_grammar (lgrammar);
+  check_string (lquery);
+  Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
+
+  const TSLanguage *lang = (const TSLanguage *) xts_grammar_lang (lgrammar);
+
+  auto it = g_ts_cache.find (bp);
+  if (it == g_ts_cache.end ())
+    return Qnil;
+  lts_buf_cache *c = it->second;
+
+  /* No tree yet — let the highlight system handle parsing. */
+  if (!c->tree || c->revision != bp->b_modified_count)
+    {
+      ts_log ("sync: no tree (tree=%p rev=%ld buf_rev=%ld)",
+              c->tree, c->revision, bp->b_modified_count);
+      return Qnil;
+    }
+
+  /* Compile outline query (separate from c->query). */
+  {
+    int wcap = i2wl (lquery);
+    wchar_t *wbuf = (wchar_t *)alloca (wcap * sizeof (wchar_t));
+    i2w (lquery, (ucs2_t *)wbuf);
+    int qlen16 = wcap - 1;
+    int qbuf_size = qlen16 * 3 + 1;
+    char *qbuf = (char *) xmalloc (qbuf_size);
+    int qlen8 = WideCharToMultiByte (CP_UTF8, 0, wbuf, qlen16,
+                                     qbuf, qbuf_size - 1, NULL, NULL);
+    qbuf[qlen8] = 0;
+    ts_log ("sync: query=%s oq=%p oq_active=%ld", qbuf, c->oq, (long)c->oq_active);
+    if (!c->oq || !c->oq_src || strcmp (qbuf, c->oq_src) != 0)
+      {
+        if (c->oq_active) { ts_log ("sync: oq_active busy, skip recompile"); xfree (qbuf); return Qnil; }
+        if (c->oq) ts_query_delete (c->oq);
+        xfree (c->oq_src);
+        c->oq = nullptr; c->oq_src = nullptr;
+        uint32_t qerr_offset = 0; TSQueryError qerr_type = TSQueryErrorNone;
+        c->oq = ts_query_new (lang, qbuf, (uint32_t) qlen8, &qerr_offset, &qerr_type);
+        if (!c->oq)
+          {
+            ts_log ("sync: ts_query_new FAILED offset=%u type=%d", qerr_offset, (int)qerr_type);
+            xfree (qbuf); FEsimple_error (Ets_invalid_query, make_fixnum (qerr_offset));
+          }
+        ts_log ("sync: compiled oq=%p", c->oq);
+        c->oq_src = qbuf;
+        free (c->oq_spans); c->oq_spans = nullptr; c->oq_span_count = 0; c->oq_span_rev = -1;
+      }
+    else
+      xfree (qbuf);
+  }
+
+  if (c->oq_active) { ts_log ("sync: oq_active=1 waiting"); SwitchToThread (); return Qnil; }
+
+  /* Return cached spans if fresh. */
+  if (c->oq_spans && c->oq_span_rev == bp->b_modified_count)
+    {
+      ts_log ("sync: returning cached %u spans", c->oq_span_count);
+      uint32_t nsp = c->oq_span_count;
+      using cu_slot = std::pair<uint32_t, uint32_t>;
+      cu_slot *slots  = nsp ? (cu_slot *) malloc (nsp * 2 * sizeof (cu_slot)) : nullptr;
+      point_t *cp_out = nsp ? (point_t *) malloc (nsp * 2 * sizeof (point_t)) : nullptr;
+      lisp result = Qnil;
+      if (nsp == 0 || (slots && cp_out))
+        {
+          for (uint32_t i = 0; i < nsp; i++)
+            {
+              slots[i*2  ] = { c->oq_spans[i].start_byte / (uint32_t)sizeof(Char), i*2   };
+              slots[i*2+1] = { c->oq_spans[i].end_byte   / (uint32_t)sizeof(Char), i*2+1 };
+            }
+          if (nsp > 0)
+            std::sort (slots, slots + nsp * 2,
+                       [](const cu_slot &a, const cu_slot &b) { return a.first < b.first; });
+          point_t  cp     = 0;
+          uint32_t cur_cu = 0;
+          Chunk   *ch     = bp->b_chunkb;
+          uint32_t ch_cu0 = 0;
+          for (uint32_t e = 0; e < nsp * 2; e++)
+            {
+              uint32_t target = slots[e].first;
+              while (cur_cu < target)
+                {
+                  if (!ch) break;
+                  uint32_t ch_end = ch_cu0 + (uint32_t) ch->c_used;
+                  const Char *p = ch->c_text + (cur_cu - ch_cu0);
+                  while (cur_cu < target && cur_cu < ch_end)
+                    {
+                      Char cc = *p++;
+                      cp++; cur_cu++;
+                      if (cc >= 0xD800 && cc <= 0xDBFF
+                          && cur_cu < ch_end
+                          && *p >= 0xDC00 && *p <= 0xDFFF)
+                        { p++; cur_cu++; }
+                    }
+                  if (cur_cu >= ch_end) { ch_cu0 += ch->c_used; ch = ch->c_next; }
+                }
+              cp_out[slots[e].second] = cp;
+            }
+          free (slots);
+          for (uint32_t i = 0; i < nsp; i++)
+            {
+              uint32_t name_len;
+              const char *name = ts_query_capture_name_for_id (c->oq, c->oq_spans[i].cap_index, &name_len);
+              ts_log ("sync: span[%u] %.*s start_cp=%ld end_cp=%ld",
+                      i, (int)name_len, name, (long)cp_out[i*2], (long)cp_out[i*2+1]);
+              result = xcons (list (make_string (name, (int) name_len),
+                                    make_fixnum (cp_out[i*2]),
+                                    make_fixnum (cp_out[i*2+1])),
+                              result);
+            }
+          free (cp_out);
+          ts_log ("sync: built result list, calling Fnreverse");
+          lisp rv = Fnreverse (result);
+          ts_log ("sync: Fnreverse returned ok");
+          return rv;
+        }
+      free (slots); free (cp_out);
+      /* OOM fallback */
+      for (uint32_t i = 0; i < nsp; i++)
+        {
+          uint32_t name_len;
+          const char *name = ts_query_capture_name_for_id (c->oq, c->oq_spans[i].cap_index, &name_len);
+          int start_cu = (int)(c->oq_spans[i].start_byte / sizeof (Char));
+          int end_cu   = (int)(c->oq_spans[i].end_byte   / sizeof (Char));
+          result = xcons (list (make_string (name, (int) name_len),
+                                make_fixnum (cu_to_cp (bp, start_cu)),
+                                make_fixnum (cu_to_cp (bp, end_cu))),
+                          result);
+        }
+      return Fnreverse (result);
+    }
+
+  /* Launch background outline query thread. */
+  ts_log ("sync: launching oq thread oq=%p tree=%p rev=%ld", c->oq, c->tree, bp->b_modified_count);
+  ts_bg_job *job = new ts_bg_job{};
+  job->cache      = c;
+  job->tree       = ts_tree_copy (c->tree);
+  job->query      = c->oq;
+  job->sp         = {0, 0};
+  job->ep         = {0, 0};
+  job->has_range  = false;
+  job->is_outline = true;
+  c->oq_span_rev  = bp->b_modified_count;
+  InterlockedExchange (&c->oq_cancel, 0);
+  InterlockedExchange (&c->oq_active, 1);
+  if (c->oq_hthread) { CloseHandle (c->oq_hthread); c->oq_hthread = NULL; }
+  c->oq_hthread = CreateThread (NULL, 0, ts_query_thread, job, 0, NULL);
+  if (!c->oq_hthread)
+    {
+      ts_log ("sync: CreateThread FAILED");
+      InterlockedExchange (&c->oq_active, 0); ts_tree_delete (job->tree); delete job;
+    }
+  else
+    ts_log ("sync: thread launched handle=%p", c->oq_hthread);
+  return Qnil;
 }

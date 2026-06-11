@@ -187,4 +187,5 @@
 (define-key *perl-mode-map* #\TAB           'ts-perl-indent-line)
 (define-key *perl-mode-map* '(#\C-c #\C-t)  'ts-show-ancestors)
 (define-key *perl-mode-map* '(#\C-c #\C-i)  'ts-test-indent)
+(define-key *perl-mode-map* '(#\C-c #\C-o)  'ts-outline)
 (add-hook '*perl-mode-hook* 'ts-perl-mode-enable)

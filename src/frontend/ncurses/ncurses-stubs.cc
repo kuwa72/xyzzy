@@ -1379,6 +1379,8 @@ lisp Fsi_ts_buffer_cached_p (lisp) { return Qnil; }
 lisp Fsi_ts_parse_complete_p (lisp) { return Qt; }
 lisp Fsi_ts_query_pending_p (lisp) { return Qnil; }
 lisp Fsi_ts_apply_highlights (lisp, lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fsi_ts_node_ancestors (lisp, lisp, lisp) { return Qnil; }
+lisp Fsi_ts_query_buffer_sync (lisp, lisp, lisp) { return Qnil; }
 
 // ============================================================
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)
