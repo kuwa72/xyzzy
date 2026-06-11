@@ -562,6 +562,9 @@ struct Window
   void reframe ();
   void paint_glyphs (HDC, HDC, const glyph_t *, const glyph_t *, const glyph_t *,
                      char *, const INT *, int, int, int) const;
+  // issue #13 step 2: Painter& variant, runs alongside the HDC one above.
+  void paint_glyphs (struct Painter &, const glyph_t *, const glyph_t *,
+                     const glyph_t *, char *, int, int, int) const;
   void paint_line (HDC, HDC, glyph_data *, const glyph_data *,
                    char *, int, const INT *) const;
   void paint_window (HDC) const;

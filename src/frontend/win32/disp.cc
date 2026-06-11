@@ -10,6 +10,7 @@
 #include "glyph.h"
 #include "term.h"
 #include "eaw.h"
+#include "painter-win32.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
 
@@ -421,6 +422,103 @@ paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
   SelectObject (hdc, of);
 }
 
+/* -------- Win32Painter (issue #13 step 2) ----------------------------
+   GDI implementation of the Painter interface. Reuses paint_build_wchars
+   above for UTF-16 expansion. Colors are received per-call (decoded by the
+   core), so the primitives set/restore GDI state locally. */
+
+void
+Win32Painter::draw_text (int x, int y, const glyph_t *g, const glyph_t *ge,
+                         COLORREF fg, COLORREF bg, int charset,
+                         unsigned /*flags*/, const RECT *clip, bool opaque)
+{
+  /* Bold/underline/strike are realized by the core (overprint offset +
+     opaque=false, and fill_rect for the lines), matching the existing
+     paint_glyphs passes, so `flags` is informational here. */
+  const FontObject &f = app.text_font.font (charset);
+  HGDIOBJ of = SelectObject (p_hdc, f);
+  COLORREF ofg = SetTextColor (p_hdc, fg);
+  COLORREF obg = 0;
+  int omode = 0;
+  if (opaque)
+    obg = SetBkColor (p_hdc, bg);
+  else
+    omode = SetBkMode (p_hdc, TRANSPARENT);
+
+  wchar_t wbuf[512];
+  INT wpad[512];
+  int n = paint_build_wchars (g, ge, wbuf, wpad, app.text_font.cell ().cx, 512);
+  /* n=0 でも opaque なら BG fill のため空文字列で呼ぶ (paint_chars と同じ)。 */
+  ExtTextOutW (p_hdc, x + f.offset ().x, y + f.offset ().y,
+               (opaque ? ETO_OPAQUE : 0) | ETO_CLIPPED,
+               clip, wbuf, n, n > 0 ? wpad : 0);
+
+  if (opaque)
+    SetBkColor (p_hdc, obg);
+  else
+    SetBkMode (p_hdc, omode);
+  SetTextColor (p_hdc, ofg);
+  SelectObject (p_hdc, of);
+}
+
+void
+Win32Painter::fill_rect (int x, int y, int w, int h, COLORREF c)
+{
+  ::fill_rect (p_hdc, x, y, w, h, c);
+}
+
+void
+Win32Painter::draw_hline (int x1, int x2, int y, COLORREF c)
+{
+  ::draw_hline (p_hdc, x1, x2, y, c);
+}
+
+void
+Win32Painter::draw_vline (int x, int y1, int y2, COLORREF c)
+{
+  ::draw_vline (p_hdc, y1, y2, x, c);
+}
+
+void
+Win32Painter::blit_glyph_bitmap (int x, int y, int w, int h, int slot,
+                                 int cell_yoff, COLORREF fg, COLORREF bg)
+{
+  COLORREF ofg = SetTextColor (p_hdc, fg);
+  COLORREF obg = SetBkColor (p_hdc, bg);
+  BitBlt (p_hdc, x, y, w, h, p_hdcmem,
+          app.text_font.cell ().cx * slot, cell_yoff, SRCCOPY);
+  SetTextColor (p_hdc, ofg);
+  SetBkColor (p_hdc, obg);
+}
+
+int
+Win32Painter::text_width (const glyph_t *g, const glyph_t *ge, int charset)
+{
+  const FontObject &f = app.text_font.font (charset);
+  HGDIOBJ of = SelectObject (p_hdc, f);
+  wchar_t wbuf[512];
+  INT wpad[512];
+  int n = paint_build_wchars (g, ge, wbuf, wpad, app.text_font.cell ().cx, 512);
+  SIZE sz;
+  GetTextExtentPoint32W (p_hdc, wbuf, n, &sz);
+  SelectObject (p_hdc, of);
+  return sz.cx;
+}
+
+int
+Win32Painter::cell_width () const
+{
+  return app.text_font.cell ().cx;
+}
+
+int
+Win32Painter::cell_height () const
+{
+  return app.text_font.cell ().cy;
+}
+
+/* -------------------------------------------------------------------- */
+
 void
 Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t *g,
                       const glyph_t *ge, char *buf, const INT *padding,
@@ -605,6 +703,189 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
             }
 
           SetBkColor (hdc, obg);
+        }
+    }
+}
+
+/* Painter& variant of paint_glyphs (issue #13 step 2). A faithful
+   transcription of the HDC version above with GDI leaf calls routed
+   through the Painter: paint_chars -> draw_text, BitBlt ->
+   blit_glyph_bitmap, the underline/strike thin-rect ExtTextOut ->
+   fill_rect, and per-group SetTextColor/SetBkColor folded into the
+   primitive calls (colors decoded here and passed down). Bold is the
+   overprint pass (x+1, opaque=false). Unused until step 3; the HDC path
+   above stays live meanwhile. */
+void
+Window::paint_glyphs (Painter &painter, const glyph_t *gstart, const glyph_t *g,
+                      const glyph_t *ge, char *buf,
+                      int x, int y, int yoffset) const
+{
+  const int cellcx = app.text_font.cell ().cx;
+  const int cellcy = app.text_font.cell ().cy;
+  RECT r;
+  r.top = y + yoffset;
+  r.bottom = y + cellcy;
+  r.right = x;
+  glyph_t gsum = 0;
+  const glyph_t *gfrom = g;
+
+  const glyph_t blank_cell = glyph_ascii_cell (' ');
+  while (g < ge)
+    {
+      const glyph_t *g0 = g;
+      char *be = buf;
+      glyph_t c = *g++;
+      gsum |= c;
+      *be++ = char (c);
+      c &= GLYPH_COLOR_MASK | GLYPH_FONT_MASK | GLYPH_BITMAP_BIT;
+      while (g < ge
+             && (*g & (GLYPH_COLOR_MASK | GLYPH_FONT_MASK | GLYPH_BITMAP_BIT)) == c)
+        {
+          gsum |= *g;
+          *be++ = char (*g++);
+        }
+
+      r.left = r.right;
+      r.right += (be - buf) * cellcx;
+      if (r.right > w_clsize.cx)
+        {
+          r.right = w_clsize.cx;
+          if (r.left > r.right)
+            break;
+        }
+
+      char *b = buf;
+      if (!(c & GLYPH_BITMAP_BIT))
+        {
+          for (; b < be && *b == ' '; b++)
+            ;
+          g0 += b - buf;
+        }
+      const glyph_t *g1;
+      for (g1 = g;
+           g1 > g0
+           && (g1[-1] & ~(glyph_t) GLYPH_COLOR_MASK) == blank_cell;
+           g1--)
+        ;
+      be -= g - g1;
+
+      if (c & GLYPH_BITMAP_BIT)
+        {
+          int xpx = r.left + (b - buf) * cellcx;
+          for (; b < be; b++, xpx += cellcx)
+            {
+              int w = w_clsize.cx - xpx;
+              if (w <= 0)
+                break;
+              if (w > cellcx)
+                w = cellcx;
+              painter.blit_glyph_bitmap (xpx, r.top, w, cellcy, *b & 0xff,
+                                         yoffset, glyph_forecolor (c),
+                                         glyph_backcolor (c));
+            }
+        }
+      else
+        painter.draw_text (r.left + (b - buf) * cellcx, y, g0, g1,
+                           glyph_forecolor (c), glyph_backcolor (c),
+                           int (GLYPH_FONT (c) >> GLYPH_FONT_SHIFT_BITS),
+                           0, &r, true);
+    }
+
+  if (gsum & GLYPH_BOLD)
+    {
+      g = gfrom;
+      if (g > gstart && g[-1] & GLYPH_BOLD)
+        {
+          g--;
+          if (*g & GLYPH_JUNK)  /* wide char trail なら lead まで戻す */
+            g--;
+        }
+
+      while (1)
+        {
+          for (; g < ge && !(*g & GLYPH_BOLD); g++)
+            ;
+          if (g == ge)
+            break;
+          char *be = buf;
+          const glyph_t *g0 = g;
+          glyph_t c0 = *g++;
+          *be++ = char (c0);
+          glyph_t c = c0 & (GLYPH_FORE_COLOR_MASK | GLYPH_BITMAP_BIT
+                            | GLYPH_FONT_MASK | GLYPH_BOLD);
+          for (; g < ge && (*g & (GLYPH_FORE_COLOR_MASK | GLYPH_BITMAP_BIT
+                                  | GLYPH_FONT_MASK | GLYPH_BOLD)) == c; g++)
+            *be++ = char (*g);
+
+          r.left = x + (g0 - gfrom) * cellcx + 1;
+          r.right = x + (g - gfrom) * cellcx + 1;
+          if (r.right > w_clsize.cx)
+            {
+              r.right = w_clsize.cx;
+              if (r.left > r.right)
+                break;
+            }
+
+          if (c & GLYPH_BITMAP_BIT)
+            {
+              char *b = buf;
+              for (int xpx = r.left; b < be; b++, xpx += cellcx)
+                if ((*b & 0xff) == FontSet::backsl)
+                  {
+                    int w = w_clsize.cx - xpx;
+                    if (w <= 0)
+                      break;
+                    if (w > cellcx)
+                      w = cellcx;
+                    painter.blit_glyph_bitmap (xpx, r.top, w, cellcy,
+                                               FontSet::bold_backsl, yoffset,
+                                               glyph_forecolor (c0),
+                                               glyph_backcolor (c0));
+                  }
+            }
+          else
+            painter.draw_text (r.left, y, g0, g,
+                               glyph_forecolor (c0), glyph_backcolor (c0),
+                               int (GLYPH_FONT (c) >> GLYPH_FONT_SHIFT_BITS),
+                               PAINT_BOLD, &r, false);
+        }
+    }
+
+  if (gsum & (!yoffset ? GLYPH_UNDERLINE | GLYPH_STRIKEOUT : GLYPH_UNDERLINE))
+    {
+      g = gfrom;
+      while (1)
+        {
+          for (; g < ge && !(*g & (GLYPH_UNDERLINE | GLYPH_STRIKEOUT)); g++)
+            ;
+          if (g == ge)
+            break;
+          const glyph_t *g0 = g;
+          glyph_t c = *g++ & (GLYPH_FORE_COLOR_MASK | GLYPH_UNDERLINE | GLYPH_STRIKEOUT);
+          for (; g < ge && (*g & (GLYPH_FORE_COLOR_MASK | GLYPH_UNDERLINE | GLYPH_STRIKEOUT)) == c; g++)
+            ;
+
+          r.left = x + (g0 - gfrom) * cellcx;
+          r.right = x + (g - gfrom) * cellcx;
+          if (r.right > w_clsize.cx)
+            {
+              r.right = w_clsize.cx;
+              if (r.left > r.right)
+                break;
+            }
+
+          if (c & GLYPH_UNDERLINE)
+            {
+              int ytop = y + app.text_font.size ().cy - app.text_font.line_width ();
+              painter.fill_rect (r.left, ytop, r.right - r.left,
+                                 app.text_font.line_width (), glyph_forecolor (c));
+            }
+          if (!yoffset && c & GLYPH_STRIKEOUT)
+            {
+              int ytop = y + app.text_font.size ().cy / 2;
+              painter.fill_rect (r.left, ytop, r.right - r.left,
+                                 app.text_font.line_width (), glyph_forecolor (c));
+            }
         }
     }
 }

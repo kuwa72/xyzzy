@@ -26,10 +26,15 @@
  may replace it later (issue #13 open question).
 */
 
-# include "cdecl.h"       // Char
+# include "cdecl.h"       // u_int64_t, fixed-width int types
 # include "platform.h"    // COLORREF, INT, DWORD, RECT
 
-typedef u_int64_t glyph_t; // mirror of Window.h; painter primitives take Char
+// Painter text primitives operate on glyph_t runs, not Char: a glyph
+// carries a full 21-bit code point (GLYPH_CP, up to 0x110000) plus its
+// display width, which Char (u_int16_t) cannot represent. Each backend
+// extracts the code point and does its own encoding (Win32: UTF-16
+// surrogate pairs; ncurses: wchar_t). Mirrors Window.h.
+typedef u_int64_t glyph_t;
 
 // draw_text flags (subset of the GLYPH_* attributes the Win32 path renders).
 enum
@@ -43,15 +48,16 @@ struct Painter
 {
   virtual ~Painter () {}
 
-  // Text output (ExtTextOutW equivalent). `s`/`len` is the run to draw in
-  // a single font slot. `padding` is the per-character advance array used
-  // for variable-width / fullwidth layout (may be 0 for fixed advance).
+  // Text output (ExtTextOutW equivalent). `g`/`ge` is the glyph run to draw
+  // in a single font slot; the backend extracts code points and widths and
+  // does its own encoding (surrogate expansion, JUNK-trail skipping).
   // `charset` selects the font slot (FontSet FONT_* index, 0-15 on Win32).
-  // `clip` bounds the drawn region (background fill included when opaque).
-  virtual void draw_text (int x, int y, const Char *s, int len,
+  // `flags` carries PAINT_BOLD/UNDERLINE/STRIKEOUT. `clip` bounds the drawn
+  // region; `opaque` fills the background with `bg` (false = transparent,
+  // used for the bold overprint pass).
+  virtual void draw_text (int x, int y, const glyph_t *g, const glyph_t *ge,
                           COLORREF fg, COLORREF bg, int charset,
-                          unsigned flags, const INT *padding,
-                          const RECT *clip, bool opaque) = 0;
+                          unsigned flags, const RECT *clip, bool opaque) = 0;
 
   // Rectangle fill (PatBlt / ExtTextOut ETO_OPAQUE equivalent).
   virtual void fill_rect (int x, int y, int w, int h, COLORREF c) = 0;
@@ -62,14 +68,16 @@ struct Painter
 
   // Symbol-glyph bitmap blit (BitBlt from the glyph atlas equivalent).
   // `slot` selects the source glyph in the backend's atlas; the backend
-  // knows the atlas geometry. GUI: blit from the atlas; ncurses: substitute
-  // character.
-  virtual void blit_glyph_bitmap (int x, int y, int w, int h,
-                                  int slot, COLORREF fg, COLORREF bg) = 0;
+  // knows the atlas geometry (cell width per slot). `cell_yoff` is the
+  // vertical offset into the glyph cell to start from (non-zero for the
+  // half-height cursor-line redraw). fg/bg colorize the 1bpp source.
+  // GUI: blit from the atlas; ncurses: substitute character.
+  virtual void blit_glyph_bitmap (int x, int y, int w, int h, int slot,
+                                  int cell_yoff, COLORREF fg, COLORREF bg) = 0;
 
   // Font measurement (GetTextExtentPoint32 equivalent; e.g. mode-line
   // truncation).
-  virtual int text_width (const Char *s, int len, int charset) = 0;
+  virtual int text_width (const glyph_t *g, const glyph_t *ge, int charset) = 0;
 
   // Cell metrics (GUI: font cell in px; ncurses: 1).
   virtual int cell_width () const = 0;
