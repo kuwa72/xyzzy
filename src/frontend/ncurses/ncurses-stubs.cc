@@ -2282,57 +2282,31 @@ output_glyph (int row, int col, glyph_t g)
   return width;
 }
 
-// Render one glyph_data row to ncurses screen row.
-// col_offset: starting column on screen (0 for full-width windows).
-// cols: number of columns available for this window's text.
-//
-// 5b-4: 1 glyph_t = 1 code point。wide char は連続 2 cell (lead に
-// width=WIDE+CP、trail に GLYPH_JUNK) で格納されている。trail は skip し、
-// lead で 2 column 分前進する。
-static void
-render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
-{
-  move (row, col_offset);
-  for (int i = 0; i < cols; i++)
-    addch (' ');
-
-  if (!gd || gd->gd_len <= 0)
-    return;
-
-  const glyph_t *g = gd->gd_cc;
-  int len = gd->gd_len;
-  int x = 0;
-
-  for (int i = 0; i < len && x < cols; i++)
-    {
-      glyph_t gt = g[i];
-      if (gt & GLYPH_JUNK)
-        continue;  // wide trail — lead 側で 2 cell まとめて消化済
-      int w = output_glyph (row, col_offset + x, gt);
-      x += (w > 0) ? w : 1;
-    }
-}
+// COLORREF sentinel meaning "use the terminal default" (no explicit color).
+// Core uses CLR_INVALID for "unset"; mirror that here. Defined before the
+// first user (NcursesPainter::draw_text call sites).
+#ifndef CLR_INVALID
+# define CLR_INVALID ((COLORREF)0xffffffff)
+#endif
 
 // ============================================================
-// NcursesPainter — issue #13 step4 (skeleton, step4a)
+// NcursesPainter — issue #13 step4 (skeleton: step4a; wired in step4c)
 //
 // A Painter (src/core/painter.h) backed by ncurses. The long-term goal is to
 // retire the bypass path (render_window/output_glyph drawing directly) and let
-// core's paint_*(Painter&) run on ncurses too. This step (4a) only introduces
-// the class and routes its primitives to the existing ncurses drawing helpers;
-// nothing constructs it yet, so behaviour is unchanged.
+// core's paint_*(Painter&) run on ncurses too. Its primitives route to the
+// existing ncurses drawing helpers.
 //
 // Units: ncurses is a cell terminal, so x,y are character cells and
 // cell_width()/cell_height() are 1. Colors arrive as COLORREF (packed RGB);
-// mapping COLORREF -> ncurses color pair is wired up in step4b. For now the
-// glyph-derived color in output_glyph still governs text color.
+// COLORREF -> color pair is get_colorref_pair (step4b). For now draw_text
+// reuses output_glyph, whose glyph-derived color governs text color, so the
+// step4c call-path switch is pixel-identical; the COLORREF args are honored
+// in a later step.
 struct NcursesPainter : public Painter
 {
   // Text output: draw the glyph run [g, ge) starting at cell (x, y).
   // Mirrors render_glyph_row's loop: skip JUNK trails, advance by glyph width.
-  // fg/bg/charset/flags/clip/opaque are accepted for interface parity but, in
-  // this skeleton, color comes from each glyph via output_glyph (step4b/4c
-  // switch to the COLORREF args).
   void draw_text (int x, int y, const glyph_t *g, const glyph_t *ge,
                   COLORREF /*fg*/, COLORREF /*bg*/, int /*charset*/,
                   unsigned /*flags*/, const RECT * /*clip*/,
@@ -2424,6 +2398,47 @@ struct NcursesPainter : public Painter
   int cell_width () const override { return 1; }
   int cell_height () const override { return 1; }
 };
+
+// Render one glyph_data row to ncurses screen row.
+// col_offset: starting column on screen (0 for full-width windows).
+// cols: number of columns available for this window's text.
+//
+// 5b-4: 1 glyph_t = 1 code point。wide char は連続 2 cell (lead に
+// width=WIDE+CP、trail に GLYPH_JUNK) で格納されている。trail は skip し、
+// lead で 2 column 分前進する。
+static void
+render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
+{
+  move (row, col_offset);
+  for (int i = 0; i < cols; i++)
+    addch (' ');
+
+  if (!gd || gd->gd_len <= 0)
+    return;
+
+  const glyph_t *g = gd->gd_cc;
+  int len = gd->gd_len;
+
+  // issue #13 step4c: route the glyph row through NcursesPainter::draw_text
+  // instead of calling output_glyph directly. draw_text walks [g, gend) the
+  // same way (skip JUNK, advance by glyph width) and reuses output_glyph
+  // internally, so the rendering is identical — only the call path changes.
+  // Clip [g, gend) to the cells that fit in `cols` here, since draw_text has
+  // no column limit of its own.
+  int x = 0, gend = 0;
+  while (gend < len && x < cols)
+    {
+      glyph_t gt = g[gend++];
+      if (gt & GLYPH_JUNK)
+        continue;
+      int w = (int) glyph_width (gt);
+      x += (w > 0) ? w : 1;
+    }
+
+  NcursesPainter painter;
+  painter.draw_text (col_offset, row, g, g + gend,
+                     CLR_INVALID, CLR_INVALID, 0, 0, NULL, false);
+}
 
 // Draw modeline for a given window on a given screen row.
 // col_offset: starting column on screen. cols: modeline width.
@@ -2936,11 +2951,7 @@ get_term_color_pair (uint8_t fg, uint8_t bg)
 // COLORREF pairs therefore start at 528 to avoid clobbering any of those.
 #define COLORREF_PAIR_BASE 528
 
-// COLORREF sentinel meaning "use the terminal default" (no explicit color).
-// Core uses CLR_INVALID for "unset"; mirror that here.
-#ifndef CLR_INVALID
-# define CLR_INVALID ((COLORREF)0xffffffff)
-#endif
+// (CLR_INVALID is defined earlier, near NcursesPainter.)
 
 // Quantize a packed-RGB COLORREF to an ncurses color number (0-7, or 8-15 when
 // the terminal advertises >=16 colors). Returns -1 for the default color.
