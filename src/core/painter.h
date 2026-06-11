@@ -44,6 +44,16 @@ enum
   PAINT_STRIKEOUT = 0x0004,
 };
 
+// Font roles for draw_text_chars / text_chars_width (Char* runs drawn in a
+// font other than the text-buffer glyph font: the mode line, the ruler,
+// the terminal grid). Non-negative values are text_font charset slots
+// (FONT_ASCII = 0, FONT_JP = 1, ...); negatives are app-level fonts.
+enum
+{
+  PFONT_MODELINE = -1,
+  PFONT_RULER    = -2,
+};
+
 struct Painter
 {
   virtual ~Painter () {}
@@ -78,6 +88,17 @@ struct Painter
   // Font measurement (GetTextExtentPoint32 equivalent; e.g. mode-line
   // truncation).
   virtual int text_width (const glyph_t *g, const glyph_t *ge, int charset) = 0;
+
+  // Draw a UTF-16 Char run in a non-glyph-buffer font (mode line / ruler /
+  // terminal), selected by `font_role` (a text_font charset slot, or
+  // PFONT_MODELINE / PFONT_RULER). x,y are the exact pixel origin including
+  // any baseline offset (the caller adds it; this primitive stays uniform).
+  // `opaque` fills the background; otherwise transparent. glyph_t buffer
+  // text uses draw_text instead.
+  virtual void draw_text_chars (int x, int y, const Char *s, int len,
+                                COLORREF fg, COLORREF bg, int font_role,
+                                const RECT *clip, bool opaque) = 0;
+  virtual int text_chars_width (const Char *s, int len, int font_role) = 0;
 
   // Cell metrics (GUI: font cell in px; ncurses: 1).
   virtual int cell_width () const = 0;

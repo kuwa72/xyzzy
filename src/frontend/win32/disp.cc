@@ -505,6 +505,51 @@ Win32Painter::text_width (const glyph_t *g, const glyph_t *ge, int charset)
   return sz.cx;
 }
 
+/* Resolve a Painter font role to an HFONT. Non-negative = text_font charset
+   slot; PFONT_MODELINE/PFONT_RULER = the app-level mode-line / ruler font. */
+static HFONT
+win32_role_font (int role)
+{
+  if (role == PFONT_MODELINE)
+    return app.modeline_param.m_hfont;
+  if (role == PFONT_RULER)
+    return sysdep.hfont_ruler;
+  return app.text_font.font (role);
+}
+
+void
+Win32Painter::draw_text_chars (int x, int y, const Char *s, int len,
+                               COLORREF fg, COLORREF bg, int role,
+                               const RECT *clip, bool opaque)
+{
+  HGDIOBJ of = SelectObject (p_hdc, win32_role_font (role));
+  COLORREF ofg = SetTextColor (p_hdc, fg);
+  COLORREF obg = 0;
+  int omode = 0;
+  if (opaque)
+    obg = SetBkColor (p_hdc, bg);
+  else
+    omode = SetBkMode (p_hdc, TRANSPARENT);
+  ExtTextOutW (p_hdc, x, y, (opaque ? ETO_OPAQUE : 0) | ETO_CLIPPED,
+               clip, (LPCWSTR)s, len, 0);
+  if (opaque)
+    SetBkColor (p_hdc, obg);
+  else
+    SetBkMode (p_hdc, omode);
+  SetTextColor (p_hdc, ofg);
+  SelectObject (p_hdc, of);
+}
+
+int
+Win32Painter::text_chars_width (const Char *s, int len, int role)
+{
+  HGDIOBJ of = SelectObject (p_hdc, win32_role_font (role));
+  SIZE sz;
+  GetTextExtentPoint32W (p_hdc, (LPCWSTR)s, len, &sz);
+  SelectObject (p_hdc, of);
+  return sz.cx;
+}
+
 int
 Win32Painter::cell_width () const
 {

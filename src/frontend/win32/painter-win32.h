@@ -36,6 +36,10 @@ public:
   void blit_glyph_bitmap (int x, int y, int w, int h, int slot,
                           int cell_yoff, COLORREF fg, COLORREF bg);
   int  text_width (const glyph_t *g, const glyph_t *ge, int charset);
+  void draw_text_chars (int x, int y, const Char *s, int len,
+                        COLORREF fg, COLORREF bg, int font_role,
+                        const RECT *clip, bool opaque);
+  int  text_chars_width (const Char *s, int len, int font_role);
   int  cell_width () const;
   int  cell_height () const;
 };
