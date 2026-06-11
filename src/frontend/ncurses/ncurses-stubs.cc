@@ -2921,6 +2921,91 @@ get_term_color_pair (uint8_t fg, uint8_t bg)
   return pair;
 }
 
+// ============================================================
+// COLORREF -> ncurses color pair  (issue #13 step4b)
+//
+// Core's paint_*(Painter&) resolves each glyph to a COLORREF (packed RGB)
+// before calling Painter::draw_text — the syntax/textprop category is already
+// gone by then. So NcursesPainter must quantize an arbitrary RGB down to a
+// terminal color and allocate a pair on demand, the same shape as
+// get_term_color_pair but keyed by (fg_colorref, bg_colorref).
+//
+// Pair-number layout (see init_ncurses_colors / get_term_color_pair):
+//   1-8 syntax, 9 selection, 10-11 menu, 16-271 textprop,
+//   272.. terminal (<=256 entries, so up to 527).
+// COLORREF pairs therefore start at 528 to avoid clobbering any of those.
+#define COLORREF_PAIR_BASE 528
+
+// COLORREF sentinel meaning "use the terminal default" (no explicit color).
+// Core uses CLR_INVALID for "unset"; mirror that here.
+#ifndef CLR_INVALID
+# define CLR_INVALID ((COLORREF)0xffffffff)
+#endif
+
+// Quantize a packed-RGB COLORREF to an ncurses color number (0-7, or 8-15 when
+// the terminal advertises >=16 colors). Returns -1 for the default color.
+// Each channel is thresholded into a bit of the 3-bit ncurses color cube; a
+// high overall luminance promotes to the bright (8-15) variant.
+static short
+colorref_to_ncurses_color (COLORREF c)
+{
+  if (c == CLR_INVALID)
+    return -1;
+
+  int r = GetRValue (c), g = GetGValue (c), b = GetBValue (c);
+
+  // ncurses COLOR_* bit order is 1=red, 2=green, 4=blue.
+  int idx = (r >= 0x80 ? COLOR_RED : 0)
+          | (g >= 0x80 ? COLOR_GREEN : 0)
+          | (b >= 0x80 ? COLOR_BLUE : 0);
+
+  // Promote to a bright variant when the color is clearly light and the
+  // terminal has the extra 8 colors to offer.
+  if (COLORS >= 16)
+    {
+      int maxch = r > g ? (r > b ? r : b) : (g > b ? g : b);
+      if (maxch >= 0xc0)
+        idx += 8;
+    }
+  return (short)idx;
+}
+
+// Cache for COLORREF (fg,bg) -> pair, mirroring TermColorPairCache.
+struct ColorrefPairCache {
+  struct Entry { COLORREF fg, bg; short pair; };
+  Entry entries[256];
+  int count;
+  short next_pair;
+};
+static ColorrefPairCache g_colorref_colors = {{}, 0, COLORREF_PAIR_BASE};
+
+// Allocate (or look up) an ncurses color pair for a COLORREF fg/bg combo.
+// Returns 0 (the terminal default pair) when both are default or when the
+// pair budget is exhausted.
+static short
+get_colorref_pair (COLORREF fg, COLORREF bg)
+{
+  if (fg == CLR_INVALID && bg == CLR_INVALID)
+    return 0;
+
+  for (int i = 0; i < g_colorref_colors.count; i++)
+    if (g_colorref_colors.entries[i].fg == fg
+        && g_colorref_colors.entries[i].bg == bg)
+      return g_colorref_colors.entries[i].pair;
+
+  if (g_colorref_colors.next_pair >= COLOR_PAIRS
+      || g_colorref_colors.count >= 256)
+    return 0;  // fall back to default colors
+
+  short pair = g_colorref_colors.next_pair++;
+  init_pair (pair, colorref_to_ncurses_color (fg),
+             colorref_to_ncurses_color (bg));
+
+  ColorrefPairCache::Entry &e = g_colorref_colors.entries[g_colorref_colors.count++];
+  e.fg = fg; e.bg = bg; e.pair = pair;
+  return pair;
+}
+
 // Render a terminal window directly from TermCell grid
 static void
 render_terminal_window (Window *wp, Terminal *term, int total_cols)
