@@ -585,7 +585,8 @@ struct Window
   void scroll_up_region (int, int, int, int) const;
   void update_window ();
   void clear_window ();
-  void paint_mode_line (HDC);
+  void paint_mode_line (struct Painter &);   // issue #13 step 3e
+  void paint_mode_line (HDC);                // wraps the Painter& one
   void paint_mode_line ();
   void paint_background (HDC) const;
   void paint_background (HDC, int, int, int, int) const;

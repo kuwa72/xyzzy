@@ -1901,11 +1901,17 @@ mode_line_point_painter::paint_point (HDC hdc)
 
 
 void
-Window::paint_mode_line (HDC hdc)
+Window::paint_mode_line (Painter &painter)
 {
   /* Phase 2: mode line は Char * (UTF-16 code unit) で組み立てて直接
-     ExtTextOutW へ渡す。旧実装は cp932 バイト列 → cp932_to_wcs で
-     非 cp932 chars が '?' に落ちていた。 */
+     描画する。旧実装は cp932 バイト列 → cp932_to_wcs で非 cp932 chars が
+     '?' に落ちていた。
+     issue #13 step 3e: body text/border は Painter 経由
+     (draw_text_chars(PFONT_MODELINE) / draw_hline / draw_vline)。point/
+     percent サブペインタ (paint_point/paint_percent) は cross-frontend な
+     virtual (cli/ncurses stub あり) で hdc に modeline font/colors が
+     selected 済みである前提なので、まだ HDC のまま据え置き、Win32Painter
+     から取り出した hdc を渡す。 */
   Char *b0, *b;
   Char *posp = 0;
   Char *percentp = 0;
@@ -1925,24 +1931,23 @@ Window::paint_mode_line (HDC hdc)
   else
     b0 = b = 0;
 
-  COLORREF ofg, obg;
+  COLORREF mlfg, mlbg;
   if (w_inverse_mode_line)
     {
-      ofg = SetTextColor (hdc, modeline_colors[MLCI_FOREGROUND]);
-      obg = SetBkColor (hdc, modeline_colors[MLCI_BACKGROUND]);
-#if 0
-      HBRUSH hbr = CreateSolidBrush (sysdep.btn_text);
-      HGDIOBJ obr = SelectObject (hdc, hbr);
-      PatBlt (hdc, 0, 0, w_ml_size.cx, w_ml_size.cy, PATCOPY);
-      SelectObject (hdc, obr);
-      DeleteObject (hbr);
-#endif
+      mlfg = modeline_colors[MLCI_FOREGROUND];
+      mlbg = modeline_colors[MLCI_BACKGROUND];
     }
   else
     {
-      ofg = SetTextColor (hdc, w_colors[WCOLOR_MODELINE_FG]);
-      obg = SetBkColor (hdc, w_colors[WCOLOR_MODELINE_BG]);
+      mlfg = w_colors[WCOLOR_MODELINE_FG];
+      mlbg = w_colors[WCOLOR_MODELINE_BG];
     }
+
+  /* sub-painters still draw via HDC and assume the modeline font + colors
+     are already selected; set them up here and feed them the raw hdc. */
+  HDC hdc = static_cast <Win32Painter &> (painter).hdc ();
+  COLORREF ofg = SetTextColor (hdc, mlfg);
+  COLORREF obg = SetBkColor (hdc, mlbg);
   HGDIOBJ of = SelectObject (hdc, app.modeline_param.m_hfont);
 
   RECT r;
@@ -1980,63 +1985,62 @@ Window::paint_mode_line (HDC hdc)
 
   if (painters.size() == 0)
     {
-      ExtTextOutW (hdc, 1, 1 + app.modeline_param.m_exlead,
-                   ETO_OPAQUE | ETO_CLIPPED, &r,
-                   (LPCWSTR)b0, int (b - b0), 0);
+      painter.draw_text_chars (1, 1 + app.modeline_param.m_exlead,
+                               b0, int (b - b0), mlfg, mlbg,
+                               PFONT_MODELINE, &r, true);
     }
   else
     {
 	  Char *b1 = b0;
 	  for(std::list<mode_line_painter*>::iterator it = painters.begin(); it != painters.end(); it++)
 	  {
-		  mode_line_painter * painter = *it;
+		  mode_line_painter * mlp = *it;
 
 		  int point_start_px;
 
-		  if(painter->get_posp() - b1 == 0)
+		  if(mlp->get_posp() - b1 == 0)
 		  {
 			  point_start_px = r.left;
 		  }
 		  else
 		  {
-			  int wmll = int (painter->get_posp() - b1);
-			  SIZE size;
-			  GetTextExtentPoint32W (hdc, (LPCWSTR)b1, wmll, &size);
-
-			  point_start_px = r.left + size.cx;
+			  int wmll = int (mlp->get_posp() - b1);
+			  point_start_px = r.left + painter.text_chars_width (b1, wmll, PFONT_MODELINE);
 
 			  r.right = min (point_start_px, int (w_ml_size.cx - 1));
-			  ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
-						   ETO_OPAQUE | ETO_CLIPPED, &r,
-						   (LPCWSTR)b1, wmll, 0);
+			  painter.draw_text_chars (r.left, 1 + app.modeline_param.m_exlead,
+								   b1, wmll, mlfg, mlbg, PFONT_MODELINE, &r, true);
 		  }
 
-		  r.left = painter->first_paint(hdc, point_start_px);
-		  b1 = painter->get_posp();
+		  r.left = mlp->first_paint(hdc, point_start_px);
+		  b1 = mlp->get_posp();
 	  }
 
       r.right = w_ml_size.cx - 1;
-      ExtTextOutW (hdc, r.left, 1 + app.modeline_param.m_exlead,
-                   ETO_OPAQUE | ETO_CLIPPED, &r,
-                   (LPCWSTR)b1, int (b - b1), 0);
+      painter.draw_text_chars (r.left, 1 + app.modeline_param.m_exlead,
+                               b1, int (b - b1), mlfg, mlbg,
+                               PFONT_MODELINE, &r, true);
     }
-
-
 
   SelectObject (hdc, of);
   SetTextColor (hdc, ofg);
-  SetTextColor (hdc, obg);
+  SetBkColor (hdc, obg);
 
-  HGDIOBJ open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_highlight));
-  MoveToEx (hdc, 0, w_ml_size.cy - 2, 0);
-  LineTo (hdc, 0, 0);
-  LineTo (hdc, w_ml_size.cx - 1, 0);
-  DeleteObject (SelectObject (hdc, open));
+  /* 3D bevel border (was CreatePen/MoveToEx/LineTo): highlight top+left,
+     shadow right+bottom. LineTo excludes its endpoint pixel; the hline/
+     vline ranges below reproduce the same pixel coverage. */
+  painter.draw_vline (0, 1, w_ml_size.cy - 1, sysdep.btn_highlight);
+  painter.draw_hline (0, w_ml_size.cx - 1, 0, sysdep.btn_highlight);
+  painter.draw_vline (w_ml_size.cx - 1, 0, w_ml_size.cy - 1, sysdep.btn_shadow);
+  painter.draw_hline (0, w_ml_size.cx, w_ml_size.cy - 1, sysdep.btn_shadow);
+}
 
-  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_shadow));
-  LineTo (hdc, w_ml_size.cx - 1, w_ml_size.cy - 1);
-  LineTo (hdc, -1, w_ml_size.cy - 1);
-  DeleteObject (SelectObject (hdc, open));
+/* issue #13 step 3e: HDC entry point wraps the Painter& version. */
+void
+Window::paint_mode_line (HDC hdc)
+{
+  Win32Painter painter (hdc, 0);
+  paint_mode_line (painter);
 }
 
 void
