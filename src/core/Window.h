@@ -589,6 +589,8 @@ struct Window
   void paint_mode_line ();
   void paint_background (HDC) const;
   void paint_background (HDC, int, int, int, int) const;
+  // issue #13 step 3b: Painter& variant; the HDC ones wrap it.
+  void paint_background (struct Painter &, int, int, int, int) const;
   void winsize_changed (int, int);
   point_t bol_point (point_t) const;
   point_t folded_bol_point (point_t) const;

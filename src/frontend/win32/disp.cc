@@ -2531,13 +2531,17 @@ pending_refresh_screen ()
 }
 
 void
+Window::paint_background (Painter &painter, int x, int y, int w, int h) const
+{
+  painter.fill_rect (x, y, w, h, w_colors[WCOLOR_BACK]);
+}
+
+/* issue #13 step 3b: HDC entry point wraps the Painter& version. */
+void
 Window::paint_background (HDC hdc, int x, int y, int w, int h) const
 {
-  HBRUSH hbr = CreateSolidBrush (w_colors[WCOLOR_BACK]);
-  HGDIOBJ obr = SelectObject (hdc, hbr);
-  PatBlt (hdc, x, y, w, h, PATCOPY);
-  SelectObject (hdc, obr);
-  DeleteObject (hbr);
+  Win32Painter painter (hdc, 0);
+  paint_background (painter, x, y, w, h);
 }
 
 void
