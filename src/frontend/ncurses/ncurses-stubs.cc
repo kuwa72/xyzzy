@@ -1426,6 +1426,7 @@ int assert_failed (const char *file, int line)
 
 #include "Window.h"
 #include "charset.h"
+#include "painter.h"     // issue #13 step4: NcursesPainter
 #include <ncurses.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -2311,6 +2312,118 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
       x += (w > 0) ? w : 1;
     }
 }
+
+// ============================================================
+// NcursesPainter — issue #13 step4 (skeleton, step4a)
+//
+// A Painter (src/core/painter.h) backed by ncurses. The long-term goal is to
+// retire the bypass path (render_window/output_glyph drawing directly) and let
+// core's paint_*(Painter&) run on ncurses too. This step (4a) only introduces
+// the class and routes its primitives to the existing ncurses drawing helpers;
+// nothing constructs it yet, so behaviour is unchanged.
+//
+// Units: ncurses is a cell terminal, so x,y are character cells and
+// cell_width()/cell_height() are 1. Colors arrive as COLORREF (packed RGB);
+// mapping COLORREF -> ncurses color pair is wired up in step4b. For now the
+// glyph-derived color in output_glyph still governs text color.
+struct NcursesPainter : public Painter
+{
+  // Text output: draw the glyph run [g, ge) starting at cell (x, y).
+  // Mirrors render_glyph_row's loop: skip JUNK trails, advance by glyph width.
+  // fg/bg/charset/flags/clip/opaque are accepted for interface parity but, in
+  // this skeleton, color comes from each glyph via output_glyph (step4b/4c
+  // switch to the COLORREF args).
+  void draw_text (int x, int y, const glyph_t *g, const glyph_t *ge,
+                  COLORREF /*fg*/, COLORREF /*bg*/, int /*charset*/,
+                  unsigned /*flags*/, const RECT * /*clip*/,
+                  bool /*opaque*/) override
+  {
+    int col = x;
+    for (const glyph_t *p = g; p < ge; p++)
+      {
+        if (*p & GLYPH_JUNK)
+          continue;            // wide trail — consumed by its lead
+        int w = output_glyph (y, col, *p);
+        col += (w > 0) ? w : 1;
+      }
+  }
+
+  // Rectangle fill: blank cells (the only "fill" a terminal has).
+  void fill_rect (int x, int y, int w, int h, COLORREF /*c*/) override
+  {
+    for (int row = y; row < y + h; row++)
+      {
+        move (row, x);
+        for (int i = 0; i < w; i++)
+          addch (' ');
+      }
+  }
+
+  // Lines: ncurses has line-drawing chars but no shading, so the mode line's
+  // 3D border collapses to a single rule (or a no-op when zero-length).
+  void draw_hline (int x1, int x2, int y, COLORREF /*c*/) override
+  {
+    if (x2 > x1)
+      mvhline (y, x1, ACS_HLINE, x2 - x1);
+  }
+  void draw_vline (int x, int y1, int y2, COLORREF /*c*/) override
+  {
+    if (y2 > y1)
+      mvvline (y1, x, ACS_VLINE, y2 - y1);
+  }
+
+  // Symbol-glyph blit: no atlas on a terminal. Substitute a blank for now
+  // (step4e refines this to per-slot substitute characters).
+  void blit_glyph_bitmap (int x, int y, int w, int /*h*/, int /*slot*/,
+                          int /*cell_yoff*/, COLORREF /*fg*/,
+                          COLORREF /*bg*/) override
+  {
+    for (int i = 0; i < w; i++)
+      mvaddch (y, x + i, ' ');
+  }
+
+  // Measurement: cell columns the run occupies (wcwidth-equivalent via
+  // glyph_width). Used for mode-line truncation.
+  int text_width (const glyph_t *g, const glyph_t *ge, int /*charset*/) override
+  {
+    int w = 0;
+    for (const glyph_t *p = g; p < ge; p++)
+      {
+        if (*p & GLYPH_JUNK)
+          continue;
+        int gw = (int) glyph_width (*p);
+        w += (gw > 0) ? gw : 1;
+      }
+    return w;
+  }
+
+  // UTF-16 Char run in a non-glyph-buffer font (mode line / ruler / terminal).
+  void draw_text_chars (int x, int y, const Char *s, int len,
+                        COLORREF /*fg*/, COLORREF /*bg*/, int /*font_role*/,
+                        const RECT * /*clip*/, bool /*opaque*/) override
+  {
+    wchar_t wbuf[1025];
+    int wi = 0;
+    for (int i = 0; i < len && wi < 1024; i++)
+      wbuf[wi++] = (wchar_t) s[i];
+    wbuf[wi] = 0;
+    mvaddnwstr (y, x, wbuf, wi);
+  }
+  int text_chars_width (const Char *s, int len, int /*font_role*/) override
+  {
+    int w = 0;
+    for (int i = 0; i < len; i++)
+      {
+        int cw = wcwidth ((wchar_t) s[i]);
+        w += (cw > 0) ? cw : 1;
+      }
+    return w;
+  }
+
+  // Cell metrics: a terminal cell is the unit, so 1.
+  int cell_width () const override { return 1; }
+  int cell_height () const override { return 1; }
+};
 
 // Draw modeline for a given window on a given screen row.
 // col_offset: starting column on screen. cols: modeline width.
