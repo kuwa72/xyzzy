@@ -3,6 +3,7 @@
 #include "conf.h"
 #include "ipc.h"
 #include "wheel.h"
+#include "painter-win32.h"
 
 #define RULER_HEIGHT 13
 #define FRAME_WIDTH 2
@@ -3267,48 +3268,56 @@ Window::calc_ruler_box (const RECT &r, RECT &br) const
 }
 
 void
-Window::paint_ruler_box (HDC hdc, const RECT &r) const
+Window::paint_ruler_box (Painter &painter, const RECT &r) const
 {
   RECT br;
   calc_ruler_box (r, br);
 
   br.right--;
-  draw_hline (hdc, br.left, br.right, br.top, sysdep.window_text);
-  draw_vline (hdc, br.top, br.bottom, br.left, sysdep.window_text);
-  draw_vline (hdc, br.top, br.bottom, br.right, sysdep.window_text);
+  painter.draw_hline (br.left, br.right, br.top, sysdep.window_text);
+  painter.draw_vline (br.left, br.top, br.bottom, sysdep.window_text);
+  painter.draw_vline (br.right, br.top, br.bottom, sysdep.window_text);
   br.bottom--;
-  draw_hline (hdc, br.left, br.right, br.bottom, sysdep.window_text);
+  painter.draw_hline (br.left, br.right, br.bottom, sysdep.window_text);
   br.left++;
   br.top++;
-  draw_hline (hdc, br.left, br.right, br.top, sysdep.btn_highlight);
-  draw_vline (hdc, br.top, br.bottom, br.left, sysdep.btn_highlight);
+  painter.draw_hline (br.left, br.right, br.top, sysdep.btn_highlight);
+  painter.draw_vline (br.left, br.top, br.bottom, sysdep.btn_highlight);
   br.left++;
   br.top++;
   br.right--;
-  draw_vline (hdc, br.top, br.bottom, br.right, sysdep.btn_shadow);
+  painter.draw_vline (br.right, br.top, br.bottom, sysdep.btn_shadow);
   br.bottom--;
-  draw_hline (hdc, br.left, br.right, br.bottom, sysdep.btn_shadow);
-  fill_rect (hdc, br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.btn_face);
+  painter.draw_hline (br.left, br.right, br.bottom, sysdep.btn_shadow);
+  painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.btn_face);
+}
+
+void
+Window::paint_ruler_box (HDC hdc, const RECT &r) const
+{
+  Win32Painter painter (hdc, 0);
+  paint_ruler_box (painter, r);
 }
 
 inline void
-Window::paint_ruler (HDC hdc, const RECT &r, int x, int y, int column) const
+Window::paint_ruler (Painter &painter, const RECT &r, int x, int y, int column) const
 {
   if (!(column % 10))
     {
       wchar_t wbuf[32];
       int l = swprintf (wbuf, 32, L"%d", column);
-      ExtTextOutW (hdc, x - l * sysdep.ruler_ext.cx / 2, r.top,
-                   ETO_CLIPPED, &r, wbuf, l, 0);
+      painter.draw_text_chars (x - l * sysdep.ruler_ext.cx / 2, r.top,
+                               (const Char *)wbuf, l, sysdep.window_text, 0,
+                               PFONT_RULER, &r, false);
     }
   else if (!(column % 5))
-    draw_vline (hdc, y - 2, y + 2, x, sysdep.window_text);
+    painter.draw_vline (x, y - 2, y + 2, sysdep.window_text);
   else
-    draw_vline (hdc, y - 1, y + 1, x, sysdep.window_text);
+    painter.draw_vline (x, y - 1, y + 1, sysdep.window_text);
 }
 
 void
-Window::paint_ruler (HDC hdc) const
+Window::paint_ruler (Painter &painter) const
 {
   if (w_ruler_top_column < 0)
     return;
@@ -3319,68 +3328,63 @@ Window::paint_ruler (HDC hdc) const
   MapWindowPoints (HWND_DESKTOP, app.active_frame.hwnd, (POINT *)&r, 2);
   r.bottom = r.top;
   r.top -= RULER_HEIGHT;
-  draw_hline (hdc, r.left, r.right - 1, r.top, sysdep.btn_highlight);
-  draw_vline (hdc, r.top, r.bottom, r.left, sysdep.btn_highlight);
-//  draw_hline (hdc, r.left, r.right, r.bottom, sysdep.btn_shadow);
-  draw_vline (hdc, r.top, r.bottom, r.right - 1, sysdep.btn_shadow);
+  painter.draw_hline (r.left, r.right - 1, r.top, sysdep.btn_highlight);
+  painter.draw_vline (r.left, r.top, r.bottom, sysdep.btn_highlight);
+//  painter.draw_hline (r.left, r.right, r.bottom, sysdep.btn_shadow);
+  painter.draw_vline (r.right - 1, r.top, r.bottom, sysdep.btn_shadow);
 
   calc_ruler_rect (r);
 
   if (w_ruler_fold_column == Buffer::FOLD_NONE)
-    fill_rect (hdc, r, sysdep.window);
+    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.window);
   else if (w_ruler_fold_column <= w_ruler_top_column)
-    fill_rect (hdc, r, sysdep.btn_shadow);
+    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.btn_shadow);
   else
     {
       int x = r.left + ((w_ruler_fold_column - w_ruler_top_column)
                         * app.text_font.cell ().cx);
       if (x < r.right)
         {
-          fill_rect (hdc, r.left, r.top, x - r.left, r.bottom - r.top, sysdep.window);
-          fill_rect (hdc, x, r.top, r.right - x, r.bottom - r.top, sysdep.btn_shadow);
+          painter.fill_rect (r.left, r.top, x - r.left, r.bottom - r.top, sysdep.window);
+          painter.fill_rect (x, r.top, r.right - x, r.bottom - r.top, sysdep.btn_shadow);
         }
       else
-        fill_rect (hdc, r, sysdep.window);
+        painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.window);
     }
-
-  HGDIOBJ of = SelectObject (hdc, sysdep.hfont_ruler);
-  COLORREF ofg = SetTextColor (hdc, sysdep.window_text);
-  int bkmode = SetBkMode (hdc, TRANSPARENT);
 
   int y = (r.top + r.bottom) / 2;
   for (int x = r.left + app.text_font.cell ().cx / 2, column = w_ruler_top_column + 1;
        x < r.right; x += app.text_font.cell ().cx, column++)
-    paint_ruler (hdc, r, x, y, column);
-
-  SetTextColor (hdc, ofg);
-  SetBkMode (hdc, bkmode);
-  SelectObject (hdc, of);
+    paint_ruler (painter, r, x, y, column);
 
   if (w_ruler_column >= 0)
-    paint_ruler_box (hdc, r);
+    paint_ruler_box (painter, r);
 }
 
 void
-Window::erase_ruler (HDC hdc, const RECT &r) const
+Window::paint_ruler (HDC hdc) const
+{
+  Win32Painter painter (hdc, 0);
+  paint_ruler (painter);
+}
+
+void
+Window::erase_ruler (Painter &painter, const RECT &r) const
 {
   RECT br;
   calc_ruler_box (r, br);
 
   if (w_ruler_fold_column == Buffer::FOLD_NONE
       || w_ruler_column < w_ruler_fold_column)
-    fill_rect (hdc, br, sysdep.window);
+    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.window);
   else
-    fill_rect (hdc, br, sysdep.btn_shadow);
-
-  HGDIOBJ of = SelectObject (hdc, sysdep.hfont_ruler);
-  COLORREF ofg = SetTextColor (hdc, sysdep.window_text);
-  int bkmode = SetBkMode (hdc, TRANSPARENT);
+    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.btn_shadow);
 
   int y = (r.top + r.bottom) / 2;
   int x = (r.left + app.text_font.cell ().cx / 2
            + (w_ruler_column - w_ruler_top_column) * app.text_font.cell ().cx);
   int column = w_ruler_column + 1;
-  paint_ruler (hdc, br, x, y, column);
+  paint_ruler (painter, br, x, y, column);
 
   int rem = column % 10;
   if (rem)
@@ -3388,16 +3392,19 @@ Window::erase_ruler (HDC hdc, const RECT &r) const
       column -= rem;
       x -= rem * app.text_font.cell ().cx;
       if (column && x >= r.left)
-        paint_ruler (hdc, br, x, y, column);
+        paint_ruler (painter, br, x, y, column);
       column += 10;
       x += 10 * app.text_font.cell ().cx;
       if (x < r.right)
-        paint_ruler (hdc, br, x, y, column);
+        paint_ruler (painter, br, x, y, column);
     }
+}
 
-  SetTextColor (hdc, ofg);
-  SetBkMode (hdc, bkmode);
-  SelectObject (hdc, of);
+void
+Window::erase_ruler (HDC hdc, const RECT &r) const
+{
+  Win32Painter painter (hdc, 0);
+  erase_ruler (painter, r);
 }
 
 void

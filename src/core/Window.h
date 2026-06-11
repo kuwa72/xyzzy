@@ -696,7 +696,11 @@ struct Window
 
   void calc_ruler_rect (RECT &) const;
   void calc_ruler_box (const RECT &, RECT &) const;
-  void paint_ruler (HDC, const RECT &, int, int, int) const;
+  // issue #13 step 3d: Painter& variants; the HDC ones wrap them.
+  void paint_ruler (struct Painter &, const RECT &, int, int, int) const;
+  void paint_ruler (struct Painter &) const;
+  void paint_ruler_box (struct Painter &, const RECT &) const;
+  void erase_ruler (struct Painter &, const RECT &) const;
   void paint_ruler (HDC) const;
   void paint_ruler_box (HDC, const RECT &) const;
   void erase_ruler (HDC, const RECT &r) const;
