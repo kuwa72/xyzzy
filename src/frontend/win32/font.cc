@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "conf.h"
+#include "font-metrics.h"
 
 const UINT FontSet::fs_lang_id[] =
 {
@@ -102,6 +103,48 @@ FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
   GetTextExtentPoint32W (hdc, L"\x3042", 1, &ex2);  // U+3042 あ
   SelectObject (hdc, of);
 }
+
+// issue #13 step5c: Win32FontMetrics — the GDI implementation of the neutral
+// FontMetrics interface. It mirrors FontObject::get_metrics(HDC,...) exactly
+// (same screen DC, same GetTextMetricsW / GetTextExtentPoint32W probes) so the
+// measurement is pixel-equivalent; the only difference is that it owns the
+// font/DC lifetime internally and takes a LOGFONTW rather than a pre-selected
+// hfont. Steps 5d/5e route FontSet::create and font.h's dpi helpers through it.
+struct Win32FontMetrics : public FontMetrics
+{
+  FontMetricsResult measure (const LOGFONTW &lf) override
+  {
+    FontMetricsResult r;
+    bzero (&r, sizeof r);
+    HFONT hf = CreateFontIndirectW (&lf);
+    if (!hf)
+      return r;
+    HDC hdc = GetDC (0);
+    HGDIOBJ of = SelectObject (hdc, hf);
+    TEXTMETRICW tm;
+    GetTextMetricsW (hdc, &tm);
+    r.ave_char_width = tm.tmAveCharWidth;
+    r.ascent = tm.tmAscent;
+    r.descent = tm.tmDescent;
+    SIZE ex;
+    GetTextExtentPoint32W (hdc, L"A", 1, &ex);
+    r.ascii_width = ex.cx;
+    GetTextExtentPoint32W (hdc, L"\x3042", 1, &ex);  // U+3042 あ
+    r.fullwidth = ex.cx;
+    SelectObject (hdc, of);
+    ReleaseDC (0, hdc);
+    DeleteObject (hf);
+    return r;
+  }
+
+  int dpi_y () const override
+  {
+    HDC hdc = GetDC (0);
+    int d = GetDeviceCaps (hdc, LOGPIXELSY);
+    ReleaseDC (0, hdc);
+    return d;
+  }
+};
 
 void
 FontObject::calc_offset (const SIZE &sz)
