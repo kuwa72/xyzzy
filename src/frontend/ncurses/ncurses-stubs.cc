@@ -2399,8 +2399,10 @@ struct NcursesPainter : public Painter
   }
 
   // UTF-16 Char run in a non-glyph-buffer font (mode line / ruler / terminal).
+  // On a terminal the mode line is drawn reversed (the GUI uses MODELINE_FG/BG
+  // colors); honor that via A_REVERSE when font_role is PFONT_MODELINE.
   void draw_text_chars (int x, int y, const Char *s, int len,
-                        COLORREF /*fg*/, COLORREF /*bg*/, int /*font_role*/,
+                        COLORREF /*fg*/, COLORREF /*bg*/, int font_role,
                         const RECT * /*clip*/, bool /*opaque*/) override
   {
     wchar_t wbuf[1025];
@@ -2408,7 +2410,12 @@ struct NcursesPainter : public Painter
     for (int i = 0; i < len && wi < 1024; i++)
       wbuf[wi++] = (wchar_t) s[i];
     wbuf[wi] = 0;
+    attr_t attr = (font_role == PFONT_MODELINE) ? A_REVERSE : 0;
+    if (attr)
+      attron (attr);
     mvaddnwstr (y, x, wbuf, wi);
+    if (attr)
+      attroff (attr);
   }
   int text_chars_width (const Char *s, int len, int /*font_role*/) override
   {
@@ -2493,19 +2500,20 @@ draw_modeline (Window *wp, int row, int col_offset, int cols)
 
   int maxw = (cols < 1024) ? cols : 1024;
 
-  // Copy UTF-16 into wchar_t buffer for drawing
-  wchar_t wbuf[1025];
-  int wi = 0;
-  for (Char *p = b0; p < b && wi < maxw; p++)
-    wbuf[wi++] = (wchar_t)*p;
+  // Build the padded mode-line content as a Char run, then draw it through
+  // the Painter (issue #13 step4f). draw_text_chars applies A_REVERSE for the
+  // PFONT_MODELINE role, matching the previous direct mvaddnwstr+A_REVERSE.
+  Char line[1025];
+  int n = 0;
+  for (Char *p = b0; p < b && n < maxw; p++)
+    line[n++] = *p;
+  while (n < maxw)
+    line[n++] = (Char)'-';
 
-  // Pad with '-'
-  while (wi < maxw)
-    wbuf[wi++] = L'-';
-
-  attron (A_REVERSE);
-  mvaddnwstr (row, col_offset, wbuf, wi);
-  attroff (A_REVERSE);
+  NcursesPainter painter;
+  painter.draw_text_chars (col_offset, row, line, n,
+                           CLR_INVALID, CLR_INVALID, PFONT_MODELINE,
+                           NULL, true);
 }
 
 // Render minibuffer prompt and content on a given screen row
