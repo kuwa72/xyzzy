@@ -2409,9 +2409,9 @@ struct NcursesPainter : public Painter
 static void
 render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
 {
-  move (row, col_offset);
-  for (int i = 0; i < cols; i++)
-    addch (' ');
+  // issue #13 step4d: clear the row background through the Painter.
+  NcursesPainter painter;
+  painter.fill_rect (col_offset, row, cols, 1, CLR_INVALID);
 
   if (!gd || gd->gd_len <= 0)
     return;
@@ -2435,7 +2435,6 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
       x += (w > 0) ? w : 1;
     }
 
-  NcursesPainter painter;
   painter.draw_text (col_offset, row, g, g + gend,
                      CLR_INVALID, CLR_INVALID, 0, 0, NULL, false);
 }
@@ -3193,11 +3192,12 @@ render_window (Window *wp, int total_cols)
       for (int y = 0; y < text_rows && y < wp->w_ch_max.cy; y++)
         render_glyph_row (win_top + y, col_offset, text_cols, ng[y]);
 
+      // issue #13 step4d: clear empty rows past the buffer end through the
+      // Painter, then mark each with the '~' beyond-EOF indicator.
+      NcursesPainter painter;
       for (int y = wp->w_ch_max.cy; y < text_rows; y++)
         {
-          move (win_top + y, col_offset);
-          for (int i = 0; i < text_cols; i++)
-            addch (' ');
+          painter.fill_rect (col_offset, win_top + y, text_cols, 1, CLR_INVALID);
           mvaddch (win_top + y, col_offset, '~');
         }
 
