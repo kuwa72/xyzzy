@@ -2176,6 +2176,28 @@ xyzzy_color_bright (int idx)
 #define TEXTPROP_PAIR_BASE 16
 #define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
 
+// Substitute character for a bitmap-glyph FontSet slot (issue #13 step4e).
+// A terminal has no glyph atlas, so xyzzy's bitmap markers (newline, tab,
+// fold separators) map to stand-in characters; padding/blank slots stay blank.
+// Shared by output_glyph and NcursesPainter::blit_glyph_bitmap.
+static chtype
+bitmap_slot_char (int slot)
+{
+  switch (slot)
+    {
+    case FontSet::newline:        return ACS_LRCORNER;  // end-of-line mark
+    case FontSet::htab:           return ACS_RARROW;    // tab mark
+    case FontSet::backsl:
+    case FontSet::bold_backsl:    return '\\';
+    case FontSet::sep:
+    case FontSet::fold_sep0:
+    case FontSet::fold_sep1:      return ACS_HLINE;
+    case FontSet::fold_mark_sep0:
+    case FontSet::fold_mark_sep1: return ACS_PLUS;
+    default:                      return ' ';           // blanks / spaces
+    }
+}
+
 // Output a single glyph_t to ncurses at position (row, col).
 // Returns the number of columns consumed (0 for combining/JUNK trail,
 // 1 for narrow, 2 for wide).
@@ -2199,9 +2221,11 @@ output_glyph (int row, int col, glyph_t g)
 
   if (g & GLYPH_BITMAP_BIT)
     {
-      // Bitmap markers: newline mark, tab mark, etc. ncurses 上は空白で代替。
+      // Bitmap markers (newline / tab / fold separators): no glyph atlas on a
+      // terminal, so substitute a per-slot stand-in character (issue #13
+      // step4e). slot = the FontSet enum in the low byte (below GLYPH_BITMAP_BIT).
       attr_t a = attrs | (selected ? COLOR_PAIR (SELECTION_PAIR) : 0);
-      mvaddch (row, col, ' ' | a);
+      mvaddch (row, col, bitmap_slot_char ((int)(g & 0xff)) | a);
       return 1;
     }
 
@@ -2346,13 +2370,16 @@ struct NcursesPainter : public Painter
       mvvline (y1, x, ACS_VLINE, y2 - y1);
   }
 
-  // Symbol-glyph blit: no atlas on a terminal. Substitute a blank for now
-  // (step4e refines this to per-slot substitute characters).
-  void blit_glyph_bitmap (int x, int y, int w, int /*h*/, int /*slot*/,
+  // Symbol-glyph blit: no atlas on a terminal, so substitute a character per
+  // FontSet slot (issue #13 step4e), via the shared bitmap_slot_char table.
+  // Markers (newline, tab, fold separators) become visible stand-ins; padding
+  // slots stay blank.
+  void blit_glyph_bitmap (int x, int y, int w, int /*h*/, int slot,
                           int /*cell_yoff*/, COLORREF /*fg*/,
                           COLORREF /*bg*/) override
   {
-    for (int i = 0; i < w; i++)
+    mvaddch (y, x, bitmap_slot_char (slot));
+    for (int i = 1; i < w; i++)
       mvaddch (y, x + i, ' ');
   }
 
@@ -3209,12 +3236,14 @@ render_window (Window *wp, int total_cols)
   // Draw modeline at bottom of this window's area
   draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
 
-  // Draw vertical separator if this window is not at right edge
+  // Draw vertical separator if this window is not at right edge.
+  // issue #13 step4e: route through NcursesPainter::draw_vline.
   if (has_separator)
     {
       int sep_col = wp->w_rect.right - 1;
-      for (int y = wp->w_rect.top; y < wp->w_rect.bottom; y++)
-        mvaddch (y, sep_col, ACS_VLINE);
+      NcursesPainter painter;
+      painter.draw_vline (sep_col, wp->w_rect.top, wp->w_rect.bottom,
+                          CLR_INVALID);
     }
 }
 
