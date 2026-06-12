@@ -1426,7 +1426,8 @@ int assert_failed (const char *file, int line)
 
 #include "Window.h"
 #include "charset.h"
-#include "painter.h"     // issue #13 step4: NcursesPainter
+#include "painter.h"        // issue #13 step4: NcursesPainter
+#include "font-metrics.h"   // issue #13 step5: NcursesFontMetrics
 #include <ncurses.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -2431,6 +2432,27 @@ struct NcursesPainter : public Painter
   // Cell metrics: a terminal cell is the unit, so 1.
   int cell_width () const override { return 1; }
   int cell_height () const override { return 1; }
+};
+
+// NcursesFontMetrics — issue #13 step5b (dummy).
+//
+// A terminal has no scalable fonts: every cell is 1x1, ASCII is one column,
+// fullwidth is two. ncurses never actually measures a font (FontSet::create
+// is Win32-only and not compiled here), so this exists to satisfy the
+// FontMetrics interface and document the cell=1 model; it is not yet wired in.
+struct NcursesFontMetrics : public FontMetrics
+{
+  FontMetricsResult measure (const LOGFONTW & /*lf*/) override
+  {
+    FontMetricsResult r;
+    r.ave_char_width = 1;
+    r.ascent = 1;
+    r.descent = 0;
+    r.ascii_width = 1;
+    r.fullwidth = 2;
+    return r;
+  }
+  int dpi_y () const override { return 96; }  // nominal; unused on a terminal
 };
 
 // Render one glyph_data row to ncurses screen row.
