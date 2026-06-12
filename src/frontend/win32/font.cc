@@ -146,6 +146,16 @@ struct Win32FontMetrics : public FontMetrics
   }
 };
 
+// issue #13 step5d: store metrics measured through FontMetrics, replicating
+// exactly the side effect get_metrics(HDC,...) had on the FontObject.
+void
+FontObject::set_metrics (const FontMetricsResult &r)
+{
+  fo_size.cx = r.ave_char_width;
+  fo_size.cy = r.ascent + r.descent;
+  fo_ascent = r.ascent;
+}
+
 void
 FontObject::calc_offset (const SIZE &sz)
 {
@@ -382,11 +392,25 @@ FontSet::create_bitmap ()
   DeleteDC (hdcmem);
 }
 
+// issue #13 step5d: create font `fo` from `lf` and measure it through the
+// neutral FontMetrics interface, storing the result on the FontObject and
+// recording the ascii/fullwidth advance widths in `ex` (cx only is read by
+// create() below). Replaces the old create()+get_metrics(HDC) pair.
+static void
+measure_into (FontMetrics &fm, FontObject &fo, const LOGFONTW &lf, SIZE ex[2])
+{
+  fo.create (lf);
+  FontMetricsResult r = fm.measure (lf);
+  fo.set_metrics (r);
+  ex[0].cx = r.ascii_width;
+  ex[1].cx = r.fullwidth;
+}
+
 int
 FontSet::create (const FontSetParam &param)
 {
-  SIZE ex[FONT_MAX][2];
-  HDC hdc = GetDC (0);
+  SIZE ex[FONT_MAX][2] = {};
+  Win32FontMetrics fm;
 
   fs_line_spacing = max (0, min (param.fs_line_spacing, 30));
   fs_use_backsl = param.fs_use_backsl;
@@ -396,15 +420,11 @@ FontSet::create (const FontSetParam &param)
   if (!fs_recommend_size)
     {
       for (int i = 0; i < FONT_MAX; i++)
-        fs_font[i].create (param.fs_logfont[i]);
-
-      for (int i = 0; i < FONT_MAX; i++)
-        fs_font[i].get_metrics (hdc, ex[i][0], ex[i][1]);
+        measure_into (fm, fs_font[i], param.fs_logfont[i], ex[i]);
     }
   else
     {
-      fs_font[FONT_ASCII].create (param.fs_logfont[FONT_ASCII]);
-      fs_font[FONT_ASCII].get_metrics (hdc, ex[FONT_ASCII][0], ex[FONT_ASCII][1]);
+      measure_into (fm, fs_font[FONT_ASCII], param.fs_logfont[FONT_ASCII], ex[FONT_ASCII]);
 
       for (int i = 1; i < FONT_MAX; i++)
         for (int h = fs_font[FONT_ASCII].size ().cy; h > 0; h--)
@@ -412,8 +432,7 @@ FontSet::create (const FontSetParam &param)
             LOGFONTW lf (param.fs_logfont[i]);
             lf.lfHeight = h;
             lf.lfWidth = 0;
-            fs_font[i].create (lf);
-            fs_font[i].get_metrics (hdc, ex[i][0], ex[i][1]);
+            measure_into (fm, fs_font[i], lf, ex[i]);
             if (fs_font[i].size ().cx <= fs_font[FONT_ASCII].size ().cx)
               break;
           }
@@ -426,11 +445,8 @@ FontSet::create (const FontSetParam &param)
       {
         LOGFONTW lf (param.fs_logfont[i]);
         lf.lfWidth = fs_size.cx;
-        fs_font[i].create (lf);
-        fs_font[i].get_metrics (hdc, ex[i][0], ex[i][1]);
+        measure_into (fm, fs_font[i], lf, ex[i]);
       }
-
-  ReleaseDC (0, hdc);
 
   fs_cell.cx = fs_size.cx;
   fs_cell.cy = fs_size.cy + fs_line_spacing;

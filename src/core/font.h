@@ -4,6 +4,8 @@
 #define FONT_SIZE_MIN_PIXEL 8
 #define FONT_SIZE_MAX_PIXEL 48
 
+struct FontMetricsResult;  // font-metrics.h (issue #13 step5)
+
 class FontObject
 {
 protected:
@@ -24,6 +26,7 @@ public:
   void require_pad () {fo_need_pad = 1;}
   void get_metrics ();
   void get_metrics (HDC, SIZE &, SIZE &);
+  void set_metrics (const FontMetricsResult &);  // issue #13 step5d
   void calc_offset (const SIZE &);
   const SIZE &size () const {return fo_size;}
   const POINT &offset () const {return fo_offset;}
