@@ -33,21 +33,12 @@ public:
   int ascent () const {return fo_ascent;}
   const LOGFONTW &logfont () const {return fo_logfont;}
   static const bool update (LOGFONTW &lf, const lisp keys, const bool recommend_size_p);
-  static const int dpi ()
-    {
-      HDC hdc = GetDC (0);
-      int dpi = GetDeviceCaps (hdc, LOGPIXELSY);
-      ReleaseDC (0, hdc);
-      return dpi;
-    }
-  static const int pixel_to_point (int pixel)
-    {
-      return MulDiv (pixel, 72, dpi ());
-    }
-  static const int point_to_pixel (int point)
-    {
-      return MulDiv (point, dpi (), 72);
-    }
+  // issue #13 step5e: defined in the frontend (font.cc), routed through the
+  // FontMetrics interface, so this core header no longer embeds GDI calls
+  // (GetDC / GetDeviceCaps / MulDiv).
+  static int dpi ();
+  static int pixel_to_point (int pixel);
+  static int point_to_pixel (int point);
 };
 
 #define FONT_ASCII          0

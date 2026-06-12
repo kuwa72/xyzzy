@@ -156,6 +156,29 @@ FontObject::set_metrics (const FontMetricsResult &r)
   fo_ascent = r.ascent;
 }
 
+// issue #13 step5e: dpi and the point<->pixel conversions live in the frontend
+// now (moved out of font.h, a core header reachable via ed.h). dpi() goes
+// through the neutral FontMetrics interface; MulDiv stays here in the Win32
+// source rather than leaking into core.
+int
+FontObject::dpi ()
+{
+  Win32FontMetrics fm;
+  return fm.dpi_y ();
+}
+
+int
+FontObject::pixel_to_point (int pixel)
+{
+  return MulDiv (pixel, 72, dpi ());
+}
+
+int
+FontObject::point_to_pixel (int point)
+{
+  return MulDiv (point, dpi (), 72);
+}
+
 void
 FontObject::calc_offset (const SIZE &sz)
 {
