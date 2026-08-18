@@ -19,7 +19,7 @@ make_hash_table ()
 static inline u_int
 sxhashval (lisp object)
 {
-  return u_int (object) >> 3;
+  return u_int (pointer_t (object) >> 3);
 }
 
 /*GENERIC_FUNCTION:IMMEDIATE*/
@@ -188,7 +188,7 @@ static u_int
 sxhash (lisp object, hash_test_proc test)
 {
   if (test == Feq)
-    return u_int (object) >> 3;
+    return u_int (pointer_t (object) >> 3);
   if (test == Feql)
     return sxhash_eql (object);
   if (test == Fequal)

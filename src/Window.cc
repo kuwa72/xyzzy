@@ -293,7 +293,7 @@ StatusWindow::set (HWND hwnd)
 int
 StatusWindow::paint (const DRAWITEMSTRUCT *dis)
 {
-  if (dis->itemData != DWORD (&sw_last))
+  if (dis->itemData != ULONG_PTR (&sw_last))
     return 0;
 
   TEXTMETRIC tm;
@@ -1947,8 +1947,8 @@ lisp
 Fget_window_handle (lisp window)
 {
   if (!window || window == Qnil)
-    return make_fixnum (long (app.toplev));
-  return make_fixnum (long (Window::coerce_to_window (window)->w_hwnd));
+    return make_integer (int64_t (pointer_t (app.toplev)));
+  return make_integer (int64_t (pointer_t (Window::coerce_to_window (window)->w_hwnd)));
 }
 
 int
@@ -2668,7 +2668,7 @@ static void
 activate_xyzzy_window (HWND hwnd)
 {
   Fbegin_wait_cursor ();
-  DWORD r;
+  DWORD_PTR r;
   int ok = SendMessageTimeout (hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 1000, &r);
   Fend_wait_cursor ();
   if (!ok)
@@ -2760,7 +2760,7 @@ Fwindow_coordinate (lisp lwindow)
                     make_fixnum (wp->w_rect.top),
                     make_fixnum (wp->w_rect.right),
                     make_fixnum (wp->w_rect.bottom),
-                    0);
+                    (lisp)0);
 }
 
 lisp
@@ -2789,13 +2789,13 @@ Fcurrent_window_configuration ()
                                            make_fixnum (wp->w_order.top),
                                            make_fixnum (wp->w_order.right),
                                            make_fixnum (wp->w_order.bottom),
-                                           0),
+                                           (lisp)0),
                                 make_list (make_fixnum (wp->w_rect.left),
                                            make_fixnum (wp->w_rect.top),
                                            make_fixnum (wp->w_rect.right),
                                            make_fixnum (wp->w_rect.bottom),
-                                           0),
-                                0),
+                                           (lisp)0),
+                                (lisp)0),
                      ldefs);
     }
 
@@ -2804,8 +2804,8 @@ Fcurrent_window_configuration ()
                     Fnreverse (ldefs),
                     make_list (make_fixnum (app.active_frame.size.cx),
                                make_fixnum (app.active_frame.size.cy),
-                               0),
-                    0);
+                               (lisp)0),
+                    (lisp)0);
 }
 
 struct winconf
@@ -3235,11 +3235,11 @@ ForceSetForegroundWindow (HWND hwnd)
     {
       SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0, 0, 0);
       int ok = SetForegroundWindow (hwnd);
-      SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0, (void *)timeout, 0);
+      SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0, (void *)UINT_PTR (timeout), 0);
       if (!ok)
         {
           HWND hwnd_fg = GetForegroundWindow ();
-          DWORD r;
+          DWORD_PTR r;
           if (hwnd_fg && SendMessageTimeout (hwnd_fg, WM_NULL, 0, 0,
                                              SMTO_ABORTIFHUNG | SMTO_BLOCK, 100, &r))
             {

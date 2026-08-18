@@ -778,8 +778,13 @@ gc_mark_in_stack ()
   jmp_buf regs;
   setjmp (regs);
 
-  int tem = 0;
-  lisp *beg = (lisp *)&tem, *end = (lisp *)app.initial_stack;
+  /* The stack is scanned one lisp object at a time, so both ends must be
+     aligned to one.  An int sized anchor is not, in a build where a pointer is
+     wider than an int, and reading across the boundary yields values made of
+     two unrelated stack words. */
+  lisp anchor = 0;
+  lisp *beg = (lisp *)(pointer_t (&anchor) & ~pointer_t (sizeof (lisp) - 1));
+  lisp *end = (lisp *)(pointer_t (app.initial_stack) & ~pointer_t (sizeof (lisp) - 1));
   for (; beg < end; beg++)
     {
       lisp p = *beg;
@@ -969,10 +974,12 @@ int ldataP::ld_nwasted;
 char *ldataP::ld_upper_bound;
 char *ldataP::ld_lower_bound;
 
+/* An explicit specialisation of a static data member without an initialiser
+   is only a declaration, so these carry one.  */
 #define DECLARE_LDATA(a, b) \
-  ldataP ldata <a, b>::l_ld; \
-  int ldata <a, b>::l_nuses; \
-  int ldata <a, b>::l_nfrees;
+  template <> ldataP ldata <a, b>::l_ld {}; \
+  template <> int ldata <a, b>::l_nuses {}; \
+  template <> int ldata <a, b>::l_nfrees {};
 #include "dataP.h"
 
 static void
@@ -1064,14 +1071,14 @@ init_syms ()
   lisp sys = make_package (SIMPLE_STRING ("system"),
                            make_list (SIMPLE_STRING ("si"),
                                       SIMPLE_STRING ("sys"),
-                                      0),
+                                      (lisp)0),
                            SYS_INTSIZE, SYS_EXTSIZE);
   lisp kwd = make_package (SIMPLE_STRING ("keyword"), Qnil,
                            KWD_INTSIZE, KWD_EXTSIZE);
   lisp usr = make_package (SIMPLE_STRING ("user"), Qnil,
                            USR_INTSIZE, USR_EXTSIZE);
   lisp cl_usr = make_package (SIMPLE_STRING ("common-lisp-user"),
-                              make_list (SIMPLE_STRING ("cl-user"), 0),
+                              make_list (SIMPLE_STRING ("cl-user"), (lisp)0),
                               CL_USR_INTSIZE, CL_USR_EXTSIZE);
   lisp ed = make_package (SIMPLE_STRING ("editor"),
                           xcons (SIMPLE_STRING ("ed"), Qnil),
@@ -1081,12 +1088,12 @@ init_syms ()
 
   xpackage_use_list (sys) = xcons (lsp, Qnil);
   xpackage_use_list (ed) = xcons (lsp, Qnil);
-  xpackage_use_list (usr) = make_list (lsp, ed, 0);
-  xpackage_use_list (cl) = make_list (lsp, 0);
-  xpackage_use_list (cl_usr) = make_list (cl, ed, 0);
-  xpackage_used_by_list (lsp) = make_list (sys, ed, usr, cl, 0);
-  xpackage_used_by_list (cl) = make_list (cl_usr, 0);
-  xpackage_used_by_list (ed) = make_list (cl_usr, usr, 0);
+  xpackage_use_list (usr) = make_list (lsp, ed, (lisp)0);
+  xpackage_use_list (cl) = make_list (lsp, (lisp)0);
+  xpackage_use_list (cl_usr) = make_list (cl, ed, (lisp)0);
+  xpackage_used_by_list (lsp) = make_list (sys, ed, usr, cl, (lisp)0);
+  xpackage_used_by_list (cl) = make_list (cl_usr, (lisp)0);
+  xpackage_used_by_list (ed) = make_list (cl_usr, usr, (lisp)0);
 
   u_int hash = hashpjw (xsymbol_name (Qnil), LISP_EXTSIZE);
   lisp *vec = xvector_contents (xpackage_external (lsp));
@@ -1112,7 +1119,7 @@ init_syms ()
   xsymbol_value (Vuser_package) = usr;
   xsymbol_value (Vcommon_lisp_user_package) = cl_usr;
   xsymbol_value (Veditor_package) = ed;
-  xsymbol_value (Vpackage_list) = make_list (lsp, sys, kwd, usr, ed, cl, cl_usr, 0);
+  xsymbol_value (Vpackage_list) = make_list (lsp, sys, kwd, usr, ed, cl, cl_usr, (lisp)0);
   xsymbol_value (Vbuiltin_package_list) = Fcopy_list (xsymbol_value (Vpackage_list));
   xsymbol_value (Vpackage) = usr;
 

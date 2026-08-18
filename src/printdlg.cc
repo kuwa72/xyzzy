@@ -25,7 +25,7 @@ void
 subclass_combo::subclass (HWND hwnd_parent, UINT id, WNDPROC wndproc)
 {
   m_hwnd = GetWindow (GetDlgItem (hwnd_parent, id), GW_CHILD);
-  m_owndproc = (WNDPROC)SetWindowLong (m_hwnd, GWL_WNDPROC, LONG (wndproc));
+  m_owndproc = (WNDPROC)SetWindowLongPtr (m_hwnd, GWLP_WNDPROC, LONG_PTR (wndproc));
 }
 
 LRESULT
@@ -39,7 +39,7 @@ subclass_combo::wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       break;
 
     case WM_DESTROY:
-      SetWindowLong (hwnd, GWL_WNDPROC, LONG (m_owndproc));
+      SetWindowLongPtr (hwnd, GWLP_WNDPROC, LONG_PTR (m_owndproc));
       break;
     }
   return CallWindowProc (m_owndproc, hwnd, msg, wparam, lparam);
@@ -995,19 +995,19 @@ print_dialog::wndproc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 print_dialog::wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   print_dialog *p;
   if (msg == WM_INITDIALOG)
     {
       p = (print_dialog *)lparam;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       p->m_hwnd = hwnd;
     }
   else
     {
-      p = (print_dialog *)GetWindowLong (hwnd, DWL_USER);
+      p = (print_dialog *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (!p)
         return 0;
     }

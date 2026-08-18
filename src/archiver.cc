@@ -284,7 +284,7 @@ ArchiverP::extract_noresp (HWND hwnd, const char *cmd,
   if (!fp)
     return ARC_ERROR_FILE_OPEN;
   size_t size = _filelength (_fileno (fp));
-  safe_ptr <char> buf = new char [cmdl + size + 1];
+  safe_ptr <char> buf (new char [cmdl + size + 1]);
   memcpy (buf, cmd, cmdl);
   if (fread (buf + cmdl, 1, size, fp) != size)
     return ARC_ERROR_CANNOT_READ;
@@ -908,7 +908,7 @@ Archiver::list (const char *path, int file_name_only) const
                                             make_fixnum (d.b.hour),
                                             make_fixnum (d.b.min),
                                             make_fixnum (d.b.sec * 2),
-                                            0),
+                                            (lisp)0),
                                  0),
                                 result);
             }

@@ -321,7 +321,7 @@ select_buffer_comparator::compare_buffer (LPARAM p1, LPARAM p2, LPARAM param)
 select_buffer_comparator *
 select_buffer_comparator::get_comparator (HWND dlg)
 {
-  return reinterpret_cast <select_buffer_comparator *> (GetWindowLong (dlg, DWL_USER));
+  return reinterpret_cast <select_buffer_comparator *> (GetWindowLongPtr (dlg, DWLP_USER));
 }
 
 int
@@ -434,7 +434,7 @@ resize_child_window (HWND dlg, UINT id, int dx, int dy)
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
 }
 
-static BOOL CALLBACK
+static INT_PTR CALLBACK
 select_buffer_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   static const char cfgBufferSelector[] = "BufferSelector";
@@ -450,7 +450,7 @@ select_buffer_proc (HWND dlg, UINT msg, WPARAM wparam, LPARAM lparam)
       if (!conf_load_geometry (dlg, cfgBufferSelector))
         center_window (dlg);
       set_window_icon (dlg);
-      SetWindowLong (dlg, DWL_USER, lparam);
+      SetWindowLongPtr (dlg, DWLP_USER, lparam);
       buffer_list_init (GetDlgItem (dlg, IDC_LIST));
       comparator = reinterpret_cast <select_buffer_comparator *> (lparam);
       comparator->sort_items (GetDlgItem (dlg, IDC_LIST));
@@ -787,7 +787,8 @@ OFN::get_result ()
     }
 
   if (ofn_eol_req)
-    ofn_eol_code = (eol_code)(int)get_result (IDC_EOL_CODE, (void *)ofn_eol_code);
+    ofn_eol_code = (eol_code)(int)(UINT_PTR)get_result (IDC_EOL_CODE,
+                                                       (void *)UINT_PTR (ofn_eol_code));
 }
 
 UINT
@@ -841,13 +842,13 @@ file_name_dialog_hook (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   if (msg == WM_INITDIALOG)
     {
       lparam = ((OPENFILENAME *)lparam)->lCustData;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       ofn = (OFN *)lparam;
       ofn->ofn_hwnd = hwnd;
     }
   else
     {
-      ofn = (OFN *)GetWindowLong (hwnd, DWL_USER);
+      ofn = (OFN *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (!ofn)
         return 0;
     }
@@ -904,7 +905,7 @@ Ffile_name_dialog (lisp keys)
                      : OPENFILENAME_SIZE_VERSION_400);
   ofn.hwndOwner = get_active_window ();
   ofn.hInstance = app.hinst;
-  ofn.lCustData = DWORD (&ofn);
+  ofn.lCustData = LPARAM (&ofn);
 
   char buf[1024 * 32];
   if (stringp (ldefault) && xstring_length (ldefault) < sizeof buf / 2 - 1)
@@ -1176,14 +1177,14 @@ directory_name_dialog_hook (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   if (msg == WM_INITDIALOG)
     {
       lparam = ((OPENFILENAME *)lparam)->lCustData;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       ((ODN *)lparam)->store_dirname (hwnd);
       center_window (hwnd);
       set_window_icon (hwnd);
       return 1;
     }
 
-  ODN *odn = (ODN *)GetWindowLong (hwnd, DWL_USER);
+  ODN *odn = (ODN *)GetWindowLongPtr (hwnd, DWLP_USER);
   if (!odn)
     return 0;
 
@@ -1249,7 +1250,7 @@ Fdirectory_name_dialog (lisp keys)
       w2s (title, ltitle);
     }
   odn.lpstrTitle = title;
-  odn.lCustData = DWORD (&odn);
+  odn.lCustData = LPARAM (&odn);
 
   if (!GetOpenFileName (&odn))
     return Qnil;
@@ -1258,7 +1259,7 @@ Fdirectory_name_dialog (lisp keys)
   return make_string (odn.odn_result);
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 IdleDialog::WndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   IdleDialog *d;
@@ -1266,11 +1267,11 @@ IdleDialog::WndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     {
       d = (IdleDialog *)lparam;
       d->id_hwnd = hwnd;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
     }
   else
     {
-      d = (IdleDialog *)GetWindowLong (hwnd, DWL_USER);
+      d = (IdleDialog *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (!d)
         return 0;
       if (msg == WM_NCDESTROY)

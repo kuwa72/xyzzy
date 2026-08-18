@@ -28,8 +28,8 @@ Fsi_uuid_create (lisp keys)
       make_fixnum (uuid.Data4[5]),
       make_fixnum (uuid.Data4[6]),
       make_fixnum (uuid.Data4[7]),
-      0),
-    0);
+      (lisp)0),
+    (lisp)0);
 
   return uuidstr.make_string ();
 }

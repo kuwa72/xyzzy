@@ -208,7 +208,7 @@ sockssl::perform_handshake ()
 
   // Receive ServerHello from server.
   int chunk_size = max_initial_chunk_size ();
-  safe_ptr <char> chunk = new char[chunk_size];
+  safe_ptr <char> chunk (new char[chunk_size]);
   while (!ss_connected_p)
     {
       int len = sock::recv (chunk, chunk_size);
@@ -441,7 +441,7 @@ int
 sockssl::recv_decrypt (void *buf, int len, int flags)
 {
   int chunk_size = max_data_chunk_size ();
-  safe_ptr <char> chunk = new char [chunk_size];
+  safe_ptr <char> chunk (new char [chunk_size]);
   int nread = 0;
 
   while (true)
@@ -624,7 +624,7 @@ sockssl::encrypt_send (const void *buf, int len, int flags) const
   SecPkgContext_StreamSizes sizes;
   int msglen = max_chunk_size (sizes) + sizes.cbHeader + sizes.cbTrailer;
 
-  safe_ptr <char> msg = new char [msglen];
+  safe_ptr <char> msg (new char [msglen]);
   MoveMemory (msg + sizes.cbHeader, buf, len);
 
   safe_secbuf <4> buffers (false);

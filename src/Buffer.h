@@ -222,7 +222,7 @@ class xwrite_stream;
 class xwrite_buffer;
 class save_excursion;
 class save_restriction;
-enum syntax_code;
+enum syntax_code : int;
 
 class FileTime: public _FILETIME
 {
@@ -299,7 +299,7 @@ struct insertChars
   int length;
 };
 
-enum eol_code
+enum eol_code : int
 {
   eol_lf,
   eol_crlf,

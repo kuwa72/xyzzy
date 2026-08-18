@@ -13,8 +13,9 @@ struct DdeCallbackInfo
   HSZ topic;
   HSZ item;
   HDDEDATA hdata;
-  DWORD data1;
-  DWORD data2;
+  /* DdeCallback receives these as ULONG_PTR: they can carry a pointer. */
+  ULONG_PTR data1;
+  ULONG_PTR data2;
 };
 
 # define DDE_EXECUTE_ITEM ((char *)1)

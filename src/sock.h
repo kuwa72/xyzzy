@@ -152,7 +152,7 @@ public:
   void sflush ();
 
   void sputc (int c)
-    {--s_wbuf.b_cnt >= 0 ? (*s_wbuf.b_ptr++ = c) : sflush_buf (c);}
+    {if (--s_wbuf.b_cnt >= 0) *s_wbuf.b_ptr++ = c; else sflush_buf (c);}
   int sgetc ()
     {return --s_rbuf.b_cnt >= 0 ? *s_rbuf.b_ptr++ & 0xff : srefill ();}
   void sputs (const char *);

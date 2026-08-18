@@ -1890,7 +1890,7 @@ Filer::Notify (NMHDR *nm)
           return 1;
 
         case LVN_PROCESSKEY:
-          SetWindowLong (id_hwnd, DWL_MSGRESULT,
+          SetWindowLongPtr (id_hwnd, DWLP_MSGRESULT,
                          process_keys ((LV_PROCESSKEY *)nm));
           return 1;
 
@@ -2157,7 +2157,7 @@ Filer::GetMinMaxInfo (MINMAXINFO *mmi)
   GetWindowRect (id_hwnd, &dr);
   GetWindowRect (GetDlgItem (id_hwnd, IDC_LIST1), &r);
   mmi->ptMinTrackSize.y = (dr.bottom - dr.top) - (r.bottom - r.top) + 50;
-  SetWindowLong (id_hwnd, DWL_MSGRESULT, 0);
+  SetWindowLongPtr (id_hwnd, DWLP_MSGRESULT, 0);
   return 1;
 }
 
@@ -2938,13 +2938,13 @@ const char ViewerWindow::vw_classname[] = "viewer";
 static inline void
 set_window (HWND hwnd, ViewerWindow *wp)
 {
-  SetWindowLong (hwnd, 0, LONG (wp));
+  SetWindowLongPtr (hwnd, 0, LONG_PTR (wp));
 }
 
 static inline ViewerWindow *
 get_window (HWND hwnd)
 {
-  return (ViewerWindow *)GetWindowLong (hwnd, 0);
+  return (ViewerWindow *)GetWindowLongPtr (hwnd, 0);
 }
 
 static LRESULT CALLBACK
@@ -3024,7 +3024,7 @@ ViewerWindow::init (HWND parent, ViewerBuffer *bp)
   w_point.p_point = 0;
   w_point.p_chunk = bp->b_chunkb;
   w_point.p_offset = 0;
-  return (int)CreateWindowEx (sysdep.Win4p () ? WS_EX_CLIENTEDGE : 0,
+  return 0 != CreateWindowEx (sysdep.Win4p () ? WS_EX_CLIENTEDGE : 0,
                               vw_classname, "",
                               WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE,
                               0, 0, 0, 0, parent, 0, app.hinst, this);
@@ -3225,7 +3225,7 @@ Fget_filer_font ()
   return make_list (Kface, make_string (lf.lfFaceName),
                     Ksize, make_fixnum (size),
                     Ksize_pixel_p, boole (size_pixel_p),
-                    0);
+                    (lisp)0);
 }
 
 lisp

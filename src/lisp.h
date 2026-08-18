@@ -50,7 +50,7 @@ POINTER:
 # define Lchar ((1 << LSHORT_INT_SHIFT) | SHORT_INT_TEST_BITS)
 # define Lmessage ((2 << LSHORT_INT_SHIFT) | SHORT_INT_TEST_BITS)
 
-enum message_code;
+enum message_code : int;
 
 enum lisp_object_type_bits
 {
@@ -141,11 +141,11 @@ class lsymbol;
 
 class lex_env;
 
-typedef lisp (__stdcall *lfunction_proc)();
-typedef lisp (__stdcall *lfunction_proc_0)();
-typedef lisp (__stdcall *lfunction_proc_1)(lisp);
-typedef lisp (__stdcall *lfunction_proc_2)(lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_3)(lisp, lisp, lisp);
+typedef lisp (LISPCALL *lfunction_proc)();
+typedef lisp (LISPCALL *lfunction_proc_0)();
+typedef lisp (LISPCALL *lfunction_proc_1)(lisp);
+typedef lisp (LISPCALL *lfunction_proc_2)(lisp, lisp);
+typedef lisp (LISPCALL *lfunction_proc_3)(lisp, lisp, lisp);
 
 # include "fns.h"
 # ifndef EXTERN

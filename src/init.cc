@@ -59,7 +59,9 @@ Application::Application ()
   ini_file_path = 0;
   minibuffer_prompt_column = -1;
 
-  int tem;
+  /* The garbage collector scans the stack from here; the anchor is pointer
+     sized so that the scan starts aligned to a lisp object. */
+  void *tem;
   initial_stack = &tem;
   in_gc = 0;
   exit_code = 0;
@@ -398,12 +400,12 @@ init_symbol_value_once ()
   xsymbol_value (Qor_string_stream) =
     xcons (Qor, xcons (Qstring, xcons (Qstream, Qnil)));
   xsymbol_value (Qreal_between_0_and_1) =
-    make_list (Qreal, make_fixnum (0), make_fixnum (1), 0);
+    make_list (Qreal, make_fixnum (0), make_fixnum (1), (lisp)0);
   xsymbol_value (Qor_real_integer_1_star) =
     make_list (Qor,
-               make_list (Qinteger, make_fixnum (1), Smultiply, 0),
-               make_list (Qfloat, make_single_float (1.0), Smultiply, 0),
-               0);
+               make_list (Qinteger, make_fixnum (1), Smultiply, (lisp)0),
+               make_list (Qfloat, make_single_float (1.0), Smultiply, (lisp)0),
+               (lisp)0);
 
   xsymbol_value (Vread_default_float_format) = Qsingle_float;
 
@@ -568,6 +570,8 @@ check_dump_key ()
           && GetAsyncKeyState (VK_CONTROL) < 0);
 }
 
+
+
 static int
 init_lisp_objects ()
 {
@@ -730,6 +734,16 @@ handle_new_failure (size_t)
   return 0;
 }
 
+#ifndef _MSC_VER
+/* The standard new handler takes no arguments; _set_new_handler is an MSVC
+   extension.  Either way the handler throws instead of returning.  */
+static void
+handle_new_failure_std ()
+{
+  handle_new_failure (0);
+}
+#endif
+
 static void
 copy_handle (DWORD f, int fd)
 {
@@ -739,7 +753,7 @@ copy_handle (DWORD f, int fd)
                        0, 0, DUPLICATE_SAME_ACCESS))
     {
       _close (fd);
-      _open_osfhandle (long (n), _O_TEXT | (fd ? 0 : _O_RDONLY));
+      _open_osfhandle (intptr_t (n), _O_TEXT | (fd ? 0 : _O_RDONLY));
       SetStdHandle (f, n);
     }
 }
@@ -801,8 +815,19 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   Ctl3d::enable (hinst);
 
+#ifdef _MSC_VER
   _set_new_handler (handle_new_failure);
+#else
+  std::set_new_handler (handle_new_failure_std);
+#endif
+#ifdef _MSC_VER
+  /* Translating hardware exceptions into C++ exceptions is an MSVC
+     feature; without it the catch (Win32Exception &) handlers never run
+     and a fault terminates the process.  */
   _set_se_translator (se_handler);
+#else
+  install_exception_reporter ();
+#endif
 
   if (!pre_allocate_stack ())
     {
@@ -821,6 +846,10 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
   if (!register_wndclasses (hinst))
     return 0;
 
+  /* Loading comctl32 and registering the common control classes is the
+     caller's job; the status bar created for the top level window needs
+     them.  */
+  InitCommonControls ();
   InitPrivateControls (hinst);
 
   POINT point;
@@ -981,7 +1010,9 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
 
       if (!terminate_normally)
         {
+#ifdef _MSC_VER
           _set_se_translator (0);
+#endif
           cleanup_exception ();
         }
 
@@ -1000,7 +1031,10 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
   if (ole_initialized)
     OleUninitialize ();
 
-#ifdef DEBUG
+/* Feeds MSVC's CRT leak checker.  It runs after cleanup_lisp_objects() has
+   already destroyed the lisp side of these objects, so walking the lists is
+   only safe together with that allocator's debug behaviour. */
+#if defined (DEBUG) && defined (_MSC_VER)
   {
     _CrtSetReportMode (_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile (_CRT_WARN, _CRTDBG_FILE_STDERR);

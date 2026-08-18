@@ -17,12 +17,12 @@
 
 #include "sockinet.h"
 
-template<int n>
+template<int N>
 class safe_secbuf
 {
 private:
   SecBufferDesc sb_desc;
-  SecBuffer sb_buf[n];
+  SecBuffer sb_buf[N];
   bool sb_release;
 
   void set (int n, ULONG type, void *buf, int len)
@@ -35,7 +35,7 @@ private:
 public:
   safe_secbuf (bool release) : sb_release (release)
     {
-      sb_desc.cBuffers = n;
+      sb_desc.cBuffers = N;
       sb_desc.pBuffers = sb_buf;
       sb_desc.ulVersion = SECBUFFER_VERSION;
     }
@@ -43,7 +43,7 @@ public:
   ~safe_secbuf ()
     {
       if (!sb_release) return;
-      for (int i = 0; i < n; i++)
+      for (int i = 0; i < N; i++)
         {
           if (sb_buf[i].pvBuffer == nullptr) continue;
           FreeContextBuffer (sb_buf[i].pvBuffer);

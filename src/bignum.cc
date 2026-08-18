@@ -695,7 +695,7 @@ remainder (const bignum_rep *r, u_short div)
   return rem;
 }
 
-#ifdef _M_IX86
+#ifdef HAVE_MSVC_X86_ASM
 # pragma warning (disable:4035)
 static int
 divide (const u_short *x, int xl, u_short xdiv, u_short *r)
@@ -736,7 +736,7 @@ divide (const u_short *x, int xl, u_short xdiv, u_short *r)
     }
 }
 # pragma warning (default:4035)
-#else /* not _M_IX86 */
+#else /* not HAVE_MSVC_X86_ASM */
 static int
 divide (const u_short *x, int xl, u_short div, u_short *r)
 {
@@ -755,7 +755,7 @@ divide (const u_short *x, int xl, u_short div, u_short *r)
   while (xp > x);
   return rem;
 }
-#endif /* not _M_IX86 */
+#endif /* not HAVE_MSVC_X86_ASM */
 
 bignum_rep *
 divide (bignum_rep *q, const bignum_rep *x, const bignum_rep *y)

@@ -91,7 +91,7 @@ append_menu (HMENU hmenu, UINT flags, UINT id, const char *name)
 }
 
 static int
-insert_menu (HMENU hmenu, UINT pos, UINT flags, UINT id, const char *name)
+insert_menu (HMENU hmenu, UINT pos, UINT flags, UINT_PTR id, const char *name)
 {
   if (flags & MF_BITMAP)
     {
@@ -159,7 +159,7 @@ redraw_menu (lisp lmenu)
 }
 
 static void
-add_menu (lisp lmenu, lisp item, UINT flags, const char *name, UINT id)
+add_menu (lisp lmenu, lisp item, UINT flags, const char *name, UINT_PTR id)
 {
   lisp new_items = xcons (item, xwin32_menu_items (lmenu));
   if (!append_menu (xwin32_menu_handle (lmenu), flags, id, name))
@@ -174,7 +174,7 @@ add_menu (lisp lmenu, lisp item, UINT flags, const char *name, UINT id)
 }
 
 static void
-add_menu (lisp lmenu, lisp item, lisp name, UINT flags, UINT id)
+add_menu (lisp lmenu, lisp item, lisp name, UINT flags, UINT_PTR id)
 {
   char b[1024];
   w2s (b, b + sizeof b, xstring_contents (name), xstring_length (name));
@@ -210,7 +210,7 @@ Fadd_popup_menu (lisp lmenu, lisp lpopup, lisp name)
   check_string (name);
   check_popup_menu (lpopup);
   add_menu (lmenu, lpopup, name, MF_POPUP | MF_STRING,
-            UINT (xwin32_menu_handle (lpopup)));
+            UINT_PTR (xwin32_menu_handle (lpopup)));
   return lpopup;
 }
 
@@ -320,7 +320,7 @@ Finsert_popup_menu (lisp lmenu, lisp position, lisp lpopup, lisp name)
   if (pos < 0)
     FErange_error (position);
   insert_menu (lmenu, pos, lpopup, name, MF_POPUP | MF_STRING,
-               UINT (xwin32_menu_handle (lpopup)));
+               UINT_PTR (xwin32_menu_handle (lpopup)));
   return lpopup;
 }
 

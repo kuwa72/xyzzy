@@ -107,7 +107,7 @@ protected:
   void set_scale_combo ();
 
   BOOL wndproc (UINT, WPARAM, LPARAM);
-  static BOOL CALLBACK wndproc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK wndproc (HWND, UINT, WPARAM, LPARAM);
 
   HWND p_hwnd_sw;
   HWND p_hwnd;

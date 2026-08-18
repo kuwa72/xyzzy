@@ -24,7 +24,7 @@ public:
   GlobalIME ();
   int enable (ATOM *, int);
   void disable () {cleanup ();}
-  int enable_p () const {return int (gi_app);}
+  int enable_p () const {return gi_app != 0;}
   LRESULT DefWindowProc (HWND, UINT, WPARAM, LPARAM);
   BOOL TranslateMessage (const MSG *);
   LONG ImmGetCompositionString (HIMC, DWORD, void *, DWORD);

@@ -20,4 +20,8 @@ public:
 void __cdecl se_handler (u_int, EXCEPTION_POINTERS *);
 void cleanup_exception ();
 
+/* Compilers without _set_se_translator cannot turn a hardware exception into a
+   C++ exception; they get a crash log through an unhandled exception filter. */
+void install_exception_reporter ();
+
 #endif

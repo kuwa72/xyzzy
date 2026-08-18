@@ -43,7 +43,9 @@ typedef u_char u_int8_t;
 typedef u_short u_int16_t;
 typedef u_long u_int32_t;
 
-typedef u_long pointer_t;
+/* An integer wide enough to hold a pointer: unsigned long is 32 bit even in
+   64 bit Windows builds (LLP64).  */
+typedef uintptr_t pointer_t;
 
 typedef u_int16_t Char;
 # define CHAR_LIMIT 0x10000
@@ -157,6 +159,21 @@ int assert_failed (const char *, int);
 #  define DBG_PRINT(a) (printf a, fflush (stdout))
 # else
 #  define DBG_PRINT(a) /* empty */
+# endif
+
+/* Inline assembly written in Microsoft syntax; mingw-w64 defines _M_IX86 too,
+   so the compiler has to be tested as well.  */
+# if defined (_M_IX86) && defined (_MSC_VER)
+#  define HAVE_MSVC_X86_ASM 1
+# endif
+
+/* The lisp primitives are compiled with the default calling convention,
+   which the project files set to __stdcall (/Gz) for MSVC while mingw-w64
+   uses __cdecl.  Pointers to them have to agree with that choice.  */
+# ifdef _MSC_VER
+#  define LISPCALL __stdcall
+# else
+#  define LISPCALL /* the compiler default */
 # endif
 
 # define __CONCAT(X, Y) X ## Y

@@ -56,6 +56,12 @@ xdll_module_loaded (lisp x)
 # define CALLING_CONVENTION_STDCALL 0
 # define CALLING_CONVENTION_CDECL 1
 
+/* Arguments are marshalled by hand for the MSVC x86 build (see dll.cc); any
+   other compiler or target calls through libffi.  */
+# if defined (_MSC_VER) && defined (_M_IX86)
+#  define XYZZY_FFI_X86_ASM 1
+# endif
+
 class ldll_function: public lisp_object
 {
 public:
@@ -67,6 +73,7 @@ public:
   u_char nargs;       // 引数の数
   u_char vaarg_p;     // 可変長引数を取るかどうか
   u_char return_type; // 戻り値の型
+  u_char convention;  // 呼び出し規約
 
   ~ldll_function () {xfree (arg_types);}
 };
@@ -128,6 +135,13 @@ xdll_function_return_type (lisp x)
   return ((ldll_function *)x)->return_type;
 }
 
+inline u_char &
+xdll_function_convention (lisp x)
+{
+  assert (dll_function_p (x));
+  return ((ldll_function *)x)->convention;
+}
+
 inline u_short &
 xdll_function_arg_size (lisp x)
 {
@@ -146,9 +160,18 @@ public:
   u_char nargs;       // 引数の数
   u_char return_type; // 戻り値の型
   u_char convention;  // 呼び出し規約
+# ifdef XYZZY_FFI_X86_ASM
   u_char insn[INSN_SIZE]; // stubコード
+# else
+  /* libffi state, opaque here so that <ffi.h> stays inside dll.cc: the
+     closure, its executable entry point, an ffi_cif and its argument types. */
+  void *closure;
+  void *code;
+  void *cif;
+  void *ffi_arg_types;
+# endif
 
-  ~lc_callable () {xfree (arg_types);}
+  ~lc_callable ();
 };
 
 #define c_callable_p(X) typep ((X), Tc_callable)
@@ -201,12 +224,21 @@ xc_callable_convention (lisp x)
   return ((lc_callable *)x)->convention;
 }
 
+# ifdef XYZZY_FFI_X86_ASM
 inline u_char *
 xc_callable_insn (lisp x)
 {
   assert (c_callable_p (x));
   return ((lc_callable *)x)->insn;
 }
+# else
+inline u_char *
+xc_callable_insn (lisp x)
+{
+  assert (c_callable_p (x));
+  return (u_char *)((lc_callable *)x)->code;
+}
+# endif
 
 ldll_module *make_dll_module ();
 ldll_function *make_dll_function ();

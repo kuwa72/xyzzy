@@ -20,7 +20,18 @@ struct ldata_rep
   int dr_type;
   u_long dr_used[LDATA_MAX_OBJECTS_PER_LONG];
   u_long dr_gc[LDATA_MAX_OBJECTS_PER_LONG];
+# if defined (_WIN64) || defined (_M_AMD64) || defined (__x86_64__)
+  /* The header ends on a 4 byte boundary, which would leave every object in the
+     page misaligned where a pointer is 8 bytes wide.  The 32 bit layout, and
+     the dump image written from it, are left as they are. */
+  union
+    {
+      char dr_data[1];
+      double dr_align_;
+    };
+# else
   char dr_data[1];
+# endif
 };
 
 class ldataP
@@ -82,6 +93,16 @@ struct ldata_free_rep
   ldata_free_rep *lf_next;
 };
 
+/* A free object carries the free list link above, and the sweep loops walk a
+   page with sizeof (T), so an object type must be at least as large as the
+   link.  Two of the number types are not in a 64 bit build; pad them there
+   only, leaving the 32 bit layout (and the dump image it writes) alone. */
+# if defined (_WIN64) || defined (_M_AMD64) || defined (__x86_64__)
+#  define LDATA_LINK_PAD(TYPE) char ldata_pad_[sizeof (void *) - sizeof (TYPE)]
+# else
+#  define LDATA_LINK_PAD(TYPE) /* not needed */
+# endif
+
 inline void
 bitset (u_long *p, int i)
 {
@@ -124,6 +145,11 @@ template <class T, u_int F>
 T *
 ldata <T, F>::lalloc ()
 {
+  /* A free object carries the allocator's free list link (see
+     ldataP::morecore), and the sweep loops step through a page with sizeof (T),
+     so no object type may be smaller than that link. */
+  static_assert (sizeof (T) >= sizeof (ldata_free_rep),
+                 "lisp object smaller than the free list link");
   return (T *)l_ld.do_alloc (F, sizeof (T));
 }
 

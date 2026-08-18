@@ -22,7 +22,7 @@ protected:
   virtual ~IdleDialog ();
   virtual BOOL WndProc (UINT, WPARAM, LPARAM) = 0;
   virtual void IdleProc () = 0;
-  static BOOL CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
   void EndDialog (int);
   void set_idle (int);
   int modeless_p () const {return id_modeless;}

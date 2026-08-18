@@ -110,7 +110,7 @@ fmt_float::roundf (int d)
 }
 
 static char *
-store_uint (char *b, u_int n)
+store_uint (char *b, pointer_t n)
 {
   *--b = 0;
   do

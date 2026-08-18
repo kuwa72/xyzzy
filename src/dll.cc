@@ -2,6 +2,98 @@
 #include "ed.h"
 #include "except.h"
 
+#ifndef XYZZY_FFI_X86_ASM
+# include <ffi.h>
+
+static ffi_type *
+ffi_type_of (u_char type)
+{
+  switch (type)
+    {
+    case CTYPE_VOID:   return &ffi_type_void;
+    case CTYPE_INT8:   return &ffi_type_sint8;
+    case CTYPE_UINT8:  return &ffi_type_uint8;
+    case CTYPE_INT16:  return &ffi_type_sint16;
+    case CTYPE_UINT16: return &ffi_type_uint16;
+    case CTYPE_INT32:  return &ffi_type_sint32;
+    case CTYPE_UINT32: return &ffi_type_uint32;
+    case CTYPE_INT64:  return &ffi_type_sint64;
+    case CTYPE_UINT64: return &ffi_type_uint64;
+    case CTYPE_FLOAT:  return &ffi_type_float;
+    case CTYPE_DOUBLE: return &ffi_type_double;
+    }
+  assert (0);
+  return &ffi_type_void;
+}
+
+static ffi_abi
+ffi_abi_of (u_char convention)
+{
+#if defined (X86_WIN32) || defined (__i386__)
+  /* Only 32 bit x86 has more than one calling convention. */
+  return convention == CALLING_CONVENTION_CDECL ? FFI_MS_CDECL : FFI_STDCALL;
+#else
+  (void)convention;
+  return FFI_DEFAULT_ABI;
+#endif
+}
+
+union ffi_value
+{
+  ffi_arg arg;
+  int8_t i8;
+  uint8_t u8;
+  int16_t i16;
+  uint16_t u16;
+  int32_t i32;
+  uint32_t u32;
+  int64_t i64;
+  uint64_t u64;
+  float f;
+  double d;
+};
+
+static void
+store_ffi_value (ffi_value *v, u_char type, lisp a)
+{
+  switch (type)
+    {
+    case CTYPE_INT8:   v->i8 = int8_t (cast_to_int64 (a)); break;
+    case CTYPE_UINT8:  v->u8 = uint8_t (cast_to_int64 (a)); break;
+    case CTYPE_INT16:  v->i16 = int16_t (cast_to_int64 (a)); break;
+    case CTYPE_UINT16: v->u16 = uint16_t (cast_to_int64 (a)); break;
+    case CTYPE_INT32:  v->i32 = int32_t (cast_to_int64 (a)); break;
+    case CTYPE_UINT32: v->u32 = uint32_t (cast_to_int64 (a)); break;
+    case CTYPE_INT64:  v->i64 = cast_to_int64 (a); break;
+    case CTYPE_UINT64: v->u64 = uint64_t (cast_to_int64 (a)); break;
+    case CTYPE_FLOAT:  v->f = coerce_to_single_float (a); break;
+    case CTYPE_DOUBLE: v->d = coerce_to_double_float (a); break;
+    default: assert (0);
+    }
+}
+
+static lisp
+load_ffi_value (const ffi_value *v, u_char type)
+{
+  switch (type)
+    {
+    case CTYPE_VOID:   return Qnil;
+    case CTYPE_INT8:   return make_fixnum (int8_t (v->arg));
+    case CTYPE_UINT8:  return make_fixnum (uint8_t (v->arg));
+    case CTYPE_INT16:  return make_fixnum (int16_t (v->arg));
+    case CTYPE_UINT16: return make_fixnum (uint16_t (v->arg));
+    case CTYPE_INT32:  return make_fixnum (long (int32_t (v->arg)));
+    case CTYPE_UINT32: return make_integer (int64_t (uint32_t (v->arg)));
+    case CTYPE_INT64:  return make_integer (v->i64);
+    case CTYPE_UINT64: return make_integer (v->u64);
+    case CTYPE_FLOAT:  return make_single_float (v->f);
+    case CTYPE_DOUBLE: return make_double_float (v->d);
+    }
+  assert (0);
+  return Qnil;
+}
+#endif /* not XYZZY_FFI_X86_ASM */
+
 ldll_module *
 make_dll_module ()
 {
@@ -23,6 +115,7 @@ make_dll_function ()
   p->nargs = 0;
   p->return_type = 0;
   p->arg_size = 0;
+  p->convention = 0;
   return p;
 }
 
@@ -35,6 +128,12 @@ make_c_callable ()
   p->nargs = 0;
   p->return_type = 0;
   p->arg_size = 0;
+#ifndef XYZZY_FFI_X86_ASM
+  p->closure = 0;
+  p->code = 0;
+  p->cif = 0;
+  p->ffi_arg_types = 0;
+#endif
   return p;
 }
 
@@ -261,6 +360,7 @@ Fsi_make_c_function (lisp lmodule, lisp lname, lisp largs, lisp lrettype, lisp k
   xdll_function_vaarg_p (fn) = vaarg_p;
 
   xdll_function_nargs (fn) = nargs;
+  xdll_function_convention (fn) = check_calling_convention (keys);
   if (nargs)
     {
       u_char *at = (u_char *)xmalloc (nargs);
@@ -351,7 +451,7 @@ funcall_dll (lisp fn, lisp arglist)
   if (!xdll_function_proc (fn))
     FEprogram_error (Edll_not_initialized, fn);
 
-#ifdef _M_IX86
+#ifdef XYZZY_FFI_X86_ASM
   int arg_size = xdll_function_arg_size (fn) + calc_vaarg_size (fn, arglist);
   char *stack = (char *)alloca (arg_size);
   for (const u_char *at = xdll_function_arg_types (fn),
@@ -423,9 +523,81 @@ funcall_dll (lisp fn, lisp arglist)
       e.throw_lisp_error ();
       throw;
     }
-#else
-# error "yet"
-#endif
+#else /* not XYZZY_FFI_X86_ASM */
+  int nfixed = xdll_function_nargs (fn);
+  int nargs = nfixed;
+  lisp vaargs = Qnil;
+  int vaarg_given = 0;
+
+  if (xdll_function_vaarg_p (fn))
+    {
+      /* The variable part arrives as a single list after the fixed arguments. */
+      lisp tail = arglist;
+      for (int i = 0; i < nfixed && consp (tail); i++)
+        tail = xcdr (tail);
+      if (consp (tail))
+        {
+          vaarg_given = 1;
+          vaargs = xcar (tail);
+          check_vaargs (vaargs);
+          for (lisp p = vaargs; consp (p); p = xcdr (p))
+            nargs++;
+        }
+    }
+
+  ffi_type **atypes = (ffi_type **)alloca (sizeof *atypes * (nargs + 1));
+  ffi_value *values = (ffi_value *)alloca (sizeof *values * (nargs + 1));
+  void **avalues = (void **)alloca (sizeof *avalues * (nargs + 1));
+
+  int i = 0;
+  for (const u_char *at = xdll_function_arg_types (fn); i < nfixed;
+       i++, arglist = xcdr (arglist))
+    {
+      if (!consp (arglist))
+        FEtoo_few_arguments ();
+      atypes[i] = ffi_type_of (at[i]);
+      store_ffi_value (&values[i], at[i], xcar (arglist));
+      avalues[i] = &values[i];
+    }
+
+  for (lisp p = vaargs; consp (p); p = xcdr (p), i++)
+    {
+      u_char t = check_vaarg_type (xcar (xcar (p)));
+      atypes[i] = ffi_type_of (t);
+      store_ffi_value (&values[i], t, Fcadr (xcar (p)));
+      avalues[i] = &values[i];
+    }
+
+  if (vaarg_given)
+    arglist = xcdr (arglist);
+  if (consp (arglist))
+    FEtoo_many_arguments ();
+
+  u_char rt = xdll_function_return_type (fn);
+  ffi_cif cif;
+  ffi_abi abi = ffi_abi_of (xdll_function_convention (fn));
+  ffi_status status = (nargs > nfixed
+                       ? ffi_prep_cif_var (&cif, abi, nfixed, nargs,
+                                           ffi_type_of (rt), atypes)
+                       : ffi_prep_cif (&cif, abi, nargs,
+                                       ffi_type_of (rt), atypes));
+  if (status != FFI_OK)
+    FEprogram_error (Edll_not_initialized, fn);
+
+  ffi_value rvalue;
+  rvalue.i64 = 0;
+  try
+    {
+      ffi_call (&cif, FFI_FN (xdll_function_proc (fn)), &rvalue, avalues);
+      save_last_error ();
+    }
+  catch (Win32Exception &e)
+    {
+      e.throw_lisp_error ();
+      throw;
+    }
+  return load_ffi_value (&rvalue, rt);
+#endif /* not XYZZY_FFI_X86_ASM */
 }
 
 lisp
@@ -435,7 +607,7 @@ funcall_c_callable (lisp fn, lisp arglist)
   return Ffuncall (xc_callable_function (fn), arglist);
 }
 
-#ifdef _M_IX86
+#ifdef XYZZY_FFI_X86_ASM
 
 /*
   ESP ------------------
@@ -630,7 +802,146 @@ init_c_callable (lisp cc)
       insn[0xc] = 0xcc;
     }
 }
-#endif
+
+lc_callable::~lc_callable ()
+{
+  xfree (arg_types);
+}
+
+#else /* not XYZZY_FFI_X86_ASM */
+
+/* Entered from the libffi closure with the arguments a foreign caller passed.
+   It hands them to the lisp function and writes back the result; nothing may
+   escape into the trampoline. */
+static void
+c_callable_closure (ffi_cif *, void *ret, void **args, void *user)
+{
+  lisp cc = (lisp)user;
+  u_char rt = xc_callable_return_type (cc);
+
+  try
+    {
+      lisp largs = Qnil;
+      for (int i = xc_callable_nargs (cc) - 1; i >= 0; i--)
+        {
+          ffi_value v;
+          v.i64 = 0;
+          u_char t = xc_callable_arg_types (cc)[i];
+          switch (t)
+            {
+            case CTYPE_INT8:   v.arg = ffi_arg (*(int8_t *)args[i]); break;
+            case CTYPE_UINT8:  v.arg = *(uint8_t *)args[i]; break;
+            case CTYPE_INT16:  v.arg = ffi_arg (*(int16_t *)args[i]); break;
+            case CTYPE_UINT16: v.arg = *(uint16_t *)args[i]; break;
+            case CTYPE_INT32:  v.arg = ffi_arg (*(int32_t *)args[i]); break;
+            case CTYPE_UINT32: v.arg = *(uint32_t *)args[i]; break;
+            case CTYPE_INT64:  v.i64 = *(int64_t *)args[i]; break;
+            case CTYPE_UINT64: v.u64 = *(uint64_t *)args[i]; break;
+            case CTYPE_FLOAT:  v.f = *(float *)args[i]; break;
+            case CTYPE_DOUBLE: v.d = *(double *)args[i]; break;
+            default: assert (0); break;
+            }
+          largs = xcons (load_ffi_value (&v, t), largs);
+        }
+
+      protect_gc gcpro (largs);
+      lisp r = Ffuncall (xc_callable_function (cc), largs);
+      switch (rt)
+        {
+        case CTYPE_VOID:
+          break;
+
+        case CTYPE_INT64:
+        case CTYPE_UINT64:
+          *(int64_t *)ret = cast_to_int64 (r);
+          break;
+
+        case CTYPE_FLOAT:
+          *(float *)ret = coerce_to_single_float (r);
+          break;
+
+        case CTYPE_DOUBLE:
+          *(double *)ret = coerce_to_double_float (r);
+          break;
+
+        default:
+          *(ffi_arg *)ret = ffi_arg (cast_to_int64 (r));
+          break;
+        }
+      return;
+    }
+  catch (nonlocal_jump &)
+    {
+    }
+
+  switch (rt)
+    {
+    case CTYPE_VOID:
+      break;
+
+    case CTYPE_INT64:
+    case CTYPE_UINT64:
+      *(int64_t *)ret = 0;
+      break;
+
+    case CTYPE_FLOAT:
+      *(float *)ret = 0.0F;
+      break;
+
+    case CTYPE_DOUBLE:
+      *(double *)ret = 0.0;
+      break;
+
+    default:
+      *(ffi_arg *)ret = 0;
+      break;
+    }
+}
+
+void
+init_c_callable (lisp cc)
+{
+  int nargs = xc_callable_nargs (cc);
+  lc_callable *p = (lc_callable *)cc;
+
+  void *code = 0;
+  ffi_closure *closure = (ffi_closure *)ffi_closure_alloc (sizeof *closure, &code);
+  if (!closure)
+    FEstorage_error ();
+
+  ffi_cif *cif = (ffi_cif *)xmalloc (sizeof *cif);
+  ffi_type **atypes = (ffi_type **)xmalloc (sizeof *atypes * (nargs + 1));
+  for (int i = 0; i < nargs; i++)
+    atypes[i] = ffi_type_of (xc_callable_arg_types (cc)[i]);
+
+  if (ffi_prep_cif (cif, ffi_abi_of (xc_callable_convention (cc)), nargs,
+                    ffi_type_of (xc_callable_return_type (cc)), atypes) != FFI_OK
+      || ffi_prep_closure_loc (closure, cif, c_callable_closure,
+                               (void *)cc, code) != FFI_OK)
+    {
+      ffi_closure_free (closure);
+      xfree (atypes);
+      xfree (cif);
+      FEprogram_error (Eunknown_calling_convention,
+                       make_fixnum (xc_callable_convention (cc)));
+    }
+
+  p->closure = closure;
+  p->code = code;
+  p->cif = cif;
+  p->ffi_arg_types = atypes;
+}
+
+lc_callable::~lc_callable ()
+{
+  xfree (arg_types);
+  if (closure)
+    ffi_closure_free (closure);
+  xfree (ffi_arg_types);
+  xfree (cif);
+}
+
+#endif /* not XYZZY_FFI_X86_ASM */
 
 static lisp
 check_fn (lisp fn)

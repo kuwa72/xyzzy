@@ -184,7 +184,7 @@ public:
   int create (int type, int dim, SAFEARRAYBOUND *b)
     {
       sa = SafeArrayCreate (type, dim, b);
-      return int (sa);
+      return sa != 0;
     }
   HRESULT lock ()
     {

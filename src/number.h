@@ -8,6 +8,7 @@ class llong_int: public lisp_object
 {
 public:
   long value;
+  LDATA_LINK_PAD (long);
 };
 
 # define long_int_p(X) typep ((X), Tlong_int)
@@ -36,23 +37,26 @@ make_long_int (long x)
 # define LSHORT_INT_MAX (long ((1L << (BITS_PER_LONG - LSHORT_INT_SHIFT - 1)) - 1))
 # define LSHORT_INT_MIN (-long (1L << (BITS_PER_LONG - LSHORT_INT_SHIFT - 1)))
 
+/* The value is tagged into the pointer itself, so the casts have to be as wide
+   as a pointer.  The range a fixnum covers stays the one BITS_PER_LONG gives,
+   which keeps 32 and 64 bit builds in agreement. */
 inline int
 short_int_p (lisp x)
 {
-  return (u_long (x) & SHORT_INT_TEST_BITS) == Lshort_int;
+  return (pointer_t (x) & SHORT_INT_TEST_BITS) == Lshort_int;
 }
 
 inline lisp
 make_short_int (long x)
 {
-  return lisp ((u_long (x) << LSHORT_INT_SHIFT) | Lshort_int);
+  return lisp ((pointer_t (x) << LSHORT_INT_SHIFT) | Lshort_int);
 }
 
 inline long
 xshort_int_value (lisp x)
 {
   assert (short_int_p (x));
-  return long (x) >> LSHORT_INT_SHIFT;
+  return long (intptr_t (x) >> LSHORT_INT_SHIFT);
 }
 
 # include "bignum.h"
@@ -180,6 +184,7 @@ class lsingle_float: public lisp_object
 {
 public:
   float value;
+  LDATA_LINK_PAD (float);
 };
 
 class ldouble_float: public lisp_object

@@ -281,7 +281,7 @@ protected:
       HDC hdc;
       int state;
       RECT r;
-      DWORD data;
+      LPARAM data;   /* the item data: a Buffer * or a lisp object */
     };
   virtual LRESULT wndproc (UINT, WPARAM, LPARAM);
   int nc_calc_size (RECT &) const;
@@ -316,7 +316,7 @@ public:
     {
       return dock_bar::create (0, WC_TABCONTROL, "",
                                style, 0, 0, 0, 0, hwnd_parent,
-                               (HMENU)id, app.hinst, 0);
+                               (HMENU)UINT_PTR (id), app.hinst, 0);
     }
   int create (HWND);
   virtual void calc_client_size (SIZE &, int) const;
@@ -349,7 +349,7 @@ public:
     {return sendmsg (TCM_SETITEMSIZE, 0, MAKELPARAM (cx, cy));}
   int hit_test (TC_HITTESTINFO &info)
     {return sendmsg (TCM_HITTEST, 0, LPARAM (&info));}
-  DWORD nth (int) const;
+  LPARAM nth (int) const;
   virtual int focus () const
     {
       if (style () & TCS_FOCUSNEVER)

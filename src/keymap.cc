@@ -311,7 +311,7 @@ Fdefine_key (lisp keymap, lisp key, lisp fn)
   return Qt;
 }
 
-lisp PASCAL
+lisp
 Flookup_keymap (lisp keymap, lisp key, lisp ignore_case, lisp symbol_only)
 {
   lisp *x = search_key_slot (keymap, key, 0, ignore_case && ignore_case != Qnil);

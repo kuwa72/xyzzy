@@ -750,7 +750,7 @@ filer_drop_target::process_drop (IDataObject *data_obj, const POINTL &pt,
       return 0;
     }
 
-  lisp args = make_list (e, lfiles, lsrc, ltarget, 0);
+  lisp args = make_list (e, lfiles, lsrc, ltarget, (lisp)0);
   protect_gc gcpro (args);
   ForceSetForegroundWindow (Filer::current_filer ()->id_hwnd);
   suppress_gc sgc;

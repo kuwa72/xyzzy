@@ -76,8 +76,8 @@ void Win32Exception::throw_lisp_error ()
     }
 }
 
-void __cdecl
-se_handler (u_int code, EXCEPTION_POINTERS *ep)
+static void
+record_lisp_call_stack ()
 {
   int i = 0;
   for (stack_trace *p = stack_trace::stp; p; p = p->last)
@@ -89,6 +89,12 @@ se_handler (u_int code, EXCEPTION_POINTERS *ep)
         lisp_call_stack_buf[i].object = p->fn;
         i++;
       }
+}
+
+void __cdecl
+se_handler (u_int code, EXCEPTION_POINTERS *ep)
+{
+  record_lisp_call_stack ();
 
 #ifdef DEBUG
   if (code == EXCEPTION_IN_PAGE_ERROR)
@@ -107,7 +113,7 @@ se_handler (u_int code, EXCEPTION_POINTERS *ep)
 static int
 get_section_name (void *base, void *p, char *buf, int size)
 {
-  DWORD nread;
+  SIZE_T nread;
   IMAGE_DOS_HEADER dos;
   if (!ReadProcessMemory (GetCurrentProcess (),
                           base, &dos, sizeof dos, &nread))
@@ -124,7 +130,7 @@ get_section_name (void *base, void *p, char *buf, int size)
   if (nt.Signature != IMAGE_NT_SIGNATURE)
     return 0;
 
-  DWORD rva = DWORD (p) - DWORD (base);
+  DWORD rva = DWORD (DWORD_PTR (p) - DWORD_PTR (base));
 
   IMAGE_SECTION_HEADER *section =
     (IMAGE_SECTION_HEADER *)((char *)base + dos.e_lfanew
@@ -163,7 +169,7 @@ get_module_base_name (HMODULE h, LPSTR buf, DWORD size)
 }
 
 static int
-get_module_name (DWORD addr, MEMORY_BASIC_INFORMATION *bi, char *buf)
+get_module_name (pointer_t addr, MEMORY_BASIC_INFORMATION *bi, char *buf)
 {
   switch (bi->AllocationProtect & ~(PAGE_GUARD | PAGE_NOCACHE))
     {
@@ -198,16 +204,16 @@ find_module_name (void *addr, char *buf)
 {
   SYSTEM_INFO si;
   GetSystemInfo (&si);
-  addr = (void *)(DWORD (addr) & ~si.dwPageSize);
+  addr = (void *)(pointer_t (addr) & ~pointer_t (si.dwPageSize));
 
   MEMORY_BASIC_INFORMATION bi;
   memset (&bi, 0, sizeof bi);
   return (VirtualQuery (addr, &bi, sizeof bi)
-          && get_module_name (DWORD (addr), &bi, buf));
+          && get_module_name (pointer_t (addr), &bi, buf));
 }
 
 static void
-print_modules (FILE *fp, DWORD addr, MEMORY_BASIC_INFORMATION *bi)
+print_modules (FILE *fp, pointer_t addr, MEMORY_BASIC_INFORMATION *bi)
 {
   switch (bi->AllocationProtect & ~(PAGE_GUARD | PAGE_NOCACHE))
     {
@@ -231,20 +237,24 @@ print_modules (FILE *fp, DWORD addr, MEMORY_BASIC_INFORMATION *bi)
   char *p = path + lstrlen (path);
   if (get_section_name (bi->AllocationBase, bi->BaseAddress, p + 1, path + sizeof path - p - 1))
     *p = '!';
-  fprintf (fp, "%08x - %08x: %s\n", addr, addr + bi->RegionSize, path);
+  fprintf (fp, "%p - %p: %s\n", (void *)addr, (void *)(addr + bi->RegionSize), path);
 }
 
 static void
 print_module_allocation (FILE *fp)
 {
-  for (DWORD addr = 0; addr < 0xffffffff;)
+  SYSTEM_INFO si;
+  GetSystemInfo (&si);
+  const pointer_t limit = pointer_t (si.lpMaximumApplicationAddress);
+
+  for (pointer_t addr = 0; addr < limit;)
     {
       MEMORY_BASIC_INFORMATION bi;
       if (VirtualQuery ((void *)addr, &bi, sizeof bi))
         print_modules (fp, addr, &bi);
       else
         bi.RegionSize = 0;
-      DWORD oaddr = addr;
+      pointer_t oaddr = addr;
       addr += bi.RegionSize ? bi.RegionSize : 64 * 1024;
       if (addr < oaddr)
         break;
@@ -288,7 +298,8 @@ x86_stack_dump (FILE *fp, const CONTEXT &c)
 
   for (int i = 0; i < 64; i++)
     {
-      DWORD buf[16], nread;
+      DWORD buf[16];
+      SIZE_T nread;
       if (!ReadProcessMemory (GetCurrentProcess (), (void *)esp,
                               buf, sizeof buf, &nread)
           || nread != sizeof buf)
@@ -308,6 +319,63 @@ x86_stack_dump (FILE *fp, const CONTEXT &c)
 }
 
 #endif /* _M_IX86 */
+
+#ifdef _M_AMD64
+static void
+x64_print_registers (FILE *fp, const CONTEXT &c)
+{
+  fprintf (fp, "Registers:\n");
+  fprintf (fp, "RAX: %016I64x  RBX: %016I64x  RCX: %016I64x  RDX: %016I64x\n",
+           c.Rax, c.Rbx, c.Rcx, c.Rdx);
+  fprintf (fp, "RSI: %016I64x  RDI: %016I64x  RBP: %016I64x  RSP: %016I64x\n",
+           c.Rsi, c.Rdi, c.Rbp, c.Rsp);
+  fprintf (fp, "R8:  %016I64x  R9:  %016I64x  R10: %016I64x  R11: %016I64x\n",
+           c.R8, c.R9, c.R10, c.R11);
+  fprintf (fp, "R12: %016I64x  R13: %016I64x  R14: %016I64x  R15: %016I64x\n",
+           c.R12, c.R13, c.R14, c.R15);
+  fprintf (fp, "RIP: %016I64x  EFL: %08x\n", c.Rip, c.EFlags);
+  fprintf (fp, "CS: %04x  DS: %04x  ES: %04x  SS: %04x  FS: %04x  GS: %04x\n\n",
+           c.SegCs, c.SegDs, c.SegEs, c.SegSs, c.SegFs, c.SegGs);
+
+  DWORD64 rip = c.Rip - 16;
+  for (int j = 0; j < 2; j++)
+    {
+      fprintf (fp, "%016I64x:", rip);
+      for (int i = 0; i < 16; i++, rip++)
+        {
+          if (IsBadReadPtr ((void *)rip, 1))
+            fprintf (fp, " ??");
+          else
+            fprintf (fp, " %02x", *(u_char *)rip);
+        }
+      putc ('\n', fp);
+    }
+  putc ('\n', fp);
+}
+
+static void
+x64_stack_dump (FILE *fp, const CONTEXT &c)
+{
+  /* There is no frame pointer chain to follow on x64, so the top of the stack
+     is simply dumped as words. */
+  fprintf (fp, "Stack dump:\n");
+  DWORD64 rsp = c.Rsp;
+
+  for (int i = 0; i < 32; i++)
+    {
+      DWORD64 buf[4];
+      SIZE_T nread;
+      if (!ReadProcessMemory (GetCurrentProcess (), (void *)rsp,
+                              buf, sizeof buf, &nread)
+          || nread != sizeof buf)
+        break;
+      fprintf (fp, "%016I64x: %016I64x %016I64x %016I64x %016I64x\n",
+               rsp, buf[0], buf[1], buf[2], buf[3]);
+      rsp += sizeof buf;
+    }
+  putc ('\n', fp);
+}
+#endif /* _M_AMD64 */
 
 static int
 bad_object_p (FILE *fp, lisp object)
@@ -396,6 +464,32 @@ lisp_stack_trace (FILE *fp)
       }
 }
 
+#ifndef _MSC_VER
+static LONG CALLBACK
+unhandled_exception_filter (EXCEPTION_POINTERS *);
+static LONG CALLBACK
+unhandled_exception_filter (EXCEPTION_POINTERS *ep)
+{
+  Win32Exception::code = ep->ExceptionRecord->ExceptionCode;
+  Win32Exception::r = *ep->ExceptionRecord;
+  Win32Exception::c = *ep->ContextRecord;
+  record_lisp_call_stack ();
+  cleanup_exception ();
+  return EXCEPTION_EXECUTE_HANDLER;
+}
+
+void
+install_exception_reporter ()
+{
+  SetUnhandledExceptionFilter (unhandled_exception_filter);
+}
+#else
+void
+install_exception_reporter ()
+{
+}
+#endif
+
 void
 cleanup_exception ()
 {
@@ -433,7 +527,7 @@ cleanup_exception ()
                sysdep.os_ver.szCSDVersion);
 
       fprintf (fp, "%08x: %s\n", Win32Exception::code, desc);
-      fprintf (fp, "at %08x", Win32Exception::r.ExceptionAddress);
+      fprintf (fp, "at %p", Win32Exception::r.ExceptionAddress);
       if (*module)
         fprintf (fp, " (%s)", module);
       fprintf (fp, "\n\n");
@@ -441,11 +535,14 @@ cleanup_exception ()
 #ifdef _M_IX86
       x86_print_registers (fp, Win32Exception::c);
       x86_stack_dump (fp, Win32Exception::c);
+#elif defined (_M_AMD64)
+      x64_print_registers (fp, Win32Exception::c);
+      x64_stack_dump (fp, Win32Exception::c);
 #else
-# error "yet"
+# error "unsupported architecture"
 #endif
-      fprintf (fp, "Initial stack: %08x  GC: %d\n\n",
-               app.initial_stack, app.in_gc);
+      fprintf (fp, "Initial stack: %p  GC: %d\n\n",
+               (void *)app.initial_stack, app.in_gc);
 
       print_module_allocation (fp);
       lisp_stack_trace (fp);

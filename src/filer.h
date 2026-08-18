@@ -598,7 +598,7 @@ Filer::primary_window_p (const FilerView *v) const
 inline int
 Filer::dual_window_p () const
 {
-  return int (f_sview);
+  return f_sview != 0;
 }
 
 inline void

@@ -74,7 +74,7 @@ XMessageBox::create_ctl (const char *cls, const char *caption, DWORD style,
 {
   HWND c = CreateWindow (cls, caption, style,
                          r.left, r.top, r.right - r.left, r.bottom - r.top,
-                         hwnd, HMENU (id), hinst, 0);
+                         hwnd, HMENU (UINT_PTR (id)), hinst, 0);
   SendMessage (c, WM_SETFONT, WPARAM (hfont), 0);
   return c;
 }
@@ -274,20 +274,20 @@ XMessageBox::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
   return 0;
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 XMessageBox::WndProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   XMessageBox *p;
   if (msg == WM_INITDIALOG)
     {
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       p = (XMessageBox *)lparam;
       p->hwnd = hwnd;
       p->WndProc (msg, wparam, lparam);
     }
   else
     {
-      p = (XMessageBox *)GetWindowLong (hwnd, DWL_USER);
+      p = (XMessageBox *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (p)
         p->WndProc (msg, wparam, lparam);
     }

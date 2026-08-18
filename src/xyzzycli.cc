@@ -23,7 +23,8 @@ ForceSetForegroundWindow (HWND hwnd)
     {
       SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0, 0, 0);
       SetForegroundWindow (hwnd);
-      SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0, (void *)timeout, 0);
+      SystemParametersInfo (SPI_SETFOREGROUNDLOCKTIMEOUT, 0,
+                            (void *)UINT_PTR (timeout), 0);
     }
   else
     SetForegroundWindow (hwnd);

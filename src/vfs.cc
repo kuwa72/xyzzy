@@ -12,7 +12,7 @@ public:
   const char *remote;
 
 private:
-  static BOOL CALLBACK netpass_dlgproc (HWND, UINT, WPARAM, LPARAM);
+  static INT_PTR CALLBACK netpass_dlgproc (HWND, UINT, WPARAM, LPARAM);
   BOOL dlgproc (UINT, WPARAM, LPARAM);
   void do_command (int, int);
   void init_dialog ();
@@ -70,19 +70,19 @@ NetPassDlg::dlgproc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 NetPassDlg::netpass_dlgproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   NetPassDlg *p;
   if (msg == WM_INITDIALOG)
     {
       p = (NetPassDlg *)lparam;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       p->hwnd = hwnd;
     }
   else
     {
-      p = (NetPassDlg *)GetWindowLong (hwnd, DWL_USER);
+      p = (NetPassDlg *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (!p)
         return 0;
     }
@@ -301,8 +301,8 @@ GetDiskFreeSpaceFAT32 (LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
   DIOC_REGISTERS regs = {0};
   regs.reg_EAX = 0x7303;
   regs.reg_ECX = sizeof dfs;
-  regs.reg_EDX = DWORD (lpRootPathName);
-  regs.reg_EDI = DWORD (&dfs);
+  regs.reg_EDX = DWORD (pointer_t (lpRootPathName));
+  regs.reg_EDI = DWORD (pointer_t (&dfs));
 
   DWORD nbytes;
   if (!DeviceIoControl (hvwin32, VWIN32_DIOC_DOS_DRIVEINFO,

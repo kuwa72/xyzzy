@@ -557,25 +557,25 @@ make_char_encoding_constructor (lisp x)
       return make_list (Smake_auto_detect_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
-                        0);
+                        (lisp)0);
 
     case encoding_sjis:
       return make_list (Smake_sjis_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
-                        0);
+                        (lisp)0);
 
     case encoding_big5:
       return make_list (Smake_big5_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
-                        0);
+                        (lisp)0);
 
     case encoding_binary:
       return make_list (Smake_binary_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
-                        0);
+                        (lisp)0);
 
     case encoding_iso2022:
     case encoding_iso2022_noesc:
@@ -612,21 +612,21 @@ make_char_encoding_constructor (lisp x)
                         boole (xchar_encoding_iso_flags (x) & ENCODING_ISO_USE_CNS11643),
                         Kvender,
                         from_vender_code (xchar_encoding_iso_flags (x) & ENCODING_ISO_VENDER_MASK),
-                        0);
+                        (lisp)0);
 
     case encoding_iso8859:
       return make_list (Smake_iso8859_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
                         from_charset (xchar_encoding_iso8859_charset (x)),
-                        0);
+                        (lisp)0);
 
     case encoding_windows_codepage:
       return make_list (Smake_windows_codepage_encoding,
                         xchar_encoding_name (x),
                         xchar_encoding_display_name (x),
                         make_fixnum (xchar_encoding_windows_codepage (x)),
-                        0);
+                        (lisp)0);
 
     case encoding_utf5:
     case encoding_utf7:
@@ -653,7 +653,7 @@ make_char_encoding_constructor (lisp x)
                         boole (xchar_encoding_utf_flags (x) & UTF7_WHITE),
                         Kdirect_encode_set_o,
                         boole (xchar_encoding_utf_flags (x) & UTF7_SET_O),
-                        0);
+                        (lisp)0);
 
     default:
       assert (0);

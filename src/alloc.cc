@@ -80,7 +80,7 @@ alloc_page::alloc ()
       for (u_int i = 0; i < ap_units_per_block; i++)
         if (!(ap_rep->commit & (1 << i)))
           {
-            void *base = (void *)((u_int (ap_rep) & ~(ap_block_size - 1))
+            void *base = (void *)((pointer_t (ap_rep) & ~pointer_t (ap_block_size - 1))
                                   + i * ap_unit_size);
             void *p = VirtualAlloc (base, ap_unit_size,
                                     MEM_COMMIT, PAGE_READWRITE);

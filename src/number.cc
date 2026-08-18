@@ -190,7 +190,7 @@ round (double x)
   return x < 0 ? q - 1 : q + 1;
 }
 
-#ifdef _M_IX86
+#ifdef HAVE_MSVC_X86_ASM
 # pragma warning (disable:4035)
 #endif
 
@@ -198,7 +198,7 @@ round (double x)
 static long
 truncate (long *r, long x, long y)
 {
-#ifdef _M_IX86
+#ifdef HAVE_MSVC_X86_ASM
   __asm
     {
       mov ecx, r;
@@ -213,7 +213,7 @@ truncate (long *r, long x, long y)
 #endif
 }
 
-#ifdef _M_IX86
+#ifdef HAVE_MSVC_X86_ASM
 # pragma warning (default:4035)
 #endif
 

@@ -558,7 +558,7 @@ Process::store_output (const Char *w, int l)
       r.data = w;
       r.size = l;
       r.done = 0;
-      DWORD result;
+      DWORD_PTR result;
 
       do
         if (SendMessageTimeout (app.toplev, WM_PRIVATE_PROCESS_OUTPUT,
@@ -1515,11 +1515,11 @@ Fshell_execute (lisp lpath, lisp ldir, lisp lparam, lisp keys)
       sei.lpDirectory = dir;
       sei.lpVerb = verb;
       sei.nShow = SW_SHOW;
-      e = (*ex)(&sei) ? 33 : DWORD (sei.hInstApp);
+      e = (*ex)(&sei) ? 33 : DWORD (DWORD_PTR (sei.hInstApp));
     }
   else
-    e = DWORD (ShellExecute (get_active_window (), verb ? verb : "open",
-                             path, param, dir, SW_SHOWNORMAL));
+    e = DWORD (DWORD_PTR (ShellExecute (get_active_window (), verb ? verb : "open",
+                                        path, param, dir, SW_SHOWNORMAL)));
   if (dir)
     WINFS::SetCurrentDirectory (sysdep.curdir);
   SetErrorMode (omode);

@@ -461,13 +461,102 @@ call_special_form (lisp f, lisp arg, lex_env &lex)
   return ((lisp (*)(lisp, lex_env &))xfunction_fn (f))(arg, lex);
 }
 
+#if !defined (_MSC_VER) || !defined (_M_IX86)
+/* Number of arguments a primitive can take; gen-syms enforces the same limit
+   on the tables it generates. */
+# define MAX_BUILTIN_ARGS 31
+
+static lisp
+call_builtin (lfunction_proc fn, const lisp *a, int n)
+{
+  switch (n)
+    {
+    case 0:
+      return ((lisp (LISPCALL *)())fn)();
+    case 1:
+      return ((lisp (LISPCALL *)(lisp))fn)(a[0]);
+    case 2:
+      return ((lisp (LISPCALL *)(lisp, lisp))fn)(a[0], a[1]);
+    case 3:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp))fn)(a[0], a[1], a[2]);
+    case 4:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3]);
+    case 5:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4]);
+    case 6:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5]);
+    case 7:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+    case 8:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+    case 9:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
+    case 10:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9]);
+    case 11:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10]);
+    case 12:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11]);
+    case 13:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12]);
+    case 14:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13]);
+    case 15:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14]);
+    case 16:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
+    case 17:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16]);
+    case 18:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17]);
+    case 19:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18]);
+    case 20:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19]);
+    case 21:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20]);
+    case 22:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21]);
+    case 23:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22]);
+    case 24:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23]);
+    case 25:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24]);
+    case 26:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25]);
+    case 27:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26]);
+    case 28:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27]);
+    case 29:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27], a[28]);
+    case 30:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27], a[28], a[29]);
+    case 31:
+      return ((lisp (LISPCALL *)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp))fn)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27], a[28], a[29], a[30]);
+    }
+  assert (0);
+  return Qnil;
+}
+#endif
+
 lisp
 funcall_builtin (lisp f, lisp arglist)
 {
   assert (functionp (f));
-#ifdef _M_IX86
   int nargs = xfunction_nargs (f) + xfunction_nopts (f) + (need_rest_p (f) ? 1 : 0);
+#if defined (_MSC_VER) && defined (_M_IX86)
+  /* The arguments are written where a __stdcall callee expects to find them and
+     are popped by the callee on return, hence the zero argument call below.
+     This depends on MSVC's x86 stack layout. */
   lisp *stack = (lisp *)alloca (sizeof (lisp) * nargs);
+  lisp *const argv = stack;
+#else
+  lisp argv[MAX_BUILTIN_ARGS];
+  assert (nargs <= MAX_BUILTIN_ARGS);
+  lisp *stack = argv;
+#endif
   for (int i = xfunction_nargs (f); i > 0; i--)
     {
       if (!consp (arglist))
@@ -496,9 +585,11 @@ funcall_builtin (lisp f, lisp arglist)
 #ifdef DEBUG_GC
   MARK_FUNCALL (f);
 #endif
+#if defined (_MSC_VER) && defined (_M_IX86)
+  (void)argv;
   return lfunction_proc_0 (xfunction_fn (f))();
 #else
-# error "Not tested"
+  return call_builtin (xfunction_fn (f), argv, nargs);
 #endif
 }
 
@@ -1375,7 +1466,7 @@ flet (lisp arg, lex_env &olex, lex_env &nlex, int macrop, lisp name_prefix)
           fn = make_closure (body,
                              olex.lex_var, olex.lex_fns,
                              olex.lex_frame);
-          xclosure_name (fn) = make_list (name_prefix, name, 0);
+          xclosure_name (fn) = make_list (name_prefix, name, (lisp)0);
         }
       nlex.lex_fns = xcons (xcons (name, fn), nlex.lex_fns);
       QUIT;

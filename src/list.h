@@ -73,6 +73,9 @@ lisp memq (lisp, lisp);
 int delq (lisp, lisp *);
 lisp assq (lisp, lisp);
 int delassq (lisp, lisp *);
+/* The argument list is terminated by a null lisp.  It has to be typed at the
+   call site: a literal 0 is an int, and a variadic slot wider than an int is
+   then only half written. */
 lisp make_list (lisp x, ...);
 
 inline lisp

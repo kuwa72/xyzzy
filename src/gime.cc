@@ -10,7 +10,7 @@
 /* Dimm.h は SDK から持ってくること。SDK を持っていない場合は
    Makefile の -DHAVE_DIMM_H をコメントアウトすればコンパイル
    はできる。*/
-#include <Dimm.h>
+#include <dimm.h>
 #endif
 
 GlobalIME::GlobalIME ()

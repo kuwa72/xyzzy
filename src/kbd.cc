@@ -975,7 +975,7 @@ kbd_queue::get_kbd_layout () const
 
   char b[KL_NAMELENGTH];
   if (GetKeyboardLayoutName (b))
-    return HKL (strtol (b, 0, 16));
+    return HKL (pointer_t (strtol (b, 0, 16)));
   return HKL (MAKELANGID (LANG_JAPANESE, SUBLANG_DEFAULT));
 }
 
@@ -1443,8 +1443,8 @@ Flist_kbd_layout ()
     {
       char buf[256];
       if (get_kbd_layout_name (h[i], buf, sizeof buf)
-          || get_kbd_layout_name (HKL (HIWORD (h[i])), buf, sizeof buf))
-        r = xcons (xcons (make_fixnum (int (h[i])),
+          || get_kbd_layout_name (HKL (pointer_t (HIWORD (h[i]))), buf, sizeof buf))
+        r = xcons (xcons (make_fixnum (long (pointer_t (h[i]))),
                           make_string (buf)),
                    r);
     }
@@ -1476,7 +1476,7 @@ Fselect_kbd_layout (lisp layout)
         {
           char buf[256];
           if ((get_kbd_layout_name (h[i], buf, sizeof buf)
-               || get_kbd_layout_name (HKL (LOWORD (h[i])), buf, sizeof buf))
+               || get_kbd_layout_name (HKL (pointer_t (LOWORD (h[i]))), buf, sizeof buf))
               && !strcmp (buf, name))
             {
               hkl = h[i];
@@ -1494,7 +1494,8 @@ Fselect_kbd_layout (lisp layout)
     {
       if (!fixnump (layout))
         FEtype_error (layout, xsymbol_value (Qor_string_integer));
-      hkl = HKL (fixnum_value (layout));
+      /* a keyboard layout handle is a 32 bit pseudo handle */
+      hkl = HKL (pointer_t (u_long (fixnum_value (layout))));
     }
   if (!ActivateKeyboardLayout (hkl, 0))
     FEsimple_win32_error (GetLastError ());
@@ -1507,9 +1508,9 @@ Fcurrent_kbd_layout ()
   HKL hkl = app.kbdq.get_kbd_layout ();
   char buf[256];
   if (get_kbd_layout_name (hkl, buf, sizeof buf)
-      || get_kbd_layout_name (HKL (HIWORD (hkl)), buf, sizeof buf))
-    return xcons (make_fixnum (int (hkl)), make_string (buf));
-  return xcons (make_fixnum (int (hkl)), Qnil);
+      || get_kbd_layout_name (HKL (pointer_t (HIWORD (hkl))), buf, sizeof buf))
+    return xcons (make_fixnum (long (pointer_t (hkl))), make_string (buf));
+  return xcons (make_fixnum (long (pointer_t (hkl))), Qnil);
 }
 
 int

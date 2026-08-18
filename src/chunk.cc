@@ -66,7 +66,7 @@ Fsi_make_chunk (lisp type, lisp lsize, lisp src_chunk, lisp loffset)
       else
         {
           xchunk_data (chunk) =
-            chunk_ptr ((char *)unsigned_long_value (loffset), lsize);
+            chunk_ptr ((char *)pointer_t (coerce_to_int64 (loffset)), lsize);
           xchunk_owner (chunk) = Qnil;
         }
     }
@@ -107,7 +107,7 @@ lisp
 Fsi_chunk_data (lisp chunk)
 {
   check_chunk (chunk);
-  return make_fixnum (long (xchunk_data (chunk)));
+  return make_integer (int64_t (pointer_t (xchunk_data (chunk))));
 }
 
 lisp
@@ -134,7 +134,7 @@ Fsi_chunk_owner (lisp chunk)
 lisp
 Fsi_address_of (lisp object)
 {
-  return make_fixnum (long (object));
+  return make_integer (int64_t (pointer_t (object)));
 }
 
 static char *

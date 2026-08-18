@@ -211,7 +211,7 @@ main (void)
     }
   else
     {
-      HANDLE hevent = HANDLE (parse_long (event));
+      HANDLE hevent = HANDLE (UINT_PTR (parse_long (event)));
 
       HANDLE objects[2];
       objects[0] = hevent;

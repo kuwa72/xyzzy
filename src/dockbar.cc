@@ -36,7 +36,7 @@ dock_bar::subclass ()
 {
   if (!SetProp (b_hwnd, b_dock_bar_prop, HANDLE (this)))
     return 0;
-  b_wndproc = (WNDPROC)SetWindowLong (b_hwnd, GWL_WNDPROC, LONG (WNDPROC (wndproc)));
+  b_wndproc = (WNDPROC)SetWindowLongPtr (b_hwnd, GWLP_WNDPROC, LONG_PTR (WNDPROC (wndproc)));
   if (b_wndproc)
     return 1;
   RemoveProp (b_hwnd, b_dock_bar_prop);
@@ -48,7 +48,7 @@ dock_bar::unsubclass ()
 {
   if (b_wndproc)
     {
-      SetWindowLong (b_hwnd, GWL_WNDPROC, LONG (b_wndproc));
+      SetWindowLongPtr (b_hwnd, GWLP_WNDPROC, LONG_PTR (b_wndproc));
       RemoveProp (b_hwnd, b_dock_bar_prop);
       b_wndproc = 0;
     }
@@ -335,7 +335,7 @@ tool_bar::create (HWND hwnd_parent, DWORD style, UINT id)
 {
   if (!dock_bar::create (0, TOOLBARCLASSNAME, 0,
                          style, 0, 0, 0, 0, hwnd_parent,
-                         (HMENU)id, app.hinst, 0))
+                         (HMENU)UINT_PTR (id), app.hinst, 0))
     return 0;
   sendmsg (TB_BUTTONSTRUCTSIZE, sizeof (TBBUTTON), 0);
   return 1;
@@ -410,7 +410,7 @@ tool_bar::set_bitmap ()
 
   TBADDBITMAP tbab;
   tbab.hInst = 0;
-  tbab.nID = (UINT)(HBITMAP)*t_bm;
+  tbab.nID = (UINT_PTR)(HBITMAP)*t_bm;
   add_bitmap (tbab, bm.bmWidth / 16);
 }
 
@@ -491,7 +491,7 @@ tab_bar::create (HWND hwnd_parent)
   return 1;
 }
 
-DWORD
+LPARAM
 tab_bar::nth (int i) const
 {
   TC_ITEM ti;
@@ -506,7 +506,7 @@ tab_bar::modify_spin ()
   if (!hwnd_spin)
     return;
 
-  HWND *buf = (HWND *)GetWindowLong (b_hwnd, 0);
+  HWND *buf = (HWND *)GetWindowLongPtr (b_hwnd, 0);
 
   int offset;
   if (IsBadWritePtr (buf, sizeof *buf * 10)
@@ -1123,7 +1123,7 @@ tab_bar::spin_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       break;
 
     case WM_NCDESTROY:
-      SetWindowLong (hwnd, GWL_WNDPROC, LONG (oproc));
+      SetWindowLongPtr (hwnd, GWLP_WNDPROC, LONG_PTR (oproc));
       RemoveProp (hwnd, b_tab_bar_spin_prop);
       break;
     }
@@ -1136,9 +1136,9 @@ tab_bar::parent_notify (UINT msg, UINT id, HWND hwnd)
   if (msg == WM_CREATE && id == IDC_TAB_SPIN
       && !(GetWindowLong (hwnd, GWL_STYLE) & UDS_HORZ))
     {
-      WNDPROC o = (WNDPROC)GetWindowLong (hwnd, GWL_WNDPROC);
+      WNDPROC o = (WNDPROC)GetWindowLongPtr (hwnd, GWLP_WNDPROC);
       if (o && SetProp (hwnd, b_tab_bar_spin_prop, HANDLE (o)))
-        SetWindowLong (hwnd, GWL_WNDPROC, LONG (spin_wndproc));
+        SetWindowLongPtr (hwnd, GWLP_WNDPROC, LONG_PTR (spin_wndproc));
     }
 }
 
@@ -2337,7 +2337,7 @@ dock_frame::list_bars () const
                                 make_fixnum (bar->rect ().left),
                                 make_fixnum (bar->rect ().top),
                                 w > 0 ? make_fixnum (w) : Qnil,
-                                0),
+                                (lisp)0),
                      x);
         }
       r = xcons (x, r);

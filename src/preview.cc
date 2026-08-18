@@ -682,12 +682,12 @@ preview_page_window::wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   if (msg == WM_NCCREATE)
     {
       p = (preview_page_window *)((CREATESTRUCT *)lparam)->lpCreateParams;
-      SetWindowLong (hwnd, 0, LONG (p));
+      SetWindowLongPtr (hwnd, 0, LONG_PTR (p));
       p->p_hwnd = hwnd;
     }
   else
     {
-      p = (preview_page_window *)GetWindowLong (hwnd, 0);
+      p = (preview_page_window *)GetWindowLongPtr (hwnd, 0);
       if (!p)
         return DefWindowProc (hwnd, msg, wparam, lparam);
     }
@@ -985,19 +985,19 @@ preview_dialog::wndproc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
-BOOL CALLBACK
+INT_PTR CALLBACK
 preview_dialog::wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
   preview_dialog *p;
   if (msg == WM_INITDIALOG)
     {
       p = (preview_dialog *)lparam;
-      SetWindowLong (hwnd, DWL_USER, lparam);
+      SetWindowLongPtr (hwnd, DWLP_USER, lparam);
       p->p_hwnd = hwnd;
     }
   else
     {
-      p = (preview_dialog *)GetWindowLong (hwnd, DWL_USER);
+      p = (preview_dialog *)GetWindowLongPtr (hwnd, DWLP_USER);
       if (!p)
         return 0;
     }

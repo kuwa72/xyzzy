@@ -839,7 +839,7 @@ process_keydown (HWND hwnd, int vkey, listview_item_data *data)
   send_keydown (hwnd, vkey);
 }
 
-#define upcase(c) CharUpper (LPSTR (c & 0xff))
+#define upcase(c) CharUpper (LPSTR (UINT_PTR (c & 0xff)))
 #define eql(c1, c2) (upcase (c1) == upcase (c2))
 
 static int

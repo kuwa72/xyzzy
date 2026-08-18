@@ -22,8 +22,8 @@ int Buffer::b_default_kinsoku_extend_limit = 3;
 int Buffer::b_default_kinsoku_shorten_limit = 10;
 u_char Buffer::b_buffer_bar_modified_any;
 
-fixed_heap ChunkHeap::a_heap (8192);
-fixed_heap textprop_heap::a_heap (4096);
+template <> fixed_heap ChunkHeap::a_heap (8192);
+template <> fixed_heap textprop_heap::a_heap (4096);
 const u_char Chunk::c_breaks_mask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 class enum_buffer

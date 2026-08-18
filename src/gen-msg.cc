@@ -64,7 +64,7 @@ gen_msg (int argc, char **argv)
     }
   else if (!strcmp (argv[1], "-enum"))
     {
-      printf ("enum message_code\n{\n");
+      printf ("enum message_code : int\n{\n");
       int i;
       for (i = 0; i < numberof (msg) - 1; i++)
         printf ("  %s,\n", msg[i].ident);

@@ -35,7 +35,7 @@
 #include <setjmp.h>
 #include <share.h>
 #include <shlobj.h>
-#include <ShObjIdl.h>
+#include <shobjidl.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>

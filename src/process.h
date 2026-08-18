@@ -10,7 +10,7 @@
 
 class Process;
 struct Buffer;
-enum eol_code;
+enum eol_code : int;
 
 class lprocess: public lisp_object
 {

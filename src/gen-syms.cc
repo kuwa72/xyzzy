@@ -25,61 +25,80 @@ struct symbols
 
 #define CAT CONCAT
 
+/* A lisp name is not necessarily a valid preprocessing token (*print-readably*,
+   let*, 1+ ...), so the C name is assembled out of string literals rather than
+   by token pasting; only print_cname() below turns the text into an identifier.
+   Pasting an identifier with such a name happens to work with the MSVC
+   preprocessor but is not valid preprocessing anywhere else.  The macros
+   suffixed with S take b and c already stringified.  */
+#define PCAT(prefix, name) STR (prefix) STR (name)
+#define DEFS(a, b, c, d, e, f, g) {STR (a), b, c, d, e, f, g}
+#define DEFXS(a, b, c, d, e, f, g) {a, b, c, d, e, f, g}
+#define VDEFS(a, b, c) {STR (a), 0, b, 0, 0, c}
+
 #define DEFSF(a, b, c) DEF (a, b, c, 2, 0, FFspecial_form, 0)
-#define DEFSF2(lname, cname) DEFSF (lname, CAT (F, cname), CAT (S, cname))
-#define DEFSF3(name) DEFSF (name, CAT (F, name), CAT (S, name))
-#define DEFSF3Q(name) DEFSF (name, CAT (F, name), CAT (Q, name))
-#define SI_DEFSF3(name) DEFSF (name, CAT (Fsi_, name), CAT (Ssi_, name))
-#define CL_DEFSF3(name) DEFSF (name, CAT (Fcl_, name), CAT (Ssi_, name))
+#define DEFSFS(a, b, c) DEFS (a, b, c, 2, 0, FFspecial_form, 0)
+#define DEFSF2(lname, cname) DEFSFS (lname, PCAT (F, cname), PCAT (S, cname))
+#define DEFSF3(name) DEFSFS (name, PCAT (F, name), PCAT (S, name))
+#define DEFSF3Q(name) DEFSFS (name, PCAT (F, name), PCAT (Q, name))
+#define SI_DEFSF3(name) DEFSFS (name, PCAT (Fsi_, name), PCAT (Ssi_, name))
+#define CL_DEFSF3(name) DEFSFS (name, PCAT (Fcl_, name), PCAT (Ssi_, name))
 
 #define DEFMACRO(a, b, c) DEF (a, b, c, 2, 0, FFspecial_form | FFmacro, 0)
-#define DEFMACRO3(name) DEFMACRO (name, CAT (F, name), CAT (S, name))
-#define DEFMACRO3Q(name) DEFMACRO (name, CAT (F, name), CAT (Q, name))
+#define DEFMACROS(a, b, c) DEFS (a, b, c, 2, 0, FFspecial_form | FFmacro, 0)
+#define DEFMACRO3(name) DEFMACROS (name, PCAT (F, name), PCAT (S, name))
+#define DEFMACRO3Q(name) DEFMACROS (name, PCAT (F, name), PCAT (Q, name))
 
 #define DEFPMACRO(a, b, c) DEF (a, b, c, 2, 0, FFspecial_form | FFpseudo_macro, 0)
-#define DEFPMACRO3(name) DEFPMACRO (name, CAT (F, name), CAT (S, name))
-#define DEFPMACRO3Q(name) DEFPMACRO (name, CAT (F, name), CAT (Q, name))
+#define DEFPMACROS(a, b, c) DEFS (a, b, c, 2, 0, FFspecial_form | FFpseudo_macro, 0)
+#define DEFPMACRO3(name) DEFPMACROS (name, PCAT (F, name), PCAT (S, name))
+#define DEFPMACRO3Q(name) DEFPMACROS (name, PCAT (F, name), PCAT (Q, name))
 
 #define DEFUN(a, b, c, d, e, f) DEF (a, b, c, d, e, f, 0)
+#define DEFUNS(a, b, c, d, e, f) DEFS (a, b, c, d, e, f, 0)
 #define DEFUN2(lname, cname, req, opt, f) \
-  DEFUN (lname, CAT (F, cname), CAT (S, cname), req, opt, f)
+  DEFUNS (lname, PCAT (F, cname), PCAT (S, cname), req, opt, f)
 #define DEFUN3(name, req, opt, f) \
-  DEFUN (name, CAT (F, name), CAT (S, name), req, opt, f)
+  DEFUNS (name, PCAT (F, name), PCAT (S, name), req, opt, f)
 #define DEFUN3Q(name, req, opt, f) \
-  DEFUN (name, CAT (F, name), CAT (Q, name), req, opt, f)
+  DEFUNS (name, PCAT (F, name), PCAT (Q, name), req, opt, f)
 #define SI_DEFUN2X(lname, cname, req, opt, f) \
-  DEFX (lname, CAT (Fsi_, cname), CAT (Ssi_, cname), req, opt, f, 0)
+  DEFXS (lname, PCAT (Fsi_, cname), PCAT (Ssi_, cname), req, opt, f, 0)
 #define SI_DEFUN3(name, req, opt, f) \
-  DEFUN (name, CAT (Fsi_, name), CAT (Ssi_, name), req, opt, f)
+  DEFUNS (name, PCAT (Fsi_, name), PCAT (Ssi_, name), req, opt, f)
 #define CL_DEFUN2X(lname, cname, req, opt, f) \
-  DEFX (lname, CAT (Fcl_, cname), CAT (Scl_, cname), req, opt, f, 0)
+  DEFXS (lname, PCAT (Fcl_, cname), PCAT (Scl_, cname), req, opt, f, 0)
 #define CL_DEFUN3(name, req, opt, f) \
-  DEFUN (name, CAT (Fcl_, name), CAT (Scl_, name), req, opt, f)
+  DEFUNS (name, PCAT (Fcl_, name), PCAT (Scl_, name), req, opt, f)
 
 #define DEFCMD(a, b, c, d, e, f, g) DEF (a, b, c, d, e, f, g)
+#define DEFCMDS(a, b, c, d, e, f, g) DEFS (a, b, c, d, e, f, g)
 #define DEFCMD2(lname, cname, req, opt, f, g) \
-  DEFCMD (lname, CAT (F, cname), CAT (S, cname), req, opt, f, g)
+  DEFCMDS (lname, PCAT (F, cname), PCAT (S, cname), req, opt, f, g)
 #define DEFCMD3(name, req, opt, f, g) \
-  DEFCMD (name, CAT (F, name), CAT (S, name), req, opt, f, g)
+  DEFCMDS (name, PCAT (F, name), PCAT (S, name), req, opt, f, g)
 
 #define VDEF(a, b, c) {STR (a), 0, STR (b), 0, 0, c}
 
 #define DEFCONST(a, b) VDEF (a, b, SFconstant | SFspecial)
-#define DEFCONST2Q(name) DEFCONST (name, CAT (Q, name))
+#define DEFCONSTS(a, b) VDEFS (a, b, SFconstant | SFspecial)
+#define DEFCONST2Q(name) DEFCONSTS (name, PCAT (Q, name))
 #define DEFKWD DEFCONST
-#define DEFKWD2(name) DEFCONST (name, CAT (K, name))
+#define DEFKWD2(name) DEFCONSTS (name, PCAT (K, name))
 #define DEFVAR(a, b) VDEF (a, b, SFspecial)
-#define DEFVAR2(name) DEFVAR (name, CAT (V, name))
-#define SI_DEFVAR2(name) DEFVAR (name, CAT (Vsi_, name))
-#define CL_DEFVAR2(name) DEFVAR (name, CAT (Vcl_, name))
+#define DEFVARS(a, b) VDEFS (a, b, SFspecial)
+#define DEFVAR2(name) DEFVARS (name, PCAT (V, name))
+#define SI_DEFVAR2(name) DEFVARS (name, PCAT (Vsi_, name))
+#define CL_DEFVAR2(name) DEFVARS (name, PCAT (Vcl_, name))
 #define DEFLAMBDAKEY(a, b) VDEF (a, b, SFconstant | SFlambda_key)
 #define MAKE_SYMBOL(a, b) VDEF (a, b, 0)
-#define MAKE_SYMBOL2(name) MAKE_SYMBOL (name, CAT (V, name))
-#define MAKE_SYMBOL2Q(name) MAKE_SYMBOL (name, CAT (Q, name))
-#define MAKE_SYMBOL2QC(name) MAKE_SYMBOL (name, CAT (QC, name))
-#define MAKE_SYMBOL2F(name, f) VDEF (name, CAT (V, name), f)
-#define SI_MAKE_SYMBOL2(name) MAKE_SYMBOL (name, CAT (Vsi_, name))
-#define CL_MAKE_SYMBOL2(name) MAKE_SYMBOL (name, CAT (Vcl_, name))
+#define MAKE_SYMBOLS(a, b) VDEFS (a, b, 0)
+#define MAKE_SYMBOL2(name) MAKE_SYMBOLS (name, PCAT (V, name))
+#define MAKE_SYMBOL2Q(name) MAKE_SYMBOLS (name, PCAT (Q, name))
+#define MAKE_SYMBOL2QC(name) MAKE_SYMBOLS (name, PCAT (QC, name))
+#define MAKE_SYMBOL2F(name, f) VDEFS (name, PCAT (V, name), f)
+#define SI_MAKE_SYMBOL2(name) MAKE_SYMBOLS (name, PCAT (Vsi_, name))
+#define CL_MAKE_SYMBOL2(name) MAKE_SYMBOLS (name, PCAT (Vcl_, name))
 
 #define DEFCONDITION(a, b, c, d) {0, 0, "Q" STR (a), 0, 0, 0}
 
@@ -2805,7 +2824,7 @@ print_defuns (symbols *p, int n, const char *pkg)
           }
         printf ("  {");
         print_name (p);
-        printf ("(lisp (__stdcall *)())(lisp (__stdcall *)(");
+        printf ("(lisp (LISPCALL *)())(lisp (LISPCALL *)(");
         print_arg (p->req, p->opt, p->flags, false);
         printf ("))");
         print_cname (p->fn);

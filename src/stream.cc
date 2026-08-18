@@ -427,7 +427,7 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
       xfile_stream_alt_pathname (stream) = 0;
     }
 
-  int fd = _open_osfhandle (long (h), access == GENERIC_READ ? _O_RDONLY : 0);
+  int fd = _open_osfhandle (intptr_t (h), access == GENERIC_READ ? _O_RDONLY : 0);
   if (fd == -1)
     {
       CloseHandle (h);
@@ -1571,7 +1571,7 @@ listen_stream (lisp stream)
         case st_file_io:
         case st_file_input:
           {
-#ifdef _MSC_VER
+#if defined (_MSC_VER) || defined (__MINGW32__)
             if (xfile_stream_input (stream)->_cnt > 0)
               return 1;
 #else

@@ -1,7 +1,7 @@
 #ifndef _ctxmenu_h_
 #define _ctxmenu_h_
 
-#if _MSC_VER < 1100 && !defined (HAVE_ICONTEXTMENU2)
+#if defined (_MSC_VER) && _MSC_VER < 1100 && !defined (HAVE_ICONTEXTMENU2)
 
 DEFINE_SHLGUID (IID_IContextMenu2, 0x000214f4l, 0, 0);
 

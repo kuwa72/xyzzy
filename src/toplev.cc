@@ -20,7 +20,8 @@ mouse_wheel g_wheel;
 static u_int __stdcall
 quit_thread_entry (void *p)
 {
-  DWORD parent = (DWORD)p;
+  /* a thread id, passed through a void * by _beginthreadex */
+  DWORD parent = DWORD (DWORD_PTR (p));
 
 #define HK_BREAK 1
 #define HK_QUIT 2
@@ -130,9 +131,10 @@ quit_thread_entry (void *p)
 int
 start_quit_thread ()
 {
-  u_long h = _beginthreadex (0, 0, quit_thread_entry, (void *)GetCurrentThreadId (),
-                             0, &app.quit_thread_id);
-  if (h == -1)
+  uintptr_t h = _beginthreadex (0, 0, quit_thread_entry,
+                               (void *)UINT_PTR (GetCurrentThreadId ()),
+                               0, &app.quit_thread_id);
+  if (h == uintptr_t (-1))
     return 0;
   CloseHandle (HANDLE (h));
   return 1;
@@ -1147,13 +1149,13 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 static inline void
 set_window (HWND hwnd, Window *wp)
 {
-  SetWindowLong (hwnd, 0, LONG (wp));
+  SetWindowLongPtr (hwnd, 0, LONG_PTR (wp));
 }
 
 static inline Window *
 get_window (HWND hwnd)
 {
-  return (Window *)GetWindowLong (hwnd, 0);
+  return (Window *)GetWindowLongPtr (hwnd, 0);
 }
 
 static int

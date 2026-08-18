@@ -1520,7 +1520,7 @@ public:
   regexp_kwd::regexp_kwd (lisp, point_t, const Buffer *);
   int kwdmatch (const Point &, int, int &);
   int kwdmatch_begin (const Point &, int);
-  int valid_p () const {return int (rk_list);}
+  int valid_p () const {return rk_list != 0;}
   point_t match_beg () const {return rk_match_beg;}
   point_t match_end () const {return rk_match_end;}
   int value (int i) const {return rk_use_vals ? rk_vals[i] : rk_val;}
