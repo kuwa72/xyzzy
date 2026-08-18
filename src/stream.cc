@@ -1571,11 +1571,12 @@ listen_stream (lisp stream)
         case st_file_io:
         case st_file_input:
           {
-#if defined (_MSC_VER) || defined (__MINGW32__)
+            /* Buffered input counts as readable.  Only the CRTs that expose
+               FILE's fields allow asking; the UCRT does not and has no
+               replacement, so there the wait below decides on its own. */
+#if defined (__MINGW32__) || (defined (_MSC_VER) && _MSC_VER < 1900)
             if (xfile_stream_input (stream)->_cnt > 0)
               return 1;
-#else
-# error "Not Supported"
 #endif
             if (WaitForSingleObject (HANDLE (_get_osfhandle (_fileno (xfile_stream_input (stream)))),
                                      0) == WAIT_TIMEOUT)
