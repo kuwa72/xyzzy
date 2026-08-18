@@ -42,7 +42,9 @@ for dir in lisp etc unittest misc reference; do
 done
 cp -pf "$build"/xyzzy.exe "$build"/xyzzycli.exe "$build"/xyzzyenv.exe "$run/"
 
-export XYZZYHOME=$run XYZZYINIFILE= XYZZYCONFIGPATH=
+# xyzzy tells an unset variable from an empty one, so clear them properly.
+unset XYZZYINIFILE XYZZYCONFIGPATH
+export XYZZYHOME=$run
 
 if [ "$bytecompile" = yes ]; then
   "$root/tools/bytecompile.sh" "$arch"

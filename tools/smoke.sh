@@ -34,7 +34,9 @@ if [ -f "$run/xyzzy.wxp" ] && [ "$run/xyzzy.exe" -nt "$run/xyzzy.wxp" ]; then
   echo "$(basename "$0"): the dump image is older than xyzzy.exe, removing it" >&2
   rm -f "$run/xyzzy.wxp"
 fi
-export XYZZYHOME=$run XYZZYINIFILE= XYZZYCONFIGPATH=
+# xyzzy tells an unset variable from an empty one, so clear them properly.
+unset XYZZYINIFILE XYZZYCONFIGPATH
+export XYZZYHOME=$run
 cd "$run"
 
 # The marker is written by lisp once startup has run to completion.

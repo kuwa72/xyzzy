@@ -105,13 +105,16 @@ jobs:
         shell: cmd
         env:
           XYZZYHOME: ${{ github.workspace }}
-          XYZZYINIFILE: ''
-          XYZZYCONFIGPATH: ''
           XYZZY_TEST_REPORT: ${{ github.workspace }}\test-report.txt
           XYZZY_TEST_TIMEOUT: '1800'
         run: |
+          rem xyzzy tells an unset variable from an empty one; "set VAR=" removes it.
+          set XYZZYINIFILE=
+          set XYZZYCONFIGPATH=
           xyzzy.exe -q -trace -l unittest/run-tests-batch.l -e "(user::batch-run-all-tests)"
+          set STATUS=%ERRORLEVEL%
           type "%XYZZY_TEST_REPORT%"
+          exit /b %STATUS%
 
       - name: Collect artefacts
         if: always()

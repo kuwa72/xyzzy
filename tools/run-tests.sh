@@ -49,9 +49,9 @@ if [ -f "$run/xyzzy.wxp" ] && [ "$run/xyzzy.exe" -nt "$run/xyzzy.wxp" ]; then
   echo "$(basename "$0"): the dump image is older than xyzzy.exe, removing it" >&2
   rm -f "$run/xyzzy.wxp"
 fi
+# xyzzy tells an unset variable from an empty one, so clear them properly.
+unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$run
-export XYZZYINIFILE=
-export XYZZYCONFIGPATH=
 export XYZZY_TEST_REPORT=$run/test-report.txt
 export XYZZY_TEST_TIMEOUT=${XYZZY_TEST_TIMEOUT:-1800}
 

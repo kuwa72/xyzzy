@@ -45,7 +45,9 @@ done
 # -p keeps the build time so that dump image staleness can be judged
 cp -pf "$build"/xyzzy.exe "$build"/xyzzycli.exe "$build"/xyzzyenv.exe "$run/"
 
-export XYZZYHOME=$run XYZZYINIFILE= XYZZYCONFIGPATH=
+# xyzzy tells an unset variable from an empty one, so clear them properly.
+unset XYZZYINIFILE XYZZYCONFIGPATH
+export XYZZYHOME=$run
 cd "$run"
 rm -f xyzzy.wxp
 
