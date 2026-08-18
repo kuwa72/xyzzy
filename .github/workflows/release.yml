@@ -17,6 +17,7 @@ jobs:
   release:
     name: x86_64 (mingw-w64)
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,8 +43,20 @@ jobs:
       - name: Build
         run: tools/x build x86_64
 
+      - name: Restore the byte compiled library
+        id: lc
+        uses: actions/cache@v4
+        with:
+          path: lisp/**/*.lc
+          key: lc-x86_64-${{ hashFiles('lisp/**/*.l') }}
+
+      - name: Byte compile the library
+        if: steps.lc.outputs.cache-hit != 'true'
+        timeout-minutes: 75
+        run: tools/x bytecompile x86_64
+
       - name: Start up and evaluate lisp
-        run: tools/x smoke x86_64 600
+        run: tools/x smoke x86_64 300
 
       - name: Pack the distribution archive
         run: tools/x dist x86_64 "${{ steps.version.outputs.version }}"

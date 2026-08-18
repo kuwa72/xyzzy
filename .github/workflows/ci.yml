@@ -13,6 +13,7 @@ jobs:
   cross:
     name: mingw-w64 ${{ matrix.arch }} (Wine)
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -34,15 +35,27 @@ jobs:
       - name: Build
         run: tools/x build ${{ matrix.arch }}
 
-      - name: Start up and evaluate lisp
-        run: tools/x smoke ${{ matrix.arch }} 600
+      # Reading the library as source costs more than ten minutes per start up,
+      # so the byte compiled files are cached; only a change under lisp/ pays for
+      # compiling them again.
+      - name: Restore the byte compiled library
+        id: lc
+        uses: actions/cache@v4
+        with:
+          path: lisp/**/*.lc
+          key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
 
-      - name: Write a dump image so the test run starts quickly
-        run: tools/x prepare ${{ matrix.arch }} 1800
+      - name: Byte compile the library
+        if: steps.lc.outputs.cache-hit != 'true'
+        timeout-minutes: 75
+        run: tools/x bytecompile ${{ matrix.arch }}
+
+      - name: Start up and evaluate lisp
+        run: tools/x smoke ${{ matrix.arch }} 300
 
       - name: Run the test suite
         env:
-          XYZZY_TEST_TIMEOUT: 2400
+          XYZZY_TEST_TIMEOUT: 1800
         run: tools/x test ${{ matrix.arch }}
 
       - name: Collect artefacts
@@ -61,6 +74,7 @@ jobs:
   msvc:
     name: MSVC ${{ matrix.platform }}
     runs-on: windows-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +95,11 @@ jobs:
             /p:Configuration=Release /p:Platform=${{ matrix.platform }} ^
             /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 ^
             /p:SpectreMitigation=false
+
+      - name: Byte compile the library
+        shell: cmd
+        timeout-minutes: 45
+        run: bytecompile.bat
 
       - name: Run the test suite
         shell: cmd

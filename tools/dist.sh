@@ -45,11 +45,7 @@ cp -pf "$build"/xyzzy.exe "$build"/xyzzycli.exe "$build"/xyzzyenv.exe "$run/"
 export XYZZYHOME=$run XYZZYINIFILE= XYZZYCONFIGPATH=
 
 if [ "$bytecompile" = yes ]; then
-  echo "dist.sh: byte compiling the lisp library..."
-  (cd "$run" && rm -f xyzzy.wxp \
-   && wine ./xyzzy.exe -q -trace -load misc/makelc.l -e "(makelc:makelc-and-exit t)")
-  wineserver -k 2>/dev/null || true
-  [ -f "$root/lisp/startup.lc" ] || { echo "dist.sh: byte compile produced no .lc" >&2; exit 1; }
+  "$root/tools/bytecompile.sh" "$arch"
 fi
 
 rm -rf "$stage" "$archive"

@@ -14,19 +14,6 @@
 #include <new>
 #include <typeinfo>     /* <eh.h> uses std::type_info without declaring it */
 
-/* src/environ.h declares "class environ" while src/process.cc and
-   src/environ.cc read the CRT variable of the same name.  That works with the
-   Microsoft CRT because there environ expands to a plain identifier, so the
-   class name is merely hidden by the variable; mingw-w64 expands it to
-   (*__p__environ()), which cannot follow the "class" keyword.  Give it the
-   shape the sources expect.  */
-#include <stdlib.h>
-/* Bind the reference while environ is still the CRT's own macro, whose
-   spelling differs between the 32 and 64 bit headers. */
-static char **&xyzzy_environ __attribute__ ((unused)) = environ;
-#undef environ
-#define environ xyzzy_environ
-
 /* MSVC-only; the same value as FLT_RADIX for IEEE doubles.  */
 #include <float.h>
 #ifndef _DBL_RADIX
