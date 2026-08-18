@@ -20,6 +20,7 @@
 #   tools/x utf8   PATH...              convert to UTF-8 (to use a text editor)
 #   tools/x sjis   PATH...              convert back to CP932 (do this after)
 #   tools/x check-encoding              verify every source still decodes as CP932
+#   tools/x check-includes              verify quoted includes match the file name case
 #
 # ARCH defaults to $XYZZY_ARCH or x86_64.
 set -eu
@@ -90,11 +91,11 @@ case "$cmd" in
     docker_run "$@"
     ;;
 
-  show|grep|utf8|sjis|check-encoding)
+  show|grep|utf8|sjis|check-encoding|check-includes)
     exec python3 "$ROOT/tools/xsrc.py" "$cmd" "$@"
     ;;
 
   *)
-    sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "colors.h"
 #include "conf.h"
-#include "Filer.h"
+#include "filer.h"
 #include "mainframe.h"
 
 static XCOLORREF xcolors[MC_NCOLORS];

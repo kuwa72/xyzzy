@@ -20,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the sources
+        run: |
+          tools/x check-encoding
+          tools/x check-includes
+
       - name: Build the container image
         run: tools/x image
 
@@ -67,6 +72,10 @@ jobs:
 
       - name: Build
         shell: cmd
+        env:
+          # The sources are Shift_JIS; a runner whose code page is not 932 needs
+          # to be told, the same way the mingw build gets -finput-charset.
+          CL: /source-charset:.932 /execution-charset:.932
         run: |
           msbuild xyzzy.sln /nologo /m ^
             /p:Configuration=Release /p:Platform=${{ matrix.platform }} ^

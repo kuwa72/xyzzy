@@ -39,7 +39,8 @@ RUN dpkg --add-architecture i386 \
 # so build it from source for both mingw targets.
 ARG ZLIB_VERSION=1.3.1
 ARG ZLIB_SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
-RUN curl -fsSL -o /tmp/zlib.tar.gz "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz" \
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/zlib.tar.gz \
+      "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz" \
  && echo "${ZLIB_SHA256}  /tmp/zlib.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/zlib.tar.gz -C /tmp \
  && for target in i686-w64-mingw32 x86_64-w64-mingw32; do \
@@ -56,7 +57,7 @@ RUN curl -fsSL -o /tmp/zlib.tar.gz "https://zlib.net/fossils/zlib-${ZLIB_VERSION
 # written x86 stack marshalling for MSVC; every other build calls through libffi.
 ARG LIBFFI_VERSION=3.4.6
 ARG LIBFFI_SHA256=b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e
-RUN curl -fsSL -o /tmp/libffi.tar.gz \
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/libffi.tar.gz \
       "https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz" \
  && echo "${LIBFFI_SHA256}  /tmp/libffi.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/libffi.tar.gz -C /tmp \

@@ -6,6 +6,7 @@
     utf8 PATH...               rewrite as UTF-8 (so a text editor can be used)
     sjis PATH...               rewrite as CP932 (undo the above)
     check-encoding [PATH...]   verify the files still decode as CP932
+    check-includes [PATH...]   verify quoted includes match the file name case
 
 A second byte of 0x5C in a double byte character is a backslash in any tool that
 does not know the encoding, which is why everything goes through here.
@@ -96,6 +97,42 @@ def convert(paths, src, dst, label):
         print('%s -> %s: %s' % (src, label, path))
 
 
+def cmd_check_includes(args):
+    """A case insensitive host (macOS) resolves "Filer.h" to filer.h; Linux does not."""
+    listing = {}
+
+    def names(d):
+        if d not in listing:
+            try:
+                listing[d] = set(os.listdir(d))
+            except OSError:
+                listing[d] = set()
+        return listing[d]
+
+    pattern = re.compile(rb'^\s*#\s*include\s*"([^"]+)"', re.M)
+    bad = 0
+    for path in collect(args or DEFAULT_DIRS):
+        if not path.endswith(('.cc', '.h')):
+            continue
+        for m in pattern.finditer(open(path, 'rb').read()):
+            target = m.group(1).decode('ascii', 'replace').replace('\\', '/')
+            for base in (os.path.dirname(path), 'src'):
+                cand = os.path.normpath(os.path.join(base, target))
+                head, tail = os.path.split(cand)
+                if tail in names(head):
+                    break
+                if os.path.exists(cand):
+                    actual = [x for x in names(head) if x.lower() == tail.lower()]
+                    if actual:
+                        bad += 1
+                        print('%s: includes %s, the file is %s' % (path, target, actual[0]))
+                    break
+    if bad:
+        return 1
+    print('every quoted include matches the file name exactly')
+    return 0
+
+
 def cmd_check(args):
     bad = 0
     for path in collect(args or DEFAULT_DIRS):
@@ -129,6 +166,8 @@ def main(argv):
         return convert(args, 'utf-8', ENC, 'cp932') or 0
     if cmd == 'check-encoding':
         return cmd_check(args)
+    if cmd == 'check-includes':
+        return cmd_check_includes(args)
     die('unknown command %r' % cmd)
 
 
