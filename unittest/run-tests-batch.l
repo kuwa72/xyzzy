@@ -26,20 +26,17 @@
                 (parse-integer (or (si:getenv "XYZZY_TEST_TIMEOUT") "")))
               1800)))
 
-(defun batch-write-report (session)
+(defun batch-test-results-text ()
+  (let ((buffer (find-buffer "*Test Results*")))
+    (and buffer
+         (save-excursion
+           (set-buffer buffer)
+           (buffer-substring (point-min) (point-max))))))
+
+(defun batch-write-report (text)
   (with-open-file (out (batch-test-report-file) :direction :output
                        :if-exists :supersede :if-does-not-exist :create)
-    (let ((buffer (find-buffer "*Test Results*")))
-      (if buffer
-          (princ (save-excursion
-                   (set-buffer buffer)
-                   (buffer-substring (point-min) (point-max)))
-                 out)
-        (format out "no *Test Results* buffer~%")))
-    (when session
-      (format out "~&pass=~D fail=~D~%"
-              (session-pass-count session)
-              (session-fail-count session)))))
+    (princ (or text "no *Test Results* buffer") out)))
 
 (defun batch-run-all-tests ()
   (load-file (merge-pathnames "simple-test.l" *batch-test-directory*))
@@ -49,15 +46,17 @@
                         #'string-lessp))
       (load-test-file file)))
   (run-all-tests)
-  ;; run-all-tests drives itself from a timer, so the message loop has to keep
-  ;; running until the session is over.
-  (let ((session *current-session*)
-        (deadline (+ (get-internal-real-time) (batch-test-timeout))))
+  ;; The runner can finish inside run-all-tests or keep going from a timer, so
+  ;; the message loop has to keep running until the session is over.
+  (let ((deadline (+ (get-internal-real-time) (batch-test-timeout))))
     (while (and *current-session*
                 (< (get-internal-real-time) deadline))
-      (sleep-for 0.2))
-    (batch-write-report session)
-    (kill-xyzzy (cond ((null session) 3)          ; nothing ran
-                      (*current-session* 2)       ; timed out
-                      ((zerop (session-fail-count session)) 0)
-                      (t 1)))))
+      (sleep-for 0.2)))
+  ;; The summary line the runner writes is the result: reading it works whether
+  ;; the session object is still around or not.
+  (let ((text (batch-test-results-text)))
+    (batch-write-report text)
+    (kill-xyzzy (cond ((null text) 3)                          ; nothing ran
+                      ((string-match ": All passed" text) 0)
+                      ((string-match " failed" text) 1)
+                      (t 2)))))                                ; no summary yet
