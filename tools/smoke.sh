@@ -55,8 +55,9 @@ for _ in $(seq 1 "$wait_for"); do
 done
 
 import -window root "$shot" 2>/dev/null || true
-wait "$wine_pid" 2>/dev/null || true
+# Shut wine down first: waiting on a process that never exits would hang here.
 wineserver -k 2>/dev/null || true
+wait "$wine_pid" 2>/dev/null || true
 
 if [ "$status" = 0 ]; then
   echo "smoke.sh: $arch started and evaluated lisp: $(cat "$marker")"
