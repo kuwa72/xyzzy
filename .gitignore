@@ -41,6 +41,9 @@ site-lisp/
 # Release files
 _dist/
 
+# Cross build output (see docs/cross-build.md)
+_build/
+
 # Misc files
 misc/mecab-ipadic-*
 misc/words.euc-jp.txt

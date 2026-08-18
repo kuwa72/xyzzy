@@ -1,0 +1,100 @@
+#!/bin/sh
+# Developer entry point for working on xyzzy from a non-Windows host.
+#
+# Container tasks (build Windows binaries with mingw-w64, run them under Wine):
+#   tools/x image                  build the container image
+#   tools/x shell                  interactive shell inside the container
+#   tools/x configure [ARCH]       run cmake configure  (ARCH: i686 | x86_64)
+#   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
+#   tools/x test      [ARCH] ...   run the lisp test suite under Wine
+#   tools/x smoke     [ARCH] [S]   start it, confirm startup, screenshot
+#   tools/x prepare   [ARCH] [S]   one slow startup that writes a dump image
+#   tools/x dist      [ARCH] [VER] byte compile and pack a distribution zip
+#   tools/x wine      [ARCH] ...   run xyzzy.exe with the test environment set
+#   tools/x screenshot [FILE]      capture the virtual display (default _build/screenshot.png)
+#   tools/x run       [ARCH] ...   run an arbitrary command in the container
+#
+# Source tasks (the sources are Shift_JIS/CP932; these handle the conversion):
+#   tools/x show   PATH [FIRST[,LAST]]  print as UTF-8, with line numbers
+#   tools/x grep   PATTERN [PATH...]    search (pattern may be UTF-8 Japanese)
+#   tools/x utf8   PATH...              convert to UTF-8 (to use a text editor)
+#   tools/x sjis   PATH...              convert back to CP932 (do this after)
+#   tools/x check-encoding              verify every source still decodes as CP932
+#
+# ARCH defaults to $XYZZY_ARCH or x86_64.
+set -eu
+
+IMAGE=xyzzy-devenv
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ARCH_DEFAULT=${XYZZY_ARCH:-x86_64}
+
+docker_run() {
+  tty_flag=""
+  [ -t 0 ] && tty_flag="-it"
+  # shellcheck disable=SC2086
+  exec docker run --rm $tty_flag \
+    --platform linux/amd64 \
+    -v "$ROOT":/work \
+    -v xyzzy-wine64:/wine \
+    -v xyzzy-wine32:/wine32 \
+    -e XYZZY_ARCH \
+    -e XYZZY_TEST_TIMEOUT \
+    -w /work \
+    "$IMAGE" "$@"
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+
+# An optional first argument selects the target architecture.
+case "${1:-}" in
+  i686|x86_64) ARCH=$1; shift ;;
+  *) ARCH=$ARCH_DEFAULT ;;
+esac
+
+case "$cmd" in
+  image)
+    exec docker build --platform linux/amd64 -t "$IMAGE" "$ROOT/tools/devenv"
+    ;;
+  shell)
+    docker_run bash
+    ;;
+  configure)
+    docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
+      -DCMAKE_BUILD_TYPE=Debug "$@"
+    ;;
+  build)
+    docker_run cmake --build "/work/_build/$ARCH" "$@"
+    ;;
+  test)
+    docker_run tools/run-tests.sh "$ARCH" "$@"
+    ;;
+  smoke)
+    docker_run tools/smoke.sh "$ARCH" "$@"
+    ;;
+  prepare)
+    docker_run tools/prepare.sh "$ARCH" "$@"
+    ;;
+  dist)
+    docker_run tools/dist.sh "$ARCH" "$@"
+    ;;
+  wine)
+    docker_run tools/wine-run.sh "$ARCH" "$@"
+    ;;
+  screenshot)
+    out=${1:-_build/screenshot.png}
+    docker_run sh -c "import -window root '/work/$out' && ls -l '/work/$out'"
+    ;;
+  run)
+    docker_run "$@"
+    ;;
+
+  show|grep|utf8|sjis|check-encoding)
+    exec python3 "$ROOT/tools/xsrc.py" "$cmd" "$@"
+    ;;
+
+  *)
+    sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'version for the archive name (a tag is not created)'
+        required: true
+        default: dev
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: x86_64 (mingw-w64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # version-describe.h uses git describe
+
+      - name: Work out the version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = push ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "packaging xyzzy $version"
+
+      - name: Build the container image
+        run: tools/x image
+
+      - name: Configure
+        run: tools/x configure x86_64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: tools/x build x86_64
+
+      - name: Start up and evaluate lisp
+        run: tools/x smoke x86_64 600
+
+      - name: Pack the distribution archive
+        run: tools/x dist x86_64 "${{ steps.version.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xyzzy-${{ steps.version.outputs.version }}-x86_64
+          path: _dist/xyzzy-${{ steps.version.outputs.version }}-x86_64.zip
+
+      - name: Create the prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(cat <<'EOF'
+          mingw-w64 でクロスビルドした **64bit (x86_64) 版** です。検証用の
+          prerelease であり、canonical な MSVC ビルドの成果物ではありません。
+
+          - ビルドとテストの手順、64bit 対応で修正した内容は
+            [docs/cross-build.md](docs/cross-build.md) を参照してください。
+          - 既存の 32bit 向け DLL 拡張は 64bit 版のプロセスでは読み込めません。
+          - lisp 側 FFI で `:int32` にポインタを渡している資産は動きません。
+          EOF
+          )
+          gh release create "$GITHUB_REF_NAME" \
+            --title "xyzzy ${{ steps.version.outputs.version }} (x86_64 preview)" \
+            --notes "$notes" \
+            --prerelease \
+            "_dist/xyzzy-${{ steps.version.outputs.version }}-x86_64.zip"

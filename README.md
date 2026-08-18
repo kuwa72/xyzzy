@@ -139,6 +139,13 @@ https://github.com/xyzzy はすでにアカウントが取られていたので 
  4. できあがり
  5. run-tests.bat でユニットテストを実行
 
+### Windows 以外のホストでビルドする
+
+mingw-w64 でクロスビルドして Wine 上で動かす経路もあります (macOS / Linux から
+ビルドとテストができます)。`tools/x` を使います。詳細は
+[docs/cross-build.md](docs/cross-build.md) を参照してください。
+64bit (x86_64) 対応の状況も同じ文書にまとめてあります。
+
 ----
 
 ## ライセンス

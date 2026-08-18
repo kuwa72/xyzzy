@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop, 'release/**', 'topic/**', 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Cross build with mingw-w64 and run the test suite under Wine.  This is the
+  # same path developers use locally through tools/x, so a failure here is
+  # reproducible on a macOS or Linux workstation.
+  cross:
+    name: mingw-w64 ${{ matrix.arch }} (Wine)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [i686, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the container image
+        run: tools/x image
+
+      - name: Configure
+        run: tools/x configure ${{ matrix.arch }}
+
+      - name: Build
+        run: tools/x build ${{ matrix.arch }}
+
+      - name: Start up and evaluate lisp
+        run: tools/x smoke ${{ matrix.arch }} 600
+
+      - name: Write a dump image so the test run starts quickly
+        run: tools/x prepare ${{ matrix.arch }} 1800
+
+      - name: Run the test suite
+        env:
+          XYZZY_TEST_TIMEOUT: 2400
+        run: tools/x test ${{ matrix.arch }}
+
+      - name: Collect artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-${{ matrix.arch }}
+          path: |
+            _build/${{ matrix.arch }}/run/test-report.txt
+            _build/${{ matrix.arch }}/smoke.png
+            _build/${{ matrix.arch }}/run/xyzzy.BUG
+          if-no-files-found: ignore
+
+  # The canonical build.  xyzzy.sln targets the v120_xp toolset, so the projects
+  # are retargeted to whatever the runner has installed.
+  msvc:
+    name: MSVC ${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [Win32]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        shell: cmd
+        run: |
+          msbuild xyzzy.sln /nologo /m ^
+            /p:Configuration=Release /p:Platform=${{ matrix.platform }} ^
+            /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 ^
+            /p:SpectreMitigation=false
+
+      - name: Run the test suite
+        shell: cmd
+        env:
+          XYZZYHOME: ${{ github.workspace }}
+          XYZZYINIFILE: ''
+          XYZZYCONFIGPATH: ''
+          XYZZY_TEST_REPORT: ${{ github.workspace }}\test-report.txt
+          XYZZY_TEST_TIMEOUT: '1800'
+        run: |
+          xyzzy.exe -q -trace -l unittest/run-tests-batch.l -e "(user::batch-run-all-tests)"
+          type "%XYZZY_TEST_REPORT%"
+
+      - name: Collect artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msvc-${{ matrix.platform }}
+          path: |
+            test-report.txt
+            xyzzy.BUG
+          if-no-files-found: ignore
