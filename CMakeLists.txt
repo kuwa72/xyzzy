@@ -100,6 +100,14 @@ add_library(tree-sitter-core STATIC
     ${tree-sitter_SOURCE_DIR}/lib/src/lib.c)
 target_include_directories(tree-sitter-core PUBLIC
     ${tree-sitter_SOURCE_DIR}/lib/include)
+# lib/src holds tree-sitter's trimmed copy of ICU, reached as "unicode/...".
+# MSVC finds it without being told, because it resolves a quoted include
+# against every directory in the include stack, and lib.c is in lib/src.
+# GCC only looks in the directory of the file with the directive, so the
+# cross build stops at unicode/utf8.h asking for unicode/umachine.h.
+# tree-sitter's own build passes -I lib/src for this reason.
+target_include_directories(tree-sitter-core PRIVATE
+    ${tree-sitter_SOURCE_DIR}/lib/src)
 
 FetchContent_Declare(tree-sitter-c
     GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-c
