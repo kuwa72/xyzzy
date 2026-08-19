@@ -366,21 +366,41 @@ seh_exception_filter (EXCEPTION_POINTERS *ep)
 /* x86 (Clang only): __try/__except requires Clang (via -fms-extensions).
    GCC x86 does not support __try/__except; use mingw-w64-i686-clang instead.
 
-   ESP is set to stack_base so the called DLL function sees its args at
+   ESP is set to the argument block so the called DLL function sees its args at
    [ESP+4].  After the DLL returns (stdcall: callee-cleaned; cdecl: unchanged),
    ESP is no longer where the compiler expects it.  "esp" in a clobber list
    is NOT reliably honoured by Clang — the compiler may silently ignore it.
 
    Instead we explicitly save the original ESP to ESI (a callee-saved register
    per the Win32 ABI, so the DLL will restore it) and then restore ESP from
-   ESI after the call.  This makes the asm transparent to the compiler's stack
-   tracking so the function epilogue works without requiring a frame pointer. */
+   ESI after the call.
+
+   The argument block has to be *this* function's own alloca, not the caller's.
+   Whatever ESP points at is the top of the called function's stack, so its
+   frame -- starting with the return address the CALL pushes -- grows down from
+   there and overwrites everything below.  Handing over the block that
+   funcall_dll allocated put the callee's frame right on top of this function's
+   saved registers and return address, so the RET at the end of the epilogue
+   jumped to whatever the DLL had left there.  The address varied with what was
+   passed, which is why it read as a random crash:
+
+     define-dll-entry-return-int32...wine: Unhandled page fault on execute
+       access to 027EA558 at address 027EA558
+
+   With the block at the bottom of this frame, the callee's frame lands in
+   unused stack instead.  The copy is what costs; the blocks are small.
+
+   The MSVC build does not need this because there the asm is inline in
+   funcall_dll, where ESP already sits at the bottom of the frame that owns the
+   arguments, with nothing live below it. */
 #ifndef __clang__
 #  error "x86 non-MSVC builds require Clang (mingw-w64-i686-clang). GCC x86 is not supported: __try/__except unavailable."
 #endif
 static __attribute__((noinline)) int
-call_dll_seh_x86_int (FARPROC proc, char *stack_base, int64_t *out_r)
+call_dll_seh_x86_int (FARPROC proc, const char *args, int arg_size, int64_t *out_r)
 {
+  char *stack_base = (char *)alloca (arg_size > 0 ? arg_size : 4);
+  memcpy (stack_base, args, arg_size);
   __try
     {
       __asm__ volatile (
@@ -401,8 +421,10 @@ call_dll_seh_x86_int (FARPROC proc, char *stack_base, int64_t *out_r)
 }
 
 static __attribute__((noinline)) int
-call_dll_seh_x86_float (FARPROC proc, char *stack_base, float *out_f)
+call_dll_seh_x86_float (FARPROC proc, const char *args, int arg_size, float *out_f)
 {
+  char *stack_base = (char *)alloca (arg_size > 0 ? arg_size : 4);
+  memcpy (stack_base, args, arg_size);
   __try
     {
       __asm__ volatile (
@@ -423,8 +445,10 @@ call_dll_seh_x86_float (FARPROC proc, char *stack_base, float *out_f)
 }
 
 static __attribute__((noinline)) int
-call_dll_seh_x86_double (FARPROC proc, char *stack_base, double *out_d)
+call_dll_seh_x86_double (FARPROC proc, const char *args, int arg_size, double *out_d)
 {
+  char *stack_base = (char *)alloca (arg_size > 0 ? arg_size : 4);
+  memcpy (stack_base, args, arg_size);
   __try
     {
       __asm__ volatile (
@@ -611,20 +635,20 @@ funcall_dll (lisp fn, lisp arglist)
     if (rt == CTYPE_FLOAT)
       {
         float fresult;
-        if (call_dll_seh_x86_float (proc, stack_base, &fresult))
+        if (call_dll_seh_x86_float (proc, stack_base, arg_size, &fresult))
           { save_last_error (); return make_single_float (fresult); }
       }
     else if (rt == CTYPE_DOUBLE)
       {
         double dresult;
-        if (call_dll_seh_x86_double (proc, stack_base, &dresult))
+        if (call_dll_seh_x86_double (proc, stack_base, arg_size, &dresult))
           { save_last_error (); return make_double_float (dresult); }
       }
     else
       {
         /* Integer/pointer/void return: value in EAX (32-bit) or EAX:EDX (64-bit). */
         int64_t r;
-        if (call_dll_seh_x86_int (proc, stack_base, &r))
+        if (call_dll_seh_x86_int (proc, stack_base, arg_size, &r))
           {
             save_last_error ();
             switch (rt)
