@@ -14,6 +14,7 @@ public:
   wStream (int = 0);
   void add (int);
   void add (ucs4_t);
+  void add (Char);
   void fill (int, int);
   void fill (ucs4_t, int);
   void add (const char *);
@@ -68,6 +69,15 @@ inline void
 wStream::add (int c)
 {
   add (ucs4_t (c & 0xff));
+}
+
+/* wStream が add を宣言し直しているので StrBuf::add(Char) は名前隠蔽で
+   見えない。ここにも置かないと Char (u_int16_t) は整数拡張で add(int) に
+   落ちて上位バイトを失う。詳細は StrBuf::add(Char) のコメント。 */
+inline void
+wStream::add (Char c)
+{
+  add (ucs4_t (c));
 }
 
 inline void
