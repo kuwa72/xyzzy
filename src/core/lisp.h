@@ -143,17 +143,17 @@ class lsymbol;
 class lex_env;
 
 #ifdef _MSC_VER
-typedef lisp (__stdcall *lfunction_proc)();
-typedef lisp (__stdcall *lfunction_proc_0)();
-typedef lisp (__stdcall *lfunction_proc_1)(lisp);
-typedef lisp (__stdcall *lfunction_proc_2)(lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_3)(lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_4)(lisp, lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_5)(lisp, lisp, lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_6)(lisp, lisp, lisp, lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_7)(lisp, lisp, lisp, lisp, lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_8)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
-typedef lisp (__stdcall *lfunction_proc_9)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc)();
+typedef lisp (LISP_CALL *lfunction_proc_0)();
+typedef lisp (LISP_CALL *lfunction_proc_1)(lisp);
+typedef lisp (LISP_CALL *lfunction_proc_2)(lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_3)(lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_4)(lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_5)(lisp, lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_6)(lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_7)(lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_8)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
+typedef lisp (LISP_CALL *lfunction_proc_9)(lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp, lisp);
 #else
 typedef lisp (*lfunction_proc)();
 typedef lisp (*lfunction_proc_0)();

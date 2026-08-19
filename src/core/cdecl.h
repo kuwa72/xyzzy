@@ -207,12 +207,23 @@ int assert_failed (const char *, int);
 # define THREADLOCAL __thread
 #endif
 /* LISP_CALL: calling convention annotation for Lisp primitive functions.
-   The original xyzzy used MSVC's /Gz flag (global __stdcall default) instead
-   of per-function annotations.  We replicate that: /Gz is added to CMakeLists
-   for MSVC x86 builds, so all functions are __stdcall by default, matching the
-   lfunction_proc_* typedefs which use explicit __stdcall.  On x64/ARM64,
-   __stdcall is silently ignored (= __cdecl), so no annotation is needed there.
-   LISP_CALL is kept as empty to avoid redundant per-function annotation. */
+
+   The convention only has to be self-consistent: the lfunction_proc_* typedefs
+   in lisp.h, the definitions of the primitives, and the declarations that
+   gen-syms writes into fns-decl.h all have to agree.  Nothing outside the
+   program depends on which one it is.
+
+   Empty is what makes that true for every toolchain here.  MSVC x86 is built
+   with /Gz, so unannotated functions and unannotated function pointer types
+   are both __stdcall, and they agree.  Clang has no usable equivalent -- its
+   -fdefault-calling-conv reaches into libc++, where unique_ptr deleters are
+   handed the CRT's __cdecl free -- so there nothing is annotated and
+   everything is __cdecl, and they agree as well.  On x64 and ARM64 __stdcall
+   is ignored anyway.
+
+   So LISP_CALL stays empty; what matters is that it is used everywhere the
+   convention appears, rather than __stdcall being written out in some places
+   and left off in others. */
 # define LISP_CALL
 
 #endif

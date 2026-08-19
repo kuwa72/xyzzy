@@ -305,20 +305,11 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     )
     if(WIN32)
         set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
-        # The 32-bit counterpart of /Gz below: on x86 the Lisp function ABI is
-        # stdcall (lisp.h declares the lfunction_proc_* typedefs that way and
-        # the generated fns-decl.h declares nothing at all), so the default has
-        # to be stdcall for the two to agree.  Placed here, with the MSVC /Gz,
-        # so that it lands after the tree-sitter targets and leaves them cdecl
-        # -- tree-sitter assigns the CRT's free to its own function pointers,
-        # which a global stdcall breaks.  ts.cc declares the tree-sitter API
-        # cdecl to cross the boundary; see the pragma there.
-        #
-        # -fdefault-calling-conv is a frontend option, hence -Xclang, and the
-        # SHELL: prefix keeps the two words together.
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            add_compile_options("SHELL:-Xclang -fdefault-calling-conv=stdcall")
-        endif()
+        # No counterpart to the MSVC /Gz below, deliberately: Clang's
+        # -fdefault-calling-conv=stdcall reaches into libc++ as well, where
+        # unique_ptr deleters are handed the CRT's __cdecl free and stop
+        # compiling.  The Lisp ABI only has to be self-consistent, so on Clang
+        # it is __cdecl throughout; see LISP_CALL in src/core/cdecl.h.
     endif()
 else()
     # GCC / Clang (non-MSVC)

@@ -1,21 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "ts.h"
-/* tree-sitter is built before the stdcall default is turned on -- MSVC adds
-   /Gz after those targets, and the Clang build follows the same order -- so
-   its functions are cdecl.  This file is compiled with the default, so its
-   declarations of them have to say cdecl outright, or the calls come out
-   stdcall and the linker looks for ts_xxx@N.
-   MSVC cannot express that over a whole header, and bridges it instead in
-   ts_stdcall_bridge.c through /ALTERNATENAME; Clang can say it directly, and
-   ld.lld has no /ALTERNATENAME to bridge with anyway. */
-#if defined(__clang__) && defined(__i386__) && !defined(_MSC_VER)
-# pragma clang attribute push(__attribute__((cdecl)), apply_to = function)
-# include <tree_sitter/api.h>
-# pragma clang attribute pop
-#else
-# include <tree_sitter/api.h>
-#endif
+#include <tree_sitter/api.h>
 #include <algorithm>
 #include <unordered_map>
 #include <cstdio>
@@ -187,7 +173,7 @@ static void ts_pre_edit_hook  (Buffer *, point_t, point_t);
 static void ts_post_edit_hook (Buffer *, point_t, point_t);
 
 /* (si:load-ts-grammar DLL-PATH LANG-NAME) */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_load_ts_grammar (lisp lpath, lisp lname)
 {
   if (!g_ts_pre_edit)
@@ -529,7 +515,7 @@ ts_query_thread (LPVOID arg)
    then run QUERY-SOURCE asynchronously.  Returns cached spans when the bg
    query thread finishes; returns nil while parsing or querying is in progress.
    START-ROW / END-ROW are 0-based tree-sitter row numbers. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
                      lisp lstart_row, lisp lend_row)
 {
@@ -889,7 +875,7 @@ ts_batch_cu_to_cp (Buffer *bp, const ts_span_raw *spans, uint32_t nsp,
    Manages bg parse/query threads (same as si:ts-query-buffer), then when spans
    are ready applies textprops directly in C — no Lisp list allocation.
    Returns t when highlights were applied, nil while bg work is pending. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
                          lisp lstart_row, lisp lend_row,
                          lisp ltag, lisp lcolors)
@@ -1060,7 +1046,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
 }
 
 /* (si:ts-free-buffer-cache &optional BUFFER) */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_free_buffer_cache (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -1108,7 +1094,7 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
 }
 
 /* (si:ts-buffer-cached-p &optional BUFFER) */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_buffer_cached_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -1120,7 +1106,7 @@ Fsi_ts_buffer_cached_p (lisp lbuffer)
 
 /* (si:ts-parse-complete-p &optional BUFFER)
    Return t if BUFFER has an up-to-date parse tree with no pending bg parse. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_parse_complete_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -1134,7 +1120,7 @@ Fsi_ts_parse_complete_p (lisp lbuffer)
 
 /* (si:ts-query-pending-p &optional BUFFER)
    Return t while the async query thread is running for BUFFER. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_query_pending_p (lisp lbuffer)
 {
   Buffer *bp = Buffer::coerce_to_buffer (lbuffer);
@@ -1144,7 +1130,7 @@ Fsi_ts_query_pending_p (lisp lbuffer)
   return it->second->bg_active ? Qt : Qnil;
 }
 
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_grammar_p (lisp x)
 {
   return ts_grammar_p (x) ? Qt : Qnil;
@@ -1177,7 +1163,7 @@ cp_to_byte (Buffer *bp, point_t target_cp)
    Returns a list of (type start-cp end-cp) from the named node at POINT
    up to the parse tree root (innermost first).
    Returns nil when no up-to-date tree is available yet. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_node_ancestors (lisp lgrammar, lisp lbuffer, lisp lpoint)
 {
   check_ts_grammar (lgrammar);
@@ -1217,7 +1203,7 @@ Fsi_ts_node_ancestors (lisp lgrammar, lisp lbuffer, lisp lpoint)
    Async outline query using a dedicated oq_* cache slot (never interferes
    with the highlight query).  Returns nil + starts background thread on
    cache miss; returns (capture-name start-cp end-cp) list when ready. */
-lisp __stdcall
+lisp LISP_CALL
 Fsi_ts_query_buffer_sync (lisp lgrammar, lisp lquery, lisp lbuffer)
 {
   check_ts_grammar (lgrammar);
