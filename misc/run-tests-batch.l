@@ -37,24 +37,53 @@
                   #'(lambda (pass fail total)
                       (setq *batch-exit-code* (if (zerop fail) 0 1))))
 
+            ;; What to leave out.  A name ending in .l skips a whole file, any
+            ;; other name skips that one test, and XYZZY_TEST_EXCLUDE (comma
+            ;; separated) replaces the list so CI can vary it per platform.
+            ;;
+            ;; These used to be five whole files, which cost every other test
+            ;; in them.  A crashing test takes the process down, so it does have
+            ;; to be kept out -- but only that test.
+            ;;
+            ;;   test-ole-reader-macro-args                      ARM64 segfault, #{} OLE parser
+            ;;   make-vector--fill-pointer-and-initial-contents  ARM64 segfault
+            ;;   test-print-debug-output-stream                  ARM64 segfault
+            ;;   sha-224                                         ARM64 segfault, SHA implementation
+            ;;   fix-ole-event-sink-load-typelib                 use after free: trips
+            ;;     "Assertion failed: src/lisp.h: 202" in object_typeof, i.e. reads the tag of
+            ;;     an object the allocator has free.  Reproduces on i686 and x86_64 under Wine.
+            ;;   pathnames-tests.l                               MSVC x64 crash in
+            ;;     si:*file-operation, no single test identified yet
+            (defvar *batch-default-exclude*
+              '("test-ole-reader-macro-args"
+                "make-vector--fill-pointer-and-initial-contents"
+                "test-print-debug-output-stream"
+                "sha-224"
+                "fix-ole-event-sink-load-typelib"
+                "pathnames-tests.l"))
+            (defvar *batch-excluded* nil)
+            (defvar *batch-exclude* nil)
+            (setq *batch-exclude*
+                  (let ((env (si:getenv "XYZZY_TEST_EXCLUDE")))
+                    (if (and env (plusp (length env)))
+                        (split-string env #\, t " ")
+                      *batch-default-exclude*)))
+            (defun batch-excluded-p (name)
+              (find name *batch-exclude* :test #'string-equal))
+
             ;; Load all *-tests.l from unittest/
-            (let ((unittest-dir (merge-pathnames "unittest/" base-dir))
-                  ;; Files skipped due to pre-existing ARM64 segfaults:
-                  ;; ole-tests.l: test-ole-reader-macro-args (#{} OLE parser bug)
-                  ;; sequence-tests.l: make-vector--fill-pointer-and-initial-contents
-                  ;; stream-tests.l: test-print-debug-output-stream
-                  ;; system-tests.l: sha-224 (SHA implementation ARM64 bug)
-                  (skip-files '("ole-tests.l" "sequence-tests.l"
-                                "stream-tests.l" "system-tests.l"
-                                "pathnames-tests.l")))  ; MSVC x64 crash in si:*file-operation
+            (let ((unittest-dir (merge-pathnames "unittest/" base-dir)))
               (format *standard-output*
                       "=== Loading tests from ~A ===~%" unittest-dir)
+              (format *standard-output* "=== Excluding: ~{~A~^ ~} ===~%" *batch-exclude*)
               (handler-case
                   (dolist (f (sort (directory unittest-dir
                                              :absolute t :wild "*-tests.l")
                                    #'string-lessp))
-                    (if (member (file-namestring f) skip-files :test #'string=)
-                        (format *standard-output* "  ~A [SKIPPED]~%" f)
+                    (if (batch-excluded-p (file-namestring f))
+                        (progn
+                          (push (file-namestring f) *batch-excluded*)
+                          (format *standard-output* "  ~A [SKIPPED]~%" f))
                       (progn
                         (format *standard-output* "  ~A~%" f)
                         (load-test-file f))))
@@ -105,13 +134,26 @@
             (format *standard-output*
                     "=== Subprocess tests will use: ~A ===~%" (si:system-path))
 
-            ;; Run all tests; catch errors that escape the test framework
+            ;; Run everything that was not excluded by name.  run-all-tests
+            ;; would take *tests* whole, so the list is filtered here.
             (format *standard-output* "=== Running tests ===~%")
-            (handler-case
-                (run-all-tests)
-              (condition (e)
-                (format *standard-output* "~%=== ERROR during tests: ~A ===~%" e)
-                (setq *batch-exit-code* 1))))
+            (let ((tests (remove-if #'(lambda (test)
+                                        (let ((name (string (test-name test))))
+                                          (when (batch-excluded-p name)
+                                            (pushnew name *batch-excluded*
+                                                     :test #'string=)
+                                            t)))
+                                    (reverse *tests*))))
+              (handler-case
+                  (run-tests tests)
+                (condition (e)
+                  (format *standard-output* "~%=== ERROR during tests: ~A ===~%" e)
+                  (setq *batch-exit-code* 1))))
+            ;; Say it again at the end: a pass that skipped things should not
+            ;; read as a clean pass.
+            (when *batch-excluded*
+              (format *standard-output* "=== Skipped ~D: ~{~A~^ ~} ===~%"
+                      (length *batch-excluded*) (reverse *batch-excluded*))))
 
           ;; Exit with determined exit code (0=all pass, 1=some fail/error)
           (kill-xyzzy (or *batch-exit-code* 1))))
