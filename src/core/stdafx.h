@@ -21,7 +21,10 @@
 #include <rpc.h>
 #include <share.h>
 #include <shlobj.h>
-#include <ShObjIdl.h>
+/* mingw-w64 のヘッダは小文字。Windows のファイル名は大文字小文字を
+   区別しないので MSVC では ShObjIdl.h でも通るが、クロスビルドは
+   Linux 上なので合わせておく。 */
+#include <shobjidl.h>
 #include <winioctl.h>
 #include <winsock.h>
 #include <wtypes.h>
