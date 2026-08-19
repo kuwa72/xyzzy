@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
-#include "filer.h"
+#include "Filer.h"
 #include "safe_ptr.h"
 #include "encoding.h"
 #include "environ.h"

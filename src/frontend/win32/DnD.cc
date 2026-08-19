@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "ctxmenu.h"
 #include "com.h"
-#include "filer.h"
+#include "Filer.h"
 #include "buffer-bar.h"
 
 HRESULT

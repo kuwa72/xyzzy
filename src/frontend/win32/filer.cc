@@ -3,7 +3,7 @@
 #include "environ.h"
 #include "conf.h"
 #include "font.h"
-#include "filer.h"
+#include "Filer.h"
 #include "colors.h"
 #include "ctxmenu.h"
 #include "com.h"
