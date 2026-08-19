@@ -31,11 +31,15 @@ int default_float_format ();
 int streq (const Char *, int, const char *);
 int strequal (const char *, const Char *);
 int strequal (const char *, const Char *, int);
-int strcasecmp (const char *, const char *);
+/* Shift_JIS aware; the name cannot be strcasecmp because mingw-w64's
+   <string.h> already has one.  Optimised builds get an inline definition
+   there (a redefinition error), and -O0 builds get "#define strcasecmp
+   _stricmp", which would silently rename this one to _stricmp instead.  */
+int xyzzy_strcasecmp (const char *, const char *);
 static inline int
 strcaseeq (const char *s1, const char *s2)
 {
-  return !strcasecmp (s1, s2);
+  return !xyzzy_strcasecmp (s1, s2);
 }
 
 char *jindex (const char *, int);
