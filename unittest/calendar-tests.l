@@ -110,8 +110,28 @@
   (values (format-date-string "%g%E年" (encode-universal-time 0 0 0 30 4 2019))
           (format-date-string "%g%E年" (encode-universal-time 0 0 0 1 5 2019))
           (format-date-string "%G%e" (encode-universal-time 0 0 0 1 5 2019))
-          (format-date-string "%#g%#E年" (encode-universal-time 0 0 0 19 8 2026)))
+          (format-date-string "%#E年" (encode-universal-time 0 0 0 19 8 2026)))
   => "平成31年"
   => "令和元年"
   => "R01"
-  => "令8年")
+  => "8年")
+
+;;; %#g は元号の 1 文字目、つまり (svref "令和" 0) を出す。
+;;;
+;;; これが 令 ではなく 1 バイトの 0x61 を返す。0x61 は CP932 の 和 (0x9861) の
+;;; 下位バイトである。元号の文字列自体は正しく、同じテストの %g は "令和" を
+;;; 出せているので、壊れているのは svref か、その結果の出力のどちらか。
+;;;
+;;;   期待: 97 DF 38 94 4E  ("令8年")
+;;;   実際:       61 38 94 4E  ("a8年")
+;;;
+;;; 落ちるだけでハングもクラッシュもしないので、除外せず落としたままにして
+;;; ある。原因が分かるまで見えていたほうがよい。
+(deftest timestamp-era-abbreviated ()
+  "%#g は元号の 1 文字目を出す"
+  (values (format-date-string "%#g" (encode-universal-time 0 0 0 19 8 2026))
+          (format-date-string "%#g" (encode-universal-time 0 0 0 1 1 2000))
+          (format-date-string "%#g" (encode-universal-time 0 0 0 1 1 1980)))
+  => "令"
+  => "平"
+  => "昭")
