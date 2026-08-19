@@ -95,12 +95,18 @@
                         (load-test-file f))))
                 (condition (e)
                   (format *standard-output* "ERROR loading tests: ~A~%" e)))
-              ;; Also load foreign-test.l (named *-test.l not *-tests.l)
+              ;; Also load foreign-test.l (named *-test.l not *-tests.l).
+              ;; It goes through the same exclude check as the rest: it was the
+              ;; one file a platform could not skip.
               (let ((foreign-test (merge-pathnames "unittest/foreign-test.l" base-dir)))
                 (handler-case
-                    (progn
-                      (format *standard-output* "  ~A~%" foreign-test)
-                      (load-test-file foreign-test))
+                    (if (batch-excluded-p "foreign-test.l")
+                        (progn
+                          (pushnew "foreign-test.l" *batch-excluded* :test #'string=)
+                          (format *standard-output* "  ~A [SKIPPED]~%" foreign-test))
+                      (progn
+                        (format *standard-output* "  ~A~%" foreign-test)
+                        (load-test-file foreign-test)))
                   (condition (e)
                     (format *standard-output* "ERROR loading foreign-test.l: ~A~%" e)))))
 

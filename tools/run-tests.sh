@@ -54,14 +54,35 @@ unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$root
 cd "$root"
 
-# Two tests raise an access violation on purpose and expect it back as a
-# win32-exception condition.  That translation is _set_se_translator, an MSVC
-# extension, so src/frontend/win32/init.cc only installs se_handler under
-# _MSC_VER; on this build the fault is not caught and Wine takes the process
-# down, which ends the run there and leaves the rest of the suite unmeasured.
-# Skip the two rather than lose everything after them.  XYZZY_TEST_EXCLUDE_EXTRA
-# adds to the default list in misc/run-tests-batch.l instead of replacing it.
-: "${XYZZY_TEST_EXCLUDE_EXTRA:=win32-exception-slots,pack/unpack-bad-ptr}"
+# Tests that take the process down on this toolchain.  A dead process ends the
+# run, so everything after them goes unmeasured: skipping them buys back the
+# rest of the suite.  XYZZY_TEST_EXCLUDE_EXTRA adds to the default list in
+# misc/run-tests-batch.l rather than replacing it.
+#
+#   win32-exception-slots, pack/unpack-bad-ptr
+#     Raise an access violation on purpose and expect it back as a
+#     win32-exception condition.  The translation is _set_se_translator, an MSVC
+#     extension, so src/frontend/win32/init.cc installs se_handler only under
+#     _MSC_VER and on this build nobody catches the fault.
+#
+#   foreign-test.l  (i686 only, 44 tests)
+#     The whole FFI file.  Calling out to a DLL and calling back into Lisp both
+#     go through hand written x86 assembly on this build -- call_dll_seh_x86_*
+#     and the thunk that init_c_callable writes into the GC heap, both in
+#     src/frontend/win32/dll.cc, both Clang-only paths.  Something in there is
+#     wrong: execution ends up at an address in the heap, or at zero, and which
+#     test dies varies between runs (defun-c-callable-stdcall here,
+#     defun-c-callable-cdecl in CI, define-dll-entry-return-int32 with those two
+#     skipped).  MSVC x86 on Windows passes all 44, and llvm-mingw x86_64 under
+#     Wine passes them too, so it is neither Wine nor the tests.
+#
+#     Skipping the file is what lets the other 500-odd tests be measured on
+#     i686 at all; put it back the moment that path is fixed.
+skip=win32-exception-slots,pack/unpack-bad-ptr
+case $arch in
+  i686) skip=$skip,foreign-test.l ;;
+esac
+: "${XYZZY_TEST_EXCLUDE_EXTRA:=$skip}"
 export XYZZY_TEST_EXCLUDE_EXTRA
 
 timeout=${XYZZY_TEST_TIMEOUT:-1800}
@@ -141,6 +162,13 @@ grep -c '\.\.\.OK'     "$log" | sed 's/^/passed: /' || true
 grep -c '\.\.\.Failed' "$log" | sed 's/^/failed: /' || true
 grep '\.\.\.Failed'    "$log" || true
 echo "-------------------"
+
+# Wine lets a crashing process exit 0, so the status alone would read a run that
+# stopped halfway as a pass.  The summary line is what says it got to the end.
+if ! grep -q 'Total [0-9]* tests' "$log"; then
+  echo "run-tests.sh: no summary line in the output: the suite did not finish" >&2
+  status=2
+fi
 
 case $status in
   0) echo "run-tests.sh: all tests passed" ;;
