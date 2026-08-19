@@ -43,6 +43,19 @@ esac
 [ -x "$build/xyzzy-batch.exe" ] || {
   echo "run-tests.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
 
+# The byte compiled library is not interchangeable between the targets: the
+# reader decides pointer widths while compiling (#+:64bit in lisp/foreign.l), so
+# a library compiled by the 64 bit build makes the 32 bit one read every pointer
+# as 8 bytes.  Nothing complains at load time; the FFI just starts handing out
+# garbage and the process dies somewhere in foreign-test.l.  The .lc files sit in
+# the source tree and are shared, so check the stamp bytecompile.sh leaves.
+stamp=$root/lisp/.bytecompile-arch
+if [ -f "$stamp" ] && [ "$(cat "$stamp")" != "$arch" ]; then
+  echo "run-tests.sh: lisp/*.lc were byte compiled for $(cat "$stamp"), not $arch." >&2
+  echo "run-tests.sh: run \"tools/x bytecompile $arch --force\" first." >&2
+  exit 2
+fi
+
 # A dump image holds absolute addresses from the binary it was written by.
 if [ -f "$build/xyzzy-batch.wxp" ] \
    && [ "$build/xyzzy-batch.exe" -nt "$build/xyzzy-batch.wxp" ]; then
@@ -65,22 +78,23 @@ cd "$root"
 #     extension, so src/frontend/win32/init.cc installs se_handler only under
 #     _MSC_VER and on this build nobody catches the fault.
 #
-#   foreign-test.l  (i686 only, 44 tests)
-#     The whole FFI file.  Calling out to a DLL and calling back into Lisp both
-#     go through hand written x86 assembly on this build -- call_dll_seh_x86_*
-#     and the thunk that init_c_callable writes into the GC heap, both in
-#     src/frontend/win32/dll.cc, both Clang-only paths.  Something in there is
-#     wrong: execution ends up at an address in the heap, or at zero, and which
-#     test dies varies between runs (defun-c-callable-stdcall here,
-#     defun-c-callable-cdecl in CI, define-dll-entry-return-int32 with those two
-#     skipped).  MSVC x86 on Windows passes all 44, and llvm-mingw x86_64 under
-#     Wine passes them too, so it is neither Wine nor the tests.
+#   handle-divide-by-zero, handle-access-violation, handle-access-violation-2
+#   (i686 only)
+#     Raise a hardware exception inside a DLL call and expect it back as a
+#     win32-exception condition.  dll.cc catches those with __try/__except, and
+#     Clang cannot compile that for i686-w64-mingw32: LLVM's 32-bit x86 SEH
+#     wants the MSVC exception tables, which this target does not have.
 #
-#     Skipping the file is what lets the other 500-odd tests be measured on
-#     i686 at all; put it back the moment that path is fixed.
+#       error: assembler label 'L__ehtable$f' can not be undefined
+#
+#     The reason it builds at all is that the __try bodies in dll.cc hold only
+#     inline asm, which LLVM does not treat as able to throw, so it drops the
+#     handler and emits nothing -- no SEH frame, no protection.  Put a call in
+#     there and the build stops with the error above.  x86_64 is unaffected
+#     (llvm-mingw uses real SEH there) and passes all three.
 skip=win32-exception-slots,pack/unpack-bad-ptr
 case $arch in
-  i686) skip=$skip,foreign-test.l ;;
+  i686) skip=$skip,handle-divide-by-zero,handle-access-violation,handle-access-violation-2 ;;
 esac
 : "${XYZZY_TEST_EXCLUDE_EXTRA:=$skip}"
 export XYZZY_TEST_EXCLUDE_EXTRA

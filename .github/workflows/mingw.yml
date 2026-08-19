@@ -83,7 +83,12 @@ jobs:
         if: matrix.arch != 'aarch64'
         uses: actions/cache/restore@v4
         with:
-          path: lisp/**/*.lc
+          # The stamp travels with the files: run-tests.sh refuses to run a
+          # library that was compiled for another target, and a restore without
+          # it would look like "nobody knows".
+          path: |
+            lisp/**/*.lc
+            lisp/.bytecompile-arch
           key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
 
       - name: Byte compile the library
@@ -95,7 +100,12 @@ jobs:
         if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: lisp/**/*.lc
+          # The stamp travels with the files: run-tests.sh refuses to run a
+          # library that was compiled for another target, and a restore without
+          # it would look like "nobody knows".
+          path: |
+            lisp/**/*.lc
+            lisp/.bytecompile-arch
           key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
 
       # Informational while the two toolchains are still being compared: the

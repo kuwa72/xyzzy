@@ -26,6 +26,7 @@ GTAGS
 
 # xyzzy files
 *.lc
+lisp/.bytecompile-arch
 *.ssn
 \#unnamed.*
 .xyzzy

@@ -35,6 +35,8 @@ docker_run() {
     -e XYZZY_ARCH \
     -e XYZZY_TEST_TIMEOUT \
     -e XYZZY_TEST_STALL \
+    -e XYZZY_TEST_EXCLUDE \
+    -e XYZZY_TEST_EXCLUDE_EXTRA \
     -w /work \
     "$IMAGE" "$@"
 }

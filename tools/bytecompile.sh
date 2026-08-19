@@ -39,9 +39,25 @@ esac
 [ -x "$build/xyzzy-batch.exe" ] || {
   echo "bytecompile.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
 
+# The .lc files are not interchangeable between the targets.  The reader decides
+# pointer widths while compiling (#+:64bit in lisp/foreign.l), so a library
+# compiled by the 64 bit build makes the 32 bit one read every pointer as 8
+# bytes: nothing complains at load time, the FFI just hands out garbage and the
+# process dies.  They live in the shared source tree, so leave a stamp saying
+# which target wrote them and recompile when it is the wrong one.
+stamp=$root/lisp/.bytecompile-arch
 if [ "$force" = no ] && [ -f "$root/lisp/startup.lc" ]; then
-  echo "bytecompile.sh: lisp/startup.lc is already there, nothing to do"
-  exit 0
+  if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$arch" ]; then
+    echo "bytecompile.sh: lisp/*.lc are already there and were built for $arch, nothing to do"
+    exit 0
+  fi
+  if [ -f "$stamp" ]; then
+    echo "bytecompile.sh: lisp/*.lc were built for $(cat "$stamp"), recompiling for $arch"
+  else
+    echo "bytecompile.sh: lisp/*.lc are there but nothing says which target built them, recompiling for $arch"
+  fi
+  find "$root/lisp" -name '*.lc' -delete
+  rm -f "$stamp"
 fi
 
 # A dump image holds absolute addresses from the binary that wrote it.
@@ -76,3 +92,5 @@ echo "bytecompile.sh: $count .lc file(s) present"
   echo "bytecompile.sh: no .lc files were produced (xyzzy-batch exit $status)" >&2
   exit 1
 }
+
+echo "$arch" > "$stamp"
