@@ -4,7 +4,8 @@
 #
 #   tools/x image                  build the container image
 #   tools/x shell                  interactive shell inside the container
-#   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64)
+#   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64 | aarch64)
+#   tools/x arm-prep               generate src/core/gen/ for aarch64 (uses x86_64)
 #   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
 #   tools/x bytecompile [ARCH]     byte compile the lisp library (makes start up fast)
 #   tools/x test      [ARCH] ...   run the lisp test suite under Wine
@@ -62,6 +63,9 @@ case "$cmd" in
   build)
     docker_run cmake --build "/work/_build/$ARCH" "$@"
     ;;
+  arm-prep)
+    docker_run tools/arm-prep.sh
+    ;;
   bytecompile)
     docker_run tools/bytecompile.sh "$ARCH" "$@"
     ;;
@@ -79,6 +83,6 @@ case "$cmd" in
     docker_run "$@"
     ;;
   *)
-    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

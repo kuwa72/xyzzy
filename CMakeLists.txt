@@ -250,6 +250,18 @@ else()
     set(GEN_LAUNCHER)
 endif()
 
+# Cross compiling with no emulator at all means the generators cannot be run in
+# any way.  That is the ARM64 case: Wine on an x86 host executes x86 machine
+# code, so an ARM64 PE cannot be started.  Their output is plain tables and
+# declarations, identical for every architecture, and it lands in the source
+# tree (src/core/gen/), so a build that can run them leaves it behind for this
+# one to use -- tools/x arm-prep does exactly that.
+if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+    set(XYZZY_RUN_CODEGEN OFF)
+else()
+    set(XYZZY_RUN_CODEGEN ON)
+endif()
+
 # Common defines
 add_compile_definitions(
     STRICT
@@ -356,6 +368,8 @@ set(GEN_SRC1_SOURCES
     ${SRC_DIR}/gen-ucs2tab.cc
     ${SRC_DIR}/gen-utf2sjis.cc
 )
+
+if(XYZZY_RUN_CODEGEN)
 
 add_executable(gen-src1 ${GEN_SRC1_SOURCES})
 target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 WIN32 _CONSOLE)
@@ -501,6 +515,29 @@ add_custom_target(gen-src2-run
         ${GEN_DIR}/msgcode.h
         ${GEN_DIR}/msgdef.cc
 )
+
+else() # NOT XYZZY_RUN_CODEGEN
+
+# Nothing to run, so nothing to build either: the generators are build tools,
+# not part of the product, and the other architectures compile them.  What the
+# rest of this file needs is the output and the two target names.
+set(XYZZY_GEN_FILES
+    num-arith.h chtab.cc ibmext.h iso2022state.h jisx0212-hash.h kanjitab.h
+    vars-decl.h fns-decl.h symtable-core.cc symtable-ed.cc dumpver.cc
+    utf2sjis.h msgcode.h msgdef.cc)
+foreach(_gen ${XYZZY_GEN_FILES})
+    if(NOT EXISTS ${GEN_DIR}/${_gen})
+        message(FATAL_ERROR
+            "src/core/gen/${_gen} is missing, and the code generators cannot be run "
+            "for ${CMAKE_SYSTEM_PROCESSOR} (see cmake/mingw-aarch64.cmake).  Run "
+            "\"tools/x arm-prep\" first: it builds them for x86_64 and runs them "
+            "under Wine, which leaves the files here.")
+    endif()
+endforeach()
+add_custom_target(gen-src1-run)
+add_custom_target(gen-src2-run)
+
+endif() # XYZZY_RUN_CODEGEN
 
 else() # !WIN32
 

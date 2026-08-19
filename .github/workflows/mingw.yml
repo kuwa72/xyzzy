@@ -27,10 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
-      # One architecture failing must not hide whether the other is healthy.
+      # One architecture failing must not hide whether the others are healthy.
       fail-fast: false
       matrix:
-        arch: [i686, x86_64]
+        # aarch64 is build only: Wine here executes x86 machine code, so an ARM64
+        # PE cannot be started, and neither the byte compiler nor the test suite
+        # can run.  Running ARM64 binaries stays with build.yml on
+        # windows-11-arm.  What this adds is a second compiler reading the ARM64
+        # code paths.
+        arch: [i686, x86_64, aarch64]
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +55,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The ARM64 build cannot run its own code generators, so the x86_64
+      # toolchain -- which does run under Wine -- writes src/core/gen/ first.
+      # See XYZZY_RUN_CODEGEN in CMakeLists.txt.
+      - name: Generate src/core/gen (ARM64 only)
+        if: matrix.arch == 'aarch64'
+        timeout-minutes: 20
+        run: tools/x arm-prep
+
       - name: Configure
         timeout-minutes: 15
         run: tools/x configure ${{ matrix.arch }}
@@ -67,18 +80,19 @@ jobs:
       # compiling them again.
       - name: Restore the byte compiled library
         id: lc
+        if: matrix.arch != 'aarch64'
         uses: actions/cache/restore@v4
         with:
           path: lisp/**/*.lc
           key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
 
       - name: Byte compile the library
-        if: steps.lc.outputs.cache-hit != 'true'
+        if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit != 'true'
         timeout-minutes: 30
         run: tools/x bytecompile ${{ matrix.arch }}
 
       - name: Save the byte compiled library
-        if: steps.lc.outputs.cache-hit != 'true'
+        if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: lisp/**/*.lc
@@ -89,6 +103,7 @@ jobs:
       # build is expected to add its own for a while.  Gate on it once the
       # difference against build.yml is understood.
       - name: Run the test suite under Wine (informational)
+        if: matrix.arch != 'aarch64'
         continue-on-error: true
         timeout-minutes: 40
         run: tools/x test ${{ matrix.arch }}
