@@ -27,11 +27,11 @@ LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 // Bitmap
 //
 
-IDB_CHECK               BITMAP  MOVEABLE PURE   "res\\check.bmp"
-IDB_FILESEL             BITMAP  DISCARDABLE     "res\\filesel.bmp"
-IDB_BUFSEL              BITMAP  DISCARDABLE     "res\\bufsel.bmp"
-IDB_TT                  BITMAP  DISCARDABLE     "res\\tt.bmp"
-IDB_WHEEL               BITMAP  DISCARDABLE     "res\\wheel.bmp"
+IDB_CHECK               BITMAP  MOVEABLE PURE   "res/check.bmp"
+IDB_FILESEL             BITMAP  DISCARDABLE     "res/filesel.bmp"
+IDB_BUFSEL              BITMAP  DISCARDABLE     "res/bufsel.bmp"
+IDB_TT                  BITMAP  DISCARDABLE     "res/tt.bmp"
+IDB_WHEEL               BITMAP  DISCARDABLE     "res/wheel.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -690,23 +690,23 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_XYZZY               ICON    DISCARDABLE     "res\\xyzzy4.ico"
-IDI_FILER               ICON    DISCARDABLE     "res\\xyzzy5.ico"
+IDI_XYZZY               ICON    DISCARDABLE     "res/xyzzy4.ico"
+IDI_FILER               ICON    DISCARDABLE     "res/xyzzy5.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Cursor
 //
 
-IDC_MAGCUR              CURSOR  DISCARDABLE     "res\\mag.cur"
-IDC_SPLITH              CURSOR  DISCARDABLE     "res\\SPLITH.CUR"
-IDC_SPLITV              CURSOR  DISCARDABLE     "res\\SPLITV.CUR"
-IDC_REVARROW            CURSOR  DISCARDABLE     "res\\cursor1.cur"
-IDC_WHEEL_UD            CURSOR  DISCARDABLE     "res\\wheel_ud.cur"
-IDC_WHEEL_U             CURSOR  DISCARDABLE     "res\\wheel_u.cur"
-IDC_WHEEL_D             CURSOR  DISCARDABLE     "res\\wheel_d.cur"
-IDC_MOVEUD              CURSOR  DISCARDABLE     "res\\moveud.cur"
-IDC_MOVELR              CURSOR  DISCARDABLE     "res\\movelr.cur"
+IDC_MAGCUR              CURSOR  DISCARDABLE     "res/mag.cur"
+IDC_SPLITH              CURSOR  DISCARDABLE     "res/SPLITH.CUR"
+IDC_SPLITV              CURSOR  DISCARDABLE     "res/SPLITV.CUR"
+IDC_REVARROW            CURSOR  DISCARDABLE     "res/cursor1.cur"
+IDC_WHEEL_UD            CURSOR  DISCARDABLE     "res/wheel_ud.cur"
+IDC_WHEEL_U             CURSOR  DISCARDABLE     "res/wheel_u.cur"
+IDC_WHEEL_D             CURSOR  DISCARDABLE     "res/wheel_d.cur"
+IDC_MOVEUD              CURSOR  DISCARDABLE     "res/moveud.cur"
+IDC_MOVELR              CURSOR  DISCARDABLE     "res/movelr.cur"
 
 /////////////////////////////////////////////////////////////////////////////
 //

@@ -1,7 +1,7 @@
 #include "xyzzycli.h"
 #include <ddeml.h>
 
-1 ICON res\xyzzy3.ico
+1 ICON "res/xyzzy3.ico"
 
 STRINGTABLE DISCARDABLE
 BEGIN

@@ -80,18 +80,23 @@ cmake -B build-curses -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
 ```
 
-### mingw-w64 クロスビルド (Linux/macOS から Windows 版を作る)
+### llvm-mingw クロスビルド (Linux/macOS から Windows 版を作る)
 
 Windows マシンが無くても Windows 版をビルドして動かせます。docker だけ要ります。
-ビルドは mingw-w64、実行は Wine です。
+ビルドは llvm-mingw (Clang/LLD)、実行は Wine です。
 
 ```bash
 tools/x image                # コンテナイメージを作る (初回のみ、20分ほど)
-tools/x configure x86_64     # i686 も指定できます
+tools/x configure x86_64     # i686 / aarch64 も指定できます
 tools/x build     x86_64
 tools/x bytecompile x86_64   # .lc を作る (Wine 上の起動が速くなる)
 tools/x test      x86_64     # テストスイートを Wine で流す
 ```
+
+`aarch64` はビルドのみです。ここの Wine は x86 の機械語しか実行しないので、
+ARM64 のバイナリは動かせません (テストは MSVC の windows-11-arm ジョブが
+見ています)。また、コードジェネレータもターゲット向けにビルドされるため、
+先に x86_64 をビルドして `src/core/gen/` を作っておく必要があります。
 
 `tools/x` を引数なしで実行するとサブコマンドの一覧が出ます。CI の
 `mingw` ワークフローも同じ `tools/x` を呼んでいるので、CI が落ちたときは

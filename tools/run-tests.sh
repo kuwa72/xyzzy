@@ -32,6 +32,11 @@ build=$root/_build/$arch
 case $arch in
   i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
   x86_64) export WINEPREFIX=/wine   WINEARCH=win64 ;;
+  aarch64)
+    echo "run-tests.sh: Wine here executes x86 machine code, so an ARM64 build" >&2
+    echo "run-tests.sh: cannot be run; that stays with the MSVC job on" >&2
+    echo "run-tests.sh: windows-11-arm.  aarch64 is build only." >&2
+    exit 2 ;;
   *) echo "run-tests.sh: unknown architecture $arch" >&2; exit 2 ;;
 esac
 

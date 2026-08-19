@@ -43,7 +43,7 @@ cmd=${1:-help}
 
 # An optional first argument selects the target architecture.
 case "${1:-}" in
-  i686|x86_64) ARCH=$1; shift ;;
+  i686|x86_64|aarch64) ARCH=$1; shift ;;
   *) ARCH=$ARCH_DEFAULT ;;
 esac
 

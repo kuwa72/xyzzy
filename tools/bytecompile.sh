@@ -30,6 +30,9 @@ build=$root/_build/$arch
 case $arch in
   i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
   x86_64) export WINEPREFIX=/wine   WINEARCH=win64 ;;
+  aarch64)
+    echo "bytecompile.sh: an ARM64 build cannot be run here; aarch64 is build only" >&2
+    exit 2 ;;
   *) echo "bytecompile.sh: unknown architecture $arch" >&2; exit 2 ;;
 esac
 
