@@ -82,6 +82,18 @@ cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
 
 bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) します。初回起動が大幅に速くなります。
 
+### Docker (ローカル確認環境)
+
+Windows も MSVC も用意せずに、手元でビルドとユニットテストを回せます。
+
+```bash
+docker/dev.sh linux all    # gcc + ncurses でネイティブビルド → バイトコンパイル → テスト
+docker/dev.sh wine all     # mingw-w64 でクロスビルド → Wine でテスト (CI に近い確認)
+docker/dev.sh wine test    # テストだけ
+```
+
+詳細は [docker/README.md](docker/README.md) を参照。
+
 ## バージョン体系
 
 `0.{Y1}.{Y2}.{M}` — `Y1.Y2` が西暦下2桁、`M` が月。

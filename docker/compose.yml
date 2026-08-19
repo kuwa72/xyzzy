@@ -1,0 +1,40 @@
+name: xyzzy-dev
+
+# 共通設定: リポジトリを /work に bind mount し、ホストの UID/GID で動かす。
+# そうしないと build-docker/ や lisp/*.lc が root 所有になる。
+x-common: &common
+  init: true
+  working_dir: /work
+  user: "${XYZZY_UID:-1000}:${XYZZY_GID:-1000}"
+  volumes:
+    - ..:/work
+    # WSLg / X11 のソケット。GUI (wine の xyzzy.exe) を出したいとき用。
+    - /tmp/.X11-unix:/tmp/.X11-unix
+  command: ["bash"]
+
+services:
+  linux:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.linux
+    image: xyzzy-dev-linux
+    environment:
+      HOME: /work/build-docker/home
+      DISPLAY: ${DISPLAY:-}
+      JOBS: ${JOBS:-}
+      XYZZY_TEST_EXCLUDE: ${XYZZY_TEST_EXCLUDE:-}
+
+  wine:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.wine
+    image: xyzzy-dev-wine
+    environment:
+      HOME: /work/build-docker/home
+      DISPLAY: ${DISPLAY:-}
+      JOBS: ${JOBS:-}
+      XYZZY_ARCH: ${XYZZY_ARCH:-x86_64}
+      XYZZY_TEST_EXCLUDE: ${XYZZY_TEST_EXCLUDE:-}
+      WINEDEBUG: ${WINEDEBUG:--all}

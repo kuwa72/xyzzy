@@ -1,0 +1,39 @@
+# ローカル確認用: mingw-w64 クロスビルド + Wine 実行環境 (CI の MSVC ビルドに近い確認)
+#
+#   docker/dev.sh wine all          # x86_64 でビルド → バイトコンパイル → テスト
+#   XYZZY_ARCH=i686 docker/dev.sh wine all
+#
+# Windows 実行ファイルを作って Wine で走らせるので、GUI の xyzzy.exe も
+# WSLg 経由 (DISPLAY 受け渡し) で起動できる。
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN dpkg --add-architecture i386 \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        cmake \
+        g++-mingw-w64-i686 \
+        g++-mingw-w64-x86-64 \
+        git \
+        libz-mingw-w64-dev \
+        locales \
+        mingw-w64-tools \
+        ninja-build \
+        wine \
+        wine32:i386 \
+        wine64 \
+        xvfb \
+    && sed -i -e 's/^# *\(ja_JP.UTF-8\)/\1/' -e 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen \
+    && locale-gen \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git config --system --add safe.directory '*'
+
+ENV LANG=C.UTF-8 \
+    TERM=xterm-256color \
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES=mscoree,mshtml=
+
+WORKDIR /work

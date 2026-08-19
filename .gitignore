@@ -51,6 +51,11 @@ misc/words.utf8.txt
 
 # MSYS2/CMake build
 build/
+
+# Docker ローカル確認環境 (docker/dev.sh)
+/build-docker/
+grammars/*/*.so
+bytecompile-progress.log
 .worktrees/
 xyzzy_debug.log
 
