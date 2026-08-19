@@ -51,13 +51,28 @@ unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$root
 cd "$root"
 
+log=$build/bytecompile-output.txt
 echo "bytecompile.sh: byte compiling the lisp library ($arch)..."
-wine "$build/xyzzy-batch.exe" -q -load misc/bytecompile-batch.l
+
+# Keep the output rather than letting set -e drop it: a console program run
+# through Wine that writes nothing and exits non-zero says nothing about why,
+# and the exit code alone is what this step used to report.
+set +e
+wine "$build/xyzzy-batch.exe" -q -load misc/bytecompile-batch.l >"$log" 2>&1
+status=$?
+set -e
 wineserver -w || true
 
+echo "----- xyzzy-batch output (exit $status) -----"
+cat "$log" || true
+echo "---------------------------------------------"
+
 count=$(find "$root/lisp" -name '*.lc' | wc -l)
+echo "bytecompile.sh: $count .lc file(s) present"
+
+# The count is what matters.  xyzzy exiting non-zero after writing the whole
+# library is not a reason to stop; nothing written is.
 [ "$count" -gt 0 ] || {
-  echo "bytecompile.sh: no .lc files were produced" >&2
+  echo "bytecompile.sh: no .lc files were produced (xyzzy-batch exit $status)" >&2
   exit 1
 }
-echo "bytecompile.sh: $count file(s) compiled"

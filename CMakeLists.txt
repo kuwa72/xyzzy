@@ -93,9 +93,12 @@ configure_file(
 # not offer in mingw mode.  Making everything stdcall from the start means
 # there is nothing to bridge; the bridge is guarded on _M_IX86, which Clang
 # does not define for a mingw target, so it stays an empty translation unit.
+# -fdefault-calling-conv is a frontend option, so it goes through -Xclang; the
+# SHELL: prefix keeps the two words together and stops CMake de-duplicating
+# them apart.
 if(WIN32 AND NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
    AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-    add_compile_options(-fdefault-calling-conv=stdcall)
+    add_compile_options("SHELL:-Xclang -fdefault-calling-conv=stdcall")
 endif()
 
 # ============================================================

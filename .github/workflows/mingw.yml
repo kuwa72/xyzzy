@@ -101,5 +101,6 @@ jobs:
           if-no-files-found: ignore
           path: |
             _build/${{ matrix.arch }}/test-output.txt
+            _build/${{ matrix.arch }}/bytecompile-output.txt
             _build/${{ matrix.arch }}/test-stuck.png
             _build/${{ matrix.arch }}/*.exe
