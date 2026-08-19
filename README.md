@@ -93,14 +93,25 @@ tools/x bytecompile x86_64   # .lc を作る (Wine 上の起動が速くなる)
 tools/x test      x86_64     # テストスイートを Wine で流す
 ```
 
-`aarch64` はビルドのみです。ここの Wine は x86 の機械語しか実行しないので、
-ARM64 のバイナリは動かせません (テストは MSVC の windows-11-arm ジョブが
-見ています)。また、コードジェネレータもターゲット向けにビルドされるため、
-先に x86_64 をビルドして `src/core/gen/` を作っておく必要があります。
+ARM64 はビルドのみです。ここの Wine は x86 の機械語しか実行しないので、ARM64 の
+バイナリは動かせません (テストは MSVC の windows-11-arm ジョブが見ています)。
+コードジェネレータもターゲット向けにビルドされて動かせないので、先に
+`src/core/gen/` を用意します。
 
-`tools/x` を引数なしで実行するとサブコマンドの一覧が出ます。CI の
-`mingw` ワークフローも同じ `tools/x` を呼んでいるので、CI が落ちたときは
-手元で同じことを再現できます。
+```bash
+tools/x arm-prep             # x86_64 側でジェネレータだけ動かして src/core/gen/ を作る
+tools/x configure aarch64
+tools/x build     aarch64
+```
+
+`tools/x` を引数なしで実行するとサブコマンドの一覧が出ます。CI の `mingw`
+ワークフローは i686 / x86_64 / aarch64 を同じ `tools/x` で回しているので、CI が
+落ちたときは手元で同じことを再現できます。
+
+テストスイートには構成ごとに外しているものがあります (`tools/run-tests.sh` と
+`misc/run-tests-batch.l` にそれぞれ理由を書いてあります)。Clang ビルドには
+`_set_se_translator` に相当する SEH 変換が無く、i686 では FFI
+(`unittest/foreign-test.l`) が通らないため、そのぶんは MSVC ビルドが見ています。
 
 リリース用のバイナリは従来どおり MSVC の `build` ワークフローが作ります。
 
