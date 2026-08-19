@@ -217,14 +217,38 @@ Fnthcdr (lisp n, lisp list)
   return list;
 }
 
+/* Number of conses in LIST, or -1 if it is circular.  A non-cons cdr ends
+   the list, so a dotted list is counted rather than rejected: last returns
+   the last conses, and the last cons of a dotted list is a cons like any
+   other.  */
+static long
+count_conses (lisp list)
+{
+  long n = 0;
+  lisp slow = list;
+  for (lisp fast = list; consp (fast);)
+    {
+      QUIT;
+      fast = xcdr (fast);
+      n++;
+      if (!consp (fast))
+        break;
+      fast = xcdr (fast);
+      n++;
+      slow = xcdr (slow);
+      if (fast == slow)
+        return -1;
+    }
+  return n;
+}
+
 lisp
 Flast (lisp list, lisp n)
 {
-  lisp l = Flist_length (list);
-  if (l == Qnil)
-    FEprogram_error (Eargument_is_circle);
-  int ll = fixnum_value (l);
-  int nn;
+  if (list != Qnil && !consp (list))
+    FEtype_error (list, Qlist);
+
+  long nn;
   if (!n || n == Qnil)
     nn = 1;
   else
@@ -233,12 +257,16 @@ Flast (lisp list, lisp n)
       if (nn < 0)
         FErange_error (n);
     }
-  ll -= nn;
-  if (!nn)
-    ll--;
-  if (ll > 0)
-    list = Fnthcdr (make_fixnum (ll), list);
-  return nn ? list : Fcdr (list);
+
+  long ll = count_conses (list);
+  if (ll < 0)
+    FEprogram_error (Eargument_is_circle);
+  if (nn >= ll)
+    return list;
+  /* nthcdr walks exactly ll - nn conses, so it never falls off the end;
+     with nn == 0 it stops on the cdr of the last cons, which is what
+     (last list 0) is defined to return.  */
+  return Fnthcdr (make_fixnum (ll - nn), list);
 }
 
 lisp

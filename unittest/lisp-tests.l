@@ -1712,3 +1712,36 @@ lisp-indent-hook property"
 		y)
 	      y))))
   => (t nil t))
+
+;;; upstream: xyzzy-022/xyzzy#426
+;;; last はコンスを返すものなので、ドットリストにも使える。
+
+(deftest test-last-dotted-list ()
+  (values
+   (last '(1 2 3))
+   (last '(1 2 3) 2)
+   (last '(1 2 3) 0)
+   (last '(1 2 3) 5)
+   (last '(1 2 . 3))
+   (last '(1 2 . 3) 2)
+   (last '(1 2 . 3) 0)
+   (last '(1 2 . 3) 5)
+   (last nil)
+   (last nil 0))
+  => (3)
+  => (2 3)
+  => nil
+  => (1 2 3)
+  => (2 . 3)
+  => (1 2 . 3)
+  => 3
+  => (1 2 . 3)
+  => nil
+  => nil)
+
+(deftest test-last-circular-list ()
+  (let ((l (list 1 2 3)))
+    (setf (cdr (cddr l)) l)
+    (multiple-value-bind (r e) (ignore-errors (last l))
+      (and (null r) (typep e 'error) t)))
+  => t)

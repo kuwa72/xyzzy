@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (deftest test-number-negate-int64 ()
   (let ((shortint 2)
         (longint (expt 2 30))
@@ -122,3 +123,42 @@
   => 0
   => 0
   => 0)
+
+;;; upstream: xyzzy-022/xyzzy#422
+;;; 型の幅以上のシフトは未定義で、x86 はシフト量をマスクするため
+;;; (ash 64 -64) が 64 を返していた。
+
+(deftest test-ash-right-beyond-width ()
+  (values
+   (ash 64 -6)
+   (ash 64 -7)
+   (ash 64 -32)
+   (ash 64 -64)
+   (ash 64 -1000)
+   (ash -64 -32)
+   (ash -64 -64)
+   (ash (expt 2 40) -64)
+   (ash (- (expt 2 40)) -64))
+  => 1
+  => 0
+  => 0
+  => 0
+  => 0
+  => -1
+  => -1
+  => 0
+  => -1)
+
+;;; 右シフトでリムを全部落とす場合。リム数を超えて読んでいたため、
+;;; bignum_rep が使い回されていると残っていた値が結果に出ていた。
+
+(deftest test-ash-right-drop-all-limbs ()
+  (values
+   (ash (expt 2 40) -48)
+   (ash (- (expt 2 40)) -48)
+   (ash (expt 2 64) -80)
+   (ash (- (expt 2 64)) -80))
+  => 0
+  => -1
+  => 0
+  => -1)

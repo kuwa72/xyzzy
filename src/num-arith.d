@@ -1123,7 +1123,14 @@ bb: {
     }
 ss: {
       if (count < 0)
-        return make_fixnum (x >> -count);
+        {
+          /* Shifting by the width of the type or more is undefined; x86
+             masks the count and gives back x itself, so (ash 64 -64) used
+             to return 64.  The result is the sign bit repeated.  */
+          if (count <= -long (BITS_PER_LONG))
+            return make_fixnum (x < 0 ? -1 : 0);
+          return make_fixnum (x >> -count);
+        }
       bignum_rep_long xx (x);
       return Fashbs (&xx, lx, count, lcount);
     }

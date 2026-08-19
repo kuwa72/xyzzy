@@ -995,7 +995,10 @@ lshift (bignum_rep *r, const bignum_rep *x, long y)
   else
     {
       int rl = xl - bw;
-      if (rl < 0)
+      /* rl == 0 means every significant limb is shifted out, so the result
+         is zero.  Falling through would read x->br_data[xl], which is not
+         cleared when a bignum_rep is reused for a shorter value.  */
+      if (rl <= 0)
         return br_copy_zero (r);
 
       int xr_eq = x == r;

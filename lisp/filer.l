@@ -616,13 +616,27 @@ K:mkdir  L:ドライブ  M:移動  N:ファイル名  O:圧縮  P:DIR??"
 	   (quit))
 	  (t :skip))))
 
+(defconstant *file-attribute-reparse-point* #x400)
+
+;;; ジャンクションやシンボリックリンクは、リンク自体を消すのであって
+;;; 参照先の中身を消すのではない。RemoveDirectory はリンクを外すだけなので、
+;;; 参照先が空でなくても消せる。
+(defun filer-reparse-point-p (file)
+  (let ((atr (ignore-errors (get-file-attributes file))))
+    (and atr (logtest atr *file-attribute-reparse-point*))))
+
 (defun filer-do-delete (files)
   (dolist (file files)
     (let ((iad if-access-denied))
       (tagbody
 	retry
 	(handler-case
-	    (cond ((file-directory-p file)
+	    (cond ((and (file-directory-p file)
+			(filer-reparse-point-p file))
+		   ;; 中には入らない
+		   (or *filer-delete-mask*
+		       (delete-directory file :if-access-denied iad)))
+		  ((file-directory-p file)
 		   (let ((files (directory file :absolute t)))
 		     (cond ((null files)
 			    (or *filer-delete-mask*
