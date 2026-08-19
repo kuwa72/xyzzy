@@ -41,6 +41,7 @@ public:
 
   void add (ucs4_t);
   void add (int);
+  void add (Char);
   void fill (ucs4_t, int);
   void fill (int, int);
   void add (const char *);
@@ -105,6 +106,18 @@ inline void
 StrBuf::add (int c)
 {
   add (ucs4_t (c & 0xff));
+}
+
+/* Char (a UTF-16 code unit) must not go through add (int): a plain char
+   literal promotes to int, so add (int) masks with 0xff to keep byte-ish
+   callers working, and a Char argument would otherwise pick that overload
+   and lose its high byte.  Without this overload (princ #\U+5E73) prints
+   only 0x73 ('s').  Callers that already hold a full code point pass
+   ucs4_t and are unaffected. */
+inline void
+StrBuf::add (Char c)
+{
+  add (ucs4_t (c));
 }
 
 inline void
