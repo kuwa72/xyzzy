@@ -137,9 +137,32 @@ tools/x check-encoding             全ソースが CP932 として妥当か検�
   * `tools/x prepare x86_64` … 起動シーケンスを完走し、`(dump-xyzzy)` で
     ダンプイメージを書いて正常終了する。つまり **エディタとして起動する**。
 
+### テストで除外しているもの
+
+CI では `XYZZY_TEST_EXCLUDE` で以下を飛ばしている (レポートの先頭に記録される)。
+いずれも Internet Explorer か WMI を必要とするもので、Wine には無い。
+
+  * `test-ole-method*-args`, `test-ole-method*-named-args`
+  * `fix-ole-event-sink-load-typelib`
+  * `fix-ole-for-each`, `fix-ole-for-each-2`
+
+このうち `fix-ole-event-sink-load-typelib` は単に失敗するのではなく、
+**`Assertion failed: src/lisp.h: 202`** のモーダルダイアログを出してそこで
+止まる。i686 でも x86_64 でも同じ場所で、382/533 件目である。
+
+この assert は `object_typeof` の
+`assert (bitisset (used_place (x), bit_index (x)))` で、アロケータが「未使用」と
+見ているオブジェクトのタグを読もうとしている。つまり解放済みオブジェクトへの
+アクセスで、環境の制約ではなく実際の不具合である。32bit でも起きるので 64bit
+対応で持ち込んだものではない。OLE のイベントシンク (`event_sink::s_handlers`、
+GC は data.cc の `Toledata` の枝でたどっている) と COM コールバックの絡みが
+怪しいが、追い切れていない。Release ビルドでは assert が消えるだけで、
+壊れたアクセス自体は残る。
+
 ### 残っている作業
 
-  * `tools/x test x86_64` (unittest 一式) の完走確認。
+  * `object_typeof` の assert (上記) の原因究明。
+  * 除外していないテストの完走確認 (382 件目より後ろはまだ見ていない)。
   * `catch (Win32Exception &)` に相当する保護の再実装。
   * Win9x 専用の `VWIN32` 経路 (`src/vfs.cc`, `src/pathname.cc`) は 64bit では
     実行されないが、ポインタを 32bit レジスタ像に渡す部分がそのまま残っている。

@@ -1,15 +1,19 @@
 name: CI
 
 on:
+  # Topic branches are covered through their pull request: a push to the head
+  # branch fires pull_request as well, and listing the branch here too would
+  # start the same work twice, each run holding two runners for as long as it
+  # takes.  workflow_dispatch covers a branch without a pull request.
   push:
-    branches: [master, develop, 'release/**', 'topic/**', 'fix/**']
+    branches: [master, develop]
   pull_request:
   workflow_dispatch:
 
-# A push to a branch with an open pull request otherwise starts the same work
-# twice, and each run holds two runners for as long as it takes.
+# github.ref is refs/pull/N/merge for a pull request and refs/heads/... for a
+# push, so grouping on it would not put the two in the same group.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -75,11 +79,22 @@ jobs:
 
       # run-tests.sh gives up on its own when the suite stops making progress,
       # so this cap is only a backstop.
+      # Excluded because they drive Internet Explorer or WMI, neither of which
+      # exists under Wine.  fix-ole-event-sink-load-typelib does not merely
+      # fail: it trips "Assertion failed: src/lisp.h: 202" in a modal box and
+      # then waits for someone to click it.  That assertion is a real bug (see
+      # docs/cross-build.md) and not the reason it is skipped here.
       - name: Run the test suite
         timeout-minutes: 25
         env:
           XYZZY_TEST_TIMEOUT: 900
           XYZZY_TEST_STALL: 180
+          XYZZY_TEST_EXCLUDE: >-
+            test-ole-method*-args,
+            test-ole-method*-named-args,
+            fix-ole-event-sink-load-typelib,
+            fix-ole-for-each,
+            fix-ole-for-each-2
         run: tools/x test ${{ matrix.arch }}
 
       - name: Collect artefacts

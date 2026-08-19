@@ -29,6 +29,17 @@
 (defun batch-test-progress-file ()
   (si:getenv "XYZZY_TEST_PROGRESS"))
 
+(defun batch-test-exclusions ()
+  "Test files and test names named by XYZZY_TEST_EXCLUDE, comma separated.
+Some tests need facilities the host does not have -- OLE automation against
+Internet Explorer, say -- and a few of those wait for something that will
+never happen, which stops the whole run rather than failing."
+  (let ((s (si:getenv "XYZZY_TEST_EXCLUDE")))
+    (and s (split-string s #\, t " "))))
+
+(defun batch-excluded-p (name exclusions)
+  (and exclusions (find name exclusions :test #'string-equal) t))
+
 (defun batch-test-timeout ()
   ;; milliseconds
   (* 1000 (or (ignore-errors
@@ -39,6 +50,7 @@
 ;;; shell, and there is no way to flush an open stream from lisp.
 
 (defvar *batch-progress-start* nil)
+(defvar *batch-skipped* nil)
 
 (defun batch-log (fmt &rest args)
   (let ((file (batch-test-progress-file)))
@@ -84,14 +96,32 @@
   (batch-log "loading the test framework")
   (load-file (merge-pathnames "simple-test.l" *batch-test-directory*))
   (batch-hook-test-message)
-  (let ((*error-on-overwriting-test* t))
-    (dolist (file (sort (directory *batch-test-directory*
-                                  :absolute t :recursive t :wild "*-tests.l")
-                        #'string-lessp))
-      (batch-log "loading ~A" (file-namestring file))
-      (load-test-file file)))
-  (batch-log "~D tests loaded, running them" (length *tests*))
-  (run-all-tests)
+  (let ((excluded (batch-test-exclusions))
+        (skipped '()))
+    (when excluded
+      (batch-log "XYZZY_TEST_EXCLUDE: ~{~A~^ ~}" excluded))
+    (let ((*error-on-overwriting-test* t))
+      (dolist (file (sort (directory *batch-test-directory*
+                                    :absolute t :recursive t :wild "*-tests.l")
+                          #'string-lessp))
+        (let ((name (file-namestring file)))
+          (cond ((batch-excluded-p name excluded)
+                 (push name skipped)
+                 (batch-log "skipping ~A" name))
+                (t
+                 (batch-log "loading ~A" name)
+                 (load-test-file file))))))
+    (let ((tests (remove-if #'(lambda (test)
+                                (let ((name (string (test-name test))))
+                                  (when (batch-excluded-p name excluded)
+                                    (pushnew name skipped :test #'string=)
+                                    t)))
+                            (reverse *tests*))))
+      (setq *batch-skipped* (nreverse skipped))
+      (batch-log "~D tests to run~@[, ~D skipped~]"
+                 (length tests)
+                 (and *batch-skipped* (length *batch-skipped*)))
+      (run-tests tests)))
   ;; The runner can finish inside run-all-tests or keep going from a timer, so
   ;; the message loop has to keep running until the session is over.
   (let ((deadline (+ (get-internal-real-time) (batch-test-timeout))))
@@ -102,7 +132,11 @@
   ;; The summary line the runner writes is the result: reading it works whether
   ;; the session object is still around or not.
   (let ((text (batch-test-results-text)))
-    (batch-write-report text)
+    (batch-write-report
+     (if *batch-skipped*
+         (format nil "skipped by XYZZY_TEST_EXCLUDE: ~{~A~^ ~}~2%~A"
+                 *batch-skipped* (or text ""))
+       text))
     (let ((status (cond ((null text) 3)                          ; nothing ran
                         ((string-match ": All passed" text) 0)
                         ((string-match " failed" text) 1)
