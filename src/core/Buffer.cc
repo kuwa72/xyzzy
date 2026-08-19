@@ -2,7 +2,7 @@
 #include "ed.h"
 #include "syntaxinfo.h"
 #ifdef _WIN32
-#include "filer.h"
+#include "Filer.h"
 #endif
 #include "binfo.h"
 #ifdef _WIN32
