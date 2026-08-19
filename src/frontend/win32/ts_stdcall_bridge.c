@@ -32,6 +32,7 @@ extern bool            __cdecl ts_parser_set_language_impl(TSParser *, const TSL
 extern TSTree        * __cdecl ts_parser_parse_with_options_impl(TSParser *, const TSTree *, TSInput, TSParseOptions);
 extern TSTree        * __cdecl ts_tree_copy_impl(const TSTree *);
 extern void            __cdecl ts_tree_delete_impl(TSTree *);
+extern void            __cdecl ts_tree_edit_impl(TSTree *, const TSInputEdit *);
 extern TSNode          __cdecl ts_tree_root_node_impl(const TSTree *);
 extern const char    * __cdecl ts_node_type_impl(TSNode);
 extern uint32_t        __cdecl ts_node_start_byte_impl(TSNode);
@@ -56,6 +57,7 @@ extern bool            __cdecl ts_query_cursor_next_match_impl(TSQueryCursor *, 
 #pragma comment(linker, "/ALTERNATENAME:_ts_parser_parse_with_options_impl=_ts_parser_parse_with_options")
 #pragma comment(linker, "/ALTERNATENAME:_ts_tree_copy_impl=_ts_tree_copy")
 #pragma comment(linker, "/ALTERNATENAME:_ts_tree_delete_impl=_ts_tree_delete")
+#pragma comment(linker, "/ALTERNATENAME:_ts_tree_edit_impl=_ts_tree_edit")
 #pragma comment(linker, "/ALTERNATENAME:_ts_tree_root_node_impl=_ts_tree_root_node")
 #pragma comment(linker, "/ALTERNATENAME:_ts_node_type_impl=_ts_node_type")
 #pragma comment(linker, "/ALTERNATENAME:_ts_node_start_byte_impl=_ts_node_start_byte")
@@ -93,6 +95,9 @@ TSTree *ts_tree_copy(const TSTree *self)
 
 void ts_tree_delete(TSTree *self)
   { ts_tree_delete_impl(self); }
+
+void ts_tree_edit(TSTree *self, const TSInputEdit *edit)
+  { ts_tree_edit_impl(self, edit); }
 
 TSNode ts_tree_root_node(const TSTree *self)
   { return ts_tree_root_node_impl(self); }
