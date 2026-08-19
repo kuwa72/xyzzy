@@ -40,6 +40,8 @@
             ;; What to leave out.  A name ending in .l skips a whole file, any
             ;; other name skips that one test, and XYZZY_TEST_EXCLUDE (comma
             ;; separated) replaces the list so CI can vary it per platform.
+            ;; XYZZY_TEST_EXCLUDE_EXTRA adds to it instead of replacing it, for
+            ;; a platform that has to skip a few more without restating these.
             ;;
             ;; These used to be five whole files, which cost every other test
             ;; in them.  A crashing test takes the process down, so it does have
@@ -68,6 +70,10 @@
                     (if (and env (plusp (length env)))
                         (split-string env #\, t " ")
                       *batch-default-exclude*)))
+            (let ((extra (si:getenv "XYZZY_TEST_EXCLUDE_EXTRA")))
+              (when (and extra (plusp (length extra)))
+                (setq *batch-exclude*
+                      (append *batch-exclude* (split-string extra #\, t " ")))))
             (defun batch-excluded-p (name)
               (find name *batch-exclude* :test #'string-equal))
 

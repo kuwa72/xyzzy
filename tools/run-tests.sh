@@ -54,6 +54,16 @@ unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$root
 cd "$root"
 
+# Two tests raise an access violation on purpose and expect it back as a
+# win32-exception condition.  That translation is _set_se_translator, an MSVC
+# extension, so src/frontend/win32/init.cc only installs se_handler under
+# _MSC_VER; on this build the fault is not caught and Wine takes the process
+# down, which ends the run there and leaves the rest of the suite unmeasured.
+# Skip the two rather than lose everything after them.  XYZZY_TEST_EXCLUDE_EXTRA
+# adds to the default list in misc/run-tests-batch.l instead of replacing it.
+: "${XYZZY_TEST_EXCLUDE_EXTRA:=win32-exception-slots,pack/unpack-bad-ptr}"
+export XYZZY_TEST_EXCLUDE_EXTRA
+
 timeout=${XYZZY_TEST_TIMEOUT:-1800}
 stall=${XYZZY_TEST_STALL:-300}
 log=$build/test-output.txt
