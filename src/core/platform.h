@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <wchar.h>
+#include <wctype.h>   // towupper/towlower: Windows では windows.h 経由で入る
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
