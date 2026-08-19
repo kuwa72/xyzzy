@@ -81,7 +81,13 @@ configure_file(
 # tree-sitter: build from source (static, no runtime DLL)
 # ============================================================
 include(FetchContent)
-cmake_policy(SET CMP0169 OLD)  # allow FetchContent_Populate (we manage targets ourselves)
+# Allow FetchContent_Populate (we manage the targets ourselves).  The policy
+# only exists from CMake 3.30, and setting an unknown one is a hard error, so
+# this has to be asked for rather than stated: cmake_minimum_required says 3.16,
+# and Debian bookworm (the cross build container) ships 3.25.
+if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+endif()
 FetchContent_Declare(tree-sitter
     GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter
     GIT_TAG        v0.26.2
