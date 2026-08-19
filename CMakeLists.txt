@@ -78,6 +78,27 @@ configure_file(
 )
 
 # ============================================================
+# Calling convention on 32-bit Windows
+# ============================================================
+# The Lisp function ABI is stdcall there: lisp.h declares the lfunction_proc_*
+# typedefs with __stdcall, the generated fns-decl.h declares the functions with
+# no convention at all, and a few definitions (ts.cc) say __stdcall outright,
+# so the default has to be stdcall for the three to agree.  MSVC is told this
+# with /Gz, further down with the rest of the compiler flags.
+#
+# Clang has to be told here instead, before the tree-sitter targets exist, so
+# that the whole build shares one convention.  MSVC adds /Gz after them, which
+# leaves tree-sitter cdecl and the rest stdcall, and bridges the difference in
+# ts_stdcall_bridge.c through /ALTERNATENAME -- a linker feature ld.lld does
+# not offer in mingw mode.  Making everything stdcall from the start means
+# there is nothing to bridge; the bridge is guarded on _M_IX86, which Clang
+# does not define for a mingw target, so it stays an empty translation unit.
+if(WIN32 AND NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+   AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    add_compile_options(-fdefault-calling-conv=stdcall)
+endif()
+
+# ============================================================
 # tree-sitter: build from source (static, no runtime DLL)
 # ============================================================
 include(FetchContent)
