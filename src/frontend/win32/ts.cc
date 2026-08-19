@@ -1,7 +1,21 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "ts.h"
-#include <tree_sitter/api.h>
+/* tree-sitter is built before the stdcall default is turned on -- MSVC adds
+   /Gz after those targets, and the Clang build follows the same order -- so
+   its functions are cdecl.  This file is compiled with the default, so its
+   declarations of them have to say cdecl outright, or the calls come out
+   stdcall and the linker looks for ts_xxx@N.
+   MSVC cannot express that over a whole header, and bridges it instead in
+   ts_stdcall_bridge.c through /ALTERNATENAME; Clang can say it directly, and
+   ld.lld has no /ALTERNATENAME to bridge with anyway. */
+#if defined(__clang__) && defined(__i386__) && !defined(_MSC_VER)
+# pragma clang attribute push(__attribute__((cdecl)), apply_to = function)
+# include <tree_sitter/api.h>
+# pragma clang attribute pop
+#else
+# include <tree_sitter/api.h>
+#endif
 #include <algorithm>
 #include <unordered_map>
 #include <cstdio>
