@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: x86_64 (mingw-w64)
@@ -45,7 +49,7 @@ jobs:
 
       - name: Restore the byte compiled library
         id: lc
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: lisp/**/*.lc
           key: lc-x86_64-${{ hashFiles('lisp/**/*.l') }}
@@ -54,6 +58,16 @@ jobs:
         if: steps.lc.outputs.cache-hit != 'true'
         timeout-minutes: 75
         run: tools/x bytecompile x86_64
+
+      # Saved here rather than in a post step, which does not run when the job
+      # is cancelled or times out.  A cache written from a tag is only visible
+      # to tags and to the default branch, so this does not help the CI jobs.
+      - name: Save the byte compiled library
+        if: steps.lc.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: lisp/**/*.lc
+          key: lc-x86_64-${{ hashFiles('lisp/**/*.l') }}
 
       - name: Start up and evaluate lisp
         run: tools/x smoke x86_64 300

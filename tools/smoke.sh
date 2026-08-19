@@ -58,7 +58,14 @@ done
 
 import -window root "$shot" 2>/dev/null || true
 # Shut wine down first: waiting on a process that never exits would hang here.
+# wineserver -k does not always get there, so fall back to the pid.
 wineserver -k 2>/dev/null || true
+kill "$wine_pid" 2>/dev/null || true
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  kill -0 "$wine_pid" 2>/dev/null || break
+  sleep 1
+done
+kill -9 "$wine_pid" 2>/dev/null || true
 wait "$wine_pid" 2>/dev/null || true
 
 if [ "$status" = 0 ]; then

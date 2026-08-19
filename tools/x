@@ -41,6 +41,7 @@ docker_run() {
     -v xyzzy-wine32:/wine32 \
     -e XYZZY_ARCH \
     -e XYZZY_TEST_TIMEOUT \
+    -e XYZZY_TEST_STALL \
     -w /work \
     "$IMAGE" "$@"
 }
