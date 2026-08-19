@@ -1,0 +1,105 @@
+name: mingw
+
+# A second toolchain over the same CMakeLists as build.yml (MSVC): mingw-w64
+# cross builds the Windows binaries on Linux and Wine runs them.  Two things
+# come out of it that the MSVC job cannot give:
+#
+#   * the build is reproducible on any Linux or macOS box through tools/x,
+#     so a failure here can be worked on without a Windows machine;
+#   * a second compiler reading the same sources finds what one compiler's
+#     accepted extensions hide.
+#
+# build.yml stays the one that ships the release binaries.
+
+on:
+  push:
+    branches: [ modern, develop, unicode, 'topic/**' ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  cross:
+    name: mingw-w64 ${{ matrix.arch }} (Wine)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      # One architecture failing must not hide whether the other is healthy.
+      fail-fast: false
+      matrix:
+        arch: [i686, x86_64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # tools/x expects the image under this tag.  Building it here rather than
+      # through "tools/x image" is what makes the layer cache available: a run
+      # that changes nothing under tools/devenv/ reuses it instead of spending
+      # twenty minutes on apt and on building zlib for both targets.
+      - name: Build the container image
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/devenv
+          tags: xyzzy-devenv:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure
+        timeout-minutes: 15
+        run: tools/x configure ${{ matrix.arch }}
+
+      - name: Build
+        timeout-minutes: 45
+        run: tools/x build ${{ matrix.arch }}
+
+      - name: Show what was built
+        run: tools/x run ${{ matrix.arch }} sh -c
+          'file _build/${{ matrix.arch }}/*.exe && ls -lh _build/${{ matrix.arch }}/*.exe'
+
+      # Reading the library as source costs minutes per start up under Wine, so
+      # the byte compiled files are cached; only a change under lisp/ pays for
+      # compiling them again.
+      - name: Restore the byte compiled library
+        id: lc
+        uses: actions/cache/restore@v4
+        with:
+          path: lisp/**/*.lc
+          key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
+
+      - name: Byte compile the library
+        if: steps.lc.outputs.cache-hit != 'true'
+        timeout-minutes: 30
+        run: tools/x bytecompile ${{ matrix.arch }}
+
+      - name: Save the byte compiled library
+        if: steps.lc.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: lisp/**/*.lc
+          key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
+
+      # Informational while the two toolchains are still being compared: the
+      # MSVC job has ten tests failing that predate this workflow, and a mingw
+      # build is expected to add its own for a while.  Gate on it once the
+      # difference against build.yml is understood.
+      - name: Run the test suite under Wine (informational)
+        continue-on-error: true
+        timeout-minutes: 40
+        run: tools/x test ${{ matrix.arch }}
+
+      - name: Collect what the run left behind
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mingw-${{ matrix.arch }}
+          if-no-files-found: ignore
+          path: |
+            _build/${{ matrix.arch }}/test-output.txt
+            _build/${{ matrix.arch }}/test-stuck.png
+            _build/${{ matrix.arch }}/*.exe

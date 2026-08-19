@@ -1,0 +1,60 @@
+#!/bin/bash
+# Byte compile the lisp library with the cross built xyzzy-batch, the way the
+# bytecompile cmake target does on Windows.  Runs inside the container
+# (tools/x bytecompile).
+#
+#   tools/bytecompile.sh <i686|x86_64> [--force]
+#
+# Without the .lc files every start up reads the whole library as source, which
+# takes minutes under Wine; with them it takes seconds.  The files land next to
+# the .l files and are ignored by git.
+#
+# The cmake bytecompile target is not used here: it calls the exe directly
+# through execute_process, which a Linux host cannot do for a PE binary.
+set -eu
+
+arch=${1:-x86_64}
+shift || true
+
+force=no
+for arg in "$@"; do
+  case $arg in
+    --force) force=yes ;;
+    *) echo "bytecompile.sh: unknown option $arg" >&2; exit 2 ;;
+  esac
+done
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+build=$root/_build/$arch
+
+case $arch in
+  i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
+  x86_64) export WINEPREFIX=/wine   WINEARCH=win64 ;;
+  *) echo "bytecompile.sh: unknown architecture $arch" >&2; exit 2 ;;
+esac
+
+[ -x "$build/xyzzy-batch.exe" ] || {
+  echo "bytecompile.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
+
+if [ "$force" = no ] && [ -f "$root/lisp/startup.lc" ]; then
+  echo "bytecompile.sh: lisp/startup.lc is already there, nothing to do"
+  exit 0
+fi
+
+# A dump image holds absolute addresses from the binary that wrote it.
+rm -f "$build/xyzzy-batch.wxp"
+
+unset XYZZYINIFILE XYZZYCONFIGPATH
+export XYZZYHOME=$root
+cd "$root"
+
+echo "bytecompile.sh: byte compiling the lisp library ($arch)..."
+wine "$build/xyzzy-batch.exe" -q -load misc/bytecompile-batch.l
+wineserver -w || true
+
+count=$(find "$root/lisp" -name '*.lc' | wc -l)
+[ "$count" -gt 0 ] || {
+  echo "bytecompile.sh: no .lc files were produced" >&2
+  exit 1
+}
+echo "bytecompile.sh: $count file(s) compiled"

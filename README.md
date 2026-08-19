@@ -80,6 +80,25 @@ cmake -B build-curses -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
 ```
 
+### mingw-w64 クロスビルド (Linux/macOS から Windows 版を作る)
+
+Windows マシンが無くても Windows 版をビルドして動かせます。docker だけ要ります。
+ビルドは mingw-w64、実行は Wine です。
+
+```bash
+tools/x image                # コンテナイメージを作る (初回のみ、20分ほど)
+tools/x configure x86_64     # i686 も指定できます
+tools/x build     x86_64
+tools/x bytecompile x86_64   # .lc を作る (Wine 上の起動が速くなる)
+tools/x test      x86_64     # テストスイートを Wine で流す
+```
+
+`tools/x` を引数なしで実行するとサブコマンドの一覧が出ます。CI の
+`mingw` ワークフローも同じ `tools/x` を呼んでいるので、CI が落ちたときは
+手元で同じことを再現できます。
+
+リリース用のバイナリは従来どおり MSVC の `build` ワークフローが作ります。
+
 bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) します。初回起動が大幅に速くなります。
 
 ## バージョン体系

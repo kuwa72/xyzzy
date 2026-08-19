@@ -1,0 +1,84 @@
+#!/bin/sh
+# Developer entry point for building this tree for Windows from a non-Windows
+# host: mingw-w64 produces the PE binaries, Wine runs them.
+#
+#   tools/x image                  build the container image
+#   tools/x shell                  interactive shell inside the container
+#   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64)
+#   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
+#   tools/x bytecompile [ARCH]     byte compile the lisp library (makes start up fast)
+#   tools/x test      [ARCH] ...   run the lisp test suite under Wine
+#   tools/x wine      [ARCH] ...   run xyzzy-batch.exe with the test environment set
+#   tools/x screenshot [FILE]      capture the virtual display (default _build/screenshot.png)
+#   tools/x run       [ARCH] ...   run an arbitrary command in the container
+#
+# ARCH defaults to $XYZZY_ARCH or x86_64.
+#
+# The MSVC build stays as it is; this is a second toolchain over the same
+# CMakeLists, so a failure here is reproducible on any Linux or macOS box.
+set -eu
+
+IMAGE=xyzzy-devenv
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ARCH_DEFAULT=${XYZZY_ARCH:-x86_64}
+
+docker_run() {
+  tty_flag=""
+  [ -t 0 ] && tty_flag="-it"
+  # shellcheck disable=SC2086
+  exec docker run --rm $tty_flag \
+    --platform linux/amd64 \
+    -v "$ROOT":/work \
+    -v xyzzy-wine64:/wine \
+    -v xyzzy-wine32:/wine32 \
+    -e XYZZY_ARCH \
+    -e XYZZY_TEST_TIMEOUT \
+    -e XYZZY_TEST_STALL \
+    -w /work \
+    "$IMAGE" "$@"
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+
+# An optional first argument selects the target architecture.
+case "${1:-}" in
+  i686|x86_64) ARCH=$1; shift ;;
+  *) ARCH=$ARCH_DEFAULT ;;
+esac
+
+case "$cmd" in
+  image)
+    exec docker build --platform linux/amd64 -t "$IMAGE" "$ROOT/tools/devenv"
+    ;;
+  shell)
+    docker_run bash
+    ;;
+  configure)
+    docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
+      -DCMAKE_BUILD_TYPE=Release "$@"
+    ;;
+  build)
+    docker_run cmake --build "/work/_build/$ARCH" "$@"
+    ;;
+  bytecompile)
+    docker_run tools/bytecompile.sh "$ARCH" "$@"
+    ;;
+  test)
+    docker_run tools/run-tests.sh "$ARCH" "$@"
+    ;;
+  wine)
+    docker_run tools/wine-run.sh "$ARCH" "$@"
+    ;;
+  screenshot)
+    out=${1:-_build/screenshot.png}
+    docker_run sh -c "import -window root '/work/$out' && ls -l '/work/$out'"
+    ;;
+  run)
+    docker_run "$@"
+    ;;
+  *)
+    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

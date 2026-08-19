@@ -224,6 +224,18 @@ set(WIN32_DIR ${CMAKE_SOURCE_DIR}/src/frontend/win32)
 set(GEN_DIR ${CMAKE_SOURCE_DIR}/src/core/gen)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
+# The code generators (gen-src1, gen-src2) are built for the target, so when the
+# target is not the host they cannot be executed directly.  Cross toolchains set
+# CMAKE_CROSSCOMPILING_EMULATOR (cmake/mingw-*.cmake point it at Wine); CMake
+# applies it on its own only when a custom command names a target, and these
+# name $<TARGET_FILE:...> so that the output can be redirected, so put it in by
+# hand.  Empty for a native build, where it expands to nothing.
+if(CMAKE_CROSSCOMPILING AND CMAKE_CROSSCOMPILING_EMULATOR)
+    set(GEN_LAUNCHER ${CMAKE_CROSSCOMPILING_EMULATOR})
+else()
+    set(GEN_LAUNCHER)
+endif()
+
 # Common defines
 add_compile_definitions(
     STRICT
@@ -295,6 +307,12 @@ else()
         -Wno-narrowing
         -Wno-shift-negative-value
     )
+    if(WIN32)
+        # windres defaults to the host code page and would mis-read the UTF-8
+        # sources; it also needs the include path the headers are found through,
+        # the same way the Clang branch above sets it up.
+        set(CMAKE_RC_FLAGS "--codepage=65001 -I${CMAKE_SOURCE_DIR}/src/core -I${CMAKE_SOURCE_DIR}/src/core/gen")
+    endif()
 endif()
 
 # ============================================================
@@ -335,7 +353,7 @@ endif()
 # dpp: num-arith.d -> num-arith.h (takes args, not stdout)
 add_custom_command(
     OUTPUT ${GEN_DIR}/num-arith.h
-    COMMAND $<TARGET_FILE:gen-src1> dpp ${SRC_DIR}/num-arith.d ${GEN_DIR}/num-arith.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> dpp ${SRC_DIR}/num-arith.d ${GEN_DIR}/num-arith.h
     DEPENDS gen-src1 ${SRC_DIR}/num-arith.d ${SRC_DIR}/dpp.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating num-arith.h"
@@ -344,7 +362,7 @@ add_custom_command(
 # gen-ctab > chtab.cc
 add_custom_command(
     OUTPUT ${GEN_DIR}/chtab.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-ctab > ${GEN_DIR}/chtab.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ctab > ${GEN_DIR}/chtab.cc
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating chtab.cc"
@@ -353,7 +371,7 @@ add_custom_command(
 # gen-ibmext > ibmext.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/ibmext.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-ibmext > ${GEN_DIR}/ibmext.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ibmext > ${GEN_DIR}/ibmext.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating ibmext.h"
@@ -362,7 +380,7 @@ add_custom_command(
 # gen-iso2022state > iso2022state.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/iso2022state.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-iso2022state > ${GEN_DIR}/iso2022state.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-iso2022state > ${GEN_DIR}/iso2022state.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating iso2022state.h"
@@ -371,7 +389,7 @@ add_custom_command(
 # gen-jisx0212-hash > jisx0212-hash.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/jisx0212-hash.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-jisx0212-hash > ${GEN_DIR}/jisx0212-hash.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-jisx0212-hash > ${GEN_DIR}/jisx0212-hash.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating jisx0212-hash.h"
@@ -380,7 +398,7 @@ add_custom_command(
 # gen-ktab > kanjitab.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/kanjitab.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-ktab > ${GEN_DIR}/kanjitab.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ktab > ${GEN_DIR}/kanjitab.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating kanjitab.h"
@@ -390,11 +408,11 @@ add_custom_command(
 add_custom_command(
     OUTPUT ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
            ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
     DEPENDS gen-src1 ${SRC_DIR}/gen-syms.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating symbol tables"
@@ -403,7 +421,7 @@ add_custom_command(
 # gen-utf2sjis > utf2sjis.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/utf2sjis.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-utf2sjis > ${GEN_DIR}/utf2sjis.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-utf2sjis > ${GEN_DIR}/utf2sjis.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating utf2sjis.h"
@@ -452,8 +470,8 @@ add_dependencies(gen-src2 gen-src1-run)
 # gen-msg -> msgcode.h, msgdef.cc
 add_custom_command(
     OUTPUT ${GEN_DIR}/msgcode.h ${GEN_DIR}/msgdef.cc
-    COMMAND $<TARGET_FILE:gen-src2> gen-msg -enum > ${GEN_DIR}/msgcode.h
-    COMMAND $<TARGET_FILE:gen-src2> gen-msg -c > ${GEN_DIR}/msgdef.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src2> gen-msg -enum > ${GEN_DIR}/msgcode.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src2> gen-msg -c > ${GEN_DIR}/msgdef.cc
     DEPENDS gen-src2
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating message code"
@@ -491,42 +509,42 @@ target_compile_options(gen-src1 PRIVATE
 
 add_custom_command(
     OUTPUT ${GEN_DIR}/num-arith.h
-    COMMAND $<TARGET_FILE:gen-src1> dpp ${SRC_DIR}/num-arith.d ${GEN_DIR}/num-arith.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> dpp ${SRC_DIR}/num-arith.d ${GEN_DIR}/num-arith.h
     DEPENDS gen-src1 ${SRC_DIR}/num-arith.d ${SRC_DIR}/dpp.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating num-arith.h"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/chtab.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-ctab > ${GEN_DIR}/chtab.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ctab > ${GEN_DIR}/chtab.cc
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating chtab.cc"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/ibmext.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-ibmext > ${GEN_DIR}/ibmext.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ibmext > ${GEN_DIR}/ibmext.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating ibmext.h"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/iso2022state.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-iso2022state > ${GEN_DIR}/iso2022state.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-iso2022state > ${GEN_DIR}/iso2022state.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating iso2022state.h"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/jisx0212-hash.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-jisx0212-hash > ${GEN_DIR}/jisx0212-hash.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-jisx0212-hash > ${GEN_DIR}/jisx0212-hash.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating jisx0212-hash.h"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/kanjitab.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-ktab > ${GEN_DIR}/kanjitab.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-ktab > ${GEN_DIR}/kanjitab.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating kanjitab.h"
@@ -534,18 +552,18 @@ add_custom_command(
 add_custom_command(
     OUTPUT ${GEN_DIR}/vars-decl.h ${GEN_DIR}/fns-decl.h
            ${GEN_DIR}/symtable-core.cc ${GEN_DIR}/symtable-ed.cc ${GEN_DIR}/dumpver.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
-    COMMAND $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -vars > ${GEN_DIR}/vars-decl.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -proto > ${GEN_DIR}/fns-decl.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -symtable-core > ${GEN_DIR}/symtable-core.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -symtable-ed > ${GEN_DIR}/symtable-ed.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-syms -version > ${GEN_DIR}/dumpver.cc
     DEPENDS gen-src1 ${SRC_DIR}/gen-syms.cc
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating symbol tables"
 )
 add_custom_command(
     OUTPUT ${GEN_DIR}/utf2sjis.h
-    COMMAND $<TARGET_FILE:gen-src1> gen-utf2sjis > ${GEN_DIR}/utf2sjis.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src1> gen-utf2sjis > ${GEN_DIR}/utf2sjis.h
     DEPENDS gen-src1
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating utf2sjis.h"
@@ -585,8 +603,8 @@ endif()
 
 add_custom_command(
     OUTPUT ${GEN_DIR}/msgcode.h ${GEN_DIR}/msgdef.cc
-    COMMAND $<TARGET_FILE:gen-src2> gen-msg -enum > ${GEN_DIR}/msgcode.h
-    COMMAND $<TARGET_FILE:gen-src2> gen-msg -c > ${GEN_DIR}/msgdef.cc
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src2> gen-msg -enum > ${GEN_DIR}/msgcode.h
+    COMMAND ${GEN_LAUNCHER} $<TARGET_FILE:gen-src2> gen-msg -c > ${GEN_DIR}/msgdef.cc
     DEPENDS gen-src2
     WORKING_DIRECTORY ${SRC_DIR}
     COMMENT "Generating message code"
