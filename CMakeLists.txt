@@ -124,7 +124,16 @@ target_include_directories(tree-sitter-c-grammar PRIVATE
 set_target_properties(tree-sitter-c-grammar PROPERTIES
     OUTPUT_NAME               "tree-sitter-c"
     PREFIX                    ""
-    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/c")
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/c"
+    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/c")
+# Also next to the sources, which is where a build tree run finds them:
+# lisp/ts.l looks under (si:system-root)/grammars/, and that is the repository
+# root while developing.  The build output itself stays in the build tree so
+# that two targets do not overwrite each other there -- installing from the
+# shared copy put ARM64 libraries in an x86-64 package.
+add_custom_command(TARGET tree-sitter-c-grammar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-c-grammar> "${CMAKE_SOURCE_DIR}/grammars/c/")
 
 FetchContent_Declare(tree-sitter-cpp
     GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-cpp
@@ -144,7 +153,16 @@ target_include_directories(tree-sitter-cpp-grammar PRIVATE
 set_target_properties(tree-sitter-cpp-grammar PROPERTIES
     OUTPUT_NAME               "tree-sitter-cpp"
     PREFIX                    ""
-    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/cpp")
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/cpp"
+    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/cpp")
+# Also next to the sources, which is where a build tree run finds them:
+# lisp/ts.l looks under (si:system-root)/grammars/, and that is the repository
+# root while developing.  The build output itself stays in the build tree so
+# that two targets do not overwrite each other there -- installing from the
+# shared copy put ARM64 libraries in an x86-64 package.
+add_custom_command(TARGET tree-sitter-cpp-grammar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-cpp-grammar> "${CMAKE_SOURCE_DIR}/grammars/cpp/")
 
 FetchContent_Declare(tree-sitter-perl
     GIT_REPOSITORY https://github.com/tree-sitter-perl/tree-sitter-perl
@@ -169,7 +187,16 @@ target_include_directories(tree-sitter-perl-grammar PRIVATE
 set_target_properties(tree-sitter-perl-grammar PROPERTIES
     OUTPUT_NAME               "tree-sitter-perl"
     PREFIX                    ""
-    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/perl")
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/perl"
+    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/perl")
+# Also next to the sources, which is where a build tree run finds them:
+# lisp/ts.l looks under (si:system-root)/grammars/, and that is the repository
+# root while developing.  The build output itself stays in the build tree so
+# that two targets do not overwrite each other there -- installing from the
+# shared copy put ARM64 libraries in an x86-64 package.
+add_custom_command(TARGET tree-sitter-perl-grammar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-perl-grammar> "${CMAKE_SOURCE_DIR}/grammars/perl/")
 
 FetchContent_Declare(tree-sitter-markdown
     GIT_REPOSITORY https://github.com/tree-sitter-grammars/tree-sitter-markdown
@@ -189,7 +216,16 @@ target_include_directories(tree-sitter-markdown-grammar PRIVATE
 set_target_properties(tree-sitter-markdown-grammar PROPERTIES
     OUTPUT_NAME               "tree-sitter-markdown"
     PREFIX                    ""
-    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/markdown")
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown"
+    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown")
+# Also next to the sources, which is where a build tree run finds them:
+# lisp/ts.l looks under (si:system-root)/grammars/, and that is the repository
+# root while developing.  The build output itself stays in the build tree so
+# that two targets do not overwrite each other there -- installing from the
+# shared copy put ARM64 libraries in an x86-64 package.
+add_custom_command(TARGET tree-sitter-markdown-grammar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-markdown-grammar> "${CMAKE_SOURCE_DIR}/grammars/markdown/")
 # Inline grammar
 file(GLOB tree-sitter-markdown-inline-sources
     "${tree-sitter-markdown_SOURCE_DIR}/tree-sitter-markdown-inline/src/parser.c"
@@ -200,7 +236,16 @@ target_include_directories(tree-sitter-markdown-inline-grammar PRIVATE
 set_target_properties(tree-sitter-markdown-inline-grammar PROPERTIES
     OUTPUT_NAME               "tree-sitter-markdown-inline"
     PREFIX                    ""
-    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_SOURCE_DIR}/grammars/markdown")
+    RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown"
+    LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown")
+# Also next to the sources, which is where a build tree run finds them:
+# lisp/ts.l looks under (si:system-root)/grammars/, and that is the repository
+# root while developing.  The build output itself stays in the build tree so
+# that two targets do not overwrite each other there -- installing from the
+# shared copy put ARM64 libraries in an x86-64 package.
+add_custom_command(TARGET tree-sitter-markdown-inline-grammar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-markdown-inline-grammar> "${CMAKE_SOURCE_DIR}/grammars/markdown/")
 
 # ============================================================
 # Find zlib (prefer static library for -static linking)
@@ -1181,6 +1226,36 @@ endif()
 # ============================================================
 install(TARGETS xyzzy-cli RUNTIME DESTINATION bin)
 install(TARGETS gendic RUNTIME DESTINATION bin)
+
+# ============================================================
+# tree-sitter grammars
+#
+# lisp/ts.l looks for them under (si:system-root)/grammars/<lang>/, the shared
+# library and its highlights.scm side by side, so that is the layout to install.
+# Without this the packages had the lisp side of tree-sitter and none of the
+# grammars, which means no highlighting for the modes that use it.
+#
+# The libraries come from the targets rather than from grammars/ in the source
+# tree: the build writes its output there (RUNTIME_OUTPUT_DIRECTORY) and the
+# committed .dll files are still sitting next to it, so reading the directory
+# can pick up a library built for another target.  The queries do come from the
+# source tree; they are text.
+# ============================================================
+install(TARGETS tree-sitter-c-grammar
+        RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/c
+        LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/c)
+install(TARGETS tree-sitter-cpp-grammar
+        RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/cpp
+        LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/cpp)
+install(TARGETS tree-sitter-perl-grammar
+        RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/perl
+        LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/perl)
+install(TARGETS tree-sitter-markdown-grammar tree-sitter-markdown-inline-grammar
+        RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/markdown
+        LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/markdown)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/grammars/
+        DESTINATION ${XYZZY_DATA_DIR}/grammars
+        FILES_MATCHING PATTERN "*.scm")
 
 # ============================================================
 # CPack: packaging
