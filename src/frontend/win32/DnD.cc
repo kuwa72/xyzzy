@@ -1099,11 +1099,11 @@ text_drop_target::Drop (IDataObject *data_obj, DWORD key,
               if (make_string_from_clipboard_text (x, ptr, etc.cfFormat,
                                                    ENCODING_LANG_NIL))
                 {
-                  int xlen = xstring_length (x);
-                  const ucs4_t *xuc = xstring_contents (x);
-                  Char *xc = (Char *)alloca (xlen * sizeof (Char));
-                  for (int i = 0; i < xlen; i++) xc[i] = Char (xuc[i]);
-                  bp->insert_chars (app.drop_window->w_point, xc, xlen);
+                  /* insert_chars takes ucs4_t and expands surrogate
+                      pairs itself; casting each code point down to a Char
+                      lost anything outside the BMP. */
+                  bp->insert_chars (app.drop_window->w_point,
+                                    xstring_contents (x), xstring_length (x));
                   hr = S_OK;
                 }
             }

@@ -692,7 +692,8 @@ Finsert (lisp args)
 
   int repeat = 1;
   Char *tem;
-  insertChars *ichars = (insertChars *)alloca ((sizeof *ichars + sizeof *tem)
+  /* Two code units per character: one outside the BMP is a surrogate pair. */
+  insertChars *ichars = (insertChars *)alloca ((sizeof *ichars + sizeof *tem * 2)
                                                * nargs);
   tem = (Char *)(ichars + nargs);
   int i;
@@ -701,9 +702,20 @@ Finsert (lisp args)
       lisp x = xcar (args);
       if (charp (x))
         {
-          *tem = xchar_code (x);
-          ichars[i].string = tem++;
-          ichars[i].length = 1;
+          /* Buffer text is UTF-16, so a character outside the BMP takes two
+             code units. Truncating it to one wrote 0xF600 for an emoji, and
+             0xF600 is CCF_META -- a meta function key sitting in the text,
+             which took the process down as soon as it was displayed. */
+          ucs4_t cp = xchar_code (x);
+          ichars[i].string = tem;
+          if (cp < 0x10000)
+            *tem++ = Char (cp);
+          else
+            {
+              *tem++ = utf16_ucs4_to_pair_high (cp);
+              *tem++ = utf16_ucs4_to_pair_low (cp);
+            }
+          ichars[i].length = tem - ichars[i].string;
         }
       else if (stringp (x))
         {

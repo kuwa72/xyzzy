@@ -99,3 +99,45 @@
           (list (and (scan-buffer "😀") t) (point)))
       (delete-buffer buf)))
   => (t 3))
+
+;; 文字 1 個としての挿入。コマンド行やバッファで絵文字を打つとこの経路を通る。
+;; 以前は 16bit に切り詰めて 0xF600 を書き込んでいた。0xF600 は CCF_META
+;; (メタ機能キー) と同じ値なので、本文に紛れ込んだ時点でプロセスが落ちた。
+(deftest non-bmp-insert-char ()
+  (let ((buf (get-buffer-create "*non-bmp-insert*")))
+    (unwind-protect
+        (with-set-buffer
+          (set-buffer buf)
+          (erase-buffer buf)
+          (insert (code-char 128512))
+          (list (point-max)
+                (map 'list #'char-code
+                     (buffer-substring (point-min) (point-max)))))
+      (delete-buffer buf)))
+  => (1 (128512)))
+
+;; 繰り返し付き (self-insert-command は (insert char arg) で呼ぶ)
+(deftest non-bmp-insert-char-repeat ()
+  (let ((buf (get-buffer-create "*non-bmp-insert2*")))
+    (unwind-protect
+        (with-set-buffer
+          (set-buffer buf)
+          (erase-buffer buf)
+          (insert (code-char 128512) 3)
+          (list (point-max)
+                (map 'list #'char-code
+                     (buffer-substring (point-min) (point-max)))))
+      (delete-buffer buf)))
+  => (3 (128512 128512 128512)))
+
+;; 文字と文字列を混ぜた挿入 (Finsert は引数ごとに領域を切る)
+(deftest non-bmp-insert-mixed ()
+  (let ((buf (get-buffer-create "*non-bmp-insert3*")))
+    (unwind-protect
+        (with-set-buffer
+          (set-buffer buf)
+          (erase-buffer buf)
+          (insert "a" (code-char 128512) "b" (code-char 128513))
+          (map 'list #'char-code (buffer-substring (point-min) (point-max))))
+      (delete-buffer buf)))
+  => (97 128512 98 128513))

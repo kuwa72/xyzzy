@@ -295,14 +295,17 @@ do_dnd (HDROP hdrop)
                   ForceSetForegroundWindow (app.toplev);
                 }
               lisp list = Qnil;
-              int nfiles = DragQueryFileA (hdrop, UINT (-1), 0, 0);
+              /* The W form: DragQueryFileA hands back the path in the ANSI
+                 code page, so a dropped file whose name is outside it arrived
+                 as '?' and could not be opened. */
+              int nfiles = DragQueryFileW (hdrop, UINT (-1), 0, 0);
               save_cursor_depth cursor_depth;
               try
                 {
                   for (int i = 0; i < nfiles; i++)
                     {
-                      char path[PATH_MAX];
-                      DragQueryFileA (hdrop, i, path, sizeof path);
+                      wchar_t path[PATH_MAX];
+                      DragQueryFileW (hdrop, i, path, numberof (path));
                       list = xcons (make_string (path), list);
                     }
                   DragFinish (hdrop);
