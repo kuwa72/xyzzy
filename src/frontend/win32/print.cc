@@ -8,8 +8,8 @@
 HGLOBAL printer_device::pd_devmode;
 HGLOBAL printer_device::pd_devnames;
 
-static const char default_header[] = "%F%l%r%:w, %0d %:m %Y %0h:%0M:%0s";
-static const char default_footer[] = "- %p -";
+static const wchar_t default_header[] = L"%F%l%r%:w, %0d %:m %Y %0h:%0M:%0s";
+static const wchar_t default_footer[] = L"- %p -";
 
 print_settings::print_settings ()
 {
@@ -48,7 +48,7 @@ print_settings::init_faces ()
   for (int i = 0; i < FONT_MAX; i++)
     if (!*ps_font[i].face)
       {
-        strcpy (ps_font[i].face, FontSet::default_face (i, 1));
+        wcscpy (ps_font[i].face, FontSet::default_face (i, 1));
         ps_font[i].charset = FontSet::default_charset (i);
         ps_font[i].point = 100;
         ps_font[i].bold = 0;
@@ -78,10 +78,10 @@ print_settings::load_conf ()
     ps_multi_column = x;
   if (read_conf (cfgPrint, cfgFoldColumns, x) && x >= 0)
     ps_fold_width = x;
-  if (!read_conf (cfgPrint, cfgHeader, ps_header, sizeof ps_header))
-    strcpy (ps_header, default_header);
-  if (!read_conf (cfgPrint, cfgFooter, ps_footer, sizeof ps_footer))
-    strcpy (ps_footer, default_footer);
+  if (!read_conf (cfgPrint, cfgHeader, ps_header, numberof (ps_header)))
+    wcscpy (ps_header, default_header);
+  if (!read_conf (cfgPrint, cfgFooter, ps_footer, numberof (ps_footer)))
+    wcscpy (ps_footer, default_footer);
   if (read_conf (cfgPrint, cfgHeaderOn, x))
     ps_header_on = x ? 1 : 0;
   if (read_conf (cfgPrint, cfgFooterOn, x))
@@ -149,9 +149,7 @@ print_settings::make_font (HDC hdc, int charset, int height) const
   if (charset != FONT_ASCII)
     {
       int exists = 0;
-      wchar_t wface[LF_FACESIZE];
-      cp932_to_wcs (ps_font[charset].face, -1, wface, LF_FACESIZE);
-      EnumFontFamiliesW (hdc, wface,
+      EnumFontFamiliesW (hdc, ps_font[charset].face,
                          FONTENUMPROCW (check_valid_font),
                          LPARAM (&exists));
       if (!exists)
@@ -160,7 +158,7 @@ print_settings::make_font (HDC hdc, int charset, int height) const
 
   LOGFONTW lfw;
   bzero (&lfw, sizeof lfw);
-  cp932_to_wcs (ps_font[charset].face, -1, lfw.lfFaceName, LF_FACESIZE);
+  wcscpy (lfw.lfFaceName, ps_font[charset].face);
   lfw.lfHeight = height;
   lfw.lfCharSet = ps_font[charset].charset;
   lfw.lfItalic = ps_font[charset].italic;
@@ -1111,56 +1109,52 @@ print_engine::paint_line (HDC hdc, int x, int y, Point &cur_point, long &linenum
   return pe_bp->eobp (cur_point);
 }
 
+/* Header and footer text is UTF-16, so a code unit is a code unit: pick the
+   painter by what the character is rather than by SJIS byte structure. */
 void
-print_engine::paint_string (HDC hdc, int x, int y, const char *s, int l) const
+print_engine::paint_string (HDC hdc, int x, int y, const Char *s, int l) const
 {
   PaintCtx ctx;
   ctx.hdc = hdc;
   ctx.x = x;
   ctx.y = y;
   ctx.column = 0;
-  for (const u_char *p = (const u_char *)s, *pe = p + l; p < pe;)
+  for (const Char *p = s, *pe = p + l; p < pe; p++)
     {
-      int c = *p++;
-      if (SJISP (c) && p != pe)
-        paint_kanji (ctx, (c << 8) | *p++);
-      else if (kana_char_p (c))
-        paint_kana (ctx, c);
+      Char cc = *p;
+      if (cc < 0x80)
+        paint_ascii (ctx, cc);
+      else if (char_width (cc) == 2)
+        paint_kanji (ctx, cc);
       else
-        paint_ascii (ctx, c);
+        paint_kana (ctx, cc);
     }
 }
 
 int
-print_engine::get_extent (const char *s, int l) const
+print_engine::get_extent (const Char *s, int l) const
 {
   int cx = 0;
-  for (const u_char *p = (const u_char *)s, *pe = p + l; p < pe;)
-    {
-      int c = *p++;
-      if (SJISP (c) && p != pe)
-        cx += get_glyph_width ((c << 8) | *p++, pe_glyph_width);
-      else
-        cx += get_glyph_width (c, pe_glyph_width);
-    }
+  for (const Char *p = s, *pe = p + l; p < pe; p++)
+    cx += get_glyph_width (*p, pe_glyph_width);
   return cx;
 }
 
 int
-print_engine::paint_fmt (HDC hdc, const char *fmt, int y)
+print_engine::paint_fmt (HDC hdc, const wchar_t *fmt, int y)
 {
   if (!*fmt)
     return 0;
-  char buf[4096];
-  char *left, *right;
-  int hline = format (hdc, fmt, buf, sizeof buf, left, right);
+  Char buf[4096];
+  Char *left, *right;
+  int hline = format (hdc, fmt, buf, numberof (buf), left, right);
   int width[3];
   int x[3];
-  char *b[4];
+  Char *b[4];
   b[0] = buf;
   b[1] = left ? left : buf;
-  b[2] = (right && right >= b[1]) ? right : b[1] + strlen (b[1]);
-  b[3] = b[2] + strlen (b[2]);
+  b[2] = (right && right >= b[1]) ? right : b[1] + wcslen ((const wchar_t *)b[1]);
+  b[3] = b[2] + wcslen ((const wchar_t *)b[2]);
   if (pe_fixed_pitch)
     for (int i = 0; i < 3; i++)
       width[i] = (b[i + 1] - b[i]) * pe_print_cell.cx;
@@ -1386,14 +1380,25 @@ print_engine::prev_page_exist_p ()
   return pe_page > pe_start_page && pe_cache.find (pe_page - 1);
 }
 
-inline char *
-print_engine::fmt_buffer_name (char *b, char *be)
+/* Header and footer text, built in UTF-16 rather than CP932: a file name in
+   %f/%F can hold characters that code page has no room for, and the printer
+   is handed UTF-16 anyway. */
+static Char *
+wstore (Char *b, Char *be, const wchar_t *s, int max = -1)
+{
+  for (; *s && b < be && max != 0; s++, max--)
+    *b++ = Char (*s);
+  return b;
+}
+
+inline Char *
+print_engine::fmt_buffer_name (Char *b, Char *be)
 {
   return pe_bp->buffer_name (b, be);
 }
 
-char *
-print_engine::fmt_filename_short (char *b, char *be)
+Char *
+print_engine::fmt_filename_short (Char *b, Char *be)
 {
   lisp name;
   if (!stringp (name = pe_bp->lfile_name)
@@ -1406,128 +1411,135 @@ print_engine::fmt_filename_short (char *b, char *be)
        p > p0 && p[-1] != '/' && p[-1] != '\\';
        p--)
     ;
-  char s[PATH_MAX + 1];
-  w2s (s, p, pe - p);
-  return stpncpy (b, s, be - b);
+  Char s[PATH_MAX + 1];
+  Char *se = (Char *)i2w (p, pe - p, (ucs2_t *)s);
+  int n = min (int (se - s), int (be - b));
+  for (int i = 0; i < n; i++)
+    *b++ = s[i];
+  return b;
 }
 
-char *
-print_engine::fmt_filename_long (char *b, char *be)
+Char *
+print_engine::fmt_filename_long (Char *b, Char *be)
 {
   lisp name;
   if (!stringp (name = pe_bp->lfile_name)
       && !stringp (name = pe_bp->lalternate_file_name))
     return fmt_buffer_name (b, be);
 
-  char s[PATH_MAX + 1];
-  w2s (s, name);
-  return stpncpy (b, s, be - b);
+  Char s[PATH_MAX + 1];
+  Char *se = (Char *)i2w (xstring_contents (name), xstring_length (name),
+                          (ucs2_t *)s);
+  int n = min (int (se - s), int (be - b));
+  for (int i = 0; i < n; i++)
+    *b++ = s[i];
+  return b;
 }
 
-char *
-print_engine::fmt (char *b, char *be, const char *f, int v)
+Char *
+print_engine::fmt (Char *b, Char *be, const wchar_t *f, int v)
 {
-  char s[256];
-  sprintf (s, f, v);
-  return stpncpy (b, s, be - b);
+  wchar_t s[256];
+  xsnwprintf (s, numberof (s), f, v);
+  return wstore (b, be, s);
 }
 
-inline char *
-print_engine::fmt_page_no (char *b, char *be)
+inline Char *
+print_engine::fmt_page_no (Char *b, Char *be)
 {
-  return fmt (b, be, "%d", current_page ());
+  return fmt (b, be, L"%d", current_page ());
 }
 
-inline char *
-print_engine::fmt_total_page_no (HDC hdc, char *b, char *be)
+inline Char *
+print_engine::fmt_total_page_no (HDC hdc, Char *b, Char *be)
 {
-  return fmt (b, be, "%u", count_total_pages (hdc));
+  return fmt (b, be, L"%u", count_total_pages (hdc));
 }
 
-inline char *
-print_engine::fmt_year4 (char *b, char *be)
+inline Char *
+print_engine::fmt_year4 (Char *b, Char *be)
 {
-  return fmt (b, be, "%04u", current_time ().wYear);
+  return fmt (b, be, L"%04u", current_time ().wYear);
 }
 
-inline char *
-print_engine::fmt_year2 (char *b, char *be)
+inline Char *
+print_engine::fmt_year2 (Char *b, Char *be)
 {
-  return fmt (b, be, "%02u", current_time ().wYear % 100);
+  return fmt (b, be, L"%02u", current_time ().wYear % 100);
 }
 
-char *
-print_engine::fmt_month (char *b, char *be, int zero, int star, int colon)
+Char *
+print_engine::fmt_month (Char *b, Char *be, int zero, int star, int colon)
 {
-  static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-  static const char *const month_full_names[] =
-    { "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December",};
+  static const wchar_t month_names[] = L"JanFebMarAprMayJunJulAugSepOctNovDec";
+  static const wchar_t *const month_full_names[] =
+    { L"January", L"February", L"March", L"April", L"May", L"June",
+      L"July", L"August", L"September", L"October", L"November", L"December",};
   int m = current_time ().wMonth;
   if (m < 1 || m > 12)
     return b;
   if (zero)
-    return fmt (b, be, "%02d", m);
+    return fmt (b, be, L"%02d", m);
   if (star)
-    return stpncpy (b, month_full_names[m - 1], be - b);
+    return wstore (b, be, month_full_names[m - 1]);
   if (colon)
-    return stpncpy (b, &month_names[3 * (m - 1)], min (3, be - b));
-  return fmt (b, be, "%d", m);
+    return wstore (b, be, &month_names[3 * (m - 1)], 3);
+  return fmt (b, be, L"%d", m);
 }
 
-inline char *
-print_engine::fmt_day (char *b, char *be, int zero)
+inline Char *
+print_engine::fmt_day (Char *b, Char *be, int zero)
 {
-  return fmt (b, be, zero ? "%02d" : "%d", current_time ().wDay);
+  return fmt (b, be, zero ? L"%02d" : L"%d", current_time ().wDay);
 }
 
-char *
-print_engine::fmt_week (char *b, char *be, int star, int colon)
+Char *
+print_engine::fmt_week (Char *b, Char *be, int star, int colon)
 {
-  static const char day_names[] = "SunMonTueWedThuFriSat";
-  static const char *const day_full_names[] =
-    { "Sunday","Monday", "Tuesday", "Wednesday",
-      "Thursday", "Friday", "Saturday",};
-  static const char day_japanese_names[] = "\x93\xfa\x8c\x8e\x89\xce\x90\x85\x96\xd8\x8b\xe0\x93\x79";
+  static const wchar_t day_names[] = L"SunMonTueWedThuFriSat";
+  static const wchar_t *const day_full_names[] =
+    { L"Sunday", L"Monday", L"Tuesday", L"Wednesday",
+      L"Thursday", L"Friday", L"Saturday",};
+  static const wchar_t day_japanese_names[] = L"日月火水木金土";
   int w = current_time ().wDayOfWeek;
   if (w < 0 || w > 6)
     return b;
   if (star)
-    return stpncpy (b, day_full_names[w], be - b);
+    return wstore (b, be, day_full_names[w]);
   if (colon)
-    return stpncpy (b, &day_names[3 * w], min (3, be - b));
-  return stpncpy (b, &day_japanese_names[2 * w], min (2, be - b));
+    return wstore (b, be, &day_names[3 * w], 3);
+  return wstore (b, be, &day_japanese_names[w], 1);
 }
 
-inline char *
-print_engine::fmt_hour24 (char *b, char *be, int zero)
+inline Char *
+print_engine::fmt_hour24 (Char *b, Char *be, int zero)
 {
-  return fmt (b, be, zero ? "%02d" : "%d", current_time ().wHour);
+  return fmt (b, be, zero ? L"%02d" : L"%d", current_time ().wHour);
 }
 
-char *
-print_engine::fmt_hour12 (char *b, char *be, int zero, int star, int colon)
+Char *
+print_engine::fmt_hour12 (Char *b, Char *be, int zero, int star, int colon)
 {
   int h = current_time ().wHour;
   if (star)
-    return stpncpy (b, colon ? (h < 12 ? "am" : "pm") : (h < 12 ? "AM" : "PM"),
-                    min (2, be - b));
+    return wstore (b, be, colon ? (h < 12 ? L"am" : L"pm")
+                                : (h < 12 ? L"AM" : L"PM"), 2);
   h %= 12;
   if (colon)
     h++;
-  return fmt (b, be, zero ? "%02d" : "%d", h);
+  return fmt (b, be, zero ? L"%02d" : L"%d", h);
 }
 
-inline char *
-print_engine::fmt_minute (char *b, char *be, int zero)
+inline Char *
+print_engine::fmt_minute (Char *b, Char *be, int zero)
 {
-  return fmt (b, be, zero ? "%02d" : "%d", current_time ().wMinute);
+  return fmt (b, be, zero ? L"%02d" : L"%d", current_time ().wMinute);
 }
 
-inline char *
-print_engine::fmt_second (char *b, char *be, int zero)
+inline Char *
+print_engine::fmt_second (Char *b, Char *be, int zero)
 {
-  return fmt (b, be, zero ? "%02d" : "%d", current_time ().wSecond);
+  return fmt (b, be, zero ? L"%02d" : L"%d", current_time ().wSecond);
 }
 
 /*
@@ -1565,28 +1577,24 @@ print_engine::fmt_second (char *b, char *be, int zero)
  */
 
 int
-print_engine::format (HDC hdc, const char *fmt, char *b, int l,
-                      char *&left, char *&right)
+print_engine::format (HDC hdc, const wchar_t *fmt, Char *b, int l,
+                      Char *&left, Char *&right)
 {
-  const u_char *f = (const u_char *)fmt;
-  char *be = b + l - 2;
+  const wchar_t *f = fmt;
+  Char *be = b + l - 2;
   int hline = 0;
   left = right = 0;
   while (*f && b < be)
     {
       if (*f != '%')
-        {
-          if (SJISP (*f) && f[1])
-            *b++ = *f++;
-          *b++ = *f++;
-        }
+        *b++ = Char (*f++);
       else
         {
           int colon = 0;
           int star = 0;
           int zero = 0;
           f++;
-          int c;
+          wchar_t c;
           while (1)
             {
               c = *f++;
@@ -1676,9 +1684,7 @@ print_engine::format (HDC hdc, const char *fmt, char *b, int l,
               break;
 
             default:
-              *b++ = c;
-              if (SJISP (c) && *f)
-                *b++ = *f++;
+              *b++ = Char (c);
               break;
             }
         }
@@ -1792,9 +1798,8 @@ print_engine::doprint1 (HWND hwnd)
                          pe_settings.ps_range_end))
     return bad_range (hwnd);
 
-  /* Phase 2-5: DOCINFOW takes wchar_t. When the doc name comes from a
-     Lisp string (UTF-16), copy it directly. Only the buffer-name fallback
-     still flows through cp932 because Buffer::buffer_name writes char*. */
+  /* DOCINFOW takes wchar_t, and the doc name is a file or buffer name, so
+     build it in UTF-16 both ways round. */
   wchar_t *wdocname;
   lisp name;
   if (stringp (name = pe_bp->lfile_name)
@@ -1806,11 +1811,9 @@ print_engine::doprint1 (HWND hwnd)
   else
     {
       int l = xstring_length (pe_bp->lbuffer_name) * 2 + 32;
-      char *docname = (char *)alloca (l);
-      pe_bp->buffer_name (docname, docname + l);
-      int wdoclen = MultiByteToWideChar (932, 0, docname, -1, 0, 0);
-      wdocname = (wchar_t *)alloca (wdoclen * sizeof (wchar_t));
-      MultiByteToWideChar (932, 0, docname, -1, wdocname, wdoclen);
+      wdocname = (wchar_t *)alloca (l * sizeof (wchar_t));
+      Char *e = pe_bp->buffer_name ((Char *)wdocname, (Char *)wdocname + l - 1);
+      *e = 0;
     }
 
   SetAbortProc (pe_dev, abort_proc);

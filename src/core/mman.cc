@@ -18,7 +18,7 @@ mapf::close ()
 }
 
 int
-mapf::open (const char *path, int mode, int share_ok)
+mapf::open (const wchar_t *path, int mode, int share_ok)
 {
   mf_hfile = WINFS::CreateFile (path, GENERIC_READ, FILE_SHARE_READ, 0,
                                 OPEN_EXISTING, mode, 0);
@@ -63,7 +63,7 @@ mapf::close ()
 }
 
 int
-mapf::open (const char *path, int mode, int share_ok)
+mapf::open (const wchar_t *path, int mode, int share_ok)
 {
   mf_hfile = WINFS::CreateFile (path, GENERIC_READ, FILE_SHARE_READ, 0,
                                 OPEN_EXISTING, mode, 0);

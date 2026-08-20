@@ -124,8 +124,10 @@ FilerView::chdir (lisp dir)
 int
 FilerView::chdevdir (lisp dir)
 {
-  char *b = (char *)alloca (xstring_length (dir) * 2 + 1);
-  w2s (b, dir);
+  wchar_t *b = (wchar_t *)alloca (i2wl (xstring_contents (dir),
+                                        xstring_length (dir))
+                                  * sizeof (wchar_t));
+  i2w (xstring_contents (dir), xstring_length (dir), b);
   return set_device_dir (b, 0);
 }
 
@@ -3097,7 +3099,7 @@ ViewerBuffer::clean (ViewerWindow *wp)
 }
 
 int
-ViewerBuffer::readin (ViewerWindow *wp, const char *path)
+ViewerBuffer::readin (ViewerWindow *wp, const wchar_t *path)
 {
   clean (wp);
   if (path)
@@ -3222,12 +3224,10 @@ Filer::do_keyup ()
           int dlen = (int)(we - (ucs2_t *)wpath);
           wcscpy (wpath + dlen, d->name);
           int wlen = dlen + (int) wcslen (d->name);
-          int nbytes = WideCharToMultiByte (CP_ACP, 0, wpath, wlen, 0, 0, 0, 0) + 1;
-          char *path = (char *)alloca (nbytes);
-          path[WideCharToMultiByte (CP_ACP, 0, wpath, wlen, path, nbytes, 0, 0)] = 0;
+          wpath[wlen] = 0;
           try
             {
-              f_vbuffer.readin (&f_vwindow, path);
+              f_vbuffer.readin (&f_vwindow, wpath);
             }
           catch (nonlocal_jump &)
             {

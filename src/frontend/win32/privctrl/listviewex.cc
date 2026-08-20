@@ -110,15 +110,16 @@ get_listview_item_data (HWND hwnd)
   return (listview_item_data *)get_item_data (hwnd);
 }
 
+/* The item text arrives from the list view as UTF-16 and is drawn with
+   ExtTextOutW, so it stays UTF-16 the whole way. It used to be converted down
+   to CP932 and straight back up again, which lost every character that code
+   page has no room for -- a file name in the filer showed as '?'.
+   ws must have room for three more units: an elided string gets "..."
+   appended in place. */
 static int
-paint_text (HDC hdc, char *s, int l, int fmt, const RECT &r,
+paint_text (HDC hdc, wchar_t *ws, int wl, int fmt, const RECT &r,
             int offset, int dots, int no_extend, int on, int path_ellipse)
 {
-  wchar_t ws[1024 + 10];
-  int wl = cp932_to_wcs (s, l, ws, 1024);
-  /* cp932_to_wcs may or may not null-terminate when given an explicit length.
-     abbreviate_string requires a null-terminated buffer, so force one. */
-  ws[wl] = 0;
 
   int w = r.right - r.left - 2 * offset;
   SIZE ext;
@@ -213,10 +214,7 @@ paint_item_text (HWND hwnd, HDC hdc, int item, int subitem, int fmt,
   if (ws != lvi.pszText)
     memcpy (ws, lvi.pszText, wl * sizeof (wchar_t));
   ws[wl] = 0;
-  char s[2048 + 10];
-  int l = WideCharToMultiByte (932, 0, ws, wl, s, sizeof s - 10, 0, 0);
-  s[l] = 0;
-  return paint_text (hdc, s, l, fmt, r, offset, dots, no_extend, 0,
+  return paint_text (hdc, ws, wl, fmt, r, offset, dots, no_extend, 0,
                      data->path_ellipse_indices & (1 << subitem));
 }
 

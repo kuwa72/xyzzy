@@ -731,17 +731,6 @@ Fcreate_file_buffer (lisp name)
                                 Fdirectory_namestring (filename))->lbp;
 }
 
-char *
-Buffer::buffer_name (char *b, char *be) const
-{
-  b = w2s (b, be, lbuffer_name);
-  if (b >= be - 1 || b_version == 1)
-    return b;
-  char t[64];
-  sprintf (t, "<%d>", b_version);
-  return stpncpy (b, t, be - b);
-}
-
 Char *
 Buffer::buffer_name (Char *b, Char *be) const
 {
@@ -773,17 +762,6 @@ Buffer::buffer_name (Char *b, Char *be) const
   for (int i = 0; i < copy; i++)
     *b++ = (Char)(u_char)t[i];
   return b;
-}
-
-char *
-Buffer::quoted_buffer_name (char *b, char *be, int qc, int qe) const
-{
-  b = w2s_quote (b, be, lbuffer_name, qc, qe);
-  if (b >= be - 1 || b_version == 1)
-    return b;
-  char t[64];
-  sprintf (t, "<%d>", b_version);
-  return stpncpy (b, t, be - b);
 }
 
 void
@@ -1341,12 +1319,24 @@ Fkill_xyzzy (lisp lexit_code)
   return Qnil;
 }
 
-char *
-Buffer::store_title (lisp x, char *b, char *be) const
+/* Append a nul-terminated UTF-16 run, stopping at the end of the buffer. */
+static Char *
+wstore (const Char *s, Char *b, Char *be)
+{
+  for (; *s && b < be; s++)
+    *b++ = *s;
+  return b;
+}
+
+Char *
+Buffer::store_title (lisp x, Char *b, Char *be) const
 {
   if (x == lbuffer_name)
     return buffer_name (b, be);
-  return w2s (b, x);
+  int n = xstring_length (x);
+  if (n > be - b)
+    n = be - b;
+  return (Char *)i2w (xstring_contents (x), n, (ucs2_t *)b);
 }
 
 void
@@ -1373,20 +1363,28 @@ Buffer::refresh_title_bar () const
       else
         x = lbuffer_name;
 
-      int l = (xstring_length (x) * 2 + strlen (TitleBarString) + 32 + 8);
-      char *b0 = (char *)alloca (l);
-      char *b = b0;
+      /* Build the title in UTF-16: it holds a file name, and going through
+         CP932 turned every character outside that code page into '?'. */
+      int l = (xstring_length (x) * 2 + wcslen (TitleBarStringW) + 32 + 8);
+      Char *b0 = (Char *)alloca (l * sizeof (Char));
+      Char *b = b0;
+      Char *be = b0 + l;
       if (Fadmin_user_p () == Qt && sysdep.Win6p ())
-        b = stpcpy (b, "\x8a\xc7\x97\x9d\x8e\xd2: ");
+        b = wstore ((const Char *)L"\u7ba1\u7406\u8005: ", b, be);
       if (xsymbol_value (Vtitle_bar_text_order) != Qnil)
-        strcpy (stpcpy (store_title (x, b, b + l), " - "), TitleBarString);
+        {
+          b = store_title (x, b, be);
+          b = wstore ((const Char *)L" - ", b, be);
+          b = wstore ((const Char *)TitleBarStringW, b, be);
+        }
       else
-        store_title (x, stpcpy (stpcpy (b, TitleBarString), " - "), b + l);
-
-      {
-        WideStr wb0 (b0);
-        SetWindowTextW (app.toplev, wb0);
-      }
+        {
+          b = wstore ((const Char *)TitleBarStringW, b, be);
+          b = wstore ((const Char *)L" - ", b, be);
+          b = store_title (x, b, be);
+        }
+      *b = 0;
+      SetWindowTextW (app.toplev, (LPCWSTR)b0);
     }
   b_last_title_bar_buffer = 0; // 次回タイトルバーを強制的に再描画させる
 }

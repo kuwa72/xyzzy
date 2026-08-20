@@ -6,7 +6,7 @@
 # include "charset.h"
 
 inline lisp
-make_char (Char c)
+make_char (ucs4_t c)
 {
   return make_immediate (Lchar, c);
 }
@@ -14,14 +14,14 @@ make_char (Char c)
 inline int
 charp (lisp x)
 {
-  return lowbits (pointer_t (x)) == Lchar;
+  return immediate_tag (x) == Lchar;
 }
 
-inline Char
+inline ucs4_t
 xchar_code (lisp x)
 {
   assert (charp (x));
-  return Char (ximmediate_data (x));
+  return ucs4_t (ximmediate_data (x));
 }
 
 inline void

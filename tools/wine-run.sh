@@ -28,6 +28,15 @@ esac
 
 [ -x "$build/$exe" ] || { echo "wine-run.sh: $build/$exe not built" >&2; exit 2; }
 
+# A dump image holds addresses from the binary that wrote it, and nothing in the
+# image says which build that was: dump_version is a gen-syms timestamp, so an
+# ordinary rebuild keeps it. Reading a stale one gives no error — it hangs.
+if [ -f "$build/xyzzy-batch.wxp" ] \
+   && [ "$build/xyzzy-batch.exe" -nt "$build/xyzzy-batch.wxp" ]; then
+  echo "wine-run.sh: dropping the dump image, it is older than the binary"
+  rm -f "$build/xyzzy-batch.wxp"
+fi
+
 # xyzzy tells an unset variable from an empty one, so clear them properly
 # rather than setting them to the empty string.
 unset XYZZYINIFILE XYZZYCONFIGPATH

@@ -744,7 +744,7 @@ SevenZip::puts_create (FILE *fp, char *name, const char *path) const
       putc ('\\', fp);
     }
   fputs (name, fp);
-  DWORD a = WINFS::GetFileAttributes (path);
+  DWORD a = WINFS::GetFileAttributes (WideStr (path));
   if (a != ~0 && a & FILE_ATTRIBUTE_DIRECTORY)
     {
       if (!has_trail_slash (path))
@@ -784,8 +784,8 @@ Archiver::get_creator (const char *path) const
 int
 Archiver::check_file_size (const char *path)
 {
-  WIN32_FIND_DATAA fd;
-  return (strict_get_file_data (path, fd)
+  WIN32_FIND_DATAW fd;
+  return (strict_get_file_data (WideStr (path), fd)
           && (fd.nFileSizeHigh || fd.nFileSizeLow));
 }
 
@@ -1085,13 +1085,14 @@ extract_or_remove (lisp lpath, lisp ldir, lisp lfiles)
     *temp_name = 0;
   else
     {
-      char temp_path[PATH_MAX + 1];
-      GetTempPathA (sizeof temp_path, temp_path);
-      WINFS::GetTempFileName (temp_path, "xyz", 0, temp_name);
-      stdio_file fp (fopen (temp_name, "w"));
+      wchar_t temp_path[PATH_MAX + 1], wtemp[PATH_MAX + 1];
+      GetTempPathW (numberof (temp_path), temp_path);
+      WINFS::GetTempFileName (temp_path, L"xyz", 0, wtemp);
+      wcs_to_cp932 (wtemp, -1, temp_name, PATH_MAX + 1);
+      stdio_file fp (_wfopen (wtemp, L"w"));
       if (!fp)
         {
-          WINFS::DeleteFile (temp_name);
+          WINFS::DeleteFile (wtemp);
           file_error (Ecannot_make_temp_file_name);
         }
 
@@ -1120,12 +1121,12 @@ extract_or_remove (lisp lpath, lisp ldir, lisp lfiles)
   catch (nonlocal_jump &)
     {
       if (*temp_name)
-        WINFS::DeleteFile (temp_name);
+        WINFS::DeleteFile (WideStr (temp_name));
       throw;
     }
 
   if (*temp_name)
-    WINFS::DeleteFile (temp_name);
+    WINFS::DeleteFile (WideStr (temp_name));
 
   return Qt;
 }
@@ -1160,11 +1161,13 @@ Fcreate_archive (lisp larcname, lisp lfiles, lisp ldir)
     strcat (dir, "\\");
   size_t dirl = strlen (dir);
 
-  char temp_name[PATH_MAX + 1], temp_path[PATH_MAX + 1];
-  GetTempPathA (sizeof temp_path, temp_path);
-  WINFS::GetTempFileName (temp_path, "xyz", 0, temp_name);
+  char temp_name[PATH_MAX + 1];
+  wchar_t temp_path[PATH_MAX + 1], wtemp[PATH_MAX + 1];
+  GetTempPathW (numberof (temp_path), temp_path);
+  WINFS::GetTempFileName (temp_path, L"xyz", 0, wtemp);
+  wcs_to_cp932 (wtemp, -1, temp_name, PATH_MAX + 1);
 
-  WINFS::SetCurrentDirectory (dir);
+  WINFS::SetCurrentDirectory (WideStr (dir));
 
   try
     {
@@ -1172,17 +1175,18 @@ Fcreate_archive (lisp larcname, lisp lfiles, lisp ldir)
         stdio_file fp (fopen (temp_name, "w"));
         if (!fp)
           file_error (Ecannot_make_temp_file_name);
+        char entry[PATH_MAX + 1];
         for (; consp (lfiles); lfiles = xcdr (lfiles))
           {
-            pathname2cstr (xcar (lfiles), temp_path);
-            docopy (temp_path, temp_path); // '/' -> '\\'
-            char *b = temp_path;
-            if (!_memicmp (temp_path, dir, dirl))
+            pathname2cstr (xcar (lfiles), entry);
+            docopy (entry, entry); // '/' -> '\\'
+            char *b = entry;
+            if (!_memicmp (entry, dir, dirl))
               b += dirl;
-            else if (strlen (temp_path) == dirl - 1
-                     && !_memicmp (temp_path, dir, dirl))
+            else if (strlen (entry) == dirl - 1
+                     && !_memicmp (entry, dir, dirl))
               continue;
-            ar->puts_create (fp, b, temp_path);
+            ar->puts_create (fp, b, entry);
             putc ('\n', fp);
           }
       }
@@ -1193,12 +1197,12 @@ Fcreate_archive (lisp larcname, lisp lfiles, lisp ldir)
     }
   catch (nonlocal_jump &)
     {
-      WINFS::DeleteFile (temp_name);
+      WINFS::DeleteFile (wtemp);
       WINFS::SetCurrentDirectory (sysdep.curdir);
       throw;
     }
 
-  WINFS::DeleteFile (temp_name);
+  WINFS::DeleteFile (wtemp);
   WINFS::SetCurrentDirectory (sysdep.curdir);
 
   return Qnil;
@@ -1214,7 +1218,7 @@ Fconvert_to_SFX (lisp larcname, lisp lopt)
   if (sl)
     {
       *sl = 0;
-      WINFS::SetCurrentDirectory (dirname);
+      WINFS::SetCurrentDirectory (WideStr (dirname));
     }
   char *opt = "";
   if (lopt && lopt != Qnil)

@@ -42,11 +42,13 @@ Char TitleBarStringC[TITLE_BAR_STRING_SIZE];
 void
 init_TitleBarStringC ()
 {
-  // TitleBarString is ASCII, so simple byte-to-Char expansion
-  const char *s = TitleBarString;
+  // Char is a UTF-16 code unit and so is wchar_t on Windows, so take it from
+  // the wide title rather than the byte one: the host name appended to it is
+  // not necessarily ASCII.
+  const wchar_t *s = TitleBarStringW;
   Char *d = TitleBarStringC;
   while (*s)
-    *d++ = (unsigned char)*s++;
+    *d++ = Char (*s++);
   *d = 0;
 }
 const char VersionString[] = PROGRAM_VERSION;

@@ -53,7 +53,7 @@ struct Sysdep
 
   windows_type wintype;
   const char *windows_name;
-  const char *windows_short_name;
+  const wchar_t *windows_short_name;   /* goes into paths, so wide */
 
   HFONT hfont_ruler;
   SIZE ruler_ext;
@@ -89,8 +89,8 @@ public:
   HFONT ui_font90 ();
   HFONT ui_font270 ();
 
-  char curdir[PATH_MAX];
-  char host_name[MAX_COMPUTERNAME_LENGTH + 1];
+  wchar_t curdir[PATH_MAX];
+  wchar_t host_name[MAX_COMPUTERNAME_LENGTH + 1];
   DWORD process_id;
 
   int64_t perf_freq;

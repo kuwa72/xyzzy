@@ -49,35 +49,41 @@ Fsi_get_key_state (lisp lvkey)
 lisp
 Fsi_search_path (lisp lfile, lisp lpath, lisp lext)
 {
-  char *path = 0;
-  char *file = 0;
-  char *ext = 0;
+  /* These are pathnames; keep them UTF-16 rather than going through CP932. */
+  wchar_t *path = 0;
+  wchar_t *file = 0;
+  wchar_t *ext = 0;
 
   check_string (lfile);
-  file = (char *)alloca (xstring_length (lfile) * 2 + 1);
-  w2s (file, lfile);
+  file = (wchar_t *)alloca (i2wl (xstring_contents (lfile),
+                                  xstring_length (lfile)) * sizeof (wchar_t));
+  i2w (xstring_contents (lfile), xstring_length (lfile), file);
 
   if (lpath && lpath != Qnil)
     {
-      path = (char *)alloca (xstring_length (lpath) * 2 + 1);
-      w2s (path, lpath);
+      check_string (lpath);
+      path = (wchar_t *)alloca (i2wl (xstring_contents (lpath),
+                                      xstring_length (lpath)) * sizeof (wchar_t));
+      i2w (xstring_contents (lpath), xstring_length (lpath), path);
     }
   if (lext && lext != Qnil)
     {
-      ext = (char *)alloca (xstring_length (lext) * 2 + 1);
-      w2s (ext, lext);
+      check_string (lext);
+      ext = (wchar_t *)alloca (i2wl (xstring_contents (lext),
+                                     xstring_length (lext)) * sizeof (wchar_t));
+      i2w (xstring_contents (lext), xstring_length (lext), ext);
     }
 
-  DWORD len = SearchPathA (path, file, ext, 0, 0, 0);
+  DWORD len = SearchPathW (path, file, ext, 0, 0, 0);
   if (!len)
     return Qnil;
 
-  char *file_part = 0;
-  char *buffer = (char *)alloca (len);
-  if (!SearchPathA (path, file, ext, len, buffer, &file_part))
+  wchar_t *file_part = 0;
+  wchar_t *buffer = (wchar_t *)alloca (len * sizeof (wchar_t));
+  if (!SearchPathW (path, file, ext, len, buffer, &file_part))
     return Qnil;
 
-  return buffer ? make_path (buffer, 0) : Qnil;
+  return make_path (buffer, 0);
 }
 
 lisp

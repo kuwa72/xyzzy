@@ -856,7 +856,7 @@ quote_char (wStream &stream, Char c)
 }
 
 static void
-print_char (wStream &stream, Char c, int escape)
+print_char (wStream &stream, ucs4_t c, int escape)
 {
   int meta = 0;
 
@@ -927,7 +927,13 @@ print_char (wStream &stream, Char c, int escape)
               quote = 1;
             }
 
-          if (DBCP (c))
+          if (c > 0xFFFF)
+            {
+              /* Outside the BMP there is no SJIS lead/trail structure to
+                 look at, and #\xNNNN cannot name it: write the character. */
+              stream.add (c);
+            }
+          else if (DBCP (c))
             {
               if (!escape || SJISP (c >> 8))
                 stream.add (c);
@@ -960,7 +966,7 @@ print_char (wStream &stream, Char c, int escape)
 }
 
 static void
-print_char (wStream &stream, const print_control &pc, Char c)
+print_char (wStream &stream, const print_control &pc, ucs4_t c)
 {
   if (pc.readably || pc.escape)
     {

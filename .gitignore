@@ -154,3 +154,6 @@ src/etc/unlha/UNLHA32.LIB
 
 # mingw cross build output (tools/x)
 _build/
+
+# written by misc/bytecompile-batch.l
+/bytecompile-progress.log

@@ -708,18 +708,18 @@ init_environ ()
     xsymbol_value (Vmachine_version) = Qnil;
 #else
   /* Non-Win32: wchar_t is 4 bytes here, so the (const Char *) reinterpret cast
-     the Win32 path uses on wchar_t buffers does not apply. Read the values as
-     POSIX byte strings and let make_string() decode them. */
+     the Win32 path uses on wchar_t buffers does not apply. These come back as
+     UTF-8 bytes, which is what a Unix environment holds. */
   {
     const char *user = getenv ("USER");
     if (!user) user = getenv ("LOGNAME");
-    xsymbol_value (Vuser_name) = make_string (user ? user : "unknown");
+    xsymbol_value (Vuser_name) = make_string_from_utf8 (user ? user : "unknown");
 
     char host[256];
     if (gethostname (host, sizeof host) == 0)
       {
         host[sizeof host - 1] = 0;
-        xsymbol_value (Vmachine_name) = make_string (host);
+        xsymbol_value (Vmachine_name) = make_string_from_utf8 (host);
       }
     else
       xsymbol_value (Vmachine_name) = make_string ("unknown");
@@ -727,7 +727,7 @@ init_environ ()
     const char *processor_id = getenv ("PROCESSOR_IDENTIFIER");
     if (!processor_id) processor_id = getenv ("HOSTTYPE");
     xsymbol_value (Vmachine_version) =
-      processor_id ? make_string (processor_id) : Qnil;
+      processor_id ? make_string_from_utf8 (processor_id) : Qnil;
   }
 #endif
 
@@ -1058,11 +1058,11 @@ Fsi_getenv (lisp var)
   const wchar_t *e = _wgetenv (v);
   return e ? make_string ((const Char *)e, wcslen (e)) : Qnil;
 #else
-  /* Non-Win32: encode the name to a POSIX byte string and decode the result. */
-  char *v = (char *)alloca (xstring_length (var) * 2 + 1);
-  w2s (v, var);
+  /* The environment on a Unix system is UTF-8 bytes, not CP932. */
+  char *v = (char *)alloca (i2u8l (xstring_contents (var), xstring_length (var)));
+  i2u8 (xstring_contents (var), xstring_length (var), v);
   const char *e = getenv (v);
-  return e ? make_string (e) : Qnil;
+  return e ? make_string_from_utf8 (e) : Qnil;
 #endif
 }
 
@@ -1090,22 +1090,22 @@ Fsi_putenv (lisp var, lisp val)
   int r = _wputenv (b);
   return (r < 0 || !val) ? Qnil : val;
 #else
-  /* Non-Win32: build "name=value" as a POSIX byte string for putenv. */
-  int l = xstring_length (var) * 2 + 1 + 1;
+  /* Build "name=value" as UTF-8 bytes for putenv. */
+  size_t l = i2u8l (xstring_contents (var), xstring_length (var)) + 1;
   if (val && val != Qnil)
     {
       check_string (val);
-      l += xstring_length (val) * 2;
+      l += i2u8l (xstring_contents (val), xstring_length (val));
     }
 
   char *v = (char *)alloca (l);
   char *b = v;
-  v = w2s (v, var);
+  v = i2u8 (xstring_contents (var), xstring_length (var), v);
   *v++ = '=';
   if (val && val != Qnil)
-    w2s (v, val);
+    i2u8 (xstring_contents (val), xstring_length (val), v);
   else
-    *v++ = 0;
+    *v = 0;
 
   int r = _putenv (b);
   return (r < 0 || !val) ? Qnil : val;

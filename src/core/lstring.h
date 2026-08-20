@@ -104,14 +104,27 @@ char *w2s (char *, const ucs4_t *, size_t);
 char *w2s (char *, const Char *, size_t);
 char *w2s (const ucs4_t *, size_t);
 char *w2s (char *, char *, const ucs4_t *, size_t);
-char *w2s_quote (char *, char *, const ucs4_t *, size_t, int, int);
 
 size_t s2wl (const char *string, const char *se, int zero_term);
 ucs4_t *s2w (ucs4_t *b, const char *string, const char *se, int zero_term);
 void w2s_chunk (char *, char *, const ucs4_t *, size_t);
 
 ucs2_t *i2w (const ucs4_t *, int, ucs2_t *);
-int i2wl (const ucs4_t *, int);
+int i2wl (const ucs4_t *, int);        /* UTF-16 units + 1; an upper bound for wchar_t too */
+ucs4_t *w2i (const ucs2_t *, int, ucs4_t *);
+int w2il (const ucs2_t *, int);
+/* wchar_t is UTF-16 on Windows and UCS-4 elsewhere; these hide that. */
+wchar_t *i2w (const ucs4_t *, int, wchar_t *);
+ucs4_t *w2i (const wchar_t *, int, ucs4_t *);
+ucs4_t *w2i (const wchar_t *, ucs4_t *);
+int w2il (const wchar_t *, int);
+/* UTF-8, for the byte interfaces of a Unix system. */
+size_t i2u8l (const ucs4_t *, int);
+char *i2u8 (const ucs4_t *, int, char *);
+size_t u82il (const char *);
+ucs4_t *u82i (const char *, ucs4_t *);
+lisp make_string_from_utf8 (const char *);
+inline int w2il (const wchar_t *p) { return w2il (p, int (wcslen (p))); }
 Char *s2w_u16 (Char *, const char *);  /* SJIS → UTF-16 for Win32 API use */
 
 lisp coerce_to_string (lisp, int);
@@ -122,6 +135,8 @@ lisp make_string (const char *, size_t);
 lisp make_string_simple (const char *, size_t);
 lisp make_string (const ucs4_t *, size_t);
 lisp make_string (const Char *, size_t);   // UTF-16 (Win32 wchar_t) → ucs4_t Lisp string
+lisp make_string (const wchar_t *, size_t);
+lisp make_string (const wchar_t *);
 lisp make_string (ucs4_t, size_t);
 lisp make_complex_string (ucs4_t, int, int, int);
 lisp make_string_from_list (lisp);
@@ -183,12 +198,6 @@ inline char *
 w2s (char *b, char *be, lisp l)
 {
   return w2s (b, be, xstring_contents (l), xstring_length (l));
-}
-
-inline char *
-w2s_quote (char *b, char *be, lisp l, int qc, int qe)
-{
-  return w2s_quote (b, be, xstring_contents (l), xstring_length (l), qc, qe);
 }
 
 inline ucs2_t *

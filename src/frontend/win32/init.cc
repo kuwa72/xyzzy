@@ -77,21 +77,19 @@ static void
 init_module_dir ()
 {
   // Always set system-path from the actual executable, regardless of XYZZYHOME
-  wchar_t wpath[PATH_MAX];
-  GetModuleFileNameW (0, wpath, PATH_MAX);
-  char exepath[PATH_MAX];
-  WideCharToMultiByte (932, 0, wpath, -1, exepath, sizeof exepath, 0, 0);
+  wchar_t exepath[PATH_MAX];
+  GetModuleFileNameW (0, exepath, PATH_MAX);
   xsymbol_value (Qsystem_path) = make_string (exepath);
 
   // Check XYZZYHOME first — allows out-of-tree builds (exe in build/, lisp in source/)
-  char *xyzzyhome = getenv ("XYZZYHOME");
+  const wchar_t *xyzzyhome = _wgetenv (L"XYZZYHOME");
   if (xyzzyhome && *xyzzyhome)
     {
-      char path[PATH_MAX];
-      int l = strlen (xyzzyhome);
+      wchar_t path[PATH_MAX];
+      int l = int (wcslen (xyzzyhome));
       if (l > 0 && l < PATH_MAX - 2)
         {
-          strcpy (path, xyzzyhome);
+          wcscpy (path, xyzzyhome);
           if (path[l - 1] != '\\' && path[l - 1] != '/')
             {
               path[l] = '\\';
@@ -102,7 +100,7 @@ init_module_dir ()
         }
     }
 
-  char *p = jrindex (exepath, '\\');
+  wchar_t *p = wcsrchr (exepath, L'\\');
   if (p)
     p[1] = 0;
   xsymbol_value (Qmodule_dir) = make_path (exepath);
@@ -117,23 +115,20 @@ init_current_dir ()
 static void
 init_windows_dir ()
 {
-  wchar_t wpath[PATH_MAX];
-  char path[PATH_MAX];
-  GetWindowsDirectoryW (wpath, PATH_MAX);
-  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
+  wchar_t path[PATH_MAX];
+  GetWindowsDirectoryW (path, PATH_MAX);
   xsymbol_value (Qwindows_dir) = make_path (path);
 
-  GetSystemDirectoryW (wpath, PATH_MAX);
-  WideCharToMultiByte (932, 0, wpath, -1, path, sizeof path, 0, 0);
+  GetSystemDirectoryW (path, PATH_MAX);
   xsymbol_value (Qsystem_dir) = make_path (path);
 }
 
 static int
-init_home_dir (const char *path)
+init_home_dir (const wchar_t *path)
 {
-  char home[PATH_MAX], *tem;
-  int l = WINFS::GetFullPathName (path, sizeof home, home, &tem);
-  if (!l || l >= sizeof home)
+  wchar_t home[PATH_MAX], *tem;
+  int l = WINFS::GetFullPathName (path, numberof (home), home, &tem);
+  if (!l || l >= numberof (home))
     return 0;
   DWORD f = WINFS::GetFileAttributes (home);
   if (f == -1 || !(f & FILE_ATTRIBUTE_DIRECTORY))
@@ -145,31 +140,31 @@ init_home_dir (const char *path)
 static void
 init_home_dir ()
 {
-  char path[PATH_MAX];
-  static const char xyzzyhome[] = "XYZZYHOME";
+  wchar_t path[PATH_MAX];
+  static const wchar_t xyzzyhome[] = L"XYZZYHOME";
   static const char cfgInit[] = "init";
 
-  if (read_conf (cfgInit, "homeDir", path, sizeof path)
+  if (read_conf (cfgInit, "homeDir", path, numberof (path))
       && init_home_dir (path))
     return;
 
   for (int i = 0; i <= 5; i += 5)
     {
-      char *e = getenv (xyzzyhome + i);
+      const wchar_t *e = _wgetenv (xyzzyhome + i);
       if (e && init_home_dir (e))
         return;
     }
 
-  char *drive = getenv ("HOMEDRIVE");
-  char *dir = getenv ("HOMEPATH");
-  if (drive && dir && strlen (drive) + strlen (dir) < sizeof path - 1)
+  const wchar_t *drive = _wgetenv (L"HOMEDRIVE");
+  const wchar_t *dir = _wgetenv (L"HOMEPATH");
+  if (drive && dir && wcslen (drive) + wcslen (dir) < numberof (path) - 1)
     {
-      strcpy (stpcpy (path, drive), dir);
+      wcscpy (wstpcpy (path, drive), dir);
       if (init_home_dir (path))
         return;
     }
 
-  if (read_conf (cfgInit, "logDir", path, sizeof path)
+  if (read_conf (cfgInit, "logDir", path, numberof (path))
       && init_home_dir (path))
     return;
 
@@ -198,15 +193,15 @@ init_load_path ()
 }
 
 static void
-init_user_config_path (const char *config_path)
+init_user_config_path (const wchar_t *config_path)
 {
   if (!config_path)
-    config_path = getenv ("XYZZYCONFIGPATH");
+    config_path = _wgetenv (L"XYZZYCONFIGPATH");
   if (config_path)
     {
-      char path[PATH_MAX], *tem;
-      int l = WINFS::GetFullPathName (config_path, sizeof path, path, &tem);
-      if (l && l < sizeof path)
+      wchar_t path[PATH_MAX], *tem;
+      int l = WINFS::GetFullPathName (config_path, numberof (path), path, &tem);
+      if (l && l < numberof (path))
         {
           DWORD a = WINFS::GetFileAttributes (path);
           if (a != DWORD (-1) && a & FILE_ATTRIBUTE_DIRECTORY)
@@ -217,16 +212,23 @@ init_user_config_path (const char *config_path)
         }
     }
 
-  char *path = (char *)alloca (w2sl (xsymbol_value (Qmodule_dir))
-                               + w2sl (xsymbol_value (Vuser_name))
-                               + 32);
-  char *p = stpcpy (w2s (path, xsymbol_value (Qmodule_dir)), "usr");
+  wchar_t *path =
+    (wchar_t *)alloca ((i2wl (xstring_contents (xsymbol_value (Qmodule_dir)),
+                              xstring_length (xsymbol_value (Qmodule_dir)))
+                        + i2wl (xstring_contents (xsymbol_value (Vuser_name)),
+                                xstring_length (xsymbol_value (Vuser_name)))
+                        + 32) * sizeof (wchar_t));
+  wchar_t *p = path;
+  p = i2w (xstring_contents (xsymbol_value (Qmodule_dir)),
+           xstring_length (xsymbol_value (Qmodule_dir)), p);
+  p = wstpcpy (p, L"usr");
   WINFS::CreateDirectory (path, 0);
   *p++ = '/';
-  p = w2s (p, xsymbol_value (Vuser_name));
+  p = i2w (xstring_contents (xsymbol_value (Vuser_name)),
+           xstring_length (xsymbol_value (Vuser_name)), p);
   WINFS::CreateDirectory (path, 0);
   *p++ = '/';
-  strcpy (p, sysdep.windows_short_name);
+  wcscpy (p, sysdep.windows_short_name);
   WINFS::CreateDirectory (path, 0);
   DWORD a = WINFS::GetFileAttributes (path);
   if (a != DWORD (-1) && a & FILE_ATTRIBUTE_DIRECTORY)
@@ -236,34 +238,36 @@ init_user_config_path (const char *config_path)
 }
 
 static void
-init_user_inifile_path (const char *ini_file)
+init_user_inifile_path (const wchar_t *ini_file)
 {
   if (!ini_file)
-    ini_file = getenv ("XYZZYINIFILE");
-  if (ini_file && find_slash (ini_file))
+    ini_file = _wgetenv (L"XYZZYINIFILE");
+  if (ini_file && find_slash_w (ini_file))
     {
-      char path[PATH_MAX], *tem;
-      int l = WINFS::GetFullPathName (ini_file, sizeof path, path, &tem);
-      if (l && l < sizeof path)
+      wchar_t path[PATH_MAX], *tem;
+      int l = WINFS::GetFullPathName (ini_file, numberof (path), path, &tem);
+      if (l && l < numberof (path))
         {
           HANDLE h = WINFS::CreateFile (path, GENERIC_READ, 0, 0, OPEN_ALWAYS,
                                        FILE_ATTRIBUTE_ARCHIVE, 0);
           if (h != INVALID_HANDLE_VALUE)
             {
               CloseHandle (h);
-              app.ini_file_path = xstrdup (path);
+              app.ini_file_path = xwcsdup (path);
               return;
             }
         }
     }
 
   if (!ini_file)
-    ini_file = "xyzzy.ini";
+    ini_file = L"xyzzy.ini";
 
-  char *path = (char *)alloca (w2sl (xsymbol_value (Quser_config_path))
-                               + strlen (ini_file) + 32);
-  strcpy (w2s (path, xsymbol_value (Quser_config_path)), ini_file);
-  app.ini_file_path = xstrdup (path);
+  lisp cfg = xsymbol_value (Quser_config_path);
+  wchar_t *path =
+    (wchar_t *)alloca ((i2wl (xstring_contents (cfg), xstring_length (cfg))
+                        + wcslen (ini_file) + 32) * sizeof (wchar_t));
+  wcscpy (i2w (xstring_contents (cfg), xstring_length (cfg), path), ini_file);
+  app.ini_file_path = xwcsdup (path);
 }
 
 static void
@@ -271,18 +275,18 @@ init_dump_path ()
 {
   if (!*app.dump_image)
     {
-      int l = GetModuleFileNameA (0, app.dump_image, PATH_MAX);
-      char *e = app.dump_image + l;
-      if (l > 4 && !_stricmp (e - 4, ".exe"))
+      int l = GetModuleFileNameW (0, app.dump_image, PATH_MAX);
+      wchar_t *e = app.dump_image + l;
+      if (l > 4 && !_wcsicmp (e - 4, L".exe"))
         e -= 3;
       else
         *e++ = '.';
-      strcpy (e, sysdep.windows_short_name);
+      wcscpy (e, sysdep.windows_short_name);
     }
 }
 
 static void
-init_env_symbols (const char *config_path, const char *ini_file)
+init_env_symbols (const wchar_t *config_path, const wchar_t *ini_file)
 {
   xsymbol_value (Vfeatures) = xcons (Kxyzzy, xcons (Kieee_floating_point, Qnil));
   xsymbol_value (Qdump_image_path) = make_path (app.dump_image, 0);
@@ -607,23 +611,30 @@ check_dump_key ()
 static int
 init_lisp_objects ()
 {
-  const char *config_path = 0, *ini_file = 0;
+  const wchar_t *config_path = 0, *ini_file = 0;
   *app.dump_image = 0;
 
+  /* Command line as UTF-16: an argument may be a path, and __argv has
+     already been squeezed through the ANSI code page. */
+  int wargc = 0;
+  wchar_t **wargv = CommandLineToArgvW (GetCommandLineW (), &wargc);
+  if (!wargv)
+    wargc = 0;
+
   int ac;
-  for (ac = 1; ac < __argc - 1; ac += 2)
-    if (!strcmp (__argv[ac], "-image"))
+  for (ac = 1; ac < wargc - 1; ac += 2)
+    if (!wcscmp (wargv[ac], L"-image"))
       {
-        char *tem;
-        int l = WINFS::GetFullPathName (__argv[ac + 1], sizeof app.dump_image,
+        wchar_t *tem;
+        int l = WINFS::GetFullPathName (wargv[ac + 1], numberof (app.dump_image),
                                         app.dump_image, &tem);
-        if (!l || l >= sizeof app.dump_image)
+        if (!l || l >= numberof (app.dump_image))
           *app.dump_image = 0;
       }
-    else if (!strcmp (__argv[ac], "-config"))
-      config_path = __argv[ac + 1];
-    else if (!strcmp (__argv[ac], "-ini"))
-      ini_file = __argv[ac + 1];
+    else if (!wcscmp (wargv[ac], L"-config"))
+      config_path = wargv[ac + 1];
+    else if (!wcscmp (wargv[ac], L"-ini"))
+      ini_file = wargv[ac + 1];
     else
       break;
 
@@ -852,9 +863,13 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   if (*sysdep.host_name)
     {
-      strcpy (stpcpy (TitleBarString + strlen (TitleBarString), "@"),
+      /* The title is kept in three forms: wide for Win32, CP932 for the
+         frame-title code that still builds a byte string, and Char for
+         MsgBox. Append to the wide one from the wide host name, and keep the
+         byte copy in step so the other two do not drift apart. */
+      wcscpy (wstpcpy (TitleBarStringW + wcslen (TitleBarStringW), L"@"),
               sysdep.host_name);
-      MultiByteToWideChar (932, 0, TitleBarString, -1, TitleBarStringW, TITLE_BAR_STRING_SIZE);
+      wcs_to_cp932 (TitleBarStringW, -1, TitleBarString, TITLE_BAR_STRING_SIZE);
     }
   init_TitleBarStringC ();
 

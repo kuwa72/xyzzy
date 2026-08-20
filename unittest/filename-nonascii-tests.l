@@ -65,3 +65,101 @@
 (deftest filename-nonascii-string-length ()
   (length "日本語テスト.txt")
   => 10)
+
+;;; ここから下は CP932 に無い文字。以前はパス層が CP932 を経由していたので、
+;;; 変換できない文字が '?' になり、ファイル名として不正だと拒否されていた。
+;;; 「日本語なら通るのに韓国語だと開けない」という形で出る。
+
+(deftest filename-hangul-roundtrip ()
+  (unwind-protect
+      (let ((f (fname-test-setup "한국어시험.txt")))
+        (list (and (file-exist-p f) t)
+              (file-namestring (truename f))
+              (with-open-file (s f) (read-line s nil :eof))))
+    (fname-test-teardown))
+  => (t "한국어시험.txt" "content"))
+
+(deftest filename-hangul-directory ()
+  (unwind-protect
+      (progn
+        (fname-test-setup "한국어시험.txt")
+        (mapcar #'file-namestring
+                (directory (fname-test-directory))))
+    (fname-test-teardown))
+  => ("한국어시험.txt"))
+
+(deftest filename-hangul-completion ()
+  (unwind-protect
+      (progn
+        (fname-test-setup "한국어시험.txt")
+        (file-namestring
+         (*do-completion (concat (namestring (fname-test-directory)) "/한국")
+                         :exist-file-name)))
+    (fname-test-teardown))
+  => "한국어시험.txt")
+
+;; ディレクトリ名自体が CP932 の外にある場合
+(deftest filename-hangul-directory-name ()
+  (let ((dir (merge-pathnames "unittest/data/디렉터리/" (si:system-root))))
+    (unwind-protect
+        (progn
+          (create-directory dir)
+          (let ((f (merge-pathnames "abc.txt" dir)))
+            (with-open-file (s f :direction :output :if-exists :supersede)
+              (princ "x" s))
+            (list (and (file-directory-p dir) t)
+                  (and (file-exist-p f) t)
+                  (mapcar #'file-namestring (directory dir)))))
+      (when (file-directory-p dir)
+        (dolist (f (directory dir :absolute t))
+          (when (file-exist-p f) (delete-file f)))
+        (delete-directory dir))))
+  => (t t ("abc.txt")))
+
+;;; BMP の外にある文字を含むファイル名。パス層が UTF-16 になり、かつ文字が
+;;; code point を丸ごと持てるようになって初めて通る。報告の
+;;; 「パスに絵文字を含むファイルはいかなる手段でも開けない」がこれ。
+
+(deftest filename-emoji-roundtrip ()
+  (unwind-protect
+      (let ((f (fname-test-setup "絵文字😀.txt")))
+        (list (and (file-exist-p f) t)
+              (file-namestring (truename f))
+              (with-open-file (s f) (read-line s nil :eof))))
+    (fname-test-teardown))
+  => (t "絵文字😀.txt" "content"))
+
+(deftest filename-emoji-directory ()
+  (unwind-protect
+      (progn
+        (fname-test-setup "絵文字😀.txt")
+        (mapcar #'file-namestring
+                (directory (fname-test-directory))))
+    (fname-test-teardown))
+  => ("絵文字😀.txt"))
+
+;; 補完で '??' に化けないこと (UTF-16 の 2 単位が '?' 2 個になっていた)
+(deftest filename-emoji-completion ()
+  (unwind-protect
+      (progn
+        (fname-test-setup "絵文字😀.txt")
+        (file-namestring
+         (*do-completion (concat (namestring (fname-test-directory)) "/絵文字")
+                         :exist-file-name)))
+    (fname-test-teardown))
+  => "絵文字😀.txt")
+
+;; 名前は 8 文字 (絵 文 字 😀 . t x t)。バイト数や UTF-16 単位数ではない。
+(deftest filename-emoji-length ()
+  (length "絵文字😀.txt")
+  => 8)
+
+;; wild card の突き合わせも CP932 を経由しなくなったこと
+(deftest filename-hangul-wild ()
+  (unwind-protect
+      (progn
+        (fname-test-setup "한국어시험.txt")
+        (mapcar #'file-namestring
+                (directory (fname-test-directory) :wild "한*.txt")))
+    (fname-test-teardown))
+  => ("한국어시험.txt"))

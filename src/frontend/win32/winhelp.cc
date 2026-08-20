@@ -6,10 +6,8 @@
 lisp
 Frun_winhelp (lisp file, lisp topic)
 {
-  char path[PATH_MAX + 1];
-  pathname2cstr (file, path);
   wchar_t wpath[PATH_MAX + 1];
-  MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
+  pathname2wstr (file, wpath);
   if (!topic || topic == Qnil)
     return boole (WinHelpW (app.toplev, wpath, HELP_CONTENTS, 0));
 
@@ -24,10 +22,8 @@ Frun_winhelp (lisp file, lisp topic)
 lisp
 Fkill_winhelp (lisp file)
 {
-  char path[PATH_MAX + 1];
-  pathname2cstr (file, path);
   wchar_t wpath[PATH_MAX + 1];
-  MultiByteToWideChar (932, 0, path, -1, wpath, PATH_MAX + 1);
+  pathname2wstr (file, wpath);
   return boole (WinHelpW (app.toplev, wpath, HELP_QUIT, 0));
 }
 

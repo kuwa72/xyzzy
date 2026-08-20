@@ -848,7 +848,7 @@ kbd_queue::paste () const
 }
 
 int
-kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
+kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int /*unicode_p*/)
 {
   if (rsbuf)
     {
@@ -905,9 +905,8 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
           safe_ptr <Char> data0 (new Char [size + 2]);
           Char *const data = data0 + 1;
           bp->substring (p1, size, data);
-          if (unicode_p)
-            {
-              /* Phase 2-5: data is already UTF-16; copy straight into the
+          {
+              /* data is already UTF-16; copy straight into the
                  RECONVERTSTRING tail. The three segments split at r1-p1 and
                  r2-p1 are contiguous in `data`, so the wchar_t offsets are
                  just those substring lengths. */
@@ -928,22 +927,7 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
               memcpy ((wchar_t *)(reconv + 1), data, l * sizeof (wchar_t));
               ((wchar_t *)(reconv + 1))[l] = 0;
               return reconv->dwSize;
-            }
-          char *b0 = (char *)(Char *)data0;
-          char *b1 = w2s (b0, data, r1 - p1);
-          char *b2 = w2s (b1, data + (r1 - p1), r2 - r1);
-          char *b3 = w2s (b2, data + (r2 - p1), p2 - r2);
-          reconv = (RECONVERTSTRING *)xmalloc (sizeof *reconv + (b3 - b0) + 1);
-          reconv->dwSize = sizeof *reconv + (b3 - b0) + 1;
-          reconv->dwVersion = 0;
-          reconv->dwStrLen = b3 - b0;
-          reconv->dwStrOffset = sizeof *reconv;
-          reconv->dwCompStrLen = b2 - b1;
-          reconv->dwCompStrOffset = b1 - b0;
-          reconv->dwTargetStrLen = b2 - b1;
-          reconv->dwTargetStrOffset = b1 - b0;
-          strcpy ((char *)(reconv + 1), b0);
-          return reconv->dwSize;
+          }
         }
       catch (nonlocal_jump &)
         {
@@ -955,7 +939,7 @@ kbd_queue::reconvert (RECONVERTSTRING *rsbuf, int unicode_p)
 }
 
 int
-kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
+kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int /*unicode_p*/)
 {
   if (!idlep ())
     return 0;
@@ -976,38 +960,14 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       lisp b = multiple_value::value (0);
       lisp c = multiple_value::value (1);
 
-      long size;
-      if (unicode_p)
-        {
-          /* Phase 3: ucs4 → UTF-16, then fill RECONVERTSTRING tail. */
-          long numc = i2wl (c) - 1;       // UTF-16 code units, exclude terminator
-          long numo = i2wl (b) - 1;
-          long len = (numc + 1) * sizeof (wchar_t);
-          long offset = numo * sizeof (wchar_t);
-          size = sizeof *rsbuf + len;
-          if (!rsbuf)
-            return size;
-          rsbuf->dwSize = size;
-          rsbuf->dwVersion = 0;
-          rsbuf->dwStrLen = len;
-          rsbuf->dwStrOffset = sizeof *rsbuf;
-          rsbuf->dwCompStrLen = 0;
-          rsbuf->dwCompStrOffset = 0;
-          rsbuf->dwTargetStrLen = 0;
-          rsbuf->dwTargetStrOffset = offset;
-          i2w (c, (ucs2_t *)(rsbuf + 1));
-          return size;
-        }
-
-      char *content = w2s (c);
-      char *before = w2s (b);
-      long len = strlen (content);
-      long offset = strlen (before);
-      size = sizeof *rsbuf + len;
-
+      /* ucs4 -> UTF-16, then fill the RECONVERTSTRING tail. */
+      long numc = i2wl (c) - 1;       // UTF-16 code units, exclude terminator
+      long numo = i2wl (b) - 1;
+      long len = (numc + 1) * sizeof (wchar_t);
+      long offset = numo * sizeof (wchar_t);
+      long size = sizeof *rsbuf + len;
       if (!rsbuf)
         return size;
-
       rsbuf->dwSize = size;
       rsbuf->dwVersion = 0;
       rsbuf->dwStrLen = len;
@@ -1016,9 +976,7 @@ kbd_queue::documentfeed (RECONVERTSTRING *rsbuf, int unicode_p)
       rsbuf->dwCompStrOffset = 0;
       rsbuf->dwTargetStrLen = 0;
       rsbuf->dwTargetStrOffset = offset;
-
-      strncpy ((char *)(rsbuf + 1), content, len);
-
+      i2w (c, (ucs2_t *)(rsbuf + 1));
       return size;
     }
   catch (nonlocal_jump &)

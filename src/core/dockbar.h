@@ -170,7 +170,7 @@ public:
     {
       HBITMAP b_hbm;
       int b_ref;
-      const char *b_path;
+      const wchar_t *b_path;
       bm_node () : b_hbm (0), b_ref (0), b_path (0) {}
       ~bm_node ()
         {
@@ -196,9 +196,9 @@ public:
 private:
   xlist <bm_node> bm_list;
 protected:
-  static int load_mapped_bitmap (const char *, HBITMAP &);
+  static int load_mapped_bitmap (const wchar_t *, HBITMAP &);
 public:
-  const bm_node *load (const char *, int &);
+  const bm_node *load (const wchar_t *, int &);
   void release (const bm_node *);
   void reload ();
 };
@@ -260,7 +260,7 @@ public:
   int press_button (int id, int f)
     {return sendmsg (TB_PRESSBUTTON, id, MAKELONG (f ? 1 : 0, 0));}
   virtual void calc_client_size (SIZE &, int) const;
-  int load_bitmap (const char *);
+  int load_bitmap (const wchar_t *);
   virtual void reload_settings ();
 };
 

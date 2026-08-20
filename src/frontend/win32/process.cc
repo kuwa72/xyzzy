@@ -6,70 +6,31 @@
 #include "mainframe.h"
 #include "term.h"
 
+/* The environment block handed to CreateProcessW. It is UTF-16 throughout:
+   an entry may hold a pathname, and the ANSI block this class used to build
+   alongside was dead code that squeezed those through CP932. */
 class EnvStrings
 {
-  char *e_env;
-  char *e_buf;
-  wchar_t *e_wenv;
-  wchar_t *e_wbuf;
+  wchar_t *e_env;
+  wchar_t *e_buf;
 
-  void set (char **, char **&, char *) const;
-  char *set (char **, char **&, char *, lisp, lisp) const;
-  void wset (wchar_t **, wchar_t **&, wchar_t *) const;
+  void set (wchar_t **, wchar_t **&, wchar_t *) const;
+  wchar_t *set (wchar_t **, wchar_t **&, wchar_t *, lisp, lisp) const;
   static int __cdecl compare (const void *p1, const void *p2)
-    {return stricmp (*(char **)p1, *(char **)p2);}
-  static int __cdecl wcompare (const void *p1, const void *p2)
     {return _wcsicmp (*(wchar_t **)p1, *(wchar_t **)p2);}
 public:
-  EnvStrings () : e_env (0), e_buf (0), e_wenv (0), e_wbuf (0) {}
+  EnvStrings () : e_env (0), e_buf (0) {}
   ~EnvStrings ()
     {
       xfree (e_buf);
       xfree (e_env);
-      xfree (e_wbuf);
-      xfree (e_wenv);
     }
   void setup (lisp);
-  const char *str () const {return e_env;}
-  const wchar_t *wstr () const {return e_wenv;}
+  const wchar_t *wstr () const {return e_env;}
 };
 
 void
-EnvStrings::set (char **nb, char **&ne, char *b) const
-{
-  char *eq = b;
-  if (*eq == '=')
-    eq++;
-  eq = strchr (eq, '=');
-  if (!eq)
-    return;
-  int l = eq - b + 1;
-  for (; nb < ne; nb++)
-    if (!memicmp (b, *nb, l))
-      {
-        *nb = b[l] ? b : (char *)"";
-        return;
-      }
-  if (b[l])
-    *ne++ = b;
-}
-
-char *
-EnvStrings::set (char **nb, char **&ne, char *b, lisp var, lisp val) const
-{
-  char *b0 = b;
-  b = w2s (b, var);
-  *b++ = '=';
-  if (val == Qnil)
-    *b++ = 0;
-  else
-    b = w2s (b, val) + 1;
-  set (nb, ne, b0);
-  return b;
-}
-
-void
-EnvStrings::wset (wchar_t **nb, wchar_t **&ne, wchar_t *b) const
+EnvStrings::set (wchar_t **nb, wchar_t **&ne, wchar_t *b) const
 {
   wchar_t *eq = b;
   if (*eq == L'=')
@@ -88,45 +49,62 @@ EnvStrings::wset (wchar_t **nb, wchar_t **&ne, wchar_t *b) const
     *ne++ = b;
 }
 
+wchar_t *
+EnvStrings::set (wchar_t **nb, wchar_t **&ne, wchar_t *b, lisp var, lisp val) const
+{
+  wchar_t *b0 = b;
+  b = i2w (xstring_contents (var), xstring_length (var), b);
+  *b++ = L'=';
+  if (val == Qnil)
+    *b++ = 0;
+  else
+    b = i2w (xstring_contents (val), xstring_length (val), b) + 1;
+  set (nb, ne, b0);
+  return b;
+}
+
 void
 EnvStrings::setup (lisp lenv)
 {
-  int n = 0, l = 0;
+  size_t n = 0, l = 0;
   for (lisp le = lenv; consp (le); le = xcdr (le), n++)
     {
       lisp x = xcar (le);
       check_cons (x);
       check_string (xcar (x));
-      l += xstring_length (xcar (x)) * 2 + 2;
+      l += i2wl (xstring_contents (xcar (x)), xstring_length (xcar (x))) + 1;
       if (xcdr (x) != Qnil)
         {
           check_string (xcdr (x));
-          l += xstring_length (xcdr (x)) * 2;
+          l += i2wl (xstring_contents (xcdr (x)), xstring_length (xcdr (x)));
         }
     }
 
+  /* The per-drive current directories, in the "=X:=X:\dir" form the C
+     runtime uses. */
   for (int d = 0; d < 26; d++)
     {
-      const char *dir = get_device_dir (d);
-      int x = strlen (dir);
+      const wchar_t *dir = get_device_dir (d);
+      size_t x = wcslen (dir);
       if (x > 3)
         {
-          l += x + sizeof "=X:=X:";
+          l += x + numberof (L"=X:=X:");
           n++;
         }
     }
 
-  for (char **e = _environ; *e; e++, n++)
+  for (wchar_t **e = _wenviron; *e; e++, n++)
     ;
 
-  l = (l + sizeof (char **) - 1) / sizeof (char **) * sizeof (char **);
-  e_buf = (char *)xmalloc (l + sizeof (char **) * n);
-  char **nb = (char **)(e_buf + l);
-  char **ne = nb;
-  for (char **e = _environ; *e; e++, ne++)
+  size_t lb = l * sizeof (wchar_t);
+  lb = (lb + sizeof (wchar_t *) - 1) / sizeof (wchar_t *) * sizeof (wchar_t *);
+  e_buf = (wchar_t *)xmalloc (lb + sizeof (wchar_t *) * n);
+  wchar_t **nb = (wchar_t **)((char *)e_buf + lb);
+  wchar_t **ne = nb;
+  for (wchar_t **e = _wenviron; *e; e++, ne++)
     *ne = *e;
 
-  char *b = e_buf;
+  wchar_t *b = e_buf;
   for (lisp le = lenv; consp (le); le = xcdr (le))
     {
       lisp x = xcar (le);
@@ -135,12 +113,12 @@ EnvStrings::setup (lisp lenv)
 
   for (int d = 0; d < 26; d++)
     {
-      const char *dir = get_device_dir (d);
-      int x = strlen (dir);
-      if (x > 3)
+      const wchar_t *dir = get_device_dir (d);
+      if (wcslen (dir) > 3)
         {
-          char *b0 = b;
-          b += sprintf (b, "=%c:=%c:%s", 'A' + d, 'A' + d, dir) + 1;
+          wchar_t *b0 = b;
+          b += xsnwprintf (b, wcslen (dir) + numberof (L"=X:=X:"),
+                           L"=%c:=%c:%ls", 'A' + d, 'A' + d, dir) + 1;
           set (nb, ne, b0);
         }
     }
@@ -148,115 +126,33 @@ EnvStrings::setup (lisp lenv)
   qsort (nb, ne - nb, sizeof *nb, compare);
 
   l = 1;
-  for (char **np = nb; np < ne; np++)
+  for (wchar_t **np = nb; np < ne; np++)
     if (**np)
-      l += strlen (*np) + 1;
+      l += wcslen (*np) + 1;
 
-  e_env = (char *)xmalloc (l);
-  char *p = e_env;
-  for (char **np = nb; np < ne; np++)
+  e_env = (wchar_t *)xmalloc (l * sizeof (wchar_t));
+  wchar_t *p = e_env;
+  for (wchar_t **np = nb; np < ne; np++)
     if (**np)
-      p = stpcpy (p, *np) + 1;
+      p = wstpcpy (p, *np) + 1;
   *p = 0;
-
-  // wide env block
-  {
-    /* Phase 3: env block は UTF-16 で連結。サイズは i2wl ベースで算出。 */
-    size_t wn = 0, wl = 0;
-    for (lisp le = lenv; consp (le); le = xcdr (le), wn++)
-      {
-        lisp x = xcar (le);
-        wl += (i2wl (xcar (x)) - 1) + 2;       // name + '=' + '\0'
-        if (xcdr (x) != Qnil)
-          wl += (i2wl (xcdr (x)) - 1);          // value
-      }
-    for (int d = 0; d < 26; d++)
-      {
-        const char *dir = get_device_dir (d);
-        size_t x = strlen (dir);
-        if (x > 3)
-          {
-            wl += x + 7;
-            wn++;
-          }
-      }
-    for (wchar_t **we = _wenviron; *we; we++, wn++)
-      ;
-
-    size_t wl_bytes = wl * sizeof (wchar_t);
-    wl_bytes = (wl_bytes + sizeof (wchar_t *) - 1) / sizeof (wchar_t *) * sizeof (wchar_t *);
-    e_wbuf = (wchar_t *)xmalloc (wl_bytes + sizeof (wchar_t *) * wn);
-    wchar_t **wnb = (wchar_t **)((char *)e_wbuf + wl_bytes);
-    wchar_t **wne = wnb;
-    for (wchar_t **we = _wenviron; *we; we++)
-      *wne++ = *we;
-
-    wchar_t *wb = e_wbuf;
-    for (lisp le = lenv; consp (le); le = xcdr (le))
-      {
-        lisp x = xcar (le);
-        wchar_t *wb0 = wb;
-        ucs2_t *we = i2w (xcar (x), (ucs2_t *)wb);
-        wb = (wchar_t *)we;            // i2w 末尾の NUL を '=' で上書き
-        *wb++ = L'=';
-        if (xcdr (x) == Qnil)
-          *wb++ = 0;
-        else
-          {
-            we = i2w (xcdr (x), (ucs2_t *)wb);
-            wb = (wchar_t *)we + 1;    // value 末尾 NUL を保持して次 entry へ
-          }
-        wset (wnb, wne, wb0);
-      }
-    for (int d = 0; d < 26; d++)
-      {
-        const char *dir = get_device_dir (d);
-        size_t x = strlen (dir);
-        if (x > 3)
-          {
-            wchar_t *wb0 = wb;
-            wb += swprintf (wb, 8, L"=%c:=%c:", 'A' + d, 'A' + d);
-            MultiByteToWideChar (CP_ACP, 0, dir, -1, wb, (int)x + 1);
-            wb += x + 1;
-            wset (wnb, wne, wb0);
-          }
-      }
-
-    qsort (wnb, wne - wnb, sizeof *wnb, wcompare);
-
-    size_t wenv_len = 1;
-    for (wchar_t **np = wnb; np < wne; np++)
-      if (**np)
-        wenv_len += wcslen (*np) + 1;
-
-    e_wenv = (wchar_t *)xmalloc (wenv_len * sizeof (wchar_t));
-    wchar_t *wp = e_wenv;
-    for (wchar_t **np = wnb; np < wne; np++)
-      if (**np)
-        {
-          size_t wl2 = wcslen (*np) + 1;
-          memcpy (wp, *np, wl2 * sizeof (wchar_t));
-          wp += wl2;
-        }
-    *wp = 0;
-  }
 }
 
 static void
-path_arg (int no_std_handles, lisp lpath, char *path)
+path_arg (int no_std_handles, lisp lpath, wchar_t *path)
 {
   if (no_std_handles)
     *path = 0;
   else if (stringp (lpath))
-    pathname2cstr (lpath, path);
+    pathname2wstr (lpath, path);
   else if (lpath == Qnil)
-    strcpy (path, "nul");
+    wcscpy (path, L"nul");
   else
     *path = 0;
 }
 
 static void
-open_for_read (dyn_handle &dh, const char *path, lisp lpath,
+open_for_read (dyn_handle &dh, const wchar_t *path, lisp lpath,
                SECURITY_ATTRIBUTES *sa)
 {
   if (!*path)
@@ -269,7 +165,7 @@ open_for_read (dyn_handle &dh, const char *path, lisp lpath,
 }
 
 static void
-open_for_write (dyn_handle &dh, const char *path, lisp lpath,
+open_for_write (dyn_handle &dh, const wchar_t *path, lisp lpath,
                 SECURITY_ATTRIBUTES *sa)
 {
   if (!*path)
@@ -322,7 +218,7 @@ Fcall_process (lisp cmd, lisp keys)
   lisp lstderr = find_keyword (Kerror, keys, 0);
   if (!lstderr)
     lstderr = lstdout;
-  char infile[PATH_MAX + 1], outfile[PATH_MAX + 1], errfile[PATH_MAX + 1];
+  wchar_t infile[PATH_MAX + 1], outfile[PATH_MAX + 1], errfile[PATH_MAX + 1];
   path_arg (no_std_handles, lstdin, infile);
   path_arg (no_std_handles, lstdout, outfile);
   path_arg (no_std_handles, lstderr, errfile);
@@ -330,12 +226,9 @@ Fcall_process (lisp cmd, lisp keys)
   lisp exec_dir = find_keyword (Kexec_directory, keys);
   if (exec_dir == Qnil)
     exec_dir = selected_buffer ()->ldirectory;
-  char dir[PATH_MAX + 1];
-  pathname2cstr (exec_dir, dir);
-  map_sl_to_backsl (dir);
   wchar_t dir_w[PATH_MAX + 1];
   pathname2wstr (exec_dir, dir_w);
-  map_sl_to_backsl (dir_w, (int)wcslen (dir_w));
+  map_sl_to_backsl (dir_w);
 
   lisp lshow = find_keyword (Kshow, keys);
   int show = show_window_parameter (lshow, SW_SHOWNORMAL);
@@ -370,7 +263,7 @@ Fcall_process (lisp cmd, lisp keys)
                       : hout.valid () ? (HANDLE)hout : GetStdHandle (STD_ERROR_HANDLE));
     }
 
-  WINFS::SetCurrentDirectory (dir);
+  WINFS::SetCurrentDirectory (dir_w);
 
   PROCESS_INFORMATION pi;
   int result = CreateProcessW (0, cmdline_w, 0, 0, !no_std_handles,
@@ -381,8 +274,8 @@ Fcall_process (lisp cmd, lisp keys)
                                (void *)env.wstr (), dir_w, &si, &pi);
   int error = GetLastError ();
 
-  w2s (dir, xsymbol_value (Qdefault_dir));
-  WINFS::SetCurrentDirectory (dir);
+  pathname2wstr (xsymbol_value (Qdefault_dir), dir_w);
+  WINFS::SetCurrentDirectory (dir_w);
 
   DWORD exit_code = 0;
   if (!result)
@@ -1283,12 +1176,9 @@ NormalProcess::signal_win95 ()
 void
 NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
 {
-  char dir[PATH_MAX + 1];
-  pathname2cstr (execdir, dir);
-  map_sl_to_backsl (dir);
   wchar_t dir_w[PATH_MAX + 1];
   pathname2wstr (execdir, dir_w);
-  map_sl_to_backsl (dir_w, (int)wcslen (dir_w));
+  map_sl_to_backsl (dir_w);
 
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof sa;
@@ -1345,7 +1235,7 @@ NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
   si.hStdOutput = opipe_w;
   si.hStdError = opipe_w;
 
-  WINFS::SetCurrentDirectory (dir);
+  WINFS::SetCurrentDirectory (dir_w);
 
   PROCESS_INFORMATION pi;
   int result = CreateProcessW (0, cmdline_w, 0, 0, 1,
@@ -1356,8 +1246,8 @@ NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
                                (void *)env, dir_w, &si, &pi);
   int error = GetLastError ();
 
-  w2s (dir, xsymbol_value (Qdefault_dir));
-  WINFS::SetCurrentDirectory (dir);
+  pathname2wstr (xsymbol_value (Qdefault_dir), dir_w);
+  WINFS::SetCurrentDirectory (dir_w);
 
   p_in.fix (opipe_r.unfix ());
   p_out.fix (ipipe_w.unfix ());

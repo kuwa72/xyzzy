@@ -27,6 +27,12 @@ stwncpy (Char *b, Char *be, const Char *s, size_t max)
 }
 
 static Char *
+stwncpy (Char *b, Char *be, const wchar_t *s, size_t max)
+{
+  return stwncpy (b, be, (const Char *)s, max);
+}
+
+static Char *
 copy_lisp_string (Char *b, Char *be, lisp str)
 {
   /* Phase 3: ucs4 → UTF-16 で Char buffer に詰める (surrogate pair も発出)。 */
@@ -256,7 +262,7 @@ buffer_info::host_name (Char *b, Char *be, int pound) const
     {
       if (pound && b < be)
         *b++ = '@';
-      b = stwncpy (b, be, sysdep.host_name, strlen (sysdep.host_name));
+      b = stwncpy (b, be, sysdep.host_name, wcslen (sysdep.host_name));
     }
   return b;
 }

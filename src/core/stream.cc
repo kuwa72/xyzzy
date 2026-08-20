@@ -16,8 +16,8 @@ close_file_stream (lisp stream, int abort)
     WINFS::DeleteFile (xfile_stream_alt_pathname (stream));
   else
     {
-      char path[PATH_MAX + 1];
-      w2s (path, xfile_stream_pathname (stream));
+      wchar_t path[PATH_MAX + 1];
+      pathname2wstr (xfile_stream_pathname (stream), path);
       WINFS::DeleteFile (path);
       if (!WINFS::MoveFile (xfile_stream_alt_pathname (stream), path))
         file_error (GetLastError (), xfile_stream_pathname (stream));
@@ -287,8 +287,8 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
                     lisp if_does_not_exist, lisp lencoding,
                     lisp lshare)
 {
-  char path[PATH_MAX + 1];
-  pathname2cstr (filename, path);
+  wchar_t path[PATH_MAX + 1];
+  pathname2wstr (filename, path);
 
   if (if_does_not_exist != Kerror && if_does_not_exist != Kcreate
       && if_does_not_exist != Qnil)
@@ -387,15 +387,15 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
 
   if (need_alt)
     {
-      char *sl = find_last_slash (path);
+      wchar_t *sl = find_last_slash_w (path);
       if (sl)
         sl[1] = 0;
-      char buf[PATH_MAX + 1];
-      if (!WINFS::GetTempFileName (sl ? path : ".", "xyz", 0, buf))
+      wchar_t buf[PATH_MAX + 1];
+      if (!WINFS::GetTempFileName (sl ? path : L".", L"xyz", 0, buf))
         file_error (GetLastError ());
       if (sl)
         sl[1] = '/';
-      xfile_stream_alt_pathname (stream) = xstrdup (buf);
+      xfile_stream_alt_pathname (stream) = xwcsdup (buf);
     }
 
   HANDLE h = WINFS::CreateFile ((xfile_stream_alt_pathname (stream)
@@ -1476,9 +1476,12 @@ readc_stream (lisp stream)
             if (enc == lstream::ENCODE_CANON_UTF8
                 || enc == lstream::ENCODE_RAW_UTF8)
               {
-                // UTF-8 decode
+                /* UTF-8 decode. A 4-byte sequence used to be swallowed and
+                   replaced with '?', which is why an emoji read out of a
+                   UTF-8 file came back as a question mark. A character is a
+                   full code point now, so decode all four. */
                 int nbytes;
-                ucs2_t wc;
+                ucs4_t wc;
                 if (c < 0x80)
                   wc = c;
                 else if ((c & 0xE0) == 0xC0)
@@ -1495,19 +1498,9 @@ readc_stream (lisp stream)
                   }
                 else if ((c & 0xF8) == 0xF0)
                   {
-                    // 4-byte: outside BMP, can't map to internal Char
-                    // skip continuation bytes and return '?'
-                    for (int i = 0; i < 3; i++)
-                      {
-                        int cb = getc (xfile_stream_input (stream));
-                        if (cb == EOF || (cb & 0xC0) != 0x80)
-                          {
-                            if (cb != EOF)
-                              ungetc (cb, xfile_stream_input (stream));
-                            break;
-                          }
-                      }
-                    wc = '?';
+                    nbytes = 3;
+                    wc = c & 0x07;
+                    goto utf8_cont;
                   }
                 else
                   wc = c; // invalid lead byte, pass through
@@ -1528,10 +1521,7 @@ readc_stream (lisp stream)
                       }
                   }
 
-                /* Phase 2: 内部 Char は UTF-16 code unit。UCS-2 値を
-                   そのまま Char に代入すれば良く、旧 w2i (UCS2→SJIS-packed
-                   internal) は不要。 */
-                Char ic = (Char) wc;
+                ucs4_t ic = wc;
 
                 // CR/LF handling for canon mode
                 if (enc == lstream::ENCODE_CANON_UTF8 && ic == '\r')

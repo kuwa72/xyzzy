@@ -19,7 +19,7 @@ public:
   FontObject () : fo_hfont (0) {}
   ~FontObject () {if (fo_hfont) DeleteObject (fo_hfont);}
   int create (const LOGFONTW &);
-  int create (const char *, int, int);
+  int create (const wchar_t *, int, int);
   operator HFONT () const {return fo_hfont;}
   const HFONT hfont () const {return fo_hfont;}
   int need_pad_p () const {return fo_need_pad;}
@@ -79,7 +79,7 @@ protected:
   static const UINT fs_lang_id[];
   static const lisp *const fs_lang_key[];
   static const char *const fs_regent[];
-  struct fontface {const char *disp, *print; int charset;};
+  struct fontface {const wchar_t *disp, *print; int charset;};
   static const fontface fs_default_face[];
 public:
   enum
@@ -134,7 +134,7 @@ public:
   int size_pixel_p () const {return fs_size_pixel;}
 
   static const char *regent (int n) {return fs_regent[n];}
-  static const char *default_face (int n, int print)
+  static const wchar_t *default_face (int n, int print)
     {return (!print || !fs_default_face[n].print
              ? fs_default_face[n].disp : fs_default_face[n].print);}
   static int default_charset (int n) {return fs_default_face[n].charset;}

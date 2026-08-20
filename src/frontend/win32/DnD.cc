@@ -478,14 +478,16 @@ filer_drop_target::scroll_view (const POINTL &pt) const
 inline int
 filer_drop_target::target_path_length () const
 {
+  /* In wchar_t units: a code point can need two of them. */
   return (xstring_length (fdt_view->get_directory ()) * 2
           + MAX_PATH + 10);
 }
 
 void
-filer_drop_target::target_path (char *buf, const POINTL &pt)
+filer_drop_target::target_path (wchar_t *buf, const POINTL &pt)
 {
-  w2s (buf, fdt_view->get_directory ());
+  lisp dir = fdt_view->get_directory ();
+  i2w (xstring_contents (dir), xstring_length (dir), buf);
 
   LV_HITTESTINFO ht;
   ht.pt.x = pt.x;
@@ -512,14 +514,10 @@ filer_drop_target::target_path (char *buf, const POINTL &pt)
     {
       fdt_hilited = index;
       if (*f->name)
-        {
-          char nbuf[MAX_PATH];
-          WideCharToMultiByte (CP_ACP, 0, f->name, -1, nbuf, MAX_PATH, 0, 0);
-          strcpy (strappend (buf, nbuf), "/");
-        }
+        wcscpy (wcsappend (buf, f->name), L"/");
       else
         {
-          char *sl = find_last_slash (buf);
+          wchar_t *sl = find_last_slash_w (buf);
           if (!sl)
             return;
           if (sl[1])
@@ -528,7 +526,7 @@ filer_drop_target::target_path (char *buf, const POINTL &pt)
               return;
             }
           *sl = 0;
-          char *up = find_last_slash (buf);
+          wchar_t *up = find_last_slash_w (buf);
           if (!up)
             *sl = '/';
           else
@@ -551,41 +549,62 @@ public:
     }
 };
 
+/* A DROPFILES list is either wide (everything modern sends this) or ANSI in
+   the system code page. Hand both to the caller as wchar_t so the rest of the
+   drop path has one form to deal with. */
+class drop_file_list
+{
+  const char *a;
+  const wchar_t *w;
+  wchar_t buf[PATH_MAX + 1];
+public:
+  drop_file_list (const DROPFILES *df)
+       : a (df->fWide ? 0 : (const char *)df + df->pFiles),
+         w (df->fWide ? (const wchar_t *)((const char *)df + df->pFiles) : 0) {}
+  const wchar_t *next ()
+    {
+      if (w)
+        {
+          if (!*w)
+            return 0;
+          const wchar_t *r = w;
+          w += wcslen (w) + 1;
+          return r;
+        }
+      if (!*a)
+        return 0;
+      MultiByteToWideChar (CP_ACP, 0, a, -1, buf, numberof (buf));
+      a += strlen (a) + 1;
+      return buf;
+    }
+};
+
 int
-filer_drop_target::check_self (const char *path, char *base, char *target)
+filer_drop_target::check_self (const wchar_t *path, wchar_t *base, wchar_t *target)
 {
   if (!*base)
     {
-      if (strlen (path) >= PATH_MAX)
+      if (wcslen (path) >= PATH_MAX)
         return 0;
-      strcpy (base, path);
-      char *sl = find_last_slash (base);
+      wcscpy (base, path);
+      wchar_t *sl = find_last_slash_w (base);
       if (!sl)
         return 0;
       sl[1] = 0;
     }
 
-  char *name = (char *)alloca (strlen (path) + 1);
-  strcpy (name, path);
+  wchar_t *name = (wchar_t *)alloca ((wcslen (path) + 1) * sizeof (wchar_t));
+  wcscpy (name, path);
   map_backsl_to_sl (name);
   return !sub_directory_p (target, name);
 }
 
 int
-filer_drop_target::check_self (const wchar_t *w, char *base, char *target)
-{
-  int l = wcslen (w) * 2 + 1;
-  char *p = (char *)alloca (l);
-  WideCharToMultiByte (932, 0, w, -1, p, l, 0, 0);
-  return check_self (p, base, target);
-}
-
-int
 filer_drop_target::check_self (const POINTL &pt)
 {
-  char *target = (char *)alloca (target_path_length ());
+  wchar_t *target = (wchar_t *)alloca (target_path_length () * sizeof (wchar_t));
   target_path (target, pt);
-  char *tbuf = (char *)alloca (strlen (target) + 1);
+  wchar_t *tbuf = (wchar_t *)alloca ((wcslen (target) + 1) * sizeof (wchar_t));
 
   FORMATETC etc;
   etc.cfFormat = CF_HDROP;
@@ -602,33 +621,24 @@ filer_drop_target::check_self (const POINTL &pt)
 
   DROPFILES *df = (DROPFILES *)GlobalLock (medium.hGlobal);
 
-  char base_path[PATH_MAX];
+  wchar_t base_path[PATH_MAX];
   *base_path = 0;
 
-  if (!df->fWide)
-    {
-      for (const char *p = (char *)df + df->pFiles; *p; p += strlen (p) + 1)
-        if (!check_self (p, base_path, strcpy (tbuf, target)))
-          return 0;
-    }
-  else
-    {
-      for (const wchar_t *p = (wchar_t *)((char *)df + df->pFiles);
-           *p; p += wcslen (p) + 1)
-        if (!check_self (p, base_path, strcpy (tbuf, target)))
-          return 0;
-    }
+  drop_file_list files (df);
+  for (const wchar_t *p; (p = files.next ());)
+    if (!check_self (p, base_path, wcscpy (tbuf, target)))
+      return 0;
 
   map_backsl_to_sl (base_path);
   return *base_path && !same_file_p (target, base_path);
 }
 
 lisp
-filer_drop_target::make_drop_file (const char *path, const char *base_path,
-                                   char *target, int link)
+filer_drop_target::make_drop_file (const wchar_t *path, const wchar_t *base_path,
+                                   wchar_t *target, int link)
 {
-  char *name = (char *)alloca (strlen (path) + 5);
-  strcpy (name, path);
+  wchar_t *name = (wchar_t *)alloca ((wcslen (path) + 5) * sizeof (wchar_t));
+  wcscpy (name, path);
   map_backsl_to_sl (name);
   if (!link && sub_directory_p (target, name))
     return 0;
@@ -637,33 +647,23 @@ filer_drop_target::make_drop_file (const char *path, const char *base_path,
     return 0;
   if (a & FILE_ATTRIBUTE_DIRECTORY)
     {
-      char *sl = find_last_slash (name);
+      wchar_t *sl = find_last_slash_w (name);
       if (!sl || sl[1])
-        strcat (name, "/");
+        wcscat (name, L"/");
     }
 
-  if (!link && _memicmp (base_path, name, strlen (base_path)))
+  if (!link && _wcsnicmp (base_path, name, wcslen (base_path)))
     return 0;
   return make_string (name);
-}
-
-lisp
-filer_drop_target::make_drop_file (const wchar_t *w, const char *base_path,
-                                   char *target, int link)
-{
-  int l = wcslen (w) * 2 + 1;
-  char *p = (char *)alloca (l);
-  WideCharToMultiByte (932, 0, w, -1, p, l, 0, 0);
-  return make_drop_file (p, base_path, target, link);
 }
 
 int
 filer_drop_target::process_drop (IDataObject *data_obj, const POINTL &pt,
                                  DWORD effect)
 {
-  char *target = (char *)alloca (target_path_length ());
+  wchar_t *target = (wchar_t *)alloca (target_path_length () * sizeof (wchar_t));
   target_path (target, pt);
-  char *tbuf = (char *)alloca (strlen (target) + 1);
+  wchar_t *tbuf = (wchar_t *)alloca ((wcslen (target) + 1) * sizeof (wchar_t));
   lisp ltarget = make_string (target);
 
   FORMATETC etc;
@@ -681,27 +681,17 @@ filer_drop_target::process_drop (IDataObject *data_obj, const POINTL &pt,
 
   DROPFILES *df = (DROPFILES *)GlobalLock (medium.hGlobal);
 
-  char *base_path = 0;
-
-  if (!df->fWide)
-    {
-      const char *p = (char *)df + df->pFiles;
-      base_path = (char *)alloca (strlen (p) + 1);
-      strcpy (base_path, p);
-    }
-  else
-    {
-      const wchar_t *w = (wchar_t *)((char *)df + df->pFiles);
-      int l = wcslen (w) * 2 + 1;
-      base_path = (char *)alloca (l);
-      WideCharToMultiByte (932, 0, w, -1, base_path, l, 0, 0);
-    }
-
-  if (!base_path)
-    return 0;
+  wchar_t base_path[PATH_MAX + 1];
+  {
+    drop_file_list first (df);
+    const wchar_t *p = first.next ();
+    if (!p || wcslen (p) > PATH_MAX)
+      return 0;
+    wcscpy (base_path, p);
+  }
 
   map_backsl_to_sl (base_path);
-  char *sl = find_last_slash (base_path);
+  wchar_t *sl = find_last_slash_w (base_path);
   if (!sl)
     return 0;
   sl[1] = 0;
@@ -712,28 +702,14 @@ filer_drop_target::process_drop (IDataObject *data_obj, const POINTL &pt,
 
   lisp lfiles = Qnil;
 
-  if (!df->fWide)
+  drop_file_list files (df);
+  for (const wchar_t *p; (p = files.next ());)
     {
-      for (const char *p = (char *)df + df->pFiles; *p; p += strlen (p) + 1)
-        {
-          lisp x = make_drop_file (p, base_path, strcpy (tbuf, target),
-                                   effect == DROPEFFECT_LINK);
-          if (!x)
-            return 0;
-          lfiles = xcons (x, lfiles);
-        }
-    }
-  else
-    {
-      for (const wchar_t *p = (wchar_t *)((char *)df + df->pFiles);
-           *p; p += wcslen (p) + 1)
-        {
-          lisp x = make_drop_file (p, base_path, strcpy (tbuf, target),
-                                   effect == DROPEFFECT_LINK);
-          if (!x)
-            return 0;
-          lfiles = xcons (x, lfiles);
-        }
+      lisp x = make_drop_file (p, base_path, wcscpy (tbuf, target),
+                               effect == DROPEFFECT_LINK);
+      if (!x)
+        return 0;
+      lfiles = xcons (x, lfiles);
     }
 
   if (lfiles == Qnil)

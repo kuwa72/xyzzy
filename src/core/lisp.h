@@ -33,8 +33,8 @@ extern lisp Qunbound;
                   MSB ........ ........ ........ ........  LSB
 IMMEDIATE:
    Short Integer:     BBBBBBBB BBBBBBBB BBBBBBBB BBBBBB01
-   Character:         BBBBBBBB BBBBBBBB 00000000 00000111
-   Message:           BBBBBBBB BBBBBBBB 00000000 00001011
+   Character:         BBBBBBBB BBBBBBBB BBBBBBBB BBBB0111
+   Message:           BBBBBBBB BBBBBBBB BBBBBBBB BBBB1011
 POINTER:
                       PPPPPPPP PPPPPPPP PPPPPPPP PPPPPP00
 
@@ -189,16 +189,30 @@ hibits (pointer_t x)
   return u_short ((x >> 16) & 0xffff);
 }
 
+/* Immediates: the low four bits are the tag (see the map above), the rest is
+   the payload. The payload used to start at bit 16, which left a character
+   16 bits and so no room for anything outside the BMP -- code-char of an
+   emoji came back truncated. Bits 4..15 were unused, so moving the payload
+   down to bit 4 costs nothing and gives 28 bits. */
+# define LIMMEDIATE_SHIFT 4
+# define LIMMEDIATE_TAG_MASK 0xf
+
 inline lisp
-make_immediate (u_short type, u_short data)
+make_immediate (u_short type, u_long data)
 {
-  return lisp ((pointer_t (data) << 16) | type);
+  return lisp ((pointer_t (data) << LIMMEDIATE_SHIFT) | type);
+}
+
+inline u_long
+ximmediate_data (lisp x)
+{
+  return u_long (pointer_t (x) >> LIMMEDIATE_SHIFT);
 }
 
 inline u_short
-ximmediate_data (lisp x)
+immediate_tag (lisp x)
 {
-  return hibits (pointer_t (x));
+  return u_short (pointer_t (x) & LIMMEDIATE_TAG_MASK);
 }
 
 inline int

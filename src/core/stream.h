@@ -57,7 +57,7 @@ public:
   void *output;
   lChar pending;     // unread-char用バッファ
   lisp pathname;
-  char *alt_pathname;
+  wchar_t *alt_pathname;   /* also aliased as a lisp for general streams */
   int start;
   int end;
   char open_p;        // ストリームがオープンされている?
@@ -213,7 +213,7 @@ xfile_stream_pathname (lisp x)
   return ((lstream *)x)->pathname;
 }
 
-inline char *&
+inline wchar_t *&
 xfile_stream_alt_pathname (lisp x)
 {
   assert (streamp (x));

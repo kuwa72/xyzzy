@@ -98,12 +98,12 @@ Flookup_dictionary (lisp ldir, lisp ldic, lisp lidx, lisp lword)
   if (xstring_length (lidx) >= PATH_MAX)
     FEprogram_error (Epath_name_too_long, lidx);
 
-  char path[PATH_MAX * 2 + 1];
-  char *pe = pathname2cstr (ldir, path);
+  wchar_t path[PATH_MAX * 2 + 1];
+  wchar_t *pe = pathname2wstr (ldir, path) - 1;
   if (pe != path && pe[-1] != '/')
     *pe++ = '/';
 
-  w2s (pe, ldic);
+  i2w (xstring_contents (ldic), xstring_length (ldic), pe);
   mapf dic;
   if (!dic.open (path, FILE_FLAG_RANDOM_ACCESS))
     file_error (GetLastError (), ldic);
@@ -113,7 +113,7 @@ Flookup_dictionary (lisp ldir, lisp ldic, lisp lidx, lisp lword)
       || dich->dh_size != long (dic.size ()))
     FEprogram_error (Einvalid_dictionary, ldic);
 
-  w2s (pe, lidx);
+  i2w (xstring_contents (lidx), xstring_length (lidx), pe);
   mapf idx;
   if (!idx.open (path, FILE_FLAG_RANDOM_ACCESS))
     file_error (GetLastError (), lidx);

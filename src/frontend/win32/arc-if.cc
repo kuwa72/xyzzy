@@ -21,7 +21,7 @@ const char *ArchiverInterface::ai_names[] =
   "ConfigDialog",
 };
 
-ArchiverInterface::ArchiverInterface (const char *module, const char *prefix)
+ArchiverInterface::ArchiverInterface (const wchar_t *module, const char *prefix)
      : ai_hmodule (0), ai_module_name (module), ai_prefix (prefix)
 {
   memset (ai_fns, 0, sizeof ai_fns);

@@ -1028,10 +1028,14 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       break;
 
     case WM_IME_REQUEST:
+      /* The window classes are registered with RegisterClassW, so the IME
+         hands us the wide form of RECONVERTSTRING. Filling it with CP932
+         bytes, as this used to, made the IME read the reconversion target as
+         UTF-16 garbage. */
       if (wparam == IMR_RECONVERTSTRING)
-        return app.kbdq.reconvert ((RECONVERTSTRING *)lparam, 0);
+        return app.kbdq.reconvert ((RECONVERTSTRING *)lparam, 1);
       if (wparam == IMR_DOCUMENTFEED)
-        return app.kbdq.documentfeed ((RECONVERTSTRING *)lparam, 0);
+        return app.kbdq.documentfeed ((RECONVERTSTRING *)lparam, 1);
       break;
 
     case WM_DRAWITEM:

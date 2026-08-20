@@ -91,6 +91,7 @@ DECLARE_CONF (cfgUnselectedModeLineFg, "unselectedModeLineFg");
 struct PRLOGFONT;
 
 void write_conf (const char *, const char *, const char *);
+void write_conf (const char *, const char *, const wchar_t *);
 void write_conf (const char *, const char *, long, int = 0);
 void write_conf (const char *, const char *, const int *, int, int = 0);
 void write_conf (const char *, const char *, const RECT &);
@@ -98,6 +99,7 @@ void write_conf (const char *, const char *, const LOGFONTW &);
 void write_conf (const char *, const char *, const PRLOGFONT &);
 void write_conf (const char *, const char *, const WINDOWPLACEMENT &);
 int read_conf (const char *, const char *, char *, int);
+int read_conf (const char *, const char *, wchar_t *, int);
 int read_conf (const char *, const char *, int &);
 #if INT_MAX != LONG_MAX
 int read_conf (const char *, const char *, u_long &);
@@ -120,6 +122,7 @@ void adjust_snap_window_size (HWND, WINDOWPLACEMENT &);
 void make_geometry_key (char* buf, size_t bufsize, const char *prefix);
 
 void conf_write_string (const char *, const char *, const char *);
+void conf_write_string (const char *, const char *, const wchar_t *);
 void delete_conf (const char *);
 
 int reg2ini ();

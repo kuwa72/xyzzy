@@ -254,13 +254,10 @@ print_dialog::check_margin_text (UINT id, LONG &r, LONG min, LONG max,
 int
 print_dialog::get_result (int save)
 {
-  {
-    wchar_t wb[MAX_HEADER_LENGTH];
-    GetDlgItemTextW (m_hwnd, IDC_HEADER, wb, numberof (wb));
-    WideCharToMultiByte (932, 0, wb, -1, m_settings.ps_header, sizeof m_settings.ps_header, 0, 0);
-    GetDlgItemTextW (m_hwnd, IDC_FOOTER, wb, numberof (wb));
-    WideCharToMultiByte (932, 0, wb, -1, m_settings.ps_footer, sizeof m_settings.ps_footer, 0, 0);
-  }
+  GetDlgItemTextW (m_hwnd, IDC_HEADER, m_settings.ps_header,
+                   numberof (m_settings.ps_header));
+  GetDlgItemTextW (m_hwnd, IDC_FOOTER, m_settings.ps_footer,
+                   numberof (m_settings.ps_footer));
   m_settings.ps_header_on = IsDlgButtonChecked (m_hwnd, IDC_CHEADER) == 1;
   m_settings.ps_footer_on = IsDlgButtonChecked (m_hwnd, IDC_CFOOTER) == 1;
 
@@ -430,14 +427,8 @@ print_dialog::init_dialog (HWND)
   init_history (IDC_HEADER, cfgHeader);
   init_history (IDC_FOOTER, cfgFooter);
 
-  {
-    wchar_t wh[MAX_HEADER_LENGTH];
-    MultiByteToWideChar (932, 0, m_settings.ps_header, -1, wh, MAX_HEADER_LENGTH);
-    SetDlgItemTextW (m_hwnd, IDC_HEADER, wh);
-    wchar_t wf[MAX_HEADER_LENGTH];
-    MultiByteToWideChar (932, 0, m_settings.ps_footer, -1, wf, MAX_HEADER_LENGTH);
-    SetDlgItemTextW (m_hwnd, IDC_FOOTER, wf);
-  }
+  SetDlgItemTextW (m_hwnd, IDC_HEADER, m_settings.ps_header);
+  SetDlgItemTextW (m_hwnd, IDC_FOOTER, m_settings.ps_footer);
 
   add_history (IDC_HEADER, IDC_ADD_HEADER, IDC_DELETE_HEADER, BN_CLICKED);
   add_history (IDC_FOOTER, IDC_ADD_FOOTER, IDC_DELETE_FOOTER, BN_CLICKED);
@@ -603,7 +594,7 @@ void
 print_dialog::set_font_face (int lang) const
 {
   wchar_t wface[LF_FACESIZE];
-  cp932_to_wcs (m_settings.ps_font[lang].face, -1, wface, LF_FACESIZE);
+  wcscpy (wface, m_settings.ps_font[lang].face);
   wchar_t point[32];
   if (m_settings.ps_font[lang].point % 10)
     wsprintfW (point, L"%d.%d",
@@ -676,7 +667,7 @@ print_dialog::set_font ()
 
   LOGFONTW lfw;
   bzero (&lfw, sizeof lfw);
-  cp932_to_wcs (m_settings.ps_font[lang].face, -1, lfw.lfFaceName, LF_FACESIZE);
+  wcscpy (lfw.lfFaceName, m_settings.ps_font[lang].face);
   HDC hdc = GetDC (m_hwnd);
   lfw.lfHeight = MulDiv (m_settings.ps_font[lang].point, GetDeviceCaps (hdc, LOGPIXELSY), 720);
   ReleaseDC (m_hwnd, hdc);
@@ -702,7 +693,7 @@ print_dialog::set_font ()
   cf.nSizeMax = 72;
   if (ChooseFontW (&cf))
     {
-      wcs_to_cp932 (lfw.lfFaceName, -1, m_settings.ps_font[lang].face, LF_FACESIZE);
+      wcscpy (m_settings.ps_font[lang].face, lfw.lfFaceName);
       m_settings.ps_font[lang].charset = lfw.lfCharSet;
       m_settings.ps_font[lang].point = cf.iPointSize;
       m_settings.ps_font[lang].italic = lfw.lfItalic;

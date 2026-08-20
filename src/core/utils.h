@@ -8,6 +8,7 @@ void *xmalloc (size_t);
 void *xrealloc (void *, size_t);
 void xfree (void *);
 char *xstrdup (const char *);
+wchar_t *xwcsdup (const wchar_t *);
 void *xmemdup (const void *, size_t);
 #ifdef _WIN32
 char *stpcpy (char *, const char *);
@@ -64,10 +65,74 @@ map_sl_to_backsl (char *s)
   convert_backsl_with_sl (s, '/', '\\');
 }
 
+/* Wide paths need the same handful of helpers. They are simpler than the
+   char* versions: a UTF-16 unit is never mistaken for the trail byte of a
+   two-byte character, so there is nothing to skip over. */
+inline void
+map_backsl_to_sl (wchar_t *s)
+{
+  for (; *s; s++)
+    if (*s == L'\\')
+      *s = L'/';
+}
+
+inline void
+map_sl_to_backsl (wchar_t *s)
+{
+  for (; *s; s++)
+    if (*s == L'/')
+      *s = L'\\';
+}
+
+/* Bounded wide printf. The two-argument swprintf that MSVC and mingw provide
+   does not exist on POSIX, where swprintf always takes a size; this spells the
+   size out so both agree, and always nul-terminates. Returns the number of
+   units written, not counting the terminator. */
+inline int
+xsnwprintf (wchar_t *b, size_t n, const wchar_t *fmt, ...)
+{
+  if (!n)
+    return 0;
+  va_list ap;
+  va_start (ap, fmt);
+  int r = vswprintf (b, n, fmt, ap);
+  va_end (ap);
+  if (r < 0 || size_t (r) >= n)
+    {
+      b[n - 1] = 0;
+      return int (wcslen (b));
+    }
+  return r;
+}
+
+inline wchar_t *
+wstpcpy (wchar_t *d, const wchar_t *s)
+{
+  while ((*d = *s++))
+    d++;
+  return d;
+}
+
+inline wchar_t *
+wstpncpy (wchar_t *d, const wchar_t *s, int n)
+{
+  for (; n > 0; n--)
+    if (!(*d++ = *s++))
+      return d - 1;
+  *d = 0;
+  return d;
+}
+
 inline char *
 strappend (char *d, const char *s)
 {
   return stpcpy (d + strlen (d), s);
+}
+
+inline wchar_t *
+wcsappend (wchar_t *d, const wchar_t *s)
+{
+  return wstpcpy (d + wcslen (d), s);
 }
 
 static inline int

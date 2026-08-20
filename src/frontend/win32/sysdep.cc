@@ -14,21 +14,15 @@ Sysdep::Sysdep ()
   init_machine_type ();
   init_process_type ();
 
-  {
-    wchar_t wcurdir[PATH_MAX];
-    GetCurrentDirectoryW (numberof (wcurdir), wcurdir);
-    WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
-  }
+  GetCurrentDirectoryW (numberof (curdir), curdir);
   if (*curdir == '\\')
     {
-      wchar_t wcurdir[PATH_MAX];
-      GetWindowsDirectoryW (wcurdir, numberof (wcurdir));
-      WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
+      GetWindowsDirectoryW (curdir, numberof (curdir));
       WINFS::SetCurrentDirectory (curdir);
     }
 
-  DWORD len = sizeof host_name;
-  if (!GetComputerNameA (host_name, &len))
+  DWORD len = numberof (host_name);
+  if (!GetComputerNameW (host_name, &len))
     *host_name = 0;
 
   process_id = GetCurrentProcessId ();
@@ -82,7 +76,8 @@ Sysdep::init_wintype ()
     {
     case VER_PLATFORM_WIN32s:
       wintype = WINTYPE_WIN32S;
-      windows_name = windows_short_name = "32s";
+      windows_name = "32s";
+      windows_short_name = L"32s";
       break;
 
     case VER_PLATFORM_WIN32_WINDOWS:
@@ -92,19 +87,19 @@ Sysdep::init_wintype ()
           if (version () >= WINME_VERSION)
             {
               windows_name = "Me";
-              windows_short_name = "wme";
+              windows_short_name = L"wme";
             }
           else
             {
               windows_name = "98";
-              windows_short_name = "w98";
+              windows_short_name = L"w98";
             }
         }
       else
         {
           wintype = WINTYPE_WINDOWS_95;
           windows_name = "95";
-          windows_short_name = "w95";
+          windows_short_name = L"w95";
         }
       break;
 
@@ -115,19 +110,19 @@ Sysdep::init_wintype ()
           if (version () >= WINXP_VERSION)
             {
               windows_name = "XP";
-              windows_short_name = "wxp";
+              windows_short_name = L"wxp";
             }
           else
             {
               windows_name = "2000";
-              windows_short_name = "w2k";
+              windows_short_name = L"w2k";
             }
         }
       else if (Win6p ())
         {
           wintype = WINTYPE_WINDOWS_NT6;
           // 設定ファイルのパス (user-config-path) が変わるため wxp のままとする
-          windows_short_name = "wxp";
+          windows_short_name = L"wxp";
           if (version () >= WIN7_VERSION)
               windows_name = "7";
           else if (version () >= WIN8_VERSION)
@@ -139,14 +134,14 @@ Sysdep::init_wintype ()
         {
           wintype = WINTYPE_WINDOWS_NT;
           windows_name = "NT";
-          windows_short_name = "wnt";
+          windows_short_name = L"wnt";
         }
       break;
 
     default:
       wintype = WINTYPE_UNKNOWN;
       windows_name = "(unknown)";
-      windows_short_name = "unk";
+      windows_short_name = L"unk";
       break;
     }
 }

@@ -54,15 +54,19 @@
             ;;   fix-ole-event-sink-load-typelib                 use after free: trips
             ;;     "Assertion failed: src/lisp.h: 202" in object_typeof, i.e. reads the tag of
             ;;     an object the allocator has free.  Reproduces on i686 and x86_64 under Wine.
-            ;;   pathnames-tests.l                               MSVC x64 crash in
-            ;;     si:*file-operation, no single test identified yet
+            ;;   shell-operation-move-multi                      crash inside
+            ;;     SHFileOperationW (FO_MOVE with several sources and one
+            ;;     destination directory).  shell-operation-copy-multi does the
+            ;;     same thing with FO_COPY and passes, and move-multi2 passes
+            ;;     too, so it is that one call.  This used to exclude the whole
+            ;;     of pathnames-tests.l, which cost the other 15 tests in it.
             (defvar *batch-default-exclude*
               '("test-ole-reader-macro-args"
                 "make-vector--fill-pointer-and-initial-contents"
                 "test-print-debug-output-stream"
                 "sha-224"
                 "fix-ole-event-sink-load-typelib"
-                "pathnames-tests.l"))
+                "shell-operation-move-multi"))
             (defvar *batch-excluded* nil)
             (defvar *batch-exclude* nil)
             (setq *batch-exclude*

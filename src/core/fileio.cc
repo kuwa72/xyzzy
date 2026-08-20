@@ -264,7 +264,7 @@ detect_eol_code (const mapf &mf)
 }
 
 int
-Buffer::read_file_contents (ReadFileContext &rfc, const char *filename,
+Buffer::read_file_contents (ReadFileContext &rfc, const wchar_t *filename,
                             int read_offset, int read_size)
 {
   rfc.r_status = ReadFileContext::RFCS_NOERR;
@@ -291,7 +291,7 @@ Buffer::read_file_contents (ReadFileContext &rfc, const char *filename,
 
   xinput_strstream str (bb, be - bb);
 
-  WIN32_FIND_DATAA fd;
+  WIN32_FIND_DATAW fd;
   if (WINFS::get_file_data (filename, fd))
     rfc.r_modtime = fd.ftLastWriteTime;
   else if (!GetFileTime (mf, 0, 0, &rfc.r_modtime))
@@ -352,7 +352,7 @@ Buffer::readin_chunk (ReadFileContext &rfc, xread_stream &sin)
 }
 
 int
-Buffer::readin_chunk (ReadFileContext &rfc, const char *filename)
+Buffer::readin_chunk (ReadFileContext &rfc, const wchar_t *filename)
 {
   rfc.r_status = ReadFileContext::RFCS_NOERR;
   rfc.r_errcode = 0;
@@ -437,21 +437,21 @@ Fverify_visited_file_modtime (lisp buffer)
 }
 
 static int
-pathname_equal (const char *path1, const char *path2)
+pathname_equal (const wchar_t *path1, const wchar_t *path2)
 {
-  int l1 = strlen (path1);
-  int l2 = strlen (path2);
+  int l1 = int (wcslen (path1));
+  int l2 = int (wcslen (path2));
   if (l1 == l2)
-    return !_memicmp (path1, path2, l1);
+    return !_wcsnicmp (path1, path2, l1);
   if (l1 == l2 + 1)
-    return path1[l2] == '/' && !_memicmp (path1, path2, l2);
+    return path1[l2] == '/' && !_wcsnicmp (path1, path2, l2);
   if (l2 == l1 + 1)
-    return path2[l1] == '/' && !_memicmp (path1, path2, l1);
+    return path2[l1] == '/' && !_wcsnicmp (path1, path2, l1);
   return 0;
 }
 
 int
-same_file_p (const char *path1, const char *path2)
+same_file_p (const wchar_t *path1, const wchar_t *path2)
 {
   if (pathname_equal (path1, path2))
     return WINFS::GetFileAttributes (path1) != -1;
@@ -481,65 +481,61 @@ same_file_p (const char *path1, const char *path2)
   return eq;
 }
 
+/* 8.3 name shaping, for the FAT volumes the long-name check below rules out.
+   In UTF-16 a truncation point is just an index; there is no trail byte to
+   avoid splitting, which is what check_kanji2 used to be for. */
 static int
-fatfs_basename (char *name)
+fatfs_basename (wchar_t *name)
 {
-  char *dot = jindex (name, '.');
+  wchar_t *dot = wcschr (name, L'.');
   if (!dot)
     {
-      if (strlen (name) > 8)
-        name[check_kanji2 (name, 8) ? 7 : 8] = 0;
+      if (wcslen (name) > 8)
+        name[8] = 0;
       return 0;
     }
   else
     {
       if (dot - name > 8)
-        strcpy (name + (check_kanji2 (name, 8) ? 7 : 8), dot);
+        wcscpy (name + 8, dot);
       return 1;
     }
 }
 
 static void
-fatfs_append_suffix (char *name, int c)
+fatfs_append_suffix (wchar_t *name, int c)
 {
-  char *dot = jindex (name, '.');
+  wchar_t *dot = wcschr (name, L'.');
   if (!dot)
     return;
   dot++;
-  int l = strlen (dot);
+  int l = int (wcslen (dot));
   if (l >= 3)
-    {
-      if (SJISP (*(u_char *)dot))
-        l = 2;
-      else if (SJISP (((u_char *)dot) [1]))
-        l = 1;
-      else
-        l = 2;
-    }
+    l = 2;
   dot[l] = c;
   dot[l + 1] = 0;
 }
 
 static int
-get_volume_info (const char *path, char *volname, DWORD volsize,
+get_volume_info (const wchar_t *path, wchar_t *volname, DWORD volsize,
                  DWORD *serial, DWORD *maxl,
-                 DWORD *flags, char *fsname, DWORD fssize)
+                 DWORD *flags, wchar_t *fsname, DWORD fssize)
 {
-  char buf[PATH_MAX + 1];
+  wchar_t buf[PATH_MAX + 1];
   return WINFS::GetVolumeInformation (root_path_name (buf, path),
                                       volname, volsize, serial,
                                       maxl, flags, fsname, fssize);
 }
 
 static int
-fs_support_long_name (const char *path)
+fs_support_long_name (const wchar_t *path)
 {
   DWORD maxl, flags;
   return get_volume_info (path, 0, 0, 0, &maxl, &flags, 0, 0) && maxl > 12;
 }
 
 static int
-make_temp_file_name (char *path, char *p, int dirp, HANDLE tmpl,
+make_temp_file_name (wchar_t *path, wchar_t *p, int dirp, HANDLE tmpl,
                      int nchars, int &serial, int max_serial)
 {
   nchars--;
@@ -574,7 +570,7 @@ make_temp_file_name (char *path, char *p, int dirp, HANDLE tmpl,
 }
 
 int
-make_temp_file_name (char *dir, const char *prefix, const char *suffix,
+make_temp_file_name (wchar_t *dir, const wchar_t *prefix, const wchar_t *suffix,
                      HANDLE tmpl, int dirp)
 {
   const int max_serial = 36 * 36 * 36 * 36;
@@ -582,18 +578,18 @@ make_temp_file_name (char *dir, const char *prefix, const char *suffix,
   if (serial == -1)
     serial = u_long (GetTickCount () * GetCurrentProcessId ()) % max_serial;
 
-  char *d = dir + strlen (dir);
-  sprintf (d, "%sXXXX.%s",
-           prefix ? prefix : "~xyz", suffix ? suffix : "tmp");
-  d += prefix ? strlen (prefix) : 4;
+  wchar_t *d = dir + wcslen (dir);
+  xsnwprintf (d, PATH_MAX, L"%lsXXXX.%ls",
+              prefix ? prefix : L"~xyz", suffix ? suffix : L"tmp");
+  d += prefix ? wcslen (prefix) : 4;
 
   return make_temp_file_name (dir, d, dirp, tmpl, 4, serial, max_serial);
 }
 
 static int
-backup_dirname (char *backup, const char *original, Buffer *bp)
+backup_dirname (wchar_t *backup, const wchar_t *original, Buffer *bp)
 {
-  strcpy (backup, original);
+  wcscpy (backup, original);
   lisp hook = symbol_value (Vmake_backup_filename_hook, bp);
   if (hook == Qunbound || hook == Qnil)
     return 1;
@@ -603,16 +599,16 @@ backup_dirname (char *backup, const char *original, Buffer *bp)
       lisp r = funcall_1 (hook, bp->lfile_name);
       if (r == Qnil)
         return 1;
-      pathname2cstr (r, backup);
-      char *p = find_last_slash (backup);
+      pathname2wstr (r, backup);
+      wchar_t *p = find_last_slash_w (backup);
       if (!p)
         return 0;
       if (p[1])
-        strcat (p, "/");
-      p = find_last_slash (original);
+        wcscat (p, L"/");
+      p = find_last_slash_w (original);
       if (!p)
         return 0;
-      strcat (backup, p + 1);
+      wcscat (backup, p + 1);
     }
   catch (nonlocal_jump &)
     {
@@ -623,15 +619,15 @@ backup_dirname (char *backup, const char *original, Buffer *bp)
 }
 
 int
-Buffer::make_auto_save_file_name (char *name)
+Buffer::make_auto_save_file_name (wchar_t *name)
 {
   if (!stringp (lfile_name))
     {
-      GetModuleFileNameA (0, name, PATH_MAX);
-      char *p = jrindex (name, '\\');
+      GetModuleFileNameW (0, name, PATH_MAX);
+      wchar_t *p = wcsrchr (name, L'\\');
       if (!p)
         return 0;
-      p = stpcpy (p + 1, "#unnamed.");
+      p = wstpcpy (p + 1, L"#unnamed.");
       p[3] = 0;
 
       static int serial = 0;
@@ -639,36 +635,36 @@ Buffer::make_auto_save_file_name (char *name)
     }
   else
     {
-      char xorgname[PATH_MAX + 1];
-      char orgname[PATH_MAX + 1];
+      wchar_t xorgname[PATH_MAX + 1];
+      wchar_t orgname[PATH_MAX + 1];
 
-      pathname2cstr (lfile_name, xorgname);
+      pathname2wstr (lfile_name, xorgname);
 
       lisp x = symbol_value (Vauto_save_to_backup_directory, this);
       if (x == Qunbound || x == Qnil)
-        strcpy (orgname, xorgname);
+        wcscpy (orgname, xorgname);
       else if (!backup_dirname (orgname, xorgname, this))
         return 0;
 
       int longname = fs_support_long_name (orgname);
 
-      char *sl = find_last_slash (orgname);
+      wchar_t *sl = find_last_slash_w (orgname);
       if (!sl)
         return 0;
       sl++;
       int l = sl - orgname;
-      memcpy (name, orgname, l);
+      wmemcpy (name, orgname, l);
       name[l] = '#';
-      strcpy (name + l + 1, sl);
+      wcscpy (name + l + 1, sl);
 
       if (longname)
-        strcat (name + l, "#");
+        wcscat (name + l, L"#");
       else if (fatfs_basename (name + l))
         fatfs_append_suffix (name + l, '#');
-      else if (strlen (name + l) == 8)
-        strcpy (name + l + 8, ".#");
+      else if (wcslen (name + l) == 8)
+        wcscpy (name + l + 8, L".#");
       else
-        strcat (name + l, "#");
+        wcscat (name + l, L"#");
 
       if (same_file_p (name, orgname))
         name[l] = '%';
@@ -680,7 +676,7 @@ Buffer::make_auto_save_file_name (char *name)
 void
 Buffer::delete_auto_save_file ()
 {
-  char name[PATH_MAX + 1];
+  wchar_t name[PATH_MAX + 1];
 
   if (!stringp (lfile_name) || !b_done_auto_save)
     return;
@@ -690,18 +686,18 @@ Buffer::delete_auto_save_file ()
 }
 
 static int
-pack_backupfile (char *old_name, char *oe, u_char *bitmap, int max_versions)
+pack_backupfile (wchar_t *old_name, wchar_t *oe, u_char *bitmap, int max_versions)
 {
-  char new_name[PATH_MAX + 1], *ne = new_name + (oe - old_name);
-  memcpy (new_name, old_name, oe - old_name);
+  wchar_t new_name[PATH_MAX + 1], *ne = new_name + (oe - old_name);
+  wmemcpy (new_name, old_name, oe - old_name);
   int i, j;
   for (i = 1, j = 1; i < max_versions; i++)
     if (bitmap[i] && i != j)
       {
-        sprintf (oe, "%d~", i);
+        xsnwprintf (oe, 16, L"%d~", i);
         while (j < i)
           {
-            sprintf (ne, "%d~", j++);
+            xsnwprintf (ne, 16, L"%d~", j++);
             if (WINFS::MoveFile (old_name, new_name)
                 || GetLastError () != ERROR_ALREADY_EXISTS)
               break;
@@ -711,9 +707,9 @@ pack_backupfile (char *old_name, char *oe, u_char *bitmap, int max_versions)
 }
 
 int
-Buffer::make_backup_file_name (char *backup, const char *xoriginal)
+Buffer::make_backup_file_name (wchar_t *backup, const wchar_t *xoriginal)
 {
-  char original[PATH_MAX + 1];
+  wchar_t original[PATH_MAX + 1];
   if (!backup_dirname (original, xoriginal, this))
     {
       *backup = 0;
@@ -721,8 +717,8 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
     }
   int fail = 0;
   int longname = fs_support_long_name (original);
-  strcpy (backup, original);
-  char *name = find_last_slash (backup);
+  wcscpy (backup, original);
+  wchar_t *name = find_last_slash_w (backup);
   if (!name)
     {
       *backup = 0;
@@ -735,12 +731,12 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
     {
       if (!longname)
         {
-          for (char *p = jindex (name, '.'); p; p = jindex (p, '.'))
+          for (wchar_t *p = wcschr (name, L'.'); p; p = wcschr (p, L'.'))
             *p++ = '~';
           fatfs_basename (name);
         }
 
-      int namelen = strlen (name);
+      int namelen = int (wcslen (name));
 
 #define MAXVERSIONS 1000
 #define MAXVERCHARS 3
@@ -749,8 +745,8 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
       u_char bitmap[MAXVERSIONS];
       bzero (bitmap, sizeof bitmap);
 
-      WIN32_FIND_DATAA fd;
-      char tem[2];
+      WIN32_FIND_DATAW fd;
+      wchar_t tem[2];
       tem[0] = name[0];
       tem[1] = name[1];
       name[0] = '*';
@@ -762,11 +758,11 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
         {
           do
             {
-              char *p = &fd.cFileName[namelen];
+              wchar_t *p = &fd.cFileName[namelen];
               if (*p == '.')
                 {
                   *p = 0;
-                  if (!sjis_strcasecmp (fd.cFileName, name))
+                  if (!_wcsicmp (fd.cFileName, name))
                     {
                       int i, n = 0;
                       for (i = 1; i <= max_verchars && digit_char_p (p[i]); i++)
@@ -802,14 +798,14 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
                 n++;
               }
 
-          char *ext = name + namelen;
+          wchar_t *ext = name + namelen;
           ext[0] = '.';
           ext[1] = 0;
 
           for (i = 0; i < max_versions; i++)
             if (bitmap[i] == 1)
               {
-                sprintf (ext + 1, "%d~", i);
+                xsnwprintf (ext + 1, 16, L"%d~", i);
                 if (!same_file_p (backup, xoriginal))
                   WINFS::DeleteFile (backup);
               }
@@ -819,7 +815,7 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
               break;
           if (++i < max_versions)
             {
-              sprintf (ext + 1, "%d~", i);
+              xsnwprintf (ext + 1, 16, L"%d~", i);
               if (!same_file_p (backup, xoriginal))
                 return 0;
             }
@@ -829,7 +825,7 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
               i = pack_backupfile (backup, ext + 1, bitmap, max_versions);
               if (i < max_versions)
                 {
-                  sprintf (ext + 1, "%d~", i);
+                  xsnwprintf (ext + 1, 16, L"%d~", i);
                   if (!same_file_p (backup, xoriginal))
                     return 0;
                 }
@@ -837,7 +833,7 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
 
           fail = Mcannot_create_numbered_backup_file;
         }
-      strcpy (backup, original);
+      wcscpy (backup, original);
     }
 
   if (!longname)
@@ -846,18 +842,18 @@ Buffer::make_backup_file_name (char *backup, const char *xoriginal)
         fatfs_append_suffix (name, '~');
       else
         {
-          if (strlen (name) == 8)
-            strcpy (name + 8, ".~");
+          if (wcslen (name) == 8)
+            wcscpy (name + 8, L".~");
           else
-            strcat (name, "~");
+            wcscat (name, L"~");
         }
     }
   else
-    strcat (name, "~");
+    wcscat (name, L"~");
 
   if (same_file_p (backup, xoriginal))
     {
-      strcpy (name, "%BACKUP%~");
+      wcscpy (name, L"%BACKUP%~");
       fail = Ecannot_create_backup_file;
       if (same_file_p (backup, xoriginal))
         *backup = 0;
@@ -922,12 +918,12 @@ public:
   xwrite_buffer () : w_hfile (INVALID_HANDLE_VALUE) {}
   ~xwrite_buffer () {close ();}
   void close ();
-  int open (const char *, DWORD);
+  int open (const wchar_t *, DWORD);
   void write (const void *, DWORD) const;
 };
 
 int
-xwrite_buffer::open (const char *path, DWORD mode)
+xwrite_buffer::open (const wchar_t *path, DWORD mode)
 {
   w_hfile = WINFS::CreateFile (path, GENERIC_WRITE, 0, 0, mode,
                                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, 0);
@@ -1010,7 +1006,7 @@ Buffer::init_write_region_param (write_region_param &wr_param,
 }
 
 int
-Buffer::write_region (const char *filename, point_t p1, point_t p2,
+Buffer::write_region (const wchar_t *filename, point_t p1, point_t p2,
                       int append, write_region_param &wr_param)
 {
   xwrite_buffer xbuf;
@@ -1081,32 +1077,32 @@ Buffer::write_region (const char *filename, point_t p1, point_t p2,
    AlternateFileName が ``FOO.TXT'' になるのに対応 */
 
 static int
-make_backup_file (const char *filename, char *backup, int &result)
+make_backup_file (const wchar_t *filename, wchar_t *backup, int &result)
 {
   if (!sysdep.WinNTp ())
     {
-      char *name = find_last_slash (backup);
+      wchar_t *name = find_last_slash_w (backup);
       if (name && name[1] != '.')
         {
           name++;
-          char *period = jindex (name, '.');
+          wchar_t *period = wcschr (name, L'.');
           if (!period
               || (period - name <= 8
-                  && !jindex (period + 1, '.')
-                  && strlen (period) > 4))
+                  && !wcschr (period + 1, L'.')
+                  && wcslen (period) > 4))
             {
-              char tem[PATH_MAX + 1];
+              wchar_t tem[PATH_MAX + 1];
               if (!period)
-                period = name + strlen (name);
+                period = name + wcslen (name);
               int l = period - backup;
               if (period - name >= 8)
-                l = name - backup + (check_kanji2 (name, 7) ? 6 : 7);
-              memcpy (tem, backup, l);
-              memset (tem + l, '~', 7);
+                l = name - backup + 7;
+              wmemcpy (tem, backup, l);
+              wmemset (tem + l, L'~', 7);
               l += 7;
               for (int i = 0;; i++)
                 {
-                  sprintf (tem + l, "%x%s", i, period);
+                  xsnwprintf (tem + l, PATH_MAX + 1 - l, L"%x%ls", i, period);
                   if (WINFS::MoveFile (filename, tem))
                     break;
                   int e = GetLastError ();
@@ -1115,7 +1111,7 @@ make_backup_file (const char *filename, char *backup, int &result)
                 }
               if (!WINFS::MoveFile (tem, backup))
                 {
-                  strcpy (backup, tem);
+                  wcscpy (backup, tem);
                   if (!result)
                     result = Mclumsy_backup_filename;
                 }
@@ -1127,10 +1123,10 @@ make_backup_file (const char *filename, char *backup, int &result)
 }
 
 static void
-make_temp_file (char *tmpname, const char *filename)
+make_temp_file (wchar_t *tmpname, const wchar_t *filename)
 {
-  strcpy (tmpname, filename);
-  char *p = find_last_slash (tmpname);
+  wcscpy (tmpname, filename);
+  wchar_t *p = find_last_slash_w (tmpname);
   if (!p)
     file_error (Ecannot_make_temp_file_name);
   p[1] = 0;
@@ -1193,8 +1189,8 @@ Buffer::save_buffer (lisp encoding, lisp eol)
 
   init_write_region_param (wr_param, encoding, eol);
 
-  char filename[PATH_MAX + 1];
-  pathname2cstr (lfile_name, filename);
+  wchar_t filename[PATH_MAX + 1];
+  pathname2wstr (lfile_name, filename);
   if (special_file_p (filename))
     file_error (Eis_character_special_file, lfile_name);
 
@@ -1207,8 +1203,8 @@ Buffer::save_buffer (lisp encoding, lisp eol)
       && !yes_or_no_p (Mdisk_file_has_changed))
     FEsilent_quit ();
 
-  char tmpname[PATH_MAX + 1];
-  char backup[PATH_MAX + 1];
+  wchar_t tmpname[PATH_MAX + 1];
+  wchar_t backup[PATH_MAX + 1];
   int backup_result = 0;
   int nlines = 0;
 
@@ -1216,9 +1212,7 @@ Buffer::save_buffer (lisp encoding, lisp eol)
   lisp by_copying = symbol_value (Vbackup_by_copying, this);
   if (precious_flag != Qnil && by_copying == Kremote)
     {
-      wchar_t wroot[PATH_MAX + 1];
-      MultiByteToWideChar (932, 0, root_path_name (tmpname, filename), -1, wroot, PATH_MAX + 1);
-      switch (GetDriveTypeW (wroot))
+      switch (GetDriveTypeW (root_path_name (tmpname, filename)))
         {
         case DRIVE_REMOVABLE:
         case DRIVE_FIXED:
@@ -1264,7 +1258,7 @@ Buffer::save_buffer (lisp encoding, lisp eol)
             make_temp_file (backup, filename);
         }
 
-      if (*backup && !CopyFileA (filename, backup, 0))
+      if (*backup && !CopyFileW (filename, backup, 0))
         {
           int e = GetLastError ();
           WINFS::DeleteFile (backup);
@@ -1398,7 +1392,7 @@ Fdelete_auto_save_file (lisp buffer)
 void
 do_auto_save (int not_all, int unnamed)
 {
-  char name[PATH_MAX + 16];
+  wchar_t name[PATH_MAX + 16];
   int f = 0;
   for (Buffer *bp = Buffer::b_blist; bp; bp = bp->b_next)
     if (bp->b_need_auto_save
@@ -1435,8 +1429,8 @@ lisp
 Fwrite_region (lisp from, lisp to, lisp filename, lisp append,
                lisp encoding, lisp eol)
 {
-  char path[PATH_MAX + 1];
-  pathname2cstr (filename, path);
+  wchar_t path[PATH_MAX + 1];
+  pathname2wstr (filename, path);
 
   if (special_file_p (path))
     file_error (Eis_character_special_file, filename);
@@ -1469,8 +1463,8 @@ Buffer::lock_file (lisp name, int force)
   if (!stringp (name))
     return Qnil;
 
-  char filename[PATH_MAX + 1];
-  pathname2cstr (name, filename);
+  wchar_t filename[PATH_MAX + 1];
+  pathname2wstr (name, filename);
 
   lisp result = Qt;
   int share = (symbol_value (Vexclusive_lock_file, this) == Qnil

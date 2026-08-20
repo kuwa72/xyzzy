@@ -9,7 +9,7 @@ struct PRLOGFONT
   u_char charset;
   u_char bold;
   u_char italic;
-  char face[LF_FACESIZE];
+  wchar_t face[LF_FACESIZE];   /* font names are not all inside CP932 */
 };
 
 class print_settings;
@@ -92,8 +92,10 @@ public:
   int ps_print_linenum;
   int ps_multi_column;
   int ps_fold_width;
-  char ps_header[MAX_HEADER_LENGTH];
-  char ps_footer[MAX_HEADER_LENGTH];
+  /* The header and footer format strings, in UTF-16: they are user text and
+     may name a file, so CP932 cannot hold every one of them. */
+  wchar_t ps_header[MAX_HEADER_LENGTH];
+  wchar_t ps_footer[MAX_HEADER_LENGTH];
   int ps_header_on;
   int ps_footer_on;
   int ps_collate;
@@ -241,28 +243,28 @@ private:
   int paint_line (HDC, int, int, Point &, long &) const;
   void paint_header (HDC);
   void paint_footer (HDC);
-  int paint_fmt (HDC, const char *, int);
-  void paint_string (HDC, int, int, const char *, int) const;
-  int get_extent (const char *, int) const;
+  int paint_fmt (HDC, const wchar_t *, int);
+  void paint_string (HDC, int, int, const Char *, int) const;
+  int get_extent (const Char *, int) const;
 
   SYSTEMTIME &current_time ();
 
-  char *fmt_filename_short (char *, char *);
-  char *fmt_filename_long (char *, char *);
-  char *fmt_buffer_name (char *, char *);
-  char *fmt_page_no (char *, char *);
-  char *fmt_total_page_no (HDC, char *, char *);
-  char *fmt_year4 (char *, char *);
-  char *fmt_year2 (char *, char *);
-  char *fmt_month (char *, char *, int, int, int);
-  char *fmt_day (char *, char *, int);
-  char *fmt_week (char *, char *, int, int);
-  char *fmt_hour24 (char *, char *, int);
-  char *fmt_hour12 (char *, char *, int, int, int);
-  char *fmt_minute (char *, char *, int);
-  char *fmt_second (char *, char *, int);
-  int format (HDC, const char *, char *, int, char *&, char *&);
-  static char *fmt (char *, char *, const char *, int);
+  Char *fmt_filename_short (Char *, Char *);
+  Char *fmt_filename_long (Char *, Char *);
+  Char *fmt_buffer_name (Char *, Char *);
+  Char *fmt_page_no (Char *, Char *);
+  Char *fmt_total_page_no (HDC, Char *, Char *);
+  Char *fmt_year4 (Char *, Char *);
+  Char *fmt_year2 (Char *, Char *);
+  Char *fmt_month (Char *, Char *, int, int, int);
+  Char *fmt_day (Char *, Char *, int);
+  Char *fmt_week (Char *, Char *, int, int);
+  Char *fmt_hour24 (Char *, Char *, int);
+  Char *fmt_hour12 (Char *, Char *, int, int, int);
+  Char *fmt_minute (Char *, Char *, int);
+  Char *fmt_second (Char *, Char *, int);
+  int format (HDC, const wchar_t *, Char *, int, Char *&, Char *&);
+  static Char *fmt (Char *, Char *, const wchar_t *, int);
 
   int skip_page (HDC, Point &, long &);
 

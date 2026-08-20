@@ -241,7 +241,7 @@ class ViewerBuffer: public Buffer
 {
 public:
   ViewerBuffer ();
-  int readin (ViewerWindow *, const char *);
+  int readin (ViewerWindow *, const wchar_t *);
   void clean (ViewerWindow *wp);
 };
 

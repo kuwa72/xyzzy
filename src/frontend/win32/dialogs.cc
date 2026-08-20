@@ -127,22 +127,17 @@ static int
 store_buffer_name (HWND list, const Buffer *bp, LVITEMW *lvi)
 {
   int l = xstring_length (bp->lbuffer_name) * 2 + 32;
-  char *b = (char *)alloca (l + 1);
-  bp->buffer_name (b, b + l);
-  int wl = MultiByteToWideChar (932, 0, b, -1, 0, 0);
-  wchar_t *wb = (wchar_t *)alloca (wl * sizeof (wchar_t));
-  MultiByteToWideChar (932, 0, b, -1, wb, wl);
-  lvi->pszText = wb;
+  Char *b = (Char *)alloca ((l + 1) * sizeof (Char));
+  *bp->buffer_name (b, b + l) = 0;
+  lvi->pszText = (wchar_t *)b;
   return (int)SendMessageW (list, LVM_INSERTITEMW, 0, (LPARAM)lvi);
 }
 
 static void
 store_buffer_size (HWND list, const Buffer *bp, LVITEMW *lvi)
 {
-  char b[32];
-  sprintf (b, "%d", bp->b_nchars);
   wchar_t wb[32];
-  MultiByteToWideChar (932, 0, b, -1, wb, 32);
+  xsnwprintf (wb, numberof (wb), L"%d", bp->b_nchars);
   lvi->pszText = wb;
   SendMessageW (list, LVM_SETITEMW, 0, (LPARAM)lvi);
 }
@@ -585,16 +580,6 @@ map_sl_to_backsl_w (wchar_t *s)
 {
   for (; *s; s++)
     if (*s == L'/') *s = L'\\';
-}
-
-static lisp
-make_string_from_wcs (const wchar_t *ws)
-{
-  int len = wcslen (ws);
-  Char *buf = (Char *)alloca (len * sizeof (Char));
-  for (int i = 0; i < len; i++)
-    buf[i] = w2i (ws[i]);
-  return make_string (buf, len);
 }
 
 /* Phase 3: ucs4 Lisp string → UTF-16 wchar_t buffer.
@@ -1087,7 +1072,7 @@ Ffile_name_dialog (lisp keys)
   if (!multiple)
     {
       map_backsl_to_sl_w (buf);
-      return make_string_from_wcs (buf);
+      return make_string (buf);
     }
 
   lisp result = Qnil;
@@ -1096,7 +1081,7 @@ Ffile_name_dialog (lisp keys)
       wchar_t *b = buf + wcslen (buf);
       map_backsl_to_sl_w (buf);
       if (!b[1])
-        return xcons (make_string_from_wcs (buf), Qnil);
+        return xcons (make_string (buf), Qnil);
       wchar_t *e = b++;
       if (wcsrchr (buf, L'/') != e - 1)
         *e++ = L'/';
@@ -1105,7 +1090,7 @@ Ffile_name_dialog (lisp keys)
           wcscpy (e, b);
           int blen = wcslen (b);
           b += blen + 1;
-          result = xcons (make_string_from_wcs (buf), result);
+          result = xcons (make_string (buf), result);
         }
     }
   else
@@ -1114,7 +1099,7 @@ Ffile_name_dialog (lisp keys)
       if (!b)
         {
           map_backsl_to_sl_w (buf);
-          return xcons (make_string_from_wcs (buf), Qnil);
+          return xcons (make_string (buf), Qnil);
         }
       wchar_t *e = b++;
       *e = 0;
@@ -1131,7 +1116,7 @@ Ffile_name_dialog (lisp keys)
           if (GetFullPathNameW (buf, numberof (path), path, &name))
             wcscpy (e, name);
           map_backsl_to_sl_w (buf);
-          result = xcons (make_string_from_wcs (buf), result);
+          result = xcons (make_string (buf), result);
           if (!b2)
             break;
           b = b2 + 1;
@@ -1379,9 +1364,11 @@ list_volume_name::thread_main ()
                                           0, 0, 0, 0, 0)
                 && wvolname[0])
               {
-                char volname[2048];
+                /* Drive letter, then the volume label; insert_volnames
+                   splits them apart again. */
+                wchar_t volname[1 + numberof (wvolname)];
                 volname[0] = c;
-                WideCharToMultiByte (932, 0, wvolname, -1, volname + 1, sizeof volname - 1, 0, 0);
+                wcscpy (volname + 1, wvolname);
                 m_list.add (volname);
               }
           }
@@ -1510,23 +1497,18 @@ DriveDialog::insert_volnames ()
   LONG maxw = 0;
   for (const xstring_node *p = dd_thread->list ().head (); p; p = p->next ())
     {
-      const char *volname = *p;
-      if (lower_char_p (*volname & 255))
+      const wchar_t *volname = p->data;
+      if (lower_char_p (int (*volname)))
         {
           int i = dd_indexes[*volname - 'a'];
           if (i >= 0)
             {
               volname++;
               { LVITEMW _lvi; _lvi.iSubItem = 1;
-                WideStr _wb (volname);
-                _lvi.pszText = const_cast<wchar_t *>(_wb.c_str ());
+                _lvi.pszText = const_cast<wchar_t *>(volname);
                 SendMessageW (hwnd, LVM_SETITEMTEXTW, i, (LPARAM)&_lvi); }
               SIZE sz;
-              {
-                wchar_t wv[256];
-                int wvl = cp932_to_wcs (volname, -1, wv, 256) - 1;
-                GetTextExtentPoint32W (hdc, wv, wvl, &sz);
-              }
+              GetTextExtentPoint32W (hdc, volname, int (wcslen (volname)), &sz);
               maxw = max (maxw, sz.cx);
             }
         }

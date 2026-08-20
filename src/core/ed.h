@@ -427,8 +427,8 @@ public:
   UINT default_caret_blink_time;
   int last_blink_caret;
 
-  char dump_image[PATH_MAX + 8];
-  char *ini_file_path;
+  wchar_t dump_image[PATH_MAX + 8];
+  wchar_t *ini_file_path;
 
   lisp lquit_char;
   int quit_vkey;

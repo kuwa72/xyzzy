@@ -770,17 +770,17 @@ struct Buffer
 
   Chunk *read_chunk (ReadFileContext &, xread_stream &);
   int read_file_contents (ReadFileContext &, xread_stream &);
-  int read_file_contents (ReadFileContext &, const char *, int, int);
-  int write_region (const char *, point_t, point_t, int, write_region_param &);
+  int read_file_contents (ReadFileContext &, const wchar_t *, int, int);
+  int write_region (const wchar_t *, point_t, point_t, int, write_region_param &);
   int write_region (xwrite_stream &, xwrite_buffer &, int &);
   void init_write_region_param (write_region_param &, lisp, lisp) const;
 
   int readin_chunk (ReadFileContext &, xread_stream &);
-  int readin_chunk (ReadFileContext &, const char *);
+  int readin_chunk (ReadFileContext &, const wchar_t *);
 
-  int make_auto_save_file_name (char *);
+  int make_auto_save_file_name (wchar_t *);
   void delete_auto_save_file ();
-  int make_backup_file_name (char *, const char *);
+  int make_backup_file_name (wchar_t *, const wchar_t *);
   lisp save_buffer (lisp encoding, lisp eol);
 
   void goto_char (Point &, point_t) const;
@@ -835,9 +835,7 @@ struct Buffer
   point_t coerce_to_point (lisp) const;
   point_t coerce_to_restricted_point (lisp) const;
   static Buffer *coerce_to_buffer (lisp);
-  char *buffer_name (char *, char *) const;
   Char *buffer_name (Char *, Char *) const;
-  char *quoted_buffer_name (char *, char *, int, int) const;
   void modify_mode_line () const;
   void modify_buffer_bar ()
     {
@@ -915,7 +913,7 @@ struct Buffer
 
   void refresh_title_bar () const;
   void set_frame_title (int);
-  char *store_title (lisp, char *, char *) const;
+  Char *store_title (lisp, Char *, Char *) const;
 
   void change_colors (const XCOLORREF *);
 

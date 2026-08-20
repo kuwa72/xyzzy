@@ -22,7 +22,10 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <wchar.h>
+#include <wctype.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -873,6 +876,18 @@ typedef struct _NETRESOURCEA {
 } NETRESOURCEA;
 typedef NETRESOURCEA *LPNETRESOURCEA;
 
+typedef struct _NETRESOURCEW {
+  DWORD dwScope;
+  DWORD dwType;
+  DWORD dwDisplayType;
+  DWORD dwUsage;
+  LPWSTR lpLocalName;
+  LPWSTR lpRemoteName;
+  LPWSTR lpComment;
+  LPWSTR lpProvider;
+} NETRESOURCEW;
+typedef NETRESOURCEW *LPNETRESOURCEW;
+
 typedef struct tagBITMAPINFOHEADER {
   DWORD biSize;
   LONG biWidth;
@@ -1429,10 +1444,50 @@ inline BOOL PostMessageW(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
 
 // Network shares stub
 inline DWORD WNetOpenEnumA(DWORD, DWORD, DWORD, LPNETRESOURCEA, LPHANDLE) { return (DWORD)-1; }
+inline DWORD WNetOpenEnumW(DWORD, DWORD, DWORD, LPNETRESOURCEW, LPHANDLE) { return (DWORD)-1; }
 inline DWORD WNetEnumResourceA(HANDLE, LPDWORD, LPVOID, LPDWORD) { return (DWORD)-1; }
+inline DWORD WNetEnumResourceW(HANDLE, LPDWORD, LPVOID, LPDWORD) { return (DWORD)-1; }
+inline DWORD WNetGetLastErrorW(LPDWORD, LPWSTR, DWORD, LPWSTR, DWORD) { return 0; }
 inline DWORD WNetCloseEnum(HANDLE) { return 0; }
 inline DWORD WNetConnectionDialogA(HWND, DWORD) { return (DWORD)-1; }
 #define WNetConnectionDialog WNetConnectionDialogA
+
+/* Wide-character shims. The path and text layers are wchar_t end to end now,
+   so the POSIX build needs the same handful of calls the CRT provides on
+   Windows. wchar_t is 32 bits here, which is fine: nothing below cares. */
+inline int _wcsicmp (const wchar_t *a, const wchar_t *b) { return wcscasecmp (a, b); }
+inline FILE *_wfopen (const wchar_t *path, const wchar_t *mode)
+{
+  char p[PATH_MAX * 4 + 1], m[16];
+  size_t n = wcstombs (p, path, sizeof p - 1);
+  p[n == (size_t)-1 ? 0 : n] = 0;
+  n = wcstombs (m, mode, sizeof m - 1);
+  m[n == (size_t)-1 ? 0 : n] = 0;
+  return fopen (p, m);
+}
+inline FILE *_wfsopen (const wchar_t *path, const wchar_t *mode, int)
+{
+  return _wfopen (path, mode);
+}
+inline DWORD GetModuleFileNameW (HMODULE, LPWSTR buf, DWORD n)
+{
+  char p[PATH_MAX + 1];
+  ssize_t l = readlink ("/proc/self/exe", p, sizeof p - 1);
+  if (l < 0)
+    l = 0;
+  p[l] = 0;
+  size_t r = mbstowcs (buf, p, n);
+  return r == (size_t)-1 ? 0 : DWORD (r);
+}
+inline DWORD GetTempPathW (DWORD n, LPWSTR buf)
+{
+  const char *t = getenv ("TMPDIR");
+  if (!t || !*t)
+    t = "/tmp/";
+  size_t r = mbstowcs (buf, t, n);
+  return r == (size_t)-1 ? 0 : DWORD (r);
+}
+inline BOOL CopyFileW (LPCWSTR, LPCWSTR, BOOL) { return FALSE; }
 
 // UUID stubs
 inline long UuidCreate(void *) { return -1; }

@@ -69,17 +69,15 @@ Sysdep::Sysdep ()
   os_ver.dwOSVersionInfoSize = sizeof os_ver;
   GetVersionExW (&os_ver);
   {
-    wchar_t wcurdir[PATH_MAX];
-    GetCurrentDirectoryW (numberof (wcurdir), wcurdir);
-    WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
+    GetCurrentDirectoryW (numberof (curdir), curdir);
   }
-  DWORD len = sizeof host_name;
-  if (!GetComputerNameA (host_name, &len))
+  DWORD len = numberof (host_name);
+  if (!GetComputerNameW (host_name, &len))
     *host_name = 0;
   process_id = GetCurrentProcessId ();
   perf_counter_present_p = QueryPerformanceFrequency ((LARGE_INTEGER *)&perf_freq);
   windows_name = "ncurses";
-  windows_short_name = "ncurses";
+  windows_short_name = L"ncurses";
   process_type = PROCESSTYPE_NATIVE;
 }
 
@@ -1044,7 +1042,7 @@ main_frame g_frame;
 // Simple passthrough to Win32 API (no UNC share handling).
 // ============================================================
 
-char WINFS::wfs_share_cache[MAX_PATH * 2];
+wchar_t WINFS::wfs_share_cache[MAX_PATH * 2];
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx = 0;
 
 // POSIX implementations of WINFS methods for ncurses frontend
@@ -1053,6 +1051,42 @@ const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx = 0;
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+/* WINFS speaks wchar_t; a Unix filesystem speaks bytes, and on any system
+   this build targets those bytes are UTF-8. This is the whole conversion, and
+   it replaces a hop through CP932 that could not represent most filenames.
+   The codec itself lives in core (i2u8 / u82i) so both ends agree. */
+class os_path
+{
+  char buf[PATH_MAX * 4 + 1];
+public:
+  explicit os_path (const wchar_t *w)
+    {
+      ucs4_t cp[PATH_MAX + 1];
+      size_t n = wcslen (w);
+      if (n > PATH_MAX)
+        n = PATH_MAX;
+      ucs4_t *e = w2i (w, int (n), cp);
+      i2u8 (cp, int (e - cp), buf);
+    }
+  operator const char * () const {return buf;}
+  const char *c_str () const {return buf;}
+};
+
+/* UTF-8 -> wchar_t, writing at most n units including the terminator.
+   Returns the number of units written, not counting the terminator. */
+static int
+from_os_path (const char *s, wchar_t *b, int n)
+{
+  size_t len = u82il (s);
+  ucs4_t *cp = (ucs4_t *)alloca ((len + 1) * sizeof (ucs4_t));
+  ucs4_t *e = u82i (s, cp);
+  int l = int (e - cp);
+  if (l > n - 1)
+    l = n - 1;
+  i2w (cp, l, b);
+  return l;
+}
 
 static DWORD posix_get_file_attrs (const char *p)
 {
@@ -1067,12 +1101,12 @@ static DWORD posix_get_file_attrs (const char *p)
   return attrs;
 }
 
-BOOL WINAPI WINFS::CreateDirectory (LPCSTR p, LPSECURITY_ATTRIBUTES)
+BOOL WINAPI WINFS::CreateDirectory (LPCWSTR p, LPSECURITY_ATTRIBUTES)
 {
-  return mkdir (p, 0755) == 0;
+  return mkdir (os_path (p), 0755) == 0;
 }
 
-HANDLE WINAPI WINFS::CreateFile (LPCSTR p, DWORD access, DWORD,
+HANDLE WINAPI WINFS::CreateFile (LPCWSTR p, DWORD access, DWORD,
   LPSECURITY_ATTRIBUTES, DWORD cd, DWORD, HANDLE)
 {
   int flags = 0;
@@ -1101,15 +1135,15 @@ HANDLE WINAPI WINFS::CreateFile (LPCSTR p, DWORD access, DWORD,
       break;
     }
 
-  int fd = open (p, flags, 0644);
+  int fd = open (os_path (p), flags, 0644);
   if (fd < 0)
     return INVALID_HANDLE_VALUE;
   return (HANDLE)(intptr_t)fd;
 }
 
-BOOL WINAPI WINFS::DeleteFile (LPCSTR p)
+BOOL WINAPI WINFS::DeleteFile (LPCWSTR p)
 {
-  return unlink (p) == 0;
+  return unlink (os_path (p)) == 0;
 }
 
 // Directory enumeration state for FindFirstFile/FindNextFile
@@ -1119,12 +1153,39 @@ struct posix_find_handle
   char basedir[PATH_MAX];
 };
 
-HANDLE WINAPI WINFS::FindFirstFile (LPCSTR p, LPWIN32_FIND_DATAA d)
+static void
+fill_find_data (LPWIN32_FIND_DATAW d, const char *basedir, const char *name)
+{
+  memset (d, 0, sizeof (*d));
+  from_os_path (name, d->cFileName, MAX_PATH);
+
+  char fullpath[PATH_MAX * 2];
+  snprintf (fullpath, sizeof (fullpath), "%s/%s", basedir, name);
+  struct stat st;
+  if (stat (fullpath, &st) == 0)
+    {
+      if (S_ISDIR (st.st_mode))
+        d->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+      d->nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
+      d->nFileSizeHigh = (DWORD)(st.st_size >> 32);
+    }
+}
+
+static struct dirent *
+readdir_skip_dots (DIR *dir)
+{
+  struct dirent *ent = readdir (dir);
+  while (ent && (strcmp (ent->d_name, ".") == 0 || strcmp (ent->d_name, "..") == 0))
+    ent = readdir (dir);
+  return ent;
+}
+
+HANDLE WINAPI WINFS::FindFirstFile (LPCWSTR p, LPWIN32_FIND_DATAW d)
 {
   // p might be a glob pattern like "/path/to/dir/*"
   // Extract the directory part
   char dirpath[PATH_MAX];
-  strncpy (dirpath, p, PATH_MAX - 1);
+  strncpy (dirpath, os_path (p), PATH_MAX - 1);
   dirpath[PATH_MAX - 1] = 0;
 
   // Remove trailing wildcard (e.g., "/*" or "/*.*")
@@ -1138,29 +1199,14 @@ HANDLE WINAPI WINFS::FindFirstFile (LPCSTR p, LPWIN32_FIND_DATAA d)
   if (!dir)
     return INVALID_HANDLE_VALUE;
 
-  struct dirent *ent = readdir (dir);
-  while (ent && (strcmp (ent->d_name, ".") == 0 || strcmp (ent->d_name, "..") == 0))
-    ent = readdir (dir);
+  struct dirent *ent = readdir_skip_dots (dir);
   if (!ent)
     {
       closedir (dir);
       return INVALID_HANDLE_VALUE;
     }
 
-  // Fill in find data
-  memset (d, 0, sizeof (*d));
-  strncpy (d->cFileName, ent->d_name, MAX_PATH - 1);
-
-  char fullpath[PATH_MAX * 2];
-  snprintf (fullpath, sizeof (fullpath), "%s/%s", dirpath, ent->d_name);
-  struct stat st;
-  if (stat (fullpath, &st) == 0)
-    {
-      if (S_ISDIR (st.st_mode))
-        d->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-      d->nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
-      d->nFileSizeHigh = (DWORD)(st.st_size >> 32);
-    }
+  fill_find_data (d, dirpath, ent->d_name);
 
   posix_find_handle *fh = new posix_find_handle;
   fh->dir = dir;
@@ -1169,31 +1215,17 @@ HANDLE WINAPI WINFS::FindFirstFile (LPCSTR p, LPWIN32_FIND_DATAA d)
   return (HANDLE)fh;
 }
 
-BOOL WINAPI WINFS::FindNextFile (HANDLE h, LPWIN32_FIND_DATAA d)
+BOOL WINAPI WINFS::FindNextFile (HANDLE h, LPWIN32_FIND_DATAW d)
 {
   posix_find_handle *fh = (posix_find_handle *)h;
   if (!fh || !fh->dir)
     return FALSE;
 
-  struct dirent *ent = readdir (fh->dir);
-  while (ent && (strcmp (ent->d_name, ".") == 0 || strcmp (ent->d_name, "..") == 0))
-    ent = readdir (fh->dir);
+  struct dirent *ent = readdir_skip_dots (fh->dir);
   if (!ent)
     return FALSE;
 
-  memset (d, 0, sizeof (*d));
-  strncpy (d->cFileName, ent->d_name, MAX_PATH - 1);
-
-  char fullpath[PATH_MAX * 2];
-  snprintf (fullpath, sizeof (fullpath), "%s/%s", fh->basedir, ent->d_name);
-  struct stat st;
-  if (stat (fullpath, &st) == 0)
-    {
-      if (S_ISDIR (st.st_mode))
-        d->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-      d->nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
-      d->nFileSizeHigh = (DWORD)(st.st_size >> 32);
-    }
+  fill_find_data (d, fh->basedir, ent->d_name);
   return TRUE;
 }
 
@@ -1209,33 +1241,36 @@ BOOL FindClose (HANDLE h)
   return TRUE;
 }
 
-BOOL WINAPI WINFS::GetDiskFreeSpace (LPCSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD)
+BOOL WINAPI WINFS::GetDiskFreeSpace (LPCWSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD)
 {
   return FALSE;
 }
 
-DWORD WINAPI WINFS::internal_GetFileAttributes (LPCSTR p)
+DWORD WINAPI WINFS::internal_GetFileAttributes (LPCWSTR p)
 {
-  return posix_get_file_attrs (p);
+  return posix_get_file_attrs (os_path (p));
 }
 
-DWORD WINAPI WINFS::GetFileAttributes (LPCSTR p)
+DWORD WINAPI WINFS::GetFileAttributes (LPCWSTR p)
 {
-  return posix_get_file_attrs (p);
+  return posix_get_file_attrs (os_path (p));
 }
 
-UINT WINAPI WINFS::GetTempFileName (LPCSTR dir, LPCSTR prefix, UINT, LPSTR buf)
+UINT WINAPI WINFS::GetTempFileName (LPCWSTR dir, LPCWSTR prefix, UINT, LPWSTR buf)
 {
-  snprintf (buf, MAX_PATH, "%s/%sXXXXXX", dir, prefix ? prefix : "tmp");
-  int fd = mkstemp (buf);
+  char tem[PATH_MAX];
+  snprintf (tem, sizeof tem, "%s/%sXXXXXX",
+            os_path (dir).c_str (), prefix ? os_path (prefix).c_str () : "tmp");
+  int fd = mkstemp (tem);
   if (fd < 0)
     return 0;
   close (fd);
+  from_os_path (tem, buf, MAX_PATH);
   return 1;
 }
 
-BOOL WINAPI WINFS::GetVolumeInformation (LPCSTR, LPSTR vn, DWORD vs, LPDWORD sn,
-  LPDWORD mcl, LPDWORD fsf, LPSTR fsn, DWORD fss)
+BOOL WINAPI WINFS::GetVolumeInformation (LPCWSTR, LPWSTR vn, DWORD vs, LPDWORD sn,
+  LPDWORD mcl, LPDWORD fsf, LPWSTR fsn, DWORD fss)
 {
   if (vn && vs > 0) vn[0] = 0;
   if (sn) *sn = 0;
@@ -1245,101 +1280,79 @@ BOOL WINAPI WINFS::GetVolumeInformation (LPCSTR, LPSTR vn, DWORD vs, LPDWORD sn,
   return TRUE;
 }
 
-HMODULE WINAPI WINFS::LoadLibrary (LPCSTR)
+HMODULE WINAPI WINFS::LoadLibrary (LPCWSTR)
 {
   return 0;
 }
 
-BOOL WINAPI WINFS::MoveFile (LPCSTR a, LPCSTR b)
+BOOL WINAPI WINFS::MoveFile (LPCWSTR a, LPCWSTR b)
 {
-  return rename (a, b) == 0;
+  os_path pa (a);
+  os_path pb (b);
+  return rename (pa, pb) == 0;
 }
 
-BOOL WINAPI WINFS::RemoveDirectory (LPCSTR p)
+BOOL WINAPI WINFS::RemoveDirectory (LPCWSTR p)
 {
-  return rmdir (p) == 0;
+  return rmdir (os_path (p)) == 0;
 }
 
-BOOL WINAPI WINFS::SetFileAttributes (LPCSTR, DWORD)
+BOOL WINAPI WINFS::SetFileAttributes (LPCWSTR, DWORD)
 {
   return TRUE;
 }
 
-DWORD WINAPI WINFS::internal_GetFullPathName (LPCSTR p, DWORD n, LPSTR b, LPSTR *f)
+DWORD WINAPI WINFS::internal_GetFullPathName (LPCWSTR p, DWORD n, LPWSTR b, LPWSTR *f)
 {
+  os_path path (p);
+  char full[PATH_MAX * 2];
+  const char *src = 0;
+
   char resolved[PATH_MAX];
-  if (realpath (p, resolved))
-    {
-      DWORD len = strlen (resolved);
-      if (len < n)
-        {
-          strcpy (b, resolved);
-          if (f)
-            {
-              *f = b;
-              for (char *s = b; *s; s++)
-                if (*s == '/')
-                  *f = s + 1;
-            }
-          return len;
-        }
-    }
-  // realpath failed (file might not exist), try to construct a path
-  if (p[0] == '/')
-    {
-      DWORD len = strlen (p);
-      if (len < n)
-        {
-          strcpy (b, p);
-          if (f)
-            {
-              *f = b;
-              for (char *s = b; *s; s++)
-                if (*s == '/')
-                  *f = s + 1;
-            }
-          return len;
-        }
-    }
+  if (realpath (path, resolved))
+    src = resolved;
+  else if (path.c_str ()[0] == '/')
+    src = path;                       // realpath fails when the file is new
   else
     {
       char cwd[PATH_MAX];
-      if (getcwd (cwd, sizeof (cwd)))
-        {
-          int len = snprintf (b, n, "%s/%s", cwd, p);
-          if (len > 0 && (DWORD)len < n)
-            {
-              if (f)
-                {
-                  *f = b;
-                  for (char *s = b; *s; s++)
-                    if (*s == '/')
-                      *f = s + 1;
-                }
-              return len;
-            }
-        }
+      if (!getcwd (cwd, sizeof cwd))
+        return 0;
+      snprintf (full, sizeof full, "%s/%s", cwd, path.c_str ());
+      src = full;
     }
-  return 0;
+
+  int len = from_os_path (src, b, int (n));
+  if (DWORD (len) >= n)
+    return 0;
+  if (f)
+    {
+      *f = b;
+      for (wchar_t *s = b; *s; s++)
+        if (*s == L'/')
+          *f = s + 1;
+    }
+  return DWORD (len);
 }
 
-BOOL WINAPI WINFS::SetCurrentDirectory (LPCSTR p)
+BOOL WINAPI WINFS::SetCurrentDirectory (LPCWSTR p)
 {
-  return chdir (p) == 0;
+  return chdir (os_path (p)) == 0;
 }
 
-DWORD WINAPI WINFS::GetFullPathName (LPCSTR p, DWORD n, LPSTR b, LPSTR *f)
+DWORD WINAPI WINFS::GetFullPathName (LPCWSTR p, DWORD n, LPWSTR b, LPWSTR *f)
 {
   return internal_GetFullPathName (p, n, b, f);
 }
 
-DWORD WINAPI WINFS::WNetOpenEnum (DWORD, DWORD, DWORD, LPNETRESOURCEA, LPHANDLE)
+DWORD WINAPI WINFS::WNetOpenEnum (DWORD, DWORD, DWORD, LPNETRESOURCEW, LPHANDLE)
 { return (DWORD)-1; }
 
-int WINAPI WINFS::get_file_data (const char *path, WIN32_FIND_DATAA &fd)
+int WINAPI WINFS::get_file_data (const wchar_t *path, WIN32_FIND_DATAW &fd)
 {
+  os_path p (path);
   struct stat st;
-  if (stat (path, &st) != 0)
+  if (stat (p, &st) != 0)
     return 0;
   memset (&fd, 0, sizeof (fd));
   if (S_ISDIR (st.st_mode))
@@ -1349,8 +1362,8 @@ int WINAPI WINFS::get_file_data (const char *path, WIN32_FIND_DATAA &fd)
   fd.nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
   fd.nFileSizeHigh = (DWORD)(st.st_size >> 32);
   // Extract filename from path
-  const char *name = strrchr (path, '/');
-  strncpy (fd.cFileName, name ? name + 1 : path, MAX_PATH - 1);
+  const char *name = strrchr (p.c_str (), '/');
+  from_os_path (name ? name + 1 : p.c_str (), fd.cFileName, MAX_PATH);
   return 1;
 }
 
@@ -1721,6 +1734,15 @@ stwncpy (Char *b, Char *be, const char *s, size_t max)
 }
 
 static Char *
+stwncpy (Char *b, Char *be, const wchar_t *s, size_t max)
+{
+  size_t i;
+  for (i = 0; i < max && s[i] && b < be; i++)
+    *b++ = (Char)s[i];
+  return b;
+}
+
+static Char *
 copy_lisp_string (Char *b, Char *be, lisp str)
 {
   /* ucs4 → UTF-16 で Char buffer に詰める (surrogate pair も発出)。 */
@@ -1944,7 +1966,7 @@ buffer_info::host_name (Char *b, Char *be, int pound) const
     {
       if (pound && b < be)
         *b++ = '@';
-      b = stwncpy (b, be, sysdep.host_name, strlen (sysdep.host_name));
+      b = stwncpy (b, be, sysdep.host_name, wcslen (sysdep.host_name));
     }
   return b;
 }
@@ -4628,7 +4650,7 @@ class completion
   void set_target (lisp);
   void set_prefix (lisp);
   void adjust_prefix (lisp);
-  int complete_filename_scan (const char *, lisp, lisp);
+  int complete_filename_scan (const wchar_t *, lisp, lisp);
   lisp split_pathname ();
 public:
   completion (lisp, lisp, int);
@@ -4858,11 +4880,12 @@ completion::complete_buffer_name ()
 
 // File completion via WINFS abstraction layer
 int
-completion::complete_filename_scan (const char *path, lisp show_dots, lisp ignores)
+completion::complete_filename_scan (const wchar_t *path, lisp show_dots, lisp ignores)
 {
   int ignored = 0;
 
-  WIN32_FIND_DATAA *fd = (WIN32_FIND_DATAA *)alloca (sizeof *fd + 2);
+  /* Room for the '/' that gets appended to directory names. */
+  WIN32_FIND_DATAW *fd = (WIN32_FIND_DATAW *)alloca (sizeof *fd + 2 * sizeof (wchar_t));
   HANDLE h = WINFS::FindFirstFile (path, fd);
   if (h == INVALID_HANDLE_VALUE)
     return 0;
@@ -4874,7 +4897,7 @@ completion::complete_filename_scan (const char *path, lisp show_dots, lisp ignor
       if (show_dots == Qnil && *fd->cFileName == '.')
         continue;
       if (fd->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        strcat (fd->cFileName, "/");
+        wcscat (fd->cFileName, L"/");
       else if (c_type == Kdirectory_name)
         continue;
 
@@ -4951,9 +4974,11 @@ completion::complete_filename ()
   if (xstring_length (c_target))
     show_dots = Qt;
 
-  char *path = (char *)alloca (2 * xstring_length (directory) + 10);
-  w2s (path, directory);
-  strcat (path, "*");
+  wchar_t *path = (wchar_t *)alloca ((i2wl (xstring_contents (directory),
+                                            xstring_length (directory)) + 2)
+                                     * sizeof (wchar_t));
+  i2w (xstring_contents (directory), xstring_length (directory), path);
+  wcscat (path, L"*");
 
   {
     char tb[128];
@@ -4961,7 +4986,7 @@ completion::complete_filename ()
       w2s (tb, tb + sizeof tb - 1, c_target);
     else
       tb[0] = 0;
-    displog ("complete_filename: dir=\"%s\" target=\"%s\" tlen=%d\n",
+    displog ("complete_filename: dir=\"%ls\" target=\"%s\" tlen=%d\n",
              path, tb, c_target_len);
   }
 

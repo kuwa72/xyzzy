@@ -919,9 +919,14 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
   if (!l)
     reader_error (stream, Einvalid_char_code_syntax, token.make_string ());
 
-  Char c = function_char_name2Char (p, l);
-  if (c != Char (-1))
+  /* The named forms (#\Space, #\F1, ...) all sit inside the BMP, so they
+     stay Char; a plain character can be any code point, so the result is
+     ucs4_t. Keeping it Char is what made #\<emoji> read back truncated. */
+  ucs4_t c;
+  Char fc = function_char_name2Char (p, l);
+  if (fc != Char (-1))
     {
+      c = fc;
       if (ctl)
         c |= CCF_CTRL_BIT;
       if (shift)
@@ -939,8 +944,10 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
     }
   else
     {
-      c = standard_char_name2Char (p, l);
-      if (c == Char (-1))
+      Char sc = standard_char_name2Char (p, l);
+      if (sc != Char (-1))
+        c = sc;
+      else
         c = l == 1 ? *p : parse_digit_char (stream, token, p, p + l);
 
       if (shift)

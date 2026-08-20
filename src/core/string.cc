@@ -265,32 +265,6 @@ w2s (char *b, char *be, const ucs4_t *s, size_t size)
   return b;
 }
 
-char *
-w2s_quote (char *b, char *be, const ucs4_t *s, size_t size, int qc, int qe)
-{
-  be--;
-  Char sjis_qc = wc_to_sjis (ucs4_t (qc));
-  for (const ucs4_t *se = s + size; s < se && b < be; s++)
-    {
-      Char sjis = wc_to_sjis (*s);
-      if (DBCP (sjis))
-        {
-          if (b == be - 1)
-            break;
-          *b++ = sjis >> 8;
-        }
-      else if (sjis == sjis_qc)
-        {
-          if (b == be - 1)
-            break;
-          *b++ = qe;
-        }
-      *b++ = char (sjis);
-    }
-  *b = 0;
-  return b;
-}
-
 size_t
 s2wl (const char *string, const char *se, int zero_term)
 {
@@ -418,6 +392,31 @@ make_string (const Char *string, size_t size)
         tmp[n++] = c;
     }
   return make_string (tmp, n);
+}
+
+/* Strings coming back from the OS. wchar_t is UTF-16 on Windows and UCS-4
+   elsewhere; w2i knows which, so call sites do not have to. */
+lisp
+make_string (const wchar_t *string, size_t size)
+{
+  ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * (size + 1));
+  ucs4_t *e = w2i (string, int (size), tmp);
+  return make_string (tmp, e - tmp);
+}
+
+lisp
+make_string (const wchar_t *string)
+{
+  return make_string (string, wcslen (string));
+}
+
+lisp
+make_string_from_utf8 (const char *s)
+{
+  size_t n = u82il (s);
+  ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * (n + 1));
+  ucs4_t *e = u82i (s, tmp);
+  return make_string (tmp, e - tmp);
 }
 
 lisp

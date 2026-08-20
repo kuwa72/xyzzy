@@ -44,23 +44,24 @@ const char *const FontSet::fs_regent[] =
 
 const FontSet::fontface FontSet::fs_default_face[] =
 {
-  {"FixedSys", "MS Gothic", SHIFTJIS_CHARSET},
-  {"FixedSys", "MS Gothic", SHIFTJIS_CHARSET},
-  {"Courier New"},
-  {"Courier New"},
-  {"Courier New"},
-  {"MS Hei", 0, GB2312_CHARSET},
-  {"MingLiu", 0, CHINESEBIG5_CHARSET},
-  {"GulimChe", 0, HANGEUL_CHARSET},
-  {"BPG Courier New U"},
+  {L"FixedSys", L"MS Gothic", SHIFTJIS_CHARSET},
+  {L"FixedSys", L"MS Gothic", SHIFTJIS_CHARSET},
+  {L"Courier New"},
+  {L"Courier New"},
+  {L"Courier New"},
+  {L"MS Hei", 0, GB2312_CHARSET},
+  {L"MingLiu", 0, CHINESEBIG5_CHARSET},
+  {L"GulimChe", 0, HANGEUL_CHARSET},
+  {L"BPG Courier New U"},
 };
 
 int
-FontObject::create (const char *face, int h, int charset)
+FontObject::create (const wchar_t *face, int h, int charset)
 {
   LOGFONTW lf;
   bzero (&lf, sizeof lf);
-  MultiByteToWideChar (CP_ACP, 0, face, -1, lf.lfFaceName, LF_FACESIZE);
+  wcsncpy (lf.lfFaceName, face, LF_FACESIZE - 1);
+  lf.lfFaceName[LF_FACESIZE - 1] = 0;
   lf.lfHeight = h;
   lf.lfCharSet = charset;
   lf.lfPitchAndFamily = FIXED_PITCH;
@@ -545,8 +546,9 @@ FontSet::load_params (FontSetParam &param)
     {
       if (!*param.fs_logfont[i].lfFaceName)
         {
-          MultiByteToWideChar (CP_ACP, 0, default_face (i, 0), -1,
-                               param.fs_logfont[i].lfFaceName, LF_FACESIZE);
+          wcsncpy (param.fs_logfont[i].lfFaceName, default_face (i, 0),
+                   LF_FACESIZE - 1);
+          param.fs_logfont[i].lfFaceName[LF_FACESIZE - 1] = 0;
           if (!i)
             {
               LOGFONTW lfw;

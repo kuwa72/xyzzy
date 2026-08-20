@@ -969,11 +969,10 @@ Fole_create_event_sink (lisp lobj, lisp linterface, lisp tlbfile)
       else
         {
           check_string (tlbfile);
-          char path[PATH_MAX + 1];
-          pathname2cstr (tlbfile, path);
+          wchar_t path[PATH_MAX + 1];
+          pathname2wstr (tlbfile, path);
           map_sl_to_backsl (path);
-          USES_CONVERSION;
-          get_interface_id (xoledata_disp (lobj), A2W (path), I2W (linterface), typeinfo, iid);
+          get_interface_id (xoledata_disp (lobj), path, I2W (linterface), typeinfo, iid);
         }
     }
   else

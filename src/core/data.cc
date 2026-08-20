@@ -1996,7 +1996,7 @@ rdump_object (FILE *fp, lstream *d, int n,
             d->input = (void *)readl (fp);
             d->output = (void *)readl (fp);
             d->pathname = readl (fp);
-            d->alt_pathname = (char *)Qnil;
+            d->alt_pathname = (wchar_t *)Qnil;
             d->start = 0;
             break;
 
@@ -2549,12 +2549,12 @@ dump_object (FILE *fp, const ldll_module *d, int n,
 static void
 load_dyn_library (ldll_module *p)
 {
-  char *s = (char *)alloca (xstring_length (p->name) * 2 + 1);
-  w2s (s, p->name);
+  wchar_t *s = (wchar_t *)alloca (i2wl (xstring_contents (p->name),
+                                        xstring_length (p->name))
+                                  * sizeof (wchar_t));
+  i2w (xstring_contents (p->name), xstring_length (p->name), s);
   p->loaded = 0;
-  wchar_t ws[PATH_MAX + 1];
-  MultiByteToWideChar (932, 0, s, -1, ws, PATH_MAX + 1);
-  HMODULE h = GetModuleHandleW (ws);
+  HMODULE h = GetModuleHandleW (s);
   if (!h)
     {
       h = WINFS::LoadLibrary (s);
@@ -2767,8 +2767,8 @@ extern int dump_version;
 lisp
 Fdump_xyzzy (lisp filename)
 {
-  char path_buf[PATH_MAX + 1];
-  const char *path;
+  wchar_t path_buf[PATH_MAX + 1];
+  const wchar_t *path;
   if (!filename || filename == Qnil)
     {
       filename = xsymbol_value (Qdump_image_path);
@@ -2776,7 +2776,7 @@ Fdump_xyzzy (lisp filename)
     }
   else
     {
-      pathname2cstr (filename, path_buf);
+      pathname2wstr (filename, path_buf);
       path = path_buf;
     }
 
@@ -2809,7 +2809,7 @@ Fdump_xyzzy (lisp filename)
     }
   qsort (addr_orderp, nreps, sizeof *addr_orderp, compare_addr);
 
-  FILE *fp = fopen (path, "wb");
+  FILE *fp = _wfopen (path, L"wb");
   if (!fp)
     FEsimple_crtl_error (errno, filename);
 
@@ -2889,7 +2889,7 @@ static int dump_flag;
 int
 rdump_xyzzy ()
 {
-  FILE *fp = _fsopen (app.dump_image, "rb", _SH_DENYWR);
+  FILE *fp = _wfsopen (app.dump_image, L"rb", _SH_DENYWR);
   if (!fp)
     return 0;
 

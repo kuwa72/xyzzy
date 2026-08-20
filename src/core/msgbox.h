@@ -60,4 +60,12 @@ int MsgBox (HWND, const Char *, const Char *, UINT, int);
 int MsgBoxEx (HWND, const Char *, const Char *, int, int, int, int,
               const Char **, int, int, int);
 
+/* Char is a UTF-16 code unit and so is wchar_t on Windows; callers that
+   already hold a wchar_t buffer should not have to spell out the cast. */
+inline int
+MsgBox (HWND hwnd, const wchar_t *msg, const Char *title, UINT flags, int beep)
+{
+  return MsgBox (hwnd, (const Char *)msg, title, flags, beep);
+}
+
 #endif

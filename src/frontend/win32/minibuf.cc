@@ -375,7 +375,7 @@ class completion
   void set_target (lisp);
   void set_prefix (lisp);
   void adjust_prefix (lisp);
-  int complete_filename (const char *, lisp, lisp);
+  int complete_filename (const wchar_t *, lisp, lisp);
   lisp split_pathname ();
   int complete_UNC (lisp &);
 public:
@@ -608,11 +608,12 @@ completion::complete_buffer_name ()
 }
 
 int
-completion::complete_filename (const char *path, lisp show_dots, lisp ignores)
+completion::complete_filename (const wchar_t *path, lisp show_dots, lisp ignores)
 {
   int ignored = 0;
 
-  WIN32_FIND_DATAA *fd = (WIN32_FIND_DATAA *)alloca (sizeof *fd + 2);
+  /* Room for the '/' that gets appended to directory names. */
+  WIN32_FIND_DATAW *fd = (WIN32_FIND_DATAW *)alloca (sizeof *fd + 2 * sizeof (wchar_t));
   HANDLE h = WINFS::FindFirstFile (path, fd);
   if (h == INVALID_HANDLE_VALUE)
     {
@@ -632,7 +633,7 @@ completion::complete_filename (const char *path, lisp show_dots, lisp ignores)
       if (show_dots == Qnil && *fd->cFileName == '.')
         continue;
       if (fd->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        strcat (fd->cFileName, "/");
+        wcscat (fd->cFileName, L"/");
       else if (c_type == Kdirectory_name)
         continue;
 
@@ -760,10 +761,12 @@ completion::complete_filename ()
 
   if (!complete_UNC (directory))
     {
-      char *path = (char *)alloca (2 * xstring_length (directory) + 10);
-      w2s (path, directory);
+      wchar_t *path = (wchar_t *)alloca ((i2wl (xstring_contents (directory),
+                                               xstring_length (directory)) + 2)
+                                         * sizeof (wchar_t));
+      i2w (xstring_contents (directory), xstring_length (directory), path);
       map_sl_to_backsl (path);
-      strcat (path, "*");
+      wcscat (path, L"*");
 
       if (complete_filename (path, show_dots, ignores) && c_item == Qnil)
         complete_filename (path, show_dots, Qnil);

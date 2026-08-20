@@ -42,6 +42,12 @@ xstrdup (const char *s)
   return strcpy ((char *)xmalloc (strlen (s) + 1), s);
 }
 
+wchar_t *
+xwcsdup (const wchar_t *s)
+{
+  return wcscpy ((wchar_t *)xmalloc ((wcslen (s) + 1) * sizeof (wchar_t)), s);
+}
+
 void *
 xmemdup (const void *p, size_t size)
 {
@@ -685,5 +691,151 @@ i2wl (const ucs4_t *p, int l)
   for (int i = 0; i < l; i++)
     n += (p[i] >= 0x10000) ? 2 : 1;
   return n;
+}
+
+/* The other direction: UTF-16 from Windows -> ucs4_t code points. A surrogate
+   pair becomes one code point; an unpaired surrogate is kept as-is rather than
+   dropped, so a name that came out of the filesystem can go back into it
+   unchanged. Returns the position past the last code point written. */
+ucs4_t *
+w2i (const ucs2_t *p, int l, ucs4_t *b)
+{
+  ucs4_t *out = b;
+  for (int i = 0; i < l; i++)
+    {
+      ucs2_t c = p[i];
+      if (utf16_surrogate_high_p (c) && i + 1 < l
+          && utf16_surrogate_low_p (p[i + 1]))
+        *out++ = utf16_pair_to_ucs4 (c, p[++i]);
+      else
+        *out++ = c;
+    }
+  return out;
+}
+
+/* The wchar_t overloads are what path code should use: wchar_t is UTF-16 on
+   Windows and UCS-4 on Linux, and the difference belongs here rather than at
+   every call site. Both write a trailing nul. */
+wchar_t *
+i2w (const ucs4_t *p, int l, wchar_t *b)
+{
+  if (sizeof (wchar_t) == sizeof (ucs2_t))
+    return (wchar_t *)i2w (p, l, (ucs2_t *)b);
+  for (int i = 0; i < l; i++)
+    b[i] = wchar_t (p[i]);
+  b[l] = 0;
+  return b + l;
+}
+
+ucs4_t *
+w2i (const wchar_t *p, int l, ucs4_t *b)
+{
+  if (sizeof (wchar_t) == sizeof (ucs2_t))
+    return w2i ((const ucs2_t *)p, l, b);
+  for (int i = 0; i < l; i++)
+    b[i] = ucs4_t (p[i]);
+  return b + l;
+}
+
+ucs4_t *
+w2i (const wchar_t *p, ucs4_t *b)
+{
+  return w2i (p, int (wcslen (p)), b);
+}
+
+int
+w2il (const ucs2_t *p, int l)
+{
+  int n = 0;
+  for (int i = 0; i < l; i++)
+    {
+      if (utf16_surrogate_high_p (p[i]) && i + 1 < l
+          && utf16_surrogate_low_p (p[i + 1]))
+        i++;
+      n++;
+    }
+  return n;
+}
+
+int
+w2il (const wchar_t *p, int l)
+{
+  return sizeof (wchar_t) == sizeof (ucs2_t) ? w2il ((const ucs2_t *)p, l) : l;
+}
+
+/* UTF-8, for the byte interfaces of a Unix system: filenames, the
+   environment, argv. These are not CP932 there and never were; the byte
+   string an OS hands us is UTF-8 on anything this builds for. */
+
+size_t
+i2u8l (const ucs4_t *p, int l)
+{
+  size_t n = 1;
+  for (int i = 0; i < l; i++)
+    n += (p[i] < 0x80) ? 1 : (p[i] < 0x800) ? 2 : (p[i] < 0x10000) ? 3 : 4;
+  return n;
+}
+
+char *
+i2u8 (const ucs4_t *p, int l, char *b)
+{
+  for (int i = 0; i < l; i++)
+    {
+      ucs4_t c = p[i];
+      if (c < 0x80)
+        *b++ = char (c);
+      else if (c < 0x800)
+        {
+          *b++ = char (0xC0 | (c >> 6));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+      else if (c < 0x10000)
+        {
+          *b++ = char (0xE0 | (c >> 12));
+          *b++ = char (0x80 | ((c >> 6) & 0x3F));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+      else
+        {
+          *b++ = char (0xF0 | (c >> 18));
+          *b++ = char (0x80 | ((c >> 12) & 0x3F));
+          *b++ = char (0x80 | ((c >> 6) & 0x3F));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+    }
+  *b = 0;
+  return b;
+}
+
+size_t
+u82il (const char *s)
+{
+  size_t n = 0;
+  for (const u_char *p = (const u_char *)s; *p; p++)
+    if ((*p & 0xC0) != 0x80)
+      n++;
+  return n;
+}
+
+/* A byte that is not valid UTF-8 is kept as its own code point rather than
+   dropped, so a name that came from the filesystem can go back to it. */
+ucs4_t *
+u82i (const char *s, ucs4_t *b)
+{
+  for (const u_char *p = (const u_char *)s; *p;)
+    {
+      ucs4_t c = *p++;
+      int extra = c < 0x80 ? 0 : c < 0xC0 ? 0 : c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
+      if (extra)
+        {
+          ucs4_t v = c & (0x3F >> extra);
+          int i;
+          for (i = 0; i < extra && (*p & 0xC0) == 0x80; i++)
+            v = (v << 6) | (*p++ & 0x3F);
+          c = i == extra ? v : c;
+        }
+      *b++ = c;
+    }
+  return b;
 }
 

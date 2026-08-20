@@ -100,11 +100,13 @@ Process::~Process ()
 void
 Process::create (lisp command, lisp execdir)
 {
-  char *cmdline = (char *)alloca (xstring_length (command) * 2 + 1);
-  w2s (cmdline, command);
+  /* A Unix command line and a Unix pathname are UTF-8 bytes, not CP932. */
+  char *cmdline = (char *)alloca (i2u8l (xstring_contents (command),
+                                         xstring_length (command)));
+  i2u8 (xstring_contents (command), xstring_length (command), cmdline);
 
-  char dir[PATH_MAX + 1];
-  pathname2cstr (execdir, dir);
+  char dir[PATH_MAX * 2 + 1];
+  pathname2u8 (execdir, dir);
 
   // Use forkpty() to give the child a pseudo-terminal.
   // This enables shell prompts, line editing, and terminal-aware
@@ -459,8 +461,9 @@ Fcall_process (lisp cmd, lisp keys)
 {
   check_string (cmd);
 
-  char *cmdline = (char *)alloca (xstring_length (cmd) * 2 + 1);
-  w2s (cmdline, cmd);
+  char *cmdline = (char *)alloca (i2u8l (xstring_contents (cmd),
+                                         xstring_length (cmd)));
+  i2u8 (xstring_contents (cmd), xstring_length (cmd), cmdline);
 
   int no_std_handles = find_keyword_bool (Kno_std_handles, keys);
 
@@ -470,23 +473,24 @@ Fcall_process (lisp cmd, lisp keys)
   if (!lstderr)
     lstderr = lstdout;
 
-  char infile[PATH_MAX + 1] = "", outfile[PATH_MAX + 1] = "", errfile[PATH_MAX + 1] = "";
+  char infile[PATH_MAX * 2 + 1] = "", outfile[PATH_MAX * 2 + 1] = "",
+       errfile[PATH_MAX * 2 + 1] = "";
   if (!no_std_handles)
     {
       if (stringp (lstdin))
-        pathname2cstr (lstdin, infile);
+        pathname2u8 (lstdin, infile);
       else if (lstdin == Qnil)
         strcpy (infile, "/dev/null");
 
       if (stringp (lstdout))
-        pathname2cstr (lstdout, outfile);
+        pathname2u8 (lstdout, outfile);
       else if (lstdout == Qnil)
         strcpy (outfile, "/dev/null");
 
       if (lstdout != lstderr)
         {
           if (stringp (lstderr))
-            pathname2cstr (lstderr, errfile);
+            pathname2u8 (lstderr, errfile);
           else if (lstderr == Qnil)
             strcpy (errfile, "/dev/null");
         }
@@ -495,8 +499,8 @@ Fcall_process (lisp cmd, lisp keys)
   lisp exec_dir = find_keyword (Kexec_directory, keys);
   if (exec_dir == Qnil)
     exec_dir = selected_buffer ()->ldirectory;
-  char dir[PATH_MAX + 1];
-  pathname2cstr (exec_dir, dir);
+  char dir[PATH_MAX * 2 + 1];
+  pathname2u8 (exec_dir, dir);
 
   lisp wait = find_keyword (Kwait, keys);
   if (wait != Qnil && !realp (wait))

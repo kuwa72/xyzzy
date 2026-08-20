@@ -5,7 +5,7 @@ lisp
 Fstandard_char_p (lisp cc)
 {
   check_char (cc);
-  Char c = xchar_code (cc);
+  ucs4_t c = xchar_code (cc);
   return boole (c == '\n' || (c >= ' ' && c < CC_DEL));
 }
 
@@ -13,7 +13,7 @@ lisp
 Fgraphic_char_p (lisp cc)
 {
   check_char (cc);
-  Char c = xchar_code (cc);
+  ucs4_t c = xchar_code (cc);
 #if 0
   return boole ((c >= ' ' && c < CC_DEL)
                 || kana_char_p (c)
@@ -95,7 +95,7 @@ lisp
 Fchar_eql (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = xchar_code (first);
+  ucs4_t x = xchar_code (first);
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
@@ -140,11 +140,11 @@ lisp
 Fchar_less (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = xchar_code (first);
+  ucs4_t x = xchar_code (first);
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = xchar_code (xcar (rest));
+      ucs4_t y = xchar_code (xcar (rest));
       if (x >= y)
         return Qnil;
       x = y;
@@ -157,11 +157,11 @@ lisp
 Fchar_greater (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = xchar_code (first);
+  ucs4_t x = xchar_code (first);
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = xchar_code (xcar (rest));
+      ucs4_t y = xchar_code (xcar (rest));
       if (x <= y)
         return Qnil;
       x = y;
@@ -174,11 +174,11 @@ lisp
 Fchar_not_greater (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = xchar_code (first);
+  ucs4_t x = xchar_code (first);
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = xchar_code (xcar (rest));
+      ucs4_t y = xchar_code (xcar (rest));
       if (x > y)
         return Qnil;
       x = y;
@@ -191,11 +191,11 @@ lisp
 Fchar_not_less (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = xchar_code (first);
+  ucs4_t x = xchar_code (first);
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = xchar_code (xcar (rest));
+      ucs4_t y = xchar_code (xcar (rest));
       if (x < y)
         return Qnil;
       x = y;
@@ -208,7 +208,7 @@ lisp
 Fchar_equal (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = char_upcase (xchar_code (first));
+  ucs4_t x = char_upcase (xchar_code (first));
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
@@ -256,11 +256,11 @@ lisp
 Fchar_lessp (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = char_upcase (xchar_code (first));
+  ucs4_t x = char_upcase (xchar_code (first));
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = char_upcase (xchar_code (xcar (rest)));
+      ucs4_t y = char_upcase (xchar_code (xcar (rest)));
       if (x >= y)
         return Qnil;
       x = y;
@@ -273,11 +273,11 @@ lisp
 Fchar_greaterp (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = char_upcase (xchar_code (first));
+  ucs4_t x = char_upcase (xchar_code (first));
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = char_upcase (xchar_code (xcar (rest)));
+      ucs4_t y = char_upcase (xchar_code (xcar (rest)));
       if (x <= y)
         return Qnil;
       x = y;
@@ -290,11 +290,11 @@ lisp
 Fchar_not_greaterp (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = char_upcase (xchar_code (first));
+  ucs4_t x = char_upcase (xchar_code (first));
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = char_upcase (xchar_code (xcar (rest)));
+      ucs4_t y = char_upcase (xchar_code (xcar (rest)));
       if (x > y)
         return Qnil;
       x = y;
@@ -307,11 +307,11 @@ lisp
 Fchar_not_lessp (lisp first, lisp rest)
 {
   check_char (first);
-  Char x = char_upcase (xchar_code (first));
+  ucs4_t x = char_upcase (xchar_code (first));
   for (; consp (rest); rest = xcdr (rest))
     {
       check_char (xcar (rest));
-      Char y = char_upcase (xchar_code (xcar (rest)));
+      ucs4_t y = char_upcase (xchar_code (xcar (rest)));
       if (x < y)
         return Qnil;
       x = y;
@@ -330,7 +330,15 @@ Fchar_code (lisp cc)
 lisp
 Fcode_char (lisp code)
 {
-  return make_char (Char (fixnum_value (code)));
+  /* A character holds a full code point now, so do not truncate to 16 bits:
+     that is what turned (code-char 128512) into char-code 62976. Values
+     outside Unicode, and the surrogate halves that are not characters in
+     their own right, have no character to name. */
+  long c = fixnum_value (code);
+  if (c < 0 || c > 0x10FFFF
+      || (c >= 0xD800 && c <= 0xDFFF))
+    return Qnil;
+  return make_char (ucs4_t (c));
 }
 
 lisp
@@ -360,7 +368,7 @@ lisp
 Fset_meta_bit (lisp cc, lisp f)
 {
   check_char (cc);
-  Char c = xchar_code (cc);
+  ucs4_t c = xchar_code (cc);
   if (f != Qnil)
     {
       if (ascii_char_p (c))
@@ -413,7 +421,7 @@ Fchar_unicode (lisp cc)
   /* Phase 2: 内部 Char は UTF-16 code unit。BMP char は値そのものが
      code point。surrogate half は単独では完全な code point にならず、
      char object 1 個からは復元不能なので nil。 */
-  Char c = xchar_code (cc);
+  ucs4_t c = xchar_code (cc);
   if (utf16_surrogate_high_p (c) || utf16_surrogate_low_p (c))
     return Qnil;
   return make_fixnum (c);

@@ -60,7 +60,7 @@ protected:
 
 private:
   HMODULE ai_hmodule;
-  const char *const ai_module_name;
+  const wchar_t *const ai_module_name;
   const char *const ai_prefix;
 
   static const char *ai_names[];
@@ -70,7 +70,7 @@ private:
   virtual int patch_module (void *) const {return 0;}
 
 protected:
-  ArchiverInterface (const char *, const char *);
+  ArchiverInterface (const wchar_t *, const char *);
 
   FARPROC getfn (int) const;
   FARPROC getfn (const char *name) const
@@ -124,7 +124,7 @@ class IshInterface: public ArchiverInterface
   enum {METHOD_INDEX (ish_doit) = METHOD_INDEX (doit)};
   typedef int (WINAPI *METHOD_TYPE (ish_doit))(HWND, LPCSTR);
 public:
-  IshInterface () : ArchiverInterface ("ISH32.DLL", "Ish") {}
+  IshInterface () : ArchiverInterface (L"ISH32.DLL", "Ish") {}
   virtual int doit (HWND hwnd, LPCSTR cmdline, LPSTR, DWORD) const
     {DEFMETHOD (ish_doit, ERROR_METHOD, (hwnd, cmdline));}
 };
@@ -132,7 +132,7 @@ public:
 class TarInterface: public ArchiverInterface
 {
 public:
-  TarInterface () : ArchiverInterface ("TAR32.DLL", "Tar") {}
+  TarInterface () : ArchiverInterface (L"TAR32.DLL", "Tar") {}
   int get_archive_type (const char *path) const
     {DEFNAMEDMETHOD ("TarGetArchiveType", -1, int (WINAPI *)(LPCSTR), (path));}
 };
@@ -140,13 +140,13 @@ public:
 class UnarjInterface: public ArchiverInterface
 {
 public:
-  UnarjInterface () : ArchiverInterface ("UNARJ32J.DLL", "Unarj") {}
+  UnarjInterface () : ArchiverInterface (L"UNARJ32J.DLL", "Unarj") {}
 };
 
 class UnlhaInterface: public ArchiverInterface
 {
 public:
-  UnlhaInterface () : ArchiverInterface ("UNLHA32.DLL", "Unlha") {}
+  UnlhaInterface () : ArchiverInterface (L"UNLHA32.DLL", "Unlha") {}
 };
 
 class UnzipInterface: public ArchiverInterface
@@ -157,37 +157,37 @@ class UnzipInterface: public ArchiverInterface
 #endif
   virtual int patch_module (void *) const;
 public:
-  UnzipInterface () : ArchiverInterface ("UNZIP32.DLL", "UnZip") {}
+  UnzipInterface () : ArchiverInterface (L"UNZIP32.DLL", "UnZip") {}
 };
 
 class ZipInterface: public ArchiverInterface
 {
 public:
-  ZipInterface () : ArchiverInterface ("ZIP32J.DLL", "Zip") {}
+  ZipInterface () : ArchiverInterface (L"ZIP32J.DLL", "Zip") {}
 };
 
 class CabInterface: public ArchiverInterface
 {
 public:
-  CabInterface () : ArchiverInterface ("CAB32.DLL", "Cab") {}
+  CabInterface () : ArchiverInterface (L"CAB32.DLL", "Cab") {}
 };
 
 class UnrarInterface: public ArchiverInterface
 {
 public:
-  UnrarInterface () : ArchiverInterface ("UNRAR32.DLL", "Unrar") {}
+  UnrarInterface () : ArchiverInterface (L"UNRAR32.DLL", "Unrar") {}
 };
 
 class BgaInterface: public ArchiverInterface
 {
 public:
-  BgaInterface () : ArchiverInterface ("BGA32.DLL", "Bga") {}
+  BgaInterface () : ArchiverInterface (L"BGA32.DLL", "Bga") {}
 };
 
 class Yz1Interface: public ArchiverInterface
 {
 public:
-  Yz1Interface () : ArchiverInterface ("YZ1.DLL", "Yz1") {}
+  Yz1Interface () : ArchiverInterface (L"YZ1.DLL", "Yz1") {}
   int set_default_passwd (HARC harc, const char *passwd) const
     {DEFNAMEDMETHOD ("Yz1SetDefaultPassword", -1,
                      int (WINAPI *)(HARC, const char *), (harc, passwd));}
@@ -196,19 +196,19 @@ public:
 class UnGCAInterface: public ArchiverInterface
 {
 public:
-  UnGCAInterface () : ArchiverInterface ("UnGCA32.DLL", "UnGCA") {}
+  UnGCAInterface () : ArchiverInterface (L"UnGCA32.DLL", "UnGCA") {}
 };
 
 class JackInterface: public ArchiverInterface
 {
 public:
-  JackInterface () : ArchiverInterface ("JACK32.DLL", "Jack") {}
+  JackInterface () : ArchiverInterface (L"JACK32.DLL", "Jack") {}
 };
 
 class SevenZipInterface: public ArchiverInterface
 {
 public:
-  SevenZipInterface () : ArchiverInterface ("7-zip32.dll", "SevenZip") {}
+  SevenZipInterface () : ArchiverInterface (L"7-zip32.dll", "SevenZip") {}
 };
 
 #endif

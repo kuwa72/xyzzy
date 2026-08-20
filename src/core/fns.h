@@ -26,22 +26,23 @@ void file_error (int);
 int parse_namestring (ucs4_t *, const ucs4_t *, int, const ucs4_t *, int);
 char *pathname2cstr (lisp, char *);
 wchar_t *pathname2wstr (lisp, wchar_t *);
-int special_file_p (const char *);
-int sub_directory_p (char *, const char *);
+char *pathname2u8 (lisp, char *);   /* PATH_MAX * 2 + 1 bytes */
+int special_file_p (const wchar_t *);
+int sub_directory_p (wchar_t *, const wchar_t *);
 lisp make_path (const char *s, int append_slash = 1);
+lisp make_path (const wchar_t *s, int append_slash = 1);
 void map_backsl_to_sl (ucs4_t *, int);
 void map_sl_to_backsl (ucs4_t *, int);
 inline void map_backsl_to_sl (wchar_t *p, int n)
   {for (int i = 0; i < n; i++) if (p[i] == '\\') p[i] = '/';}
 inline void map_sl_to_backsl (wchar_t *p, int n)
   {for (int i = 0; i < n; i++) if (p[i] == '/') p[i] = '\\';}
-int match_suffixes (const char *, lisp);
 int match_suffixes (const wchar_t *, lisp);
-int set_device_dir (const char *, int);
-const char *get_device_dir (int);
-int strict_get_file_data (const char *, WIN32_FIND_DATAA &);
-lisp make_file_info (const WIN32_FIND_DATAA &);
-char *root_path_name (char *, const char *);
+int set_device_dir (const wchar_t *, int);
+const wchar_t *get_device_dir (int);
+int strict_get_file_data (const wchar_t *, WIN32_FIND_DATAW &);
+lisp make_file_info (const WIN32_FIND_DATAW &);
+wchar_t *root_path_name (wchar_t *, const wchar_t *);
 
 /* lprint.cc */
 void print_stack_trace (lisp, lisp);
@@ -143,8 +144,8 @@ int lv_find_selected_item (HWND);
 int lv_find_focused_item (HWND);
 
 /* fileio.cc */
-int same_file_p (const char *, const char *);
-int make_temp_file_name (char *, const char * = 0, const char * = 0, HANDLE = 0, int = 0);
+int same_file_p (const wchar_t *, const wchar_t *);
+int make_temp_file_name (wchar_t *, const wchar_t * = 0, const wchar_t * = 0, HANDLE = 0, int = 0);
 void do_auto_save (int, int);
 
 /* Buffer.cc */

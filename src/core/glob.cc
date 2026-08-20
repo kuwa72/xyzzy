@@ -3,12 +3,12 @@
 #include "glob.h"
 
 int
-file_masks::match (const char *name) const
+file_masks::match (const wchar_t *name) const
 {
   if (empty_p ())
     return 0;
   int not = 0, match = 0;
-  for (char **p = fm_masks; *p; p++)
+  for (wchar_t **p = fm_masks; *p; p++)
     if (**p == GLOB_NOT)
       {
         match |= pathname_match_p (*p + 1, name);
@@ -19,18 +19,18 @@ file_masks::match (const char *name) const
   return not ? !match : 0;
 }
 
-char **
+wchar_t **
 file_masks::build_masks (lisp lmasks)
 {
   int nfiles = 0;
-  int nbytes = 0;
+  int nunits = 0;
   for (lisp p = lmasks; consp (p); p = xcdr (p))
     {
       lisp x = xcar (p);
       check_string (x);
       if (xstring_length (x))
         {
-          nbytes += w2sl (x) + 1;
+          nunits += i2wl (xstring_contents (x), xstring_length (x));
           nfiles++;
         }
     }
@@ -39,16 +39,17 @@ file_masks::build_masks (lisp lmasks)
     return 0;
 
   nfiles++;
-  char **b0 = (char **)xmalloc (sizeof (char *) * nfiles + nbytes);
-  char **b = b0;
-  char *s = (char *)b0 + sizeof (char *) * nfiles;
+  wchar_t **b0 = (wchar_t **)xmalloc (sizeof (wchar_t *) * nfiles
+                                      + nunits * sizeof (wchar_t));
+  wchar_t **b = b0;
+  wchar_t *s = (wchar_t *)((char *)b0 + sizeof (wchar_t *) * nfiles);
   for (lisp p = lmasks; consp (p); p = xcdr (p))
     {
       lisp x = xcar (p);
       if (xstring_length (x))
         {
           *b++ = s;
-          s = w2s (s, x) + 1;
+          s = i2w (xstring_contents (x), xstring_length (x), s) + 1;
         }
     }
   *b = 0;
@@ -62,52 +63,46 @@ file_masks::set_text (HWND hwnd) const
     SetWindowTextW (hwnd, L"");
   else
     {
-      int nbytes = 16;
-      for (char **p = fm_masks; *p; p++)
-        nbytes += strlen (*p) + 1;
+      int nunits = 16;
+      for (wchar_t **p = fm_masks; *p; p++)
+        nunits += wcslen (*p) + 1;
 
-      char *b0 = (char *)alloca (nbytes);
-      char *b = stpcpy (b0, "Mask:");
-      for (char **p = fm_masks; *p; p++)
+      wchar_t *b0 = (wchar_t *)alloca (nunits * sizeof (wchar_t));
+      wchar_t *b = wstpcpy (b0, L"Mask:");
+      for (wchar_t **p = fm_masks; *p; p++)
         {
           *b++ = ' ';
-          b = stpcpy (b, *p);
+          b = wstpcpy (b, *p);
         }
-      WideStr wb0 (b0);
-      SetWindowTextW (hwnd, wb0);
+      SetWindowTextW (hwnd, b0);
     }
 }
 
-static const u_char *
-find_matched_bracket (const u_char *s)
+/* One pattern matcher, over UTF-16.
+
+   There used to be three: pattern and name both in CP932, pattern in CP932
+   against a wide name, and both wide but without bracket expressions. The
+   SJIS ones had to step over trail bytes at every turn, which is where the
+   `[a-z]` ranges got their odd two-byte special cases. With both sides wide
+   a code unit is a code unit and the three collapse into one. */
+
+static const wchar_t *
+find_matched_bracket (const wchar_t *s)
 {
-  if (*s == '^')
+  if (*s == L'^')
     s++;
-  if (*s == ']')
+  if (*s == L']')
     s++;
-  while (1)
-    {
-      int c = *s++;
-      switch (c)
-        {
-        case 0:
-          return 0;
-
-        case ']':
-          return s - 1;
-
-        default:
-          if (SJISP (c) && *s)
-            s++;
-          break;
-        }
-    }
+  for (; *s; s++)
+    if (*s == L']')
+      return s;
+  return 0;
 }
 
 int
-wild_pathname_p (const char *filename)
+wild_pathname_p (const wchar_t *filename)
 {
-  const u_char *p = (const u_char *)filename;
+  const wchar_t *p = filename;
   int unmatched_bracket = xsymbol_value (Vbrackets_is_wildcard_character) == Qnil;
 
   if (*p == GLOB_NOT)
@@ -115,50 +110,49 @@ wild_pathname_p (const char *filename)
 
   while (1)
     {
-      int c = *p++;
+      wchar_t c = *p++;
       switch (c)
         {
         case 0:
           return 0;
 
-        case '[':
+        case L'[':
           if (!unmatched_bracket && find_matched_bracket (p))
             return 1;
           unmatched_bracket = 1;
           break;
 
-        case '*':
-        case '?':
+        case L'*':
+        case L'?':
           return 1;
-
-        default:
-          if (SJISP (c) && *p)
-            p++;
-          break;
         }
     }
 }
 
-int
-pathname_match_p1 (const char *pat, const char *str, int nodot)
+static inline wchar_t
+wupcase (wchar_t c)
 {
-  const u_char *p = (const u_char *)pat;
-  const u_char *s = (const u_char *)str;
+  return (wchar_t)towupper ((wint_t)c);
+}
+
+static int
+pathname_match_p1 (const wchar_t *p, const wchar_t *s, int nodot)
+{
   int unmatched_bracket = xsymbol_value (Vbrackets_is_wildcard_character) == Qnil;
 
   while (1)
     {
-      int c = *p++;
+      wchar_t c = *p++;
       switch (c)
         {
         case 0:
           return !*s;
 
-        case '[':
+        case L'[':
           {
             if (unmatched_bracket)
               goto normal;
-            const u_char *pe = find_matched_bracket (p);
+            const wchar_t *pe = find_matched_bracket (p);
             if (!pe)
               {
                 unmatched_bracket = 1;
@@ -167,7 +161,7 @@ pathname_match_p1 (const char *pat, const char *str, int nodot)
             if (!*s)
               return 0;
             int not = 0;
-            if (*p == '^')
+            if (*p == L'^')
               {
                 not = 1;
                 p++;
@@ -176,173 +170,17 @@ pathname_match_p1 (const char *pat, const char *str, int nodot)
             while (p < pe)
               {
                 c = *p++;
-                if (SJISP (c) && *p)
+                if (*p == L'-' && p + 1 < pe)
                   {
-                    if (p[1] == '-' && p + 3 < pe && SJISP (p[2]))
-                      {
-                        u_int x = (*s << 8) + s[1];
-                        if (x >= u_int ((c << 8) + *p)
-                            && x <= u_int ((p[2] << 8) + p[3]))
-                          {
-                            not ^= 1;
-                            break;
-                          }
-                        p += 4;
-                      }
-                    else
-                      {
-                        if (u_int (c) == *s && *p == s[1])
-                          {
-                            not ^= 1;
-                            break;
-                          }
-                        p++;
-                      }
-                  }
-                else
-                  {
-                    if (*p == '-' && p + 1 < pe && !SJISP (p[1]))
-                      {
-                        int x = char_upcase (*s);
-                        if (x >= char_upcase (c) && x <= char_upcase (p[1]))
-                          {
-                            not ^= 1;
-                            break;
-                          }
-                        p += 2;
-                      }
-                    else if (char_upcase (c) == char_upcase (*s))
-                      {
-                        not ^= 1;
-                        break;
-                      }
-                  }
-              }
-            if (!not)
-              return 0;
-            p = pe + 1;
-            s += (SJISP (*s) && s[1]) ? 2 : 1;
-            break;
-          }
-
-        case '?':
-          if (!*s)
-            return 0;
-          if (nodot && *s == '.')
-            return 0;
-          if (SJISP (*s) && s[1])
-            s++;
-          s++;
-          break;
-
-        case '*':
-          while (*p == '*')
-            p++;
-          if (!*p)
-            return 1;
-          while (1)
-            {
-              if (pathname_match_p1 ((const char *)p, (const char *)s, nodot))
-                return 1;
-              if (!*s)
-                return 0;
-              if (nodot && *s == '.')
-                return 0;
-              if (SJISP (*s) && s[1])
-                s++;
-              s++;
-            }
-          /* NOTREACHED */
-
-        case '.':
-          if (*s == '.')
-            s++;
-          else
-            return !*p && !*s;
-          break;
-
-        default:
-        normal:
-          if (SJISP (c) && *p)
-            {
-              if (u_int (c) != *s++)
-                return 0;
-              if (*p++ != *s++)
-                return 0;
-            }
-          else
-            {
-              if (char_upcase (c) != char_upcase (*s))
-                return 0;
-              s++;
-            }
-        }
-    }
-}
-
-int
-pathname_match_p (const char *pat, const char *str)
-{
-  int nodot = 0;
-  int l = strlen (pat);
-  if (l > 1 && pat[l - 1] == '.' && !check_kanji2 (pat, l - 1))
-    nodot = 1;
-  return pathname_match_p1 (pat, str, nodot);
-}
-
-/* ASCII/SJIS pattern against wchar_t string — used by file_masks::match(wchar_t). */
-static int
-pathname_match_p1w (const char *pat, const wchar_t *str, int nodot)
-{
-  const u_char *p = (const u_char *)pat;
-  int unmatched_bracket = xsymbol_value (Vbrackets_is_wildcard_character) == Qnil;
-
-  while (1)
-    {
-      int c = *p++;
-      switch (c)
-        {
-        case 0:
-          return !*str;
-
-        case '[':
-          {
-            if (unmatched_bracket)
-              goto normal;
-            const u_char *pe = find_matched_bracket (p);
-            if (!pe)
-              {
-                unmatched_bracket = 1;
-                goto normal;
-              }
-            if (!*str)
-              return 0;
-            int not = 0;
-            if (*p == '^')
-              {
-                not = 1;
-                p++;
-              }
-            wchar_t sc = (wchar_t) towupper ((wint_t)*str);
-            while (p < pe)
-              {
-                int c2 = *p++;
-                if (SJISP (c2) && *p)
-                  {
-                    p++;
-                    /* SJIS 2-byte range in pattern: skip, won't match wchar_t */
-                  }
-                else if (*p == '-' && p + 1 < pe && !SJISP (p[1]))
-                  {
-                    if (sc >= (wchar_t) char_upcase (c2)
-                        && sc <= (wchar_t) char_upcase (p[1]))
+                    wchar_t x = wupcase (*s);
+                    if (x >= wupcase (c) && x <= wupcase (p[1]))
                       {
                         not ^= 1;
                         break;
                       }
                     p += 2;
                   }
-                else if ((wchar_t) char_upcase (c2) == sc)
+                else if (wupcase (c) == wupcase (*s))
                   {
                     not ^= 1;
                     break;
@@ -351,128 +189,47 @@ pathname_match_p1w (const char *pat, const wchar_t *str, int nodot)
             if (!not)
               return 0;
             p = pe + 1;
-            str++;
+            s++;
             break;
           }
 
-        case '?':
-          if (!*str)
+        case L'?':
+          if (!*s)
             return 0;
-          if (nodot && *str == L'.')
+          if (nodot && *s == L'.')
             return 0;
-          str++;
+          s++;
           break;
 
-        case '*':
-          while (*p == '*')
+        case L'*':
+          while (*p == L'*')
             p++;
           if (!*p)
             return 1;
           while (1)
             {
-              if (pathname_match_p1w ((const char *)p, str, nodot))
+              if (pathname_match_p1 (p, s, nodot))
                 return 1;
-              if (!*str)
+              if (!*s)
                 return 0;
-              if (nodot && *str == L'.')
+              if (nodot && *s == L'.')
                 return 0;
-              str++;
-            }
-          /* NOTREACHED */
-
-        case '.':
-          if (*str == L'.')
-            str++;
-          else
-            return !*p && !*str;
-          break;
-
-        default:
-        normal:
-          if (SJISP (c) && *p)
-            p++; /* skip SJIS second byte in pattern */
-          else if ((wchar_t) char_upcase (c) != (wchar_t) towupper ((wint_t)*str))
-            return 0;
-          str++;
-        }
-    }
-}
-
-int
-pathname_match_p (const char *pat, const wchar_t *str)
-{
-  int nodot = 0;
-  int l = strlen (pat);
-  if (l > 1 && pat[l - 1] == '.' && !check_kanji2 (pat, l - 1))
-    nodot = 1;
-  return pathname_match_p1w (pat, str, nodot);
-}
-
-int
-file_masks::match (const wchar_t *name) const
-{
-  if (empty_p ())
-    return 0;
-  int not = 0, match = 0;
-  for (char **p = fm_masks; *p; p++)
-    if (**p == GLOB_NOT)
-      {
-        match |= pathname_match_p (*p + 1, name);
-        not = 1;
-      }
-    else if (pathname_match_p (*p, name))
-      return 1;
-  return not ? !match : 0;
-}
-
-/* wchar_t pattern against wchar_t string — used by FilerView::search. */
-static int
-pathname_match_p1ww (const wchar_t *pat, const wchar_t *str, int nodot)
-{
-  while (1)
-    {
-      wchar_t c = *pat++;
-      switch (c)
-        {
-        case 0:
-          return !*str;
-
-        case L'?':
-          if (!*str)
-            return 0;
-          if (nodot && *str == L'.')
-            return 0;
-          str++;
-          break;
-
-        case L'*':
-          while (*pat == L'*')
-            pat++;
-          if (!*pat)
-            return 1;
-          while (1)
-            {
-              if (pathname_match_p1ww (pat, str, nodot))
-                return 1;
-              if (!*str)
-                return 0;
-              if (nodot && *str == L'.')
-                return 0;
-              str++;
+              s++;
             }
           /* NOTREACHED */
 
         case L'.':
-          if (*str == L'.')
-            str++;
+          if (*s == L'.')
+            s++;
           else
-            return !*pat && !*str;
+            return !*p && !*s;
           break;
 
         default:
-          if ((wchar_t) towupper ((wint_t)c) != (wchar_t) towupper ((wint_t)*str))
+        normal:
+          if (wupcase (c) != wupcase (*s))
             return 0;
-          str++;
+          s++;
         }
     }
 }
@@ -480,11 +237,9 @@ pathname_match_p1ww (const wchar_t *pat, const wchar_t *str, int nodot)
 int
 pathname_match_p (const wchar_t *pat, const wchar_t *str)
 {
-  int nodot = 0;
   int l = (int) wcslen (pat);
-  if (l > 1 && pat[l - 1] == L'.')
-    nodot = 1;
-  return pathname_match_p1ww (pat, str, nodot);
+  int nodot = l > 1 && pat[l - 1] == L'.';
+  return pathname_match_p1 (pat, str, nodot);
 }
 
 #define DF_ABSOLUTE 1
@@ -496,7 +251,7 @@ pathname_match_p (const wchar_t *pat, const wchar_t *str)
 #define DF_FILE_INFO 64
 
 static lisp
-directory (char *path, const char *pat, char *name, file_masks &masks, int flags,
+directory (wchar_t *path, const wchar_t *pat, wchar_t *name, file_masks &masks, int flags,
            int depth, int max_depth, long &count, lisp callback, lisp test, lisp result)
 {
   QUIT;
@@ -504,17 +259,17 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
   if (max_depth && depth >= max_depth)
     return result;
 
-  int l = strlen (path);
+  int l = int (wcslen (path));
   if (l >= PATH_MAX)
     return result;
 
-  char *pe = path + l;
+  wchar_t *pe = path + l;
   *pe = '*';
   pe[1] = 0;
 
-  char *ne = name + strlen (name);
+  wchar_t *ne = name + wcslen (name);
 
-  WIN32_FIND_DATAA fd;
+  WIN32_FIND_DATAW fd;
 
   HANDLE h = WINFS::FindFirstFile (path, &fd);
   if (h != INVALID_HANDLE_VALUE)
@@ -543,8 +298,8 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
               else if (flags & DF_RECURSIVE)
                 {
                   if (!(flags & DF_ABSOLUTE))
-                    strcpy (stpcpy (ne, fd.cFileName), "/");
-                  strcpy (stpcpy (pe, fd.cFileName), "/");
+                    wcscpy (wstpcpy (ne, fd.cFileName), L"/");
+                  wcscpy (wstpcpy (pe, fd.cFileName), L"/");
                   if (test != Qnil)
                     {
                       lisp lpath = make_string ((flags & DF_ABSOLUTE) ? path : name);
@@ -554,7 +309,7 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
                       if (funcall_1 (test, lpath) == Qnil)
                         continue;
                     }
-                  result = directory (path, "", name, masks, flags,
+                  result = directory (path, L"", name, masks, flags,
                                       depth + 1, max_depth, count, callback, test, result);
                   if (flags & DF_COUNT && count <= 0)
                     break;
@@ -564,9 +319,9 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
               if (!masks.empty_p () && !masks.match (fd.cFileName))
                 continue;
               if (flags & DF_ABSOLUTE)
-                strcpy (stpcpy (pe, fd.cFileName), "/");
+                wcscpy (wstpcpy (pe, fd.cFileName), L"/");
               else
-                strcpy (stpcpy (ne, fd.cFileName), "/");
+                wcscpy (wstpcpy (ne, fd.cFileName), L"/");
             }
           else
             {
@@ -585,9 +340,9 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
                     continue;
                 }
               if (flags & DF_ABSOLUTE)
-                strcpy (pe, fd.cFileName);
+                wcscpy (pe, fd.cFileName);
               else
-                strcpy (ne, fd.cFileName);
+                wcscpy (ne, fd.cFileName);
             }
           lisp lpath = make_string ((flags & DF_ABSOLUTE) ? path : name);
           if (flags & DF_FILE_INFO)
@@ -617,27 +372,27 @@ directory (char *path, const char *pat, char *name, file_masks &masks, int flags
 lisp
 Fdirectory (lisp dirname, lisp keys)
 {
-  char path[PATH_MAX * 2];
-  char pat[PATH_MAX + 1];
-  pathname2cstr (dirname, path);
-  char *p = jrindex (path, '/');
+  wchar_t path[PATH_MAX * 2];
+  wchar_t pat[PATH_MAX + 1];
+  pathname2wstr (dirname, path);
+  wchar_t *p = wcsrchr (path, L'/');
   int f = WINFS::GetFileAttributes (path);
   if (f != -1 && f & FILE_ATTRIBUTE_DIRECTORY)
     {
       if (p && p[1])
-        strcat (path, "/");
+        wcscat (path, L"/");
       *pat = 0;
     }
   else
     {
       if (p)
         {
-          strcpy (pat, p + 1);
+          wcscpy (pat, p + 1);
           p[1] = 0;
         }
       else
         {
-          strcpy (pat, path);
+          wcscpy (pat, path);
           *path = 0;
         }
     }
@@ -645,7 +400,7 @@ Fdirectory (lisp dirname, lisp keys)
   lisp wild = find_keyword (Kwild, keys, Qnil);
   file_masks masks (stringp (wild) ? xcons (wild, Qnil) : wild);
 
-  char name[PATH_MAX * 2];
+  wchar_t name[PATH_MAX * 2];
   *name = 0;
 
   int flags = 0;
@@ -692,10 +447,14 @@ Fpathname_match_p (lisp pathname, lisp wildname)
 {
   check_string (pathname);
   check_string (wildname);
-  char *path = (char *)alloca (xstring_length (pathname) * 2 + 1);
-  w2s (path, pathname);
-  char *wild = (char *)alloca (xstring_length (wildname) * 2 + 1);
-  w2s (wild, wildname);
+  wchar_t *path = (wchar_t *)alloca (i2wl (xstring_contents (pathname),
+                                           xstring_length (pathname))
+                                     * sizeof (wchar_t));
+  i2w (xstring_contents (pathname), xstring_length (pathname), path);
+  wchar_t *wild = (wchar_t *)alloca (i2wl (xstring_contents (wildname),
+                                           xstring_length (wildname))
+                                     * sizeof (wchar_t));
+  i2w (xstring_contents (wildname), xstring_length (wildname), wild);
   return boole (*wild == GLOB_NOT
                 ? !pathname_match_p (wild + 1, path)
                 : pathname_match_p (wild, path));
@@ -704,7 +463,7 @@ Fpathname_match_p (lisp pathname, lisp wildname)
 lisp
 Fwild_pathname_p (lisp pathname)
 {
-  char path[PATH_MAX + 1];
-  pathname2cstr (pathname, path);
+  wchar_t path[PATH_MAX + 1];
+  pathname2wstr (pathname, path);
   return boole (wild_pathname_p (path));
 }

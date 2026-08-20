@@ -416,7 +416,7 @@ tool_bar::set_bitmap ()
 }
 
 int
-tool_bar::load_bitmap (const char *filename)
+tool_bar::load_bitmap (const wchar_t *filename)
 {
   int e;
   t_bm = b_frame.bm ().load (filename, e);
@@ -2456,7 +2456,7 @@ dock_frame::color_changed () const
 }
 
 int
-tool_bm::load_mapped_bitmap (const char *filename, HBITMAP &hbm)
+tool_bm::load_mapped_bitmap (const wchar_t *filename, HBITMAP &hbm)
 {
   hbm = 0;
 
@@ -2530,19 +2530,19 @@ tool_bm::load_mapped_bitmap (const char *filename, HBITMAP &hbm)
 }
 
 const tool_bm::bm_node *
-tool_bm::load (const char *path, int &e)
+tool_bm::load (const wchar_t *path, int &e)
 {
   e = LMB_NO_ERRORS;
 
   for (bm_node *p = bm_list.head (); p; p = p->next ())
-    if (strcaseeq (path, p->b_path))
+    if (!_wcsicmp (path, p->b_path))
       {
         p->incref ();
         return p;
       }
 
   bm_node *p = new bm_node;
-  p->b_path = strdup (path);
+  p->b_path = xwcsdup (path);
   if (p->b_path)
     {
       HBITMAP hbm;
