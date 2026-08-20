@@ -17,7 +17,7 @@ enum {
 
 struct TermCell
 {
-  Char ch;         // internal encoding character (0 = empty)
+  ucs4_t ch;       // Unicode code point (0 = empty)
   uint8_t fg;      // foreground color (0=default, 1-8=standard, 9-16=bright, 17+=extended)
   uint8_t bg;      // background color (same encoding)
   uint8_t attrs;   // TATTR_*

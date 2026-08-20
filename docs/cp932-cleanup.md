@@ -151,22 +151,62 @@ pair を **1** と数える。両者が食い違った状態で
 機能キーにならないので結果が変わらず、直していない。
 
 
-サブプロセスのパイプ
---------------------
+ターミナル (M-x shell) が化けていた理由
+---------------------------------------
 
-`*default-process-encoding*` が sjis のままだったので、`M-x shell` の出力が
-全部化けていた。UTF-8 (`*encoding-utf8n*`) に変えた。
+`M-x shell` の多バイト文字が全部化けるという報告があり、最初
+`*default-process-encoding*` が sjis のままだったせいだと見たが、**それは
+外れだった**。Windows 10 1809 以降の `make-process` は ConPTY 経由で、
+`ConPtyProcess::read_process` は pty の生バイトを `Terminal::feed()` に
+直接渡す。ターミナルエミュレータが自前の UTF-8 デコーダで読むので、
+`*default-process-encoding*` を通らない。
 
-Windows 10 1809 以降は `make-process` が ConPTY 経由になり、conhost が子
-プロセスの出力をコンソールコードページから UTF-8 に変換して pty に流す
-(入力も UTF-8 として解釈される)。子が cmd.exe でも pwsh でも変わらない。
-`*eshell*` の既定が pwsh であることもあり、ここは UTF-8 が正しい。
-`*default-fileio-encoding*` は既に `*encoding-utf8n*` になっていたので、
-その揃え直しでもある。
+本当の原因は `Terminal::put_char` に残っていた 1 行:
 
-ConPTY が使えない環境 (1809 未満) では生パイプになり、子のコードページが
-そのまま出てくる。その場合は `(setq *default-process-encoding* *encoding-sjis*)`
-で戻せる。
+```cpp
+ucs2_t w = (ucs2_t)ucs;
+ich = w2i (w);          // Unicode → 旧 internal encoding
+```
+
+`w2i` は「Unicode → 旧 internal encoding (charset タグ付きの CP932 系)」の
+表 (`wc2internal_table`)。Phase 2 で buffer が UTF-16 になった後、**表示経路で
+唯一ここだけ生き残っていた**。TermCell を読む側 (`sync_to_buffer` も
+`paint_terminal` も) は `ch` を UTF-16 code unit として扱い、`i2w` で戻す箇所は
+どこにも無いので、内部コードがそのまま Unicode として解釈される。実機では
+日本語が `芰` のような無関係な漢字になった。**U+8290 = 0x82, 0x90 — CP932 の
+2 バイトを 16bit に詰めた値そのもの**で、これが決め手になった。
+
+`(ucs2_t)ucs` の切り詰めの方は BMP 外を潰す。`😀` → U+F600 付近の私用領域
+文字 = 豆腐。`cmdloop.cc` の `dispatch` と同じ形が、ターミナル側にも別に
+存在していた。
+
+| 直した場所 | 何をしたか |
+|---|---|
+| `term.h` の `TermCell::ch` | `Char` (16bit) → `ucs4_t` (code point) |
+| `term.cc` の `put_char` | `w2i` を撤去し code point をそのまま持つ |
+| `term.cc` の幅計算 | `term_wcwidth` (term.cc 独自・BMP のみ・buffer 表示と食い違う) を捨てて `unicode_width` (eaw.cc) に統一 |
+| `term.cc` の `sync_to_buffer` | buffer 本文は UTF-16 なので BMP 外を surrogate pair に展開 |
+| `disp.cc` の `paint_terminal` | GDI へ渡すのも UTF-16 なので同じく展開 |
+| `print.cc` の `print_engine::notice` | `LoadStringW` が既に UTF-16 を返しているのに `w2i` を通して `MsgBox` に渡していた。印刷のエラーメッセージの日本語が化けていた。`MsgBox` には `wchar_t*` を取る overload があるのでそのまま渡す |
+
+これで表示経路の旧 `w2i` (scalar 版) は全滅した。残っているのは
+`encoding.cc` の CP932 ファイルコーデックだけで、そこは本来の用途。
+(`w2i (const ucs2_t *, int, ucs4_t *)` の bulk 版は UTF-16 → code point の
+別関数で、こちらは正しい。)
+
+
+サブプロセスの生パイプ
+----------------------
+
+上とは別に、`*default-process-encoding*` も sjis のまま取り残されていたので
+UTF-8 (`*encoding-utf8n*`) に変えた。`*default-fileio-encoding*` は既に
+`*encoding-utf8n*` になっていたので、その揃え直し。`*eshell*` の既定は pwsh で、
+pwsh はリダイレクトされた stdout に UTF-8 を書く。
+
+効くのは生パイプの経路 (ConPTY が無い環境の `make-process`、`call-process`、
+ソケットプロセス、`set-process-filter`) だけ。ConPTY 経路は上に書いたとおり
+この変数を通らない。子が CP932 で出力する場合は
+`(setq *default-process-encoding* *encoding-sjis*)` で戻せる。
 
 
 テスト

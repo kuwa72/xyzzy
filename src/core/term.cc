@@ -7,32 +7,10 @@
 
 #include <string.h>
 
-#ifdef _WIN32
-// Windows lacks wcwidth(); simple CJK width check.
-static int
-term_wcwidth (wchar_t wc)
-{
-  if (wc == 0) return 0;
-  // CJK fullwidth / wide ranges
-  if ((wc >= 0x1100 && wc <= 0x115f)   // Hangul Jamo
-      || wc == 0x2329 || wc == 0x232a
-      || (wc >= 0x2e80 && wc <= 0x303e)  // CJK Radicals..CJK Symbols
-      || (wc >= 0x3040 && wc <= 0x33bf)  // Hiragana..CJK Compatibility
-      || (wc >= 0x3400 && wc <= 0x4dbf)  // CJK Unified Ext A
-      || (wc >= 0x4e00 && wc <= 0xa4cf)  // CJK Unified..Yi
-      || (wc >= 0xa960 && wc <= 0xa97c)  // Hangul Jamo Extended-A
-      || (wc >= 0xac00 && wc <= 0xd7a3)  // Hangul Syllables
-      || (wc >= 0xf900 && wc <= 0xfaff)  // CJK Compatibility Ideographs
-      || (wc >= 0xfe30 && wc <= 0xfe6f)  // CJK Compatibility Forms
-      || (wc >= 0xff01 && wc <= 0xff60)  // Fullwidth Forms
-      || (wc >= 0xffe0 && wc <= 0xffe6))
-    return 2;
-  return 1;
-}
-#define wcwidth term_wcwidth
-#else
-#include <wchar.h>
-#endif
+/* 文字幅は eaw.cc の unicode_width() を使う。以前ここに term_wcwidth という
+   同じ用途の表が別にあったが、BMP しか見ておらず buffer 表示側とも食い違って
+   いたので消した。 */
+#include "eaw.h"
 
 // ============================================================
 // Construction / destruction
@@ -277,23 +255,24 @@ Terminal::put_char (uint32_t ucs)
   if (ucs == 0)
     return;
 
-  Char ich = 0;
-  if (ucs < 0x80)
-    ich = (Char)ucs;
-  else
-    {
-      ucs2_t w = (ucs2_t)ucs;
-      ich = w2i (w);
-      if (ich == 0)
-        ich = '?';
-    }
+  /* TermCell は code point を持つ。以前はここで w2i() を通していた。
+     w2i は Unicode → 旧 internal encoding (charset タグ付きの CP932 系)
+     の表で、Phase 2 で buffer が UTF-16 になった後もターミナルだけに
+     残っていた。表示側は TermCell::ch を UTF-16 code unit として描くので、
+     内部コードがそのまま Unicode として解釈され、`日本語` が `芰芰芰` の
+     ような無関係な漢字になっていた (0x8290 = CP932 の 2 バイトを 16bit に
+     詰めた値)。さらに (ucs2_t)ucs で BMP 外が切り詰まり、絵文字は
+     U+F600 付近の私用領域文字 = 豆腐になっていた。
+     code point をそのまま持つ。 */
+  if (ucs >= CHAR_LIMIT)
+    return;
+  ucs4_t ich = ucs;
 
-  int width = 1;
-  if (ucs >= 0x80)
-    {
-      int w = wcwidth ((wchar_t)ucs);
-      if (w > 1) width = w;
-    }
+  /* 幅も buffer 表示と同じ表 (eaw.cc) から引く。term.cc 独自の
+     term_wcwidth は BMP しか見ていなかった。 */
+  int width = unicode_width (ich);
+  if (width < 1)
+    width = 1;
 
   if (t_pending_wrap && t_wraparound)
     {
@@ -890,13 +869,21 @@ Terminal::sync_to_buffer (Buffer *bp, Window *wp)
         }
 
       int len = 0;
-      for (int c = 0; c <= last && len < (int)numberof (linebuf) - 1; c++)
+      /* buffer 本文は UTF-16 code unit 列なので、BMP 外の code point は
+         surrogate pair に展開する。1 文字で 2 単位使うので余裕を 2 見る。 */
+      for (int c = 0; c <= last && len < (int)numberof (linebuf) - 3; c++)
         {
           TermCell *tc = cell (r, c);
           if (tc->wide == 2)
             continue;
-          Char ch = tc->ch ? tc->ch : ' ';
-          linebuf[len++] = ch;
+          ucs4_t ch = tc->ch ? tc->ch : ' ';
+          if (ch < 0x10000)
+            linebuf[len++] = Char (ch);
+          else
+            {
+              linebuf[len++] = utf16_ucs4_to_pair_high (ch);
+              linebuf[len++] = utf16_ucs4_to_pair_low (ch);
+            }
         }
 
       if (r < t_rows - 1)

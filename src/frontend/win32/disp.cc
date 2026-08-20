@@ -2389,9 +2389,21 @@ Window::paint_terminal (Painter &painter, Terminal *term)
 
           int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
 
-          // Phase 2: Char is UTF-16 code unit
-          Char ich = tc->ch;
-          Char wc = (ich == 0 || ich == ' ') ? L' ' : ich;
+          /* TermCell::ch は code point。GDI に渡すのは UTF-16 なので、
+             BMP 外は surrogate pair の 2 単位にする。 */
+          ucs4_t ich = tc->ch;
+          Char wc[2];
+          int wcl = 1;
+          if (ich == 0 || ich == ' ')
+            wc[0] = ' ';
+          else if (ich < 0x10000)
+            wc[0] = Char (ich);
+          else
+            {
+              wc[0] = utf16_ucs4_to_pair_high (ich);
+              wc[1] = utf16_ucs4_to_pair_low (ich);
+              wcl = 2;
+            }
 
           int px = c * cellw + cellw / 2;
           RECT rc = { px, py, px + cw * cellw, py + cellh };
@@ -2400,7 +2412,7 @@ Window::paint_terminal (Painter &painter, Terminal *term)
           const FontObject &cell_font = (tc->wide == 1) ? jp_font : ascii_font;
           painter.draw_text_chars (px + cell_font.offset ().x,
                                    py + cell_font.offset ().y,
-                                   &wc, 1, fg, bg, role, &rc, true);
+                                   wc, wcl, fg, bg, role, &rc, true);
 
           if (attrs & TATTR_UNDERLINE)
             painter.draw_hline (px, px + cw * cellw, py + cellh - 1, fg);
@@ -2409,7 +2421,7 @@ Window::paint_terminal (Painter &painter, Terminal *term)
             // Draw again offset by 1 pixel for bold effect (transparent)
             painter.draw_text_chars (px + cell_font.offset ().x + 1,
                                      py + cell_font.offset ().y,
-                                     &wc, 1, fg, bg, role, &rc, false);
+                                     wc, wcl, fg, bg, role, &rc, false);
 
           c += cw;
         }
