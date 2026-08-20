@@ -41,13 +41,26 @@ for arch in x86_64 i686; do
   zip=$root/_build/$arch/xyzzy-$version.zip
   [ -f "$zip" ] || { echo "deploy: $zip was not produced" >&2; exit 1; }
 
-  # CPack wraps everything in a version directory; flatten it so xyzzy.exe
-  # sits at the top of the deployed folder.
   out=$dest/xyzzy-$name
-  rm -rf "$out" "$out.tmp"
+
+  # Refuse to touch a running install.  Windows keeps a running .exe open with
+  # FILE_SHARE_READ only, so opening it for write fails -- that is the probe.
+  # Without this check the rm below deletes whatever is not locked and then
+  # dies on the .exe, leaving a half-populated directory: the exe still there
+  # but lisp/*.lc and the helper exes gone.  Learned the hard way.
+  if [ -e "$out/xyzzy.exe" ] && ! (exec 3<>"$out/xyzzy.exe") 2>/dev/null; then
+    echo "deploy: $out/xyzzy.exe is in use; close xyzzy and run again" >&2
+    exit 1
+  fi
+
+  # Unpack first, swap second, so a failure part way through leaves the
+  # existing install alone.  CPack wraps everything in a version directory;
+  # flatten it so xyzzy.exe sits at the top of the deployed folder.
+  rm -rf "$out.tmp"
   mkdir -p "$out.tmp"
   unzip -q "$zip" -d "$out.tmp"
   inner=$(find "$out.tmp" -mindepth 1 -maxdepth 1 -type d | head -1)
+  rm -rf "$out"
   mv "${inner:-$out.tmp}" "$out"
   rm -rf "$out.tmp"
 

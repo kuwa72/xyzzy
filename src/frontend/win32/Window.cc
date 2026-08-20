@@ -4,6 +4,7 @@
 #include "ipc.h"
 #include "wheel.h"
 #include "painter-win32.h"
+#include "term.h"
 
 #define RULER_HEIGHT 13
 #define FRAME_WIDTH 2
@@ -1173,6 +1174,49 @@ Window::wheel_scroll (const wheel_info &wi)
 {
   if (!w_bufp || !wi.wi_value)
     return;
+
+  /* ターミナル (ConPTY) で、アプリがマウス報告を要求している間はホイールも
+     pty へ流す。そうでなければ従来どおり Lisp の mouse-wheel-handler に
+     渡す (スクロールバックを遡る操作)。
+     xterm 互換のホイールはボタン 64 = 上、65 = 下 の press として送る。 */
+  {
+    extern Terminal *buffer_terminal (const Buffer *bp);
+    extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+    Terminal *term = buffer_terminal (w_bufp);
+    if (term && term->mouse_mode ())
+      {
+        POINT pt = wi.wi_pt;
+        ScreenToClient (w_hwnd, &pt);
+        int cellw = app.text_font.cell ().cx;
+        int cellh = app.text_font.cell ().cy;
+        if (cellw > 0 && cellh > 0)
+          {
+            int x = pt.x - cellw / 2;
+            int col = x < 0 ? 0 : x / cellw;
+            int row = pt.y < 0 ? 0 : pt.y / cellh;
+            if (col >= term->cols ())
+              col = term->cols () - 1;
+            if (row >= term->rows ())
+              row = term->rows () - 1;
+            /* 1 ノッチ 1 イベント。実端末と同じで、スクロール量は
+               アプリ側が決める。暴走を避けて上限を付ける。 */
+            int n = wi.wi_value < 0 ? -wi.wi_value : wi.wi_value;
+            if (n > 8)
+              n = 8;
+            int button = wi.wi_value > 0 ? 64 : 65;
+            for (int i = 0; i < n; i++)
+              {
+                char b[32];
+                int l = terminal_mouse_to_bytes (term, 0, button, row, col, 0,
+                                                 b, sizeof b);
+                if (l <= 0)
+                  break;
+                buffer_terminal_send (w_bufp, b, l);
+              }
+            return;
+          }
+      }
+  }
 
   lisp hook = symbol_value (Vmouse_wheel_handler, w_bufp);
   if (hook != Qunbound && hook != Qnil)
