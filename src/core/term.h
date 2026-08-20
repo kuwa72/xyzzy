@@ -127,6 +127,21 @@ class Terminal
   int t_osc_len;
   enum { OSC_MAX = 256 };
   char t_osc[OSC_MAX];
+
+  /* 端末からアプリへ返す応答 (DSR のカーソル位置、DA の機種応答)。
+     feed() の中で積み、フロントエンドが feed() 後に pty へ書き出す。
+     応答を返さないと、位置を問い合わせてから描画するタイプの TUI が
+     待たされたり既定値で誤ったレイアウトを組んだりする。 */
+  enum { REPLY_MAX = 64 };
+  char t_reply[REPLY_MAX];
+  int t_reply_len;
+  void reply (const char *s);
+
+  /* マウス報告 (DECSET 1000 / 1002 / 1003) と座標の符号化 (1006 = SGR)。 */
+  int t_mouse_mode;      /* 0 = 無効、1000 / 1002 / 1003 */
+  int t_mouse_sgr;       /* 1 = SGR 拡張 (CSI < b ; x ; y M/m) */
+  int t_bracketed_paste; /* DECSET 2004 */
+  int t_focus_events;    /* DECSET 1004 */
   void ensure_cursor_bounds ();
   void init_tabs ();
 
@@ -164,10 +179,33 @@ public:
   int32_t palette_entry (int index) const
     { return (t_palette && index >= 0 && index < TPALETTE_SIZE
               ? t_palette[index] : -1); }
+
+  /* feed() が積んだ応答。フロントエンドが pty へ書いてから clear する。 */
+  const char *reply_data () const { return t_reply; }
+  int reply_len () const { return t_reply_len; }
+  void reply_clear () { t_reply_len = 0; }
+
+  int mouse_mode () const { return t_mouse_mode; }
+  int mouse_sgr () const { return t_mouse_sgr; }
+  int bracketed_paste_p () const { return t_bracketed_paste; }
+  int focus_events_p () const { return t_focus_events; }
 };
 
 // Convert an lChar key to VT100 escape sequence bytes.
 // Returns number of bytes written (0 if key not handled).
 int terminal_key_to_bytes (const Terminal *term, lChar key, char *buf, int bufsize);
+
+/* マウスイベントを報告バイト列にする。row / col は 0 起算。
+   kind: 0 = press、1 = release、2 = move (drag)。
+   button: 0 = 左、1 = 中、2 = 右、3 = なし (move 用)、
+           64 = ホイール上、65 = ホイール下。
+   mods は TMOUSE_* のビット和。
+   返り値は書いたバイト数。報告が無効なら 0。 */
+#define TMOUSE_SHIFT 4
+#define TMOUSE_META  8
+#define TMOUSE_CTRL  16
+int terminal_mouse_to_bytes (const Terminal *term, int kind, int button,
+                            int row, int col, int mods,
+                            char *buf, int bufsize);
 
 #endif // TERM_H

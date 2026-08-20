@@ -956,6 +956,13 @@ ConPtyProcess::read_process ()
       if (p_term)
         {
           p_term->feed (buf, n);
+          /* feed() の中で DSR / DA の応答が積まれていたら pty へ返す。
+             返さないと、位置を問い合わせてから描画する TUI が待たされる。 */
+          if (p_term->reply_len ())
+            {
+              send (p_term->reply_data (), p_term->reply_len ());
+              p_term->reply_clear ();
+            }
           if (p_term->dirty () && !p_pending)
             {
               PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));

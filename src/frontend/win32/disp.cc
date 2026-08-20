@@ -2372,6 +2372,17 @@ Window::paint_terminal (Painter &painter, Terminal *term)
   // Terminal defaults: white on black (like a real terminal)
   COLORREF def_fg = RGB(192, 192, 192);
   COLORREF def_bg = RGB(0, 0, 0);
+  /* OSC 10 / 11 で既定の前景・背景を指定してきたらそれに従う。以前は
+     handle_osc が空だったので指定が届かず、テーマが決めた地色が出ずに
+     ここの黒のままだった。 */
+  {
+    int32_t ov = term->palette_entry (256);
+    if (ov >= 0)
+      def_fg = RGB ((ov >> 16) & 0xff, (ov >> 8) & 0xff, ov & 0xff);
+    ov = term->palette_entry (257);
+    if (ov >= 0)
+      def_bg = RGB ((ov >> 16) & 0xff, (ov >> 8) & 0xff, ov & 0xff);
+  }
 
   for (int r = 0; r < w_ch_max.cy; r++)
     {

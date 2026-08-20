@@ -275,3 +275,60 @@
   (let ((cells (nth 0 (term-feed 2 20 (esc "[38;2;10;20;30mabc")))))
     (mapcar #'second (subseq cells 0 4)))
   => (#x20A141E #x20A141E #x20A141E 0))
+
+
+;;; ------------------------------------------------------------------
+;;; 文字幅: Ambiguous はターミナルでは半角
+;;;
+;;; エディタ本文は CJK 流儀で East Asian Ambiguous を 2 桁にしている。
+;;; ターミナルでそれをやると向こう側のアプリと食い違う。TUI は
+;;; npm string-width / wcwidth を使って 1 桁で数えるので、罫線や
+;;; 幾何図形が出るたびに 1 桁ずれ、表やサイドバーが崩れた。
+
+;; 罫線 (U+2500-259F)。表の枠に使われる。
+(deftest terminal-box-drawing-is-narrow ()
+  ;; ─ を 3 個並べたら 3 セル。以前は全角扱いで 6 セル使っていた。
+  (let ((cells (nth 0 (term-feed 2 20 "───X"))))
+    (mapcar #'first (subseq cells 0 4)))
+  => (#x2500 #x2500 #x2500 88))
+
+;; 幾何図形 (U+25A0-25FF)。サイドバーの ● ○ など。
+(deftest terminal-geometric-is-narrow ()
+  (let ((cells (nth 0 (term-feed 2 20 "●○X"))))
+    (mapcar #'first (subseq cells 0 3)))
+  => (#x25CF #x25CB 88))
+
+;; 矢印 (U+2190-21FF)
+(deftest terminal-arrows-are-narrow ()
+  (let ((cells (nth 0 (term-feed 2 20 "↓→X"))))
+    (mapcar #'first (subseq cells 0 3)))
+  => (#x2193 #x2192 88))
+
+;; 一方で本物の全角は全角のまま
+(deftest terminal-cjk-still-wide ()
+  (let ((cells (nth 0 (term-feed 2 20 "日X"))))
+    (mapcar #'first (subseq cells 0 3)))
+  => (26085 0 88))
+
+(deftest terminal-fullwidth-still-wide ()
+  ;; Ａ (U+FF21 全角 A)
+  (let ((cells (nth 0 (term-feed 2 20 "ＡX"))))
+    (mapcar #'first (subseq cells 0 3)))
+  => (#xFF21 0 88))
+
+(deftest terminal-emoji-still-wide ()
+  (let ((cells (nth 0 (term-feed 2 20 (concat (string (code-char 128512)) "X")))))
+    (mapcar #'first (subseq cells 0 3)))
+  => (128512 0 88))
+
+;; 罫線で表を書いても桁がずれないこと (実機で崩れていた形)
+(deftest terminal-table-alignment ()
+  (term-line-string 2 20 "┌──┬──┐")
+  => "┌──┬──┐")
+
+;; エディタ本文側 (char-columns) は CJK 流儀のまま = 2 桁。
+;; ターミナルとは意図的に違う。
+(deftest terminal-editor-keeps-ambiguous-wide ()
+  (list (char-columns (code-char #x2500)) (char-columns (code-char #x25CF))
+        (char-columns (code-char #x2193)) (char-columns #\A))
+  => (2 2 2 1))

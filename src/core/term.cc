@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 /* 文字幅は eaw.cc の unicode_width() を使う。以前ここに term_wcwidth という
    同じ用途の表が別にあったが、BMP しか見ておらず buffer 表示側とも食い違って
@@ -46,7 +47,9 @@ Terminal::Terminal (int rows, int cols)
       t_scrollback (0), t_scrollback_cols (cols),
       t_scrollback_count (0), t_scrollback_head (0),
       t_scrollback_offset (0),
-      t_dirty (1), t_palette (0), t_osc_len (0)
+      t_dirty (1), t_palette (0), t_osc_len (0), t_reply_len (0),
+      t_mouse_mode (0), t_mouse_sgr (0), t_bracketed_paste (0),
+      t_focus_events (0)
 {
   memset (t_param_colon, 0, sizeof t_param_colon);
   int total = rows * cols;
@@ -273,9 +276,14 @@ Terminal::put_char (uint32_t ucs)
     return;
   ucs4_t ich = ucs;
 
-  /* 幅も buffer 表示と同じ表 (eaw.cc) から引く。term.cc 独自の
-     term_wcwidth は BMP しか見ていなかった。 */
-  int width = unicode_width (ich);
+  /* 幅は eaw.cc から引くが、Ambiguous は **Narrow** で数える。
+
+     エディタ本文は CJK 流儀で Ambiguous を 2 桁にしているが、ターミナルで
+     それをやると向こう側のアプリと食い違う。TUI は npm string-width や
+     wcwidth を使って 1 桁で数えるので、罫線 (U+2500-259F)、幾何図形
+     (●○■ U+25A0-25FF)、矢印 (↓→ U+2190-21FF) が出るたびに 1 桁ずつ
+     ずれていき、表やサイドバーが崩れる。 */
+  int width = unicode_width_ex (ich, 0);
   if (width < 1)
     width = 1;
 
@@ -482,6 +490,17 @@ Terminal::parse_sgr_color (int i, term_color_t *out)
   return i + 1;
 }
 
+/* 応答を積む。溢れたら捨てる (応答は数バイトなので通常起きない)。 */
+void
+Terminal::reply (const char *str)
+{
+  int l = int (strlen (str));
+  if (t_reply_len + l > REPLY_MAX)
+    return;
+  memcpy (t_reply + t_reply_len, str, l);
+  t_reply_len += l;
+}
+
 // ============================================================
 // CSI sequence handler
 // ============================================================
@@ -660,7 +679,33 @@ Terminal::handle_csi (int final_ch)
       ensure_cursor_bounds (); t_pending_wrap = 0;
       break;
 
-    case 'n': case 'c': break; // DSR, DA — ignore
+    case 'n': // DSR (Device Status Report)
+      /* 以前は無視していた。位置を問い合わせてから描画する TUI は、
+         応答が来ないと待たされるか既定値で誤ったレイアウトを組む。 */
+      if (t_intermediate == 0)
+        {
+          char b[32];
+          if (p0 == 5)
+            reply ("\033[0n");                  /* 端末は正常 */
+          else if (p0 == 6)
+            {
+              /* CPR。行桁は 1 起算。origin mode ならスクロール領域基準。 */
+              int row = t_cur_row - (t_origin_mode ? t_scroll_top : 0) + 1;
+              int col = t_cur_col + 1;
+              sprintf (b, "\033[%d;%dR", row, col);
+              reply (b);
+            }
+        }
+      break;
+
+    case 'c': // DA (Device Attributes)
+      if (t_intermediate == '>')
+        /* DA2: 端末種別 0 (VT100 系)、firmware 相当、ROM 0 */
+        reply ("\033[>0;10;1c");
+      else if (t_intermediate == 0 && p0 == 0)
+        /* DA1: VT100 with Advanced Video Option。xterm と同じ返し方。 */
+        reply ("\033[?1;2c");
+      break;
 
     case 'h': // SM
       for (int i = 0; i < t_nparam; i++)
@@ -735,7 +780,25 @@ Terminal::handle_dec_private (int final_ch)
             }
           break;
 
-        case 2004: break; // bracketed paste — acknowledge only
+        /* マウス報告。1000 = クリックのみ、1002 = ドラッグ付き、
+           1003 = 移動も全部。1006 は座標の符号化を SGR 拡張にする
+           (255 桁を越えても壊れない形)。1005 / 1015 は受けるだけ。 */
+        case 1000: case 1002: case 1003:
+          t_mouse_mode = set ? t_params[i] : 0;
+          break;
+        case 1006:
+          t_mouse_sgr = set;
+          break;
+        case 1005: case 1015:
+          break;
+
+        case 2004:
+          t_bracketed_paste = set;
+          break;
+
+        case 1004:
+          t_focus_events = set;
+          break;
         }
     }
 }
@@ -775,6 +838,8 @@ Terminal::handle_esc (int ch)
       t_origin_mode = 0; t_wraparound = 1; t_insert_mode = 0;
       t_cursor_visible = 1; t_app_cursor_keys = 0;
       t_pending_wrap = 0;
+      t_mouse_mode = 0; t_mouse_sgr = 0;
+      t_bracketed_paste = 0; t_focus_events = 0;
       init_tabs ();
       for (int i = 0; i < t_rows * t_cols; i++)
         clear_cell_default (&t_screen[i]);
@@ -1328,4 +1393,73 @@ Terminal::feed (const u_char *data, int len)
           break;
         }
     }
+}
+
+/* マウスイベントを報告バイト列にする。
+
+   符号化は 2 通り。
+
+   旧来の X10/VT200 形式:
+       ESC [ M  Cb  Cx  Cy      各バイトは値 + 32
+     桁・行が 223 を越えると表現できない。
+   SGR 拡張 (DECSET 1006):
+       ESC [ < b ; x ; y M      press / move
+       ESC [ < b ; x ; y m      release
+     十進なので桁数の制限が無く、release でどのボタンかも判る。
+
+   Cb の下位 2bit がボタン、32 が move、4/8/16 が Shift/Meta/Ctrl、
+   64 がホイール。 */
+int
+terminal_mouse_to_bytes (const Terminal *term, int kind, int button,
+                        int row, int col, int mods, char *buf, int bufsize)
+{
+  if (!term || !term->mouse_mode ())
+    return 0;
+
+  int mode = term->mouse_mode ();
+
+  /* 1000 はボタンの押し離しだけ。1002 はボタンを押している間の移動も。
+     1003 は押していなくても移動を送る。 */
+  if (kind == 2)
+    {
+      if (mode == 1000)
+        return 0;
+      if (mode == 1002 && button == 3)
+        return 0;
+    }
+
+  int wheel = (button >= 64);
+  int b;
+  if (wheel)
+    b = 64 + (button - 64);
+  else if (kind == 2)
+    b = 32 + (button == 3 ? 3 : button);
+  else
+    b = (button == 3 ? 3 : button);
+  b |= (mods & (TMOUSE_SHIFT | TMOUSE_META | TMOUSE_CTRL));
+
+  if (term->mouse_sgr ())
+    {
+      /* release は最後が 'm'。ホイールに release は無い。 */
+      char final_ch = (kind == 1 && !wheel) ? 'm' : 'M';
+      int n = snprintf (buf, bufsize, "\033[<%d;%d;%d%c",
+                        b, col + 1, row + 1, final_ch);
+      return (n > 0 && n < bufsize) ? n : 0;
+    }
+
+  /* 旧形式。release はボタン 3 として送る (どのボタンか判らない)。 */
+  if (kind == 1 && !wheel)
+    b = 3 | (mods & (TMOUSE_SHIFT | TMOUSE_META | TMOUSE_CTRL));
+  if (bufsize < 6)
+    return 0;
+  /* 223 を越える座標は旧形式で表現できないので送らない。 */
+  if (col + 1 > 223 || row + 1 > 223)
+    return 0;
+  buf[0] = '\033';
+  buf[1] = '[';
+  buf[2] = 'M';
+  buf[3] = char (32 + b);
+  buf[4] = char (32 + col + 1);
+  buf[5] = char (32 + row + 1);
+  return 6;
 }

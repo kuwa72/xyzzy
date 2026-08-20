@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "term.h"
 
 #ifndef VK_XBUTTON1
 #define VK_XBUTTON1 5
@@ -88,9 +89,75 @@ rowcol_from_point (Window *wp, int *xx, int *yy)
   return oob;
 }
 
+/* ターミナル (ConPTY) のウィンドウで、アプリがマウス報告を要求している
+   (DECSET 1000 / 1002 / 1003) 間は、マウスを xyzzy 側で処理せず pty へ
+   流す。これが無いと TUI のクリックやドラッグが一切届かない。
+   報告が無効な間は従来どおり xyzzy のマウス操作 (領域選択など) が効く。 */
+static int
+send_mouse_to_terminal (Window *wp, WPARAM wparam, LPARAM lparam, int op)
+{
+  extern Terminal *buffer_terminal (const Buffer *bp);
+  extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+
+  if (!wp || !wp->w_bufp || wp->minibuffer_window_p ())
+    return 0;
+  Terminal *term = buffer_terminal (wp->w_bufp);
+  if (!term || !term->mouse_mode ())
+    return 0;
+
+  int button;
+  switch (wparam & MK_BUTTON_MASK)
+    {
+    case MK_LBUTTON: button = 0; break;
+    case MK_MBUTTON:  button = 1; break;
+    case MK_RBUTTON:  button = 2; break;
+    default:
+      /* ボタンを押していない移動。1003 のときだけ意味がある。 */
+      if (op != mouse_state::MOVE)
+        return 0;
+      button = 3;
+      break;
+    }
+
+  int mods = 0;
+  if (wparam & MK_SHIFT)
+    mods |= TMOUSE_SHIFT;
+  if (wparam & MK_CONTROL)
+    mods |= TMOUSE_CTRL;
+  if (GetKeyState (VK_MENU) < 0)
+    mods |= TMOUSE_META;
+
+  /* paint_terminal と同じ座標系 (px = c*cellw + cellw/2, py = r*cellh)。 */
+  int cellw = app.text_font.cell ().cx;
+  int cellh = app.text_font.cell ().cy;
+  if (cellw <= 0 || cellh <= 0)
+    return 0;
+  int x = short (LOWORD (lparam)) - cellw / 2;
+  int y = short (HIWORD (lparam));
+  int col = x < 0 ? 0 : x / cellw;
+  int row = y < 0 ? 0 : y / cellh;
+  if (col >= term->cols ())
+    col = term->cols () - 1;
+  if (row >= term->rows ())
+    row = term->rows () - 1;
+
+  int kind = (op == mouse_state::DOWN ? 0
+              : op == mouse_state::UP ? 1 : 2);
+  char b[32];
+  int l = terminal_mouse_to_bytes (term, kind, button, row, col, mods,
+                                   b, sizeof b);
+  if (l <= 0)
+    return 0;
+  buffer_terminal_send (wp->w_bufp, b, l);
+  return 1;
+}
+
 void
 mouse_state::dispatch (Window *wp, WPARAM wparam, LPARAM lparam, int op)
 {
+  if (send_mouse_to_terminal (wp, wparam, lparam, op))
+    return;
+
   Char c;
   static const Char keys[][3] =
     {

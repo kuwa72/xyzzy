@@ -12,9 +12,18 @@
 
    現時点では主要 Unicode block のみカバーする簡易実装。将来 UCD 由来の
    正確な East Asian Width (UAX #11) と General Category (combining) 完全
-   データに差し替える。Ambiguous は常に 1 で返している (従来 xyzzy 流儀の
-   2 選好に合わせるには将来設定化)。                                    */
+   データに差し替える。
 
-int unicode_width (unsigned int cp);
+   UAX #11 の Ambiguous (罫線 U+2500-259F、幾何図形 U+25A0-25FF、矢印
+   U+2190-21FF 等) は locale 依存で Wide / Narrow が変わる。xyzzy は
+   エディタ本文では伝統的に CJK 環境として Wide 扱いにしている。
+
+   ターミナル (src/core/term.cc) はこれを Narrow で引く。向こう側で動く
+   アプリ (npm string-width や wcwidth を使う TUI) が Ambiguous を 1 桁で
+   数えるので、こちらが 2 桁で数えるとカーソル位置が 1 文字ごとにずれ、
+   罫線を使った表やサイドバーが崩れる。 */
+
+int unicode_width (unsigned int cp);              /* Ambiguous = 2 (CJK 流儀) */
+int unicode_width_ex (unsigned int cp, int ambiguous_is_wide);
 
 #endif

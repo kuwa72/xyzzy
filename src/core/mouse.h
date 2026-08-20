@@ -22,14 +22,15 @@ protected:
   static int ms_hidden;
   static HHOOK hhook_mouse;
 
-  enum {DOWN, UP, MOVE};
-
   void click_count (WPARAM, LPARAM);
   void dispatch (Window *, WPARAM, LPARAM, int);
 
   static LRESULT CALLBACK mouse_hook_proc (int, WPARAM, LPARAM);
 
 public:
+  /* dispatch() の op。ターミナルへマウスを流す判定にも使うので public。 */
+  enum {DOWN, UP, MOVE};
+
   void down (Window *, WPARAM, LPARAM, UINT);
   void up (Window *, WPARAM, LPARAM, UINT);
   void move (Window *, WPARAM, LPARAM);
