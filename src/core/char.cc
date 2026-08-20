@@ -331,12 +331,14 @@ lisp
 Fcode_char (lisp code)
 {
   /* A character holds a full code point now, so do not truncate to 16 bits:
-     that is what turned (code-char 128512) into char-code 62976. Values
-     outside Unicode, and the surrogate halves that are not characters in
-     their own right, have no character to name. */
+     that is what turned (code-char 128512) into char-code 62976.
+
+     Every code below char-code-limit names a character, surrogate halves
+     included: buffer text is UTF-16 code units and an unpaired surrogate can
+     turn up in one, so it has to be nameable. Returning nil for those broke
+     charname.l, which walks the whole range. */
   long c = fixnum_value (code);
-  if (c < 0 || c > 0x10FFFF
-      || (c >= 0xD800 && c <= 0xDFFF))
+  if (c < 0 || c >= CHAR_LIMIT)
     return Qnil;
   return make_char (ucs4_t (c));
 }

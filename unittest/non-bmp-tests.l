@@ -15,14 +15,29 @@
   (char-code (code-char #x10FFFF))
   => #x10FFFF)
 
-;; サロゲートの片割れは文字ではない
+;; code-char は char-code-limit 未満のすべてに文字を返す。サロゲートの片割れも
+;; 含む: バッファの本文は UTF-16 の code unit なので片割れが現れうる。
 (deftest non-bmp-code-char-lone-surrogate ()
-  (list (code-char #xD800) (code-char #xDFFF))
-  => (nil nil))
+  (list (char-code (code-char #xD800)) (char-code (code-char #xDFFF)))
+  => (#xD800 #xDFFF))
 
 (deftest non-bmp-code-char-out-of-range ()
-  (code-char #x110000)
-  => nil)
+  (list (code-char char-code-limit) (code-char (1+ char-code-limit)))
+  => (nil nil))
+
+;; charname.l は起動時にこの範囲を歩くので、途中で nil を返すと落ちる。
+;; 全部 (110 万回) 歩くと遅いので、境界の帯だけ見る。
+(deftest non-bmp-code-char-total ()
+  (let ((n 0))
+    (dolist (band (list (cons 0 #x100)                  ; 制御文字と ASCII
+                        (cons #xD700 #xE000)            ; サロゲート域の前後
+                        (cons #xF600 #x10000)           ; 機能キー/メタの領域
+                        (cons #x10000 #x10100)          ; BMP の直後
+                        (cons (- char-code-limit 256) char-code-limit)))
+      (do ((i (car band) (1+ i))) ((>= i (cdr band)))
+        (unless (code-char i) (incf n))))
+    n)
+  => 0)
 
 ;; リーダが 4 バイトの UTF-8 を 1 文字として読むこと
 (deftest non-bmp-literal ()
