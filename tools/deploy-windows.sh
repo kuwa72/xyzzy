@@ -109,8 +109,20 @@ for arch in x86_64 i686; do
   mkdir -p "$out.tmp"
   unzip -q "$zip" -d "$out.tmp"
   inner=$(find "$out.tmp" -mindepth 1 -maxdepth 1 -type d | head -1)
-  rm -rf "$out"
-  mv "${inner:-$out.tmp}" "$out"
+  inner=${inner:-$out.tmp}
+
+  # Replace the *contents*, never the directory.  Removing the directory
+  # itself fails with EACCES whenever anything on the Windows side holds a
+  # handle on it (an Explorer window, a shell sitting in it), and by then the
+  # contents are already gone -- which is how this left an empty xyzzy-amd64
+  # behind once.  Clearing the contents and copying into the existing
+  # directory has no such failure mode.
+  mkdir -p "$out"
+  find "$out" -mindepth 1 -delete 2>/dev/null || {
+    echo "deploy: could not clear $out (a file in it is in use?)" >&2
+    exit 1
+  }
+  cp -r "$inner"/. "$out"/
   rm -rf "$out.tmp"
 
   cp "$zip" "$dest/xyzzy-$version-$sha-llvmmingw-$name.zip"
