@@ -1198,6 +1198,13 @@ set_tests_properties(xyzzy-unit-tests PROPERTIES
 install(TARGETS xyzzy xyzzycli xyzzyenv browser treeview RUNTIME DESTINATION ${XYZZY_BIN_DIR})
 install(TARGETS tail-f RUNTIME DESTINATION ${XYZZY_ETC_DIR})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION ${XYZZY_LISP_DIR} FILES_MATCHING PATTERN "*.l" PATTERN "*.lc")
+# The .lc are not interchangeable between targets (the reader fixes pointer
+# widths while compiling, see lisp/foreign.l), and they live in the shared
+# source tree, so `package` ships whatever the last byte-compile produced --
+# silently, if that was another target.  Ship the stamp that says which one it
+# was so a mismatched package can be told apart from a good one.
+install(FILES ${CMAKE_SOURCE_DIR}/lisp/.bytecompile-arch
+        DESTINATION ${XYZZY_LISP_DIR} OPTIONAL)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION ${XYZZY_ETC_DIR})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION ${XYZZY_DOC_DIR}/reference OPTIONAL)
