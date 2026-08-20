@@ -129,7 +129,11 @@ eval_xyzzysrv_param (xyzzysrv_param *param)
       try
         {
           save_cursor_depth cursor_depth;
-          stream = Fmake_string_input_stream (make_string (param->data), 0, 0);
+          /* xyzzycli sends the S-expression as UTF-8: it takes the file
+             name from GetCommandLineW, and CP932 could not carry every name
+             it might see. ASCII is byte for byte what it was. */
+          stream = Fmake_string_input_stream (make_string_from_utf8 (param->data),
+                                              0, 0);
           lisp obj = Feval (Fread (stream, Qnil, Qnil, Qnil));
           if (wait_object_p (obj)
               && xwait_object_hevent (obj)

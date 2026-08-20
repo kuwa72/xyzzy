@@ -38,32 +38,30 @@ error (int id)
   return 2;
 }
 
-static char *
-stpcpy (char *d, const char *s)
+/* Everything here is UTF-16 -- the command line, the ini, the paths -- because
+   a file name handed to us from Explorer is not necessarily inside the ANSI
+   code page, and reading it with the A entry points turned those characters
+   into '?' before we ever saw them. The S-expression that goes over the shared
+   memory to the running xyzzy is encoded to UTF-8 at the end; for ASCII that
+   is byte for byte what it used to be, and for anything else there was nothing
+   working to stay compatible with. */
+static wchar_t *
+stpcpy (wchar_t *d, const wchar_t *s)
 {
-  while (*d++ = *s++)
+  while ((*d++ = *s++))
     ;
   return d - 1;
 }
 
-static char *
-store (char *d, const char *s)
+static wchar_t *
+store (wchar_t *d, const wchar_t *s)
 {
   *d++ = '"';
   while (*s)
     {
-      if (IsDBCSLeadByte (*s) && s[1])
-        {
-          *d++ = *s++;
-          *d++ = *s++;
-        }
-      else if (*s == '\\' || *s == '"')
-        {
-          *d++ = '\\';
-          *d++ = *s++;
-        }
-      else
-        *d++ = *s++;
+      if (*s == '\\' || *s == '"')
+        *d++ = '\\';
+      *d++ = *s++;
     }
   *d++ = '"';
   return d;
@@ -104,20 +102,16 @@ public:
 };
 
 static int
-create_sexp (xyzzysrv &sv, int ac, char **av)
+create_sexp (xyzzysrv &sv, int ac, wchar_t **av)
 {
-  wchar_t wcurdir[MAX_PATH + 1];
-  GetCurrentDirectoryW (MAX_PATH + 1, wcurdir);
-  char curdir[MAX_PATH + 1];
-  WideCharToMultiByte (932, 0, wcurdir, -1, curdir, sizeof curdir, 0, 0);
-  int l = 256 + lstrlenA (curdir) * 2;
+  wchar_t curdir[MAX_PATH + 1];
+  GetCurrentDirectoryW (MAX_PATH + 1, curdir);
+  int l = 256 + lstrlenW (curdir) * 2;
   for (int i = 0; i < ac; i++)
-    l += lstrlenA (av[i]) * 2 + 3;
+    l += lstrlenW (av[i]) * 2 + 3;
 
-  if (!sv.alloc (l))
-    return 0;
-
-  char *d = stpcpy (sv.data (), "(ed::*xyzzycli-helper ");
+  wchar_t *w = (wchar_t *)_alloca (l * sizeof (wchar_t));
+  wchar_t *d = stpcpy (w, L"(ed::*xyzzycli-helper ");
 
   d = store (d, curdir);
   *d++ = ' ';
@@ -128,6 +122,11 @@ create_sexp (xyzzysrv &sv, int ac, char **av)
   *d++ = ')';
   *d++ = ')';
   *d = 0;
+
+  int nbytes = WideCharToMultiByte (CP_UTF8, 0, w, -1, 0, 0, 0, 0);
+  if (nbytes <= 0 || !sv.alloc (nbytes))
+    return 0;
+  WideCharToMultiByte (CP_UTF8, 0, w, -1, sv.data (), nbytes, 0, 0);
   return 1;
 }
 
@@ -181,13 +180,13 @@ find_server (lookup_server &ls)
 }
 
 static int
-run_xyzzy (int argc, char **argv, const char *xyzzy)
+run_xyzzy (int argc, wchar_t **argv, const wchar_t *xyzzy)
 {
-  int l = lstrlenA (xyzzy) + 1;
-  for (int i = 1; i < argc; l += lstrlenA (argv[i]) + 1, i++)
+  int l = lstrlenW (xyzzy) + 1;
+  for (int i = 1; i < argc; l += lstrlenW (argv[i]) + 1, i++)
     ;
-  char *const cl = (char *)_alloca (l);
-  char *p = stpcpy (cl, xyzzy);
+  wchar_t *const cl = (wchar_t *)_alloca (l * sizeof (wchar_t));
+  wchar_t *p = stpcpy (cl, xyzzy);
   for (int i = 1; i < argc; i++)
     {
       *p++ = ' ';
@@ -195,10 +194,10 @@ run_xyzzy (int argc, char **argv, const char *xyzzy)
     }
 
   PROCESS_INFORMATION pi;
-  STARTUPINFOA si;
+  STARTUPINFOW si;
   memset (&si, 0, sizeof si);
   si.cb = sizeof si;
-  if (!CreateProcessA (0, cl, 0, 0, 0, 0, 0, 0, &si, &pi))
+  if (!CreateProcessW (0, cl, 0, 0, 0, 0, 0, 0, &si, &pi))
     return 0;
   WaitForInputIdle (pi.hProcess, 60000);
   CloseHandle (pi.hProcess);
@@ -221,16 +220,16 @@ wait_term (xyzzysrv &sv)
 }
 
 static int
-skip_args (int argc, char **argv)
+skip_args (int argc, wchar_t **argv)
 {
   int ac;
   for (ac = 1; ac < argc - 1; ac += 2)
-    if (lstrcmpA (argv[ac], "-image")
-        && lstrcmpA (argv[ac], "-config")
-        && lstrcmpA (argv[ac], "-ini"))
+    if (lstrcmpW (argv[ac], L"-image")
+        && lstrcmpW (argv[ac], L"-config")
+        && lstrcmpW (argv[ac], L"-ini"))
       break;
-  if (ac < argc && (!lstrcmpA (argv[ac], "-q")
-                    || !lstrcmpA (argv[ac], "-no-init-file")))
+  if (ac < argc && (!lstrcmpW (argv[ac], L"-q")
+                    || !lstrcmpW (argv[ac], L"-no-init-file")))
     ac++;
   return ac;
 }
@@ -256,7 +255,7 @@ public:
 };
 
 static int
-xmain (int argc, char **argv, const char *xyzzy, int multi_instance)
+xmain (int argc, wchar_t **argv, const wchar_t *xyzzy, int multi_instance)
 {
   MSG msg;
   PostQuitMessage (0);
@@ -307,8 +306,8 @@ xmain (int argc, char **argv, const char *xyzzy, int multi_instance)
   return 0;
 }
 
-static const char *
-skip_white (const char *p)
+static const wchar_t *
+skip_white (const wchar_t *p)
 {
   for (; *p == ' ' || *p == '\t'; p++)
     ;
@@ -319,10 +318,10 @@ skip_white (const char *p)
 #define COPYARGV(X) (ac++, (av ? *av++ = (X) : 0))
 
 static int
-parse_cmdline1 (const char *p, char *&b0, int &ac, char **&av0, int nchars)
+parse_cmdline1 (const wchar_t *p, wchar_t *&b0, int &ac, wchar_t **&av0, int nchars)
 {
-  char *b = b0;
-  char **av = av0;
+  wchar_t *b = b0;
+  wchar_t **av = av0;
   while (1)
     {
       p = skip_white (p);
@@ -359,14 +358,7 @@ parse_cmdline1 (const char *p, char *&b0, int &ac, char **&av0, int nchars)
             break;
 
           if (!ignore)
-            {
-              if (IsDBCSLeadByte (*p) && p[1])
-                {
-                  COPYCHAR (*p);
-                  p++;
-                }
-              COPYCHAR (*p);
-            }
+            COPYCHAR (*p);
           p++;
         }
       COPYCHAR (0);
@@ -377,15 +369,15 @@ parse_cmdline1 (const char *p, char *&b0, int &ac, char **&av0, int nchars)
 }
 
 static int
-notepad_parse_cmdline (const char *p, char *&b0, int &ac, char **&av0, int nchars)
+notepad_parse_cmdline (const wchar_t *p, wchar_t *&b0, int &ac, wchar_t **&av0, int nchars)
 {
-  char *b = b0;
-  char **av = av0;
+  wchar_t *b = b0;
+  wchar_t **av = av0;
   p = skip_white (p);
   if (*p == '/' && (p[1] == 'p' || p[1] == 'P')
       && (p[2] == ' ' || p[2] == '\t' || !p[2]))
     {
-      COPYARGV ("-p");
+      COPYARGV ((wchar_t *)L"-p");
       p = skip_white (p + 2);
     }
   if (*p)
@@ -394,14 +386,7 @@ notepad_parse_cmdline (const char *p, char *&b0, int &ac, char **&av0, int nchar
       do
         {
           if (*p != '"')
-            {
-              if (IsDBCSLeadByte (*p) && p[1])
-                {
-                  COPYCHAR (*p);
-                  p++;
-                }
-              COPYCHAR (*p);
-            }
+            COPYCHAR (*p);
           p++;
         }
       while (*p);
@@ -414,15 +399,15 @@ notepad_parse_cmdline (const char *p, char *&b0, int &ac, char **&av0, int nchar
 
 struct config
 {
-  char xyzzy[MAX_PATH];
-  char pre_opt[1024];
-  char post_opt[1024];
+  wchar_t xyzzy[MAX_PATH];
+  wchar_t pre_opt[1024];
+  wchar_t post_opt[1024];
   int notepad;
   int multi_instance;
 };
 
 static int
-parse_cmdline (const char *p, char *b, int &ac, char **av, const config &cf)
+parse_cmdline (const wchar_t *p, wchar_t *b, int &ac, wchar_t **av, const config &cf)
 {
   int nchars = 0;
   ac = -1;
@@ -432,14 +417,7 @@ parse_cmdline (const char *p, char *b, int &ac, char **av, const config &cf)
   if (*p == '"')
     {
       for (p++; *p && *p != '"'; p++)
-        {
-          if (IsDBCSLeadByte (*p) && p[1])
-            {
-              COPYCHAR (*p);
-              p++;
-            }
-          COPYCHAR (*p);
-        }
+        COPYCHAR (*p);
       COPYCHAR (0);
       if (*p == '"')
         p++;
@@ -447,14 +425,7 @@ parse_cmdline (const char *p, char *b, int &ac, char **av, const config &cf)
   else
     {
       for (; *p && *p != ' ' && *p != '\t'; p++)
-        {
-          if (IsDBCSLeadByte (*p) && p[1])
-            {
-              COPYCHAR (*p);
-              p++;
-            }
-          COPYCHAR (*p);
-        }
+        COPYCHAR (*p);
       COPYCHAR (0);
     }
 
@@ -465,7 +436,7 @@ parse_cmdline (const char *p, char *b, int &ac, char **av, const config &cf)
     }
   else
     {
-      COPYARGV ("-wait");
+      COPYARGV ((wchar_t *)L"-wait");
       nchars = parse_cmdline1 (cf.pre_opt, b, ac, av, nchars);
       nchars = notepad_parse_cmdline (p, b, ac, av, nchars);
     }
@@ -477,45 +448,36 @@ parse_cmdline (const char *p, char *b, int &ac, char **av, const config &cf)
 #undef COPYARGV
 }
 
-static char *
-basename (char *path)
+static wchar_t *
+basename (wchar_t *path)
 {
-  char *base = 0;
-  char *p = path;
-  while (*p)
-    {
-      if (IsDBCSLeadByte (*p) && p[1])
-        p += 2;
-      else
-        {
-          if (*p == '\\')
-            base = p + 1;
-          p++;
-        }
-    }
+  wchar_t *base = 0;
+  for (wchar_t *p = path; *p; p++)
+    if (*p == '\\')
+      base = p + 1;
   return base ? base : path;
 }
 
 static void
 read_config (config &cf)
 {
-  char path[MAX_PATH + 16];
-  GetModuleFileNameA (0, path, MAX_PATH);
-  cf.notepad = !lstrcmpiA (basename (path), "notepad.exe");
-  int l = lstrlenA (path);
-  if (l > 4 && !lstrcmpiA (&path[l - 4], ".exe"))
-    lstrcpyA (&path[l - 3], "ini");
+  wchar_t path[MAX_PATH + 16];
+  GetModuleFileNameW (0, path, MAX_PATH);
+  cf.notepad = !lstrcmpiW (basename (path), L"notepad.exe");
+  int l = lstrlenW (path);
+  if (l > 4 && !lstrcmpiW (&path[l - 4], L".exe"))
+    lstrcpyW (&path[l - 3], L"ini");
   else
-    lstrcpyA (path + l, ".ini");
-  GetPrivateProfileStringA ("xyzzy", "path", "xyzzy.exe",
-                            cf.xyzzy, sizeof cf.xyzzy, path);
+    lstrcpyW (path + l, L".ini");
+  GetPrivateProfileStringW (L"xyzzy", L"path", L"xyzzy.exe",
+                            cf.xyzzy, MAX_PATH, path);
   if (!cf.notepad)
-    cf.notepad = GetPrivateProfileIntA ("xyzzy", "compatNotepad", 0, path);
-  cf.multi_instance = GetPrivateProfileIntA ("xyzzy", "multipleInstances", 0, path);
-  GetPrivateProfileStringA ("xyzzy", "precedingOptions", "",
-                            cf.pre_opt, sizeof cf.pre_opt, path);
-  GetPrivateProfileStringA ("xyzzy", "followingOptions", "",
-                            cf.post_opt, sizeof cf.post_opt, path);
+    cf.notepad = GetPrivateProfileIntW (L"xyzzy", L"compatNotepad", 0, path);
+  cf.multi_instance = GetPrivateProfileIntW (L"xyzzy", L"multipleInstances", 0, path);
+  GetPrivateProfileStringW (L"xyzzy", L"precedingOptions", L"",
+                            cf.pre_opt, 1024, path);
+  GetPrivateProfileStringW (L"xyzzy", L"followingOptions", L"",
+                            cf.post_opt, 1024, path);
 }
 
 int WINAPI
@@ -524,10 +486,11 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
   config cf;
   read_config (cf);
 
-  const char *const cl = GetCommandLineA ();
+  const wchar_t *const cl = GetCommandLineW ();
   int ac;
   int nchars = parse_cmdline (cl, 0, ac, 0, cf);
-  char **av = (char **)_alloca (sizeof *av * (ac + 1) + nchars);
-  parse_cmdline (cl, (char *)(av + ac + 1), ac, av, cf);
+  wchar_t **av = (wchar_t **)_alloca (sizeof *av * (ac + 1)
+                                      + nchars * sizeof (wchar_t));
+  parse_cmdline (cl, (wchar_t *)(av + ac + 1), ac, av, cf);
   ExitProcess (xmain (ac, av, cf.xyzzy, cf.multi_instance));
 }

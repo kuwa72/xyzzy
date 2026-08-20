@@ -464,26 +464,29 @@ void
 cleanup_exception ()
 {
   const char* desc = get_exception_description (Win32Exception::code);
-  char path[PATH_MAX];
-  GetModuleFileNameA (0, path, PATH_MAX);
-  int l = strlen (path);
-  if (l >= 4 && !stricmp (path + l - 4, ".exe"))
-    strcpy (path + l - 4, ".BUG");
+  /* The crash log path is UTF-16: it is next to the exe, and %TEMP% carries
+     the user name, neither of which is guaranteed to fit the ANSI code page.
+     Failing to open the log is the last thing we want here. */
+  wchar_t path[PATH_MAX];
+  GetModuleFileNameW (0, path, PATH_MAX);
+  int l = int (wcslen (path));
+  if (l >= 4 && !_wcsicmp (path + l - 4, L".exe"))
+    wcscpy (path + l - 4, L".BUG");
   else
-    strcat (path, ".BUG");
+    wcscat (path, L".BUG");
 
   char module[1024];
   if (!find_module_name (Win32Exception::r.ExceptionAddress, module))
     *module = 0;
 
-  FILE *fp = fopen (path, "w");
-  if (!fp && GetTempPathA (sizeof path, path))
+  FILE *fp = _wfopen (path, L"w");
+  if (!fp && GetTempPathW (numberof (path), path))
     {
-      char *p = find_last_slash (path);
+      wchar_t *p = find_last_slash_w (path);
       if (!p || p[1])
-        strcat (path, "\\");
-      strcat (path, "xyzzy.BUG");
-      fp = fopen (path, "w");
+        wcscat (path, L"\\");
+      wcscat (path, L"xyzzy.BUG");
+      fp = _wfopen (path, L"w");
     }
   if (fp)
     {
@@ -524,25 +527,29 @@ cleanup_exception ()
       fclose (fp);
     }
 
-  char msg[1024], *p = msg;
-  p += sprintf (p, "\x8f\x64\x91\xe5\x82\xc8\x97\xe1\x8a\x4f(%s)\x82\xaa\x94\xad\x90\xb6\x82\xb5\x82\xdc\x82\xb5\x82\xbd\x81\x42\nat %p",
-                desc, Win32Exception::r.ExceptionAddress);
+  /* Built in UTF-16: the log path goes into it, and that path can hold
+     characters CP932 has no room for. The Japanese used to be CP932 byte
+     escapes here, which is why it went through s2w_u16 on the way out. */
+  wchar_t msg[1024], *p = msg;
+  p += xsnwprintf (p, numberof (msg) - (p - msg),
+                   L"\u91cd\u5927\u306a\u4f8b\u5916(%hs)\u304c\u767a\u751f\u3057\u307e\u3057\u305f\u3002\nat %p",
+                   desc, Win32Exception::r.ExceptionAddress);
   if (*module)
-    p += sprintf (p, " (%s)", module);
+    p += xsnwprintf (p, numberof (msg) - (p - msg), L" (%hs)", module);
   *p++ = '\n';
   *p++ = '\n';
   if (fp)
-    p += sprintf (p,
-                  "\x8e\x9f\x82\xcc\x83\x74\x83\x40\x83\x43\x83\x8b\x82\xf0\x93\x59\x95\x74\x82\xb5\x82\xc4\x8d\xec\x8e\xd2\x82\xc9\x95\xf1\x8d\x90\x82\xb5\x82\xc4\x82\xad\x82\xbe\x82\xb3\x82\xa2\x81\x42\n"
-                  "\n%s\n\n",
-                  path);
-  strcpy (p,
-          "\x82\xe6\x82\xeb\x82\xb5\x82\xaf\x82\xea\x82\xce\x81\x41\x95\xd2\x8f\x57\x92\x86\x82\xcc\x83\x74\x83\x40\x83\x43\x83\x8b\x82\xf0\x8b\x7e\x82\xa6\x82\xe9\x82\xa9\x82\xe0\x82\xb5\x82\xea\x82\xdc\x82\xb9\x82\xf1\x81\x42\n"
-          "\x8e\xa9\x93\xae\x83\x5a\x81\x5b\x83\x75\x82\xb5\x82\xc4\x82\xdd\x82\xdc\x82\xb7\x82\xa9\x81\x48");
+    p += xsnwprintf (p, numberof (msg) - (p - msg),
+                     L"\u6b21\u306e\u30d5\u30a1\u30a4\u30eb\u3092\u6dfb\u4ed8\u3057\u3066"
+                     L"\u4f5c\u8005\u306b\u5831\u544a\u3057\u3066\u304f\u3060\u3055\u3044\u3002\n"
+                     L"\n%ls\n\n",
+                     path);
+  xsnwprintf (p, numberof (msg) - (p - msg),
+              L"\u3088\u308d\u3057\u3051\u308c\u3070\u3001\u7de8\u96c6\u4e2d\u306e\u30d5\u30a1\u30a4\u30eb"
+              L"\u3092\u6551\u3048\u308b\u304b\u3082\u3057\u308c\u307e\u305b\u3093\u3002\n"
+              L"\u81ea\u52d5\u30bb\u30fc\u30d6\u3057\u3066\u307f\u307e\u3059\u304b\uff1f");
 
-  Char wmsg[1024];
-  *s2w_u16 (wmsg, msg) = 0;
-  if (MsgBox (get_active_window (), wmsg, TitleBarStringC,
+  if (MsgBox (get_active_window (), msg, TitleBarStringC,
               MB_ICONHAND | MB_YESNO, 1) != IDYES)
     return;
 

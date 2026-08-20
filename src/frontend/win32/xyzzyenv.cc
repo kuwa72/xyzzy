@@ -4,44 +4,45 @@
 typedef unsigned long u_long;
 typedef unsigned char u_char;
 
-static char *
-skip_token (char *p)
+/* The command line is UTF-16 end to end: xyzzy hands us one built with
+   CreateProcessW, and we hand one to CreateProcessW in turn. Reading it with
+   GetCommandLineA turned every character outside the ANSI code page into '?'.
+   A UTF-16 unit is never the trail byte of a two-byte character either, so
+   the IsDBCSLeadByte steps that used to be here are gone. */
+static wchar_t *
+skip_token (wchar_t *p)
 {
   if (*p == '"')
     {
       for (p++; *p && *p != '"'; p++)
-        {
-          if (IsDBCSLeadByte (*p) && p[1])
-            p++;
-        }
+        ;
       if (*p == '"')
         p++;
     }
   else
     {
       for (; *p && *p != ' ' && *p != '\t'; p++)
-        if (IsDBCSLeadByte (*p) && p[1])
-          p++;
+        ;
     }
   return p;
 }
 
-static char *
-skip_white (char *p)
+static wchar_t *
+skip_white (wchar_t *p)
 {
   for (; *p == ' ' || *p == '\t'; p++)
     ;
   return p;
 }
 
-static char *
-split (char *&beg)
+static wchar_t *
+split (wchar_t *&beg)
 {
-  char *p = skip_token (beg);
+  wchar_t *p = skip_token (beg);
   if (*beg == '"')
     {
       beg++;
-      if (*CharPrevA (beg, p) == '"')
+      if (p > beg && p[-1] == '"')
         p[-1] = 0;
     }
   else if (*p)
@@ -49,15 +50,15 @@ split (char *&beg)
   return skip_white (p);
 }
 
-static char *
-split (char *&beg, int &l)
+static wchar_t *
+split (wchar_t *&beg, int &l)
 {
-  char *p = skip_token (beg);
+  wchar_t *p = skip_token (beg);
   if (*beg == '"')
     {
       beg++;
       l = p - beg;
-      if (*CharPrevA (beg, p) == '"')
+      if (p > beg && p[-1] == '"')
         l--;
     }
   else
@@ -66,7 +67,7 @@ split (char *&beg, int &l)
 }
 
 static u_long
-parse_long (const char *p)
+parse_long (const wchar_t *p)
 {
   u_long val = 0;
   for (; *p >= '0' && *p <= '9'; p++)
@@ -81,83 +82,89 @@ char_upcase (int c)
 }
 
 static int
-bcasecmp (const void *b1, const void *b2, int size)
+wcasecmp (const wchar_t *p, const wchar_t *q, int size)
 {
-  const u_char *p = (const u_char *)b1, *const pe = p + size;
-  const u_char *q = (const u_char *)b2;
+  const wchar_t *const pe = p + size;
   int f;
   for (f = 0; p < pe && !(f = char_upcase (*p) - char_upcase (*q)); p++, q++)
     ;
   return f;
 }
 
+/* Write the diagnostic as UTF-8 bytes: the console handle may be redirected
+   into a pipe that xyzzy reads, and that side expects bytes. */
 static void
-doprint (const char *fmt, ...)
+doprint (const wchar_t *fmt, ...)
 {
-  char buf[1024];
+  wchar_t buf[1024];
   va_list ap;
   va_start (ap, fmt);
-  wvsprintfA (buf, fmt, ap);
+  wvsprintfW (buf, fmt, ap);
   va_end (ap);
-  DWORD n;
-  WriteFile (GetStdHandle (STD_ERROR_HANDLE), buf, lstrlenA (buf), &n, 0);
+  char mb[1024 * 4];
+  int l = WideCharToMultiByte (CP_UTF8, 0, buf, -1, mb, sizeof mb, 0, 0);
+  if (l > 0)
+    {
+      DWORD n;
+      WriteFile (GetStdHandle (STD_ERROR_HANDLE), mb, l - 1, &n, 0);
+    }
 }
 
 static void
-syserror (int e, char *buf, int size)
+syserror (int e, wchar_t *buf, int size)
 {
-  if (!FormatMessageA ((FORMAT_MESSAGE_FROM_SYSTEM
+  if (!FormatMessageW ((FORMAT_MESSAGE_FROM_SYSTEM
                        | FORMAT_MESSAGE_IGNORE_INSERTS
                        | FORMAT_MESSAGE_MAX_WIDTH_MASK),
                       0, e, GetUserDefaultLangID (),
                       buf, size, 0))
-    wsprintfA (buf, "error %d", e);
+    wsprintfW (buf, L"error %d", e);
 }
 
 static int
-cmdmatch (const char *p, const char *pe, const char *s)
+cmdmatch (const wchar_t *p, const wchar_t *pe, const wchar_t *s)
 {
-  if (pe - p >= 4 && (!bcasecmp (pe - 4, ".exe", 4)
-                      || !bcasecmp (pe - 4, ".com", 4)))
+  if (pe - p >= 4 && (!wcasecmp (pe - 4, L".exe", 4)
+                      || !wcasecmp (pe - 4, L".com", 4)))
     pe -= 4;
-  int l = lstrlenA (s);
-  return pe - p >= l && !bcasecmp (pe - l, s, l);
+  int l = lstrlenW (s);
+  return pe - p >= l && !wcasecmp (pe - l, s, l);
 }
 
 static void
-set_title (char *cmd)
+set_title (wchar_t *cmd)
 {
   int cmdl;
-  char *opt = split (cmd, cmdl);
-  if (cmdmatch (cmd, cmd + cmdl, "cmd")
-      || cmdmatch (cmd, cmd + cmdl, "command"))
+  wchar_t *opt = split (cmd, cmdl);
+  if (cmdmatch (cmd, cmd + cmdl, L"cmd")
+      || cmdmatch (cmd, cmd + cmdl, L"command"))
     {
       int optl;
-      char *arg = split (opt, optl);
-      if (optl == 2 && !bcasecmp (opt, "/c", 2))
+      wchar_t *arg = split (opt, optl);
+      if (optl == 2 && !wcasecmp (opt, L"/c", 2))
         {
           cmd = arg;
           split (cmd, cmdl);
         }
     }
 
-  char *title = (char *)_alloca (cmdl + 1);
-  memcpy (title, cmd, cmdl);
+  wchar_t *title = (wchar_t *)_alloca ((cmdl + 1) * sizeof (wchar_t));
+  memcpy (title, cmd, cmdl * sizeof (wchar_t));
   title[cmdl] = 0;
-  SetConsoleTitleA (title);
+  SetConsoleTitleW (title);
 }
 
 int
 main (void)
 {
-  char buf[256];
-  char *myname = skip_white (GetCommandLineA ());
-  char *opt = split (myname);
+  wchar_t buf[256];
+  wchar_t *myname = skip_white (GetCommandLineW ());
+  wchar_t *opt = split (myname);
   WORD show = 0;
-  char *event;
-  if (!strncmp (opt, "-s", 2))
+  wchar_t *event;
+  if (!wcsncmp (opt, L"-s", 2))
     {
-      if (strlen (opt) > 2)
+      if (lstrlenW (opt) > 2)
         show = static_cast <WORD> (parse_long (opt + 2));
       event = split (opt);
     }
@@ -165,9 +172,9 @@ main (void)
     {
       event = opt;
     }
-  char *cmdline = split (event);
-  char *dir = 0;
-  int no_events = !lstrcmpA (event, "--");
+  wchar_t *cmdline = split (event);
+  wchar_t *dir = 0;
+  int no_events = !lstrcmpW (event, L"--");
 
   if (no_events)
     {
@@ -178,7 +185,7 @@ main (void)
   set_title (cmdline);
 
   PROCESS_INFORMATION pi;
-  STARTUPINFOA si = {sizeof si};
+  STARTUPINFOW si = {sizeof si};
 
   si.dwFlags = STARTF_USESTDHANDLES;
   if (show)
@@ -190,11 +197,11 @@ main (void)
   si.hStdOutput = GetStdHandle (STD_OUTPUT_HANDLE);
   si.hStdError = GetStdHandle (STD_ERROR_HANDLE);
 
-  if (!CreateProcessA (0, cmdline, 0, 0, 1, CREATE_NEW_PROCESS_GROUP,
+  if (!CreateProcessW (0, cmdline, 0, 0, 1, CREATE_NEW_PROCESS_GROUP,
                        0, dir, &si, &pi))
     {
-      syserror (GetLastError (), buf, sizeof buf);
-      doprint ("%s: %s: %s\n", myname, cmdline, buf);
+      syserror (GetLastError (), buf, sizeof buf / sizeof *buf);
+      doprint (L"%ls: %ls: %ls\n", myname, cmdline, buf);
       ExitProcess (2);
     }
 
@@ -204,8 +211,8 @@ main (void)
     {
       if (WaitForSingleObject (pi.hProcess, INFINITE) == WAIT_FAILED)
         {
-          syserror (GetLastError (), buf, sizeof buf);
-          doprint ("%s: %s\n", myname, buf);
+          syserror (GetLastError (), buf, sizeof buf / sizeof *buf);
+          doprint (L"%ls: %ls\n", myname, buf);
           ExitProcess (2);
         }
     }
@@ -221,8 +228,8 @@ main (void)
           DWORD r = WaitForMultipleObjects (2, objects, 0, INFINITE);
           if (r == WAIT_FAILED)
             {
-              syserror (GetLastError (), buf, sizeof buf);
-              doprint ("%s: %s\n", myname, buf);
+              syserror (GetLastError (), buf, sizeof buf / sizeof *buf);
+              doprint (L"%ls: %ls\n", myname, buf);
               ExitProcess (2);
             }
           if (r == WAIT_OBJECT_0 + 1)
