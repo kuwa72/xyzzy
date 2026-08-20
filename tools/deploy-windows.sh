@@ -5,8 +5,12 @@
 #
 #   tools/deploy-windows.sh [DEST]
 #
-# DEST defaults to /mnt/c/Users/$USER/Downloads/xyzzy-latest, override it when
-# the Windows user name differs from the WSL one.
+# DEST is where the flattened per-arch folders go.  With no argument it comes
+# from $XYZZY_DEPLOY_DEST, and failing that from the Windows %USERPROFILE%
+# asked of cmd.exe -- *not* from $USER.  The WSL account name and the Windows
+# account name are often different (kuwa72 vs ykuwa here), and guessing from
+# $USER made the script try to mkdir a second user directory under
+# /mnt/c/Users, which is not writable.
 #
 # Why a script: the .lc files are architecture dependent (pointer width is
 # baked in at byte compile time) and CPack installs them from the *shared*
@@ -17,15 +21,60 @@
 # whether a .l is newer than its .lc.
 set -euo pipefail
 
+# Resolve DEST before cd, so a relative argument means what the caller meant.
+dest_arg=${1:-}
+if [ -n "$dest_arg" ]; then
+  dest=$(cd "$(dirname "$dest_arg")" 2>/dev/null && pwd)/$(basename "$dest_arg") \
+    || dest=$dest_arg
+fi
+
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
-dest=${1:-/mnt/c/Users/$USER/Downloads/xyzzy-latest}
+# Ask Windows for its own profile directory and translate it to a /mnt path.
+windows_downloads() {
+  local up
+  up=$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r\n') || return 1
+  case $up in
+    [A-Za-z]:\\*) ;;
+    *) return 1 ;;
+  esac
+  local drive=${up%%:*}
+  local rest=${up#*:}
+  printf '/mnt/%s%s/Downloads' \
+    "$(printf '%s' "$drive" | tr 'A-Z' 'a-z')" \
+    "$(printf '%s' "$rest" | tr '\\' '/')"
+}
+
+if [ -z "${dest:-}" ]; then
+  dest=${XYZZY_DEPLOY_DEST:-}
+fi
+if [ -z "$dest" ]; then
+  dl=$(windows_downloads) || dl=""
+  [ -n "$dl" ] && dest=$dl/xyzzy-latest
+fi
+if [ -z "$dest" ]; then
+  echo "deploy: could not work out where to deploy." >&2
+  echo "deploy: pass it, or set XYZZY_DEPLOY_DEST, e.g." >&2
+  echo "deploy:   tools/deploy-windows.sh /mnt/c/Users/<you>/Downloads/xyzzy-latest" >&2
+  exit 1
+fi
+
+# Only ever create the leaf.  Creating parents would mean the path is wrong
+# (a mistyped or guessed user name), and /mnt/c/Users is not writable anyway.
+if [ ! -d "$dest" ]; then
+  parent=$(dirname "$dest")
+  if [ ! -d "$parent" ]; then
+    echo "deploy: $parent does not exist -- is $dest the right place?" >&2
+    exit 1
+  fi
+  mkdir "$dest"
+fi
+echo "### deploying to $dest"
+
 sha=$(git rev-parse --short HEAD)
 version=$(sed -n 's/^project(.*VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt | head -1)
 [ -n "$version" ] || { echo "deploy: could not read the version out of CMakeLists.txt" >&2; exit 1; }
-
-[ -d "$dest" ] || mkdir -p "$dest"
 
 # arch -> name used in the deployed directory and the zip
 declare -A label=([x86_64]=amd64 [i686]=x86)
