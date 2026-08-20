@@ -2416,8 +2416,70 @@ pick_terminal_font (HDC hdc, ucs4_t cp, int wide)
   return pick;
 }
 
+/* 同じ属性が続くセルをまとめて 1 回の ExtTextOutW で描くための入れ物。
+
+   以前は 1 セルごとに SelectObject / SetTextColor / SetBkColor /
+   ExtTextOutW を呼んでいた。80x50 で 1 回の再描画に GDI 呼び出しが 4000
+   組。ホイールやドラッグが目に見えて遅かったのはこれ。本文描画側は元から
+   同属性の連続をまとめて lpDx (セルごとの送り幅) を渡しているので、
+   そちらに揃える。
+
+   lpDx を渡すのが要点で、これが無いとフォント本来の送り幅で並んでしまい
+   全角と半角が混ざった行でずれる。セル 1 個の送り幅を dx に入れ、
+   surrogate pair の 2 個目は 0 にする。 */
+struct term_run
+{
+  enum { MAX = 512 };
+  wchar_t buf[MAX];
+  INT dx[MAX];
+  int n;            /* buf に入っている wchar 数 */
+  int x, y, w;      /* run の左上と幅 (px) */
+  COLORREF fg, bg;
+  int role;
+  uint8_t attrs;
+
+  void start (int px, int py, COLORREF f, COLORREF b, int rl, uint8_t at)
+    { n = 0; x = px; y = py; w = 0; fg = f; bg = b; role = rl; attrs = at; }
+  int matches (COLORREF f, COLORREF b, int rl, uint8_t at) const
+    { return n && fg == f && bg == b && role == rl && attrs == at; }
+  int room (int need) const { return n + need <= MAX; }
+};
+
+static void
+flush_term_run (HDC hdc, Painter &painter, term_run &run, int cellh)
+{
+  if (!run.n)
+    return;
+
+  const FontObject &f = app.text_font.font (run.role);
+  HGDIOBJ of = SelectObject (hdc, f);
+  COLORREF ofg = SetTextColor (hdc, run.fg);
+  COLORREF obg = SetBkColor (hdc, run.bg);
+  RECT rc = { run.x, run.y, run.x + run.w, run.y + cellh };
+  ExtTextOutW (hdc, run.x + f.offset ().x, run.y + f.offset ().y,
+               ETO_OPAQUE | ETO_CLIPPED, &rc, run.buf, run.n, run.dx);
+  if (run.attrs & TATTR_BOLD)
+    {
+      /* 1px ずらして重ね描き (本文側と同じ太字の作り方)。 */
+      int om = SetBkMode (hdc, TRANSPARENT);
+      ExtTextOutW (hdc, run.x + f.offset ().x + 1, run.y + f.offset ().y,
+                   ETO_CLIPPED, &rc, run.buf, run.n, run.dx);
+      SetBkMode (hdc, om);
+    }
+  SetBkColor (hdc, obg);
+  SetTextColor (hdc, ofg);
+  SelectObject (hdc, of);
+
+  if (run.attrs & TATTR_UNDERLINE)
+    painter.draw_hline (run.x, run.x + run.w, run.y + cellh - 1, run.fg);
+  if (run.attrs & TATTR_STRIKE)
+    painter.draw_hline (run.x, run.x + run.w, run.y + cellh / 2, run.fg);
+
+  run.n = 0;
+}
+
 void
-Window::paint_terminal (Painter &painter, Terminal *term)
+Window::paint_terminal (Painter &painter, Terminal *term, int force)
 {
   /* issue #13 step 3g: terminal grid rendering via Painter. The terminal
      itself (Terminal, an escape-sequence parser / virtual screen in
@@ -2445,21 +2507,68 @@ Window::paint_terminal (Painter &painter, Terminal *term)
       def_bg = RGB ((ov >> 16) & 0xff, (ov >> 8) & 0xff, ov & 0xff);
   }
 
+  HDC hdc = static_cast <Win32Painter &> (painter).hdc ();
+
+  /* 前回描いた格子。行ごとに比べて、変わっていない行は描かない。
+     WM_PAINT で呼ばれたときは DC の内容が失われているので force で全面。
+     格子の寸法が変わったら作り直して全面。 */
+  int shadow_ok = (w_term_shadow
+                   && w_term_shadow_rows == w_ch_max.cy
+                   && w_term_shadow_cols == w_ch_max.cx
+                   && !force);
+  if (!w_term_shadow
+      || w_term_shadow_rows != w_ch_max.cy
+      || w_term_shadow_cols != w_ch_max.cx)
+    {
+      free (w_term_shadow);
+      w_term_shadow_rows = w_ch_max.cy;
+      w_term_shadow_cols = w_ch_max.cx;
+      size_t n = size_t (w_term_shadow_rows) * size_t (w_term_shadow_cols);
+      w_term_shadow = (TermCell *)malloc (n * sizeof (TermCell));
+      if (w_term_shadow)
+        memset (w_term_shadow, 0xff, n * sizeof (TermCell));  /* 必ず不一致 */
+      shadow_ok = 0;
+    }
+
+  /* カーソルは InvertRect で後から重ねるので、抜けた行と入った行は
+     内容が同じでも描き直さないと反転が残る。 */
+  int cur_r = term->cursor_row ();
+  int old_r = w_term_shadow_cursor_row;
+
   for (int r = 0; r < w_ch_max.cy; r++)
     {
       int py = r * cellh;
-      for (int c = 0; c < w_ch_max.cx; )
+
+      /* この行の見た目を作るセル列を集める (格子の外は既定色の空白)。 */
+      TermCell *shadow_row = (w_term_shadow
+                              ? w_term_shadow + size_t (r) * w_term_shadow_cols
+                              : 0);
+      TermCell rowbuf[1024];
+      int rown = int (w_ch_max.cx) < int (numberof (rowbuf))
+                 ? int (w_ch_max.cx) : int (numberof (rowbuf));
+      for (int c = 0; c < rown; c++)
         {
           if (r >= trows || c >= tcols)
             {
-              // Beyond terminal grid — fill with background
-              int x = c * cellw + cellw / 2;
-              painter.fill_rect (x, py, w_client.cx - x, cellh, def_bg);
-              c = w_ch_max.cx;
-              continue;
+              rowbuf[c].ch = 0;
+              rowbuf[c].fg = TCOLOR_DEFAULT;
+              rowbuf[c].bg = TCOLOR_DEFAULT;
+              rowbuf[c].attrs = 0;
+              rowbuf[c].wide = 0;
             }
+          else
+            rowbuf[c] = *term->display_cell (r, c);
+        }
 
-          const TermCell *tc = term->display_cell (r, c);
+      if (shadow_ok && shadow_row && r != cur_r && r != old_r
+          && !memcmp (shadow_row, rowbuf, rown * sizeof (TermCell)))
+        continue;
+
+      term_run run;
+      run.n = 0;
+      for (int c = 0; c < rown; )
+        {
+          const TermCell *tc = &rowbuf[c];
           if (tc->wide == 2)
             { c++; continue; }
 
@@ -2480,54 +2589,56 @@ Window::paint_terminal (Painter &painter, Terminal *term)
                          : term_color_to_rgb (term, bg_c));
 
           if (attrs & TATTR_DIM)
-            {
-              fg = RGB(GetRValue(fg)/2, GetGValue(fg)/2, GetBValue(fg)/2);
-            }
+            fg = RGB (GetRValue (fg) / 2, GetGValue (fg) / 2, GetBValue (fg) / 2);
           if (attrs & TATTR_INVISIBLE)
             fg = bg;
 
-          int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
+          int cw = (tc->wide == 1) ? 2 : 1;
 
           /* TermCell::ch は code point。GDI に渡すのは UTF-16 なので、
              BMP 外は surrogate pair の 2 単位にする。 */
           ucs4_t ich = tc->ch;
-          Char wc[2];
+          wchar_t wc[2];
           int wcl = 1;
           if (ich == 0 || ich == ' ')
-            wc[0] = ' ';
+            wc[0] = L' ';
           else if (ich < 0x10000)
-            wc[0] = Char (ich);
+            wc[0] = wchar_t (ich);
           else
             {
-              wc[0] = utf16_ucs4_to_pair_high (ich);
-              wc[1] = utf16_ucs4_to_pair_low (ich);
+              wc[0] = wchar_t (utf16_ucs4_to_pair_high (ich));
+              wc[1] = wchar_t (utf16_ucs4_to_pair_low (ich));
               wcl = 2;
             }
 
+          int role = pick_terminal_font (hdc, ich, tc->wide == 1);
           int px = c * cellw + cellw / 2;
-          RECT rc = { px, py, px + cw * cellw, py + cellh };
 
-          int role = pick_terminal_font (static_cast <Win32Painter &> (painter).hdc (),
-                                      ich, tc->wide == 1);
-          const FontObject &cell_font = app.text_font.font (role);
-          painter.draw_text_chars (px + cell_font.offset ().x,
-                                   py + cell_font.offset ().y,
-                                   wc, wcl, fg, bg, role, &rc, true);
-
-          if (attrs & TATTR_UNDERLINE)
-            painter.draw_hline (px, px + cw * cellw, py + cellh - 1, fg);
-
-          if (attrs & TATTR_STRIKE)
-            painter.draw_hline (px, px + cw * cellw, py + cellh / 2, fg);
-
-          if (attrs & TATTR_BOLD)
-            // Draw again offset by 1 pixel for bold effect (transparent)
-            painter.draw_text_chars (px + cell_font.offset ().x + 1,
-                                     py + cell_font.offset ().y,
-                                     wc, wcl, fg, bg, role, &rc, false);
+          if (!run.matches (fg, bg, role, attrs) || !run.room (wcl)
+              || run.x + run.w != px)
+            {
+              flush_term_run (hdc, painter, run, cellh);
+              run.start (px, py, fg, bg, role, attrs);
+            }
+          for (int i = 0; i < wcl; i++)
+            {
+              run.buf[run.n] = wc[i];
+              run.dx[run.n] = (i == 0) ? cw * cellw : 0;
+              run.n++;
+            }
+          run.w += cw * cellw;
 
           c += cw;
         }
+      flush_term_run (hdc, painter, run, cellh);
+
+      /* 右端に余りがあれば既定色で埋める (格子より窓が広いとき)。 */
+      int painted = rown * cellw + cellw / 2;
+      if (painted < w_client.cx)
+        painter.fill_rect (painted, py, w_client.cx - painted, cellh, def_bg);
+
+      if (shadow_row)
+        memcpy (shadow_row, rowbuf, rown * sizeof (TermCell));
     }
 
   // Draw cursor — InvertRect has no neutral Painter equivalent; use the
@@ -2541,6 +2652,13 @@ Window::paint_terminal (Painter &painter, Terminal *term)
       int cpy = cr * cellh;
       RECT crc = { cpx, cpy, cpx + cellw, cpy + cellh };
       InvertRect (static_cast <Win32Painter &> (painter).hdc (), &crc);
+      w_term_shadow_cursor_row = cr;
+      w_term_shadow_cursor_col = cc;
+    }
+  else
+    {
+      w_term_shadow_cursor_row = -1;
+      w_term_shadow_cursor_col = -1;
     }
 
   // Fill area below terminal rows
@@ -2550,10 +2668,10 @@ Window::paint_terminal (Painter &painter, Terminal *term)
 
 /* issue #13 step 3g: HDC entry point wraps the Painter& version. */
 void
-Window::paint_terminal (HDC hdc, Terminal *term)
+Window::paint_terminal (HDC hdc, Terminal *term, int force)
 {
   Win32Painter painter (hdc, 0);
-  paint_terminal (painter, term);
+  paint_terminal (painter, term, force);
 }
 
 int
@@ -2578,7 +2696,7 @@ Window::refresh_terminal (int f)
   // Always repaint terminal (it's cheap compared to glyph diffing)
   {
     HDC hdc = GetDC (w_hwnd);
-    paint_terminal (hdc, term);
+    paint_terminal (hdc, term, 0);
     ReleaseDC (w_hwnd, hdc);
     term->clear_dirty ();
   }
@@ -2745,7 +2863,8 @@ Window::update_window ()
         {
           PAINTSTRUCT ps;
           HDC hdc = BeginPaint (w_hwnd, &ps);
-          paint_terminal (hdc, term);
+          /* WM_PAINT では DC の内容が失われているので全面描き直す。 */
+          paint_terminal (hdc, term, 1);
           EndPaint (w_hwnd, &ps);
           return;
         }

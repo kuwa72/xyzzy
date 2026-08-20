@@ -380,6 +380,11 @@ Window::init (int minibufp, int temporary)
   bzero (&w_clsize, sizeof w_clsize);
   bzero (&w_ech, sizeof w_ech);
   w_colors = default_colors;
+  w_term_shadow = 0;
+  w_term_shadow_rows = 0;
+  w_term_shadow_cols = 0;
+  w_term_shadow_cursor_row = -1;
+  w_term_shadow_cursor_col = -1;
   w_inverse_mode_line = 0;
   w_ime_mode_line = 0;
 
@@ -507,6 +512,8 @@ Window::Window (int minibufp, int temporary)
 
 Window::~Window ()
 {
+  free (w_term_shadow);
+  w_term_shadow = 0;
   if (windowp (lwp))
     xwindow_wp (lwp) = 0;
   if (IsWindow (w_hwnd))

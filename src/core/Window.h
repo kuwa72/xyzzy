@@ -486,6 +486,16 @@ struct Window
 
   Glyphs w_glyphs;
 
+  /* ターミナル描画の前回内容 (行単位の差分判定用)。paint_terminal は
+     以前「全部安いから毎回全面塗り直す」としていたが、セル 1 個ごとに
+     ExtTextOutW を呼ぶので全く安くなかった。変わった行だけ描くために
+     前回描いた格子をここに持つ。TermCell は term.h。 */
+  struct TermCell *w_term_shadow;
+  int w_term_shadow_rows;
+  int w_term_shadow_cols;
+  int w_term_shadow_cursor_row;
+  int w_term_shadow_cursor_col;
+
   Buffer::selection_type w_selection_type;
   point_t w_selection_point;
   point_t w_selection_marker;
@@ -574,8 +584,10 @@ struct Window
   void paint_window (HDC) const;
   void paint_region (struct Painter &, int, int) const;
   void paint_region (HDC, int, int) const;
-  void paint_terminal (struct Painter &, class Terminal *);  // issue #13 step 3g
-  void paint_terminal (HDC, class Terminal *);               // wraps the Painter& one
+  /* force: 1 = 全面描き直す (WM_PAINT。DC の内容が失われている)。
+     0 = 前回描いた格子と比べて、変わった行だけ描く。 */
+  void paint_terminal (struct Painter &, class Terminal *, int force);
+  void paint_terminal (HDC, class Terminal *, int force);
   int refresh_terminal (int f);
   void find_motion () const;
   void redraw_window (Point &, long, int, int) const;
