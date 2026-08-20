@@ -658,6 +658,7 @@
 (si::defun-builtin terminal-send-key (process key))
 (si::defun-builtin terminal-scroll-back (process delta))
 (si::defun-builtin terminal-scrollback-line (process index))
+(si::defun-builtin *terminal-feed-for-test (rows cols string))
 (si::defun-builtin load-ts-grammar (dll-path lang-name))
 (si::defun-builtin ts-query-buffer (grammar query &optional buffer))
 (si::defun-builtin ts-grammar-p (object))

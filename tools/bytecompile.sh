@@ -83,6 +83,14 @@ echo "----- xyzzy-batch output (exit $status) -----"
 cat "$log" || true
 echo "---------------------------------------------"
 
+# And again afterwards, for a different reason: xyzzy-batch writes the dump at
+# *startup*, i.e. before it compiles anything, so the image it leaves behind
+# holds the Lisp state built from the *previous* .lc set.  It is newer than the
+# exe, so the staleness guards above accept it, and every later run silently
+# preloads the old state -- a changed builtin.l or defvar appears to have no
+# effect.  The image is only a cache; dropping it costs one slow startup.
+rm -f "$build"/*.wxp
+
 count=$(find "$root/lisp" -name '*.lc' | wc -l)
 echo "bytecompile.sh: $count .lc file(s) present"
 

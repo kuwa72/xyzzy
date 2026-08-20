@@ -6,6 +6,7 @@
 #include "term.h"
 
 #include <string.h>
+#include <ctype.h>
 
 /* 文字幅は eaw.cc の unicode_width() を使う。以前ここに term_wcwidth という
    同じ用途の表が別にあったが、BMP しか見ておらず buffer 表示側とも食い違って
@@ -25,7 +26,8 @@ Terminal::clear_cell (TermCell *c)
 void
 Terminal::clear_cell_default (TermCell *c)
 {
-  c->ch = 0; c->fg = 0; c->bg = 0; c->attrs = 0; c->wide = 0;
+  c->ch = 0; c->fg = TCOLOR_DEFAULT; c->bg = TCOLOR_DEFAULT;
+  c->attrs = 0; c->wide = 0;
 }
 
 Terminal::Terminal (int rows, int cols)
@@ -33,8 +35,9 @@ Terminal::Terminal (int rows, int cols)
       t_cur_row (0), t_cur_col (0),
       t_scroll_top (0), t_scroll_bottom (rows - 1),
       t_saved_row (0), t_saved_col (0),
-      t_saved_fg (0), t_saved_bg (0), t_saved_attrs (0),
-      t_fg (0), t_bg (0), t_attrs (0),
+      t_saved_fg (TCOLOR_DEFAULT), t_saved_bg (TCOLOR_DEFAULT),
+      t_saved_attrs (0),
+      t_fg (TCOLOR_DEFAULT), t_bg (TCOLOR_DEFAULT), t_attrs (0),
       t_state (TS_NORMAL), t_nparam (0), t_intermediate (0),
       t_utf8_acc (0), t_utf8_remain (0),
       t_alt_active (0), t_cursor_visible (1),
@@ -43,8 +46,9 @@ Terminal::Terminal (int rows, int cols)
       t_scrollback (0), t_scrollback_cols (cols),
       t_scrollback_count (0), t_scrollback_head (0),
       t_scrollback_offset (0),
-      t_dirty (1)
+      t_dirty (1), t_palette (0), t_osc_len (0)
 {
+  memset (t_param_colon, 0, sizeof t_param_colon);
   int total = rows * cols;
   t_screen = new TermCell[total];
   t_alt_screen = new TermCell[total];
@@ -65,6 +69,7 @@ Terminal::~Terminal ()
   delete[] t_alt_screen;
   delete[] t_tabs;
   delete[] t_scrollback;
+  delete[] t_palette;
 }
 
 void
@@ -369,7 +374,7 @@ Terminal::handle_sgr ()
 {
   if (t_nparam == 0)
     {
-      t_fg = 0; t_bg = 0; t_attrs = 0;
+      t_fg = TCOLOR_DEFAULT; t_bg = TCOLOR_DEFAULT; t_attrs = 0;
       return;
     }
 
@@ -378,58 +383,103 @@ Terminal::handle_sgr ()
       int p = t_params[i];
       switch (p)
         {
-        case 0:  t_fg = 0; t_bg = 0; t_attrs = 0; break;
+        case 0:  t_fg = TCOLOR_DEFAULT; t_bg = TCOLOR_DEFAULT; t_attrs = 0; break;
         case 1:  t_attrs |= TATTR_BOLD; break;
         case 2:  t_attrs |= TATTR_DIM; break;
+        case 3:  t_attrs |= TATTR_ITALIC; break;
         case 4:  t_attrs |= TATTR_UNDERLINE; break;
         case 7:  t_attrs |= TATTR_REVERSE; break;
         case 8:  t_attrs |= TATTR_INVISIBLE; break;
+        case 9:  t_attrs |= TATTR_STRIKE; break;
+        case 21: t_attrs &= ~TATTR_BOLD; break;   /* 二重下線は未対応 */
         case 22: t_attrs &= ~(TATTR_BOLD | TATTR_DIM); break;
+        case 23: t_attrs &= ~TATTR_ITALIC; break;
         case 24: t_attrs &= ~TATTR_UNDERLINE; break;
         case 27: t_attrs &= ~TATTR_REVERSE; break;
         case 28: t_attrs &= ~TATTR_INVISIBLE; break;
+        case 29: t_attrs &= ~TATTR_STRIKE; break;
 
         case 30: case 31: case 32: case 33:
         case 34: case 35: case 36: case 37:
-          t_fg = p - 30 + 1; break;
-        case 39: t_fg = 0; break;
+          t_fg = TCOLOR_INDEXED | (p - 30); break;
+        case 39: t_fg = TCOLOR_DEFAULT; break;
 
         case 40: case 41: case 42: case 43:
         case 44: case 45: case 46: case 47:
-          t_bg = p - 40 + 1; break;
-        case 49: t_bg = 0; break;
+          t_bg = TCOLOR_INDEXED | (p - 40); break;
+        case 49: t_bg = TCOLOR_DEFAULT; break;
 
         case 90: case 91: case 92: case 93:
         case 94: case 95: case 96: case 97:
-          t_fg = p - 90 + 9; break;
+          t_fg = TCOLOR_INDEXED | (p - 90 + 8); break;
 
         case 100: case 101: case 102: case 103:
         case 104: case 105: case 106: case 107:
-          t_bg = p - 100 + 9; break;
+          t_bg = TCOLOR_INDEXED | (p - 100 + 8); break;
 
-        case 38: // 256-color fg
-          if (i + 2 < t_nparam && t_params[i + 1] == 5)
-            {
-              int c = t_params[i + 2];
-              // Store as 17+ for extended colors (0-255 → 17-272)
-              if (c < 8) t_fg = c + 1;
-              else if (c < 16) t_fg = c - 8 + 9;
-              else t_fg = c + 17;
-              i += 2;
-            }
-          break;
-        case 48: // 256-color bg
-          if (i + 2 < t_nparam && t_params[i + 1] == 5)
-            {
-              int c = t_params[i + 2];
-              if (c < 8) t_bg = c + 1;
-              else if (c < 16) t_bg = c - 8 + 9;
-              else t_bg = c + 17;
-              i += 2;
-            }
-          break;
+        case 38: i = parse_sgr_color (i, &t_fg); break;
+        case 48: i = parse_sgr_color (i, &t_bg); break;
+
+        /* 5 (blink) / 6 (rapid blink) / 25 (blink off) / 53 (overline) /
+           55 (overline off) は受け取って捨てる。属性を持たないので描画に
+           影響しないが、param として食っておかないと後続が色指定に化ける。 */
+        case 5: case 6: case 25: case 53: case 55: break;
         }
     }
+}
+
+/* SGR 38 / 48 の色指定を読む。i は 38/48 自身の位置。消費した最後の
+   param の index を返す (呼び元の for が ++ する)。
+
+   形式は 2 種類あり、区切りが ';' か ':' かで意味が変わる。
+
+     38;5;n            256 色 palette
+     38;2;r;g;b        24bit
+     38:5:n            上と同じ (T.416 の sub-parameter 形式)
+     38:2::r:g:b       T.416 の正式形。3 番目は colorspace id で空になる
+
+   以前は `38;5;n` だけを見て、`38;2;r;g;b` は if を外れて**何もせず i も
+   進めなかった**。すると続く 2, r, g, b が SGR コードとして再解釈され、
+   例えば 38;2;255;100;50 は「2 → DIM、100 → 背景を明るい黒」になっていた。
+   カラフルなテーマで色が全く合わないのはこれが主因。                      */
+int
+Terminal::parse_sgr_color (int i, term_color_t *out)
+{
+  if (i + 1 >= t_nparam)
+    return i;
+  int kind = t_params[i + 1];
+  /* ':' 形式かどうかは、続く param が ':' 区切りで来たかで判る。 */
+  int colon = t_param_colon[i + 1];
+
+  if (kind == 5)
+    {
+      if (i + 2 >= t_nparam)
+        return i + 1;
+      int n = t_params[i + 2];
+      if (n >= 0 && n <= 255)
+        *out = TCOLOR_INDEXED | uint32_t (n);
+      return i + 2;
+    }
+
+  if (kind == 2)
+    {
+      int base = i + 2;
+      /* T.416 形式 (':') では colorspace id が 1 つ入る。r/g/b と合わせて
+         4 つ続くならその先頭を colorspace として読み飛ばす。 */
+      if (colon && base + 3 < t_nparam && t_param_colon[base + 3])
+        base++;
+      if (base + 2 >= t_nparam)
+        return t_nparam - 1;
+      int r = t_params[base], g = t_params[base + 1], b = t_params[base + 2];
+      if (r < 0) r = 0; if (r > 255) r = 255;
+      if (g < 0) g = 0; if (g > 255) g = 255;
+      if (b < 0) b = 0; if (b > 255) b = 255;
+      *out = TCOLOR_RGB | (uint32_t (r) << 16) | (uint32_t (g) << 8)
+             | uint32_t (b);
+      return base + 2;
+    }
+
+  return i + 1;
 }
 
 // ============================================================
@@ -719,7 +769,7 @@ Terminal::handle_esc (int ch)
       break;
 
     case 'c': // RIS — full reset
-      t_fg = 0; t_bg = 0; t_attrs = 0;
+      t_fg = TCOLOR_DEFAULT; t_bg = TCOLOR_DEFAULT; t_attrs = 0;
       t_cur_row = 0; t_cur_col = 0;
       t_scroll_top = 0; t_scroll_bottom = t_rows - 1;
       t_origin_mode = 0; t_wraparound = 1; t_insert_mode = 0;
@@ -735,7 +785,192 @@ Terminal::handle_esc (int ch)
     }
 }
 
-void Terminal::handle_osc () {}
+/* OSC の色指定を読む。xterm が受ける形は
+
+     rgb:RR/GG/BB      (1-4 桁 hex ずつ。実際は 2 桁か 4 桁が大半)
+     #RGB #RRGGBB #RRRGGGBBB #RRRRGGGGBBBB
+     rgbi:... や色名は未対応 (-1 を返す)
+
+   戻り値は 0xRRGGBB、読めなければ -1。                                    */
+static int
+parse_osc_color (const char *s)
+{
+  int comp[3];
+  if (!strncmp (s, "rgb:", 4))
+    {
+      s += 4;
+      for (int i = 0; i < 3; i++)
+        {
+          int v = 0, n = 0;
+          while (isxdigit ((u_char)*s) && n < 4)
+            {
+              int d = (*s <= '9' ? *s - '0'
+                       : (*s | 0x20) - 'a' + 10);
+              v = v * 16 + d;
+              s++; n++;
+            }
+          if (!n)
+            return -1;
+          /* 桁数に応じて 8bit に正規化する (RRRR なら上位 8bit)。 */
+          while (n < 4) { v = v * 16 + (v & 0xf); n++; }
+          comp[i] = v >> 8;
+          if (i < 2)
+            {
+              if (*s != '/')
+                return -1;
+              s++;
+            }
+        }
+      return (comp[0] << 16) | (comp[1] << 8) | comp[2];
+    }
+
+  if (*s == '#')
+    {
+      s++;
+      int l = 0;
+      while (isxdigit ((u_char)s[l]))
+        l++;
+      if (l % 3)
+        return -1;
+      int per = l / 3;
+      if (per < 1 || per > 4)
+        return -1;
+      for (int i = 0; i < 3; i++)
+        {
+          int v = 0;
+          for (int j = 0; j < per; j++)
+            {
+              char c = *s++;
+              int d = (c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10);
+              v = v * 16 + d;
+            }
+          int n = per;
+          while (n < 4) { v = v * 16 + (v & 0xf); n++; }
+          comp[i] = v >> 8;
+        }
+      return (comp[0] << 16) | (comp[1] << 8) | comp[2];
+    }
+
+  return -1;
+}
+
+/* OSC (Operating System Command)。以前は空の stub だったので、テーマが
+   palette を上書きしてきても全部捨てていた。実装するのは色だけ:
+
+     OSC 4 ; index ; spec   palette の 1 色を差し替える (複数組を ';' で継ぎ足せる)
+     OSC 10 ; spec          既定の前景色
+     OSC 11 ; spec          既定の背景色
+     OSC 104               palette を組み込みに戻す (引数付きはその index だけ)
+     OSC 110 / 111         前景 / 背景を既定に戻す
+
+   ウィンドウタイトル (OSC 0 / 2) は置き場所が無いので今は捨てる。      */
+void
+Terminal::handle_osc ()
+{
+  if (!t_osc_len)
+    return;
+  t_osc[t_osc_len] = 0;
+
+  char *p = t_osc;
+  int code = 0;
+  if (!isdigit ((u_char)*p))
+    return;
+  while (isdigit ((u_char)*p))
+    code = code * 10 + (*p++ - '0');
+  if (*p == ';')
+    p++;
+
+  int reset_all = 0;
+  int slot = -1;   /* 単一の slot を差し替える形のときの index */
+
+  switch (code)
+    {
+    case 4:
+      break;
+    case 10: slot = 256; break;
+    case 11: slot = 257; break;
+    case 104:
+      if (!*p)
+        { reset_all = 1; break; }
+      break;
+    case 110: slot = 256; reset_all = 2; break;
+    case 111: slot = 257; reset_all = 2; break;
+    default:
+      return;
+    }
+
+  if (reset_all == 1)
+    {
+      if (t_palette)
+        for (int i = 0; i < 256; i++)
+          t_palette[i] = -1;
+      t_dirty = 1;
+      return;
+    }
+
+  if (!t_palette)
+    {
+      t_palette = new int32_t[TPALETTE_SIZE];
+      for (int i = 0; i < TPALETTE_SIZE; i++)
+        t_palette[i] = -1;
+    }
+
+  if (reset_all == 2)
+    {
+      t_palette[slot] = -1;
+      t_dirty = 1;
+      return;
+    }
+
+  if (code == 104)
+    {
+      /* OSC 104 ; i ; j ... — 指定 index だけ戻す */
+      while (*p)
+        {
+          int idx = 0;
+          if (!isdigit ((u_char)*p))
+            break;
+          while (isdigit ((u_char)*p))
+            idx = idx * 10 + (*p++ - '0');
+          if (idx >= 0 && idx < 256)
+            t_palette[idx] = -1;
+          if (*p == ';')
+            p++;
+        }
+      t_dirty = 1;
+      return;
+    }
+
+  if (slot >= 0)
+    {
+      int rgb = parse_osc_color (p);
+      if (rgb >= 0)
+        { t_palette[slot] = rgb; t_dirty = 1; }
+      return;
+    }
+
+  /* OSC 4 ; index ; spec [; index ; spec ...] */
+  while (*p)
+    {
+      int idx = 0;
+      if (!isdigit ((u_char)*p))
+        break;
+      while (isdigit ((u_char)*p))
+        idx = idx * 10 + (*p++ - '0');
+      if (*p != ';')
+        break;
+      p++;
+      char *e = strchr (p, ';');
+      if (e)
+        *e = 0;
+      int rgb = parse_osc_color (p);
+      if (rgb >= 0 && idx >= 0 && idx < 256)
+        { t_palette[idx] = rgb; t_dirty = 1; }
+      if (!e)
+        break;
+      p = e + 1;
+    }
+}
 
 // ============================================================
 // Key-to-escape-sequence conversion (platform-independent)
@@ -1000,8 +1235,9 @@ Terminal::feed (const u_char *data, int len)
             case '[':
               t_state = TS_CSI; t_nparam = 0; t_intermediate = 0;
               memset (t_params, 0, sizeof t_params);
+              memset (t_param_colon, 0, sizeof t_param_colon);
               break;
-            case ']': t_state = TS_OSC; t_nparam = 0; break;
+            case ']': t_state = TS_OSC; t_nparam = 0; t_osc_len = 0; break;
             case '#': t_state = TS_ESC_HASH; break;
             case '(': case ')': t_state = TS_CHARSET; break;
             default: handle_esc (ch); t_state = TS_NORMAL; break;
@@ -1016,8 +1252,18 @@ Terminal::feed (const u_char *data, int len)
               if (t_nparam == 0) t_nparam = 1;
               t_params[t_nparam - 1] = t_params[t_nparam - 1] * 10 + (ch - '0');
             }
-          else if (ch == ';')
-            { if (t_nparam < TERM_MAX_PARAMS) t_nparam++; }
+          else if (ch == ';' || ch == ':')
+            {
+              /* ':' は T.416 の sub-parameter 区切り。以前は 0x20-0x3f の
+                 intermediate 扱いで、区切りとして働かなかったので
+                 `38:2:255:0:0` が 1 個の巨大な数値に潰れていた。
+                 区切ったことを覚えておいて SGR 38/48 の解釈に使う。 */
+              if (t_nparam < TERM_MAX_PARAMS)
+                {
+                  t_nparam++;
+                  t_param_colon[t_nparam - 1] = (ch == ':');
+                }
+            }
           else if (ch >= 0x20 && ch < 0x40)
             t_intermediate = ch;
           else if (ch >= 0x40 && ch <= 0x7e)
@@ -1032,7 +1278,7 @@ Terminal::feed (const u_char *data, int len)
               if (t_nparam == 0) t_nparam = 1;
               t_params[t_nparam - 1] = t_params[t_nparam - 1] * 10 + (ch - '0');
             }
-          else if (ch == ';')
+          else if (ch == ';' || ch == ':')
             { if (t_nparam < TERM_MAX_PARAMS) t_nparam++; }
           else if (ch == 'h' || ch == 'l')
             { handle_dec_private (ch); t_state = TS_NORMAL; }
@@ -1047,6 +1293,8 @@ Terminal::feed (const u_char *data, int len)
             { handle_osc (); t_state = TS_NORMAL; }
           else if (ch == '\033')
             t_state = TS_OSC_ESC;
+          else if (t_osc_len < OSC_MAX - 1)
+            t_osc[t_osc_len++] = char (ch);
           break;
 
         case TS_OSC_ESC:

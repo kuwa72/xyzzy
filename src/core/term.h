@@ -13,15 +13,33 @@ enum {
   TATTR_UNDERLINE = 0x04,
   TATTR_REVERSE   = 0x08,
   TATTR_INVISIBLE = 0x10,
+  TATTR_ITALIC    = 0x20,
+  TATTR_STRIKE    = 0x40,
 };
+
+/* 色の表現 (term_color_t)。
+
+   以前は uint8_t に「0=default, 1-16=basic, 17+=extended」を詰めていた。
+   これだと 24bit 色 (SGR 38;2;r;g;b) が入らないうえ、256 色の index が
+   239 以上で uint8_t を溢れて別の色になっていた。tag 付きにする。
+
+     0                            = 端末の既定色
+     TCOLOR_INDEXED | n (n=0..255) = xterm の palette index
+     TCOLOR_RGB     | 0xRRGGBB     = 24bit 直接指定                        */
+typedef uint32_t term_color_t;
+#define TCOLOR_DEFAULT   0u
+#define TCOLOR_INDEXED   0x01000000u
+#define TCOLOR_RGB       0x02000000u
+#define TCOLOR_TAG_MASK  0xff000000u
+#define TCOLOR_VALUE(c)  ((c) & 0x00ffffffu)
 
 struct TermCell
 {
-  ucs4_t ch;       // Unicode code point (0 = empty)
-  uint8_t fg;      // foreground color (0=default, 1-8=standard, 9-16=bright, 17+=extended)
-  uint8_t bg;      // background color (same encoding)
-  uint8_t attrs;   // TATTR_*
-  uint8_t wide;    // 1 = wide char first cell, 2 = wide char continuation
+  ucs4_t ch;           // Unicode code point (0 = empty)
+  term_color_t fg;     // foreground (TCOLOR_*)
+  term_color_t bg;     // background (TCOLOR_*)
+  uint8_t attrs;       // TATTR_*
+  uint8_t wide;        // 1 = wide char first cell, 2 = wide char continuation
 };
 
 class Terminal
@@ -35,17 +53,22 @@ class Terminal
 
   // Saved cursor
   int t_saved_row, t_saved_col;
-  uint8_t t_saved_fg, t_saved_bg, t_saved_attrs;
+  term_color_t t_saved_fg, t_saved_bg;
+  uint8_t t_saved_attrs;
 
   // Current SGR
-  uint8_t t_fg, t_bg, t_attrs;
+  term_color_t t_fg, t_bg;
+  uint8_t t_attrs;
 
   // Parser
   enum { TS_NORMAL, TS_ESC, TS_CSI, TS_CSI_PRIV, TS_OSC, TS_OSC_ESC,
          TS_ESC_HASH, TS_CHARSET, TS_UTF8_2, TS_UTF8_3, TS_UTF8_4 };
   int t_state;
-  enum { TERM_MAX_PARAMS = 16 };
+  enum { TERM_MAX_PARAMS = 32 };
   int t_params[TERM_MAX_PARAMS];
+  /* その param が ':' で区切られたか (T.416 の sub-parameter)。
+     SGR 38 の `38;2;r;g;b` と `38:2::r:g:b` を取り違えないために持つ。 */
+  uint8_t t_param_colon[TERM_MAX_PARAMS];
   int t_nparam;
   int t_intermediate;
   uint32_t t_utf8_acc;
@@ -93,8 +116,17 @@ class Terminal
   void handle_csi (int final_ch);
   void handle_esc (int ch);
   void handle_sgr ();
+  int parse_sgr_color (int i, term_color_t *out);
   void handle_dec_private (int final_ch);
   void handle_osc ();
+
+  /* OSC 4 / 10 / 11 で上書きされた palette。-1 = 未指定 (組み込みの色を
+     使う)。index 0-255 が palette、256 が前景、257 が背景。 */
+  enum { TPALETTE_SIZE = 258 };
+  int32_t *t_palette;
+  int t_osc_len;
+  enum { OSC_MAX = 256 };
+  char t_osc[OSC_MAX];
   void ensure_cursor_bounds ();
   void init_tabs ();
 
@@ -127,6 +159,11 @@ public:
   // Get cell for rendering: handles scrollback offset
   const TermCell *display_cell (int row, int col) const;
   int alt_active () const { return t_alt_active; }
+
+  /* OSC で上書きされた色。無ければ -1。index は上の TPALETTE_SIZE 参照。 */
+  int32_t palette_entry (int index) const
+    { return (t_palette && index >= 0 && index < TPALETTE_SIZE
+              ? t_palette[index] : -1); }
 };
 
 // Convert an lChar key to VT100 escape sequence bytes.

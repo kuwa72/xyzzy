@@ -60,12 +60,21 @@ Fsi_terminal_screen_line (lisp process, lisp lrow)
         { last = c; break; }
     }
 
-  for (int c = 0; c <= last && len < (int)(sizeof buf / sizeof buf[0]) - 1; c++)
+  /* TermCell::ch は code point、buf は UTF-16 なので BMP 外は
+     surrogate pair に展開する。1 文字で 2 単位使うので余裕を 2 見る。 */
+  for (int c = 0; c <= last && len < (int)(sizeof buf / sizeof buf[0]) - 3; c++)
     {
       const TermCell *tc = term->cell_at (row, c);
       if (tc->wide == 2)
         continue;
-      buf[len++] = tc->ch ? tc->ch : ' ';
+      ucs4_t ch = tc->ch ? tc->ch : ' ';
+      if (ch < 0x10000)
+        buf[len++] = Char (ch);
+      else
+        {
+          buf[len++] = utf16_ucs4_to_pair_high (ch);
+          buf[len++] = utf16_ucs4_to_pair_low (ch);
+        }
     }
 
   return make_string (buf, len);
@@ -190,11 +199,77 @@ Fsi_terminal_scrollback_line (lisp process, lisp lindex)
       if (line[c].ch != 0 && line[c].ch != ' ')
         { last = c; break; }
     }
-  for (int c = 0; c <= last && len < (int)(sizeof buf / sizeof buf[0]) - 1; c++)
+  /* 上と同じ理由で surrogate pair に展開する。 */
+  for (int c = 0; c <= last && len < (int)(sizeof buf / sizeof buf[0]) - 3; c++)
     {
       if (line[c].wide == 2)
         continue;
-      buf[len++] = line[c].ch ? line[c].ch : ' ';
+      ucs4_t ch = line[c].ch ? line[c].ch : ' ';
+      if (ch < 0x10000)
+        buf[len++] = Char (ch);
+      else
+        {
+          buf[len++] = utf16_ucs4_to_pair_high (ch);
+          buf[len++] = utf16_ucs4_to_pair_low (ch);
+        }
     }
   return make_string (buf, len);
+}
+
+/* (si:*terminal-feed-for-test rows cols string)
+     => 各行のリスト。行は各セルの (code-point fg bg attrs) のリスト。
+
+   VT パーサ (色・カーソル・消去・スクロール) に自動テストを付けるための
+   口。Terminal は本来 ConPtyProcess が抱えていて、process 無しに作る手段が
+   無かったため、パーサには自動テストが一切なかった。SGR の色解釈を書き
+   直した際にここを塞いだ。
+
+   fg / bg は term_color_t をそのまま整数で返す:
+     0                = 端末の既定色
+     #x1000000 + n    = xterm palette index n (0-255)
+     #x2000000 + RGB  = 24bit 直接指定 (0xRRGGBB)
+   attrs は TATTR_* のビット和。
+
+   string は code point 列。UTF-8 に直してから流すので、エスケープ列も
+   日本語も同じように書ける。                                             */
+lisp
+Fsi_terminal_feed_for_test (lisp lrows, lisp lcols, lisp string)
+{
+  int rows = fixnum_value (lrows);
+  int cols = fixnum_value (lcols);
+  if (rows < 1 || rows > 200)
+    FErange_error (lrows);
+  if (cols < 1 || cols > 500)
+    FErange_error (lcols);
+  check_string (string);
+
+  Terminal term (rows, cols);
+
+  int l = xstring_length (string);
+  if (l > 0)
+    {
+      size_t n = i2u8l (xstring_contents (string), l);
+      char *b = (char *)xmalloc (n + 1);
+      i2u8 (xstring_contents (string), l, b);
+      term.feed ((const u_char *)b, int (n));
+      xfree (b);
+    }
+
+  lisp result = Qnil;
+  for (int r = rows - 1; r >= 0; r--)
+    {
+      lisp row = Qnil;
+      for (int c = cols - 1; c >= 0; c--)
+        {
+          const TermCell *tc = term.cell_at (r, c);
+          lisp cell = xcons (make_fixnum (tc->ch),
+                             xcons (make_fixnum (tc->fg),
+                                    xcons (make_fixnum (tc->bg),
+                                           xcons (make_fixnum (tc->attrs),
+                                                  Qnil))));
+          row = xcons (cell, row);
+        }
+      result = xcons (row, result);
+    }
+  return result;
 }

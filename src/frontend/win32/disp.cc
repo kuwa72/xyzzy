@@ -2303,34 +2303,53 @@ Window::pending_refresh ()
 
 // xterm 256-color palette → COLORREF
 static COLORREF
-term_color_to_rgb (uint8_t tc)
+term_color_to_rgb (const Terminal *term, term_color_t tc)
 {
-  // Standard 16 colors (VGA)
+  /* xterm の標準 16 色。以前は VGA 相当の値だったが、xterm / Windows
+     Terminal の既定に寄せる。 */
   static const COLORREF basic16[] = {
-    RGB(0,0,0),       RGB(128,0,0),     RGB(0,128,0),     RGB(128,128,0),
-    RGB(0,0,128),     RGB(128,0,128),   RGB(0,128,128),   RGB(192,192,192),
-    RGB(128,128,128), RGB(255,0,0),     RGB(0,255,0),     RGB(255,255,0),
-    RGB(0,0,255),     RGB(255,0,255),   RGB(0,255,255),   RGB(255,255,255),
+    RGB(0,0,0),       RGB(205,0,0),     RGB(0,205,0),     RGB(205,205,0),
+    RGB(0,0,238),     RGB(205,0,205),   RGB(0,205,205),   RGB(229,229,229),
+    RGB(127,127,127), RGB(255,0,0),     RGB(0,255,0),     RGB(255,255,0),
+    RGB(92,92,255),   RGB(255,0,255),   RGB(0,255,255),   RGB(255,255,255),
   };
-  if (tc == 0) return CLR_INVALID;  // default
-  if (tc <= 16) return basic16[tc - 1];
-  tc -= 17;
-  if (tc < 216)
+  /* 6x6x6 の色立方体は等間隔ではない。xterm はこの 6 段。以前は 51 の
+     倍数 (0,51,102,...) にしていたので、暗い側の色がまとめて明るく出た。 */
+  static const int cube[6] = {0, 95, 135, 175, 215, 255};
+
+  if (tc == TCOLOR_DEFAULT)
+    return CLR_INVALID;
+
+  if ((tc & TCOLOR_TAG_MASK) == TCOLOR_RGB)
     {
-      // 6x6x6 color cube
-      int b = (tc % 6) * 51;
-      int g = ((tc / 6) % 6) * 51;
-      int r = (tc / 36) * 51;
-      return RGB(r, g, b);
+      uint32_t v = TCOLOR_VALUE (tc);
+      return RGB ((v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
     }
-  tc -= 216;
-  if (tc < 24)
+
+  int n = int (TCOLOR_VALUE (tc));
+  if (n < 0 || n > 255)
+    return CLR_INVALID;
+
+  /* OSC 4 でテーマが差し替えた色が優先。 */
+  if (term)
     {
-      // Grayscale ramp
-      int v = tc * 10 + 8;
-      return RGB(v, v, v);
+      int32_t ov = term->palette_entry (n);
+      if (ov >= 0)
+        return RGB ((ov >> 16) & 0xff, (ov >> 8) & 0xff, ov & 0xff);
     }
-  return RGB(255, 255, 255);
+
+  if (n < 16)
+    return basic16[n];
+  if (n < 232)
+    {
+      /* index 16 が色立方体の先頭。以前は 17 を引いた値をそのまま立方体の
+         index にしていたので、全体が 16 ずれて色相が合っていなかった。 */
+      int i = n - 16;
+      return RGB (cube[(i / 36) % 6], cube[(i / 6) % 6], cube[i % 6]);
+    }
+  /* 232-255 はグレースケール 24 段 */
+  int v = (n - 232) * 10 + 8;
+  return RGB (v, v, v);
 }
 
 void
@@ -2372,20 +2391,28 @@ Window::paint_terminal (Painter &painter, Terminal *term)
           if (tc->wide == 2)
             { c++; continue; }
 
-          uint8_t fg_idx = tc->fg;
-          uint8_t bg_idx = tc->bg;
+          term_color_t fg_c = tc->fg;
+          term_color_t bg_c = tc->bg;
           uint8_t attrs = tc->attrs;
 
           if (attrs & TATTR_REVERSE)
-            { uint8_t tmp = fg_idx; fg_idx = bg_idx; bg_idx = tmp; }
+            { term_color_t tmp = fg_c; fg_c = bg_c; bg_c = tmp; }
 
-          COLORREF fg = (fg_idx == 0) ? def_fg : term_color_to_rgb (fg_idx);
-          COLORREF bg = (bg_idx == 0) ? def_bg : term_color_to_rgb (bg_idx);
+          /* 既定色は buffer の色 (def_fg / def_bg)。REVERSE で入れ替わった
+             側も既定色でありうるので、入れ替え後に判定する。 */
+          COLORREF fg = (fg_c == TCOLOR_DEFAULT
+                         ? ((attrs & TATTR_REVERSE) ? def_bg : def_fg)
+                         : term_color_to_rgb (term, fg_c));
+          COLORREF bg = (bg_c == TCOLOR_DEFAULT
+                         ? ((attrs & TATTR_REVERSE) ? def_fg : def_bg)
+                         : term_color_to_rgb (term, bg_c));
 
           if (attrs & TATTR_DIM)
             {
               fg = RGB(GetRValue(fg)/2, GetGValue(fg)/2, GetBValue(fg)/2);
             }
+          if (attrs & TATTR_INVISIBLE)
+            fg = bg;
 
           int cw = (tc->wide == 1) ? 2 : 1;  // character cell width
 
@@ -2416,6 +2443,9 @@ Window::paint_terminal (Painter &painter, Terminal *term)
 
           if (attrs & TATTR_UNDERLINE)
             painter.draw_hline (px, px + cw * cellw, py + cellh - 1, fg);
+
+          if (attrs & TATTR_STRIKE)
+            painter.draw_hline (px, px + cw * cellw, py + cellh / 2, fg);
 
           if (attrs & TATTR_BOLD)
             // Draw again offset by 1 pixel for bold effect (transparent)
