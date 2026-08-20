@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "binfo.h"
 #include "syntaxinfo.h"
+#include "fontmap.h"
 #define DEFINE_LUCIDA_OFFSET_TABLE
 #include "lucida-width.h"
 #include "jisx0212-hash.h"
@@ -2352,6 +2353,69 @@ term_color_to_rgb (const Terminal *term, term_color_t tc)
   return RGB (v, v, v);
 }
 
+/* ターミナルのセルに使うフォントを選ぶ。
+
+   以前は「全角なら FONT_JP、半角なら FONT_ASCII」で決めていた。Ambiguous を
+   半角に直した途端、罫線 (U+2500-259F)、幾何図形 (●○ U+25A0-25FF)、矢印
+   (U+2190-21FF) が FONT_ASCII に回るようになり、欧文フォントにグリフが無くて
+   豆腐になった。幅は正しくなったがフォントの選び方が幅に紐づいていたのが
+   まずかった。
+
+   code point で選ぶ。半角セルは欧文 → Latin → get_font_idx の順に、実際に
+   グリフを持っているフォントを探す。Consolas や Cascadia のような欧文
+   monospace は罫線や幾何図形を半角で持っているので、そこで当たれば
+   セル幅とグリフ幅が一致して一番きれいに出る。無ければ JP へ落ちる
+   (全角グリフなのでセルからはみ出すが、豆腐よりは読める)。
+
+   GetGlyphIndicesW の呼び出しは高くつくので BMP は 1 バイト表で覚える
+   (0 = 未調査、それ以外は font idx + 1)。フォント設定が変わったら
+   invalidate_terminal_font_cache() で捨てる。 */
+static u_char term_font_cache[0x10000];
+
+void
+invalidate_terminal_font_cache ()
+{
+  memset (term_font_cache, 0, sizeof term_font_cache);
+}
+
+static int
+font_has_glyph (HDC hdc, const FontObject &fo, ucs4_t cp)
+{
+  if (cp >= 0x10000)
+    return 0;   /* surrogate pair の判定は省く (JP 側に任せる) */
+  HGDIOBJ of = SelectObject (hdc, fo);
+  WCHAR w = WCHAR (cp);
+  WORD gi = 0;
+  DWORD r = GetGlyphIndicesW (hdc, &w, 1, &gi, GGI_MARK_NONEXISTING_GLYPHS);
+  SelectObject (hdc, of);
+  return r != GDI_ERROR && gi != 0xffff;
+}
+
+static int
+pick_terminal_font (HDC hdc, ucs4_t cp, int wide)
+{
+  if (cp < 0x80)
+    return FONT_ASCII;
+  if (wide)
+    return get_font_idx (cp);   /* 全角セルは元から全角グリフが欲しい */
+
+  if (cp < 0x10000 && term_font_cache[cp])
+    return term_font_cache[cp] - 1;
+
+  int mapped = get_font_idx (cp);
+  int cand[3] = {FONT_ASCII, FONT_LATIN, mapped};
+  int pick = mapped;
+  for (int i = 0; i < 3; i++)
+    if (font_has_glyph (hdc, app.text_font.font (cand[i]), cp))
+      {
+        pick = cand[i];
+        break;
+      }
+  if (cp < 0x10000)
+    term_font_cache[cp] = u_char (pick + 1);
+  return pick;
+}
+
 void
 Window::paint_terminal (Painter &painter, Terminal *term)
 {
@@ -2366,15 +2430,12 @@ Window::paint_terminal (Painter &painter, Terminal *term)
   int trows = term->rows ();
   int tcols = term->cols ();
 
-  const FontObject &ascii_font = app.text_font.font (FONT_ASCII);
-  const FontObject &jp_font = app.text_font.font (FONT_JP);
-
-  // Terminal defaults: white on black (like a real terminal)
-  COLORREF def_fg = RGB(192, 192, 192);
-  COLORREF def_bg = RGB(0, 0, 0);
-  /* OSC 10 / 11 で既定の前景・背景を指定してきたらそれに従う。以前は
-     handle_osc が空だったので指定が届かず、テーマが決めた地色が出ずに
-     ここの黒のままだった。 */
+  /* 既定の前景・背景は xyzzy 自身の色設定に従う。以前は白 on 黒を
+     ハードコードしていたので、ユーザがどんな配色にしていてもターミナルの
+     地色だけ真っ黒になっていた (アプリが明示的に塗らない領域は全部これ)。
+     アプリが OSC 10 / 11 で指定してきたらそちらを優先する。 */
+  COLORREF def_fg = w_colors[WCOLOR_TEXT];
+  COLORREF def_bg = w_colors[WCOLOR_BACK];
   {
     int32_t ov = term->palette_entry (256);
     if (ov >= 0)
@@ -2446,8 +2507,9 @@ Window::paint_terminal (Painter &painter, Terminal *term)
           int px = c * cellw + cellw / 2;
           RECT rc = { px, py, px + cw * cellw, py + cellh };
 
-          int role = (tc->wide == 1) ? FONT_JP : FONT_ASCII;
-          const FontObject &cell_font = (tc->wide == 1) ? jp_font : ascii_font;
+          int role = pick_terminal_font (static_cast <Win32Painter &> (painter).hdc (),
+                                      ich, tc->wide == 1);
+          const FontObject &cell_font = app.text_font.font (role);
           painter.draw_text_chars (px + cell_font.offset ().x,
                                    py + cell_font.offset ().y,
                                    wc, wcl, fg, bg, role, &rc, true);

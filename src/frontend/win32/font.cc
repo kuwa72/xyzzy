@@ -433,6 +433,14 @@ measure_into (FontMetrics &fm, FontObject &fo, const LOGFONTW &lf, SIZE ex[2])
 int
 FontSet::create (const FontSetParam &param)
 {
+  /* ターミナルのフォント選択は「この code point のグリフを持っている
+     フォント」を GetGlyphIndicesW で調べて覚えている。フォントが差し替わったら
+     その答えは古いので捨てる (disp.cc)。 */
+  {
+    extern void invalidate_terminal_font_cache ();
+    invalidate_terminal_font_cache ();
+  }
+
   SIZE ex[FONT_MAX][2] = {};
   Win32FontMetrics fm;
 
