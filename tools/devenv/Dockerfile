@@ -87,6 +87,13 @@ RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/zlib.tar.gz \
 # Wine writes into $WINEPREFIX; keep it outside the mounted source tree.
 # The prefixes are bootstrapped by the entrypoint, once a display exists: a
 # wineboot without one leaves the prefix configured for the null display driver.
+# Wine decides how to read and write Unix file names from the locale.  With the
+# image's default (POSIX) it is not UTF-8, so a file whose name is not ASCII
+# comes back mangled and creating one fails -- which reads exactly like a bug in
+# the program under test.  It cost an afternoon once; keep the locale UTF-8.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
 ENV WINEPREFIX=/wine \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES=mscoree=d \
