@@ -443,13 +443,15 @@ eof:
 static int
 count_cf_wtext_length (const ucs2_t *string)
 {
-  /* 5b-6: UTF-16 → UTF-16。\r\n を \n に折り畳むので、その分だけ詰む。
-     w2i() / undef pair の長さ調整は不要 (Phase 2 buffer は UTF-16)。 */
+  /* 5b-6: UTF-16 → Lisp string (ucs4_t = code point 列)。\r\n を \n に
+     折り畳むので、その分だけ詰む。surrogate pair も 1 文字に詰む。 */
   int n = 0;
   for (const ucs2_t *s = string; *s; s++)
     {
       if (*s == '\r' && s[1] == '\n')
         continue;          /* CR を 1 文字落とす */
+      if (*s >= 0xD800 && *s <= 0xDBFF && s[1] >= 0xDC00 && s[1] <= 0xDFFF)
+        s++;               /* pair で 1 文字 */
       n++;
     }
   return n;
@@ -458,9 +460,12 @@ count_cf_wtext_length (const ucs2_t *string)
 static int
 make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int /*lang*/)
 {
-  /* 5b-6: clipboard CF_UNICODETEXT (UTF-16) を Phase 2 buffer (UTF-16
-     Char 列) にコピー。\r\n → \n の正規化のみ。lang による translate
-     table (旧 internal encoding 向け) は撤廃。 */
+  /* 5b-6: clipboard CF_UNICODETEXT (UTF-16) を Lisp string (ucs4_t =
+     code point 列) にコピー。\r\n → \n の正規化のみ。lang による
+     translate table (旧 internal encoding 向け) は撤廃。
+     surrogate pair は 1 code point に合成する。half を 2 要素として
+     置くと (length "😀") が 2 になり、buffer に入れたときの code point
+     数とも食い違う。 */
   int l = count_cf_wtext_length (s);
   ucs4_t *b = (ucs4_t *) malloc (l * sizeof *b);
   if (!b)
@@ -472,7 +477,14 @@ make_string_from_cf_wtext (lisp lstring, const ucs2_t *s, int /*lang*/)
     {
       if (*s == '\r' && s[1] == '\n')
         continue;
-      *b++ = ucs4_t (*s);
+      if (*s >= 0xD800 && *s <= 0xDBFF && s[1] >= 0xDC00 && s[1] <= 0xDFFF)
+        {
+          *b++ = 0x10000 + ((ucs4_t (*s) - 0xD800) << 10)
+                 + (ucs4_t (s[1]) - 0xDC00);
+          s++;
+        }
+      else
+        *b++ = ucs4_t (*s);
     }
 
   return 1;

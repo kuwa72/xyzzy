@@ -452,8 +452,15 @@
 
 (or *expected-fileio-encoding*
     (setq *expected-fileio-encoding* *encoding-auto*))
+;; サブプロセスとのパイプは UTF-8。Windows 10 1809 以降は make-process が
+;; ConPTY 経由になり、conhost が子プロセスの出力をコンソールコードページ
+;; から UTF-8 に変換して pty に流す (入力も UTF-8 として解釈される)。
+;; 子が cmd.exe でも pwsh でも変わらない。*eshell* の既定が pwsh である
+;; こともあり、ここが sjis のままだと多バイト文字が全部化ける。
+;; ConPTY が使えない環境 (1809 未満) で生パイプになり、子が CP932 で
+;; 出力する場合は (setq *default-process-encoding* *encoding-sjis*) で戻せる。
 (or *default-process-encoding*
-    (setq *default-process-encoding* *encoding-sjis*))
+    (setq *default-process-encoding* *encoding-utf8n*))
 
 (defvar *encoding-default-utf16* *encoding-utf16*)
 (defvar *encoding-default-utf16le-bom* *encoding-utf16le-bom*)

@@ -358,7 +358,7 @@ multiple_escape (lisp stream, Token &token, lisp readtab)
           return;
 
         case SCT_ILLEGAL:
-          reader_error (stream, Eillegal_character, make_char (Char (c)));
+          reader_error (stream, Eillegal_character, make_char_from_lchar (c));
         }
     }
 }
@@ -408,7 +408,7 @@ extended_token (lisp stream, Token &token, lisp readtab, lChar c)
           break;
 
         case SCT_ILLEGAL:
-          reader_error (stream, Eillegal_character, make_char (Char (c)));
+          reader_error (stream, Eillegal_character, make_char_from_lchar (c));
 
         case SCT_TERM_MACRO:
           unreadc_stream (c, stream);
@@ -468,7 +468,7 @@ lisp_parser (lisp stream, int flags = 0, lChar delim = lChar_EOF)
         {
         default:
         case SCT_ILLEGAL:
-          reader_error (stream, Eillegal_character, make_char (Char (c)));
+          reader_error (stream, Eillegal_character, make_char_from_lchar (c));
 
         case SCT_WHITESPACE:
           break;
@@ -734,7 +734,7 @@ open_paren_reader (lisp stream, Char)
 static lisp
 close_paren_reader (lisp stream, Char c)
 {
-  return reader_error (stream, Eunexpected_char, make_char (Char (c)));
+  return reader_error (stream, Eunexpected_char, make_char_from_lchar (c));
 }
 
 static lisp
@@ -820,14 +820,14 @@ dispmacro_reader (lisp stream, Char ch)
   if (c == lChar_EOF)
     reader_error (stream, Eincomplete_dispatch_macro);
   if (c >= READTABLE_REP_SIZE)
-    reader_error (stream, Edispmacro_sub_char_out_of_range, make_char (Char (c)));
+    reader_error (stream, Edispmacro_sub_char_out_of_range, make_char_from_lchar (c));
 
   c = char_upcase (Char (c));
   if (disptab[c].cfunc)
     return (*disptab[c].cfunc)(stream, Char (c), param);
   if (disptab[c].lfunc == Qunbound)
-    reader_error (stream, Eis_not_a_dispmacro_sub_char, make_char (Char (c)));
-  lisp x = funcall_3 (disptab[c].lfunc, stream, make_char (Char (c)),
+    reader_error (stream, Eis_not_a_dispmacro_sub_char, make_char_from_lchar (c));
+  lisp x = funcall_3 (disptab[c].lfunc, stream, make_char_from_lchar (c),
                       param.present ? make_fixnum (param.value) : Qnil);
   if (!multiple_value::count ())
     x = 0;
@@ -1695,10 +1695,10 @@ static Char
 check_macro_char (lisp ch)
 {
   check_char (ch);
-  Char cc = xchar_code (ch);
+  ucs4_t cc = xchar_code (ch);
   if (cc >= READTABLE_REP_SIZE)
     FEprogram_error (Emacro_char_out_of_range, ch);
-  return cc;
+  return Char (cc);
 }
 
 lisp
@@ -1764,10 +1764,10 @@ static Char
 check_dispmacro_char (lisp ch)
 {
   check_char (ch);
-  Char cc = xchar_code (ch);
+  ucs4_t cc = xchar_code (ch);
   if (cc >= READTABLE_REP_SIZE)
     FEprogram_error (Edispmacro_sub_char_out_of_range, ch);
-  return cc;
+  return Char (cc);
 }
 
 lisp
@@ -2029,7 +2029,7 @@ Fread_char (lisp stream, lisp eof_error_p, lisp eof_value, lisp /*recursive_p*/)
   lChar c = readc_stream (stream);
   if (c == lChar_EOF)
     return end_of_file (stream, eof_error_p, eof_value);
-  return make_char (Char (c));
+  return make_char_from_lchar (c);
 }
 
 lisp
@@ -2071,7 +2071,7 @@ Fpeek_char (lisp peek_type, lisp stream, lisp eof_error_p, lisp eof_value, lisp 
     }
   if (c == lChar_EOF)
     return end_of_file (stream, eof_error_p, eof_value);
-  return make_char (Char (c));
+  return make_char_from_lchar (c);
 }
 
 lisp
@@ -2089,7 +2089,7 @@ Fread_char_no_hang (lisp stream, lisp eof_error_p, lisp eof_value, lisp /*recurs
   lChar c = readc_stream (stream);
   if (c == lChar_EOF)
     return end_of_file (stream, eof_error_p, eof_value);
-  return make_char (Char (c));
+  return make_char_from_lchar (c);
 }
 
 lisp

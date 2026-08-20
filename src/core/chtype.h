@@ -150,9 +150,6 @@
 #define CCF_META 0xfe00
 #endif
 
-#define LCHAR_MOUSE 0x10000
-#define LCHAR_MENU 0x20000
-
 /* ============================================================
    lChar bit layout (Phase 1 unicode migration)
 
@@ -193,6 +190,29 @@
 #define LCHAR_PAYLOAD(lc) ((lc) & LCHAR_PAYLOAD_MASK)
 #define LCHAR_KIND(lc)    ((lc) & LCKIND_MASK)
 #define LCHAR_MODS(lc)    ((lc) & LCMOD_MASK)
+
+/* mouse / menu 由来の lChar を見分ける flag。
+
+   以前は 0x10000 / 0x20000 だった。これは payload (bit 0-20 = code point)
+   の中に食い込んでいる。BMP 外の文字 (U+10000 以上) を 1 個の code point
+   として queue に流すと 0x10000 bit が立ち、`c & LCHAR_MOUSE` が真に
+   なって文字が mouse event 扱いされてしまう。kind field (bit 21-23) 側の
+   値に移す。判定は常に `&` なので、payload とぶつからない場所であれば
+   値そのものに意味はない。 */
+#define LCHAR_MOUSE LCKIND_MOUSE          /* kind 2 */
+#define LCHAR_MENU  (4 << LCKIND_SHIFT)   /* kind 4 (予約枠) */
+
+/* code point をそのまま載せた lChar か (modifier なし・kind CHAR・
+   BMP 外)。BMP 内なら旧 Char encoding と値が一致するので、この判定が
+   必要になるのは 0x10000 以上だけ。 */
+static inline int
+lchar_astral_char_p (lChar lc)
+{
+  return (LCHAR_KIND (lc) == LCKIND_CHAR
+          && !LCHAR_MODS (lc)
+          && LCHAR_PAYLOAD (lc) >= 0x10000
+          && LCHAR_PAYLOAD (lc) < CHAR_LIMIT);
+}
 
 /* function key IDs (完全な lChar 値: LCKIND_FNKEY と OR 済み)
    既存 CCF_PRIOR..CCF_F24 の順序を保存して 0 起算で再採番。

@@ -1374,7 +1374,14 @@ after_jump:
           break;
 
         case BCcode_char:
-          top () = make_char (Char (fixnum_value (top ())));
+          /* Fcode_char と同じにする。ここだけ Char (16bit) に切り詰めて
+             いたので、バイトコンパイルされたコードから (code-char 128512)
+             を呼ぶと 0xF600 (= CCF_META) の文字が返っていた。範囲外は
+             Fcode_char と同じく nil。 */
+          {
+            long c = fixnum_value (top ());
+            top () = (c < 0 || c >= CHAR_LIMIT ? Qnil : make_char (ucs4_t (c)));
+          }
           break;
 
         case BCbobp:

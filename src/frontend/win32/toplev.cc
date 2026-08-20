@@ -420,10 +420,25 @@ ime_composition (HWND hwnd, LPARAM lparam)
                      wc2cp932 / wc2big5 / wc2ksc5601 / wc2gb2312 経由の
                      internal encoding 折り畳みは不要 (それらは旧 buffer
                      の表現空間に押し込むためのもの)。push (..., tab=0)
-                     で素 UTF-16 として store する。 */
+                     で素 UTF-16 として store する。
+                     ここは確定文字列を丸ごと持っているので、surrogate
+                     pair は 1 個の code point に畳んで putc する
+                     (半分ずつ流すと self-insert-command が 2 回走って
+                     buffer の code point 数が壊れる)。 */
                   l /= sizeof (ucs2_t);
                   for (ucs2_t *sp = s, *se = s + l; sp < se; sp++)
-                    app.kbdq.putc (Char (*sp));
+                    {
+                      if (*sp >= 0xD800 && *sp <= 0xDBFF && sp + 1 < se
+                          && sp[1] >= 0xDC00 && sp[1] <= 0xDFFF)
+                        {
+                          app.kbdq.putc (0x10000
+                                         + ((lChar (*sp) - 0xD800) << 10)
+                                         + (lChar (sp[1]) - 0xDC00));
+                          sp++;
+                        }
+                      else
+                        app.kbdq.putc (Char (*sp));
+                    }
                   lparam &= ~GCS_RESULTSTR;
 
                   int rl = app.kbdq.gime.xImmGetCompositionStringW (hIMC, GCS_RESULTREADSTR, 0, 0);

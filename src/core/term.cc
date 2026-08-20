@@ -843,6 +843,19 @@ terminal_key_to_bytes (const Terminal *term, lChar c, char *buf, int bufsize)
         { buf[0] = 0xe0 | (ucs >> 12); buf[1] = 0x80 | ((ucs >> 6) & 0x3f);
           buf[2] = 0x80 | (ucs & 0x3f); len = 3; }
     }
+  else if (len == 0 && c < CHAR_LIMIT && bufsize >= 4)
+    {
+      // BMP 外。入力経路が surrogate pair を 1 個の code point に畳んで
+      // 渡してくるので、ここで 4 バイトの UTF-8 にする。畳む前は half が
+      // 2 個来て 3 バイト列 2 つ (= CESU-8) になり、pty の向こうでは
+      // 化けていた。
+      u_int32_t cp = (u_int32_t) c;
+      buf[0] = 0xf0 | (cp >> 18);
+      buf[1] = 0x80 | ((cp >> 12) & 0x3f);
+      buf[2] = 0x80 | ((cp >> 6) & 0x3f);
+      buf[3] = 0x80 | (cp & 0x3f);
+      len = 4;
+    }
 
   return len;
 }

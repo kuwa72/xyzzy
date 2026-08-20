@@ -146,6 +146,12 @@ dispatch (lChar cc)
 {
   lisp command;
   Char c = Char (cc);
+  /* BMP 外の文字は Char (16bit) に落とすと function key の空間と
+     ぶつかる (U+1F600 → 0xF600 = CCF_META)。文字としての判定と
+     *last-command-char* には code point をそのまま使う。BMP 内では
+     cp == c なので、旧来の経路は何も変わらない。 */
+  const lChar cp = lchar_astral_char_p (cc) ? LCHAR_PAYLOAD (cc) : lChar (c);
+  const int astral_p = cp >= 0x10000;
   dlog ("dispatch: cc=0x%lx c=0x%x\n", (unsigned long)cc, (unsigned)c);
 
   app.gc_itimer.reset ();
@@ -174,9 +180,10 @@ dispatch (lChar cc)
           xsymbol_value (Vprefix_value) = xsymbol_value (Vnext_prefix_value);
           xsymbol_value (Vnext_prefix_value) = Qnil;
 
-          if (!meta_char_p (c) && !meta_function_char_p (c)
-              && !function_char_p (c)
-              && (DBCP (c) || (SBCP (c) && !ascii_char_p (c))))
+          if (astral_p
+              || (!meta_char_p (c) && !meta_function_char_p (c)
+                  && !function_char_p (c)
+                  && (DBCP (c) || (SBCP (c) && !ascii_char_p (c)))))
             {
               command = symbol_value (Vdefault_input_function, selected_buffer ());
               if (command == Qnil || command == Qunbound)
@@ -218,7 +225,7 @@ dispatch (lChar cc)
 run_command:
   xsymbol_value (Vlast_command) = xsymbol_value (Vthis_command);
   xsymbol_value (Vthis_command) = command;
-  xsymbol_value (Vlast_command_char) = make_char (Char (c));
+  xsymbol_value (Vlast_command_char) = make_char (ucs4_t (cp));
   if (command != Qnil)
     {
       selected_buffer ()->safe_run_hook (Vpre_command_hook, 1);

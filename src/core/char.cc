@@ -422,9 +422,13 @@ Fchar_unicode (lisp cc)
   check_char (cc);
   /* Phase 2: 内部 Char は UTF-16 code unit。BMP char は値そのものが
      code point。surrogate half は単独では完全な code point にならず、
-     char object 1 個からは復元不能なので nil。 */
+     char object 1 個からは復元不能なので nil。
+     BMP の判定を先に置くこと: utf16_surrogate_*_p は ucs2_t を取るので
+     code point を渡すと切り詰まり、U+1D800 等が nil になってしまう。 */
   ucs4_t c = xchar_code (cc);
-  if (utf16_surrogate_high_p (c) || utf16_surrogate_low_p (c))
+  if (c < 0x10000
+      && (utf16_surrogate_high_p (ucs2_t (c))
+          || utf16_surrogate_low_p (ucs2_t (c))))
     return Qnil;
   return make_fixnum (c);
 }
@@ -436,20 +440,24 @@ Funicode_char (lisp code)
   if (wc >= UNICODE_CHAR_LIMIT)
     return Qnil;
 
-  /* Phase 2: Char is a UTF-16 code unit. BMP code points round-trip as the
-     Char value itself. Surrogate halves alone aren't complete code points
-     and return nil. Non-BMP code points need a surrogate-pair string. */
-  if (wc < 0x10000)
-    {
-      ucs2_t c = ucs2_t (wc);
-      if (utf16_surrogate_high_p (c) || utf16_surrogate_low_p (c))
-        return Qnil;
-      return make_char (Char (c));
-    }
-  ucs4_t b[2];
-  b[0] = utf16_ucs4_to_pair_high (wc);
-  b[1] = utf16_ucs4_to_pair_low (wc);
-  return make_string (b, 2);
+  /* A character holds a full code point, so a non-BMP code point is a
+     character like any other. This used to return a two-element surrogate
+     string instead, which made unicode-char the odd one out: char-unicode
+     round-trips a non-BMP character, code-char takes the same number, and
+     cmds.l's C-q u path feeds the result straight into insert as a
+     character.
+
+     A surrogate half is still nil: it is not a code point. code-char does
+     name them (buffer text is UTF-16 code units, so an unpaired half has to
+     be nameable), but unicode-char is the code-point door.
+
+     The BMP guard matters: utf16_surrogate_*_p take a ucs2_t, so handing
+     them a code point truncates it, and U+1D800 would come out nil. */
+  if (wc < 0x10000
+      && (utf16_surrogate_high_p (ucs2_t (wc))
+          || utf16_surrogate_low_p (ucs2_t (wc))))
+    return Qnil;
+  return make_char (wc);
 }
 
 lisp

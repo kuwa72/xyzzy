@@ -1767,7 +1767,7 @@ Filer::dispatch (lChar cc)
   try
     {
       f_fdispatch = 1;
-      xsymbol_value (Vfiler_last_command_char) = make_char (Char (cc));
+      xsymbol_value (Vfiler_last_command_char) = make_char_from_lchar (cc);
       Ffuncall (fn, Qnil);
     }
   catch (nonlocal_jump &)
@@ -2854,7 +2854,7 @@ lisp
 Ffiler_read_char ()
 {
   lChar cc = Filer::current_filer ()->read_char ();
-  return cc != lChar_EOF ? make_char (Char (cc)) : Qnil;
+  return cc != lChar_EOF ? make_char_from_lchar (cc) : Qnil;
 }
 
 static void

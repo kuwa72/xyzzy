@@ -14,15 +14,22 @@ class kbd_queue
   int tail;
   lChar pending;
   enum {KBDMACRO_MAX = 2048};
-  Char saved[KBDMACRO_MAX];
+  /* キーボードマクロは Lisp string (= code point 列) として持つので、
+     記録側も code point で持つ。Char (16bit) だと BMP 外の文字が
+     切り詰まって別の文字になる。 */
+  ucs4_t saved[KBDMACRO_MAX];
   int nsaved;
-  Char macro_char ();
+  lChar macro_char ();
   kbd_macro_context *kbd_macro;
   int last_ime_status;
   enum {ACTIVATE = 1, DEACTIVATE = 2, LAST_ACTIVE = 4};
   int delayed_activate;
   int in_hook;
   int putc_pending;
+  /* WM_CHAR / WM_IME_CHAR は surrogate pair を code unit 1 個ずつ別の
+     message で渡してくる。low が来るまで high を保留しておく場所。
+     lChar_EOF = 保留なし。 */
+  lChar pending_high;
   typedef HKL (WINAPI *GETKEYBOARDLAYOUT)(DWORD);
   GETKEYBOARDLAYOUT GetKeyboardLayout;
 

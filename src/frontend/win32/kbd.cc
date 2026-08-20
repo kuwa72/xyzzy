@@ -25,7 +25,8 @@ kbd_queue::kbd_queue ()
      : head (0), tail (0), pending (lChar_EOF), last_ime_status (-1),
        current_mode (im_normal), kbd_macro (0), delayed_activate (0), in_hook (0),
        last_command_key_index (0), command_key_keeped (0), st_timeout (-1),
-       reconv (0), putc_pending (-1), ime_prop (0), unicode_kbd (0), gc_timer (0)
+       reconv (0), putc_pending (-1), pending_high (lChar_EOF), ime_prop (0),
+       unicode_kbd (0), gc_timer (0)
 {
   GetKeyboardLayout =
     (GETKEYBOARDLAYOUT)GetProcAddress (GetModuleHandleW (L"USER32"),
@@ -74,6 +75,35 @@ int
 kbd_queue::putc (lChar c)
 {
 #ifdef UNICODE
+  /* WM_CHAR / WM_IME_CHAR は BMP 外の文字を surrogate pair の code unit
+     2 個 = message 2 通で渡してくる。そのまま 2 回 queue に載せると
+     self-insert-command が 2 回走り、buffer に surrogate half が別々の
+     文字として insert される。b_nchars は 2 増えるのに chunk 側の
+     c_nchars は pair を 1 code point と数えるので、buffer の code point
+     数がその場で壊れる。結果として
+
+       - cursor が 1 個余分に進む
+       - undo / redo が元の位置に戻らない
+       - 空 buffer (= ミニバッファ) では forward_char が chunk 末尾を
+         踏み抜いて落ちる
+
+     となる。queue に載せる前に pair を 1 個の code point へ畳む。 */
+  if (pending_high != lChar_EOF)
+    {
+      lChar hi = pending_high;
+      pending_high = lChar_EOF;
+      if (c >= 0xDC00 && c <= 0xDFFF)
+        return putraw (0x10000 + ((hi - 0xD800) << 10) + (c - 0xDC00));
+      /* low が続かなかった (壊れた入力)。孤立 high をそのまま流して
+         c は通常処理に回す。 */
+      if (!putraw (hi))
+        return 0;
+    }
+  if (c >= 0xD800 && c <= 0xDBFF)
+    {
+      pending_high = c;
+      return 1;
+    }
   return putraw (c);
 #else
   if (c >= 256)
@@ -155,7 +185,9 @@ kbd_queue::peek (int req_mouse_move)
               if (nsaved == KBDMACRO_MAX)
                 stop_macro ();
               else
-                saved[nsaved++] = Char (c);
+                saved[nsaved++] = (lchar_astral_char_p (c)
+                                   ? ucs4_t (LCHAR_PAYLOAD (c))
+                                   : ucs4_t (Char (c)));
             }
         }
     }
@@ -168,6 +200,7 @@ kbd_queue::clear ()
   process_events ();
   head = tail;
   pending = lChar_EOF;
+  pending_high = lChar_EOF;
   stop_macro ();
 }
 
@@ -363,12 +396,12 @@ kbd_queue::stop_macro ()
   current_mode = input_mode (disablep () | im_normal);
 }
 
-Char
+lChar
 kbd_queue::macro_char ()
 {
   assert (kbd_macro);
   assert (kbd_macro->index < xstring_length (kbd_macro->string));
-  Char c = xstring_contents (kbd_macro->string) [kbd_macro->index++];
+  lChar c = xstring_contents (kbd_macro->string) [kbd_macro->index++];
   if (kbd_macro->index >= xstring_length (kbd_macro->string))
     kbd_macro = kbd_macro->last;
   return c;

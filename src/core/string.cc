@@ -20,8 +20,20 @@ update_column (int column, Char c)
 int
 update_column (int column, const ucs4_t *s, int size)
 {
+  /* Lisp string の要素は code point なので Char (16bit) に落とさない。
+     落とすと BMP 外の文字が別の文字の幅で数えられる
+     (U+1F600 → 0xF600 は幅 1)。 */
   for (const ucs4_t *se = s + size; s < se; s++)
-    column = update_column (column, Char (*s));
+    {
+      ucs4_t c = *s;
+      if (c == '\n')
+        column = 0;
+      else if (c == '\t')
+        column = ((column + app.default_tab_columns)
+                  / app.default_tab_columns * app.default_tab_columns);
+      else
+        column += char_width (c);
+    }
   return column;
 }
 

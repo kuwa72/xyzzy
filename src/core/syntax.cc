@@ -101,7 +101,7 @@ set_syntax (lisp table, lisp ch, int syntax)
 {
   check_syntax_table (table);
   check_char (ch);
-  Char c = xchar_code (ch);
+  ucs4_t c = xchar_code (ch);
   if (!ascii_char_p (c))
     return Qnil;
   xchar_syntax (xsyntax_table (table), c) = syntax;
@@ -116,8 +116,8 @@ set_syntax_multi_comment (lisp table, lisp string, int first, int second)
   if (xstring_length (string) != 2)
     return Qnil;
   syntax_table *tab = xsyntax_table (table);
-  Char c1 = xstring_contents (string) [0];
-  Char c2 = xstring_contents (string) [1];
+  ucs4_t c1 = xstring_contents (string) [0];
+  ucs4_t c2 = xstring_contents (string) [1];
   if (!ascii_char_p (c1) || !ascii_char_p (c2))
     return Qnil;
   int mask = ~(first | second);
@@ -133,7 +133,7 @@ set_syntax_single_comment (lisp table, lisp ch, lisp ignore, lisp maybe, int syn
 {
   check_syntax_table (table);
   check_char (ch);
-  Char c = xchar_code (ch);
+  ucs4_t c = xchar_code (ch);
   if (!ascii_char_p (c))
     return Qnil;
   syntax_table *tab = xsyntax_table (table);
@@ -154,7 +154,7 @@ set_syntax_comment (lisp table, lisp ch, lisp ignore, int code, int clear)
 {
   check_syntax_table (table);
   check_char (ch);
-  Char c = xchar_code (ch);
+  ucs4_t c = xchar_code (ch);
   if (!ascii_char_p (c))
     return Qnil;
   syntax_table *tab = xsyntax_table (table);
@@ -187,8 +187,8 @@ set_syntax_match (lisp table, lisp openc, lisp closec, int osyntax, int csyntax)
   check_syntax_table (table);
   check_char (openc);
   check_char (closec);
-  Char o = xchar_code (openc);
-  Char c = xchar_code (closec);
+  ucs4_t o = xchar_code (openc);
+  ucs4_t c = xchar_code (closec);
   if (!ascii_char_p (o) || !ascii_char_p (c))
     return Qnil;
   syntax_table *tab = xsyntax_table (table);
@@ -334,7 +334,7 @@ syntaxp (lisp ch, lisp table, int syntax)
   if (!table)
     table = selected_buffer ()->lsyntax_table;
   check_syntax_table (table);
-  Char c = xchar_code (ch);
+  ucs4_t c = xchar_code (ch);
   if (!ascii_char_p (c))
     return Qnil;
   return boole (xchar_syntax (xsyntax_table (table), c) == syntax);
@@ -347,7 +347,7 @@ syntax_multi_comment_p (lisp ch, lisp table, int syntax)
   if (!table)
     table = selected_buffer ()->lsyntax_table;
   check_syntax_table (table);
-  Char c = xchar_code (ch);
+  ucs4_t c = xchar_code (ch);
   if (!ascii_char_p (c))
     return Qnil;
   return boole (xchar_comment (xsyntax_table (table), c) & syntax);

@@ -132,8 +132,17 @@ Buffer::forward_char (Point &point, long ncp) const
           d -= rest_cp;
           point.p_point += rest_cp;
           point.p_offset = 0;
+          if (!cp->c_next)
+            {
+              /* b_contents.p2 (cp 数) と chunk の c_nchars の合計が
+                 食い違っていると、まだ進める筈なのに chunk が尽きる。
+                 assert で落とすと release build では null 参照になるので
+                 末尾に clamp して f = 0 (進みきれなかった) を返す。 */
+              point.p_offset = cp->c_used;
+              point.p_chunk = cp;
+              return 0;
+            }
           cp = cp->c_next;
-          assert (cp);
         }
     }
   else if (d < 0)
@@ -153,8 +162,14 @@ Buffer::forward_char (Point &point, long ncp) const
             }
           back -= head_cp;
           point.p_point -= head_cp;
+          if (!cp->c_prev)
+            {
+              /* 前進側と同じ理由での防御。先頭に clamp する。 */
+              point.p_offset = 0;
+              point.p_chunk = cp;
+              return 0;
+            }
           cp = cp->c_prev;
-          assert (cp);
           point.p_offset = cp->c_used;
         }
     }
@@ -1594,7 +1609,19 @@ Buffer::folded_point_column_1 (point_t goal, Point &point) const
       const Char *p = point.p_chunk->c_text + point.p_offset;
       const Char *pe = p + step_cu;
       while (p < pe)
-        column += char_columns (*p++, column);
+        {
+          /* surrogate pair は合成した code point で幅を引く。cu ごとに
+             char_columns を足すと half が 1 幅ずつ数えられて常に 2 に
+             なるので、幅 1 の BMP 外の文字 (数学英数字など) で
+             point_column / forward_column とずれる。 */
+          if (is_high_surrogate (*p) && p + 1 < pe && is_low_surrogate (p[1]))
+            {
+              column += surrogate_pair_width (p[0], p[1]);
+              p += 2;
+            }
+          else
+            column += char_columns (*p++, column);
+        }
       (void) tail_cu;
       rest_cp -= step_cp;
       if (rest_cp <= 0)
