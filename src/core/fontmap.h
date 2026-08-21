@@ -9,7 +9,8 @@
 
    戻り値は font.h 定義の FONT_* のいずれか:
      FONT_ASCII, FONT_JP, FONT_LATIN, FONT_CYRILLIC, FONT_GREEK,
-     FONT_CN_SIMPLIFIED, FONT_CN_TRADITIONAL, FONT_HANGUL, FONT_GEORGIAN
+     FONT_CN_SIMPLIFIED, FONT_CN_TRADITIONAL, FONT_HANGUL, FONT_GEORGIAN,
+     FONT_SYMBOL
 
    現時点では Unicode block による静的写像のみ。将来 Lisp 変数
    *unicode-font-ranges* で上書き可能にする。                          */

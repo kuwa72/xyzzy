@@ -50,7 +50,11 @@ public:
 #define FONT_CN_TRADITIONAL 6
 #define FONT_HANGUL         7
 #define FONT_GEORGIAN       8
-#define FONT_MAX            9
+/* 記号・アイコン用。Private Use Area に字形を置く Nerd Font 系がここに来る。
+   本文用フォントに glyph が無い範囲だけを別 face で描くための枠で、
+   Windows Terminal や WezTerm が持つ fallback chain の末尾に相当する。 */
+#define FONT_SYMBOL         9
+#define FONT_MAX            10
 
 struct FontSetParam
 {
