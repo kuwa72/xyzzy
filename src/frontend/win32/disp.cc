@@ -2686,6 +2686,22 @@ Window::paint_terminal (HDC hdc, Terminal *term, int force)
   paint_terminal (painter, term, force);
 }
 
+/* ターミナルの桁数・行数を窓に合わせる。ConPTY にも伝わるので、向こう側の
+   アプリが SIGWINCH 相当を受け取って描き直す。
+
+   窓をリサイズすると WM_SIZE で w_ech (窓に入る文字数) は更新されるが、続く
+   WM_PAINT は update_window から paint_terminal を直接呼ぶ経路で、refresh ()
+   を通らない。ここを refresh_terminal の中だけに置いていたので、リサイズ後に
+   何か打つまで子プロセスは古い大きさのままだった。両方から呼ぶ。 */
+void
+Window::sync_terminal_size (Terminal *term)
+{
+  if (term->rows () == w_ech.cy && term->cols () == w_ech.cx)
+    return;
+  extern void buffer_terminal_resize (const Buffer *bp, int rows, int cols);
+  buffer_terminal_resize (w_bufp, w_ech.cy, w_ech.cx);
+}
+
 int
 Window::refresh_terminal (int f)
 {
@@ -2693,12 +2709,7 @@ Window::refresh_terminal (int f)
   if (!term)
     return -1;  // not a terminal buffer
 
-  // Resize terminal to match window
-  if (term->rows () != w_ech.cy || term->cols () != w_ech.cx)
-    {
-      extern void buffer_terminal_resize (const Buffer *bp, int rows, int cols);
-      buffer_terminal_resize (w_bufp, w_ech.cy, w_ech.cx);
-    }
+  sync_terminal_size (term);
 
   /* IME の変換ウィンドウは Windows のキャレット位置 (app.active_frame の
      caret_pos) を見て置かれる。ターミナルは自前のブロックカーソルを
@@ -2892,6 +2903,9 @@ Window::update_window ()
       Terminal *term = buffer_terminal (w_bufp);
       if (term)
         {
+          /* リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
+             合わせておかないと、古い桁数のまま描いてしまう。 */
+          sync_terminal_size (term);
           PAINTSTRUCT ps;
           HDC hdc = BeginPaint (w_hwnd, &ps);
           /* WM_PAINT では DC の内容が失われているので全面描き直す。 */

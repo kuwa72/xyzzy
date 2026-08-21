@@ -589,6 +589,7 @@ struct Window
   void paint_terminal (struct Painter &, class Terminal *, int force);
   void paint_terminal (HDC, class Terminal *, int force);
   int refresh_terminal (int f);
+  void sync_terminal_size (class Terminal *);
   void find_motion () const;
   void redraw_window (Point &, long, int, int) const;
   int kwdmatch (lisp, const Char *, const Chunk *, int &, int &, int, int &, int) const;
