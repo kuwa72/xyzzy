@@ -38,6 +38,8 @@ docker_run() {
     -e XYZZY_TEST_STALL \
     -e XYZZY_TEST_EXCLUDE \
     -e XYZZY_TEST_EXCLUDE_EXTRA \
+    -e XYZZY_TEST_KNOWN_FAILURES \
+    -e XYZZY_TEST_UPDATE_KNOWN_FAILURES \
     -w /work \
     "$IMAGE" "$@"
 }

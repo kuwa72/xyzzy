@@ -6,7 +6,7 @@ name: Build
 # タグ (release.yml が workflow_call で呼ぶ)、それと手で回したいときに動かす。
 on:
   push:
-    branches: [ main, modern, develop, unicode ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -19,25 +19,37 @@ concurrency:
 
 jobs:
   build:
+    # Named explicitly, because the default name is every matrix value joined
+    # together: adding known-failures to the matrix turned the check into
+    # "build (ARM64, windows-11-arm, arm64-windows-static-md, xyzzy-arm64,
+    # misc/known-failures/common.tx...".  A required status check is matched by
+    # name, so a name that moves whenever the matrix gains a field is a name
+    # that silently stops being required.
+    name: MSVC ${{ matrix.arch }}
     strategy:
       # One architecture failing used to cancel the others, which hid whether
       # they were healthy: the x86 link error left x64 and ARM64 "cancelled".
       fail-fast: false
       matrix:
+        # known-failures: the tests that already fail on this target, by name.
+        # See misc/known-failures/README.md.  x86 passes the two 64 bit ones.
         include:
           - arch: ARM64
             runner: windows-11-arm
             vcpkg-triplet: arm64-windows-static-md
             artifact: xyzzy-arm64
+            known-failures: misc/known-failures/common.txt,misc/known-failures/msvc.txt,misc/known-failures/msvc-64bit.txt
           - arch: x64
             runner: windows-latest
             vcpkg-triplet: x64-windows-static-md
             artifact: xyzzy-amd64
+            known-failures: misc/known-failures/common.txt,misc/known-failures/msvc.txt,misc/known-failures/msvc-64bit.txt
           - arch: x86
             cmake-arch: Win32
             runner: windows-latest
             vcpkg-triplet: x86-windows-static-md
             artifact: xyzzy-x86
+            known-failures: misc/known-failures/common.txt,misc/known-failures/msvc.txt
 
     runs-on: ${{ matrix.runner }}
 
@@ -91,19 +103,43 @@ jobs:
         if ($lcFiles.Count -eq 0) { throw "No .lc files generated!" }
         $lcFiles | Select-Object -First 10 | ForEach-Object { Write-Host $_.Name }
 
-    # Still informational, but no longer cut off at five minutes: loading the
-    # suite alone takes about a minute, so this step was almost certainly
-    # timing out and being ignored.  Gate on it once it is known to pass.
-    - name: Run unit tests (informational)
-      continue-on-error: true
+    # This gates the merge, and it gates the release: release.yml calls this
+    # workflow, so a red suite stops a tag from being published.  It is not
+    # "the suite passes" -- it does not, on either toolchain -- it is "nothing
+    # fails that is not already written down in misc/known-failures".  A
+    # failure names the test and says which of the two things happened: an
+    # unlisted test failed, or a listed one started passing and its entry has
+    # to come off the list.
+    #
+    # It also used to swallow its own result twice over: continue-on-error, and
+    # Write-Host as the last command, which left $LASTEXITCODE unread.
+    - name: Run unit tests
       timeout-minutes: 20
+      env:
+        XYZZY_TEST_KNOWN_FAILURES: ${{ matrix.known-failures }}
       run: |
         $env:XYZZYHOME = (Get-Location).Path
         $env:XYZZYINIFILE = ""
         $env:XYZZYCONFIGPATH = ""
+        # A dump image holds absolute addresses from the binary that wrote it.
         Remove-Item -ErrorAction SilentlyContinue build\Release\xyzzy-batch.wxp
-        .\build\Release\xyzzy-batch.exe -q -load misc\run-tests-batch.l
-        Write-Host "test exit code: $LASTEXITCODE"
+        & .\build\Release\xyzzy-batch.exe -q -load misc\run-tests-batch.l > test-output.txt 2>&1
+        $code = $LASTEXITCODE
+        Get-Content test-output.txt
+        # A crash can exit 0, so the status alone would read a run that stopped
+        # halfway as a pass.  The summary line is what says it got to the end.
+        if (-not (Select-String -Path test-output.txt -Pattern 'Total \d+ tests' -Quiet)) {
+          throw "no summary line in the output: the suite did not finish"
+        }
+        if ($code -ne 0) { exit $code }
+
+    - name: Upload test output
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}-tests
+        if-no-files-found: ignore
+        path: test-output.txt
 
     - name: Package
       run: |

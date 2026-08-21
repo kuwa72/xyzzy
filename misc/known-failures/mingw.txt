@@ -1,0 +1,23 @@
+# Known failures under llvm-mingw run through Wine (mingw.yml), on both
+# architectures.  See README.md.  Baseline: main @ b918656 (2026-08-21).
+#
+# Everything in this file passes under MSVC.  That is the point of running a
+# second toolchain, but it also means a line here is either a real portability
+# bug or a place where the test assumes something Wine does not provide -- and
+# the two need telling apart before any of them can come off the list.
+
+# chdir into a directory and read the working directory back.  Wine's notion of
+# the current directory and the drive-relative directories Win32 keeps per
+# drive letter are the usual reason this differs.
+chdir-1
+chdir-2
+
+# abbreviate-display-string: shortening a path for display.
+fix-abbreviate-display-string
+
+# OLE: argument passing.  The OLE tests drive a real COM object, so under Wine
+# they exercise Wine's COM rather than Windows'.  These three may well be Wine
+# gaps rather than xyzzy bugs; that is what has to be established.
+test-ole-method*-args
+test-ole-method*-named-args
+fix-ole-for-each
