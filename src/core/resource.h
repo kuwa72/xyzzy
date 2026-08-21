@@ -93,7 +93,6 @@
 #define IDS_CANNOT_START_PRINT          98
 #define IDS_CREATE_BM_FAILED            99
 #define IDS_LANG_GEORGIAN               100
-#define IDS_LANG_SYMBOL                 105
 #define IDD_SELECT_BUFFER               101
 #define IDS_HEADER_OFFSET_TOO_LARGE     101
 #define IDB_BITMAP1                     102

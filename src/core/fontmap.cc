@@ -4,7 +4,7 @@
 
 /* Code point → font slot index の静的マップ。
 
-   FontSet には 10 スロット (FONT_ASCII .. FONT_SYMBOL) が用意されている。
+   FontSet には 9 スロット (FONT_ASCII .. FONT_GEORGIAN) が用意されている。
    charset-based な switch 分岐 (disp.cc:467-510 付近) を置き換える意図で、
    UTF-16 code point から適切なフォントスロットを返す関数。
 
@@ -88,19 +88,9 @@ get_font_idx (unsigned int cp)
   if (cp < 0xE000)
     return FONT_JP;
 
-  /* Private Use Area (U+E000-F8FF): 記号用フォント。
-
-     PUA に何の字形が来るかは font 側の取り決めで決まる。実際に置かれている
-     のは Nerd Font 系のアイコンで、Powerline の三角 (U+E0B0-)、Devicons
-     (U+E700-)、Codicons (U+EA60-)、Font Awesome (U+ED00-, U+F000-) などが
-     この範囲に固まっている。本文用の font にこれらの glyph は無く、Latin に
-     振っても豆腐になるだけなので、専用の枠を当てる。
-
-     幅は 1 桁のまま (eaw.cc は PUA を Wide 扱いにしていない)。Nerd Font の
-     Mono 版が 1 セル幅で作られているのと、モダンなターミナルがこの範囲を
-     1 桁で数えるのに揃う。 */
+  /* Private Use Area (U+E000-F8FF): Latin fallback */
   if (cp < 0xF900)
-    return FONT_SYMBOL;
+    return FONT_LATIN;
 
   /* CJK Compatibility Ideographs */
   if (cp < 0xFB00)
@@ -121,11 +111,6 @@ get_font_idx (unsigned int cp)
   /* Fullwidth Forms, Halfwidth Forms */
   if (cp < 0x10000)
     return FONT_JP;
-
-  /* Supplementary Private Use Area-A/B。Nerd Font の Material Design Icons
-     (U+F0001-U+F1AF0) がここにある。 */
-  if (cp >= 0xF0000)
-    return FONT_SYMBOL;
 
   /* SMP 以上 (絵文字・CJK 拡張等): とりあえず JP */
   return FONT_JP;

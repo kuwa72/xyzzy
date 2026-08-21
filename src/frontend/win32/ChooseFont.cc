@@ -322,41 +322,6 @@ static const struct {BYTE charset; const char *string;} samples[] =
   {BALTIC_CHARSET, "AaBb\xc0\xe0\xdd\xfd"},
 };
 
-/* 記号スロットの見本。Nerd Font の各出自から 1 つずつ拾ってある。
-   左から powerline の三角、git のブランチ、フォルダ (Seti-UI)、git
-   (Devicons)、アカウント (Codicons)、家 (Font Awesome)、Tux (Font Logos)。 */
-static const wchar_t nerd_sample[] =
-  L"\ue0b0\ue0a0\ue5ff\ue702\uea60\uf015\uf17c";
-
-/* face に glyph がいくつ入っているか数える。GGI_MARK_NONEXISTING_GLYPHS を
-   付けると、無い文字は 0xffff で返る。豆腐を見れば分かることではあるが、
-   数で言われた方が早い。 */
-static int
-count_glyphs (HDC hdc, const wchar_t *str, int len)
-{
-  WORD gi[32];
-  if (len > int (numberof (gi)))
-    len = numberof (gi);
-  if (GetGlyphIndicesW (hdc, str, len, gi, GGI_MARK_NONEXISTING_GLYPHS) == GDI_ERROR)
-    return -1;
-  int n = 0;
-  for (int i = 0; i < len; i++)
-    if (gi[i] != 0xffff)
-      n++;
-  return n;
-}
-
-/* IDC_LANG が今どのスロットを指しているか。分からなければ -1。 */
-static int
-current_lang (HWND hwnd)
-{
-  int i = SendDlgItemMessageW (hwnd, IDC_LANG, CB_GETCURSEL, 0, 0);
-  if (i == CB_ERR)
-    return -1;
-  i = SendDlgItemMessageW (hwnd, IDC_LANG, CB_GETITEMDATA, i, 0);
-  return i >= 0 && i < FONT_MAX ? i : -1;
-}
-
 void
 ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
 {
@@ -386,20 +351,7 @@ ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
   COLORREF ofg = SetTextColor (dis->hDC, cf_fg);
   COLORREF obg = SetBkColor (dis->hDC, cf_bg);
   wchar_t wsample[64];
-  int wl;
-  if (current_lang (hwnd) == FONT_SYMBOL)
-    {
-      /* 記号スロットは code page を通せない (PUA に対応する多バイト表現が
-         無い) ので、見本を wide のまま置く。 */
-      int n = numberof (nerd_sample) - 1;
-      wcscpy (wsample, nerd_sample);
-      wl = n;
-      int have = count_glyphs (dis->hDC, nerd_sample, n);
-      if (have >= 0 && have < n)
-        wl += swprintf (wsample + n, numberof (wsample) - n, L"   %d/%d", have, n);
-    }
-  else
-    wl = MultiByteToWideChar (cp, 0, sample, -1, wsample, 64) - 1;
+  int wl = MultiByteToWideChar (cp, 0, sample, -1, wsample, 64) - 1;
   SIZE size = {0};
   GetTextExtentPoint32W (dis->hDC, wsample, wl, &size);
   const RECT &r = dis->rcItem;
