@@ -66,6 +66,19 @@ jobs:
     - name: Byte-compile Lisp files
       run: cmake --build build --config Release --target bytecompile
 
+    # バイトコンパイルは xyzzy 自身を走らせる工程で、落ちるときはここで落ちる。
+    # クラッシュログ (.BUG) と進捗ログを残しておかないと後から何も分からない。
+    - name: Upload crash logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}-logs
+        if-no-files-found: ignore
+        path: |
+          build/Release/*.BUG
+          bytecompile-progress.log
+          xyzzy_debug.log
+
     - name: Verify byte-compile results
       run: |
         $lcFiles = Get-ChildItem -Recurse lisp/*.lc

@@ -44,6 +44,17 @@ if(EXISTS "${LOGFILE}")
     message("${log_contents}")
 endif()
 
+# 落ちていたら xyzzy が書いたクラッシュログを出す。例外アドレス、そのアドレスの
+# モジュール、Lisp 側のスタックが入っている。ここで落ちたときにログに何も出ない
+# と、CI からは「Access violation」の一行しか見えない。
+set(BUGFILE "${EXE_DIR}/${EXE_NAME}.BUG")
+if(EXISTS "${BUGFILE}")
+    file(READ "${BUGFILE}" bug_contents)
+    message("=== ${BUGFILE} ===")
+    message("${bug_contents}")
+    message("=== end of crash log ===")
+endif()
+
 file(GLOB lc_files "${SOURCE_DIR}/lisp/*.lc")
 list(LENGTH lc_files lc_count)
 message(STATUS "Generated ${lc_count} .lc files")
