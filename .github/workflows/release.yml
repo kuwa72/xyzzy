@@ -5,11 +5,88 @@ on:
     tags: ['v*']
 
 jobs:
+  # Everything here is about the tag agreeing with the tree it points at, and it
+  # runs before the build so that a bad tag costs ten seconds instead of the
+  # twenty minutes build.yml takes.
+  check:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - id: tag
+      run: |
+        set -eu
+        tag='${{ github.ref_name }}'
+        version="${tag#v}"
+
+        # v<core>[-<suffix>].  The core has to match the tree; the suffix is what
+        # marks a preview, and CMake cannot hold it anyway (project(VERSION ...)
+        # only takes numbers), which is why the two are compared separately.
+        core="${version%%-*}"
+        suffix="${version#"$core"}"
+        suffix="${suffix#-}"
+
+        project=$(sed -nE 's/^project\(xyzzy VERSION ([0-9.]+).*/\1/p' CMakeLists.txt)
+        if [ -z "$project" ]; then
+          echo "::error::could not read project(xyzzy VERSION ...) out of CMakeLists.txt"
+          exit 1
+        fi
+
+        echo "tag         $tag"
+        echo "core        $core"
+        echo "suffix      ${suffix:-(none)}"
+        echo "CMakeLists  $project"
+
+        # Nothing downstream compared these.  cpack names the zip from
+        # PROJECT_VERSION while the installer takes its version from the tag, so
+        # a mismatch shipped xyzzy-0.3.0-amd64.zip next to
+        # xyzzy-9.9.9-amd64-setup.exe in one release -- and the binary itself
+        # reported a third answer, the CMakeLists one, because that is what
+        # version.h is generated from.
+        if [ "$core" != "$project" ]; then
+          echo "::error::tag $tag says $core but CMakeLists.txt says $project."
+          echo "::error::Bump project(xyzzy VERSION ...) first, or retag."
+          exit 1
+        fi
+
+        # This used to write "No release notes found for X" into the release body
+        # and succeed, which is the sort of thing nobody notices until it is on
+        # the releases page.
+        notes="docs/release-note-${version}.md"
+        if [ ! -f "$notes" ]; then
+          echo "::error::no release notes at $notes"
+          exit 1
+        fi
+        if [ ! -s "$notes" ]; then
+          echo "::error::$notes is empty"
+          exit 1
+        fi
+
+        # A suffixed tag is a preview: mark it so it does not become the release
+        # that "Download the latest" points at.  v0.2.6.8-preview and -pr3 were
+        # both published as full releases.
+        if [ -n "$suffix" ]; then
+          prerelease=true
+        else
+          prerelease=false
+        fi
+
+        echo "notes       $notes"
+        echo "prerelease  $prerelease"
+
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: check
     uses: ./.github/workflows/build.yml
 
   release:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,40 +102,55 @@ jobs:
     - name: List artifacts
       run: find artifacts -type f | sort
 
-    - name: Rename artifacts with architecture suffix
+    - name: Collect the release files
       run: |
-        # ZIP files
-        for dir in arm64 amd64 x86; do
-          for f in artifacts/xyzzy-${dir}/*.zip; do
-            [ -f "$f" ] || continue
+        set -eu
+        mkdir -p dist
+        for arch in arm64 amd64 x86; do
+          # cpack names the zip from PROJECT_VERSION alone, with no
+          # architecture, so all three arrive called the same thing.
+          for f in artifacts/xyzzy-${arch}/*.zip; do
             base=$(basename "$f" .zip)
-            mv "$f" "artifacts/xyzzy-${dir}/${base}-${dir}.zip"
+            mv "$f" "dist/${base}-${arch}.zip"
           done
+          # The installer already carries the architecture in its name.
+          mv artifacts/xyzzy-${arch}-setup/*-setup.exe dist/
         done
-        echo "=== All release files ==="
-        find artifacts -name '*.zip' -o -name '*-setup.exe' | sort
+        ls -l dist
 
-    - name: Extract release notes
-      run: |
-        version="${{ github.ref_name }}"
-        version="${version#v}"
-        notefile="docs/release-note-${version}.md"
-        if [ -f "$notefile" ]; then
-          cp "$notefile" release-notes.md
-        else
-          echo "No release notes found for ${version}" > release-notes.md
+        # The six files used to be six globs spelled out in the gh call, where a
+        # missing architecture reads as "nothing to ship for that one" rather
+        # than as a problem.  Say the number out loud instead.
+        zips=$(find dist -name '*.zip' | wc -l)
+        setups=$(find dist -name '*-setup.exe' | wc -l)
+        echo "$zips zips, $setups installers"
+        if [ "$zips" -ne 3 ] || [ "$setups" -ne 3 ]; then
+          echo "::error::expected 3 zips and 3 installers, got $zips and $setups"
+          exit 1
         fi
 
-    - name: Create GitHub Release
+    # So that someone who downloads a Windows binary from a fork of a fork has
+    # something to check it against.
+    - name: Checksums
+      run: |
+        set -eu
+        cd dist
+        sha256sum -- * > SHA256SUMS
+        cat SHA256SUMS
+
+    - name: Create the release
       env:
         GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ needs.check.outputs.version }}
+        PRERELEASE: ${{ needs.check.outputs.prerelease }}
       run: |
-        gh release create "${{ github.ref_name }}" \
-          --title "xyzzy ${{ github.ref_name }}" \
-          --notes-file release-notes.md \
-          artifacts/xyzzy-arm64/*.zip \
-          artifacts/xyzzy-amd64/*.zip \
-          artifacts/xyzzy-x86/*.zip \
-          artifacts/xyzzy-arm64-setup/*-setup.exe \
-          artifacts/xyzzy-amd64-setup/*-setup.exe \
-          artifacts/xyzzy-x86-setup/*-setup.exe
+        set -eu
+        flags=""
+        if [ "$PRERELEASE" = true ]; then
+          flags="--prerelease"
+        fi
+        # shellcheck disable=SC2086
+        gh release create '${{ github.ref_name }}' $flags \
+          --title 'xyzzy ${{ github.ref_name }}' \
+          --notes-file "docs/release-note-${VERSION}.md" \
+          dist/*
