@@ -424,6 +424,13 @@ else()
     target_compile_options(gen-src1 PRIVATE "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
 endif()
 
+# gcc/clang は GNU 拡張モード (-std=gnu++11) で unix / linux / i386 を 1 に定義する。
+# DEFKWD2(unix) の引数は STR() に渡る前にマクロ展開されるので、そのままだと
+# キーワード名が "1" になり unix と linux が衝突して gen-syms が exit(2) する。
+if(NOT MSVC)
+    target_compile_options(gen-src1 PRIVATE -Uunix -Ulinux -Ui386)
+endif()
+
 # ============================================================
 # gen-src1 code generation custom commands
 # ============================================================
@@ -607,6 +614,13 @@ add_executable(gen-src1 ${GEN_SRC1_SOURCES})
 target_compile_definitions(gen-src1 PRIVATE GEN_SRC1 _CONSOLE)
 target_compile_options(gen-src1 PRIVATE
     "SHELL:-iquote ${SRC_DIR}" "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+
+# gcc/clang は GNU 拡張モード (-std=gnu++11) で unix / linux / i386 を 1 に定義する。
+# DEFKWD2(unix) の引数は STR() に渡る前にマクロ展開されるので、そのままだと
+# キーワード名が "1" になり unix と linux が衝突して gen-syms が exit(2) する。
+if(NOT MSVC)
+    target_compile_options(gen-src1 PRIVATE -Uunix -Ulinux -Ui386)
+endif()
 
 add_custom_command(
     OUTPUT ${GEN_DIR}/num-arith.h
