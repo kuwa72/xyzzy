@@ -11,9 +11,19 @@ name: mingw
 #
 # build.yml stays the one that ships the release binaries.
 
+# Pushes to a topic branch are deliberately not listed here.  They used to be,
+# and once these jobs became required status checks that turned into a merge
+# blocker: a push to a branch with an open PR fires both events, both runs land
+# in the same concurrency group, and the loser is cancelled after a few seconds.
+# Both runs report a check named "llvm-mingw <arch> (Wine)" on the same commit,
+# and a required check that is cancelled counts against the branch rule -- so
+# every PR sat at "blocked" with a green suite and a cancelled twin of it.
+#
+# A topic branch gets its CI from the pull request instead.  Open it as a draft
+# to have that start early.
 on:
   push:
-    branches: [ main, 'topic/**' ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 
