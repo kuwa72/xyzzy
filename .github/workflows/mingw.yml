@@ -13,7 +13,7 @@ name: mingw
 
 on:
   push:
-    branches: [ modern, develop, unicode, 'topic/**' ]
+    branches: [ main, modern, develop, unicode, 'topic/**' ]
   pull_request:
   workflow_dispatch:
 
