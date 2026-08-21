@@ -876,6 +876,7 @@ BEGIN
     IDS_LANG_GREEK          "ギリシャ語"
     IDS_LANG_CN_SIMPLIFIED  "中国語(簡体字)"
     IDS_LANG_CN_TRADITIONAL "中国語(繁体字)"
+    IDS_LANG_SYMBOL         "記号 (Nerd Font)"
 END
 
 STRINGTABLE DISCARDABLE 

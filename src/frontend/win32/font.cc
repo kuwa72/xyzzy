@@ -14,6 +14,7 @@ const UINT FontSet::fs_lang_id[] =
   IDS_LANG_CN_TRADITIONAL,
   IDS_LANG_KSC5601,
   IDS_LANG_GEORGIAN,
+  IDS_LANG_SYMBOL,
 };
 
 const lisp *const FontSet::fs_lang_key[] =
@@ -27,6 +28,7 @@ const lisp *const FontSet::fs_lang_key[] =
   &Kcn_traditional,
   &Kksc5601,
   &Kgeorgian,
+  &Ksymbol,
 };
 
 const char *const FontSet::fs_regent[] =
@@ -40,6 +42,7 @@ const char *const FontSet::fs_regent[] =
   "BIG5",
   "KSC5601",
   "Georgian",
+  "Symbol",
 };
 
 const FontSet::fontface FontSet::fs_default_face[] =
@@ -53,6 +56,10 @@ const FontSet::fontface FontSet::fs_default_face[] =
   {L"MingLiu", 0, CHINESEBIG5_CHARSET},
   {L"GulimChe", 0, HANGEUL_CHARSET},
   {L"BPG Courier New U"},
+  /* Nerd Font の記号だけを収めた配布物。パッチ済みの本文フォントを使って
+     いる人はそちらの face 名を入れればよく、どちらも無い場合は
+     load_params が ASCII の face に落とす。 */
+  {L"Symbols Nerd Font Mono"},
 };
 
 int
@@ -536,6 +543,19 @@ fix_charset_proc (ENUMLOGFONTW *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 void
 FontSet::load_params (FontSetParam &param)
 {
+  /* スロットを増やすときに、この 4 つのどれかを書き忘れるのが一番ありがちな
+     間違いである。実際に fs_default_face だけ 1 行落として、添字 FONT_SYMBOL が
+     配列の外を指し、MSVC ビルドが起動時にそのゴミを face 名として読んで
+     Access violation で落ちた。数が合わなければコンパイルを止める。 */
+  static_assert (numberof (fs_lang_id) == FONT_MAX,
+                 "fs_lang_id の数が FONT_MAX と合っていない");
+  static_assert (numberof (fs_lang_key) == FONT_MAX,
+                 "fs_lang_key の数が FONT_MAX と合っていない");
+  static_assert (numberof (fs_regent) == FONT_MAX,
+                 "fs_regent の数が FONT_MAX と合っていない");
+  static_assert (numberof (fs_default_face) == FONT_MAX,
+                 "fs_default_face の数が FONT_MAX と合っていない");
+
   bzero (&param, sizeof param);
 
   if (!read_conf (cfgFont, cfgLineSpacing, param.fs_line_spacing))
@@ -572,6 +592,21 @@ FontSet::load_params (FontSetParam &param)
 
   HDC hdc = GetDC (0);
   EnumFontFamiliesExW (hdc, (LPLOGFONTW)0, FONTENUMPROCW (fix_charset_proc), LPARAM (&param), 0);
+
+  /* 記号スロットの既定は Nerd Font の記号だけを収めた配布物だが、入って
+     いない環境も多い。その場合は本文 (ASCII) と同じ face にしておく:
+     パッチ済みの Nerd Font を本文に使っているならそれで正しく出るし、
+     そうでなければ従来どおり豆腐になるだけで、以前と何も変わらない。
+     Symbols Nerd Font Mono を入れる、あるいはフォント設定でこの枠に
+     face を選べば、そこから先は記号だけ別 face で描かれる。 */
+  if (!font_exist_p (hdc, param.fs_logfont[FONT_SYMBOL].lfFaceName,
+                     param.fs_logfont[FONT_SYMBOL].lfCharSet))
+    {
+      wcscpy (param.fs_logfont[FONT_SYMBOL].lfFaceName,
+              param.fs_logfont[FONT_ASCII].lfFaceName);
+      param.fs_logfont[FONT_SYMBOL].lfCharSet = param.fs_logfont[FONT_ASCII].lfCharSet;
+    }
+
   ReleaseDC (0, hdc);
 }
 
