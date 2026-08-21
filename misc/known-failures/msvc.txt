@@ -10,7 +10,3 @@ xyzzy-ini-path
 user-config-path-startup-option
 user-config-path-XYZZYCONFIGPATH
 user-config-path-startup-option-and-XYZZYCONFIGPATH
-
-# HMAC-SHA2 test vector 3 (the long-key case).  Also fails on mingw i686 but
-# not, as far as the log shows, on mingw x86_64 -- see mingw-i686.txt.
-hmac-sha2-test-case-3

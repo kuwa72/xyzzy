@@ -21,11 +21,14 @@ The lists compose; a target is given a comma separated list of them.
     msvc.txt          MSVC (build.yml), all three architectures
     msvc-64bit.txt    MSVC x64 and ARM64
     mingw.txt         llvm-mingw under Wine (mingw.yml), both architectures
-    mingw-i686.txt    llvm-mingw i686
 
 So, for example, MSVC ARM64 runs with
 
     common.txt,msvc.txt,msvc-64bit.txt
+
+and the counts come out as the runs on main did: 8 failures on MSVC x86, 10 on
+MSVC x64 and ARM64, 10 on both mingw architectures.  A target whose count stops
+matching is the whole point of the exercise.
 
 `tools/run-tests.sh` picks the mingw combination itself, and the matrix in
 `.github/workflows/build.yml` carries the MSVC ones.

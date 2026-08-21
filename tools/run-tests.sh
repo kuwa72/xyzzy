@@ -104,10 +104,8 @@ export XYZZY_TEST_EXCLUDE_EXTRA
 # result at all: an unlisted failure exits non zero, and so does a listed test
 # that starts passing.  misc/known-failures/README.md has the details, including
 # how to rewrite a list from a run.
+# The two architectures share a list: everything that fails here fails on both.
 known=misc/known-failures/common.txt,misc/known-failures/mingw.txt
-case $arch in
-  i686) known=$known,misc/known-failures/mingw-i686.txt ;;
-esac
 : "${XYZZY_TEST_KNOWN_FAILURES:=$known}"
 export XYZZY_TEST_KNOWN_FAILURES
 
