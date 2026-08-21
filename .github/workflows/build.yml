@@ -19,6 +19,13 @@ concurrency:
 
 jobs:
   build:
+    # Named explicitly, because the default name is every matrix value joined
+    # together: adding known-failures to the matrix turned the check into
+    # "build (ARM64, windows-11-arm, arm64-windows-static-md, xyzzy-arm64,
+    # misc/known-failures/common.tx...".  A required status check is matched by
+    # name, so a name that moves whenever the matrix gains a field is a name
+    # that silently stops being required.
+    name: MSVC ${{ matrix.arch }}
     strategy:
       # One architecture failing used to cancel the others, which hid whether
       # they were healthy: the x86 link error left x64 and ARM64 "cancelled".
