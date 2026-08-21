@@ -3,9 +3,12 @@
 *.bak
 \#*\#
 
-# Claude Code: skills だけ共有し、作業用ワークツリーなどは無視する
+# Claude Code: skills と settings.json だけ共有し、作業用ワークツリーなどは無視する
+# settings.json は SessionStart で tools/setup-hooks.sh を走らせるためのもので、
+# 共有されないと git hooks が入らない (.git/hooks は versioned でないため)。
 .claude/*
 !.claude/skills/
+!.claude/settings.json
 
 # Auto generate files
 src/gen/
