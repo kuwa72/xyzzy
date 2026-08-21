@@ -47,43 +47,15 @@ ARM64 で動くようにしたり、Win32 API を Unicode 化したりしてい�
 
 ## ビルド方法
 
-### MSVC (CI と同じ)
+Windows 版を作るツールチェインは 2 つあります。ふだんの開発は llvm-mingw
+(Clang/LLD + UCRT) で、x86 / x86-64 / ARM64 をどれも Linux や macOS から
+クロスビルドできます。MSVC は上流に合わせるためと、リリース物を作るために
+維持しています。MSYS2 / Cygwin は対応しません。
 
-```powershell
-vcpkg install zlib:arm64-windows-static-md   # or x64-windows-static-md
-cmake -B build -G "Visual Studio 17 2022" -A ARM64 `
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-  -DVCPKG_TARGET_TRIPLET=arm64-windows-static-md
-cmake --build build --config Release
-cmake --build build --config Release --target bytecompile
-```
-
-### MSYS2 + Clang (ARM64)
-
-```bash
-pacman -S mingw-w64-clang-aarch64-{clang,cmake,make,zlib}
-export PATH=/clangarm64/bin:$PATH
-cmake -B build-clangarm64 -G "MinGW Makefiles" \
-  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_RC_COMPILER=llvm-windres -DCMAKE_SYSTEM_NAME=Windows \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build-clangarm64 -- -j$(nproc)
-cmake --build build-clangarm64 --target bytecompile
-```
-
-### Linux (ncurses フロントエンド)
-
-```bash
-# Debian/Ubuntu
-sudo apt install build-essential cmake libncursesw5-dev zlib1g-dev
-cmake -B build-curses -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
-cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
-```
-
-### llvm-mingw クロスビルド (Linux/macOS から Windows 版を作る)
+### llvm-mingw クロスビルド (ふだんの開発用)
 
 Windows マシンが無くても Windows 版をビルドして動かせます。docker だけ要ります。
-ビルドは llvm-mingw (Clang/LLD)、実行は Wine です。
+ビルドは llvm-mingw (Clang/LLD + UCRT)、実行は Wine です。
 
 ```bash
 tools/x image                # コンテナイメージを作る (初回のみ、20分ほど)
@@ -110,10 +82,31 @@ tools/x build     aarch64
 
 テストスイートには構成ごとに外しているものがあります (`tools/run-tests.sh` と
 `misc/run-tests-batch.l` にそれぞれ理由を書いてあります)。Clang ビルドには
-`_set_se_translator` に相当する SEH 変換が無く、i686 では FFI
-(`unittest/foreign-test.l`) が通らないため、そのぶんは MSVC ビルドが見ています。
+`_set_se_translator` に相当する SEH 変換が無く、さらに i686 では LLVM が 32bit
+x86 の SEH を扱えないので、ハードウェア例外を Lisp のコンディションとして受け取る
+テストだけは MSVC ビルドが見ています。
 
 リリース用のバイナリは従来どおり MSVC の `build` ワークフローが作ります。
+
+### MSVC (リリース物と上流互換)
+
+```powershell
+vcpkg install zlib:arm64-windows-static-md   # or x64-windows-static-md
+cmake -B build -G "Visual Studio 17 2022" -A ARM64 `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+  -DVCPKG_TARGET_TRIPLET=arm64-windows-static-md
+cmake --build build --config Release
+cmake --build build --config Release --target bytecompile
+```
+
+### Linux (ncurses フロントエンド)
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential cmake libncursesw5-dev zlib1g-dev
+cmake -B build-curses -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
+```
 
 bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) します。初回起動が大幅に速くなります。
 
