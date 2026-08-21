@@ -3,6 +3,10 @@
 *.bak
 \#*\#
 
+# Claude Code: skills だけ共有し、作業用ワークツリーなどは無視する
+.claude/*
+!.claude/skills/
+
 # Auto generate files
 src/gen/
 src/core/gen/
