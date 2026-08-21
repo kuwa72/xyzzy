@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(xyzzy VERSION 0.2.6.8 LANGUAGES C CXX)
+project(xyzzy VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
@@ -68,8 +68,15 @@ file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/src/core/gen)
 file(WRITE ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
 
 # Generate version.h from template (single source of truth: PROJECT_VERSION)
-if(NOT DEFINED PROJECT_VERSION_TWEAK)
+#
+# 3 桁の version を書くと CMake は PROJECT_VERSION_TWEAK を「未定義」ではなく
+# 空文字で定義する。そのまま version.h に流すと #define PROGRAM_MINOR_REVISION が
+# 値無しになり、version.cc の #if がコンパイルエラーになる。空も 0 に倒す。
+if(NOT DEFINED PROJECT_VERSION_TWEAK OR PROJECT_VERSION_TWEAK STREQUAL "")
     set(PROJECT_VERSION_TWEAK 0)
+endif()
+if(NOT DEFINED PROJECT_VERSION_PATCH OR PROJECT_VERSION_PATCH STREQUAL "")
+    set(PROJECT_VERSION_PATCH 0)
 endif()
 configure_file(
     ${CMAKE_SOURCE_DIR}/src/core/version.h.in
