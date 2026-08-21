@@ -1,0 +1,16 @@
+# Known failures on every target, under both toolchains.  See README.md.
+#
+# Baseline taken from the runs on main @ b918656 (2026-08-21):
+#   MSVC     x86 682 tests / 8 failed, x64 and ARM64 680 / 10
+#   mingw    i686 675 / 10, x86_64 678 / 10
+
+# OLE: iterating a collection with a for-each style walker.  fix-ole-for-each
+# passes under MSVC and fails under mingw; -2 fails everywhere, so the two are
+# not the same bug.
+fix-ole-for-each-2
+
+# (octet-length "..." :external-format ...) for the non-UTF-16 encodings.  Both
+# of these predate the unicode migration and are almost certainly the same bug
+# counted twice.
+octet-length-eucjp
+octet-length-utf8

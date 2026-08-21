@@ -1,0 +1,10 @@
+# Known failures under MSVC on the 64 bit targets (x64 and ARM64) only.
+# x86 passes both of these, so they are about pointer or register width rather
+# than about the architecture.  See README.md.
+
+# FFI: a C function returning double or float.  On a 64 bit ABI the return
+# value comes back in a different register than the marshalling code reads.
+fix-for-FFI-c-function-return-doubl/float-00
+
+# OLE: a method given VT_NULL and VT_EMPTY arguments.
+ole-method-null-and-empty

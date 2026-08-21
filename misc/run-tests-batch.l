@@ -30,12 +30,112 @@
             (setf (symbol-function 'test-message)
                   #'(lambda (&rest args) nil))
 
+            ;; Known failures.  XYZZY_TEST_KNOWN_FAILURES holds a comma
+            ;; separated list of files, each one test name per line with # for a
+            ;; comment; see misc/known-failures/README.md.  The suite is then
+            ;; gated on everything outside that list, which is what lets CI stop
+            ;; running it as informational: a test that fails without being
+            ;; listed fails the run, and so does one that is listed and passes,
+            ;; because a list nobody prunes stops meaning anything.
+            ;;
+            ;; With the variable unset nothing changes: any failure exits 1.
+            (defun batch-read-known-failures (spec base)
+              (let ((names nil))
+                (dolist (path (split-string spec #\, t " "))
+                  (let ((file (merge-pathnames path base)))
+                    (if (not (file-exist-p file))
+                        (format *standard-output*
+                                ";; WARNING: no such known-failures file: ~A~%" file)
+                      (with-open-file (in file :direction :input)
+                        (loop
+                          (let ((line (read-line in nil nil)))
+                            (unless line (return))
+                            ;; read-line drops the newline; a file written on
+                            ;; Windows still leaves the CR behind.
+                            (let* ((hash (position #\# line))
+                                   (name (string-trim
+                                          " \t\r\n"
+                                          (if hash (subseq line 0 hash) line))))
+                              (when (plusp (length name))
+                                (pushnew name names :test #'string-equal)))))))))
+                (nreverse names)))
+
+            ;; A test is in ssn-finished-tests as (TEST (EXAMPLE . FAILURES)...),
+            ;; so the names can be read straight off it.  Deriving them here
+            ;; rather than by grepping the output matters: on mingw x86_64 the
+            ;; run reports ten failures and prints only nine "...Failed" lines,
+            ;; so the log is not a reliable list of what failed.
+            (defun batch-test-results ()
+              (let ((failed nil) (passed nil))
+                (dolist (entry (ssn-finished-tests))
+                  (let ((name (string-downcase (string (test-name (car entry))))))
+                    (if (some #'cdr (cdr entry))
+                        (push name failed)
+                      (push name passed))))
+                (values (sort failed #'string-lessp) (sort passed #'string-lessp))))
+
+            (defun batch-report-names (label names)
+              (when names
+                (format *standard-output* "=== ~A ~D: ~{~A~^ ~} ===~%"
+                        label (length names) names)))
+
+            (defvar *batch-known-failures* nil)
+            (setq *batch-known-failures*
+                  (let ((spec (si:getenv "XYZZY_TEST_KNOWN_FAILURES")))
+                    (and spec (plusp (length spec))
+                         (batch-read-known-failures spec base-dir))))
+
+            ;; Rewrite a list from an actual run instead of editing it by hand.
+            ;; Every comment in the file is lost, so this is the start of an
+            ;; edit, not a substitute for one.  It always exits 0, which is also
+            ;; what keeps it from being left on in CI by accident.
+            (defvar *batch-update-known-failures* nil)
+            (setq *batch-update-known-failures*
+                  (let ((path (si:getenv "XYZZY_TEST_UPDATE_KNOWN_FAILURES")))
+                    (and path (plusp (length path)) path)))
+
             ;; Track exit code via finish hook (called before *current-session*
             ;; is cleared, so we can still read ssn-fail-count).
             (defvar *batch-exit-code* nil)
             (setq *tests-run-finish-hook*
                   #'(lambda (pass fail total)
-                      (setq *batch-exit-code* (if (zerop fail) 0 1))))
+                      (multiple-value-bind (failed passed) (batch-test-results)
+                        (cond
+                         (*batch-update-known-failures*
+                          (let ((file (merge-pathnames *batch-update-known-failures*
+                                                       base-dir)))
+                            (with-open-file (out file :direction :output
+                                                 :if-exists :supersede
+                                                 :if-does-not-exist :create)
+                              (format out "# Written by XYZZY_TEST_UPDATE_KNOWN_FAILURES.~%")
+                              (format out "# Say why each of these fails; see README.md.~%")
+                              (format out "~{~A~%~}" failed))
+                            (format *standard-output*
+                                    "=== wrote ~D names to ~A ===~%"
+                                    (length failed) file))
+                          (setq *batch-exit-code* 0))
+                         ((null *batch-known-failures*)
+                          (setq *batch-exit-code* (if (zerop fail) 0 1)))
+                         (t
+                          (let ((unexpected (set-difference failed *batch-known-failures*
+                                                            :test #'string-equal))
+                                (fixed (intersection passed *batch-known-failures*
+                                                     :test #'string-equal))
+                                (not-run (set-difference *batch-known-failures*
+                                                         (append failed passed)
+                                                         :test #'string-equal)))
+                            (format *standard-output*
+                                    "=== known failures: ~D listed, ~D matched ===~%"
+                                    (length *batch-known-failures*)
+                                    (- (length failed) (length unexpected)))
+                            (batch-report-names "unexpected failures" unexpected)
+                            (batch-report-names "now passing, remove from the list" fixed)
+                            ;; Not a failure: the exclude lists keep a few tests
+                            ;; from running at all, and a name can legitimately
+                            ;; be listed for a target that skips it.
+                            (batch-report-names "listed but did not run" not-run)
+                            (setq *batch-exit-code*
+                                  (if (and (null unexpected) (null fixed)) 0 1))))))))
 
             ;; What to leave out.  A name ending in .l skips a whole file, any
             ;; other name skips that one test, and XYZZY_TEST_EXCLUDE (comma

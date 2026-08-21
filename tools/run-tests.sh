@@ -99,6 +99,18 @@ esac
 : "${XYZZY_TEST_EXCLUDE_EXTRA:=$skip}"
 export XYZZY_TEST_EXCLUDE_EXTRA
 
+# Tests that run to the end and fail, as opposed to the ones above that take the
+# process down.  Listing them by name is what lets this script gate on the
+# result at all: an unlisted failure exits non zero, and so does a listed test
+# that starts passing.  misc/known-failures/README.md has the details, including
+# how to rewrite a list from a run.
+known=misc/known-failures/common.txt,misc/known-failures/mingw.txt
+case $arch in
+  i686) known=$known,misc/known-failures/mingw-i686.txt ;;
+esac
+: "${XYZZY_TEST_KNOWN_FAILURES:=$known}"
+export XYZZY_TEST_KNOWN_FAILURES
+
 timeout=${XYZZY_TEST_TIMEOUT:-1800}
 stall=${XYZZY_TEST_STALL:-300}
 log=$build/test-output.txt
@@ -175,6 +187,11 @@ echo "----- summary -----"
 grep -c '\.\.\.OK'     "$log" | sed 's/^/passed: /' || true
 grep -c '\.\.\.Failed' "$log" | sed 's/^/failed: /' || true
 grep '\.\.\.Failed'    "$log" || true
+# The verdict, repeated at the end so it is not buried in the scroll.  These
+# counts are every failure; the "===" lines are the ones that decide the exit
+# status.  They disagree on purpose: a known failure is a failure that does not
+# fail the run.
+grep -E '^=== (known failures|unexpected failures|now passing|listed but did not run|wrote )' "$log" || true
 echo "-------------------"
 
 # Wine lets a crashing process exit 0, so the status alone would read a run that
@@ -185,8 +202,10 @@ if ! grep -q 'Total [0-9]* tests' "$log"; then
 fi
 
 case $status in
-  0) echo "run-tests.sh: all tests passed" ;;
-  1) echo "run-tests.sh: tests failed" >&2 ;;
+  0) echo "run-tests.sh: no failures outside misc/known-failures" ;;
+  1) echo "run-tests.sh: see the \"===\" lines above: either something failed" >&2
+     echo "run-tests.sh: that is not a known failure, or a known failure has" >&2
+     echo "run-tests.sh: started passing and its entry has to come off the list." >&2 ;;
   2) echo "run-tests.sh: the suite did not finish" >&2 ;;
   *) echo "run-tests.sh: xyzzy-batch exited with $status" >&2 ;;
 esac

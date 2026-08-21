@@ -1,0 +1,14 @@
+# Known failures under llvm-mingw i686 only.  See README.md.
+
+# HMAC-SHA2 test vector 3.  Fails on i686 and under all three MSVC builds, so
+# it is listed here and in msvc.txt but not in common.txt.
+#
+# It is not certain that mingw x86_64 passes it.  That run reported
+#
+#   Total 678 tests: 668 passed, 10 failed
+#
+# while printing only nine "...Failed" lines, so one failure on that target has
+# no name in the log and this is the likeliest candidate.  If the first gated
+# run reports hmac-sha2-test-case-3 as an unexpected failure on x86_64, the fix
+# is to move this entry into common.txt.
+hmac-sha2-test-case-3
