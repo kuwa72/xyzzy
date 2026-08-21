@@ -332,3 +332,90 @@
   (list (char-columns (code-char #x2500)) (char-columns (code-char #x25CF))
         (char-columns (code-char #x2193)) (char-columns #\A))
   => (2 2 2 1))
+
+
+;;; ------------------------------------------------------------------
+;;; キー送出
+;;;
+;;; decode_keys は lc_from_ccf を通した新 lChar encoding
+;;; (LCKEY_UP = LCKIND_FNKEY | 5 = #x200005) を返すのに、
+;;; terminal_key_to_bytes は旧 Char encoding (CCF_UP = #xff05) と比べていた。
+;;; 一致しないので矢印・Home/End・F キー・PageUp/Down が全部黙って捨てられ、
+;;; pty には何も届いていなかった。Claude Code の選択肢を上下キーで選べ
+;;; なかったのがこれ。process が無いと呼べずテストが書けなかったので、
+;;; si:*terminal-key-for-test を足して塞いだ。
+
+(defconstant *lckind-fnkey* #x200000)
+(defconstant *lcmod-shift*  #x01000000)
+(defconstant *lcmod-ctrl*   #x02000000)
+(defconstant *lcmod-alt*    #x04000000)
+
+(defun term-key (key &optional setup)
+  (si:*terminal-key-for-test key setup))
+
+(defun esc-bytes (&rest args)
+  ;; 期待値を書きやすくする: 27 とあとは文字コード
+  (mapcar #'(lambda (x) (if (characterp x) (char-code x) x)) args))
+
+;; 矢印。修飾なし・DECCKM オフなら CSI 終端 1 文字。
+(deftest terminal-key-arrows ()
+  (list (term-key (+ *lckind-fnkey* 5))    ; UP
+        (term-key (+ *lckind-fnkey* 7))    ; DOWN
+        (term-key (+ *lckind-fnkey* 6))    ; RIGHT
+        (term-key (+ *lckind-fnkey* 4)))   ; LEFT
+  => ((27 91 65) (27 91 66) (27 91 67) (27 91 68)))
+
+;; application cursor keys (DECCKM) を立てると ESC O_ になる
+(deftest terminal-key-arrows-app-mode ()
+  (term-key (+ *lckind-fnkey* 5) (concat (string #\ESC) "[?1h"))
+  => (27 79 65))
+
+;; Home / End
+(deftest terminal-key-home-end ()
+  (list (term-key (+ *lckind-fnkey* 3))    ; HOME
+        (term-key (+ *lckind-fnkey* 2)))   ; END
+  => ((27 91 72) (27 91 70)))
+
+;; CSI n ~ 形式
+(deftest terminal-key-insert-delete-pages ()
+  (list (term-key (+ *lckind-fnkey* #x0C))  ; INSERT -> ESC[2~
+        (term-key (+ *lckind-fnkey* #x0D))  ; DELETE -> ESC[3~
+        (term-key (+ *lckind-fnkey* #x00))  ; PRIOR  -> ESC[5~
+        (term-key (+ *lckind-fnkey* #x01))) ; NEXT   -> ESC[6~
+  => ((27 91 50 126) (27 91 51 126) (27 91 53 126) (27 91 54 126)))
+
+;; F1-F4 は SS3、F5 以降は CSI n ~
+(deftest terminal-key-function-keys ()
+  (list (term-key (+ *lckind-fnkey* #x0F))  ; F1 -> ESC O P
+        (term-key (+ *lckind-fnkey* #x12))  ; F4 -> ESC O S
+        (term-key (+ *lckind-fnkey* #x13))  ; F5 -> ESC[15~
+        (term-key (+ *lckind-fnkey* #x1A))) ; F12 -> ESC[24~
+  => ((27 79 80) (27 79 83) (27 91 49 53 126) (27 91 50 52 126)))
+
+;; 修飾キー付き。xterm の番号は Shift=1 Alt=2 Ctrl=4 を足して +1。
+(deftest terminal-key-modified-arrows ()
+  (list (term-key (+ *lckind-fnkey* 5 *lcmod-ctrl*))    ; Ctrl+Up  -> ESC[1;5A
+        (term-key (+ *lckind-fnkey* 5 *lcmod-shift*)))  ; Shift+Up -> ESC[1;2A
+  => ((27 91 49 59 53 65) (27 91 49 59 50 65)))
+
+;; 通常文字はそのまま。日本語は UTF-8。
+(deftest terminal-key-plain-chars ()
+  (list (term-key 65)          ; A
+        (term-key #x3042))     ; あ -> E3 81 82
+  => ((65) (227 129 130)))
+
+;; BMP 外は 4 バイトの UTF-8
+(deftest terminal-key-non-bmp ()
+  (term-key 128512)
+  => (240 159 152 128))
+
+;; Shift+Tab は CBT (ESC[Z)。Claude Code の「shift+tab to cycle」がこれ。
+(deftest terminal-key-shift-tab ()
+  (list (term-key (+ 9 *lcmod-shift*))
+        (term-key 9))
+  => ((27 91 90) (9)))
+
+;; Alt 付きは ESC を前置する
+(deftest terminal-key-alt-char ()
+  (term-key (+ 65 *lcmod-alt*))
+  => (27 65))

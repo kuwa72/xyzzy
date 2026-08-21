@@ -1041,102 +1041,167 @@ Terminal::handle_osc ()
 // Key-to-escape-sequence conversion (platform-independent)
 // ============================================================
 
+/* snprintf の戻り値を「収まったバイト数」に正規化する。切り詰められたら
+   0 (= 送らない) にする。 */
+static int
+fit (int n, int bufsize)
+{
+  return (n > 0 && n < bufsize) ? n : 0;
+}
+
+/* xterm の修飾キー番号。1 = なし、以降 Shift=1 Alt=2 Ctrl=4 のビットを
+   足したもの。ESC[1;5A なら Ctrl+Up。 */
+static int
+xterm_modifier (lChar lc)
+{
+  int m = 0;
+  if (lc & LCMOD_SHIFT) m |= 1;
+  if (lc & LCMOD_ALT)   m |= 2;
+  if (lc & LCMOD_META)  m |= 2;
+  if (lc & LCMOD_CTRL)  m |= 4;
+  return m ? m + 1 : 0;
+}
+
 int
 terminal_key_to_bytes (const Terminal *term, lChar c, char *buf, int bufsize)
 {
-  int len = 0;
-
   // Mouse/menu events — not forwarded
   if (c & (LCHAR_MOUSE | LCHAR_MENU))
     return 0;
 
-  // Function keys → VT100 escape sequences
-  {
-    int app = term->app_cursor_keys ();
-    int base = c & ~(CCF_CTRL_BIT | CCF_SHIFT_BIT);
-    char code = 0;
-    switch (base)
-      {
-      case CCF_UP:    code = 'A'; break;
-      case CCF_DOWN:  code = 'B'; break;
-      case CCF_RIGHT: code = 'C'; break;
-      case CCF_LEFT:  code = 'D'; break;
-      case CCF_HOME:  code = 'H'; break;
-      case CCF_END:   code = 'F'; break;
-      default: break;
-      }
-    if (code && bufsize >= 3)
-      {
-        buf[0] = '\033';
-        buf[1] = app ? 'O' : '[';
-        buf[2] = code;
-        len = 3;
-      }
-    else if (!code)
-      {
-        const char *seq = 0;
-        switch (base)
-          {
-          case CCF_INSERT: seq = "\033[2~"; break;
-          case CCF_DELETE: seq = "\033[3~"; break;
-          case CCF_PRIOR:  seq = "\033[5~"; break;
-          case CCF_NEXT:   seq = "\033[6~"; break;
-          case CCF_F1:  seq = "\033OP"; break;
-          case CCF_F2:  seq = "\033OQ"; break;
-          case CCF_F3:  seq = "\033OR"; break;
-          case CCF_F4:  seq = "\033OS"; break;
-          case CCF_F5:  seq = "\033[15~"; break;
-          case CCF_F6:  seq = "\033[17~"; break;
-          case CCF_F7:  seq = "\033[18~"; break;
-          case CCF_F8:  seq = "\033[19~"; break;
-          case CCF_F9:  seq = "\033[20~"; break;
-          case CCF_F10: seq = "\033[21~"; break;
-          case CCF_F11: seq = "\033[23~"; break;
-          case CCF_F12: seq = "\033[24~"; break;
-          default: break;
-          }
-        if (seq)
-          {
-            int slen = (int)strlen (seq);
-            if (slen <= bufsize)
-              { memcpy (buf, seq, slen); len = slen; }
-          }
-      }
-  }
+  /* 機能キー。
 
-  if (len == 0 && c < 0x80)
+     ここは長らく旧 Char encoding (CCF_UP = 0xff05 等) と比べていたが、
+     decode_keys は lc_from_ccf を通した新 lChar encoding
+     (LCKEY_UP = LCKIND_FNKEY | 5 = 0x200005) を返す。一致しないので
+     矢印・Home/End・F キー・PageUp/Down が全部黙って捨てられ、pty には
+     何も届いていなかった。Claude Code の選択肢を上下キーで選べなかったのが
+     これ。 */
+  if (LCHAR_KIND (c) == LCKIND_FNKEY)
     {
-      // ASCII character (including control chars)
-      buf[0] = (char)c;
-      len = 1;
-    }
-  else if (len == 0 && c < 0x10000)
-    {
-      // Phase 2: Char/lChar は UTF-16 code unit なので UCS-2 identity
-      ucs2_t ucs = (ucs2_t) c;
-      if (ucs < 0x80 && bufsize >= 1)
-        { buf[0] = (char)ucs; len = 1; }
-      else if (ucs < 0x800 && bufsize >= 2)
-        { buf[0] = 0xc0 | (ucs >> 6); buf[1] = 0x80 | (ucs & 0x3f); len = 2; }
-      else if (bufsize >= 3)
-        { buf[0] = 0xe0 | (ucs >> 12); buf[1] = 0x80 | ((ucs >> 6) & 0x3f);
-          buf[2] = 0x80 | (ucs & 0x3f); len = 3; }
-    }
-  else if (len == 0 && c < CHAR_LIMIT && bufsize >= 4)
-    {
-      // BMP 外。入力経路が surrogate pair を 1 個の code point に畳んで
-      // 渡してくるので、ここで 4 バイトの UTF-8 にする。畳む前は half が
-      // 2 個来て 3 バイト列 2 つ (= CESU-8) になり、pty の向こうでは
-      // 化けていた。
-      u_int32_t cp = (u_int32_t) c;
-      buf[0] = 0xf0 | (cp >> 18);
-      buf[1] = 0x80 | ((cp >> 12) & 0x3f);
-      buf[2] = 0x80 | ((cp >> 6) & 0x3f);
-      buf[3] = 0x80 | (cp & 0x3f);
-      len = 4;
+      int mod = xterm_modifier (c);
+      lChar key = LCKIND_FNKEY | LCHAR_PAYLOAD (c);
+
+      /* CSI 終端 1 文字で表すもの (カーソル系)。修飾なしのときだけ
+         application cursor keys (DECCKM) で ESC O_ になる。 */
+      char code = 0;
+      switch (key)
+        {
+        case LCKEY_UP:    code = 'A'; break;
+        case LCKEY_DOWN:  code = 'B'; break;
+        case LCKEY_RIGHT: code = 'C'; break;
+        case LCKEY_LEFT:  code = 'D'; break;
+        case LCKEY_END:   code = 'F'; break;
+        case LCKEY_HOME:  code = 'H'; break;
+        default: break;
+        }
+      if (code)
+        {
+          if (mod)
+            return fit (snprintf (buf, bufsize, "\033[1;%d%c", mod, code), bufsize);
+          if (term && term->app_cursor_keys ())
+            return fit (snprintf (buf, bufsize, "\033O%c", code), bufsize);
+          return fit (snprintf (buf, bufsize, "\033[%c", code), bufsize);
+        }
+
+      /* CSI n ~ 形式。n は VT220 由来の番号。 */
+      int num = 0;
+      switch (key)
+        {
+        case LCKEY_INSERT: num = 2; break;
+        case LCKEY_DELETE: num = 3; break;
+        case LCKEY_PRIOR:  num = 5; break;
+        case LCKEY_NEXT:   num = 6; break;
+        case LCKEY_F5:  num = 15; break;
+        case LCKEY_F6:  num = 17; break;
+        case LCKEY_F7:  num = 18; break;
+        case LCKEY_F8:  num = 19; break;
+        case LCKEY_F9:  num = 20; break;
+        case LCKEY_F10: num = 21; break;
+        case LCKEY_F11: num = 23; break;
+        case LCKEY_F12: num = 24; break;
+        default: break;
+        }
+      if (num)
+        {
+          if (mod)
+            return fit (snprintf (buf, bufsize, "\033[%d;%d~", num, mod), bufsize);
+          return fit (snprintf (buf, bufsize, "\033[%d~", num), bufsize);
+        }
+
+      /* F1-F4 は SS3。修飾ありは CSI 1;m P..S。 */
+      char pf = 0;
+      switch (key)
+        {
+        case LCKEY_F1: pf = 'P'; break;
+        case LCKEY_F2: pf = 'Q'; break;
+        case LCKEY_F3: pf = 'R'; break;
+        case LCKEY_F4: pf = 'S'; break;
+        default: break;
+        }
+      if (pf)
+        {
+          if (mod)
+            return fit (snprintf (buf, bufsize, "\033[1;%d%c", mod, pf), bufsize);
+          return fit (snprintf (buf, bufsize, "\033O%c", pf), bufsize);
+        }
+
+      return 0;   /* 送り方の決まっていない機能キーは捨てる */
     }
 
-  return len;
+  /* 通常文字。Shift+Tab だけは CBT (ESC[Z) で送る決まりになっている。
+     Claude Code の「shift+tab to cycle」がこれ。 */
+  if (LCHAR_KIND (c) == LCKIND_CHAR)
+    {
+      lChar cp = LCHAR_PAYLOAD (c);
+      if (cp == CC_TAB && (c & LCMOD_SHIFT))
+        return fit (snprintf (buf, bufsize, "\033[Z"), bufsize);
+
+      /* Meta (Alt) 付きは ESC を前置する。 */
+      char pre = 0;
+      if ((c & LCMOD_META) || (c & LCMOD_ALT))
+        pre = '\033';
+
+      char tmp[8];
+      int n = 0;
+      if (cp < 0x80)
+        tmp[n++] = char (cp);
+      else if (cp < 0x800)
+        {
+          tmp[n++] = char (0xc0 | (cp >> 6));
+          tmp[n++] = char (0x80 | (cp & 0x3f));
+        }
+      else if (cp < 0x10000)
+        {
+          tmp[n++] = char (0xe0 | (cp >> 12));
+          tmp[n++] = char (0x80 | ((cp >> 6) & 0x3f));
+          tmp[n++] = char (0x80 | (cp & 0x3f));
+        }
+      else if (cp < CHAR_LIMIT)
+        {
+          /* BMP 外。入力経路が surrogate pair を 1 個の code point に畳んで
+             渡してくるので、ここで 4 バイトの UTF-8 にする。畳む前は half が
+             2 個来て 3 バイト列 2 つ (= CESU-8) になり、pty の向こうでは
+             化けていた。 */
+          tmp[n++] = char (0xf0 | (cp >> 18));
+          tmp[n++] = char (0x80 | ((cp >> 12) & 0x3f));
+          tmp[n++] = char (0x80 | ((cp >> 6) & 0x3f));
+          tmp[n++] = char (0x80 | (cp & 0x3f));
+        }
+      else
+        return 0;
+
+      int total = n + (pre ? 1 : 0);
+      if (total > bufsize)
+        return 0;
+      int i = 0;
+      if (pre)
+        buf[i++] = pre;
+      memcpy (buf + i, tmp, n);
+      return total;
+    }
+
+  return 0;
 }
 
 // ============================================================

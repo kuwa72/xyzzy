@@ -2688,6 +2688,25 @@ Window::refresh_terminal (int f)
       buffer_terminal_resize (w_bufp, w_ech.cy, w_ech.cx);
     }
 
+  /* IME の変換ウィンドウは Windows のキャレット位置 (app.active_frame の
+     caret_pos) を見て置かれる。ターミナルは自前のブロックカーソルを
+     InvertRect で描いていて Windows キャレットを動かしていなかったので、
+     caret_pos がバッファの point (ターミナルでは更新されない = 0,0) の
+     ままになり、日本語を打つと変換中の文字が窓の左上に出ていた。
+
+     キャレット自体はターミナルのカーソルと二重になるので出さない。位置
+     だけ合わせてから隠す。update_caret が SetCaretPos と set_ime_caret を
+     やってくれるので、それを通す。 */
+  if (this == selected_window ())
+    {
+      int tcr = term->cursor_row ();
+      int tcc = term->cursor_col ();
+      if (tcr >= 0 && tcr < term->rows () && tcc >= 0 && tcc < term->cols ())
+        update_caret (w_hwnd, caret_xpixel (tcc), caret_ypixel (tcr),
+                      2 * sysdep.border.cx, app.text_font.size ().cy,
+                      w_colors[WCOLOR_CARET]);
+    }
+
   // Hide Windows caret — terminal draws its own cursor
   hide_caret ();
 

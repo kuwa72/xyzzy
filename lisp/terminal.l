@@ -8,7 +8,7 @@
 (in-package "editor")
 
 (export '(*terminal-map* terminal-self-insert terminal-send-ctrl-c
-	  terminal-scroll-back terminal-scroll-forward))
+	  terminal-scroll-back terminal-scroll-forward terminal-paste))
 
 (defvar *terminal-map* nil)
 (unless *terminal-map*
@@ -24,7 +24,11 @@
   (define-key *terminal-map* '(#\C-c #\C-f) 'find-file)
   ;; Scrollback
   (define-key *terminal-map* #\S-PageUp 'terminal-scroll-back)
-  (define-key *terminal-map* #\S-PageDown 'terminal-scroll-forward))
+  (define-key *terminal-map* #\S-PageDown 'terminal-scroll-forward)
+  ;; 貼り付けはバッファではなく pty へ送る。通常の paste-from-clipboard は
+  ;; バッファに insert するだけで、ターミナルでは何も起きなかった。
+  (define-key *terminal-map* #\C-v 'terminal-paste)
+  (define-key *terminal-map* #\S-Insert 'terminal-paste))
 
 (defun terminal-self-insert ()
   (interactive)
@@ -49,3 +53,19 @@
   (let ((proc (buffer-process (selected-buffer))))
     (when (and proc (si:process-terminal-p proc))
       (si:terminal-scroll-back proc (- (window-height))))))
+
+(defun terminal-paste ()
+  "クリップボードの文字列をターミナルへ流す。
+
+アプリが bracketed paste を有効にしていれば ESC[200~ ... ESC[201~ で囲まれる
+ので、複数行でも一塊として扱われる。無効なら改行がそのまま Enter になる
+(行が順に実行される) ので、そこはアプリ側の対応次第。"
+  (interactive)
+  (let ((proc (buffer-process (selected-buffer)))
+        (s (get-clipboard-data)))
+    (cond ((not (and proc (si:process-terminal-p proc)))
+           (ding))
+          ((not (stringp s))
+           (message "クリップボードに文字列がありません"))
+          (t
+           (si:terminal-paste-string proc s)))))

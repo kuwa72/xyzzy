@@ -273,3 +273,121 @@ Fsi_terminal_feed_for_test (lisp lrows, lisp lcols, lisp string)
     }
   return result;
 }
+
+/* (si:terminal-paste-string process string)
+
+   クリップボードの文字列をターミナルへ流す。ターミナルバッファには
+   貼り付けのコマンドがそもそも無く、通常の paste-from-clipboard は
+   バッファに insert するだけで pty には何も行かなかった。
+
+   アプリが bracketed paste (DECSET 2004) を有効にしていれば
+   ESC[200~ ... ESC[201~ で囲む。これが無いと複数行の貼り付けが「1 行ごとに
+   Enter を押した」のと同じになり、行が順に実行されたり、途中で補完が
+   走ったりする。囲んであるとアプリは「これは貼り付けであって入力では
+   ない」と判って一塊として扱える。
+
+   改行は CR に寄せる (端末が Enter として送るのは CR)。CRLF は CR 1 個に
+   潰す。 */
+lisp
+Fsi_terminal_paste_string (lisp process, lisp string)
+{
+  Terminal *term = process_terminal (process);
+  if (!term)
+    return Qnil;
+  check_string (string);
+
+  lisp lbuf = xprocess_buffer (process);
+  if (!bufferp (lbuf))
+    return Qnil;
+  Buffer *bp = Buffer::coerce_to_buffer (lbuf);
+
+  int l = xstring_length (string);
+  const ucs4_t *s = xstring_contents (string);
+
+  /* 改行を潰した code point 列を作る。 */
+  ucs4_t *cp = (ucs4_t *)xmalloc ((l + 1) * sizeof *cp);
+  int n = 0;
+  for (int i = 0; i < l; i++)
+    {
+      if (s[i] == '\r')
+        {
+          cp[n++] = '\r';
+          if (i + 1 < l && s[i + 1] == '\n')
+            i++;
+        }
+      else if (s[i] == '\n')
+        cp[n++] = '\r';
+      else
+        cp[n++] = s[i];
+    }
+
+  size_t u8l = i2u8l (cp, n);
+  char *b = (char *)xmalloc (u8l + 1);
+  i2u8 (cp, n, b);
+
+  if (term->bracketed_paste_p ())
+    buffer_terminal_send (bp, "\033[200~", 6);
+  if (u8l)
+    buffer_terminal_send (bp, b, int (u8l));
+  if (term->bracketed_paste_p ())
+    buffer_terminal_send (bp, "\033[201~", 6);
+
+  xfree (b);
+  xfree (cp);
+  return Qt;
+}
+
+/* (si:terminal-bracketed-paste-p process) → t/nil
+   アプリが貼り付けを一塊として受け取れる状態か。 */
+lisp
+Fsi_terminal_bracketed_paste_p (lisp process)
+{
+  Terminal *term = process_terminal (process);
+  return boole (term && term->bracketed_paste_p ());
+}
+
+/* (si:*terminal-key-for-test key setup)
+     => pty へ送るバイト列 (整数のリスト)。送らない場合は nil。
+
+   key は lChar (整数)。setup は先に feed するエスケープ列で、モードを
+   立てるのに使う (例: ESC[?1h で application cursor keys、ESC[?2004h で
+   bracketed paste)。
+
+   キー送出は process が無いと呼べなかったのでテストが書けず、
+   「decode_keys は新 lChar encoding を返すのに terminal_key_to_bytes は
+   旧 CCF_* と比べていて、矢印キーが全部捨てられていた」という不具合を
+   実機で踏むまで気付けなかった。ここを塞ぐ。                            */
+lisp
+Fsi_terminal_key_for_test (lisp lkey, lisp setup)
+{
+  lChar key;
+  if (charp (lkey))
+    key = xchar_code (lkey);
+  else
+    key = fixnum_value (lkey);
+
+  Terminal term (4, 20);
+  if (setup && setup != Qnil)
+    {
+      check_string (setup);
+      int l = xstring_length (setup);
+      if (l > 0)
+        {
+          size_t n = i2u8l (xstring_contents (setup), l);
+          char *b = (char *)xmalloc (n + 1);
+          i2u8 (xstring_contents (setup), l, b);
+          term.feed ((const u_char *)b, int (n));
+          xfree (b);
+        }
+    }
+
+  char buf[32];
+  int len = terminal_key_to_bytes (&term, key, buf, sizeof buf);
+  if (len <= 0)
+    return Qnil;
+
+  lisp r = Qnil;
+  for (int i = len - 1; i >= 0; i--)
+    r = xcons (make_fixnum ((u_char)buf[i]), r);
+  return r;
+}
