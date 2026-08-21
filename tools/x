@@ -73,10 +73,7 @@ case "$cmd" in
     docker_run tools/bytecompile.sh "$ARCH" "$@"
     ;;
   package)
-    # Hand-testing on a real Windows box needs the whole tree (exe + lisp + etc
-    # + grammars), not just the exe.  This is the same install step the release
-    # job runs, so what comes out is laid out like the ZIP.
-    docker_run cmake --install "/work/_build/$ARCH" --prefix "/work/_dist/$ARCH"
+    docker_run tools/package.sh "$ARCH"
     ;;
   test)
     docker_run tools/run-tests.sh "$ARCH" "$@"
