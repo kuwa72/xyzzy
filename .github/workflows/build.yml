@@ -1,9 +1,14 @@
 name: Build
 
+# ふだんの開発は mingw ワークフロー (llvm-mingw + Wine、5-7 分) が見る。こちらは
+# MSVC で 3 アーキを建てて 15-20 分かかるうえ、topic ブランチの一押しごとに待つ
+# 価値は無い。上流互換とリリース物のためのものなので、統合先のブランチ、PR、
+# タグ (release.yml が workflow_call で呼ぶ)、それと手で回したいときに動かす。
 on:
   push:
-    branches: [ modern, develop, unicode, 'topic/**' ]
+    branches: [ modern, develop, unicode ]
   pull_request:
+  workflow_dispatch:
   workflow_call:
 
 # github.ref is refs/pull/N/merge for a pull request and refs/heads/... for a

@@ -8,6 +8,7 @@
 #   tools/x arm-prep               generate src/core/gen/ for aarch64 (uses x86_64)
 #   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
 #   tools/x bytecompile [ARCH]     byte compile the lisp library (makes start up fast)
+#   tools/x package   [ARCH]       install into _dist/ARCH (a runnable tree to copy out)
 #   tools/x test      [ARCH] ...   run the lisp test suite under Wine
 #   tools/x wine      [ARCH] ...   run xyzzy-batch.exe with the test environment set
 #   tools/x screenshot [FILE]      capture the virtual display (default _build/screenshot.png)
@@ -71,6 +72,12 @@ case "$cmd" in
   bytecompile)
     docker_run tools/bytecompile.sh "$ARCH" "$@"
     ;;
+  package)
+    # Hand-testing on a real Windows box needs the whole tree (exe + lisp + etc
+    # + grammars), not just the exe.  This is the same install step the release
+    # job runs, so what comes out is laid out like the ZIP.
+    docker_run cmake --install "/work/_build/$ARCH" --prefix "/work/_dist/$ARCH"
+    ;;
   test)
     docker_run tools/run-tests.sh "$ARCH" "$@"
     ;;
@@ -85,6 +92,6 @@ case "$cmd" in
     docker_run "$@"
     ;;
   *)
-    sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac
