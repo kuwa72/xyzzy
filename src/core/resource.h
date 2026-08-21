@@ -298,6 +298,7 @@
 #define IDD_FONT2                       1544
 #define IDC_LIST1                       2000
 #define IDC_NAMELIST                    2000
+#define IDC_FONT_FILTER                 2141
 #define IDC_TOPIC                       2001
 #define IDC_LIST2                       2001
 #define IDC_FILES                       2002

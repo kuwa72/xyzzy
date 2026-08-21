@@ -28,13 +28,33 @@ ChooseFontP::add_lang (HWND hwnd)
     }
 }
 
+/* face 名に needle が含まれるか (大小無視)。needle は空なら常に真。 */
+static int
+face_matches (const wchar_t *face, const wchar_t *needle)
+{
+  if (!needle || !*needle)
+    return 1;
+  for (const wchar_t *p = face; *p; p++)
+    {
+      const wchar_t *a = p, *b = needle;
+      while (*b && towlower (*a) == towlower (*b))
+        { a++; b++; }
+      if (!*b)
+        return 1;
+    }
+  return 0;
+}
+
 int CALLBACK
 ChooseFontP::enum_font_name_proc (ENUMLOGFONTW *elf, NEWTEXTMETRIC *, int type, LPARAM lparam)
 {
   if (*elf->elfLogFont.lfFaceName != L'@'
       && (elf->elfLogFont.lfPitchAndFamily & 3) == FIXED_PITCH)
     {
-      HWND hwnd = HWND (lparam);
+      const name_filter *nf = (const name_filter *)lparam;
+      if (!face_matches (elf->elfLogFont.lfFaceName, nf->needle))
+        return 1;
+      HWND hwnd = nf->hwnd;
       if (SendMessageW (hwnd, LB_FINDSTRINGEXACT, WPARAM (-1), LPARAM (elf->elfLogFont.lfFaceName)) == LB_ERR)
         {
           int i = SendMessageW (hwnd, LB_ADDSTRING, 0, LPARAM (elf->elfLogFont.lfFaceName));
@@ -47,8 +67,47 @@ ChooseFontP::enum_font_name_proc (ENUMLOGFONTW *elf, NEWTEXTMETRIC *, int type, 
 void
 ChooseFontP::add_font_name (HWND hwnd, HDC hdc)
 {
+  wchar_t needle[128];
+  if (!GetDlgItemTextW (hwnd, IDC_FONT_FILTER, needle, numberof (needle)))
+    *needle = 0;
+  name_filter nf;
+  nf.hwnd = GetDlgItem (hwnd, IDC_NAMELIST);
+  nf.needle = needle;
   EnumFontFamiliesExW (hdc, (LPLOGFONTW)0, FONTENUMPROCW (enum_font_name_proc),
-                       LPARAM (GetDlgItem (hwnd, IDC_NAMELIST)), 0);
+                       LPARAM (&nf), 0);
+}
+
+/* 絞り込みを変えたら一覧を作り直す。選んでいた face が残っていれば選択を
+   維持し、消えたら先頭にする (選択が消えたままだとサンプルが固まる)。 */
+void
+ChooseFontP::refill_font_name (HWND hwnd)
+{
+  wchar_t cur[LF_FACESIZE];
+  *cur = 0;
+  int i = SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_GETCURSEL, 0, 0);
+  if (i != LB_ERR)
+    SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_GETTEXT, i, LPARAM (cur));
+
+  SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_RESETCONTENT, 0, 0);
+  HDC hdc = GetDC (hwnd);
+  add_font_name (hwnd, hdc);
+  ReleaseDC (hwnd, hdc);
+
+  int j = LB_ERR;
+  if (*cur)
+    j = SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_FINDSTRINGEXACT,
+                            WPARAM (-1), LPARAM (cur));
+  if (j == LB_ERR)
+    j = 0;
+  SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_SETCURSEL, j, 0);
+  notify_font_name (hwnd, LBN_SELCHANGE);
+}
+
+void
+ChooseFontP::notify_font_filter (HWND hwnd, int code)
+{
+  if (code == EN_CHANGE)
+    refill_font_name (hwnd);
 }
 
 int CALLBACK
@@ -468,6 +527,10 @@ ChooseFontP::do_command (HWND hwnd, int id, int code)
 
     case IDC_SIZE_PIXEL:
       notify_size_pixel (hwnd, code);
+      return 1;
+
+    case IDC_FONT_FILTER:
+      notify_font_filter (hwnd, code);
       return 1;
 
     default:
