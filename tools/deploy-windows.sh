@@ -117,8 +117,12 @@ for arch in x86_64 i686; do
   # contents are already gone -- which is how this left an empty xyzzy-amd64
   # behind once.  Clearing the contents and copying into the existing
   # directory has no such failure mode.
+  # Keep the user's own state.  Without XYZZYCONFIGPATH set, xyzzy puts its
+  # config and history under <install>/usr/<user>/<name>/ -- inside the very
+  # directory this script replaces.  Wiping it made settings reset on every
+  # deploy, which looked like xyzzy failing to save them.
   mkdir -p "$out"
-  find "$out" -mindepth 1 -delete 2>/dev/null || {
+  find "$out" -mindepth 1 -maxdepth 1 ! -name usr -exec rm -rf {} + 2>/dev/null || {
     echo "deploy: could not clear $out (a file in it is in use?)" >&2
     exit 1
   }

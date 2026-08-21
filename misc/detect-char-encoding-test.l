@@ -1,7 +1,8 @@
+;;; -*- Encoding: utf-8 -*-
 #|
-IPADIC ‚Ì’PŒê‚ğ detect-char-encoding ‚Å”»•Ê‚µ‚Ä³‰ğ—¦‚ğƒeƒXƒg‚·‚éB
+IPADIC ã®å˜èªã‚’ detect-char-encoding ã§åˆ¤åˆ¥ã—ã¦æ­£è§£ç‡ã‚’ãƒ†ã‚¹ãƒˆã™ã‚‹ã€‚
 
-ƒeƒXƒgÀs‘O‚É rake -f mkwords.rake ‚Å IPADIC ‚©‚ç’PŒêƒtƒ@ƒCƒ‹‚ğì¬‚µ‚Ä‚¨‚­•K—v‚ª‚ ‚éB
+ãƒ†ã‚¹ãƒˆå®Ÿè¡Œå‰ã« rake -f mkwords.rake ã§ IPADIC ã‹ã‚‰å˜èªãƒ•ã‚¡ã‚¤ãƒ«ã‚’ä½œæˆã—ã¦ãŠãå¿…è¦ãŒã‚ã‚‹ã€‚
 |#
 
 (defun detect-char-encoding-test (expected words-file)

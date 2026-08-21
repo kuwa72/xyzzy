@@ -1,29 +1,29 @@
-;; -*- mode:lisp; package:makelc -*-
+;; -*- mode:lisp; package:makelc; Encoding: utf-8 -*-
 ;;
 ;;; Usage:
 ;;
 ;; - M-x makelc:makelc
-;;   compiler �p�b�P�[�W�� lisp �p�b�P�[�W�̊֐����R���p�C����A
-;;   $XYZZY/lisp �t�H���_�ȉ��̍X�V���ꂽ*.l ���ăR���p�C�����ă����[�h
+;;   compiler パッケージと lisp パッケージの関数をコンパイル後、
+;;   $XYZZY/lisp フォルダ以下の更新された*.l を再コンパイルしてリロード
 ;;
 ;; - C-u M-x makelc:makelc
-;;   compiler �p�b�P�[�W�� lisp �p�b�P�[�W�̊֐����R���p�C����A
-;;   $XYZZY/lisp �t�H���_�ȉ���*.l ���ăR���p�C�����ă����[�h
+;;   compiler パッケージと lisp パッケージの関数をコンパイル後、
+;;   $XYZZY/lisp フォルダ以下の*.l を再コンパイルしてリロード
 ;;
 ;; - (makelc:makelc-and-exit &optional force-recompile)
-;;   compiler �p�b�P�[�W�� lisp �p�b�P�[�W�̊֐����R���p�C����A
-;;   $XYZZY/lisp �t�H���_�ȉ���*.l ���ăR���p�C������ xyzzy ���I��
-;;   force-recompile �� non-nil �̏ꍇ�͏�ɍăR���p�C��
+;;   compiler パッケージと lisp パッケージの関数をコンパイル後、
+;;   $XYZZY/lisp フォルダ以下の*.l を再コンパイルして xyzzy を終了
+;;   force-recompile が non-nil の場合は常に再コンパイル
 ;;
 ;; - (makelc:compile-files &key dir force-recompile)
-;;   �w��f�B���N�g���ȉ��̍X�V���ꂽ*.l ���ăR���p�C��
-;;   force-recompile �� non-nil �̏ꍇ�͏�ɍăR���p�C��
+;;   指定ディレクトリ以下の更新された*.l を再コンパイル
+;;   force-recompile が non-nil の場合は常に再コンパイル
 ;;
 ;; - (makelc:compile-package :packagename)
-;;   �w��p�b�P�[�W���Œ�`����Ă��関�R���p�C���̊֐����R���p�C��
+;;   指定パッケージ内で定義されている未コンパイルの関数をコンパイル
 ;;
 ;; - (makelc:reload-files)
-;;   lisp/�z���̃��W���[�������ׂčēǂݍ���
+;;   lisp/配下のモジュールをすべて再読み込み
 ;;
 ;;; Code:
 
@@ -81,7 +81,21 @@
 
 (defun compile-files (&key (dir (merge-pathnames "lisp" (si:system-root)))
 			   force-recompile)
-  (let ((files (directory dir :absolute t :wild "*.l" :recursive t)))
+  ;; 1 ファイルの失敗でループを抜けないこと。抜けると、そのファイルより
+  ;; 後ろのものが一度も再コンパイルされないまま古い .lc が残り、しかも
+  ;; 「.lc は存在する」ので成功したように見えてしまう。
+  ;;
+  ;; 実際に踏んだ例: startup.l は末尾の (si:*startup) から起動処理全体を
+  ;; 走らせるので、バイトコンパイルは startup.lc を読み込んでいる最中に
+  ;; 動く。開いたままのファイルは上書きできず「File already exists」で
+  ;; 落ちる。それ以降の stream.l / struct.l / terminal.l ... が丸ごと
+  ;; 取り残されていた。
+  ;; lisp/wip/ は作業中のコードで、どこからも require されていない。
+  ;; コンパイラがスタックを溢れさせて落ちる既知の場所でもあり、そこで死ぬと
+  ;; 後続が取り残される。対象から外す。
+  (let ((files (remove-if #'(lambda (f) (string-match "/wip/" (namestring f)))
+                          (directory dir :absolute t :wild "*.l" :recursive t)))
+        (failed nil))
     (format t "compiling ~D files ...~%" (length files))
     (time
      (dolist (src files)
@@ -89,9 +103,18 @@
 	 (when (or force-recompile
 		   (file-newer-than-file-p src bin))
            (message "Compiling ~A" src)
-	   (mc-byte-compile-file src)
+           (handler-case
+               (mc-byte-compile-file src)
+             (condition (e)
+               (push (cons src (si:*condition-string e)) failed)
+               (format t "~&*** FAILED: ~A~%    ~A~%" src (si:*condition-string e))))
 	   (refresh)
-	   ))))))
+	   ))))
+    (when failed
+      (format t "~&=== ~D file(s) failed ===~%" (length failed))
+      (dolist (f (reverse failed))
+        (format t "  ~A: ~A~%" (car f) (cdr f))))
+    (length failed)))
 
 (defun reload-files ()
   (labels ((lisp-module-p (module)

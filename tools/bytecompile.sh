@@ -94,6 +94,26 @@ rm -f "$build"/*.wxp
 count=$(find "$root/lisp" -name '*.lc' | wc -l)
 echo "bytecompile.sh: $count .lc file(s) present"
 
+# The count alone says nothing.  makelc used to abandon the whole loop on the
+# first file that failed, so everything after it kept its old .lc -- and since
+# those .lc existed, this script called it a success.  A Lisp change could sit
+# undeployed for hours that way.  Check the thing we actually care about:
+# no .l may be newer than its .lc.
+# lisp/wip/ は makelc も対象外にしている (作業中で require されておらず、
+# コンパイラがスタックを溢れさせる)。検査からも外す。
+stale=$(find "$root/lisp" -name '*.l' -not -path '*/wip/*' -print | while read -r l; do
+          lc=${l%.l}.lc
+          if [ ! -f "$lc" ] || [ "$l" -nt "$lc" ]; then
+            echo "  $l"
+          fi
+        done)
+if [ -n "$stale" ]; then
+  echo "bytecompile.sh: these .l are newer than their .lc:" >&2
+  echo "$stale" >&2
+  echo "bytecompile.sh: see $log for the compiler's own error" >&2
+  exit 1
+fi
+
 # The count is what matters.  xyzzy exiting non-zero after writing the whole
 # library is not a reason to stop; nothing written is.
 [ "$count" -gt 0 ] || {

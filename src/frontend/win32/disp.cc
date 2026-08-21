@@ -320,7 +320,19 @@ Window::update_caret () const
           x = caret_column ();
           y = caret_line ();
 
-          if (w_glyphs.g_rep && y >= 0 && y < w_ch_max.cy)
+          /* ターミナルは grid が本体で、バッファの point は動かない
+             (常に 0,0)。IME の変換ウィンドウはこのキャレット位置を見て
+             置かれるので、point のままだと変換中の文字が窓の左上に出る。
+             ターミナルのカーソル位置を使う。glyph 由来の背景色の見積もりも
+             ターミナルでは意味が無いので飛ばす。 */
+          Terminal *tw = w_bufp ? buffer_terminal (w_bufp) : 0;
+          if (tw)
+            {
+              x = tw->cursor_col ();
+              y = tw->cursor_row ();
+            }
+
+          if (!tw && w_glyphs.g_rep && y >= 0 && y < w_ch_max.cy)
             {
               int x1 = x + 1;
               const glyph_data *gd = w_glyphs.g_rep->gr_oglyph[y];
