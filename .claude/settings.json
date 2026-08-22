@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'r=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; exec sh \"$r/tools/setup-hooks.sh\"'",
+            "statusMessage": "git hooks を確認",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,113 @@
+#!/bin/sh
+# Runs before anything leaves the machine, for whoever is driving -- a person,
+# Claude Code, any other agent.  That is the point: a rule written only in a
+# document holds when the document is read, and a rule written here holds every
+# time.
+#
+# Two things it refuses:
+#
+#   * a push straight to main.  The branch is protected on the remote, but the
+#     owner is an admin with enforce_admins=false, so the remote lets it
+#     through -- and bypassing the PR skips its CI entirely.
+#   * a v* tag that .github/workflows/release.yml would reject anyway.  Better
+#     to hear it now than after pushing and watching the run go red.
+#
+# Both have an escape hatch for the time it is genuinely wanted:
+#
+#   XYZZY_ALLOW_PUSH_MAIN=1 git push ...
+#   XYZZY_SKIP_TAG_CHECK=1  git push origin v0.3.1
+#
+# Installed by tools/setup-hooks.sh, which sets core.hooksPath.  See CLAUDE.md.
+set -eu
+
+status=0
+zero=0000000000000000000000000000000000000000
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  case $remote_ref in
+    refs/heads/main)
+      # A deletion of main is refused by the remote too, but say so here.
+      if [ "${XYZZY_ALLOW_PUSH_MAIN:-}" = 1 ]; then
+        echo "pre-push: pushing to main directly (XYZZY_ALLOW_PUSH_MAIN=1)" >&2
+        continue
+      fi
+      cat >&2 <<'MSG'
+pre-push: refusing to push straight to main.
+
+  The work goes through a pull request, so that the required checks actually
+  run on it.  main is protected on the remote as well, but you are an admin
+  and the remote would let this through.
+
+    git switch -c topic/<name>
+    git push -u origin topic/<name>
+    gh pr create --base main
+
+  If you really mean it:  XYZZY_ALLOW_PUSH_MAIN=1 git push ...
+MSG
+      status=1
+      ;;
+
+    refs/tags/v*)
+      [ "$local_sha" = "$zero" ] && continue   # deleting a tag
+      if [ "${XYZZY_SKIP_TAG_CHECK:-}" = 1 ]; then
+        echo "pre-push: not checking $remote_ref (XYZZY_SKIP_TAG_CHECK=1)" >&2
+        continue
+      fi
+
+      tag=${remote_ref#refs/tags/}
+      version=${tag#v}
+      core=${version%%-*}
+
+      # Read the files as they are AT THE TAG, not as they are in the working
+      # tree.  That is what the release workflow checks out, and the two have to
+      # agree or this hook is worse than nothing.
+      rev=$(git rev-parse "${local_sha}^{commit}")
+
+      project=$(git show "$rev:CMakeLists.txt" 2>/dev/null \
+                | sed -nE 's/^project\(xyzzy VERSION ([0-9.]+).*/\1/p')
+      if [ -z "$project" ]; then
+        echo "pre-push: $tag: cannot read project(xyzzy VERSION ...) from CMakeLists.txt at that commit" >&2
+        status=1
+        continue
+      fi
+
+      if [ "$core" != "$project" ]; then
+        cat >&2 <<MSG
+pre-push: $tag does not match the tree it points at.
+
+  tag says         $core
+  CMakeLists.txt   $project
+
+  release.yml compares these and would fail the release.  Bump the version and
+  merge that first, or move the tag.  tools/release-prep.sh does the bump, the
+  release notes and the next running-notes file in one go.
+MSG
+        status=1
+        continue
+      fi
+
+      notes="docs/release-note-${version}.md"
+      if ! git cat-file -e "$rev:$notes" 2>/dev/null; then
+        cat >&2 <<MSG
+pre-push: $tag has no release notes at that commit.
+
+  expected  $notes
+
+  release.yml requires it -- it used to publish "No release notes found" as the
+  release body instead, which nobody notices until it is on the releases page.
+MSG
+        status=1
+        continue
+      fi
+      if [ "$(git cat-file -s "$rev:$notes")" -eq 0 ]; then
+        echo "pre-push: $tag: $notes is empty at that commit" >&2
+        status=1
+        continue
+      fi
+
+      echo "pre-push: $tag ok (version $project, notes $notes)"
+      ;;
+  esac
+done
+
+exit "$status"

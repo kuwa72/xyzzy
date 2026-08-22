@@ -86,7 +86,13 @@ tools/x build     aarch64
 x86 の SEH を扱えないので、ハードウェア例外を Lisp のコンディションとして受け取る
 テストだけは MSVC ビルドが見ています。
 
+スイートはどの構成でも全部は通らないので、既知の失敗を名前で
+`misc/known-failures/` に書き出して、**それ以外**で CI を止めています。リスト外が
+落ちたら赤、リストに載っているテストが通るようになった場合も赤です。詳細は
+[misc/known-failures/README.md](misc/known-failures/README.md) を参照してください。
+
 リリース用のバイナリは従来どおり MSVC の `build` ワークフローが作ります。
+リリースの出し方は [RELEASING.md](RELEASING.md) にまとめてあります。
 
 ### MSVC (リリース物と上流互換)
 
