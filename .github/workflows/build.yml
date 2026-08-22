@@ -60,7 +60,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -93,7 +93,7 @@ jobs:
     # クラッシュログ (.BUG) と進捗ログを残しておかないと後から何も分からない。
     - name: Upload crash logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}-logs
         if-no-files-found: ignore
@@ -141,7 +141,7 @@ jobs:
 
     - name: Upload test output
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}-tests
         if-no-files-found: ignore
@@ -165,7 +165,7 @@ jobs:
         echo "Version: $ver"
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}
         path: build/xyzzy-*.zip
@@ -179,7 +179,7 @@ jobs:
         iscc /DAppVersion=${{ env.VERSION }} /DAppArch=${{ matrix.artifact == 'xyzzy-arm64' && 'arm64' || (matrix.artifact == 'xyzzy-amd64' && 'amd64' || 'x86') }} "/DSourceDir=${{ github.workspace }}\staging\xyzzy" installer\xyzzy.iss
 
     - name: Upload installer
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.artifact }}-setup
         path: build/xyzzy-*-setup.exe
