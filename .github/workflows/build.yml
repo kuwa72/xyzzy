@@ -8,6 +8,12 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # Weekly, to find out that the windows runner image or vcpkg moved before a
+  # release does.  This is the job that builds what gets shipped, so it is the
+  # one whose rot actually blocks shipping -- but at twenty minutes on three
+  # runners it is not worth a nightly.  mingw.yml carries that.
+  schedule:
+    - cron: '0 18 * * 0'   # Sunday, 03:00 JST Monday
   workflow_dispatch:
   workflow_call:
 

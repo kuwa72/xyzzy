@@ -1,0 +1,35 @@
+version: 2
+
+# The actions in the workflows had drifted a long way behind -- far enough that
+# every run printed a Node.js 20 deprecation warning -- because nothing was
+# watching them.  This watches them.
+#
+# Everything is grouped into one pull request per ecosystem on purpose.  A
+# separate PR per action would be seven PRs, and each one costs a full MSVC
+# matrix (about twenty minutes on three runners) to verify.  One grouped PR is
+# one CI run and one review; if the group turns out to break, it can be split
+# by hand at that point.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+
+  # tools/devenv/Dockerfile: the debian base only.  The llvm-mingw and zlib
+  # versions in there are ARGs pinned next to their SHA256, which dependabot
+  # cannot follow -- those stay a manual job, and tools/devenv/Dockerfile is
+  # where the hashes live.
+  - package-ecosystem: docker
+    directory: /tools/devenv
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "ci"

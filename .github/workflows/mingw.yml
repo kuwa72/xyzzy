@@ -25,6 +25,14 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # Nothing here depends only on this repository: the devenv image pulls debian
+  # and llvm-mingw, and the tests run under whatever Wine the image ended up
+  # with.  Those move on their own, so with commits arriving in bursts the first
+  # sign of a broken toolchain would otherwise be a red PR weeks later, or a
+  # blocked release.  This is the cheap job (six or seven minutes), so it runs
+  # nightly; the MSVC side is weekly for the same reason at a higher price.
+  schedule:
+    - cron: '0 18 * * *'   # 03:00 JST
   workflow_dispatch:
 
 concurrency:

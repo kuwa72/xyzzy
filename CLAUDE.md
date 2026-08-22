@@ -11,10 +11,15 @@ xyzzy (kuwa72 フォーク) で作業するときの前提。**ここには機�
 | 仕組み | 止めるもの |
 | --- | --- |
 | `.githooks/pre-commit` | 再ビルドされた `grammars/**/*.dll` のコミット |
-| `.githooks/pre-push` | `main` への直接 push、`CMakeLists.txt` と一致しないタグ、ノートの無いタグ |
-| `.github/workflows/mingw.yml` | 既知失敗以外のテスト失敗 (required check) |
-| `.github/workflows/build.yml` | 同上を MSVC 3 アーキで |
-| `.github/workflows/release.yml` | バージョン不一致、ノート欠落、アーキ欠落 |
+| `.githooks/pre-push` | `main` への直接 push、`CMakeLists.txt` と一致しないタグ、ノートの無いタグ、`main` 上に無いタグ |
+| `.github/workflows/mingw.yml` | 既知失敗以外のテスト失敗 (required check)。毎晩も走る |
+| `.github/workflows/build.yml` | 同上を MSVC 3 アーキで。毎週も走る |
+| `.github/workflows/release.yml` | バージョン不一致、ノート欠落、`main` 外のタグ、アーキ欠落 |
+| `.github/dependabot.yml` | action の放置 (月次、1 PR にまとめて提案) |
+
+定期実行は toolchain の腐り (debian / llvm-mingw / Wine / windows runner / vcpkg)
+を、リリースで困る前に見つけるためのもの。**赤いメールが来たらコードではなく足元が
+動いたと考える。** public リポジトリは 60 日活動が無いと定期実行が自動停止する。
 
 git hooks は `.git/hooks` が versioned でないため `core.hooksPath` が必要で、
 `.claude/settings.json` の SessionStart が `tools/setup-hooks.sh` を毎回走らせて
