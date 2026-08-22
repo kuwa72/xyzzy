@@ -130,17 +130,32 @@ jobs:
       run: find artifacts -type f | sort
 
     - name: Collect the release files
+      env:
+        VERSION: ${{ needs.check.outputs.version }}
       run: |
         set -eu
         mkdir -p dist
         for arch in arm64 amd64 x86; do
-          # cpack names the zip from PROJECT_VERSION alone, with no
-          # architecture, so all three arrive called the same thing.
-          for f in artifacts/xyzzy-${arch}/*.zip; do
-            base=$(basename "$f" .zip)
-            mv "$f" "dist/${base}-${arch}.zip"
-          done
-          # The installer already carries the architecture in its name.
+          # Both names come from the tag.
+          #
+          # cpack names the zip from PROJECT_VERSION, which cannot carry the
+          # tag's suffix -- CMake's project(VERSION ...) takes only numbers.
+          # Keeping that name put two different version numbers in one release,
+          #
+          #   xyzzy-0.3.1-amd64.zip        (cpack, from PROJECT_VERSION)
+          #   xyzzy-0.3.1-rc1-amd64-setup.exe   (installer, from the tag)
+          #
+          # as v0.3.1-rc1 shipped.  Worse than untidy: the eventual 0.3.1 zip
+          # would be called xyzzy-0.3.1-amd64.zip too, so two releases would
+          # offer the same filename with different bytes, and a SHA256SUMS from
+          # one would not match the file from the other.
+          n=$(find "artifacts/xyzzy-${arch}" -maxdepth 1 -name '*.zip' | wc -l)
+          if [ "$n" -ne 1 ]; then
+            echo "::error::expected exactly one zip for $arch, found $n"
+            exit 1
+          fi
+          mv artifacts/xyzzy-${arch}/*.zip "dist/xyzzy-${VERSION}-${arch}.zip"
+          # The installer already carries the tag version and the architecture.
           mv artifacts/xyzzy-${arch}-setup/*-setup.exe dist/
         done
         ls -l dist
