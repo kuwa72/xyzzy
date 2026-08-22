@@ -56,7 +56,7 @@ jobs:
         arch: [i686, x86_64, aarch64]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # .claude/skills/xyzzy-lisp/references/ は reference/reference.xml から
       # 生成したものをコミットしてある (Claude Code はリポジトリの中の skill を
@@ -65,14 +65,14 @@ jobs:
       - name: Check the generated Lisp reference skill
         run: python3 misc/gen-reference-skill.py --check
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # tools/x expects the image under this tag.  Building it here rather than
       # through "tools/x image" is what makes the layer cache available: a run
       # that changes nothing under tools/devenv/ reuses it instead of spending
       # twenty minutes on apt and on building zlib for both targets.
       - name: Build the container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: tools/devenv
           tags: xyzzy-devenv:latest
@@ -106,7 +106,7 @@ jobs:
       - name: Restore the byte compiled library
         id: lc
         if: matrix.arch != 'aarch64'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           # The stamp travels with the files: run-tests.sh refuses to run a
           # library that was compiled for another target, and a restore without
@@ -123,7 +123,7 @@ jobs:
 
       - name: Save the byte compiled library
         if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           # The stamp travels with the files: run-tests.sh refuses to run a
           # library that was compiled for another target, and a restore without
@@ -145,7 +145,7 @@ jobs:
 
       - name: Collect what the run left behind
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mingw-${{ matrix.arch }}
           if-no-files-found: ignore
