@@ -11,6 +11,8 @@ jobs:
   check:
     name: Check the tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.tag.outputs.version }}
       prerelease: ${{ steps.tag.outputs.prerelease }}
@@ -80,6 +82,31 @@ jobs:
 
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+    # The tag has to sit on main.  Development is trunk-only, so anything worth
+    # shipping has already been merged; a tag somewhere else means it is being
+    # cut from work that never went through a pull request, and none of the
+    # required checks ran on it.
+    #
+    # Asked through the compare API rather than by fetching the history: a
+    # checkout deep enough to run merge-base would pull the whole repository,
+    # binaries and all, to answer one yes/no question.
+    - name: Check the tag is on main
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -eu
+        status=$(gh api "repos/${{ github.repository }}/compare/main...${{ github.sha }}" -q .status)
+        echo "compare main...${{ github.sha }} -> $status"
+        # identical: the tag is main's head.  behind: it is an ancestor of main.
+        # ahead / diverged: it is not on main.
+        case $status in
+          identical|behind) ;;
+          *)
+            echo "::error::${{ github.ref_name }} does not point at a commit on main ($status)."
+            echo "::error::Merge the release commit into main first, then tag the merge."
+            exit 1 ;;
+        esac
 
   build:
     needs: check

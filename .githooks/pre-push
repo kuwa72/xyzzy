@@ -105,7 +105,32 @@ MSG
         continue
       fi
 
-      echo "pre-push: $tag ok (version $project, notes $notes)"
+      # The tag has to sit on main.  Development is trunk-only, so anything
+      # worth shipping has already been merged; a tag anywhere else is being cut
+      # from work no required check ever ran on.
+      #
+      # origin/main here can be stale, and saying "not on main" about something
+      # that is would be worse than not checking, so refresh just that one ref
+      # first.  Only tag pushes pay for it.
+      git fetch --quiet origin main 2>/dev/null || true
+      if git rev-parse --quiet --verify refs/remotes/origin/main >/dev/null; then
+        if ! git merge-base --is-ancestor "$rev" refs/remotes/origin/main; then
+          cat >&2 <<MSG
+pre-push: $tag does not point at a commit on main.
+
+  Merge the release commit into main first, then tag the merge.  release.yml
+  checks the same thing, so this would fail there too.
+
+  If you really mean it:  XYZZY_SKIP_TAG_CHECK=1 git push origin $tag
+MSG
+          status=1
+          continue
+        fi
+      else
+        echo "pre-push: no origin/main to compare against, skipping the on-main check" >&2
+      fi
+
+      echo "pre-push: $tag ok (version $project, notes $notes, on main)"
       ;;
   esac
 done
