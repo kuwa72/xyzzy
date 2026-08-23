@@ -34,8 +34,8 @@ if ! printf '%s' "$version" | grep -qE '^[0-9]+(\.[0-9]+){1,3}$'; then
 fi
 
 cmake=CMakeLists.txt
-notes_next=docs/release-note-next.md
-notes=docs/release-note-${version}.md
+notes_next=docs/release-notes/release-note-next.md
+notes=docs/release-notes/release-note-${version}.md
 
 matches=$(grep -cE '^project\(xyzzy VERSION [0-9.]+' "$cmake" || true)
 if [ "$matches" -ne 1 ]; then
@@ -140,5 +140,5 @@ release-prep: done, staged but not committed.
 
 Step 4 is what publishes.  A prerelease is the same thing with a suffix on the
 tag only -- v${version}-rc1 -- and it needs its own
-docs/release-note-${version}-rc1.md, so copy $notes to that name first.
+docs/release-notes/release-note-${version}-rc1.md, so copy $notes to that name first.
 EOF

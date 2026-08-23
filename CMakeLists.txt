@@ -1094,7 +1094,9 @@ if(NOT WIN32)
             PATTERN "wip" EXCLUDE)   # Win32-specific DLL wrappers
         install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION ${XYZZY_ETC_DIR}
             PATTERN "*.bmp" EXCLUDE) # Win32 toolbar bitmaps
-        install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
+        # docs/user/ only -- docs/dev/ and the release notes are for the repo,
+        # not the package (see docs/dev/README.md).
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/user/ DESTINATION ${XYZZY_DOC_DIR})
         install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION ${XYZZY_DOC_DIR})
         install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION ${XYZZY_DOC_DIR} OPTIONAL)
 
@@ -1227,7 +1229,9 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/lisp/ DESTINATION ${XYZZY_LISP_DIR} FILES_
 install(FILES ${CMAKE_SOURCE_DIR}/lisp/.bytecompile-arch
         DESTINATION ${XYZZY_LISP_DIR} OPTIONAL)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc/ DESTINATION ${XYZZY_ETC_DIR})
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ DESTINATION ${XYZZY_DOC_DIR})
+# docs/user/ only -- docs/dev/ and the release notes are for the repo, not the
+# package (see docs/dev/README.md).
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/user/ DESTINATION ${XYZZY_DOC_DIR})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/reference/ DESTINATION ${XYZZY_DOC_DIR}/reference OPTIONAL)
 install(FILES ${CMAKE_SOURCE_DIR}/LICENSE DESTINATION ${XYZZY_DOC_DIR})
 install(FILES ${CMAKE_SOURCE_DIR}/LEGAL.md DESTINATION ${XYZZY_DOC_DIR} OPTIONAL)

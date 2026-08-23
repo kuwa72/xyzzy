@@ -18,7 +18,7 @@ xyzzy リリースノート
 経路も、これが最初の実行である (従来は `-preview` も正式リリース扱いで出ていた)。
 
 中身は
-[0.3.1 のリリースノート](https://github.com/kuwa72/xyzzy/blob/main/docs/release-note-0.3.1.md)
+[0.3.1 のリリースノート](https://github.com/kuwa72/xyzzy/blob/main/docs/release-notes/release-note-0.3.1.md)
 を参照。要点は次の通り。
 
   * テストを結果で止めるようにした。既知の失敗を `misc/known-failures/` に名前で

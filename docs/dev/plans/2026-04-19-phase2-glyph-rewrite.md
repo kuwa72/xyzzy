@@ -1,6 +1,6 @@
 # Phase 2 Step 5b: glyph_t 再設計 + Phase 3 shape 拡張の前提
 
-**親計画:** `docs/plans/2026-04-19-unicode-migration.md` (Phase 2 section 2-4)
+**親計画:** `docs/dev/plans/2026-04-19-unicode-migration.md` (Phase 2 section 2-4)
 **Branch:** `unicode`
 **Date:** 2026-04-19
 **Status:** 設計合意、実装未着手
@@ -214,7 +214,7 @@ hash      = FNV-1a 32bit or xxhash32
 
 ## 参考
 
-- 親計画: `docs/plans/2026-04-19-unicode-migration.md`
+- 親計画: `docs/dev/plans/2026-04-19-unicode-migration.md`
 - EAW lookup: `src/core/eaw.{h,cc}`
 - Font idx lookup: `src/core/fontmap.{h,cc}`
 - 既存 glyph_t: `src/core/Window.h:4-158`
