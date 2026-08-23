@@ -42,4 +42,9 @@ xyzzy リリースノート
     中断の `C-g` など) の一覧を追加した。
   * `docs/user/keybindings.md` に画面スクロール系のキー (`C-l`/`C-Down`/`C-Up`/
     `S-C-Down`/`S-C-Up`/`C-x <`/`C-x >`/`ESC C-v`) が抜けていたので追加した。
+  * `docs/user/keybindings.md` の `Home`/`End` の説明が誤っていたのを直した。
+    `C-a`/`Home`、`C-e`/`End` と同じ行にまとめて書いていたが、`lisp/buffer.l`と
+    `lisp/cmds.l` を確認すると `Home` は次のバッファへの切り替え、`End` は undo
+    (`S-End` は redo) で、行頭・行末移動ではない。Emacs との違いに注意する表にも
+    追記した。
   *
