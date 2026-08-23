@@ -12,7 +12,7 @@
 ふだんの運用
 ------------
 
-**`docs/release-note-next.md` に書き足しながら進めます。** 変更を入れる PR で、
+**`docs/release-notes/release-note-next.md` に書き足しながら進めます。** 変更を入れる PR で、
 その PR が何を変えたのかを 1 行足しておきます。リリースを決めた時点でノートが
 だいたい書けている状態になるので、タグを打つ瞬間にまとめて書く必要がなくなります。
 
@@ -31,13 +31,13 @@ tools/release-prep.sh 0.3.1
 これが 3 つの編集をまとめてやります。
 
   * `CMakeLists.txt` の `project(xyzzy VERSION ...)` を上げる
-  * `docs/release-note-next.md` を `docs/release-note-0.3.1.md` に改名し、
+  * `docs/release-notes/release-note-next.md` を `docs/release-notes/release-note-0.3.1.md` に改名し、
     ヘッダのバージョンと日付を埋める
-  * 新しい `docs/release-note-next.md` を作る
+  * 新しい `docs/release-notes/release-note-next.md` を作る
 
 コミットはしません。作業ツリーに置くので、中身を読んでから進めてください。
 
-版番号の付け方は `docs/release-note-0.3.0.md` に書いた通りです。
+版番号の付け方は `docs/release-notes/release-note-0.3.0.md` に書いた通りです。
 
   * PATCH — バグ修正だけ (0.3.1, 0.3.2 …)
   * MINOR — 機能追加や作り直しが入ったとき (0.4.0)
@@ -45,7 +45,7 @@ tools/release-prep.sh 0.3.1
 
 ### 2. ノートを仕上げる
 
-`docs/release-note-0.3.1.md` を開いて、溜まった箇条書きに見出しを付けます
+`docs/release-notes/release-note-0.3.1.md` を開いて、溜まった箇条書きに見出しを付けます
 (ターミナル / フォント / 文字とファイル / ビルドと配布 / 既知の問題 など)。
 過去のノートが手本です。プレースホルダの行は消してください。
 
@@ -100,7 +100,7 @@ GitHub Release を作ります。20 分ほどかかります。
 | 見ているもの | 落ちる条件 |
 | --- | --- |
 | タグ ↔ `CMakeLists.txt` | タグの数値部が `project(xyzzy VERSION ...)` と違う |
-| リリースノート | `docs/release-note-<版>.md` が無い、または空 |
+| リリースノート | `docs/release-notes/release-note-<版>.md` が無い、または空 |
 | タグの位置 | `main` 上のコミットを指していない |
 | 成果物 | ZIP かインストーラが 3 つ揃っていない |
 | テスト | 既知失敗以外が落ちた (`misc/known-failures/`) |
@@ -125,7 +125,7 @@ release.yml の該当ステップを一時的に外してください。今の�
 タグに接尾辞を付けると `--prerelease` で公開され、「最新」の扱いになりません。
 
 ```
-cp docs/release-note-0.3.1.md docs/release-note-0.3.1-rc1.md
+cp docs/release-notes/release-note-0.3.1.md docs/release-notes/release-note-0.3.1-rc1.md
 # 上を編集してコミット、main へ
 git tag v0.3.1-rc1 && git push origin v0.3.1-rc1
 ```
@@ -135,7 +135,7 @@ git tag v0.3.1-rc1 && git push origin v0.3.1-rc1
 突き合わせます。
 
 接尾辞付きのタグは**それ自身のノートが必要**です (`-rc1` なら
-`docs/release-note-0.3.1-rc1.md`)。過去の `-preview` / `-pr3` も同じように
+`docs/release-notes/release-note-0.3.1-rc1.md`)。過去の `-preview` / `-pr3` も同じように
 別ファイルを持っています。
 
 

@@ -86,7 +86,7 @@ MSG
         continue
       fi
 
-      notes="docs/release-note-${version}.md"
+      notes="docs/release-notes/release-note-${version}.md"
       if ! git cat-file -e "$rev:$notes" 2>/dev/null; then
         cat >&2 <<MSG
 pre-push: $tag has no release notes at that commit.

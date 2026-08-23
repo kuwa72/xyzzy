@@ -58,7 +58,7 @@ jobs:
         # This used to write "No release notes found for X" into the release body
         # and succeed, which is the sort of thing nobody notices until it is on
         # the releases page.
-        notes="docs/release-note-${version}.md"
+        notes="docs/release-notes/release-note-${version}.md"
         if [ ! -f "$notes" ]; then
           echo "::error::no release notes at $notes"
           exit 1
@@ -194,5 +194,5 @@ jobs:
         # shellcheck disable=SC2086
         gh release create '${{ github.ref_name }}' $flags \
           --title 'xyzzy ${{ github.ref_name }}' \
-          --notes-file "docs/release-note-${VERSION}.md" \
+          --notes-file "docs/release-notes/release-note-${VERSION}.md" \
           dist/*
