@@ -31,4 +31,13 @@ xyzzy リリースノート
     `.github/workflows/release.yml`、`tools/release-prep.sh`、`RELEASING.md`、
     `CLAUDE.md` が参照するパスを一括で更新した (ファイル名は変えていないので
     `release-note-<版>.md` という命名はそのまま)。
+  * `docs/user/keybindings.md` に Emacs との違いに注意する表を追加し、`C-s`/`C-r`
+    の説明を実態 (デフォルトでは isearch ではなく `RET` 確定の非インクリメンタル
+    検索) に合わせて直した。`lisp/loadup.l` を確認すると `isearch.l` は起動時の
+    ロード対象に入っておらず、ドキュメントが「デフォルトでインクリメンタル
+    サーチ」と書いていたのは実際の挙動と食い違っていたため。
+  * `docs/user/keybindings.md` に、自明すぎて省いていた基本のカーソル移動・編集
+    キー (`C-f`/`C-b`/`C-n`/`C-p`/`C-k`/`C-y` など) と、`M-x` 実行時などに使う
+    ミニバッファでのキー (履歴呼び出しの `C-p`/`C-n`/`M-p`/`M-n`、補完の `TAB`、
+    中断の `C-g` など) の一覧を追加した。
   *
