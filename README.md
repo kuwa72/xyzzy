@@ -1,15 +1,36 @@
-# xyzzy
+# xyzzy — kuwa72 私家版
 
-[![Build](https://github.com/snmsts/xyzzy/actions/workflows/build.yml/badge.svg)](https://github.com/snmsts/xyzzy/actions/workflows/build.yml)
+[![MSVC](https://github.com/kuwa72/xyzzy/actions/workflows/build.yml/badge.svg)](https://github.com/kuwa72/xyzzy/actions/workflows/build.yml)
+[![llvm-mingw](https://github.com/kuwa72/xyzzy/actions/workflows/mingw.yml/badge.svg)](https://github.com/kuwa72/xyzzy/actions/workflows/mingw.yml)
 
-[亀井哲弥氏](http://www.jsdlab.co.jp/~kamei/)が開発した Common Lisp 風の言語で拡張可能な Emacs 風テキストエディタです。
+[亀井哲弥氏](http://www.jsdlab.co.jp/~kamei/)が開発した、Common Lisp 風の言語で拡張できる
+Emacs 風テキストエディタ xyzzy の**私家版**です。**公式でも、有志による本流でもありません。**
+自分が毎日使うために直しているものを、そのまま置いてあります。
 
-このフォークは [xyzzy-022](https://github.com/xyzzy-022/xyzzy) (0.2.2.253) をベースに、
-ARM64 で動くようにしたり、Win32 API を Unicode 化したりしています。たぶん動きます。
+## この私家版の立ち位置
+
+```
+亀井哲弥氏のオリジナル (0.2.2.235)
+ └ xyzzy-022/xyzzy         有志による継続開発 (0.2.2.253)
+    └ snmsts/xyzzy modern  ARM64/x86-64、Win32 の Unicode 化、CMake 化、
+       │                   tree-sitter、ncurses フロントエンド (0.2.6.x)
+       └ kuwa72/xyzzy      ← ここ (0.3.x)
+```
+
+土台の大きな作り直しは [snmsts/xyzzy](https://github.com/snmsts/xyzzy) の `modern` によるものです。
+ここはその上に、常用して困ったところ (ターミナル、フォント、ビルドとリリースの足回り) を
+足しているだけの木で、版番号も上流とは別に振っています。
+
+  * **無保証です。** 自分の環境で動くことしか確かめていません。
+  * **上流に持ち込まないでください。** ここ由来の不具合を xyzzy-022 や snmsts に報告されると
+    向こうが困ります。報告は [Issues](https://github.com/kuwa72/xyzzy/issues) へどうぞ。
+  * 素の xyzzy が欲しい場合は [xyzzy-022/xyzzy](https://github.com/xyzzy-022/xyzzy)、
+    ARM64/Unicode 対応だけが欲しい場合は [snmsts/xyzzy](https://github.com/snmsts/xyzzy) を
+    見てください。
 
 ## ダウンロード
 
-[Releases](https://github.com/snmsts/xyzzy/releases/latest) からインストーラまたは ZIP をダウンロードしてください。
+[Releases](https://github.com/kuwa72/xyzzy/releases/latest) からインストーラまたは ZIP をダウンロードしてください。
 
 | ファイル | 対象 |
 |---|---|
@@ -37,6 +58,8 @@ ARM64 で動くようにしたり、Win32 API を Unicode 化したりしてい�
 
 ## 主な変更点
 
+### 土台 (snmsts/xyzzy modern) から引き継いでいるもの
+
 - ARM64 / x86-64 / x86 で動作
 - Win32 API: ANSI (A-suffix) から Unicode (W-suffix) に移行 — システムロケールに依存しない
 - デフォルトファイルエンコーディング: UTF-8N
@@ -44,6 +67,20 @@ ARM64 で動くようにしたり、Win32 API を Unicode 化したりしてい�
 - 各種言語モード追加 (json, yaml, python, javascript, typescript, markdown 等)
 - ncurses フロントエンド (Linux/macOS)
 - VT100 ターミナルエミュレータ (Win32 ConPTY / ncurses)
+
+### この私家版で入れたもの
+
+- ターミナルバッファを実用に耐えるところまで修正 — 24bit/256 色と OSC、Ambiguous 幅の
+  桁ずれ、豆腐になる記号、矢印キー・IME 位置・貼り付け、ホイール、描画のまとめ、
+  リサイズ追従
+- Nerd Font のアイコン用フォント枠 (`:symbol`) と、フォント設定の絞り込み入力欄
+- 32bit の DLL 呼び出しと、バイトコンパイルの取り残し (81 ファイル) の修正
+- llvm-mingw + Wine のクロスビルド環境 (`tools/x`) — Windows マシン無しで
+  ビルドからテストまで回せる
+- テストを既知失敗リストで gate し、リリースの版番号・ノート・成果物を検証する CI
+- 3 桁のバージョン体系 (`MAJOR.MINOR.PATCH`)
+
+各リリースで何をなぜ変えたかは [docs/](docs/) のリリースノートに書いてあります。
 
 ## ビルド方法
 
@@ -129,4 +166,6 @@ bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) しま�
 
 ## ライセンス
 
-MIT ライセンスです。詳細は [LICENSE](LICENSE) を参照。
+MIT ライセンスです。詳細は [LICENSE](LICENSE)、個別のファイルの由来は [LEGAL.md](LEGAL.md)
+を参照してください。本体の著作権は原作者の亀井哲弥氏、および xyzzy-022 / snmsts/xyzzy に
+貢献した方々にあります。この私家版はその上に乗っているだけです。
