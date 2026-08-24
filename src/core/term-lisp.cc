@@ -134,17 +134,31 @@ Fsi_terminal_app_cursor_keys_p (lisp process)
   return boole (term->app_cursor_keys ());
 }
 
+/* Lisp から渡されたキーを lChar にする。
+
+   char で渡されたら Lisp 側の encoding、つまり旧 Char encoding なので
+   lc_from_ccf で昇格する。これを忘れると #\Up (CCF_UP = 0xff05) の
+   LCHAR_KIND が CHAR に見えて、機能キーではなく U+FF05 (全角パーセント) の
+   UTF-8 が pty へ流れる。整数で渡された場合は lChar そのものとして扱う
+   (C++ 側の呼び出しと、lChar を直に指定したいテストがこちら)。 */
+static lChar
+lchar_from_lisp_key (lisp lkey)
+{
+  if (!charp (lkey))
+    return fixnum_value (lkey);
+  /* BMP 外は Char (16bit) に落とせない (U+1F600 → 0xF600 = CCF_META)。
+     機能キーの空間と重ならないので、そのまま code point として渡す。 */
+  ucs4_t cc = xchar_code (lkey);
+  return cc >= 0x10000 ? (LCKIND_CHAR | lChar (cc)) : lc_from_ccf (Char (cc));
+}
+
 // (si:terminal-send-key process key)
 // Convert an lChar key to VT100 escape sequence and send to process.
 lisp
 Fsi_terminal_send_key (lisp process, lisp lkey)
 {
   check_process (process);
-  lChar c;
-  if (charp (lkey))
-    c = xchar_code (lkey);
-  else
-    c = fixnum_value (lkey);
+  lChar c = lchar_from_lisp_key (lkey);
 
   lisp lbuf = xprocess_buffer (process);
   if (!bufferp (lbuf))
@@ -349,7 +363,9 @@ Fsi_terminal_bracketed_paste_p (lisp process)
 /* (si:*terminal-key-for-test key setup)
      => pty へ送るバイト列 (整数のリスト)。送らない場合は nil。
 
-   key は lChar (整数)。setup は先に feed するエスケープ列で、モードを
+   key は lChar (整数) か Lisp の char。char なら si:terminal-send-key と
+   同じ昇格を通るので、(read-char *keyboard*) から送る経路も試せる。
+   setup は先に feed するエスケープ列で、モードを
    立てるのに使う (例: ESC[?1h で application cursor keys、ESC[?2004h で
    bracketed paste)。
 
@@ -360,11 +376,7 @@ Fsi_terminal_bracketed_paste_p (lisp process)
 lisp
 Fsi_terminal_key_for_test (lisp lkey, lisp setup)
 {
-  lChar key;
-  if (charp (lkey))
-    key = xchar_code (lkey);
-  else
-    key = fixnum_value (lkey);
+  lChar key = lchar_from_lisp_key (lkey);
 
   Terminal term (4, 20);
   if (setup && setup != Qnil)

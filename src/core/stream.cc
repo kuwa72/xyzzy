@@ -1452,6 +1452,7 @@ readc_stream (lisp stream)
       if (xstream_type (stream) == st_keyboard)
         {
           check_kbd_enable ();
+          inhibit_terminal_forward itf;
           return app.kbdq.fetch (0, 0);
         }
 
@@ -1819,9 +1820,12 @@ peekc_stream (lisp stream)
   switch (xstream_type (stream))
     {
     case st_keyboard:
-      check_kbd_enable ();
-      cc = app.kbdq.fetch (0, 0);
-      app.kbdq.push_back (cc);
+      {
+        check_kbd_enable ();
+        inhibit_terminal_forward itf;
+        cc = app.kbdq.fetch (0, 0);
+        app.kbdq.push_back (cc);
+      }
       break;
 
     case st_buffer:

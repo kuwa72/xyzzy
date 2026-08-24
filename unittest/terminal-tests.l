@@ -419,3 +419,39 @@
 (deftest terminal-key-alt-char ()
   (term-key (+ 65 *lcmod-alt*))
   => (27 65))
+
+;;; ------------------------------------------------------------
+;;; Lisp の char で渡す経路
+;;;
+;;; terminal-send-next-key は (read-char *keyboard*) の結果をそのまま
+;;; si:terminal-send-key に渡す。Lisp の char は旧 Char encoding なので
+;;; #\Up は CCF_UP = #xff05 であり、lChar としては LCHAR_KIND が CHAR に
+;;; 見える。昇格を忘れると機能キーではなく U+FF05 (全角パーセント) の
+;;; UTF-8 が pty へ流れるので、そこを固定する。
+
+(deftest terminal-key-from-char-fnkeys ()
+  (list (term-key #\Up)
+        (term-key #\Down)
+        (term-key #\Home)
+        (term-key #\F1)
+        (term-key #\PageUp))
+  => ((27 91 65) (27 91 66) (27 91 72) (27 79 80) (27 91 53 126)))
+
+(deftest terminal-key-from-char-modified-fnkeys ()
+  (list (term-key #\C-Up)
+        (term-key #\S-Up))
+  => ((27 91 49 59 53 65) (27 91 49 59 50 65)))
+
+;; 普通の文字と制御文字はそのまま。C-v は 0x16 で、素通しの主な用途がこれ
+;; (vim の page down)。
+(deftest terminal-key-from-char-plain ()
+  (list (term-key #\A)
+        (term-key #\C-v)
+        (term-key #\あ))
+  => ((65) (22) (227 129 130)))
+
+;; BMP 外の char は Char (16bit) に落とすと #xF600 = CCF_META とぶつかる。
+;; code point のまま渡さなければならない。
+(deftest terminal-key-from-char-non-bmp ()
+  (term-key (code-char 128512))
+  => (240 159 152 128))
