@@ -22,9 +22,10 @@ xyzzy は Emacs 風のキー操作を持つテキストエディタです。フ�
 
 `etc/` 以下にシンタックス定義があるものだけでも C, C++, C#, Java, JavaScript,
 TypeScript, Python, Perl, HTML/HTML5, CSS/CSS3, SQL, TeX, Pascal, Fortran,
-Basic, IDL, Lisp などのモードが入っています。tree-sitter によるハイライトが
-使えるモードもあります (C, C++, Perl, Markdown)。ファイルを開くと拡張子から
-自動的にモードが選ばれます。
+Basic, IDL, Lisp などのモードが入っています。JSON, YAML, TOML, Makefile, CMake,
+Dockerfile なども含め、ファイルを開くと拡張子や shebang から自動的にモードが選ばれます。
+tree-sitter によるハイライトが使えるモードもあります (C, C++, Perl, Markdown)。
+各モードの詳細や設定方法は [標準添付 Lisp ライブラリ・モード](lisp-libraries.md) を参照してください。
 
 このフォーク独自の機能
 -----------------------

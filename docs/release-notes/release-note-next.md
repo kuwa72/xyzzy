@@ -75,4 +75,10 @@ xyzzy リリースノート
     実害は無かった (`compile-files` は再帰が起きる前に 141 本すべてを
     書き終えている) が、デプロイのたびに数分と一見不穏なクラッシュログを
     生んでいた。
-  *
+  * 標準添付の Lisp ライブラリ・主要モードをまとめた利用者向けドキュメント
+    (`docs/user/lisp-libraries.md`) を追加した。C/C++, C#, Java, JS/TS, Python,
+    Perl, HTML+, CSS, XML, JSON, YAML, TOML, Markdown, Makefile, CMake などの言語・
+    設定ファイルモードの拡張子や機能、ターミナル・Grep・一括置換・略称展開・TAGS・
+    ファイラ・セッション・辞書・電卓・ゲームなどの各種ツール、Common Lisp 互換や
+    エディタ操作を支えるコアライブラリ、`lisp/wip/` 内のアウトラインツリーや
+    TreeView などの拡張群を網羅して一覧化した。
