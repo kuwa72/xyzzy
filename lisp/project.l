@@ -70,10 +70,16 @@
       (setq *project-list* (subseq *project-list* 0 50)))))
 
 (defun project-ignored-directory-p (path)
-  "PATH が *project-ignored-directories* に載っているディレクトリなら t。"
-  (and (file-directory-p path)
-       (member (pathname-name (remove-trail-slash (namestring path)))
-	       *project-ignored-directories* :test #'string-equal)))
+  "PATH が *project-ignored-directories* に載っているディレクトリなら t。
+
+file-directory-p 等が失敗する場合 (実 Windows 環境の CI で、ビルド直後の
+ロックされたファイルに対して file I/O エラーになるのを確認済み) は
+無視すべきディレクトリではない (=このエントリは結果に残す) ものとして
+扱い、その1件のせいで走査全体が失敗しないようにする。"
+  (ignore-errors
+    (and (file-directory-p path)
+	 (member (pathname-name (remove-trail-slash (namestring path)))
+		 *project-ignored-directories* :test #'string-equal))))
 
 (defun project-list-files (&optional (root (project-current-root)))
   "プロジェクト内の全ファイル相対パスのリストを返す。
