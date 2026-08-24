@@ -129,6 +129,13 @@
 - **解決**: `kill-xyzzy` を `with-open-file` フォームの外に出した。
 - **教訓**: バッチスクリプトで `kill-xyzzy` を呼ぶ際は、ファイル書き込み・バッファ flush が確実に完了した後であることを確認する。
 
+### 6. `toggle-terminal-drawer` が初回起動時にフリーズしてターミナルが一切開かない
+- **症状**: `Leader t t` を押しても何も起きない（エラーも出ない、ただ固まる）。
+- **要因**: `get-buffer-window` に、**まだ存在しないバッファ名の文字列**（`"*Shell*"` のように、その名前のバッファが一つも無い状態）をそのまま渡すとハングする、という `get-buffer-window` 自体の挙動を踏んでいた。`toggle-terminal-drawer` の1行目 `(get-buffer-window "*Shell*")` は初回トグル時（`*Shell*` がまだ存在しない）に必ずこの条件に当たる。バッファオブジェクトを渡す、または既存バッファ名を渡す場合はハングしない（`(get-buffer-window (get-buffer-create "*Shell*"))` や `(get-buffer-window "*scratch*")` は問題なく `nil`/ウィンドウを返す）。
+- **解決**: `get-buffer-create` で存在を保証したバッファオブジェクトを渡すよう `lisp/terminal.l` を修正。`unittest/git-tests.l` に、実際に `toggle-terminal-drawer` を呼んでシェルプロセスが `:run` になることを確認する回帰テストを追加した。
+- **教訓**: `get-buffer-window` に生の文字列を渡すときは、そのバッファが存在するとは限らない場面で使わない。存在確認・存在保証 (`find-buffer`/`get-buffer-create`) を先に行うか、バッファオブジェクトを渡す。
+- **副産物の発見（実害なし）**: デバッグ中に `get-buffer`（`get-buffer-create` ではなく無印）という関数を試しに呼んだところ、これも同様にハングした。**`get-buffer` は xyzzy に存在しない関数**（Emacs Lisp にはあるが xyzzy には無い）。今回のコードベースでは実際には使われていなかったが、Emacs の記憶で書くと踏みやすい地雷なので、存在確認せずに使わないこと（`find-buffer`/`get-buffer-create` を使う）。
+
 ---
 
 ## 5. テスト・ビルドの検証コマンド
@@ -157,13 +164,9 @@ tools/x test x86_64
 
 ## 6. 次の AI への引き継ぎタスク (今後の作業方針)
 
-1. **実機（Windows 環境）でのデプロイ・実動テスト**:
-   - `tools/deploy-windows.sh` で Windows 側へ展開し、GUI（`xyzzy.exe`）での `M-m` / `C-c SPC` 操作、プロジェクト検索、Git、ターミナルトグルがスムーズに動作することを確認。
+1. ~~実機（Windows 環境）でのデプロイ・実動テスト~~ **完了**（作業者本人が実機で確認済み。その過程で「ターミナルドロワーが初回起動時にフリーズする」不具合が見つかり、上記トラブルシュート6として修正済み）。
 2. **Phase 5: ミニバッファ UI / 補完のさらなる改善（オプション）**:
    - `completing-read` のポップアップや絞り込み（インクリメンタル絞り込み）の視認性向上。
    - `M-x` や `project-find-file` でのファジーマッチング / パス絞り込みの拡張。
-3. **PR のマージ・レビュー対応**:
-   - CI チェック（`mingw` ワークフロー等）の通過確認と、必要に応じた微調整。
-4. **`uuid-create-4-seq` の未解決の失敗**:
-   - 上記セクション4の隠蔽が直った結果、ローカル (Docker+Wine) 実行で `unittest/system-tests.l` の `uuid-create-4-seq` が失敗するようになった。今回の変更（leader/project/git 関連ファイル）とは無関係で、`si:uuid-create :sequential t` の連番差分がタイミング依存のテスト。
-   - `misc/known-failures/README.md` の方針どおり、ローカル run だけを根拠に known-failures へ追加してはいけない。CI 上の実際の run (`gh run view <id> --log | grep 'unexpected failures'`) で再現するか確認してから対応すること。
+3. ~~PR のマージ・レビュー対応（CI チェック通過確認）~~ **完了**。commit `546b158` 時点の CI run（`gh run view 32745074207`）で mingw x86_64/i686 とも green、682件中672件成功・10件失敗は全て既知失敗のみで確認済み。
+4. **`uuid-create-4-seq`**: 解決済み扱いでよい。上記 CI run のログで `uuid-create-4-seq...OK`（x86_64/i686 両方）を確認済み。ローカル (Docker+Wine) 環境固有のタイミング差であり、known-failures への追加は不要と結論。

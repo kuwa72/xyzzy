@@ -123,3 +123,9 @@ xyzzy リリースノート
     落とし、`project-list-files` が相対パスの切り出しに失敗して
     `project-find-file`/`project-grep` がプロジェクト直下ではなくファイル
     システムのルート付近を走査してしまう) も修正した。
+  * `toggle-terminal-drawer` (`Leader t t`) が初回起動時にフリーズし、ターミナルが
+    一切開かなかった不具合を修正した。原因は `get-buffer-window` に、まだ存在しない
+    バッファ名の文字列 (`"*Shell*"`) をそのまま渡すとハングするという `get-buffer-window`
+    自体の挙動で、初回トグル時 (`*Shell*` バッファがまだ無い状態) に必ず踏んでいた。
+    `get-buffer-create` で存在を保証したバッファオブジェクトを渡すよう修正し、
+    `unittest/git-tests.l` に回帰テストを追加した。

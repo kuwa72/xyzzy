@@ -74,7 +74,10 @@
 (defun toggle-terminal-drawer ()
   "画面下部にターミナルバッファ (*Shell*) をトグル表示・非表示する。"
   (interactive)
-  (let ((term-win (get-buffer-window "*Shell*")))
+  ;; get-buffer-window は、名前が既存のどのバッファにも一致しない文字列を
+  ;; 渡すと固まる (ハングする) ので、必ず get-buffer-create で存在を
+  ;; 保証したバッファオブジェクトを渡す。
+  (let ((term-win (get-buffer-window (get-buffer-create "*Shell*"))))
     (cond
      ;; 既にフォーカスされている場合は閉じる
      ((eq term-win (selected-window))
