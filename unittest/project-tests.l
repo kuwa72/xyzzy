@@ -26,14 +26,57 @@
     (assert-equal 2 (length *project-list*))
     (assert-equal "Z:/work/" (car *project-list*))))
 
+;; test-project-list-files 用のフィクスチャ。以前はリポジトリ全体
+;; (2000+ファイル) を直接対象にしていたが、32bit MSVC の CI で
+;; project-list-files がリポジトリ全体を正しく (=以前より遥かに多く)
+;; 見つけるようになった際にメモリ不足でクラッシュした。project-list-files
+;; の再帰・除外ロジックを検証するのに巨大な対象は不要なので、専用の
+;; 小さなディレクトリに切り出す。
+(defun project-test-fixture-root ()
+  ;; merge-pathnames は、第1引数がそれ自体 "/" を含む複数階層のパスで
+  ;; 末尾も "/" の場合、末尾の "/" を落とすことがある (実測済み)。単純な
+  ;; 文字列連結ならその心配が無いので concat を使う。
+  (concat (si:system-root) "unittest/data/project-fixture/"))
+
+(defun project-test-fixture-write (path content)
+  (with-open-file (s path :direction :output :if-exists :supersede)
+    (princ content s)))
+
+(defun project-test-fixture-setup ()
+  (let* ((root (project-test-fixture-root))
+	 (sub (concat root "sub/"))
+	 (ignored (concat root "node_modules/")))
+    (unless (file-directory-p root) (create-directory root))
+    (unless (file-directory-p sub) (create-directory sub))
+    (unless (file-directory-p ignored) (create-directory ignored))
+    (project-test-fixture-write (merge-pathnames ".project" root) "marker")
+    (project-test-fixture-write (merge-pathnames "a.txt" root) "a")
+    (project-test-fixture-write (merge-pathnames "b.txt" sub) "b")
+    (project-test-fixture-write (merge-pathnames "ignored.txt" ignored) "ignored")
+    root))
+
+(defun project-test-fixture-teardown ()
+  (let ((root (project-test-fixture-root)))
+    (when (file-directory-p root)
+      (dolist (f (directory root :recursive t :file-only t :absolute t))
+	(delete-file f :if-does-not-exist :skip))
+      ;; 深い方から消さないと空でないディレクトリの削除に失敗する。
+      (dolist (d (sort (directory root :recursive t :directory-only t :absolute t)
+			#'>  :key #'(lambda (p) (length (namestring p)))))
+	(delete-directory d :if-does-not-exist :skip))
+      (delete-directory root :if-does-not-exist :skip))))
+
 (defun test-project-list-files ()
-  (let* ((root (project-current-root (si:system-root)))
-	 (files (project-list-files root)))
-    (assert-true (consp files))
-    ;; lisp/defs.l や CMakeLists.txt が含まれているか
-    (assert-true (member "CMakeLists.txt" files :test #'string-equal))
-    ;; .git ディレクトリの中身は無視されているか
-    (assert-false (some #'(lambda (f) (string-match "^\\.git/" f)) files))))
+  (unwind-protect
+      (let* ((root (project-test-fixture-setup))
+	     (files (project-list-files root)))
+	(assert-true (consp files))
+	(assert-true (member ".project" files :test #'string-equal))
+	(assert-true (member "a.txt" files :test #'string-equal))
+	(assert-true (member "sub/b.txt" files :test #'string-equal))
+	;; *project-ignored-directories* 配下 (node_modules) は無視されるか
+	(assert-false (some #'(lambda (f) (string-match "^node_modules/" f)) files)))
+    (project-test-fixture-teardown)))
 
 (defun test-project-leader-bindings ()
   (assert-equal 'project-find-file (lookup-keymap *leader-project-map* #\f))

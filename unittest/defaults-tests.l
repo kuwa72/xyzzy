@@ -4,7 +4,11 @@
   "バックアップディレクトリと階層バックアップがデフォルトで有効になっていること"
   (values
    (stringp ed::*backup-directory*)
-   ed::*hierarchic-backup-directory*)
+   ed::*hierarchic-backup-directory*
+   ;; merge-pathnames が第1引数の末尾 "/" を落とすことがある (実測済み) ため、
+   ;; ディレクトリとして正しく "/" 終端されているかを明示的に確認する。
+   (char= (char ed::*backup-directory* (1- (length ed::*backup-directory*))) #\/))
+  => t
   => t
   => t)
 
