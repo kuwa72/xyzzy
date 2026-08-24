@@ -29,7 +29,7 @@
 	  toggle-vscroll-bar toggle-hscroll-bar
 	  toggle-eof toggle-mode-line toggle-function-bar
 	  toggle-fold-mark toggle-fold-line toggle-cursor-line
-	  toggle-half-width-space
+	  toggle-half-width-space toggle-truncate-lines
 	  buffer-fold-width
 	  split-window-menu-update
 	  close-window-menu-update
@@ -249,6 +249,11 @@
 (defun toggle-fold-line (&optional (arg nil sv))
   (interactive "p")
   (toggle-window-flag *window-flag-fold-line* arg sv))
+
+(defun toggle-truncate-lines (&optional (arg nil sv))
+  "行の折り返し表示/切り詰め表示を切り替える (toggle-fold-line のエイリアス)。"
+  (interactive "p")
+  (toggle-fold-line arg sv))
 
 (defun toggle-fold-mark (&optional (arg nil sv))
   (interactive "p")

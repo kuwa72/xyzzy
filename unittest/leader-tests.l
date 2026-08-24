@@ -3,7 +3,8 @@
 ;;; Tests for Leader Key and Which-key guidance
 ;;;
 
-(require "unittest")
+(unless (member "test-helpers" *modules* :test #'string=)
+  (load-file (merge-pathnames "test-helpers.l" (directory-namestring *load-pathname*))))
 (require "leader")
 
 (in-package "editor")
@@ -88,6 +89,24 @@
   (assert-equal 'execute-leader-key (lookup-keymap *global-keymap* '(#\M-m)))
   (assert-equal 'execute-leader-key (lookup-keymap *global-keymap* '(#\C-c #\SPC))))
 
+(defun test-all-bound-commands-exist ()
+  ;; 全 Leader キーマップ内のすべてのバインド先コマンドが実際に存在するか再帰チェック
+  (labels ((check-map (keymap path)
+	     (let ((bindings (which-key-collect-bindings keymap)))
+	       (dolist (b bindings)
+		 (let ((target (cdr b))
+		       (k (car b)))
+		   (cond
+		    ((keymapp target)
+		     (check-map target (format nil "~A ~:C" path k)))
+		    ((symbolp target)
+		     (let ((bound (or (fboundp target) (autoload-function-p target))))
+		       (unless bound
+			 (error "Leader command is undefined: ~A in ~A" target path))
+		       (assert-true bound)))
+		    (t nil)))))))
+    (check-map *leader-map* "Leader")))
+
 (defun run-leader-unit-tests ()
   (format t "Running leader unit tests...~%")
   (test-leader-map-structure)
@@ -95,6 +114,7 @@
   (test-which-key-formatting)
   (test-leader-define-key-custom)
   (test-leader-global-keys)
+  (test-all-bound-commands-exist)
   (format t "All leader unit tests PASSED.~%"))
 
 (run-leader-unit-tests)

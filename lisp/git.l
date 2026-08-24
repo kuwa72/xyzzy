@@ -72,6 +72,20 @@
 	    (when (file-exist-p full-path)
 	      (find-file full-path))))))))
 
+(defvar *git-diff-mode-map* nil)
+(unless *git-diff-mode-map*
+  (setq *git-diff-mode-map* (make-sparse-keymap))
+  (define-key *git-diff-mode-map* #\q 'kill-selected-buffer))
+
+(defun git-diff-mode ()
+  (setq mode-name "Git-Diff")
+  (setq buffer-mode 'git-diff-mode)
+  (use-keymap *git-diff-mode-map*)
+  (setq need-not-save t)
+  (setq auto-save nil)
+  (setq kept-undo-information nil)
+  (setq buffer-read-only t))
+
 (defun git-diff (&optional file)
   "Git 差分を表示する。file が指定されていればそのファイル、なければプロジェクト全体。"
   (interactive)
@@ -82,8 +96,7 @@
 		 "diff"))
 	 (buf (git-run-command-to-buffer "*git diff*" args root)))
     (pop-to-buffer buf)
-    (when (fboundp 'diff-mode)
-      (diff-mode))
+    (git-diff-mode)
     (goto-char (point-min))
     (message "Git diff for ~A" (or target-file root))))
 

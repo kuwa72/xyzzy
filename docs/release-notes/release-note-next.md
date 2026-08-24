@@ -109,3 +109,17 @@ xyzzy リリースノート
     - `git-log` (`Leader g l`): コミット履歴をグラフィカルに表示。
     - `git-blame` (`Leader g b`): 現在のファイルの行ごとの変更者を一覧表示。
   * バッチモード実行時 (`xyzzy-batch.exe`) に GUI イベントループ (`main_loop`) へ突入したり、バッファ保存確認ダイアログでプロセス終了がブロックされたりしていた不具合を修正し、コマンドライン・CI 上でのバッチコンパイルやスクリプト実行が確実に即座に終了するようにした。
+  * `misc/run-tests-batch.l` が `unittest/*-tests.l` の読み込みループ全体を1つの
+    `handler-case` で囲んでいたため、アルファベット順で早い1ファイルが読み込みに
+    失敗すると、それより後ろの全ファイル (`leader-tests.l`, `project-tests.l` を
+    含む) が黙って読み込まれずスキップされていた。実際に `unittest/git-tests.l`
+    が存在しない `"unittest"` モジュールを `require` していたため、この不具合が
+    誘発され、Leader Key・プロジェクト管理のテストが CI 上で一度も実行されない
+    まま「オールグリーン」を報告していた。ハンドラをファイル単位に分割し、
+    `assert-true`/`assert-equal`/`assert-false` を提供する
+    `unittest/test-helpers.l` を追加して `require "unittest"` を修正した。
+    あわせて、この経路が塞がっていたために発見されていなかった `lisp/project.l`
+    の実バグ (`(namestring (directory-namestring root))` が末尾の `/` を
+    落とし、`project-list-files` が相対パスの切り出しに失敗して
+    `project-find-file`/`project-grep` がプロジェクト直下ではなくファイル
+    システムのルート付近を走査してしまう) も修正した。

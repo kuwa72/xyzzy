@@ -3,7 +3,8 @@
 ;;; Tests for Project Management (project.l)
 ;;;
 
-(require "unittest")
+(unless (member "test-helpers" *modules* :test #'string=)
+  (load-file (merge-pathnames "test-helpers.l" (directory-namestring *load-pathname*))))
 (require "leader")
 (require "project")
 

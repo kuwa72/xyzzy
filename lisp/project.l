@@ -35,13 +35,13 @@
 
 (defun project-find-root-directory (start-dir)
   "start-dir から親ディレクトリを遡り、プロジェクトルートを探す。"
-  (let ((dir (namestring (directory-namestring (truename start-dir)))))
+  (let ((dir (directory-namestring (truename start-dir))))
     (while (and dir (stringp dir) (not (string= dir "")))
       (dolist (marker *project-root-markers*)
 	(let ((path (merge-pathnames marker dir)))
 	  (when (file-exist-p path)
-	    (return-from project-find-root-directory (namestring (directory-namestring path))))))
-      (let ((parent (namestring (directory-namestring (remove-trail-slash dir)))))
+	    (return-from project-find-root-directory (directory-namestring path)))))
+      (let ((parent (directory-namestring (remove-trail-slash dir))))
 	(if (or (null parent) (string= parent dir) (string= parent ""))
 	    (return nil)
 	  (setq dir parent))))
@@ -55,13 +55,13 @@
 		   (default-directory)))
 	 (root (when base (project-find-root-directory base))))
     (if root
-	(namestring (directory-namestring root))
-      (namestring (directory-namestring (or base (default-directory)))))))
+	(directory-namestring root)
+      (directory-namestring (or base (default-directory))))))
 
 (defun project-remember-project (&optional (root (project-current-root)))
   "プロジェクトルートを *project-list* に追加・更新する。"
   (when (and root (stringp root))
-    (setq root (namestring (directory-namestring root)))
+    (setq root (directory-namestring root))
     (setq *project-list* (delete root *project-list* :test #'string-equal))
     (push root *project-list*)
     (when (> (length *project-list*) 50)
@@ -83,7 +83,7 @@
 
 (defun project-list-files (&optional (root (project-current-root)))
   "プロジェクト内の全ファイル相対パスのリストを返す。"
-  (let* ((root-dir (namestring (directory-namestring root)))
+  (let* ((root-dir (directory-namestring root))
 	 (root-len (length root-dir)))
     (project-collect-files-recursive root-dir root-len)))
 
