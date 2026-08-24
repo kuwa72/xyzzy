@@ -120,8 +120,18 @@
   (labels ((lisp-module-p (module)
 	     (file-exist-p (merge-pathnames (format nil "lisp/~A.l" module)
 					    (si:system-root)))))
-    (let ((lisp-modules (remove-if-not #'lisp-module-p *modules*)))
-      (setf *modules* (remove-if #'lisp-module-p *modules*))
+    ;; "startup" は末尾の (si:*startup) から起動処理全体 (ed::startup と
+    ;; *post-startup-hook*) を再実行する。バッチのバイトコンパイルは
+    ;; まさにそのフックから makelc を呼んでいるので、ここで reload すると
+    ;; makelc に再突入して無限再帰になる (スタックか Lisp ヒープが尽きて
+    ;; 落ちるまで、各段が lisp/ 全体を再コンパイルし続ける)。
+    ;; startup.l 自体は変更を検知して再コンパイルされる対象からは外して
+    ;; いないので、.lc は更新される -- リロードだけしない。
+    (let* ((all-lisp-modules (remove-if-not #'lisp-module-p *modules*))
+           (lisp-modules (remove "startup" all-lisp-modules :test #'string=)))
+      ;; "startup" は reload しないが provide 済みのままなので *modules*
+      ;; には残す -- 今回実際に reload するものだけを落とす。
+      (setf *modules* (set-difference *modules* lisp-modules :test #'string=))
       (format t "reloading ~D modules ...~%" (length lisp-modules))
       (time
        (dolist (module lisp-modules)
