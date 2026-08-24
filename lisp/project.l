@@ -69,25 +69,29 @@
     (when (> (length *project-list*) 50)
       (setq *project-list* (subseq *project-list* 0 50)))))
 
-(defun project-collect-files-recursive (dir root-len)
-  "ディレクトリを再帰走査して相対ファイルパスのリストを返す。"
-  (let (results)
-    (dolist (entry (directory dir :wild "*.*" :file-only t))
-      (let* ((full (namestring entry))
-	     (rel (subseq full root-len)))
-	(push rel results)))
-    (dolist (subdir (directory dir :wild "*.*" :directory-only t))
-      (let* ((name (pathname-name (remove-trail-slash (namestring subdir)))))
-	(unless (member name *project-ignored-directories* :test #'string-equal)
-	  (setq results (nconc results
-			       (project-collect-files-recursive (namestring subdir) root-len))))))
-    results))
+(defun project-ignored-directory-p (path)
+  "PATH が *project-ignored-directories* に載っているディレクトリなら t。"
+  (and (file-directory-p path)
+       (member (pathname-name (remove-trail-slash (namestring path)))
+	       *project-ignored-directories* :test #'string-equal)))
 
 (defun project-list-files (&optional (root (project-current-root)))
-  "プロジェクト内の全ファイル相対パスのリストを返す。"
+  "プロジェクト内の全ファイル相対パスのリストを返す。
+
+directory の :wild \"*.*\" はドットを含まない名前 (lisp, docs, src, ...)
+にマッチするかどうかが処理系・環境で揺れる (Wine 上の実測ではマッチせず、
+再帰がほとんどのディレクトリへ降りて行けなかった)。:wild を使わず、
+directory 自身の :recursive/:test に丸ごと任せる。:test はディレクトリに
+対して呼ばれたとき nil を返すとその配下ごと無視されるので、これで
+*project-ignored-directories* を一括で除外できる。"
   (let* ((root-dir (directory-namestring root))
 	 (root-len (length root-dir)))
-    (project-collect-files-recursive root-dir root-len)))
+    (mapcar #'(lambda (path) (subseq (namestring path) root-len))
+	    (directory root-dir
+		       :recursive t
+		       :file-only t
+		       :absolute t
+		       :test #'(lambda (path) (not (project-ignored-directory-p path)))))))
 
 (defun project-find-file (&optional (root (project-current-root)))
   "プロジェクトルート配下のファイルを補完選択して開く。"

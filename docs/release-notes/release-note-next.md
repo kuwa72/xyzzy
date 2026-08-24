@@ -138,3 +138,16 @@ xyzzy リリースノート
     部分を優先してスコアリングする。`project-find-file`・`project-switch-project`
     (`Leader p f` / `Leader p p`) の絞り込みに使用。`C-n`/`C-p`/`TAB` で候補間を
     移動できる。
+  * `project-find-file`/`project-grep` が、プロジェクト直下の `lisp/`・`docs/`・
+    `src/` などドット無しの名前のディレクトリへ実質降りて行けず、ごく一部の
+    ファイルしか見つけられていなかった不具合と、その裏返しとして MSVC x86
+    (32bit) の CI で `project-tests.l` 実行中に `xyzzy-batch: メモリ不足です`
+    でクラッシュしていた不具合を修正した。原因は `project-collect-files-recursive`
+    が `directory` の `:wild "*.*"` でサブディレクトリを列挙していたこと。
+    「ドットを含まない名前にもマッチするか」が環境によって違い (Wine 上では
+    マッチせず走査がほぼ空振りする一方、実 Windows の `FindFirstFile` の
+    古い互換仕様ではマッチしてしまい `.git` を除く全ディレクトリを本当に
+    総なめしていた)、素朴な再帰 Lisp 関数と `nconc` でその結果を積み上げていた
+    ため、実 Windows 側では 32bit プロセスのヒープを食い潰していた。`:wild` を
+    やめ、`directory` 自身の `:recursive t` + `:test` (ディレクトリに対して nil
+    を返すとその配下ごと無視される) に一括で任せる形に書き換えた。

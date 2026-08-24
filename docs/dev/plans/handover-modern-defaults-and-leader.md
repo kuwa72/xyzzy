@@ -170,6 +170,15 @@
 - **教訓**: `get-buffer-window` に生の文字列を渡すときは、そのバッファが存在するとは限らない場面で使わない。存在確認・存在保証 (`find-buffer`/`get-buffer-create`) を先に行うか、バッファオブジェクトを渡す。
 - **副産物の発見（実害なし）**: デバッグ中に `get-buffer`（`get-buffer-create` ではなく無印）という関数を試しに呼んだところ、これも同様にハングした。**`get-buffer` は xyzzy に存在しない関数**（Emacs Lisp にはあるが xyzzy には無い）。今回のコードベースでは実際には使われていなかったが、Emacs の記憶で書くと踏みやすい地雷なので、存在確認せずに使わないこと（`find-buffer`/`get-buffer-create` を使う）。
 
+### 7. `project-find-file`/`project-grep` が、環境によって「ほぼ何も見つからない」か「メモリ不足でクラッシュ」かのどちらかになっていた
+- **経緯**: CI (PR #15) の MSVC x86 ジョブが `unittest/project-tests.l` の `test-project-list-files` 実行中に `xyzzy-batch: メモリ不足です` でクラッシュし、テストスイートが要約行を出せずに落ちた。llvm-mingw (Wine) の3ジョブは pass していた。
+- **要因**: `project-collect-files-recursive` (旧実装) がサブディレクトリ列挙に `(directory dir :wild "*.*" :directory-only t)` を使っていた。**`"*.*"` がドットを含まない名前 (`lisp`, `docs`, `src`, `unittest` 等) にマッチするかどうかは環境依存**だと判明:
+  - Wine 上で実測すると `"*.*"` はドット無しの名前にマッチせず、`lisp/` 等の通常ディレクトリへ一切降りて行けない。結果、リポジトリ全体で走査できたのはたった **11 ファイル** (トップレベルと `.claude`/`.github` の中身のみ)。`project-find-file`/`project-grep` は動くには動くが、対象のごく一部しか見えていなかった。
+  - 実 Windows の Win32 `FindFirstFile` は MS-DOS 8.3 互換の古い仕様で `"*.*"` がドット無しの名前にも**マッチしてしまう**。結果、`.git` を除く全ディレクトリを本当に再帰的に総なめし (実測 **2708〜2709 ファイル**)、それを素朴な再帰 Lisp 関数 + `nconc` で積み上げるため、32bit プロセスの限られたヒープを食い潰してクラッシュしていた。
+  - つまり**同じコードが Wine では「ほぼ何も見つからない」、実 Windows では「メモリ不足で落ちる」という、両方の環境で別々の壊れ方をしていた**。このセッションの動作確認は一貫して Wine 上だったため、前者の壊れ方しか見えず、CI で MSVC x86 が実際に走るまで気づけなかった。
+- **解決**: `directory` 自身が持つ `:recursive t` + `:test` (ディレクトリに対して `:test` が nil を返すとその配下ごと無視される、公式ドキュメントにも `.git` 除外の例として載っている) に丸ごと任せる形に書き換え、`:wild` と手書きの再帰・`nconc` を廃止した (`project-list-files`、ヘルパーは `project-ignored-directory-p` のみに整理)。Wine 上で 2709 ファイル (`.git`/`_build` を正しく除外、`lisp/project.l` も検出) を確認済み。
+- **教訓**: `directory` に `:wild` でワイルドカードを渡すときは、「ドットを含まない名前にマッチするか」を対象プラットフォームで必ず確認する。**再帰的に「配下を全部」欲しいときは `:wild` を使わず `:recursive t` + `:test` に任せる方が、動作の一貫性と実装の単純さの両方で勝る。** また、Wine 上の動作確認は MSVC 実 Windows ビルドの代わりにはならない — ファイルシステム API の細部 (この `"*.*"` の件のような) はエミュレーションで再現されないことがある。
+
 ---
 
 ## 5. テスト・ビルドの検証コマンド
@@ -204,5 +213,5 @@ tools/x test x86_64
    - **未着手・見送り**: `M-x` (`execute-extended-command`) のファジー化。理由は上記③⑤の「意図的にやらなかったこと」を参照 — `read-command-name` はフックできず、エディタ最頻用コマンドの書き換えになるため別 PR での着手を推奨。
    - **未着手**: `completing-read` が引き続き使われている箇所 (`recentf-open` など) への同様の展開。今回は `project.l` の2箇所のみに留めた。
    - **手動確認が必要**: `fuzzy-completing-read` の対話ループ自体は自動テストできない (上記③⑤5.)。実機で `Leader p f`/`Leader p p` を実際に打鍵して、絞り込み・`C-n`/`C-p`/`TAB` 移動・`RET`/`C-g` の挙動を確認してほしい。
-3. ~~PR のマージ・レビュー対応（CI チェック通過確認）~~ **完了**。commit `546b158` 時点の CI run（`gh run view 32745074207`）で mingw x86_64/i686 とも green、682件中672件成功・10件失敗は全て既知失敗のみで確認済み。
+3. **PR のマージ・レビュー対応（CI チェック通過確認）**: `mingw` (Wine) ワークフローは commit `546b158` 時点で green を確認済みだが、**この時点では `Build` (MSVC) ワークフローは実行されていなかった/キャンセルされていた**。その後の commit (`78dcda7`) で `Build` ワークフローが初めて実際に走り、MSVC x86 が上記トラブルシュート7のメモリ不足でクラッシュすることが判明・修正した。**「mingw が green だから CI 通過」と早合点しないこと** — この PR には `mingw`・`Build` (MSVC x86/x64/ARM64) の両方が required check として設定されている。修正後の commit で両方の green を確認してから完了とすること。
 4. **`uuid-create-4-seq`**: 解決済み扱いでよい。上記 CI run のログで `uuid-create-4-seq...OK`（x86_64/i686 両方）を確認済み。ローカル (Docker+Wine) 環境固有のタイミング差であり、known-failures への追加は不要と結論。
