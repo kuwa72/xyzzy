@@ -140,20 +140,28 @@ xyzzy リリースノート
     移動できる。
   * `project-find-file`/`project-grep` が、プロジェクト直下の `lisp/`・`docs/`・
     `src/` などドット無しの名前のディレクトリへ実質降りて行けず、ごく一部の
-    ファイルしか見つけられていなかった不具合と、その裏返しとして MSVC x86
-    (32bit) の CI で `project-tests.l` 実行中に `xyzzy-batch: メモリ不足です`
-    でクラッシュしていた不具合を修正した。原因は `project-collect-files-recursive`
-    が `directory` の `:wild "*.*"` でサブディレクトリを列挙していたこと。
-    「ドットを含まない名前にもマッチするか」が環境によって違い (Wine 上では
-    マッチせず走査がほぼ空振りする一方、実 Windows の `FindFirstFile` の
-    古い互換仕様ではマッチしてしまい `.git` を除く全ディレクトリを本当に
-    総なめしていた)、素朴な再帰 Lisp 関数と `nconc` でその結果を積み上げていた
-    ため、実 Windows 側では 32bit プロセスのヒープを食い潰していた。`:wild` を
-    やめ、`directory` 自身の `:recursive t` + `:test` (ディレクトリに対して nil
-    を返すとその配下ごと無視される) に一括で任せる形に書き換えた。
-    `unittest/project-tests.l` の `test-project-list-files` がリポジトリ全体
-    (2000件超) を直接の走査対象にしていたのも、32bit環境でのメモリ不足の
-    一因だったため、専用の小さなフィクスチャディレクトリを使うよう書き換えた。
+    ファイルしか見つけられていなかった不具合を修正した。原因は
+    `project-collect-files-recursive` が `directory` の `:wild "*.*"` で
+    サブディレクトリを列挙していたこと。「ドットを含まない名前にもマッチ
+    するか」が環境によって違い (Wine 上ではマッチせず走査がほぼ空振りする
+    一方、実 Windows の `FindFirstFile` の古い互換仕様ではマッチしてしまう)、
+    挙動が toolchain 依存で信頼できなかった。`:wild` をやめ、`directory`
+    自身の `:recursive t` + `:test` (ディレクトリに対して nil を返すとその
+    配下ごと無視される) に一括で任せる形に書き換えた。
+  * `project-current-root`/`project-find-file` が、実際にはプロジェクト
+    ルート配下にいるにもかかわらず正しく検出できず、1階層上や無関係な
+    親ディレクトリを誤って返すことがあった不具合を修正した。原因は
+    `project-find-root-directory` が `(truename start-dir)` の結果を
+    `directory-namestring` にそのまま通していたこと。`truename` は末尾の
+    `/` を落とすことがあり (実測済み)、その結果を渡すとディレクトリで
+    あっても最後のディレクトリ名をファイル名と誤認し、1階層上から探索を
+    始めてしまう。`file-directory-p` で判定し、ディレクトリなら末尾 `/`
+    を補うだけにするよう修正した。**この不具合は MSVC (x86/x64/ARM64 の
+    いずれも) の CI で `unittest/project-tests.l` 実行中にハング/メモリ
+    不足/タイムアウトする形で発現しており、修正により解消した** (Wine 上
+    では単に間違った — が偶然辻褄が合うことが多い — 結果を返すだけで
+    済んでいたため、これまで発覚していなかった)。回帰テスト
+    `test-project-root-detection-exact-directory` を追加した。
   * `*backup-directory*` の既定値が末尾の `/` を欠いた状態で設定されていた
     不具合を修正した。`merge-pathnames` は、第1引数がそれ自体 `/` を含む
     複数階層のパスで末尾も `/` の場合、末尾の `/` を落とすことがある (実測
@@ -163,7 +171,5 @@ xyzzy リリースノート
   * 32bit (x86) ビルドの `xyzzy`/`xyzzy-batch`/`xyzzy-cli` に MSVC の
     `/LARGEADDRESSAWARE` リンカオプションを追加した。link.exe はこれを
     既定で付けない (mingw/lld は既定で付ける) ため、WOW64 上で使える
-    アドレス空間が実質 2GB に制限されており、大きめのプロジェクトで
-    `project-find-file`/`project-grep` を使うとメモリ不足になりやすい状態
-    だった。4GB まで使えるようにして緩和した (64bit ビルドでは既定で
-    有効なので無害)。
+    アドレス空間が既定では実質 2GB に制限されている。4GB まで使えるように
+    しておく (64bit ビルドでは既定で有効なので無害)。

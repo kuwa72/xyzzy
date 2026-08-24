@@ -37,54 +37,36 @@
 
 (defun project-find-root-directory (start-dir)
   "start-dir から親ディレクトリを遡り、プロジェクトルートを探す。"
-  ;; TODO(debug): MSVC (x86/x64/ARM64 全て) の CI がこの関数の呼び出し中に
-  ;; ハング/メモリ不足になる問題を追跡するための診断プリント。
-  ;; 原因判明後に削除すること。
-  (format t "[debug] project-find-root-directory: start-dir=~S~%" start-dir) (finish-output)
-  (let ((tn (truename start-dir)))
-    (format t "[debug] truename=~S~%" tn) (finish-output)
-   ;; truename は末尾の "/" を落とすことがある (実測済み)。start-dir が
-   ;; ディレクトリだった場合、その結果をそのまま directory-namestring に
-   ;; 通すと最後のディレクトリ名をファイル名と誤認し、1階層上から探索を
-   ;; 始めてしまう (実際に踏んだ)。ディレクトリなら末尾 "/" を補うだけに
-   ;; し、ファイルの場合だけ directory-namestring で親ディレクトリを取る。
-   (let ((dir (if (file-directory-p tn)
+  (let* ((tn (truename start-dir))
+	 ;; truename は末尾の "/" を落とすことがある (実測済み)。start-dir が
+	 ;; ディレクトリだった場合、その結果をそのまま directory-namestring に
+	 ;; 通すと最後のディレクトリ名をファイル名と誤認し、1階層上から探索を
+	 ;; 始めてしまう (実際に踏んだ)。ディレクトリなら末尾 "/" を補うだけに
+	 ;; し、ファイルの場合だけ directory-namestring で親ディレクトリを取る。
+	 (dir (if (file-directory-p tn)
 		  (concat (remove-trail-slash (namestring tn)) "/")
-		(directory-namestring tn)))
-	 (iteration 0))
-    (format t "[debug] initial dir=~S~%" dir) (finish-output)
+		(directory-namestring tn))))
     (while (and dir (stringp dir) (not (string= dir "")))
-      (incf iteration)
-      (format t "[debug] iteration ~D: dir=~S~%" iteration dir) (finish-output)
-      (when (> iteration 50)
-	(format t "[debug] ABORTING after 50 iterations, likely infinite loop~%") (finish-output)
-	(return-from project-find-root-directory nil))
       (dolist (marker *project-root-markers*)
 	(let ((path (merge-pathnames marker dir)))
-	  (format t "[debug]   checking marker ~S -> ~S~%" marker path) (finish-output)
 	  (when (file-exist-p path)
-	    (format t "[debug]   FOUND at ~S~%" path) (finish-output)
 	    (return-from project-find-root-directory (directory-namestring path)))))
       (let ((parent (directory-namestring (remove-trail-slash dir))))
-	(format t "[debug]   parent=~S~%" parent) (finish-output)
 	(if (or (null parent) (string= parent dir) (string= parent ""))
 	    (return nil)
 	  (setq dir parent))))
-    nil)))
+    nil))
 
 (defun project-current-root (&optional dir)
   "現在のバッファまたは指定ディレクトリのプロジェクトルートを取得する。
 見つからない場合は現在のディレクトリを返す。"
-  (format t "[debug] project-current-root: dir=~S~%" dir) (finish-output)
-  (let ((base (or dir
-		  (get-buffer-file-name)
-		  (default-directory))))
-   (format t "[debug] base=~S~%" base) (finish-output)
-   (let ((root (when base (project-find-root-directory base))))
-    (format t "[debug] project-current-root: root=~S~%" root) (finish-output)
+  (let* ((base (or dir
+		   (get-buffer-file-name)
+		   (default-directory)))
+	 (root (when base (project-find-root-directory base))))
     (if root
 	(directory-namestring root)
-      (directory-namestring (or base (default-directory)))))))
+      (directory-namestring (or base (default-directory))))))
 
 (defun project-remember-project (&optional (root (project-current-root)))
   "プロジェクトルートを *project-list* に追加・更新する。"

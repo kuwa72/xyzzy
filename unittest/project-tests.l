@@ -66,6 +66,32 @@
 	(delete-directory d :if-does-not-exist :skip))
       (delete-directory root :if-does-not-exist :skip))))
 
+(defun test-project-root-detection-exact-directory ()
+  ;; project-current-root にディレクトリを渡したとき、そのディレクトリ
+  ;; 自身がマーカーを持っていれば「そこ」を返すこと。
+  ;; truename が末尾の "/" を落とし、それをそのまま directory-namestring
+  ;; に通すと最後のディレクトリ名をファイル名と誤認して1階層上から探索が
+  ;; 始まってしまう回帰バグの検出用 (この場合、1階層上の "unittest/data/"
+  ;; にはマーカーが無いのでさらに上まで登り、xyzzy リポジトリ自身の
+  ;; ルートを誤って返してしまっていた)。
+  (unwind-protect
+      (let* ((root (project-test-fixture-setup))
+	     (detected (project-current-root root)))
+	(assert-equal (directory-namestring root) detected))
+    (project-test-fixture-teardown)))
+
+(defun test-project-list-files ()
+  (unwind-protect
+      (let* ((root (project-test-fixture-setup))
+	     (files (project-list-files root)))
+	(assert-true (consp files))
+	(assert-true (member ".project" files :test #'string-equal))
+	(assert-true (member "a.txt" files :test #'string-equal))
+	(assert-true (member "sub/b.txt" files :test #'string-equal))
+	;; *project-ignored-directories* 配下 (node_modules) は無視されるか
+	(assert-false (some #'(lambda (f) (string-match "^node_modules/" f)) files)))
+    (project-test-fixture-teardown)))
+
 (defun test-project-leader-bindings ()
   (assert-equal 'project-find-file (lookup-keymap *leader-project-map* #\f))
   (assert-equal 'project-grep (lookup-keymap *leader-project-map* #\g))
@@ -74,31 +100,12 @@
   (assert-equal 'project-switch-project (lookup-keymap *leader-project-map* #\p)))
 
 (defun run-project-unit-tests ()
-  ;; TODO(debug): 診断用のブレッドクラム。MSVC x86 の CI がこのファイルの
-  ;; 実行開始直後に原因不明のメモリ不足で落ちる問題を追跡するためのもの。
-  ;; 原因が判明したらこの関数全体をシンプルな形に戻すこと。
-  (format t "Running project unit tests...~%") (finish-output)
-  (format t "[debug] before test-project-root-detection~%") (finish-output)
+  (format t "Running project unit tests...~%")
   (test-project-root-detection)
-  (format t "[debug] after test-project-root-detection~%") (finish-output)
+  (test-project-root-detection-exact-directory)
   (test-project-remember-list)
-  (format t "[debug] after test-project-remember-list~%") (finish-output)
-  (format t "[debug] before fixture setup~%") (finish-output)
-  (let ((root (project-test-fixture-setup)))
-    (format t "[debug] fixture created at ~S~%" root) (finish-output)
-    (unwind-protect
-	(let ((files (project-list-files root)))
-	  (format t "[debug] project-list-files returned ~D files~%" (length files)) (finish-output)
-	  (assert-true (consp files))
-	  (assert-true (member ".project" files :test #'string-equal))
-	  (assert-true (member "a.txt" files :test #'string-equal))
-	  (assert-true (member "sub/b.txt" files :test #'string-equal))
-	  (assert-false (some #'(lambda (f) (string-match "^node_modules/" f)) files))
-	  (format t "[debug] test-project-list-files assertions OK~%") (finish-output))
-      (project-test-fixture-teardown)))
-  (format t "[debug] after test-project-list-files~%") (finish-output)
+  (test-project-list-files)
   (test-project-leader-bindings)
-  (format t "[debug] after test-project-leader-bindings~%") (finish-output)
   (format t "All project unit tests PASSED.~%"))
 
 (run-project-unit-tests)
