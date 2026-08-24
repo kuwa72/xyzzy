@@ -110,6 +110,24 @@
 - **diff-mode のシグネチャ**:
   - xyzzy の `diff-mode` は 5 引数必要。
   - **解決**: `lisp/git.l` 内で専用の `git-diff-mode` (無引数) を定義して適用。
+- **`autoloadp` は存在しない**:
+  - `help.l` 内の `(let ((autoloadp (autoload-function-p def))) ...)` というローカル変数名を、グローバル関数だと誤認して `leader-tests.l`/`symbol-check.l` から呼んでいた。
+  - **解決**: 実際の関数 `autoload-function-p`（シンボルを直接渡す）に置き換え。
+
+### 3. テストスイートが「オールグリーン」を報告しつつ実は半分以上走っていなかった問題
+- **要因**: `unittest/git-tests.l`（および `leader-tests.l`, `project-tests.l`, `symbol-check.l`）が存在しない `"unittest"` モジュールを `require` していた。さらに `misc/run-tests-batch.l` が `unittest/*-tests.l` を読み込む `dolist` ループ全体を1つの `handler-case` で囲んでいたため、アルファベット順で早い `git-tests.l` の読み込み失敗が、それより後ろの全ファイル（`leader-tests.l`, `project-tests.l` を含む）を黙ってスキップさせていた。CI/ローカルとも「682件成功」を報告していたが、実際には221件しか実行されていなかった。
+- **解決**: `assert-true`/`assert-equal`/`assert-false` を提供する `unittest/test-helpers.l` を新設し、各テストファイルの誤った `require` を修正。`run-tests-batch.l` はファイル単位で `handler-case` するよう変更し、1本の破損が後続ファイルを道連れにしないようにした。
+- **教訓**: `misc/run-tests-batch.l` のようなテストローダー自体が壊れていると、テスト対象のバグより先にテストが「走ったふりをする」。テストの件数が想定より少ない/多い変化に気づいたら、まずローダーのエラーハンドリング粒度を疑う。
+
+### 4. `project.l` のパス正規化バグ（上記の隠蔽により発見が遅れていた）
+- **要因**: `project-current-root` などが `(namestring (directory-namestring root))` という書き方をしていたが、`directory-namestring` の戻り値（末尾 `/` 付き）を再度 `namestring` に通すと末尾の `/` が消える。結果、`project-current-root` が `"Z:/work"` のような不正な値を返し、`project-list-files` の相対パス切り出しがずれて、`project-find-file`/`project-grep` がプロジェクト直下ではなくファイルシステムのルート付近を誤って走査していた。
+- **解決**: `directory-namestring` の戻り値をそのまま使うよう、冗長な外側の `namestring` 呼び出しを `project.l` 内の7箇所すべてから削除。
+- **教訓**: `directory-namestring` の結果を他のパス関数に再度通す前に、末尾スラッシュが保たれるか実機で確認すること。
+
+### 5. `symbol-check.l` の `kill-xyzzy` 呼び出し位置
+- **要因**: `with-open-file` の**内側**で `kill-xyzzy` を呼んでいたため、ストリームの close/flush（`with-open-file` の unwind-protect 由来）が走る前にプロセスが終了し、ログファイルが一度も実際に書き出されていなかった。
+- **解決**: `kill-xyzzy` を `with-open-file` フォームの外に出した。
+- **教訓**: バッチスクリプトで `kill-xyzzy` を呼ぶ際は、ファイル書き込み・バッファ flush が確実に完了した後であることを確認する。
 
 ---
 
@@ -124,13 +142,14 @@ tools/x build x86_64
 # 2. 全 146 ファイルのバイトコンパイル (.lc 生成)
 tools/x bytecompile x86_64 --force
 
-# 3. 単体テストの実行
-tools/x wine x86_64 unittest/defaults-tests.l
-tools/x wine x86_64 unittest/leader-tests.l
-tools/x wine x86_64 unittest/project-tests.l
-tools/x wine x86_64 unittest/git-tests.l
+# 3. 個別テストファイルの実行 (exe名を省略すると xyzzy-batch.exe に
+#    そのままファイル名が渡ってしまい -l 相当のロードにならないので注意)
+tools/x wine x86_64 xyzzy-batch.exe -q -l unittest/leader-tests.l
+tools/x wine x86_64 xyzzy-batch.exe -q -l unittest/project-tests.l
+tools/x wine x86_64 xyzzy-batch.exe -q -l unittest/git-tests.l
 
-# 4. 全体テストスイートの実行
+# 4. 全体テストスイートの実行 (misc/run-tests-batch.l 経由、
+#    unittest/*-tests.l を一括ロードして known-failures と突き合わせる)
 tools/x test x86_64
 ```
 
@@ -145,3 +164,6 @@ tools/x test x86_64
    - `M-x` や `project-find-file` でのファジーマッチング / パス絞り込みの拡張。
 3. **PR のマージ・レビュー対応**:
    - CI チェック（`mingw` ワークフロー等）の通過確認と、必要に応じた微調整。
+4. **`uuid-create-4-seq` の未解決の失敗**:
+   - 上記セクション4の隠蔽が直った結果、ローカル (Docker+Wine) 実行で `unittest/system-tests.l` の `uuid-create-4-seq` が失敗するようになった。今回の変更（leader/project/git 関連ファイル）とは無関係で、`si:uuid-create :sequential t` の連番差分がタイミング依存のテスト。
+   - `misc/known-failures/README.md` の方針どおり、ローカル run だけを根拠に known-failures へ追加してはいけない。CI 上の実際の run (`gh run view <id> --log | grep 'unexpected failures'`) で再現するか確認してから対応すること。
