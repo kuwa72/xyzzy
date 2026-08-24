@@ -158,15 +158,25 @@
       (let ((dump (si:dump-image-path)))
 	(when (file-exist-p dump)
 	  (delete-file dump)))
-      )))
+      )
+    (set-buffer-modified-p nil buf)))
 
 (defun makelc-and-exit (&optional (force-recompile *prefix-args*))
   (handler-case
-      (progn
-        (makelc force-recompile)
-        (kill-xyzzy t))
+      (let ((buf (create-new-buffer "*compile log*")))
+	(set-buffer buf)
+	(setup-temp-buffer buf)
+	(with-output-to-buffer (buf)
+	  (compile-package :compiler)
+	  (compile-package :lisp)
+	  (compile-files :force-recompile force-recompile)
+	  (let ((dump (si:dump-image-path)))
+	    (when (file-exist-p dump)
+	      (delete-file dump))))
+	(dolist (b (buffer-list))
+	  (set-buffer-modified-p nil b))
+	(kill-xyzzy t))
     (condition (e)
-      (msgbox "~A" e)
       (kill-xyzzy nil))))
 
 

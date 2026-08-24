@@ -1295,6 +1295,8 @@ Buffer::kill_xyzzy (int query)
   return 1;
 }
 
+bool g_batch_mode = false;
+
 lisp
 Fkill_xyzzy (lisp lexit_code)
 {
@@ -1307,7 +1309,7 @@ Fkill_xyzzy (lisp lexit_code)
   else
     app.exit_code = fixnum_value (lexit_code);
 
-  if (Buffer::kill_xyzzy (1))
+  if (Buffer::kill_xyzzy (!g_batch_mode))
     {
       nonlocal_data *nld = nonlocal_jump::data ();
       nld->type = Qexit_this_level;

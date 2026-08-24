@@ -82,3 +82,30 @@ xyzzy リリースノート
     ファイラ・セッション・辞書・電卓・ゲームなどの各種ツール、Common Lisp 互換や
     エディタ操作を支えるコアライブラリ、`lisp/wip/` 内のアウトラインツリーや
     TreeView などの拡張群を網羅して一覧化した。
+  * デフォルトインストール状態で現代的なエディタ体験を得られるよう「Sensible Defaults」
+    を導入した。
+    - バックアップファイル (`*~`) をカレントディレクトリではなく `~/.xyzzy.d/backup/`
+      にディレクトリ階層を維持して安全に自動隔離 (`*backup-directory*`,
+      `*hierarchic-backup-directory*` を既定で有効化)。
+    - 各ファイルのカーソル位置を自動記憶し、再オープン時に前回の編集位置へ復帰する
+      `saveplace` モジュール (`lisp/saveplace.l`) を標準装備。
+    - 直近に開いたファイルの一覧を管理し、`C-x C-r` でインクリメンタルに開ける
+      `recentf` モジュール (`lisp/recentf.l`) を標準装備。
+    - `backup`、`saveplace`、`recentf` を標準の起動ダンプ・ロード対象 (`lisp/loadup.l`)
+      に組み込み、設定ファイルなしの初期状態でも自動的に動作するようにした。
+  * Leader Key 操作体系および Which-key 的ミニバッファガイダンス (`lisp/leader.l`) を標準導入した。
+    - `M-m` または `C-c SPC` を押すことで、ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) が一覧表示され、キーボードだけで迷わず目的のコマンドを実行できるようになった。
+    - `leader-define-key` 関数により、ユーザーが独自の Leader キーシーケンスとラベルを簡単に追加可能。
+  * プロジェクト管理機能 (`lisp/project.l`) を標準導入した。
+    - Git リポジトリやマーカーファイル (`.git`, `CMakeLists.txt`, `package.json`, `Cargo.toml`, `go.mod` 等) からプロジェクトルートを自動検出。
+    - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
+    - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。
+    - `project-filer` (`Leader p d`): プロジェクトルートを起点にファイラを起動。
+    - `project-switch-project` (`Leader p p`): 過去に訪れたプロジェクト一覧から素早く切り替え。
+  * トグル式ターミナル連携および簡易 Git 支援 (`lisp/git.l`) を標準導入した。
+    - `toggle-terminal-drawer` (`Leader t t`): 画面下部にターミナル (`*Shell*`) をワンキーでトグル表示・格納。
+    - `git-status` (`Leader g s`): プロジェクトの変更状態一覧を `*git status*` に表示し、キー1つで差分確認 (`d`)・ログ表示 (`l`)・更新 (`g`)・ファイルオープン (`RET`) が可能。
+    - `git-diff` (`Leader g d`): プロジェクトまたはファイルの差分を `*git diff*` に表示。
+    - `git-log` (`Leader g l`): コミット履歴をグラフィカルに表示。
+    - `git-blame` (`Leader g b`): 現在のファイルの行ごとの変更者を一覧表示。
+  * バッチモード実行時 (`xyzzy-batch.exe`) に GUI イベントループ (`main_loop`) へ突入したり、バッファ保存確認ダイアログでプロセス終了がブロックされたりしていた不具合を修正し、コマンドライン・CI 上でのバッチコンパイルやスクリプト実行が確実に即座に終了するようにした。

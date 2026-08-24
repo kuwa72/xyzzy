@@ -13,6 +13,8 @@
 # through execute_process, which a Linux host cannot do for a PE binary.
 set -eu
 
+trap 'wineserver -k 2>/dev/null || true' EXIT
+
 arch=${1:-x86_64}
 shift || true
 
@@ -77,7 +79,7 @@ set +e
 wine "$build/xyzzy-batch.exe" -q -load misc/bytecompile-batch.l >"$log" 2>&1
 status=$?
 set -e
-wineserver -w || true
+wineserver -k 2>/dev/null || true
 
 echo "----- xyzzy-batch output (exit $status) -----"
 cat "$log" || true

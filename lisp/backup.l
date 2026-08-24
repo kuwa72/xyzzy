@@ -158,10 +158,11 @@ nilでなければ、自動セーブファイルをここで指定するバッ�
 (export '(*backup-directory* *hierarchic-backup-directory*))
 
 (or (boundp '*backup-directory*)
-    (setq *backup-directory* nil))
+    (setq *backup-directory*
+	  (namestring (merge-pathnames ".xyzzy.d/backup/" (user-config-path)))))
 
 (or (boundp '*hierarchic-backup-directory*)
-    (setq *hierarchic-backup-directory* nil))
+    (setq *hierarchic-backup-directory* t))
 
 (or (boundp '*auto-save-to-backup-directory*)
     (setq *auto-save-to-backup-directory* nil))

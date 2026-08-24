@@ -8,7 +8,8 @@
 (in-package "editor")
 
 (export '(*terminal-map* terminal-self-insert terminal-send-ctrl-c
-	  terminal-scroll-back terminal-scroll-forward terminal-paste))
+	  terminal-scroll-back terminal-scroll-forward terminal-paste
+	  toggle-terminal-drawer))
 
 (defvar *terminal-map* nil)
 (unless *terminal-map*
@@ -69,3 +70,26 @@
            (message "クリップボードに文字列がありません"))
           (t
            (si:terminal-paste-string proc s)))))
+
+(defun toggle-terminal-drawer ()
+  "画面下部にターミナルバッファ (*Shell*) をトグル表示・非表示する。"
+  (interactive)
+  (let ((term-win (get-buffer-window "*Shell*")))
+    (cond
+     ;; 既にフォーカスされている場合は閉じる
+     ((eq term-win (selected-window))
+      (if (> (count-windows) 1)
+	  (delete-window)
+	(switch-to-buffer (other-buffer (selected-buffer)))))
+     ;; 別のウィンドウで表示中の場合はフォーカス移動
+     (term-win
+      (set-window term-win))
+     ;; 表示されていない場合は下部に分割して開く
+     (t
+      (let ((total-lines (window-height (selected-window))))
+	(when (> total-lines 8)
+	  (split-window-vertically (max 4 (- total-lines (min 15 (truncate total-lines 3))))))
+	(other-window 1)
+	(if (fboundp 'shell)
+	    (shell)
+	  (switch-to-buffer (get-buffer-create "*Shell*"))))))))

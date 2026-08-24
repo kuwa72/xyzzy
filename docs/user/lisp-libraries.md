@@ -174,8 +174,26 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 
 ---
 
-### ファイラ・バッファ・セッション管理
-
+- **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
+  - `execute-leader-key` (`M-m` または `C-c SPC`): ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) を一覧表示し、キーボードのみで直感的に操作。
+  - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+- **プロジェクト管理 (Project) (`lisp/project.l`)**:
+  - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
+  - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。
+  - `project-filer` (`Leader p d`): プロジェクトルートを起点にファイラを起動。
+  - `project-open-terminal` (`Leader p t`): プロジェクトルートを作業ディレクトリとしてターミナルを起動。
+  - `project-switch-project` (`Leader p p`): 過去に訪れたプロジェクト一覧から素早く切り替え。
+- **簡易 Git 支援 (Git) (`lisp/git.l`)**:
+  - `git-status` (`Leader g s`): プロジェクトの変更状態一覧を `*git status*` に表示し、差分確認 (`d`)・ログ表示 (`l`)・更新 (`g`)・ファイルオープン (`RET`) が可能。
+  - `git-diff` (`Leader g d`): プロジェクトまたはファイルの差分を `*git diff*` に表示。
+  - `git-log` (`Leader g l`): コミット履歴をグラフィカルに表示。
+  - `git-blame` (`Leader g b`): 現在のファイルの行ごとの変更者を一覧表示。
+- **トグル式ターミナルドロワー (`lisp/terminal.l`)**:
+  - `toggle-terminal-drawer` (`Leader t t`): 画面下部にターミナルバッファ (`*Shell*`) をワンキーでトグル表示・格納。
+- **最近開いたファイル (Recentf) (`lisp/recentf.l`)**:
+  - `recentf-open` (`C-x C-r` / `Leader f r`): 直近に開いたファイルの一覧を補完候補として表示し、選択して素早くオープン。
+- **カーソル位置の記憶・復元 (Save Place) (`lisp/saveplace.l`)**:
+  - ファイルを閉じたときのカーソル位置を自動記録し、再度開いた際に前回の編集位置へ自動ジャンプ (`*save-place*`, `*save-place-limit*`)。
 - **ファイラ (`lisp/filer.l`)**:
   - `open-filer` (`C-x C-f` でディレクトリを指定時や `C-x d`): 2画面対応の強力な内蔵ファイラ。ファイルのコピー、移動、削除、属性変更、圧縮解凍などをキーボードで高速操作。
 - **バッファメニュー (`lisp/buf-menu.l`)**:
