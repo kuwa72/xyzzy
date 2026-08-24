@@ -88,7 +88,7 @@
      (t
       (let ((total-lines (window-height (selected-window))))
 	(when (> total-lines 8)
-	  (split-window-vertically (max 4 (- total-lines (min 15 (truncate total-lines 3))))))
+	  (split-window (max 4 (- total-lines (min 15 (truncate total-lines 3)))) nil))
 	(other-window 1)
 	(if (fboundp 'shell)
 	    (shell)

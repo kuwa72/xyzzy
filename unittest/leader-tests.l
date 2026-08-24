@@ -47,10 +47,13 @@
   (assert-equal 'list-buffers (lookup-keymap *leader-buffer-map* #\l))
 
   ;; Window
-  (assert-equal 'split-window-vertically (lookup-keymap *leader-window-map* #\s))
-  (assert-equal 'split-window-horizontally (lookup-keymap *leader-window-map* #\v))
+  (assert-equal 'split-window (lookup-keymap *leader-window-map* #\s))
+  (assert-equal 'split-window-vertically (lookup-keymap *leader-window-map* #\v))
+  (assert-equal 'split-window (lookup-keymap *leader-window-map* #\2))
+  (assert-equal 'split-window-vertically (lookup-keymap *leader-window-map* #\5))
   (assert-equal 'other-window (lookup-keymap *leader-window-map* #\o))
   (assert-equal 'delete-window (lookup-keymap *leader-window-map* #\d))
+  (assert-equal 'delete-other-windows (lookup-keymap *leader-window-map* #\m))
 
   ;; Help
   (assert-equal 'describe-key (lookup-keymap *leader-help-map* #\k))

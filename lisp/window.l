@@ -9,7 +9,9 @@
 
 (export '(count-windows pop-to-buffer other-window move-previous-window
 	  *pop-up-windows* display-buffer
-	  split-window-vertically shrink-window
+	  split-window-vertically split-window-horizontally
+	  split-window-below split-window-right
+	  shrink-window
 	  enlarge-window-horizontally shrink-window-horizontally
 	  pos-visible-in-window-p recenter
 	  *window-flag-line-number* *window-flag-ruler*
@@ -125,6 +127,22 @@
   (other-window (- arg) (null f)))
 
 (defun split-window-vertically (&optional arg)
+  "ウィンドウを左右に分割する (縦線で分割)。"
+  (interactive "p")
+  (split-window arg t))
+
+(defun split-window-horizontally (&optional arg)
+  "ウィンドウを上下に分割する (横線で分割)。"
+  (interactive "p")
+  (split-window arg nil))
+
+(defun split-window-below (&optional arg)
+  "ウィンドウを上下に分割する。"
+  (interactive "p")
+  (split-window arg nil))
+
+(defun split-window-right (&optional arg)
+  "ウィンドウを左右に分割する。"
   (interactive "p")
   (split-window arg t))
 
