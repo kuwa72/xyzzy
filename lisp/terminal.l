@@ -9,7 +9,7 @@
 
 (export '(*terminal-map* terminal-self-insert terminal-send-ctrl-c
 	  terminal-scroll-back terminal-scroll-forward terminal-paste
-	  toggle-terminal-drawer))
+	  toggle-terminal-drawer terminal-send-next-key))
 
 (defvar *terminal-map* nil)
 (unless *terminal-map*
@@ -29,7 +29,10 @@
   ;; 貼り付けはバッファではなく pty へ送る。通常の paste-from-clipboard は
   ;; バッファに insert するだけで、ターミナルでは何も起きなかった。
   (define-key *terminal-map* #\C-v 'terminal-paste)
-  (define-key *terminal-map* #\S-Insert 'terminal-paste))
+  (define-key *terminal-map* #\S-Insert 'terminal-paste)
+  ;; エディタ側に取られたキーを 1 回だけ素通しする。この map に無いキーは
+  ;; 何もしなくても pty へ流れるので、これが要るのは上に並んでいるキーだけ。
+  (define-key *terminal-map* '(#\C-c #\C-q) 'terminal-send-next-key))
 
 (defun terminal-self-insert ()
   (interactive)
@@ -96,3 +99,25 @@
 	(if (fboundp 'shell)
 	    (shell)
 	  (switch-to-buffer (get-buffer-create "*Shell*"))))))))
+
+(defun terminal-send-next-key ()
+  "次に押したキーをエディタで解釈せず、そのまま pty へ送る。
+
+ターミナルバッファのキーは *terminal-map* に載っているものだけがエディタ側
+へ行き、残りは全部 pty へ流れる。つまり素通しの経路が要るのは C-v や
+S-PageUp のようにこちらで意味を持たせたキーで、ターミナルの中のアプリに
+同じキーを渡したいときにこれを使う (vim の C-v、less の S-PageUp など)。
+
+Shift 付きの普通の文字は旧来の char encoding に表現が無いので Shift が
+落ちる。ただしそれらは元から map に無く直接 pty へ行くので、ここを通す
+必要は無い。"
+  (interactive)
+  (let ((proc (buffer-process (selected-buffer))))
+    (cond ((not (and proc (si:process-terminal-p proc)))
+           (ding))
+          (t
+           (minibuffer-prompt "ターミナルへ送るキー: ")
+           (let ((c (read-char *keyboard*)))
+             (message "")
+             (unless (si:terminal-send-key proc c)
+               (message "~:c は送れません" c)))))))

@@ -152,6 +152,19 @@ public:
   ~save_command_key_index ();
 };
 
+/* ターミナルバッファでは、fetch がキーを *terminal-map* に無いかぎり pty へ
+   横流しする。それで困るのは Lisp が明示的にキーを待っているときで、キーは
+   その read-char に渡らなければならない。y-or-n-p や isearch がターミナル
+   バッファで返ってこなかったのはこれが理由。>0 の間だけ転送を止める。 */
+extern int kbd_inhibit_terminal_forward;
+
+class inhibit_terminal_forward
+{
+public:
+  inhibit_terminal_forward () {kbd_inhibit_terminal_forward++;}
+  ~inhibit_terminal_forward () {kbd_inhibit_terminal_forward--;}
+};
+
 inline void
 kbd_queue::push_back (lChar c)
 {

@@ -226,19 +226,27 @@ kbd_queue::fetch (int in_main, int req_mouse_move)
             extern int g_map_finished_p ();
             Window *sw = selected_window ();
             if (sw && sw->w_bufp && !sw->minibuffer_window_p ()
-                && g_map_finished_p ())
+                && g_map_finished_p () && !kbd_inhibit_terminal_forward)
               {
                 Terminal *tw = buffer_terminal (sw->w_bufp);
                 if (tw)
                   {
-                    // Check *terminal-map*: if key is bound, let
-                    // the command loop handle it instead of sending to pty.
+                    /* Check *terminal-map*: if key is bound, let the command
+                       loop handle it instead of sending to pty.
+
+                       lc は下位 16bit に落とさずそのまま渡す。落とすと
+                       kind と modifier が消えて、#\S-PageUp
+                       (LCMOD_SHIFT | LCKIND_FNKEY | 0 = 0x01200000) が 0、
+                       #\S-Insert が 0x0C になり、map に無い別のキーとして
+                       引かれていた。だからスクロールバックと S-Insert の
+                       貼り付けはエディタに渡らず pty へ流れていた。
+                       parse_keymap は内部で normalize_for_keymap を通すので
+                       旧 encoding も新 encoding も受けられる。 */
                     lisp tmap = xsymbol_value (Vterminal_map);
                     if (tmap != Qnil && tmap != Qunbound)
                       {
                         lisp km = Fkeymapp (tmap);
-                        if (km != Qnil
-                            && parse_keymap ((Char)(c & 0xffff), km) != Qnil)
+                        if (km != Qnil && parse_keymap (c, km) != Qnil)
                           break;  // → command loop
                       }
                     if (send_key_to_terminal (sw->w_bufp, tw, c))

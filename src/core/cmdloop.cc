@@ -11,6 +11,9 @@
 #include "mainframe.h"
 #endif
 
+/* 宣言は kbd.h、立てるのは stream.cc の *keyboard* 読み出しだけ。 */
+int kbd_inhibit_terminal_forward;
+
 class keyvec
 {
   lisp v_buf[64];
