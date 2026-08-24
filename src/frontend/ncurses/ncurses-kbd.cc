@@ -328,7 +328,7 @@ kbd_queue::fetch (int wait, int)
                 extern int g_map_finished_p ();
                 Window *sw = selected_window ();
                 if (sw && sw->w_bufp && !sw->minibuffer_window_p ()
-                    && g_map_finished_p ())
+                    && g_map_finished_p () && !kbd_inhibit_terminal_forward)
                   {
                     Terminal *tw = buffer_terminal (sw->w_bufp);
                     if (tw)
@@ -338,12 +338,15 @@ kbd_queue::fetch (int wait, int)
                           {
                             // Check *terminal-map*: if key is bound,
                             // let command loop handle it.
+                            /* lc は下位 16bit に落とさずそのまま渡す
+                               (win32 側と同じ理由。parse_keymap は
+                               normalize_for_keymap を通すので旧 encoding も
+                               新 encoding も受けられる)。 */
                             lisp tmap = xsymbol_value (Vterminal_map);
                             if (tmap != Qnil && tmap != Qunbound)
                               {
                                 lisp km = Fkeymapp (tmap);
-                                if (km != Qnil
-                                    && parse_keymap ((Char)(lc & 0xffff), km) != Qnil)
+                                if (km != Qnil && parse_keymap (lc, km) != Qnil)
                                   break;  // → command loop
                               }
                             if (send_key_to_terminal (sw->w_bufp, tw, ret, wch))

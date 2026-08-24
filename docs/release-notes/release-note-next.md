@@ -82,3 +82,38 @@ xyzzy リリースノート
     ファイラ・セッション・辞書・電卓・ゲームなどの各種ツール、Common Lisp 互換や
     エディタ操作を支えるコアライブラリ、`lisp/wip/` 内のアウトラインツリーや
     TreeView などの拡張群を網羅して一覧化した。
+  * ターミナルバッファで、エディタ側に取られたキーをターミナルの中のアプリへ
+    そのまま渡す `terminal-send-next-key` (`C-c C-q`) を足した。ターミナルの
+    キーは `*terminal-map*` にあるものだけがエディタへ行き、残りは全部 pty へ
+    流れる仕組みなので、素通しの経路が必要なのは `C-v` (貼り付け) や
+    `S-PageUp` (スクロールバック) のようにこちらで意味を持たせたキーだけで、
+    vim の `C-v` や less の `S-PageUp` がそれまで押せなかった。
+  * `(read-char *keyboard*)` がターミナルバッファで返ってこなくなっていたのを
+    直した。キーの pty への横流しは入力キューを読む `fetch` の中で起きていて、
+    Lisp が明示的にキーを待っているときも横流しが優先されるため、キーは
+    `read-char` に届かないまま pty へ消えていた。`y-or-n-p` や `query-replace`
+    の応答待ちがターミナルバッファでは何を押しても進まなかったのがこれ。
+    Lisp が `*keyboard*` を読んでいる間だけ横流しを止める。
+  * 機能キーを `(read-char *keyboard*)` で取ると別のキーになっていたのを直した。
+    `decode_keys` が積む lChar は kind field (bit 21-23) を持つ新しい表現
+    (`LCKEY_UP` = `0x200005`) だが、char object にするときに下位 16bit を
+    取っていたので kind が落ち、`#\Up` が `#\C-e` になっていた。Lisp の char は
+    今も旧表現 (`#\Up` = `CCF_UP` = `0xff05`) なので、`ccf_from_lc` で戻す。
+    `read-key-sequence` や `describe-key` が矢印キーを取り違えていたのも同じ
+    原因で、あわせて直っている。
+  * `si:terminal-send-key` に char を渡すと機能キーとして扱われなかったのを
+    直した。`#\Up` (`0xff05`) の `LCHAR_KIND` は CHAR に見えるため、`ESC[A` では
+    なく U+FF05 (全角パーセント) の UTF-8 が pty へ流れていた。char で渡された
+    ものは `lc_from_ccf` で昇格し、BMP 外の code point だけは `Char` (16bit) に
+    落とすと `0xF600` = `CCF_META` とぶつかるのでそのまま渡す。この経路は
+    process が無いと呼べずテストが書けなかったので、`si:*terminal-key-for-test`
+    も char を受けるようにして `unittest/terminal-tests.l` に固定した。
+  * ターミナルバッファで `S-PageUp`/`S-PageDown` のスクロールバックと
+    `S-Insert` の貼り付けが効いていなかったのを直した。キーを pty へ流すか
+    エディタへ渡すかの判定で `*terminal-map*` を引くとき、lChar を下位 16bit に
+    落としてから渡していた。kind と modifier はそこより上のビットにあるので、
+    `#\S-PageUp` (`0x01200000`) は `0`、`#\S-Insert` は `0x0C` として引かれ、
+    どちらも map に無い別のキー扱いで pty へ流れていた。`C-v` の貼り付けだけが
+    動いていたのは、`LCKIND_CHAR` の制御文字が下位 16bit に収まっていて
+    偶然一致していたため。`parse_keymap` は内部で新旧どちらの encoding も
+    正規化するので、lChar をそのまま渡す。

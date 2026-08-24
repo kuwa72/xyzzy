@@ -33,14 +33,25 @@ check_char (lisp x)
 
 /* stream / keyboard から取った lChar を char object にする。
 
-   code point の範囲内ならそのまま渡す。Char (16bit) に落とすと BMP 外の
-   文字が function key の空間とぶつかる (U+1F600 → 0xF600 = CCF_META)。
-   範囲外 (機能キーや mouse の lChar encoding) は char として意味を持た
-   ないので、従来どおり下位 16bit を使う。 */
+   Lisp の char は今も旧 Char encoding で、#\Up は CCF_UP (0xff05) の
+   ことである (chname.cc)。一方 decode_keys は lc_from_ccf を通した新
+   lChar encoding を queue に積むので、機能キーは LCKEY_UP (0x200005)
+   のように kind field (bit 21-23) を持つ。
+
+   ここで下位 16bit を取ると kind が落ちて LCKEY_UP が 0x0005 = #\C-e に
+   なる。(read-char *keyboard*) が矢印キーを C-e と報告し、それを
+   lookup-keymap や si:terminal-send-key に渡すと別のキーとして扱われる。
+   ccf_from_lc で旧 encoding に戻す。
+
+   修飾の付かない素の code point だけは変換を通さない。Char (16bit) に
+   落とすと BMP 外の文字が function key の空間とぶつかるため
+   (U+1F600 → 0xF600 = CCF_META)、そのまま渡す必要がある。 */
 inline lisp
 make_char_from_lchar (lChar c)
 {
-  return make_char (c < CHAR_LIMIT ? ucs4_t (c) : ucs4_t (Char (c)));
+  if (LCHAR_KIND (c) == LCKIND_CHAR && !LCHAR_MODS (c) && c < CHAR_LIMIT)
+    return make_char (ucs4_t (c));
+  return make_char (ucs4_t (ccf_from_lc (c)));
 }
 
 #endif
