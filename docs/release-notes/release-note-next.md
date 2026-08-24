@@ -160,3 +160,10 @@ xyzzy リリースノート
     済み)。`lisp/backup.l` 自身のドキュメント例は末尾 `/` 付きの値を前提と
     しており、単純な文字列連結に置き換えて確実に `/` を付けるようにした。
     `unittest/defaults-tests.l` にも回帰テストを追加した。
+  * 32bit (x86) ビルドの `xyzzy`/`xyzzy-batch`/`xyzzy-cli` に MSVC の
+    `/LARGEADDRESSAWARE` リンカオプションを追加した。link.exe はこれを
+    既定で付けない (mingw/lld は既定で付ける) ため、WOW64 上で使える
+    アドレス空間が実質 2GB に制限されており、大きめのプロジェクトで
+    `project-find-file`/`project-grep` を使うとメモリ不足になりやすい状態
+    だった。4GB まで使えるようにして緩和した (64bit ビルドでは既定で
+    有効なので無害)。
