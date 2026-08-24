@@ -58,4 +58,21 @@ xyzzy リリースノート
     サブウィンドウ/ダイアログの中で効くキーと、lisp-mode・c-mode/c++-mode・
     shell-mode・markdown-mode・html+-mode など既定で組み込まれているモードの
     モード固有キーも追記した。
+  * Windows 向けデプロイのバイトコンパイルが、`.l` の変更が無くても
+    `tools/deploy-windows.sh` を叩くたびに x86_64 で `wine: Unhandled stack
+    overflow`、i686 で `xyzzy-batch: メモリ不足です` を吐くようになっていたのを
+    直した。原因は `misc/makelc.l` の `reload-files` が `"startup"` モジュールも
+    無条件にリロードしていたこと。`lisp/startup.l` は末尾の `(si:*startup)` で
+    `ed::startup` 経由の起動処理全体を再実行し、その中で `*post-startup-hook*`
+    が走る。ところがバッチ版バイトコンパイル (`misc/bytecompile-batch.l`) は
+    まさにこのフックから `makelc` を起動しているため、`reload-files` が
+    `startup` を読み直すたびに `makelc` が再突入し、ネストするごとに
+    141 本のライブラリ全体をもう一度コンパイルし続ける無限再帰になっていた。
+    アーキごとに落ち方が違っていたのはスタックとヒープのどちらが先に
+    尽きるかの違いでしかなく、両方とも同じ再帰が原因だった。`reload-files`
+    から `startup` を除外し (`*modules*` には provide 済みとして残す)、
+    バッチ側でも `*post-startup-hook*` を使い捨てにして二重に塞いだ。
+    実害は無かった (`compile-files` は再帰が起きる前に 141 本すべてを
+    書き終えている) が、デプロイのたびに数分と一見不穏なクラッシュログを
+    生んでいた。
   *

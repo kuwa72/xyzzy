@@ -15,6 +15,12 @@
                     (format s "=== Byte-compile started ===~%")
                     (format s "system-root: ~A~%" (si:system-root))
                     (format s "dump-image-path: ~A~%" (si:dump-image-path)))
+                  ;; makelc は最後に "startup" 以外の全モジュールを reload
+                  ;; するだけなので、このフック自体を再度呼ぶことはもう
+                  ;; ないはずだが、reload-files が startup を除外し損なった
+                  ;; 場合に無限再帰で丸ごと再突入するよりは、フックを
+                  ;; ここで使い捨てにしておくほうが安全。
+                  (setq *post-startup-hook* nil)
                   (load "misc/makelc.l")
                   ;; Load compile.l to resolve autoload, then wrap
                   ;; mc-byte-compile-file for progress logging
