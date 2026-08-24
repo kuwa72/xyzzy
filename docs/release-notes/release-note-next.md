@@ -129,3 +129,12 @@ xyzzy リリースノート
     自体の挙動で、初回トグル時 (`*Shell*` バッファがまだ無い状態) に必ず踏んでいた。
     `get-buffer-create` で存在を保証したバッファオブジェクトを渡すよう修正し、
     `unittest/git-tests.l` に回帰テストを追加した。
+  * ミニバッファのファジー絞り込み (`lisp/fuzzy-complete.l`) を追加した。
+    `completing-read` には候補の絞り込み方をフックする手段が無いため、
+    `isearch.l`/`which-key-guide` と同じ手法 (`read-char` で1文字ずつ読み、
+    `minibuffer-prompt` でステータス行を都度書き換える) で独自のインクリメンタル
+    絞り込みループを実装した。文字を打った順番どおりに含まれていれば連続で
+    なくても候補に残り (`fuzzy-score`/`fuzzy-filter`)、パスの場合はファイル名
+    部分を優先してスコアリングする。`project-find-file`・`project-switch-project`
+    (`Leader p f` / `Leader p p`) の絞り込みに使用。`C-n`/`C-p`/`TAB` で候補間を
+    移動できる。

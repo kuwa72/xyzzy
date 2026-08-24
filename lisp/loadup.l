@@ -80,6 +80,7 @@
 (si:*load-library "saveplace") (gc)
 (si:*load-library "recentf") (gc)
 (si:*load-library "leader") (gc)
+(si:*load-library "fuzzy-complete") (gc)
 (si:*load-library "project") (gc)
 (si:*load-library "git") (gc)
 (si:*load-library "session") (gc)

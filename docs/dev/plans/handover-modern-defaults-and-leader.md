@@ -22,7 +22,7 @@
 | **Phase 2** | **Leader Key & Which-key** | `M-m` / `C-c SPC` によるキー体系 + ミニバッファ候補一覧ガイダンス | **完了** (反映・テスト済) |
 | **Phase 3** | **プロジェクト管理 (`project.l`)** | Git/マーカーによるルート判定、プロジェクト内ジャンプ・Grep | **完了** (反映・テスト済) |
 | **Phase 4** | **トグルターミナル & Git支援** | `Leader t t` で下部ターミナル展開、`Leader g s` で簡易 Git 操作 | **完了** (反映・テスト済) |
-| **Phase 5** | **ミニバッファUI・補完の高度化** | 絞り込み補完 UI の強化やインクリメンタル検索の快適化 | **未着手** (必要に応じ実施) |
+| **Phase 5** | **ミニバッファUI・補完の高度化** | 絞り込み補完 UI の強化やインクリメンタル検索の快適化 | **一部完了** (`project-find-file`/`project-switch-project` のファジー絞り込み。`M-x` は未着手、下記参照) |
 
 ---
 
@@ -76,8 +76,42 @@
    - `git-log` (`Leader g l`): コミットグラフ履歴を表示。
    - `git-blame` (`Leader g b`): 行ごとのコミット履歴を表示。
 
-### ⑤ 起動ロードへの統合 & ドキュメント更新
-- `lisp/loadup.l`: `backup`, `saveplace`, `recentf`, `leader`, `project`, `git` を標準起動ロード対象に追加。
+### ⑤ Phase 5 (一部): ミニバッファのファジー絞り込み (`lisp/fuzzy-complete.l` [新規])
+1. **経緯**: `completing-read`/`read-command-name` は候補の絞り込み方をフックする
+   手段が無い、完全にブラックボックスなネイティブ実装 (predicate も無ければ
+   スコアリングも差し込めない)。そのため `project-find-file` にファジー
+   マッチングを入れるには、`isearch.l`/`which-key-guide` と同じ手法
+   (`read-char` で1文字ずつ読み、`minibuffer-prompt` でステータス行を都度
+   書き換える、実バッファ・実ウィンドウは一切開かない) で自前の
+   インクリメンタル絞り込みループを書くしかなかった。
+2. **`fuzzy-score`/`fuzzy-filter`**: CANDIDATE が QUERY の (大小無視の) 部分列
+   であればスコアを返す、貪欲な左から右への1回走査。連続一致・単語区切り
+   直後の一致にボーナス。パス文字列は、ディレクトリ名側に QUERY の先頭文字と
+   たまたま一致する文字があると貪欲走査がそちらに食いつき、ファイル名側の
+   綺麗な一致を見逃すことがあるため、ファイル名部分 (最後の `/` より後ろ)
+   だけの再走査も行い、良い方のスコアを採用している（`unittest/fuzzy-complete-tests.l`
+   のテストで実際にこの問題を検出して直した）。
+3. **`fuzzy-completing-read`**: `C-n`/`C-p`/`TAB`/`↑`/`↓` で絞り込み結果内を
+   移動、`RET` で確定、`C-g` でキャンセル。`project-find-file` と
+   `project-switch-project` の `completing-read` 呼び出しをこれに置き換えた。
+4. **意図的にやらなかったこと**: `M-x` (`execute-extended-command`) のファジー
+   化。`interactive "C"` の `C` コードが呼ぶ `read-command-name` は
+   `completing-read` 同様フックできず、置き換えるには `execute-extended-command`
+   自体を書き換えて `do-symbols` + `commandp` でコマンド一覧を自前で集め、
+   `command-execute` を直接呼ぶ形にする必要がある。エディタ全体で最も
+   使用頻度の高いコマンドの核を書き換えることになり、影響範囲・リスクが
+   `project-find-file` とは桁違いに大きいため、今回は見送った。次に着手する
+   なら別 PR で切り出すことを推奨する。
+5. **テストの限界**: `fuzzy-score`/`fuzzy-filter` は純粋関数なので
+   `unittest/fuzzy-complete-tests.l` で自動テスト済み。一方 `fuzzy-completing-read`
+   の `read-char` ループ自体は自動テストできない。`unread-char` で複数文字を
+   スタックしてキー入力を模擬できないか試したが、2文字目以降が消費されず
+   本物のキーボード入力待ちにハングすることを確認済み (`isearch.l`/
+   `which-key-guide` の対話ループも同じ理由で無テスト)。手動での動作確認
+   (または実機での操作) に頼るしかない。
+
+### ⑥ 起動ロードへの統合 & ドキュメント更新
+- `lisp/loadup.l`: `backup`, `saveplace`, `recentf`, `leader`, `fuzzy-complete`, `project`, `git` を標準起動ロード対象に追加。
 - `docs/user/keybindings.md`: Leader Key 体系の表を追加。
 - `docs/user/lisp-libraries.md`: 新規ライブラリの説明を追加。
 - `docs/release-notes/release-note-next.md`: リリースノートに変更内容を記載。
@@ -165,8 +199,10 @@ tools/x test x86_64
 ## 6. 次の AI への引き継ぎタスク (今後の作業方針)
 
 1. ~~実機（Windows 環境）でのデプロイ・実動テスト~~ **完了**（作業者本人が実機で確認済み。その過程で「ターミナルドロワーが初回起動時にフリーズする」不具合が見つかり、上記トラブルシュート6として修正済み）。
-2. **Phase 5: ミニバッファ UI / 補完のさらなる改善（オプション）**:
-   - `completing-read` のポップアップや絞り込み（インクリメンタル絞り込み）の視認性向上。
-   - `M-x` や `project-find-file` でのファジーマッチング / パス絞り込みの拡張。
+2. **Phase 5: ミニバッファ UI / 補完のさらなる改善（一部完了、残りはオプション）**:
+   - ~~`project-find-file`/`project-switch-project` でのファジーマッチング~~ **完了**。`lisp/fuzzy-complete.l` を参照 (上記③⑤)。
+   - **未着手・見送り**: `M-x` (`execute-extended-command`) のファジー化。理由は上記③⑤の「意図的にやらなかったこと」を参照 — `read-command-name` はフックできず、エディタ最頻用コマンドの書き換えになるため別 PR での着手を推奨。
+   - **未着手**: `completing-read` が引き続き使われている箇所 (`recentf-open` など) への同様の展開。今回は `project.l` の2箇所のみに留めた。
+   - **手動確認が必要**: `fuzzy-completing-read` の対話ループ自体は自動テストできない (上記③⑤5.)。実機で `Leader p f`/`Leader p p` を実際に打鍵して、絞り込み・`C-n`/`C-p`/`TAB` 移動・`RET`/`C-g` の挙動を確認してほしい。
 3. ~~PR のマージ・レビュー対応（CI チェック通過確認）~~ **完了**。commit `546b158` 時点の CI run（`gh run view 32745074207`）で mingw x86_64/i686 とも green、682件中672件成功・10件失敗は全て既知失敗のみで確認済み。
 4. **`uuid-create-4-seq`**: 解決済み扱いでよい。上記 CI run のログで `uuid-create-4-seq...OK`（x86_64/i686 両方）を確認済み。ローカル (Docker+Wine) 環境固有のタイミング差であり、known-failures への追加は不要と結論。

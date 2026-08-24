@@ -7,6 +7,8 @@
 
 (in-package "editor")
 
+(require "fuzzy-complete")
+
 (export '(*project-root-markers*
 	  *project-list*
 	  *project-ignored-directories*
@@ -95,10 +97,10 @@
     (unless files
       (message "No files found in project: ~A" proj-root)
       (return-from project-find-file nil))
-    (let ((selected (completing-read (format nil "Find in [~A]: "
-					    (pathname-name (remove-trail-slash proj-root)))
-				     files
-				     :must-match t)))
+    (let ((selected (fuzzy-completing-read
+		     (format nil "Find in [~A]: "
+			     (pathname-name (remove-trail-slash proj-root)))
+		     files :must-match t)))
       (when (and selected (stringp selected) (not (string= selected "")))
 	(project-remember-project proj-root)
 	(find-file (merge-pathnames selected proj-root))))))
@@ -127,7 +129,7 @@
   (unless *project-list*
     (message "No remembered projects.")
     (return-from project-switch-project nil))
-  (let ((chosen (completing-read "Switch to project: " *project-list* :must-match t)))
+  (let ((chosen (fuzzy-completing-read "Switch to project: " *project-list* :must-match t)))
     (when (and chosen (stringp chosen) (not (string= chosen "")))
       (project-find-file chosen))))
 
