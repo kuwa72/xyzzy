@@ -148,6 +148,16 @@ send_mouse_to_terminal (Window *wp, WPARAM wparam, LPARAM lparam, int op)
                                    b, sizeof b);
   if (l <= 0)
     return 0;
+
+  /* アプリがマウス報告を要求している間、DOWN クリックはここで pty へ
+     流れて #\LBtnDown 経由の mouse-left-press (set-window を呼ぶ) を
+     一切通らない。ターミナルの別ウィンドウをクリックしても選択が
+     移らなかったのはこれで、選択されていない側にキー入力が飛ぶ・
+     カーソルが (selected_window() でないので) 描かれない、の原因にも
+     なっていた。ここで直接選択してから pty へ送る。 */
+  if (op == mouse_state::DOWN && selected_window () != wp)
+    wp->set_window ();
+
   buffer_terminal_send (wp->w_bufp, b, l);
   return 1;
 }

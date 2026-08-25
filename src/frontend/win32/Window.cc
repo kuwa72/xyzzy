@@ -612,6 +612,34 @@ Window::set_window ()
 {
   assert (this);
   assert (xwindow_wp (lwp) == this);
+
+  /* フォーカス報告 (DECSET 1004)。tmux 等のマルチプレクサが別ペインに
+     切り替えたときと同じで、選択ウィンドウから外れる側/入る側の
+     ターミナルバッファへ ESC[O / ESC[I を送る。要求していないアプリには
+     terminal_focus_to_bytes が 0 を返すので何もしない。 */
+  extern Terminal *buffer_terminal (const Buffer *bp);
+  extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+  Window *prev = app.active_frame.selected;
+  if (prev != this)
+    {
+      if (prev && prev->w_bufp)
+        {
+          Terminal *pt = buffer_terminal (prev->w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (pt, 0, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (prev->w_bufp, b, l);
+        }
+      if (w_bufp)
+        {
+          Terminal *nt = buffer_terminal (w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (nt, 1, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (w_bufp, b, l);
+        }
+    }
+
   app.active_frame.selected = this;
   w_bufp->check_range (w_point);
 }

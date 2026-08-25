@@ -44,10 +44,13 @@ Terminal::Terminal (int rows, int cols)
       t_alt_active (0), t_cursor_visible (1),
       t_app_cursor_keys (0), t_origin_mode (0),
       t_wraparound (1), t_insert_mode (0), t_pending_wrap (0),
+      t_last_char (0),
+      t_sync_update (0), t_sync_update_since (0),
       t_scrollback (0), t_scrollback_cols (cols),
       t_scrollback_count (0), t_scrollback_head (0),
       t_scrollback_offset (0),
-      t_dirty (1), t_palette (0), t_osc_len (0), t_reply_len (0),
+      t_dirty (1), t_palette (0), t_osc_len (0), t_clip_pending (0),
+      t_reply_len (0),
       t_mouse_mode (0), t_mouse_sgr (0), t_bracketed_paste (0),
       t_focus_events (0)
 {
@@ -338,6 +341,7 @@ Terminal::put_char (uint32_t ucs)
       t_pending_wrap = 1;
     }
 
+  t_last_char = ich;
   t_dirty = 1;
 }
 
@@ -639,6 +643,16 @@ Terminal::handle_csi (int final_ch)
       }
       break;
 
+    case 'b': // REP — 直前の文字を Pn 回繰り返す (ECMA-48)。
+      /* tmux や一部の TUI (端末幅より長い罫線・進捗バー等) は帯域節約に
+         これを使う。無視すると繰り返されるはずの文字がそのまま
+         「無かったこと」になり、表示に穴が空く。 */
+      if (p0 < 1) p0 = 1;
+      if (t_last_char)
+        for (int i = 0; i < p0; i++)
+          put_char (t_last_char);
+      break;
+
     case 'S': // SU
       if (p0 < 1) p0 = 1;
       scroll_up (t_scroll_top, t_scroll_bottom, p0);
@@ -799,6 +813,14 @@ Terminal::handle_dec_private (int final_ch)
         case 1004:
           t_focus_events = set;
           break;
+
+        /* Synchronized output。dirty() 側で解釈する。立てた時刻を覚えて
+           おいて、l を送らずに固まったときのタイムアウト判定に使う。 */
+        case 2026:
+          t_sync_update = set;
+          if (set)
+            t_sync_update_since = time (0);
+          break;
         }
     }
 }
@@ -840,6 +862,8 @@ Terminal::handle_esc (int ch)
       t_pending_wrap = 0;
       t_mouse_mode = 0; t_mouse_sgr = 0;
       t_bracketed_paste = 0; t_focus_events = 0;
+      t_last_char = 0;
+      t_sync_update = 0; t_clip_pending = 0;
       init_tabs ();
       for (int i = 0; i < t_rows * t_cols; i++)
         clear_cell_default (&t_screen[i]);
@@ -920,13 +944,15 @@ parse_osc_color (const char *s)
 }
 
 /* OSC (Operating System Command)。以前は空の stub だったので、テーマが
-   palette を上書きしてきても全部捨てていた。実装するのは色だけ:
+   palette を上書きしてきても全部捨てていた。実装するのは色とクリップ
+   ボード書き込み:
 
      OSC 4 ; index ; spec   palette の 1 色を差し替える (複数組を ';' で継ぎ足せる)
      OSC 10 ; spec          既定の前景色
      OSC 11 ; spec          既定の背景色
      OSC 104               palette を組み込みに戻す (引数付きはその index だけ)
      OSC 110 / 111         前景 / 背景を既定に戻す
+     OSC 52 ; Pc ; Pd       クリップボード書き込み (読み出しは未実装、上記コメント参照)
 
    ウィンドウタイトル (OSC 0 / 2) は置き場所が無いので今は捨てる。      */
 void
@@ -960,6 +986,24 @@ Terminal::handle_osc ()
       break;
     case 110: slot = 256; reset_all = 2; break;
     case 111: slot = 257; reset_all = 2; break;
+
+    case 52:
+      {
+        /* OSC 52 ; Pc ; Pd — クリップボード書き込み。読み出し
+           (Pd == "?") はリモートに他アプリのクリップボードを覗き見
+           させる経路になるので実装しない (kitty/WezTerm/foot 等、最近の
+           端末の多くも既定は書き込みのみ)。Pc (どのセレクションか) は
+           問わず、値があれば全部システムクリップボードとして扱う。
+           decode と実際の書き込みはプラットフォーム依存なので
+           フロントエンドに委ねる — ここは t_osc に "Pc;Pd" を残して
+           フラグを立てるだけ。 */
+        const char *pd = strchr (p, ';');
+        pd = pd ? pd + 1 : p;
+        if (*pd && strcmp (pd, "?") != 0)
+          t_clip_pending = 1;
+      }
+      return;
+
     default:
       return;
     }
@@ -1307,6 +1351,13 @@ Terminal::sync_to_buffer (Buffer *bp, Window *wp)
 void
 Terminal::feed (const u_char *data, int len)
 {
+  /* アプリが CSI ?2026h を送ったまま (バグで) l を送らずに黙り込むと、
+     再描画がここで止まったまま二度と表示に出なくなる。仕様自体が
+     「端末側で妥当な時間内に強制解除しろ」と言っているので、次に何か
+     出力が届いた時点でタイムアウトを見て強制的に落とす。 */
+  if (t_sync_update && time (0) - t_sync_update_since >= 2)
+    t_sync_update = 0;
+
   // New output arrives: snap back to live view
   if (t_scrollback_offset > 0)
     {
@@ -1527,4 +1578,15 @@ terminal_mouse_to_bytes (const Terminal *term, int kind, int button,
   buf[4] = char (32 + col + 1);
   buf[5] = char (32 + row + 1);
   return 6;
+}
+
+int
+terminal_focus_to_bytes (const Terminal *term, int focused, char *buf, int bufsize)
+{
+  if (!term || !term->focus_events_p () || bufsize < 3)
+    return 0;
+  buf[0] = '\033';
+  buf[1] = '[';
+  buf[2] = focused ? 'I' : 'O';
+  return 3;
 }

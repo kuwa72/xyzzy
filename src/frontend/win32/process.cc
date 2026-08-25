@@ -938,6 +938,68 @@ ConPtyProcess::readin (u_char *buf, int size)
   return (int)nread;
 }
 
+/* OSC 52 (クリップボード書き込み)。読み出しは実装していない (term.h 参照:
+   盗聴に使われうる)。pcpd は "Pc;Pd" (Pd は base64)。Pc (選択バッファの
+   種類) は問わず、常にシステムクリップボードへ書く — Windows には
+   selection という概念自体が無いので他に選びようがない。
+
+   クリップボード API (OpenClipboard 等) はメッセージキューを持つスレッド
+   から呼ぶ必要があるので、ConPTY の読み取りスレッドではなく GUI スレッド
+   (insert_process_output) から呼ぶこと。 */
+static void
+set_clipboard_from_osc52 (const char *pcpd)
+{
+  const char *pd = strchr (pcpd, ';');
+  pd = pd ? pd + 1 : pcpd;
+  int pdlen = int (strlen (pd));
+  if (!pdlen)
+    return;
+
+  u_char *raw = new u_char[pdlen];  // decode 後は元の 3/4 以下に収まる
+  int rawlen = 0;
+  int acc = 0, bits = 0;
+  for (int i = 0; i < pdlen && pd[i] != '='; i++)
+    {
+      int v = base64_decode ((u_char)pd[i]);
+      if (v >= 64)
+        continue;  // 改行等、base64 アルファベット以外は読み飛ばす
+      acc = (acc << 6) | v;
+      bits += 6;
+      if (bits >= 8)
+        {
+          bits -= 8;
+          raw[rawlen++] = u_char ((acc >> bits) & 0xff);
+        }
+    }
+
+  if (rawlen)
+    {
+      /* OSC 52 の payload は UTF-8 という約束。CF_UNICODETEXT にするため
+         UTF-16 へ変換する。 */
+      int wlen = MultiByteToWideChar (CP_UTF8, 0, (char *)raw, rawlen, 0, 0);
+      if (wlen > 0)
+        {
+          HGLOBAL hmem = GlobalAlloc (GMEM_MOVEABLE, (wlen + 1) * sizeof (WCHAR));
+          if (hmem)
+            {
+              WCHAR *wbuf = (WCHAR *)GlobalLock (hmem);
+              MultiByteToWideChar (CP_UTF8, 0, (char *)raw, rawlen, wbuf, wlen);
+              wbuf[wlen] = 0;
+              GlobalUnlock (hmem);
+              if (OpenClipboard (app.toplev))
+                {
+                  EmptyClipboard ();
+                  SetClipboardData (CF_UNICODETEXT, hmem);
+                  CloseClipboard ();
+                }
+              else
+                GlobalFree (hmem);
+            }
+        }
+    }
+  delete[] raw;
+}
+
 u_int
 ConPtyProcess::read_process ()
 {
@@ -963,7 +1025,7 @@ ConPtyProcess::read_process ()
               send (p_term->reply_data (), p_term->reply_len ());
               p_term->reply_clear ();
             }
-          if (p_term->dirty () && !p_pending)
+          if ((p_term->dirty () || p_term->clipboard_pending ()) && !p_pending)
             {
               PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
               p_pending = 1;
@@ -978,7 +1040,16 @@ void
 ConPtyProcess::insert_process_output (void *)
 {
   p_pending = 0;
-  if (!p_term || !p_term->dirty ())
+  if (!p_term)
+    return;
+
+  if (p_term->clipboard_pending ())
+    {
+      set_clipboard_from_osc52 (p_term->clipboard_raw ());
+      p_term->clipboard_clear ();
+    }
+
+  if (!p_term->dirty ())
     return;
 
   // Direct GDI rendering: paint_terminal reads TermCell directly,

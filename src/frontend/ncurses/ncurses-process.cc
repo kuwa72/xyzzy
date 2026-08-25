@@ -212,6 +212,29 @@ Process::poll_output ()
       // The terminal handles UTF-8 decoding and escape sequences internally.
       p_term->feed (rawbuf, (int)n);
 
+      // feed() の中で DSR / DA の応答が積まれていたら pty へ返す。win32 の
+      // ConPtyProcess::read_process は元からこれをやっているが、ncurses 側は
+      // 抜けていた。返さないと、起動時にカーソル位置や端末種別を問い合わせて
+      // から描画するタイプの TUI が、応答を待ってスタートアップで止まったり
+      // 既定値で誤ったレイアウトを組んだりする。
+      if (p_term->reply_len ())
+        {
+          send (p_term->reply_data (), p_term->reply_len ());
+          p_term->reply_clear ();
+        }
+
+      // OSC 52 (クリップボード書き込み)。ncurses には自前のクリップボード
+      // API が無いので、自分を包んでいる本物の端末 (Windows Terminal /
+      // X11 / Wayland 端末) へそのまま中継する — tmux の
+      // allow-passthrough と同じ発想。読み出し (?) は Terminal 側で
+      // すでに弾いてあるので、ここに来るのは書き込みだけ。
+      if (p_term->clipboard_pending ())
+        {
+          printf ("\033]%s\a", p_term->clipboard_raw ());
+          fflush (stdout);
+          p_term->clipboard_clear ();
+        }
+
       // Trigger screen refresh — render_terminal_window will read
       // directly from the TermCell grid, no buffer sync needed.
       if (p_term->dirty ())
