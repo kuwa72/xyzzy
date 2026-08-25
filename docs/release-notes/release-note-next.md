@@ -237,13 +237,29 @@ xyzzy リリースノート
     偶然一致していたため。`parse_keymap` は内部で新旧どちらの encoding も
     正規化するので、lChar をそのまま渡す。
   * 存在しないファイルをコマンドラインから指定して起動すると
-    (`xyzzy.exe unexists_file.txt` など)、起動時のエラーダイアログ表示中に
-    メインウィンドウを閉じようとしてもアプリを終了できなくなることがあった
-    不具合を修正した。原因は独自実装のメッセージボックス (`XMessageBox`,
-    `src/frontend/win32/msgbox.cc`) が、標準の `MessageBox` と違ってオーナー
-    ウィンドウを無効化していなかったこと。ダイアログ表示中もメインウィンドウが
-    操作可能なままなので、そこへの `WM_CLOSE` が `Buffer::kill_xyzzy` を
-    ダイアログ自身のモーダルメッセージループの内側から再入的に呼び出し、
-    まだ起動時エラーの unwind 途中で不安定な状態の Lisp 評価系へ突入して
-    終了処理が壊れていた。`MessageBox` と同じく、表示中はオーナーを
-    `EnableWindow` で無効化し、閉じる際に戻すようにした。
+    (`xyzzy.exe unexists_file.txt` など)、起動直後に無関係な
+    「指定されたファイルが見つかりません」ダイアログが出るだけでなく、
+    その後 xyzzy を終了しようとしたときにも同じダイアログが再び現れ、
+    未編集のバッファであっても保存確認をすっ飛ばして終了処理自体が
+    そのまま中断されてしまう不具合を修正した。原因は
+    `lisp/saveplace.l`/`lisp/recentf.l` の `*find-file-hooks*`
+    (ファイルを開いた後) と `*before-delete-buffer-hook*`
+    (バッファを閉じる前) 用フックが、対象ファイルの存在確認をせずに
+    `truename` を無条件で呼んでいたこと。ファイルが存在しないと
+    `truename` は Win32 の raw error (`ERROR_FILE_NOT_FOUND`) をそのまま
+    Lisp condition として投げ、それが `call_hooks` (`src/core/Buffer.cc`)
+    の中で捕捉されて「ファイルが見つかりません」ダイアログとして表示される一方、
+    フック自体は失敗したことになるので、開くときは以後の `*find-file-hooks*`
+    処理が、終了しようとしたときは `Buffer::query_kill_xyzzy` の以後の処理
+    (変更されたバッファがあるかどうかの確認と保存確認ダイアログ) が
+    まるごとスキップされていた。両フックとも対象ファイルが実在するときだけ
+    `truename` を呼ぶよう修正し、回帰テスト
+    (`test-sensible-defaults-saveplace-nonexistent-file`) を追加した。
+  * 上記とあわせて、独自実装のメッセージボックス (`XMessageBox`,
+    `src/frontend/win32/msgbox.cc`) が標準の `MessageBox` と違って
+    オーナーウィンドウを無効化していなかったのも直した。ダイアログ表示中も
+    メインウィンドウが操作可能なままだと、そこへの `WM_CLOSE` がダイアログ
+    自身のモーダルメッセージループの内側から `Buffer::kill_xyzzy` を
+    再入的に呼び出しうる (Lisp 評価系がエラーの unwind 途中で不安定な
+    状態のまま突入することになる)。`MessageBox` と同じく、表示中は
+    オーナーを `EnableWindow` で無効化し、閉じる際に戻すようにした。

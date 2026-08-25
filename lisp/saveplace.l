@@ -24,7 +24,7 @@
   (when *save-place*
     (when (bufferp buf)
       (let ((file (get-buffer-file-name buf)))
-	(when (and file (stringp file))
+	(when (and file (stringp file) (file-exist-p file))
 	  (setq file (namestring (truename file)))
 	  (let ((pos (save-excursion
 		       (set-buffer buf)
@@ -48,7 +48,7 @@
   "ファイルを開いた際に、保存されたカーソル位置へ移動する。"
   (when *save-place*
     (let ((file (get-buffer-file-name)))
-      (when (and file (stringp file))
+      (when (and file (stringp file) (file-exist-p file))
 	(setq file (namestring (truename file)))
 	(let ((entry (assoc file *save-place-alist* :test #'equal)))
 	  (when entry

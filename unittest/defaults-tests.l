@@ -49,6 +49,31 @@
 	  (delete-buffer buf)))))
   => 10)
 
+(deftest test-sensible-defaults-saveplace-nonexistent-file ()
+  "存在しないファイルに対して saveplace がエラーを起こさないこと。
+コマンドラインで存在しないファイルを開くと空バッファができるが、
+save-place-find-file-hook/save-place-record-point が truename を無条件に
+呼んでいると、ファイルが無いだけで Win32 の raw error が飛び、find-file
+自体や (バッファを閉じる際の) *before-delete-buffer-hook* が失敗していた。"
+  (let ((ed::*save-place-alist* nil)
+	(ed::*save-place* t)
+	(file (merge-pathnames "xyzzy-saveplace-nonexistent-test.txt"
+			       (si:system-root))))
+    (when (file-exist-p file)
+      (delete-file file))
+    ;; 存在しないファイルを開くこと自体が (save-place-find-file-hook 経由で)
+    ;; エラーにならないこと
+    (let ((buf (ed::find-file-internal file)))
+      (unwind-protect
+	  (progn
+	    (set-buffer buf)
+	    ;; バッファを閉じる際に呼ばれる *before-delete-buffer-hook* 相当の
+	    ;; 処理もエラーにならないこと
+	    (ed::save-place-record-point buf)
+	    t)
+	(delete-buffer buf))))
+  => t)
+
 (deftest test-sensible-defaults-recentf ()
   "recentf による最近開いたファイルの記録とクリーンアップができること"
   (with-temp-files (file1 file2)
