@@ -1364,6 +1364,23 @@ Terminal::feed (const u_char *data, int len)
       t_scrollback_offset = 0;
       t_dirty = 1;
     }
+
+  /* カーソルは画面の一部である。CUP / CUF / CUB / CR のようにセルの中身を
+     一切変えない出力でも、描画側はカーソルを反転で重ねているので描き直しが
+     必要になる。t_dirty をセル書き換えの場所だけで立てていたので、
+
+       * bash / PowerShell で行内をカーソルキーで移動する
+       * claude code のような TUI が入力欄のカーソルだけ動かす
+
+     ときに再描画が起きず、カーソルが前の位置に取り残されて「画面上は動かない
+     が内部位置は正しい (文字を打つと正しい位置に出る)」状態になっていた。
+     個々のシーケンスに t_dirty = 1 を撒くと必ず取りこぼすので、feed() の
+     前後でカーソルの状態を比べて判定する。同じ feed の中で動いて戻った場合は
+     見た目が変わらないので、これで正しく「変化なし」になる。 */
+  int cur_row0 = t_cur_row;
+  int cur_col0 = t_cur_col;
+  int cur_vis0 = t_cursor_visible;
+
   for (int i = 0; i < len; i++)
     {
       u_char ch = data[i];
@@ -1509,6 +1526,10 @@ Terminal::feed (const u_char *data, int len)
           break;
         }
     }
+
+  if (t_cur_row != cur_row0 || t_cur_col != cur_col0
+      || t_cursor_visible != cur_vis0)
+    t_dirty = 1;
 }
 
 /* マウスイベントを報告バイト列にする。

@@ -2542,9 +2542,22 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
       shadow_ok = 0;
     }
 
-  /* カーソルは InvertRect で後から重ねるので、抜けた行と入った行は
-     内容が同じでも描き直さないと反転が残る。 */
-  int cur_r = term->cursor_row ();
+  /* カーソルを描く位置と、そもそも描くかどうかを先に決める。行の差分判定で
+     「抜けた行」「入った行」を強制的に描き直す必要があるので、実際に反転する
+     行と一致していないと反転が残る。
+
+     * DECTCEM (CSI ?25l) で消されている間は描かない。TUI は自前のカーソルを
+       反転セルで描くのに実カーソルを消す。両方出ると二重に見える。
+     * スクロールバックを遡っている間は表示行が offset だけ下へずれるので、
+       カーソルも同じだけずらし、画面外に出たら描かない。 */
+  int cur_r = term->cursor_row () + term->scrollback_offset ();
+  int cur_c = term->cursor_col ();
+  int draw_cursor = (term->cursor_visible ()
+                     && cur_r >= 0 && cur_r < trows
+                     && cur_c >= 0 && cur_c < tcols
+                     && this == selected_window ());
+  if (!draw_cursor)
+    cur_r = -1;
   int old_r = w_term_shadow_cursor_row;
 
   for (int r = 0; r < w_ch_max.cy; r++)
@@ -2655,17 +2668,14 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
 
   // Draw cursor — InvertRect has no neutral Painter equivalent; use the
   // Win32Painter's hdc directly (this is the Win32 terminal impl).
-  int cr = term->cursor_row ();
-  int cc = term->cursor_col ();
-  if (cr >= 0 && cr < trows && cc >= 0 && cc < tcols
-      && this == selected_window ())
+  if (draw_cursor)
     {
-      int cpx = cc * cellw + cellw / 2;
-      int cpy = cr * cellh;
+      int cpx = cur_c * cellw + cellw / 2;
+      int cpy = cur_r * cellh;
       RECT crc = { cpx, cpy, cpx + cellw, cpy + cellh };
       InvertRect (static_cast <Win32Painter &> (painter).hdc (), &crc);
-      w_term_shadow_cursor_row = cr;
-      w_term_shadow_cursor_col = cc;
+      w_term_shadow_cursor_row = cur_r;
+      w_term_shadow_cursor_col = cur_c;
     }
   else
     {

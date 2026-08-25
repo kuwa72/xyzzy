@@ -3430,9 +3430,11 @@ refresh_screen (int)
           Terminal *sel_term = sel->w_bufp ? buffer_terminal (sel->w_bufp) : 0;
           if (sel_term)
             {
-              // Terminal window: cursor from terminal emulator
-              // Hide cursor when scrolled back
-              if (sel_term->scrollback_offset () > 0)
+              /* Terminal window: cursor from terminal emulator.
+                 スクロールバックを遡っている間と、アプリが DECTCEM
+                 (CSI ?25l) でカーソルを消している間は出さない。 */
+              if (sel_term->scrollback_offset () > 0
+                  || !sel_term->cursor_visible ())
                 curs_set (0);
               else
                 {

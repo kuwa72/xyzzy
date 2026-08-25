@@ -1211,9 +1211,13 @@ Window::wheel_scroll (const wheel_info &wi)
     return;
 
   /* ターミナル (ConPTY) で、アプリがマウス報告を要求している間はホイールも
-     pty へ流す。そうでなければ従来どおり Lisp の mouse-wheel-handler に
-     渡す (スクロールバックを遡る操作)。
-     xterm 互換のホイールはボタン 64 = 上、65 = 下 の press として送る。 */
+     pty へ流す。要求していなければ端末自身のスクロールバックを動かす。
+     xterm 互換のホイールはボタン 64 = 上、65 = 下 の press として送る。
+
+     ターミナルバッファを Lisp の mouse-wheel-handler に渡してはいけない。
+     あちらは buffer の point を動かすが、ターミナルの表示は TermCell を
+     直接描いていて buffer 本文を見ていないので、ホイールを回しても何も
+     起きなかった (「シェルのスクロールバックができない」)。 */
   {
     extern Terminal *buffer_terminal (const Buffer *bp);
     extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
@@ -1250,6 +1254,23 @@ Window::wheel_scroll (const wheel_info &wi)
               }
             return;
           }
+      }
+    if (term)
+      {
+        /* 1 ノッチで wi_nlines 行 (システム設定)。WHEEL_PAGESCROLL は
+           1 画面。wi_value は上が正、scrollback_scroll も遡りが正。 */
+        int nlines = (wi.wi_nlines == WHEEL_PAGESCROLL
+                      ? term->rows () : wi.wi_nlines);
+        if (nlines < 1)
+          nlines = 1;
+        int before = term->scrollback_offset ();
+        term->scrollback_scroll (wi.wi_value * nlines);
+        if (term->scrollback_offset () != before)
+          {
+            w_disp_flags |= WDF_WINDOW;
+            refresh_screen (0);
+          }
+        return;
       }
   }
 
