@@ -24,11 +24,54 @@ IMAGE=xyzzy-devenv
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ARCH_DEFAULT=${XYZZY_ARCH:-x86_64}
 
+# A `git worktree add` sibling (e.g. to build a second commit for comparison
+# without disturbing $ROOT) is otherwise invisible in here: only $ROOT is
+# bind-mounted.  Mount every OTHER worktree registered against this checkout
+# individually, each at /siblings/<its own basename> -- never their common
+# parent: repos cloned with ghq sit flat as siblings of each other under one
+# directory (.../github.com/<user>/<repo> for every repo, not just this one),
+# so the common ancestor of two worktrees is typically that whole namespace,
+# not something scoped to this project.  $ROOT itself keeps mounting at /work
+# exactly as before: it is baked into every existing _build/$ARCH/CMakeCache.txt,
+# so moving it would invalidate every build tree that is not part of what this
+# is trying to fix.  A worktree already inside $ROOT (e.g. under .claude/worktrees/)
+# is skipped: /work already covers it.
+#
+# Set XYZZY_SIBLINGS_DIR to a single directory to mount there instead (as
+# /siblings, not per-worktree); XYZZY_SIBLINGS_DIR= (empty) disables this.
+siblings_mounts() {
+  worktrees=$(git -C "$ROOT" worktree list --porcelain 2>/dev/null | \
+              awk '/^worktree /{print $2}')
+  [ -n "$worktrees" ] || return 0
+
+  old_ifs=$IFS
+  IFS='
+'
+  # shellcheck disable=SC2086
+  set -- $worktrees
+  IFS=$old_ifs
+
+  for wt in "$@"; do
+    [ "$wt" = "$ROOT" ] && continue
+    case "$wt" in "$ROOT"/*) continue ;; esac
+    printf ' -v %s:/siblings/%s' "$wt" "$(basename "$wt")"
+  done
+}
+
 docker_run() {
   tty_flag=""
   [ -t 0 ] && tty_flag="-it"
+
+  if [ -z "${XYZZY_SIBLINGS_DIR+set}" ]; then
+    siblings_flag=$(siblings_mounts)
+  elif [ -n "$XYZZY_SIBLINGS_DIR" ]; then
+    siblings_flag=" -v $XYZZY_SIBLINGS_DIR:/siblings"
+  else
+    siblings_flag=""
+  fi
+
   # shellcheck disable=SC2086
-  exec docker run --rm $tty_flag \
+  exec docker run --rm $tty_flag $siblings_flag \
     --platform linux/amd64 \
     -v "$ROOT":/work \
     -v xyzzy-wine64:/wine \
