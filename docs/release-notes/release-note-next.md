@@ -33,6 +33,16 @@ xyzzy リリースノート
     `tools/run-tests.sh` も同じ鮮度判定で `.lc` が古いままテストを走らせ
     ないようにガードし、宣言だけで未実装だった `--bytecompile` オプション
     を実際に配線した。
+  * `.github/workflows/mingw.yml` で、`.lc` のキャッシュが当たると必ず
+    テストが `run "tools/x bytecompile" first` で落ちるようになっていたのを
+    直した。`tools/run-tests.sh` の鮮度判定 (`tools/lc-stale.sh`) は `.l` と
+    `.lc` の mtime を比べるが、`actions/checkout` は全ての `.l` にチェック
+    アウト時刻を打つ一方、復元された `.lc` は保存時の mtime を保つので、
+    `.l` の方が必ず新しくなる。キャッシュキーは `lisp/**/*.l` の内容ハッシュ
+    なので、当たったこと自体が mtime より強い保証 (ソースはその `.lc` を
+    作ったときとバイト単位で同一) になる。復元後に `touch` してそれを
+    表明するようにした。これが無いと lisp/ を触らない PR でも毎回ライブラリ
+    全体を再コンパイルすることになり、キャッシュの意味が無くなる。
   * `tools/x` の Docker 開発環境に `ccache` を導入し、`configure` に
     `CMAKE_C_COMPILER_LAUNCHER`/`CMAKE_CXX_COMPILER_LAUNCHER` を渡す
     ようにした。`_build/$ARCH` はチェックアウトごとの生成物で
