@@ -286,7 +286,23 @@ XMessageBox::init_dialog ()
 
   SetFocus (GetDlgItem (hwnd, btn[default_btn].id));
   SendMessage (hwnd, DM_SETDEFID, btn[default_btn].id, 0);
+
+  /* DialogBoxParam, unlike MessageBox, does not disable its owner window
+     for us. Without this, the owner (typically app.toplev) stays clickable
+     while this "modal" box is up, and a WM_CLOSE delivered to it re-enters
+     Buffer::kill_xyzzy from inside this dialog's own message loop. */
+  if (owner && IsWindow (owner))
+    EnableWindow (owner, 0);
+
   return 0;
+}
+
+void
+XMessageBox::end_dialog (UINT result)
+{
+  if (owner && IsWindow (owner))
+    EnableWindow (owner, 1);
+  EndDialog (hwnd, result);
 }
 
 BOOL
@@ -303,17 +319,17 @@ XMessageBox::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
         for (int i = 0; i < nbuttons; i++)
           if (id == btn[i].id)
             {
-              EndDialog (hwnd, id);
+              end_dialog (id);
               return 1;
             }
         if (id == IDCANCEL && close_id >= 0)
-          EndDialog (hwnd, close_id);
+          end_dialog (close_id);
         return 1;
       }
 
     case WM_CLOSE:
       if (close_id >= 0)
-        EndDialog (hwnd, close_id);
+        end_dialog (close_id);
       return 1;
     }
   return 0;
@@ -367,6 +383,7 @@ XMessageBox::doit (HWND hwnd)
     close_id = btn[0].id;
   if (g_batch_mode)
     return btn[default_btn].id;
+  owner = hwnd;
   return DialogBoxParam (hinst, MAKEINTRESOURCE (IDD_MSGBOX),
                          hwnd, WndProc, LPARAM (this));
 }
