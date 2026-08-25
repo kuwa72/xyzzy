@@ -68,8 +68,6 @@ bump → ノート → main へマージ → タグ。**タグを先に打つと
 
 * **ローカル確認は `tools/x`** (Docker + llvm-mingw + Wine)。
   `tools/x configure x86_64` → `build` → `test`。Windows マシンは要らない。
-* **`bytecompile` は `--force` が要る。** `lisp/*.l` を変えても黙って再コンパイル
-  しないことがある。
 * **出力ゼロで 100% CPU なら `.wxp` を疑う。** 古いダンプイメージは絶対アドレスを
   持っているので、exe を作り直したら消す (`run-tests.sh` は自動で消す)。
 * **`grammars/*.dll` はビルドすると必ず変更扱いになる。** コミットしない
