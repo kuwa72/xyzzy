@@ -18,7 +18,7 @@
 
 (defun recentf-add-file (&optional (file (get-buffer-file-name)))
   "ファイルを最近開いた一覧に追加する。"
-  (when (and file (stringp file))
+  (when (and file (stringp file) (file-exist-p file))
     (let ((path (namestring (truename file))))
       (setq *recentf-list* (delete path *recentf-list* :test #'equal))
       (push path *recentf-list*)

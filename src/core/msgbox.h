@@ -20,6 +20,7 @@ protected:
   HFONT hfont;
   HICON hicon;
   HWND hwnd;
+  HWND owner;
   enum {XOFF = 14, YOFF = 12};
   int nbuttons;
   struct
@@ -34,6 +35,7 @@ protected:
 
   BOOL WndProc (UINT, WPARAM, LPARAM);
   BOOL init_dialog ();
+  void end_dialog (UINT result);
   void calc_text_rect (RECT &) const;
   void calc_button_size (RECT br[MAX_BUTTONS]) const;
   HWND create_ctl (const char *cls, const Char *caption, DWORD, UINT, const RECT &) const;
@@ -46,7 +48,7 @@ public:
   XMessageBox (HINSTANCE hinst_, const Char *msg_, const Char *title_,
                int crlf, int no_wrap)
        : hinst (hinst_), msg (msg_), title (title_), nbuttons (0),
-         close_id (-1), default_btn (0), hicon (0),
+         close_id (-1), default_btn (0), hicon (0), owner (0),
          f_crlf (crlf), f_no_wrap (no_wrap) {}
   void add_button (UINT, const Char *);
   void set_button (int, UINT, const Char *);
