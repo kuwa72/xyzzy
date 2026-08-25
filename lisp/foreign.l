@@ -123,17 +123,20 @@
 (*define-c-type :double double)
 
 (*define-c-type u_short wchar_t)
-#+:64bit (*define-c-type u_int64 size_t)
-#-:64bit (*define-c-type u_int size_t)
-#+:64bit (*define-c-type int64 time_t)
-#-:64bit (*define-c-type long time_t)
-#+:64bit (*define-c-type int64 ptrdiff_t)
-#-:64bit (*define-c-type int ptrdiff_t)
+;; size_t/time_t/ptrdiff_t/void* のポインタ幅は、コンパイルした
+;; xyzzy-batch.exe 自身の *features* を読み取り時に見る #+:64bit/#-:64bit
+;; ではなく、ロードした側の *features* を見る実行時分岐で決める。
+;; こうしておかないと .lc は一方の枝しか持たず、別ポインタ幅の exe が
+;; 読み込むと size_t 等のサイズを取り違え、FFI が黙ってゴミを返す。
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (**define-c-type (if (member :64bit *features*) 'u_int64 'u_int) 'size_t t)
+  (**define-c-type (if (member :64bit *features*) 'int64 'long) 'time_t t)
+  (**define-c-type (if (member :64bit *features*) 'int64 'int) 'ptrdiff_t t))
 (*define-c-type long clock_t)
 (*define-c-type long off_t)
 
-#+:64bit (*define-c-type int64 void*)
-#+:32bit (*define-c-type long void*)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (**define-c-type (if (member :64bit *features*) 'int64 'long) 'void* t))
 (*define-c-type void* char*)
 (*define-c-type char* string)
 
@@ -258,6 +261,19 @@
 			  (export ',ac)))))))
 	  slotdef))
 
+;; define-c-struct-expand はマクロ展開時 (=呼び出し元ファイルのコンパイル時)
+;; にスロットのオフセットを確定した整数として make-c-struct-accessors に渡す
+;; ため、ここで選んだポインタ幅はコンパイルした exe のものに固定され、
+;; 生成されるアクセサの .lc に焼き込まれる。size_t 等と違って実行時分岐に
+;; 直すだけでは足りず (呼び出し元ごとにオフセット計算式を実行時評価する式
+;; へ作り直す必要がある)、真のポータブル化には make-c-struct-accessors 側
+;; の書き換えが要る。現状 define-c-struct をポインタ型スロット込みで呼ぶのは
+;; lisp/wip/winapi.l と lisp/wip/treeview/winapi.l だけで、どちらも require
+;; されず compile-files (misc/makelc.l) が lisp/wip/ を除外するため出荷され
+;; る .lc には影響しない。ここでは #+:64bit と同じ非互換の芽を残さないよう
+;; 実行時分岐にだけ揃えてあるが、出荷対象コードで define-c-struct にポインタ
+;; スロットを使うようになったら、この関数のオフセット計算自体を実行時式の
+;; 生成に作り直すこと。
 (defun define-c-struct-expand (name slots export)
   (check-type name symbol)
   (when (endp slots)
@@ -274,7 +290,7 @@
 			 (when (endp slot)
 			   (error "不正なスロットの形式です"))
 			 (when (eq (car slot) '*)
-			   (setq type (expand-c-type #+:64bit ':int64 #-:64bit ':int32))
+			   (setq type (expand-c-type (if (member :64bit *features*) :int64 :int32)))
 			   (pop slot)
 			   (when (endp slot)
 			     (error "不正なスロットの形式です")))
