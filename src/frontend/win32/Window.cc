@@ -1108,24 +1108,45 @@ Window::update_vscroll_bar ()
           w_vsinfo.sb_seen = ScrollInfo::yes;
           ShowScrollBar (w_hwnd, SB_VERT, 1);
         }
-      int nlines = (w_bufp
+      /* ターミナルバッファは buffer 本文を持たない (表示は TermCell を
+         直接描いている) ので、count_lines () は常に 0 行を返す。範囲が
+         1 ページに収まっている扱いになり、スクロールバックが溜まっていても
+         バーが立たなかった。行数は端末側から取る。
+
+         nPos は上端の行番号 (nMin = 1 起点)。offset = 0 (ライブ) が一番下、
+         offset = count が一番上なので、1 + count - offset。 */
+      extern Terminal *buffer_terminal (const Buffer *bp);
+      Terminal *term = w_bufp ? buffer_terminal (w_bufp) : 0;
+      int nlines, npage, npos;
+      if (term)
+        {
+          npage = term->rows ();
+          nlines = term->scrollback_count () + npage;
+          npos = 1 + term->scrollback_count () - term->scrollback_offset ();
+        }
+      else
+        {
+          nlines = (w_bufp
                     ? (w_bufp->b_fold_columns == Buffer::FOLD_NONE
                        ? w_bufp->count_lines ()
                        : w_bufp->folded_count_lines ())
                     : 1);
-      if (!(flags () & WF_ALT_VSCROLL_BAR))
-        nlines += w_ech.cy - 1;
-      else
-        nlines = max (nlines, int (w_last_top_linenum + w_ech.cy - 1));
-      if (w_vsinfo.nMax != nlines || w_vsinfo.nPage != UINT (w_ech.cy))
+          if (!(flags () & WF_ALT_VSCROLL_BAR))
+            nlines += w_ech.cy - 1;
+          else
+            nlines = max (nlines, int (w_last_top_linenum + w_ech.cy - 1));
+          npage = w_ech.cy;
+          npos = w_last_top_linenum;
+        }
+      if (w_vsinfo.nMax != nlines || w_vsinfo.nPage != UINT (npage))
         {
           w_vsinfo.nMax = nlines;
-          w_vsinfo.nPage = w_ech.cy;
+          w_vsinfo.nPage = npage;
           w_vsinfo.fMask |= SIF_RANGE | SIF_PAGE;
         }
-      if (w_vsinfo.nPos != w_last_top_linenum)
+      if (w_vsinfo.nPos != npos)
         {
-          w_vsinfo.nPos = w_last_top_linenum;
+          w_vsinfo.nPos = npos;
           w_vsinfo.fMask |= SIF_POS;
         }
       if (w_vsinfo.fMask)
@@ -1164,6 +1185,46 @@ Window::process_vscroll (int code)
 {
   if (!w_bufp)
     return;
+
+  /* ターミナルバッファはバーの操作を端末のスクロールバックに向ける。
+     scroll_window () が動かすのは buffer の point で、表示は TermCell を
+     直接描いているので効かない (ホイールと同じ理由)。
+     scrollback の offset は「遡り」が正なので、下へ = 減らす。 */
+  {
+    extern Terminal *buffer_terminal (const Buffer *bp);
+    Terminal *term = buffer_terminal (w_bufp);
+    if (term)
+      {
+        int step = max (symbol_value_as_integer (Vscroll_bar_step, w_bufp), 1);
+        int delta;
+        switch (code)
+          {
+          case SB_LINEDOWN: delta = -step; break;
+          case SB_LINEUP:   delta = step; break;
+          case SB_PAGEDOWN: delta = -vscroll_lines (); break;
+          case SB_PAGEUP:   delta = vscroll_lines (); break;
+          case SB_THUMBTRACK:
+            {
+              ScrollInfo i;
+              i.fMask = SIF_TRACKPOS;
+              GetScrollInfo (w_hwnd, SB_VERT, &i);
+              /* update_vscroll_bar の nPos = 1 + count - offset の逆。 */
+              int off = 1 + term->scrollback_count () - i.nTrackPos;
+              delta = off - term->scrollback_offset ();
+              break;
+            }
+          default:
+            return;
+          }
+        int before = term->scrollback_offset ();
+        term->scrollback_scroll (delta);
+        if (term->scrollback_offset () == before)
+          return;
+        w_disp_flags |= WDF_WINDOW;
+        refresh_screen (0);
+        return;
+      }
+  }
 
   switch (code)
     {
