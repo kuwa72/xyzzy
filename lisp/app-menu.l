@@ -10,7 +10,7 @@
 (export '(*app-menu* *app-popup-menu* *menu-history-max*
 	  *app-rectangle-popup-menu* *clipboard-char-encoding-popup-menu*
 	  *dictionary-popup-menu* *paste-rectangle-popup-menu*
-	  *command-bar-popup-menu*
+	  *command-bar-popup-menu* *color-theme-popup-menu*
 	  make-char-encoding-popup-menu
 	  add-file-history-to-menu *menu-display-length*
 	  *init-app-menus-hook*))
@@ -22,6 +22,7 @@
 (defvar *dictionary-popup-menu* nil)
 (defvar *paste-rectangle-popup-menu* nil)
 (defvar *command-bar-popup-menu* nil)
+(defvar *color-theme-popup-menu* nil)
 
 (defvar *recent-file-popup-menu* nil)
 (defvar *recent-session-popup-menu* nil)
@@ -71,6 +72,8 @@
 	  (:item :tag-command "文字列にして挿入(&R)"
 	   'yank-rectangle-as-region
 	   #'(lambda () (unless *rectangle-kill-buffer* :disable)))))
+
+  (setq *color-theme-popup-menu* (make-color-theme-popup-menu))
 
   (setq *app-popup-menu*
 	(define-popup-menu
@@ -332,6 +335,8 @@
 	    (:item :tag-command "最小(&A)"
 	     #'(lambda () (interactive) (set-text-font-size :x-small))
 	     #'(lambda () (if (eq (get-ascii-text-font-size) :x-small) :check))))
+	   (:sep :above-color-theme)
+	   (:menu nil "カラーテーマ(&H)" *color-theme-popup-menu*)
 	   (:sep :above-frame)
 	   (:item :tag-command "新しいフレーム(&F)"
 	    'new-pseudo-frame 'new-pseudo-frame-menu-update)
