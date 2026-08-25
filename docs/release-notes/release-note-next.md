@@ -97,6 +97,28 @@ xyzzy リリースノート
     カーソルが「その表示行にあるかのように」描かれていたのも直した
     (表示は offset ぶん下へずれるので、カーソルも同じだけずらし、画面外に
     出たら描かない。ncurses 側は元から遡り中は隠していた)。
+  * Win32 のターミナルバッファで、BackSpace が PowerShell では「カーソル
+    前の 1 語を消す」動きになっていたのを直した。実端末 (xterm / Windows
+    Terminal / kitty …) が BackSpace キーに割り当てているのは DEL (0x7f)
+    で、0x08 の方は Ctrl+BackSpace である。PSReadLine はそれに従って 0x08
+    を `BackwardDeleteWord` に割り当てているのに、こちらは 0x08 を送って
+    いた (bash は 0x08 と 0x7f の両方を `backward-delete-char` にして
+    いるので出なかった)。DEL を送るようにした。Win32 では BackSpace と
+    Ctrl+H の区別が付かない (VK_BACK は WM_CHAR 0x08 になり Ctrl+H と
+    同じ値) ので、エディタ本体が両者を同じ `#\C-h` として扱っているのと
+    同じくここでも区別しない。ncurses 側は ncurses が区別してくれるので
+    元から DEL を送っていた。
+  * Win32 のターミナルバッファでマウスによるテキスト選択ができるように
+    した。ターミナルバッファは buffer 本文を持たない (表示は `TermCell`
+    を直接描いている) ので、`mouse-left-press` が動かすのは常に空の
+    buffer の point であり、ドラッグしても何も掴めなかった。格子の座標で
+    範囲を持ち、描画時に反転して見せ、ボタンを離した時点でクリップボード
+    へ入れる (PuTTY や xterm と同じ copy-on-select)。貼り付けは既存の
+    `#\C-v` (`terminal-paste`) がそのまま使える。アプリがマウス報告を
+    要求している間 (claude code 等) はドラッグはアプリのものだが、Shift
+    を押している間だけはこちらが取る — 実端末がみなそうしているのと同じ
+    逃げ道。選択は格子の座標なので、出力が来た時とスクロールバックを
+    動かした時は指す文字が変わってしまうため解除する。
   * Win32 のターミナルバッファで、スクロールバックが溜まっていても縦
     スクロールバーが動かなかったのを直した。`update_vscroll_bar` は行数を
     `Buffer::count_lines()` から取るが、ターミナルバッファは buffer 本文を

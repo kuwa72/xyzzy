@@ -14,6 +14,21 @@ extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
 static int
 send_key_to_terminal (const Buffer *bp, Terminal *term, lChar c)
 {
+  /* BackSpace は DEL (0x7f) で送る。実端末 (xterm / Windows Terminal /
+     kitty …) が BackSpace キーに割り当てているのは 0x7f で、0x08 の方は
+     Ctrl+BackSpace になっている。PSReadLine はそれに従って 0x08 を
+     BackwardDeleteWord に割り当てているので、0x08 を送ると PowerShell で
+     BackSpace が「カーソル前の 1 語を消す」動きになっていた (bash は
+     0x08 と 0x7f の両方を backward-delete-char にしているので出ない)。
+
+     Win32 では BackSpace と Ctrl+H の区別が付かない — VK_BACK は
+     TranslateMessage で WM_CHAR 0x08 になり、Ctrl+H も同じ 0x08 になる。
+     エディタ本体が両者を同じ #\C-h として扱っているのと同じ理由で、
+     ここでも区別せず DEL にする (ncurses 側は KEY_BACKSPACE と Ctrl+H を
+     ncurses が区別してくれるので、元から 0x7f を送っている)。 */
+  if (c == lc_from_ccf (CC_BS))
+    c = lc_from_ccf (CC_DEL);
+
   char buf[16];
   int len = terminal_key_to_bytes (term, c, buf, sizeof buf);
   if (len > 0)

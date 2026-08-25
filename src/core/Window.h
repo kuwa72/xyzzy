@@ -496,6 +496,14 @@ struct Window
   int w_term_shadow_cursor_row;
   int w_term_shadow_cursor_col;
 
+  /* ターミナルのマウス選択。buffer 本文が無いので通常の選択機構
+     (w_selection_*) は使えず、格子の座標 (画面上の行・桁。スクロール
+     バックを遡っていればその表示行) で持つ。w_term_sel_p が 0 の間は
+     残りは無効。 */
+  int w_term_sel_p;
+  int w_term_sel_r0, w_term_sel_c0;   /* 押した位置 (アンカー) */
+  int w_term_sel_r1, w_term_sel_c1;   /* 今の位置 */
+
   Buffer::selection_type w_selection_type;
   point_t w_selection_point;
   point_t w_selection_marker;
@@ -590,6 +598,11 @@ struct Window
   void paint_terminal (HDC, class Terminal *, int force);
   int refresh_terminal (int f);
   void sync_terminal_size (class Terminal *);
+  /* ターミナルのマウス選択 (win32)。 */
+  void terminal_selection_range (int *, int *, int *, int *) const;
+  int terminal_selected_cell_p (int row, int col) const;
+  void terminal_clear_selection ();
+  void terminal_copy_selection (class Terminal *) const;
   void find_motion () const;
   void redraw_window (Point &, long, int, int) const;
   int kwdmatch (lisp, const Char *, const Chunk *, int &, int &, int, int &, int) const;

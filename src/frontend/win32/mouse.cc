@@ -162,9 +162,86 @@ send_mouse_to_terminal (Window *wp, WPARAM wparam, LPARAM lparam, int op)
   return 1;
 }
 
+/* ターミナルのウィンドウで左ボタンのドラッグをテキスト選択にする。
+
+   ターミナルバッファは buffer 本文を持たない (表示は TermCell を直接
+   描いている) ので、Lisp の mouse-left-press が動かすのは常に空の
+   buffer の point であり、ドラッグしても何も選択できなかった。
+
+   アプリがマウス報告を要求している間 (claude code 等) はドラッグは
+   アプリのものだが、Shift を押している間だけはこちらが取る。実端末が
+   みなそうしているのと同じで、アプリがマウスを掴んでいても選択だけは
+   したい、という逃げ道が要る。 */
+static int
+terminal_select (Window *wp, WPARAM wparam, LPARAM lparam, int op)
+{
+  extern Terminal *buffer_terminal (const Buffer *bp);
+
+  if (!wp || !wp->w_bufp || wp->minibuffer_window_p ())
+    return 0;
+  Terminal *term = buffer_terminal (wp->w_bufp);
+  if (!term)
+    return 0;
+  if (!(wparam & MK_LBUTTON))
+    return 0;
+  if (term->mouse_mode () && !(wparam & MK_SHIFT))
+    return 0;   /* アプリが受け取る */
+
+  /* paint_terminal と同じ座標系 (px = c*cellw + cellw/2, py = r*cellh)。 */
+  int cellw = app.text_font.cell ().cx;
+  int cellh = app.text_font.cell ().cy;
+  if (cellw <= 0 || cellh <= 0)
+    return 0;
+  int x = short (LOWORD (lparam)) - cellw / 2;
+  int y = short (HIWORD (lparam));
+  int col = x < 0 ? 0 : x / cellw;
+  int row = y < 0 ? 0 : y / cellh;
+  if (col >= term->cols ())
+    col = term->cols () - 1;
+  if (row >= term->rows ())
+    row = term->rows () - 1;
+
+  switch (op)
+    {
+    case mouse_state::DOWN:
+      /* 選択の有無に関わらず、押したらまずそのウィンドウを選ぶ
+         (mouse-left-press を通らないので自分でやる)。 */
+      if (selected_window () != wp)
+        wp->set_window ();
+      wp->w_term_sel_p = 0;
+      wp->w_term_sel_r0 = wp->w_term_sel_r1 = row;
+      wp->w_term_sel_c0 = wp->w_term_sel_c1 = col;
+      wp->w_disp_flags |= Window::WDF_WINDOW;
+      refresh_screen (0);
+      return 1;
+
+    case mouse_state::MOVE:
+      if (wp->w_term_sel_r1 == row && wp->w_term_sel_c1 == col
+          && wp->w_term_sel_p)
+        return 1;
+      wp->w_term_sel_r1 = row;
+      wp->w_term_sel_c1 = col;
+      /* 押した場所から動いて初めて選択が始まる。ただのクリックで
+         1 桁だけ反転するのは目障りなので。 */
+      wp->w_term_sel_p = (wp->w_term_sel_r0 != row || wp->w_term_sel_c0 != col);
+      wp->w_disp_flags |= Window::WDF_WINDOW;
+      refresh_screen (0);
+      return 1;
+
+    case mouse_state::UP:
+      if (wp->w_term_sel_p)
+        wp->terminal_copy_selection (term);
+      return 1;
+    }
+  return 0;
+}
+
 void
 mouse_state::dispatch (Window *wp, WPARAM wparam, LPARAM lparam, int op)
 {
+  if (terminal_select (wp, wparam, lparam, op))
+    return;
+
   if (send_mouse_to_terminal (wp, wparam, lparam, op))
     return;
 

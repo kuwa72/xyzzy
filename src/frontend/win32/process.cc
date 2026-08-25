@@ -1056,7 +1056,12 @@ ConPtyProcess::insert_process_output (void *)
   // no need for sync_to_buffer.
   for (Window *w = app.active_frame.windows; w; w = w->w_next)
     if (w->w_bufp == p_bufp)
-      w->w_disp_flags |= Window::WDF_WINDOW;
+      {
+        /* マウス選択は格子の座標で持っているので、画面が動いたら指して
+           いる文字が変わる。出力が来たら解除する。 */
+        w->terminal_clear_selection ();
+        w->w_disp_flags |= Window::WDF_WINDOW;
+      }
 
   refresh_screen (0);
 }

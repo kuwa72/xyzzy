@@ -2583,6 +2583,11 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
             }
           else
             rowbuf[c] = *term->display_cell (r, c);
+
+          /* マウスで選択した範囲は反転して見せる。rowbuf を書き換えて
+             いるので、選択が変われば下の差分判定がそのまま拾う。 */
+          if (w_term_sel_p && terminal_selected_cell_p (r, c))
+            rowbuf[c].attrs ^= TATTR_REVERSE;
         }
 
       if (shadow_ok && shadow_row && r != cur_r && r != old_r
