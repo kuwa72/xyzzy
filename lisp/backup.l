@@ -157,11 +157,16 @@ nilでなければ、自動セーブファイルをここで指定するバッ�
 
 (export '(*backup-directory* *hierarchic-backup-directory*))
 
+;; merge-pathnames は、第1引数がそれ自体 "/" を含む複数階層のパスで
+;; 末尾も "/" の場合、末尾の "/" を落とすことがある (実測済み)。この変数の
+;; ドキュメント例 (上記) はどれも末尾 "/" 付きなので、単純な文字列連結で
+;; 確実に付けておく。
 (or (boundp '*backup-directory*)
-    (setq *backup-directory* nil))
+    (setq *backup-directory*
+	  (concat (user-config-path) ".xyzzy.d/backup/")))
 
 (or (boundp '*hierarchic-backup-directory*)
-    (setq *hierarchic-backup-directory* nil))
+    (setq *hierarchic-backup-directory* t))
 
 (or (boundp '*auto-save-to-backup-directory*)
     (setq *auto-save-to-backup-directory* nil))

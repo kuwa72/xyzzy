@@ -402,3 +402,7 @@
 
 (export 'show-dexplorer)
 (autoload 'show-dexplorer "dexplorer" t)
+
+(export '(isearch-forward isearch-backward))
+(autoload 'isearch-forward "isearch" t)
+(autoload 'isearch-backward "isearch" t)

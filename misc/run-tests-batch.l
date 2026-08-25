@@ -186,19 +186,21 @@
               (format *standard-output*
                       "=== Loading tests from ~A ===~%" unittest-dir)
               (format *standard-output* "=== Excluding: ~{~A~^ ~} ===~%" *batch-exclude*)
-              (handler-case
-                  (dolist (f (sort (directory unittest-dir
-                                             :absolute t :wild "*-tests.l")
-                                   #'string-lessp))
-                    (if (batch-excluded-p (file-namestring f))
-                        (progn
-                          (push (file-namestring f) *batch-excluded*)
-                          (format *standard-output* "  ~A [SKIPPED]~%" f))
-                      (progn
-                        (format *standard-output* "  ~A~%" f)
-                        (load-test-file f))))
-                (condition (e)
-                  (format *standard-output* "ERROR loading tests: ~A~%" e)))
+              ;; Each file gets its own handler-case: one broken *-tests.l must
+              ;; not take every alphabetically-later file down with it silently.
+              (dolist (f (sort (directory unittest-dir
+                                          :absolute t :wild "*-tests.l")
+                                #'string-lessp))
+                (if (batch-excluded-p (file-namestring f))
+                    (progn
+                      (push (file-namestring f) *batch-excluded*)
+                      (format *standard-output* "  ~A [SKIPPED]~%" f))
+                  (progn
+                    (format *standard-output* "  ~A~%" f)
+                    (handler-case
+                        (load-test-file f)
+                      (condition (e)
+                        (format *standard-output* "ERROR loading ~A: ~A~%" f e))))))
               ;; Also load foreign-test.l (named *-test.l not *-tests.l).
               ;; It goes through the same exclude check as the rest: it was the
               ;; one file a platform could not skip.

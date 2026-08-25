@@ -23,7 +23,7 @@
 # define M_PI 3.141592653589793
 #endif
 
-bool g_batch_mode = false;
+extern bool g_batch_mode;
 
 const wchar_t Application::ToplevelClassName[] = L"xyzzy_toplevel";
 const wchar_t Application::FrameClassName[] = L"  ";
@@ -1058,7 +1058,7 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
               print_condition (nonlocal_jump::data ());
             }
 
-          if (init_ok)
+          if (init_ok && !g_batch_mode)
             {
               start_listen_server ();
               Fset_cursor (xsymbol_value (Vcursor_shape));

@@ -82,6 +82,97 @@ xyzzy リリースノート
     ファイラ・セッション・辞書・電卓・ゲームなどの各種ツール、Common Lisp 互換や
     エディタ操作を支えるコアライブラリ、`lisp/wip/` 内のアウトラインツリーや
     TreeView などの拡張群を網羅して一覧化した。
+  * デフォルトインストール状態で現代的なエディタ体験を得られるよう「Sensible Defaults」
+    を導入した。
+    - バックアップファイル (`*~`) をカレントディレクトリではなく `~/.xyzzy.d/backup/`
+      にディレクトリ階層を維持して安全に自動隔離 (`*backup-directory*`,
+      `*hierarchic-backup-directory*` を既定で有効化)。
+    - 各ファイルのカーソル位置を自動記憶し、再オープン時に前回の編集位置へ復帰する
+      `saveplace` モジュール (`lisp/saveplace.l`) を標準装備。
+    - 直近に開いたファイルの一覧を管理し、`C-x C-r` でインクリメンタルに開ける
+      `recentf` モジュール (`lisp/recentf.l`) を標準装備。
+    - `backup`、`saveplace`、`recentf` を標準の起動ダンプ・ロード対象 (`lisp/loadup.l`)
+      に組み込み、設定ファイルなしの初期状態でも自動的に動作するようにした。
+  * Leader Key 操作体系および Which-key 的ミニバッファガイダンス (`lisp/leader.l`) を標準導入した。
+    - `M-m` または `C-c SPC` を押すことで、ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) が一覧表示され、キーボードだけで迷わず目的のコマンドを実行できるようになった。
+    - `leader-define-key` 関数により、ユーザーが独自の Leader キーシーケンスとラベルを簡単に追加可能。
+  * プロジェクト管理機能 (`lisp/project.l`) を標準導入した。
+    - Git リポジトリやマーカーファイル (`.git`, `CMakeLists.txt`, `package.json`, `Cargo.toml`, `go.mod` 等) からプロジェクトルートを自動検出。
+    - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
+    - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。
+    - `project-filer` (`Leader p d`): プロジェクトルートを起点にファイラを起動。
+    - `project-switch-project` (`Leader p p`): 過去に訪れたプロジェクト一覧から素早く切り替え。
+  * トグル式ターミナル連携および簡易 Git 支援 (`lisp/git.l`) を標準導入した。
+    - `toggle-terminal-drawer` (`Leader t t`): 画面下部にターミナル (`*Shell*`) をワンキーでトグル表示・格納。
+    - `git-status` (`Leader g s`): プロジェクトの変更状態一覧を `*git status*` に表示し、キー1つで差分確認 (`d`)・ログ表示 (`l`)・更新 (`g`)・ファイルオープン (`RET`) が可能。
+    - `git-diff` (`Leader g d`): プロジェクトまたはファイルの差分を `*git diff*` に表示。
+    - `git-log` (`Leader g l`): コミット履歴をグラフィカルに表示。
+    - `git-blame` (`Leader g b`): 現在のファイルの行ごとの変更者を一覧表示。
+  * バッチモード実行時 (`xyzzy-batch.exe`) に GUI イベントループ (`main_loop`) へ突入したり、バッファ保存確認ダイアログでプロセス終了がブロックされたりしていた不具合を修正し、コマンドライン・CI 上でのバッチコンパイルやスクリプト実行が確実に即座に終了するようにした。
+  * `misc/run-tests-batch.l` が `unittest/*-tests.l` の読み込みループ全体を1つの
+    `handler-case` で囲んでいたため、アルファベット順で早い1ファイルが読み込みに
+    失敗すると、それより後ろの全ファイル (`leader-tests.l`, `project-tests.l` を
+    含む) が黙って読み込まれずスキップされていた。実際に `unittest/git-tests.l`
+    が存在しない `"unittest"` モジュールを `require` していたため、この不具合が
+    誘発され、Leader Key・プロジェクト管理のテストが CI 上で一度も実行されない
+    まま「オールグリーン」を報告していた。ハンドラをファイル単位に分割し、
+    `assert-true`/`assert-equal`/`assert-false` を提供する
+    `unittest/test-helpers.l` を追加して `require "unittest"` を修正した。
+    あわせて、この経路が塞がっていたために発見されていなかった `lisp/project.l`
+    の実バグ (`(namestring (directory-namestring root))` が末尾の `/` を
+    落とし、`project-list-files` が相対パスの切り出しに失敗して
+    `project-find-file`/`project-grep` がプロジェクト直下ではなくファイル
+    システムのルート付近を走査してしまう) も修正した。
+  * `toggle-terminal-drawer` (`Leader t t`) が初回起動時にフリーズし、ターミナルが
+    一切開かなかった不具合を修正した。原因は `get-buffer-window` に、まだ存在しない
+    バッファ名の文字列 (`"*Shell*"`) をそのまま渡すとハングするという `get-buffer-window`
+    自体の挙動で、初回トグル時 (`*Shell*` バッファがまだ無い状態) に必ず踏んでいた。
+    `get-buffer-create` で存在を保証したバッファオブジェクトを渡すよう修正し、
+    `unittest/git-tests.l` に回帰テストを追加した。
+  * ミニバッファのファジー絞り込み (`lisp/fuzzy-complete.l`) を追加した。
+    `completing-read` には候補の絞り込み方をフックする手段が無いため、
+    `isearch.l`/`which-key-guide` と同じ手法 (`read-char` で1文字ずつ読み、
+    `minibuffer-prompt` でステータス行を都度書き換える) で独自のインクリメンタル
+    絞り込みループを実装した。文字を打った順番どおりに含まれていれば連続で
+    なくても候補に残り (`fuzzy-score`/`fuzzy-filter`)、パスの場合はファイル名
+    部分を優先してスコアリングする。`project-find-file`・`project-switch-project`
+    (`Leader p f` / `Leader p p`) の絞り込みに使用。`C-n`/`C-p`/`TAB` で候補間を
+    移動できる。
+  * `project-find-file`/`project-grep` が、プロジェクト直下の `lisp/`・`docs/`・
+    `src/` などドット無しの名前のディレクトリへ実質降りて行けず、ごく一部の
+    ファイルしか見つけられていなかった不具合を修正した。原因は
+    `project-collect-files-recursive` が `directory` の `:wild "*.*"` で
+    サブディレクトリを列挙していたこと。「ドットを含まない名前にもマッチ
+    するか」が環境によって違い (Wine 上ではマッチせず走査がほぼ空振りする
+    一方、実 Windows の `FindFirstFile` の古い互換仕様ではマッチしてしまう)、
+    挙動が toolchain 依存で信頼できなかった。`:wild` をやめ、`directory`
+    自身の `:recursive t` + `:test` (ディレクトリに対して nil を返すとその
+    配下ごと無視される) に一括で任せる形に書き換えた。
+  * `project-current-root`/`project-find-file` が、実際にはプロジェクト
+    ルート配下にいるにもかかわらず正しく検出できず、1階層上や無関係な
+    親ディレクトリを誤って返すことがあった不具合を修正した。原因は
+    `project-find-root-directory` が `(truename start-dir)` の結果を
+    `directory-namestring` にそのまま通していたこと。`truename` は末尾の
+    `/` を落とすことがあり (実測済み)、その結果を渡すとディレクトリで
+    あっても最後のディレクトリ名をファイル名と誤認し、1階層上から探索を
+    始めてしまう。`file-directory-p` で判定し、ディレクトリなら末尾 `/`
+    を補うだけにするよう修正した。**この不具合は MSVC (x86/x64/ARM64 の
+    いずれも) の CI で `unittest/project-tests.l` 実行中にハング/メモリ
+    不足/タイムアウトする形で発現しており、修正により解消した** (Wine 上
+    では単に間違った — が偶然辻褄が合うことが多い — 結果を返すだけで
+    済んでいたため、これまで発覚していなかった)。回帰テスト
+    `test-project-root-detection-exact-directory` を追加した。
+  * `*backup-directory*` の既定値が末尾の `/` を欠いた状態で設定されていた
+    不具合を修正した。`merge-pathnames` は、第1引数がそれ自体 `/` を含む
+    複数階層のパスで末尾も `/` の場合、末尾の `/` を落とすことがある (実測
+    済み)。`lisp/backup.l` 自身のドキュメント例は末尾 `/` 付きの値を前提と
+    しており、単純な文字列連結に置き換えて確実に `/` を付けるようにした。
+    `unittest/defaults-tests.l` にも回帰テストを追加した。
+  * 32bit (x86) ビルドの `xyzzy`/`xyzzy-batch`/`xyzzy-cli` に MSVC の
+    `/LARGEADDRESSAWARE` リンカオプションを追加した。link.exe はこれを
+    既定で付けない (mingw/lld は既定で付ける) ため、WOW64 上で使える
+    アドレス空間が既定では実質 2GB に制限されている。4GB まで使えるように
+    しておく (64bit ビルドでは既定で有効なので無害)。
   * ターミナルバッファで、エディタ側に取られたキーをターミナルの中のアプリへ
     そのまま渡す `terminal-send-next-key` (`C-c C-q`) を足した。ターミナルの
     キーは `*terminal-map*` にあるものだけがエディタへ行き、残りは全部 pty へ

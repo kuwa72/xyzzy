@@ -949,7 +949,12 @@ target_link_libraries(xyzzy PRIVATE ${XYZZY_LINK_LIBS})
 if(NOT MSVC)
     target_link_options(xyzzy PRIVATE -static -Wl,--stack,0x2000000)
 else()
-    target_link_options(xyzzy PRIVATE /STACK:0x2000000 /MANIFEST:NO)
+    # /LARGEADDRESSAWARE: on 32-bit (x86), doubles the usable address space
+    # from ~2GB to ~4GB under WOW64. link.exe does not set this by default
+    # (unlike mingw/lld, which does) -- without it, a large project-find-file
+    # scan on a real project can exhaust the 32-bit process's address space.
+    # A no-op for x64/ARM64, where it is already the default.
+    target_link_options(xyzzy PRIVATE /STACK:0x2000000 /MANIFEST:NO /LARGEADDRESSAWARE)
 endif()
 
 # Resource file (windres needs -I, not -iquote, for include paths)
@@ -977,7 +982,8 @@ target_link_libraries(xyzzy-batch PRIVATE ${XYZZY_LINK_LIBS})
 if(NOT MSVC)
     target_link_options(xyzzy-batch PRIVATE -static -Wl,--stack,0x2000000)
 else()
-    target_link_options(xyzzy-batch PRIVATE /STACK:0x2000000 /MANIFEST:NO)
+    # See the xyzzy target above for why /LARGEADDRESSAWARE is here.
+    target_link_options(xyzzy-batch PRIVATE /STACK:0x2000000 /MANIFEST:NO /LARGEADDRESSAWARE)
 endif()
 if(CMAKE_RC_COMPILER)
     target_sources(xyzzy-batch PRIVATE ${WIN32_DIR}/xyzzy.rc)
@@ -1024,7 +1030,8 @@ if(WIN32)
             target_link_options(xyzzy-cli PRIVATE -Wl,--error-limit=0)
         endif()
     else()
-        target_link_options(xyzzy-cli PRIVATE /STACK:0x2000000)
+        # See the xyzzy target above for why /LARGEADDRESSAWARE is here.
+        target_link_options(xyzzy-cli PRIVATE /STACK:0x2000000 /LARGEADDRESSAWARE)
     endif()
 else()
     target_link_libraries(xyzzy-cli PRIVATE

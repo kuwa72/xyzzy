@@ -1,0 +1,111 @@
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
+;;;
+;;; Tests for Project Management (project.l)
+;;;
+
+(unless (member "test-helpers" *modules* :test #'string=)
+  (load-file (merge-pathnames "test-helpers.l" (directory-namestring *load-pathname*))))
+(require "leader")
+(require "project")
+
+(in-package "editor")
+
+(defun test-project-root-detection ()
+  ;; 現在のリポジトリルート（CMakeLists.txt や .git がある）を正しく検出できるか
+  (let ((root (project-current-root (si:system-root))))
+    (assert-true (stringp root))
+    (assert-true (file-exist-p (merge-pathnames "CMakeLists.txt" root)))))
+
+(defun test-project-remember-list ()
+  (let ((*project-list* nil))
+    (project-remember-project "Z:/work/")
+    (project-remember-project "Z:/foo/bar/")
+    (assert-equal 2 (length *project-list*))
+    ;; 重複追加の防止
+    (project-remember-project "Z:/work/")
+    (assert-equal 2 (length *project-list*))
+    (assert-equal "Z:/work/" (car *project-list*))))
+
+;; test-project-list-files 用のフィクスチャ。以前はリポジトリ全体
+;; (2000+ファイル) を直接対象にしていたが、32bit MSVC の CI で
+;; project-list-files がリポジトリ全体を正しく (=以前より遥かに多く)
+;; 見つけるようになった際にメモリ不足でクラッシュした。project-list-files
+;; の再帰・除外ロジックを検証するのに巨大な対象は不要なので、専用の
+;; 小さなディレクトリに切り出す。
+(defun project-test-fixture-root ()
+  ;; merge-pathnames は、第1引数がそれ自体 "/" を含む複数階層のパスで
+  ;; 末尾も "/" の場合、末尾の "/" を落とすことがある (実測済み)。単純な
+  ;; 文字列連結ならその心配が無いので concat を使う。
+  (concat (si:system-root) "unittest/data/project-fixture/"))
+
+(defun project-test-fixture-write (path content)
+  (with-open-file (s path :direction :output :if-exists :supersede)
+    (princ content s)))
+
+(defun project-test-fixture-setup ()
+  (let* ((root (project-test-fixture-root))
+	 (sub (concat root "sub/"))
+	 (ignored (concat root "node_modules/")))
+    (unless (file-directory-p root) (create-directory root))
+    (unless (file-directory-p sub) (create-directory sub))
+    (unless (file-directory-p ignored) (create-directory ignored))
+    (project-test-fixture-write (merge-pathnames ".project" root) "marker")
+    (project-test-fixture-write (merge-pathnames "a.txt" root) "a")
+    (project-test-fixture-write (merge-pathnames "b.txt" sub) "b")
+    (project-test-fixture-write (merge-pathnames "ignored.txt" ignored) "ignored")
+    root))
+
+(defun project-test-fixture-teardown ()
+  (let ((root (project-test-fixture-root)))
+    (when (file-directory-p root)
+      (dolist (f (directory root :recursive t :file-only t :absolute t))
+	(delete-file f :if-does-not-exist :skip))
+      ;; 深い方から消さないと空でないディレクトリの削除に失敗する。
+      (dolist (d (sort (directory root :recursive t :directory-only t :absolute t)
+			#'>  :key #'(lambda (p) (length (namestring p)))))
+	(delete-directory d :if-does-not-exist :skip))
+      (delete-directory root :if-does-not-exist :skip))))
+
+(defun test-project-root-detection-exact-directory ()
+  ;; project-current-root にディレクトリを渡したとき、そのディレクトリ
+  ;; 自身がマーカーを持っていれば「そこ」を返すこと。
+  ;; truename が末尾の "/" を落とし、それをそのまま directory-namestring
+  ;; に通すと最後のディレクトリ名をファイル名と誤認して1階層上から探索が
+  ;; 始まってしまう回帰バグの検出用 (この場合、1階層上の "unittest/data/"
+  ;; にはマーカーが無いのでさらに上まで登り、xyzzy リポジトリ自身の
+  ;; ルートを誤って返してしまっていた)。
+  (unwind-protect
+      (let* ((root (project-test-fixture-setup))
+	     (detected (project-current-root root)))
+	(assert-equal (directory-namestring root) detected))
+    (project-test-fixture-teardown)))
+
+(defun test-project-list-files ()
+  (unwind-protect
+      (let* ((root (project-test-fixture-setup))
+	     (files (project-list-files root)))
+	(assert-true (consp files))
+	(assert-true (member ".project" files :test #'string-equal))
+	(assert-true (member "a.txt" files :test #'string-equal))
+	(assert-true (member "sub/b.txt" files :test #'string-equal))
+	;; *project-ignored-directories* 配下 (node_modules) は無視されるか
+	(assert-false (some #'(lambda (f) (string-match "^node_modules/" f)) files)))
+    (project-test-fixture-teardown)))
+
+(defun test-project-leader-bindings ()
+  (assert-equal 'project-find-file (lookup-keymap *leader-project-map* #\f))
+  (assert-equal 'project-grep (lookup-keymap *leader-project-map* #\g))
+  (assert-equal 'project-filer (lookup-keymap *leader-project-map* #\d))
+  (assert-equal 'project-open-terminal (lookup-keymap *leader-project-map* #\t))
+  (assert-equal 'project-switch-project (lookup-keymap *leader-project-map* #\p)))
+
+(defun run-project-unit-tests ()
+  (format t "Running project unit tests...~%")
+  (test-project-root-detection)
+  (test-project-root-detection-exact-directory)
+  (test-project-remember-list)
+  (test-project-list-files)
+  (test-project-leader-bindings)
+  (format t "All project unit tests PASSED.~%"))
+
+(run-project-unit-tests)

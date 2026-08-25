@@ -13,8 +13,9 @@
 #
 # The suite is watched from out here as well as from inside: a test that wedges
 # the process (a modal dialog, a blocking read) cannot be timed out by the lisp
-# driver, because that only fires while the message loop is being pumped.
 set -eu
+
+trap 'wineserver -k 2>/dev/null || true' EXIT
 
 arch=${1:-x86_64}
 shift || true

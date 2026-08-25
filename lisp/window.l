@@ -9,7 +9,9 @@
 
 (export '(count-windows pop-to-buffer other-window move-previous-window
 	  *pop-up-windows* display-buffer
-	  split-window-vertically shrink-window
+	  split-window-vertically split-window-horizontally
+	  split-window-below split-window-right
+	  shrink-window
 	  enlarge-window-horizontally shrink-window-horizontally
 	  pos-visible-in-window-p recenter
 	  *window-flag-line-number* *window-flag-ruler*
@@ -27,7 +29,7 @@
 	  toggle-vscroll-bar toggle-hscroll-bar
 	  toggle-eof toggle-mode-line toggle-function-bar
 	  toggle-fold-mark toggle-fold-line toggle-cursor-line
-	  toggle-half-width-space
+	  toggle-half-width-space toggle-truncate-lines
 	  buffer-fold-width
 	  split-window-menu-update
 	  close-window-menu-update
@@ -125,6 +127,22 @@
   (other-window (- arg) (null f)))
 
 (defun split-window-vertically (&optional arg)
+  "ウィンドウを左右に分割する (縦線で分割)。"
+  (interactive "p")
+  (split-window arg t))
+
+(defun split-window-horizontally (&optional arg)
+  "ウィンドウを上下に分割する (横線で分割)。"
+  (interactive "p")
+  (split-window arg nil))
+
+(defun split-window-below (&optional arg)
+  "ウィンドウを上下に分割する。"
+  (interactive "p")
+  (split-window arg nil))
+
+(defun split-window-right (&optional arg)
+  "ウィンドウを左右に分割する。"
   (interactive "p")
   (split-window arg t))
 
@@ -231,6 +249,11 @@
 (defun toggle-fold-line (&optional (arg nil sv))
   (interactive "p")
   (toggle-window-flag *window-flag-fold-line* arg sv))
+
+(defun toggle-truncate-lines (&optional (arg nil sv))
+  "行の折り返し表示/切り詰め表示を切り替える (toggle-fold-line のエイリアス)。"
+  (interactive "p")
+  (toggle-fold-line arg sv))
 
 (defun toggle-fold-mark (&optional (arg nil sv))
   (interactive "p")
