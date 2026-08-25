@@ -577,6 +577,21 @@ ccf_from_lc (lChar lc)
   return result;
 }
 
+/* mouse.cc / ncurses-*.cc は CCF_LBTNDOWN 等 (旧 Char encoding、必要なら
+   CCF_SHIFT_BIT / CCF_CTRL_BIT も OR 済み) に LCHAR_MOUSE (= kind field の
+   MOUSE 値) を素の `|` で重ねて queue に積む。kind field は CHAR/FNKEY/
+   MOUSE/IME のどれか一つを表す値なので、この生値は「新 encoding の
+   完全な lChar」でも「16bit に収まる旧 Char」でもない中間形態になり、
+   normalize_for_keymap や char_mouse_move_p の判定をすり抜けて
+   キーマップ検索が引けなくなる (マウスクリックがバッファに一切効かない)。
+   ここで旧 Char 部分 (payload に無傷で残っている) を取り出し、通常の
+   lc_from_ccf 変換に通して正規の lChar (kind=FNKEY) に直す。 */
+inline lChar
+lc_from_raw_mouse (lChar lc)
+{
+  return lc_from_ccf (Char (LCHAR_PAYLOAD (lc)));
+}
+
 inline int
 base64_decode (int c)
 {

@@ -40,6 +40,8 @@ Fmake_sparse_keymap ()
 static inline lChar
 normalize_for_keymap (lChar lc)
 {
+  if (LCHAR_KIND (lc) == LCKIND_MOUSE)
+    return lc_from_raw_mouse (lc);
   if (!(lc & ~lChar (0xFFFF)))
     return lc_from_ccf (Char (lc));
   return lc;
