@@ -76,6 +76,8 @@ docker_run() {
     -v "$ROOT":/work \
     -v xyzzy-wine64:/wine \
     -v xyzzy-wine32:/wine32 \
+    -v xyzzy-ccache:/ccache \
+    -e "CCACHE_DIR=/ccache/$ARCH" \
     -e XYZZY_ARCH \
     -e XYZZY_TEST_TIMEOUT \
     -e XYZZY_TEST_STALL \
@@ -106,7 +108,9 @@ case "$cmd" in
   configure)
     docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
       -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
-      -DCMAKE_BUILD_TYPE=Release "$@"
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
     ;;
   build)
     docker_run cmake --build "/work/_build/$ARCH" "$@"
