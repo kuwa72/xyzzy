@@ -263,3 +263,17 @@ xyzzy リリースノート
     再入的に呼び出しうる (Lisp 評価系がエラーの unwind 途中で不安定な
     状態のまま突入することになる)。`MessageBox` と同じく、表示中は
     オーナーを `EnableWindow` で無効化し、閉じる際に戻すようにした。
+  * win32 版で、普通の編集バッファに対する左/右/中クリックが一切効かなくなって
+    いた (カーソル移動もしない、範囲選択もできない、右クリックメニューも出ない)
+    不具合を修正した。ホイールと ConPTY ターミナルへのマウス転送は無事だった
+    ので、原因の特定に手間取った。2026-08-21 の BMP 外文字対応 (`LCHAR_MOUSE`
+    を payload 領域と衝突する `0x10000` から kind field 側の値 `LCKIND_MOUSE`
+    へ移した変更) 以降、`mouse.cc` が組み立てる「`CCF_LBTNDOWN` 等 (旧 Char
+    encoding) に `LCHAR_MOUSE` を素の `|` で重ねた値」は、kind field が
+    CHAR でも FNKEY でもない中間形態になっていた。キーマップ検索の
+    `normalize_for_keymap`/`full_keymap_index` (`keymap.cc`) はこの中間形態を
+    知らず常にバインディング無しを返すため、`*global-keymap*` の
+    `#\LBtnDown` → `mouse-left-press` 等が一切引けなくなっていた。旧 Char 部分
+    (payload に無傷で残っている) を取り出して通常の `lc_from_ccf` 変換に通す
+    `lc_from_raw_mouse` を追加し、キーマップ検索とプレフィックスキー入力中の
+    マウス移動判定 (`char_mouse_move_p`) の両方に適用した。

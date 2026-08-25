@@ -109,9 +109,11 @@ g_map_finished_p ()
 int
 char_mouse_move_p (lChar lc)
 {
-  /* 旧 Char (CCF_MOUSEMOVE = 0xff09 系) と新 lChar (LCKEY_MOUSEMOVE) の
-     両形式に対応。cmdloop 呼び出し側が完全に新 encoding 化するまで
-     後方互換を保持 */
+  /* 旧 Char (CCF_MOUSEMOVE = 0xff09 系)、mouse.cc が LCHAR_MOUSE を素の
+     `|` で重ねた中間形態、新 lChar (LCKEY_MOUSEMOVE) の三形式に対応。
+     cmdloop 呼び出し側が完全に新 encoding 化するまで後方互換を保持 */
+  if (LCHAR_KIND (lc) == LCKIND_MOUSE)
+    lc = lc_from_raw_mouse (lc);
   if (!(lc & ~lChar (0xFFFF)))
     {
       Char cc = Char (lc);
