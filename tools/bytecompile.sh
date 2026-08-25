@@ -28,6 +28,8 @@ done
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=$root/_build/$arch
+# shellcheck source=lc-stale.sh
+. "$root/tools/lc-stale.sh"
 
 case $arch in
   i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
@@ -41,25 +43,14 @@ esac
 [ -x "$build/xyzzy-batch.exe" ] || {
   echo "bytecompile.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
 
-# The .lc files are not interchangeable between the targets.  The reader decides
-# pointer widths while compiling (#+:64bit in lisp/foreign.l), so a library
-# compiled by the 64 bit build makes the 32 bit one read every pointer as 8
-# bytes: nothing complains at load time, the FFI just hands out garbage and the
-# process dies.  They live in the shared source tree, so leave a stamp saying
-# which target wrote them and recompile when it is the wrong one.
-stamp=$root/lisp/.bytecompile-arch
-if [ "$force" = no ] && [ -f "$root/lisp/startup.lc" ]; then
-  if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$arch" ]; then
-    echo "bytecompile.sh: lisp/*.lc are already there and were built for $arch, nothing to do"
-    exit 0
-  fi
-  if [ -f "$stamp" ]; then
-    echo "bytecompile.sh: lisp/*.lc were built for $(cat "$stamp"), recompiling for $arch"
-  else
-    echo "bytecompile.sh: lisp/*.lc are there but nothing says which target built them, recompiling for $arch"
-  fi
-  find "$root/lisp" -name '*.lc' -delete
-  rm -f "$stamp"
+# .lc is portable bytecode: lisp/foreign.l resolves pointer-width-dependent C
+# types from the *loading* process's own *features*, not from whichever exe
+# compiled it.  So there is no "wrong target" case to detect here any more,
+# only per-file staleness against the current sources.
+stale=$(stale_files)
+if [ "$force" = no ] && [ -z "$stale" ]; then
+  echo "bytecompile.sh: lisp/*.lc are already up to date, nothing to do"
+  exit 0
 fi
 
 # A dump image holds absolute addresses from the binary that wrote it.
@@ -68,6 +59,15 @@ rm -f "$build/xyzzy-batch.wxp"
 unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$root
 cd "$root"
+
+if [ "$force" = yes ]; then
+  export XYZZY_BYTECOMPILE_FORCE=1
+else
+  # Recompile only what stale_files() above found stale; the rest keep
+  # their existing .lc.  misc/bytecompile-batch.l reads this and passes
+  # force-recompile on to makelc:compile-files accordingly.
+  unset XYZZY_BYTECOMPILE_FORCE
+fi
 
 log=$build/bytecompile-output.txt
 echo "bytecompile.sh: byte compiling the lisp library ($arch)..."
@@ -101,14 +101,7 @@ echo "bytecompile.sh: $count .lc file(s) present"
 # those .lc existed, this script called it a success.  A Lisp change could sit
 # undeployed for hours that way.  Check the thing we actually care about:
 # no .l may be newer than its .lc.
-# lisp/wip/ は makelc も対象外にしている (作業中で require されておらず、
-# コンパイラがスタックを溢れさせる)。検査からも外す。
-stale=$(find "$root/lisp" -name '*.l' -not -path '*/wip/*' -print | while read -r l; do
-          lc=${l%.l}.lc
-          if [ ! -f "$lc" ] || [ "$l" -nt "$lc" ]; then
-            echo "  $l"
-          fi
-        done)
+stale=$(stale_files)
 if [ -n "$stale" ]; then
   echo "bytecompile.sh: these .l are newer than their .lc:" >&2
   echo "$stale" >&2
@@ -122,5 +115,3 @@ fi
   echo "bytecompile.sh: no .lc files were produced (xyzzy-batch exit $status)" >&2
   exit 1
 }
-
-echo "$arch" > "$stamp"

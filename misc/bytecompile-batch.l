@@ -30,7 +30,9 @@
                                                  :if-exists :append)
                                 (format s "[~D] ~A~%" count filename))
                               (funcall orig filename encoding))))
-                  (funcall (read-from-string "makelc:makelc-and-exit") t))
+                  (funcall (read-from-string "makelc:makelc-and-exit")
+                           (let ((force (si:getenv "XYZZY_BYTECOMPILE_FORCE")))
+                             (and force (not (string= force "")) t))))
               (condition (e)
                 (with-open-file (s logfile :direction :output
                                    :if-exists :append)

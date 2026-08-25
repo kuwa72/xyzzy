@@ -20,15 +20,19 @@ trap 'wineserver -k 2>/dev/null || true' EXIT
 arch=${1:-x86_64}
 shift || true
 
+bytecompile=no
 for arg in "$@"; do
   case $arg in
-    --bytecompile|--no-bytecompile) ;;
+    --bytecompile) bytecompile=yes ;;
+    --no-bytecompile) bytecompile=no ;;
     *) echo "run-tests.sh: unknown option $arg" >&2; exit 2 ;;
   esac
 done
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=$root/_build/$arch
+# shellcheck source=lc-stale.sh
+. "$root/tools/lc-stale.sh"
 
 case $arch in
   i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
@@ -44,16 +48,20 @@ esac
 [ -x "$build/xyzzy-batch.exe" ] || {
   echo "run-tests.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
 
-# The byte compiled library is not interchangeable between the targets: the
-# reader decides pointer widths while compiling (#+:64bit in lisp/foreign.l), so
-# a library compiled by the 64 bit build makes the 32 bit one read every pointer
-# as 8 bytes.  Nothing complains at load time; the FFI just starts handing out
-# garbage and the process dies somewhere in foreign-test.l.  The .lc files sit in
-# the source tree and are shared, so check the stamp bytecompile.sh leaves.
-stamp=$root/lisp/.bytecompile-arch
-if [ -f "$stamp" ] && [ "$(cat "$stamp")" != "$arch" ]; then
-  echo "run-tests.sh: lisp/*.lc were byte compiled for $(cat "$stamp"), not $arch." >&2
-  echo "run-tests.sh: run \"tools/x bytecompile $arch --force\" first." >&2
+if [ "$bytecompile" = yes ]; then
+  "$root/tools/bytecompile.sh" "$arch"
+fi
+
+# .lc is portable bytecode (lisp/foreign.l resolves pointer-width-dependent C
+# types from the *loading* process's own *features*), so there is no "wrong
+# target" case to check for here, only staleness: a .l newer than its .lc
+# means the FFI/struct-size/etc. tests below would be exercising whatever the
+# previous compile left behind, not the current source.
+stale=$(stale_files)
+if [ -n "$stale" ]; then
+  echo "run-tests.sh: these .l are newer than their .lc:" >&2
+  echo "$stale" >&2
+  echo "run-tests.sh: run \"tools/x bytecompile $arch\" first (or pass --bytecompile)." >&2
   exit 2
 fi
 
