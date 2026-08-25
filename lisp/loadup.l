@@ -68,6 +68,7 @@
 (si:*load-library "buf-menu") (gc)
 (si:*load-library "optprop") (gc)
 (si:*load-library "loptprop") (gc)
+(si:*load-library "color-theme") (gc)
 (si:*load-library "winhelp") (gc)
 (si:*load-library "edict") (gc)
 (si:*load-library "paths") (gc)

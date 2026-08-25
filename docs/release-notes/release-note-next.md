@@ -199,6 +199,34 @@ xyzzy リリースノート
     落とすと `0xF600` = `CCF_META` とぶつかるのでそのまま渡す。この経路は
     process が無いと呼べずテストが書けなかったので、`si:*terminal-key-for-test`
     も char を受けるようにして `unittest/terminal-tests.l` に固定した。
+  * カラーテーマ機能 (`lisp/color-theme.l`) を追加した。表示色の設定は
+    色ごとの個別変更 (ツール→ローカル設定→表示色) しか無く、Solarized や
+    Molokai のような公開配色を一括で当てはめる手段が無かった。
+    `set-buffer-colors` (`USER_DEFINABLE_COLORS`, 文字色・背景色・
+    キーワード1〜3・文字列・コメント・タグ・モード行など18色) が受け取る
+    ベクタとしてテーマを丸ごと持たせ、開いている全バッファと以後の新規
+    バッファ (`*Shell*` を含む) へ自動適用する。表示(V) メニューに
+    「カラーテーマ(&H)」を追加し、Solarized・Molokai・Gruvbox・Nord・
+    Dracula・One Dark/Light・Tomorrow Night・Catppuccin (Mocha/Latte/
+    Frappé/Macchiato)・Tokyo Night・Everforest・GitHub Dark・Ayu (Dark/
+    Light/Mirage)・Rosé Pine (Main/Moon/Dawn)・Night Owl・Oceanic Next・
+    Nightfox・Kanagawa・Cobalt2・Zenburn・VS Code Dark+ (いずれも MIT/BSD
+    ライセンスで配色値が公開されているもの、計30種、明暗ペアがあるものは
+    両方収録) を同梱した。選択したテーマは履歴 (`*current-color-theme*`)
+    として次回起動時にも復元される。`M-x set-color-theme`/`clear-color-theme`
+    でも切り替え可能。色の値は Windows の `COLORREF` が Web でよく見る
+    `#RRGGBB` と逆順 (`#BBGGRR`) であることに注意し、配色表の値をそのまま
+    書けるよう変換関数を1つ挟んである。`M-x select-color-theme` (表示(V)→
+    カラーテーマ→「プレビューして選択」) は専用バッファ `*Color Theme*` に
+    全30種を1行1件で並べる形にした。ミニバッファの絞り込みだと候補が
+    途中で切れて一覧性が無いための変更で、通常のカーソル移動・検索が
+    そのまま使える。カーソル行が変わるたびに `*post-command-hook*`
+    (`ts.l` のシンタックスハイライト再計算と同じ仕組み) でその行のテーマを
+    全バッファへ即座にプレビュー適用し、`RET` で確定、`q`/`C-g` でプレビュー
+    開始前の色に戻す。戻す際はテーマ名の再適用ではなくプレビュー直前に
+    控えた各バッファの生の色を復元するので、ディレクトリ単位の個別設定
+    (ローカル設定→表示色) が乗ったバッファもプレビューキャンセルで正しく
+    元に戻る。
   * ターミナルバッファで `S-PageUp`/`S-PageDown` のスクロールバックと
     `S-Insert` の貼り付けが効いていなかったのを直した。キーを pty へ流すか
     エディタへ渡すかの判定で `*terminal-map*` を引くとき、lChar を下位 16bit に
