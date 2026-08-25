@@ -12,13 +12,13 @@
 # $USER made the script try to mkdir a second user directory under
 # /mnt/c/Users, which is not writable.
 #
-# Why a script: the .lc files are architecture dependent (pointer width is
-# baked in at byte compile time) and CPack installs them from the *shared*
-# source tree, so a package only ships a matching set if bytecompile and
-# package run back to back for the same arch.  Doing that by hand once per
-# arch is how an amd64 zip ends up with i686 .lc in it.  Byte compiling also
-# has to be forced: bytecompile.sh only looks at the arch stamp, never at
-# whether a .l is newer than its .lc.
+# Why a script: this packages both architectures, and swapping the deployed
+# folder needs care (see below) so a partial deploy never looks like a
+# working install.  The .lc files sit in the *shared* source tree and are
+# portable between i686/x86_64 (lisp/foreign.l resolves pointer width from
+# *features* at load time, not at compile time -- see lisp/foreign.l and
+# tools/bytecompile.sh), so one arch's build byte compiles the lot, forced,
+# and both packages ship that same set.
 set -euo pipefail
 
 # Resolve DEST before cd, so a relative argument means what the caller meant.
@@ -79,12 +79,16 @@ version=$(sed -n 's/^project(.*VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt | head
 # arch -> name used in the deployed directory and the zip
 declare -A label=([x86_64]=amd64 [i686]=x86)
 
+bytecompiled=0
 for arch in x86_64 i686; do
   name=${label[$arch]}
   echo "### $arch -> xyzzy-$name"
 
   tools/x build "$arch"
-  tools/x bytecompile "$arch" --force
+  if [ "$bytecompiled" = 0 ]; then
+    tools/x bytecompile "$arch" --force
+    bytecompiled=1
+  fi
   tools/x build "$arch" --target package
 
   zip=$root/_build/$arch/xyzzy-$version.zip
@@ -131,18 +135,17 @@ for arch in x86_64 i686; do
 
   cp "$zip" "$dest/xyzzy-$version-$sha-llvmmingw-$name.zip"
 
-  # A mismatched .lc set is silent at run time until something breaks oddly,
-  # so say out loud what went out.
-  stamp=$(cat "$out/lisp/.bytecompile-arch" 2>/dev/null || echo "MISSING")
-  printf '  %-12s exe=%s xyzzyenv=%s xyzzycli=%s lc=%s stamp=%s\n' \
+  # A missing binary or an empty .lc set is silent until something breaks
+  # oddly later, so say out loud what went out.
+  lc=$(ls "$out"/lisp/*.lc 2>/dev/null | wc -l)
+  printf '  %-12s exe=%s xyzzyenv=%s xyzzycli=%s lc=%s\n' \
     "xyzzy-$name" \
     "$([ -f "$out/xyzzy.exe" ] && echo yes || echo NO)" \
     "$([ -f "$out/xyzzyenv.exe" ] && echo yes || echo NO)" \
     "$([ -f "$out/xyzzycli.exe" ] && echo yes || echo NO)" \
-    "$(ls "$out"/lisp/*.lc 2>/dev/null | wc -l)" \
-    "$stamp"
-  if [ "$stamp" != "$arch" ]; then
-    echo "deploy: .lc stamp says '$stamp' but this is $arch" >&2
+    "$lc"
+  if [ "$lc" -eq 0 ]; then
+    echo "deploy: $out/lisp has no .lc files" >&2
     exit 1
   fi
 done
