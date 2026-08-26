@@ -907,7 +907,7 @@ Fmap_to_half_width_string (lisp string, lisp keys)
 
   /* Worst case: every fullwidth voiced kana becomes 2 halfwidth chars.           */
   safe_ptr <ucs4_t> s0 (new ucs4_t [xstring_length (string) * 2]);
-  bcopy (xstring_contents (string), s0, xstring_length (string));
+  memcpy (s0, xstring_contents (string), (xstring_length (string)) * sizeof (*(xstring_contents (string))));
   ucs4_t *s, *se;
   /* Forward pass: non-voiced fullwidth → halfwidth (in-place).                   */
   for (s = s0, se = s + xstring_length (string); s < se; s++)
@@ -971,7 +971,7 @@ Fmap_to_full_width_string (lisp string, lisp keys)
 
   int n = xstring_length (string);
   safe_ptr <ucs4_t> s0 (new ucs4_t [n]);
-  bcopy (xstring_contents (string), s0, n);
+  memcpy (s0, xstring_contents (string), (n) * sizeof (*(xstring_contents (string))));
 
   /* Forward pass: halfwidth → fullwidth (in-place; halfwidth ﾞ/ﾟ become ゛/゜).  */
   for (ucs4_t *s = s0, *se = s + n; s < se; s++)

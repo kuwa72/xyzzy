@@ -191,7 +191,7 @@ HFONT
 Sysdep::create_ui_font (int e)
 {
   LOGFONTW lf;
-  bzero (&lf, sizeof lf);
+  memset (&lf, 0, sizeof lf);
   lf.lfHeight = 12;
   lf.lfCharSet = SHIFTJIS_CHARSET;
   lf.lfEscapement = e;

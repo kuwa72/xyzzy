@@ -368,7 +368,7 @@ copy_into_vector (lisp vector, lisp sequences)
 
         case SEQ_VECTOR:
           l = min ((int)(ve - v), xvector_length (seq));
-          bcopy (xvector_contents (seq), v, l);
+          memcpy (v, xvector_contents (seq), (l) * sizeof (*(xvector_contents (seq))));
           v += l;
           break;
 
@@ -434,7 +434,7 @@ copy_into_string (lisp string, lisp sequences)
 
         case SEQ_STRING:
           l = min ((int)(se - s), xstring_length (seq));
-          bcopy (xstring_contents (seq), s, l);
+          memcpy (s, xstring_contents (seq), (l) * sizeof (*(xstring_contents (seq))));
           s += l;
           break;
         }
@@ -768,7 +768,7 @@ xdelete (test_proc &test, T *p, int start, int end, lisp from_end, int count, in
       int n = j - i;
       if (!n)
         return l;
-      bcopy (&p[j], &p[i], l - j);
+      memmove (&p[i], &p[j], (l - j) * sizeof (*(&p[j])));
       return l - n;
     }
 }

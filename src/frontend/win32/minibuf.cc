@@ -458,8 +458,8 @@ completion::complete_with_slash (lisp s, int igcase)
   if (stringp (s))
     {
       lisp d = make_string (xstring_length (s) + 1);
-      bcopy (xstring_contents (s), xstring_contents (d),
-             xstring_length (s));
+      memcpy (xstring_contents (d), xstring_contents (s),
+              xstring_length (s) * sizeof (*(xstring_contents (s))));
       xstring_contents (d)[xstring_length (s)] = '/';
       if (!do_completion (d, igcase))
         destruct_string (d);

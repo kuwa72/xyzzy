@@ -666,7 +666,7 @@ print_dialog::set_font ()
   update_font_size ();
 
   LOGFONTW lfw;
-  bzero (&lfw, sizeof lfw);
+  memset (&lfw, 0, sizeof lfw);
   wcscpy (lfw.lfFaceName, m_settings.ps_font[lang].face);
   HDC hdc = GetDC (m_hwnd);
   lfw.lfHeight = MulDiv (m_settings.ps_font[lang].point, GetDeviceCaps (hdc, LOGPIXELSY), 720);
@@ -677,7 +677,7 @@ print_dialog::set_font ()
     lfw.lfWeight = 700;
 
   CHOOSEFONTW cf;
-  bzero (&cf, sizeof cf);
+  memset (&cf, 0, sizeof cf);
   cf.lStructSize = sizeof cf;
   cf.hwndOwner = m_hwnd;
   cf.hDC = m_dev;

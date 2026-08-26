@@ -39,7 +39,7 @@ public:
   safe_vidl (IMalloc *ialloc_, ITEMIDLIST **idls_, int nidls_)
        : ialloc (ialloc_), idls (idls_), nidls (nidls_)
     {
-      bzero (idls, sizeof *idls * nidls);
+      memset (idls, 0, sizeof *idls * nidls);
     }
   ~safe_vidl ()
     {

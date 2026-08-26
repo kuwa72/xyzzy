@@ -1090,7 +1090,7 @@ print_omitted_array (wStream &stream, const print_control &pc,
     }
 
   int *subscripts = (int *)alloca (sizeof (int) * rank);
-  bzero (subscripts, sizeof (int) * rank);
+  memset (subscripts, 0, sizeof (int) * rank);
 
   int dim_n = xarray_dims (object) [rank - 1];
 
@@ -1150,7 +1150,7 @@ print_array (wStream &stream, const print_control &pc,
     }
 
   int *subscripts = (int *)alloca (sizeof (int) * xarray_rank (object));
-  bzero (subscripts, sizeof (int) * xarray_rank (object));
+  memset (subscripts, 0, sizeof (int) * xarray_rank (object));
 
   int dim_n = (!xarray_rank (object) ? 1
                : xarray_dims (object) [xarray_rank (object) - 1]);

@@ -2114,7 +2114,7 @@ write_stream (lisp stream, const ucs4_t *b, size_t size)
                 need = (need + 128) & ~127;
                 realloc_element (string, need - room, sizeof (ucs4_t));
               }
-            bcopy (b, &xstring_contents (string) [xstring_length (string)], size);
+            memcpy (&xstring_contents (string) [xstring_length (string)], b, size * sizeof (*b));
             xstring_length (string) += size;
             xstream_column (stream) = update_column (xstream_column (stream), b, size);
             return;

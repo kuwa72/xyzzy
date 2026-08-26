@@ -66,8 +66,7 @@ string_equal (lisp x, lisp y)
   assert (stringp (x));
   assert (stringp (y));
   return (xstring_length (x) == xstring_length (y)
-          && !bcmp (xstring_contents (x), xstring_contents (y),
-                    xstring_length (x)));
+          && !memcmp (xstring_contents (x), xstring_contents (y), (xstring_length (x)) * sizeof (*(xstring_contents (x)))));
 }
 
 int string_equalp (const ucs4_t *, int, const char *, int);

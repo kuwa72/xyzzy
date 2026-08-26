@@ -283,7 +283,7 @@ Fcopy_to_clipboard (lisp string)
     return Qnil;
 
   CLIPBOARDTEXT clp[2];
-  bzero (clp, sizeof clp);
+  memset (clp, 0, sizeof clp);
 #ifdef UNICODE
   if (!make_cf_wtext (clp[0], string))
     FEstorage_error ();

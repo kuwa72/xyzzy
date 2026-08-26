@@ -716,7 +716,7 @@ Fstring_equal (lisp x, lisp y, lisp keys)
 {
   const ucs4_t *p, *pe, *q, *qe;
   string_compare1 (x, y, keys, p, pe, q, qe);
-  return boole (pe - p == qe - q && !bcmp (p, q, pe - p));
+  return boole (pe - p == qe - q && !memcmp (p, q, (pe - p) * sizeof (*(p))));
 }
 
 lisp

@@ -1220,7 +1220,7 @@ text_data_object::Release ()
 STDMETHODIMP
 text_data_object::GetData (FORMATETC *etc, STGMEDIUM *medium)
 {
-  bzero (medium, sizeof *medium);
+  memset (medium, 0, sizeof *medium);
 
   if ((etc->cfFormat == CF_TEXT
        || etc->cfFormat == CF_UNICODETEXT

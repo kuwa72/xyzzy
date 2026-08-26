@@ -598,7 +598,7 @@ tab_bar::calc_tab_height ()
     }
 
   RECT r;
-  bzero (&r, sizeof r);
+  memset (&r, 0, sizeof r);
   adjust_rect (0, r);
   t_tab_height = inverse_p () ? -r.bottom : r.top;
   get_item_rect (0, r);

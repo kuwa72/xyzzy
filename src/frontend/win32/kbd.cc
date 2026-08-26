@@ -892,7 +892,7 @@ kbd_queue::copy_queue (Char *b0, int size) const
   int l = b0 + size - b;
   if (pending != lChar_EOF && l)
     l--;
-  bcopy (b, b0, l);
+  memcpy (b0, b, l * sizeof (*b));
   return l;
 }
 

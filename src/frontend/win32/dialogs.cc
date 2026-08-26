@@ -371,9 +371,9 @@ select_buffer_comparator::compare_buffer (LPARAM p1, LPARAM p2)
         return 1;
       /* Phase 3: ucs4 buffer 同士の比較。byte 数を sizeof(ucs4_t) で正規化。 */
       int d = (item == 2 || xsymbol_value (Vbuffer_list_sort_ignore_case) == Qnil
-               ? bcmp (xstring_contents (n1), xstring_contents (n2),
-                       sizeof (ucs4_t) * min (xstring_length (n1),
-                                              xstring_length (n2)))
+               ? memcmp (xstring_contents (n1), xstring_contents (n2),
+                         sizeof (ucs4_t) * min (xstring_length (n1),
+                                                xstring_length (n2)))
                : memicmp (xstring_contents (n1), xstring_contents (n2),
                           sizeof (ucs4_t) * min (xstring_length (n1),
                                                  xstring_length (n2))));
@@ -930,7 +930,7 @@ Ffile_name_dialog (lisp keys)
   map_sl_to_backsl_w (dir);
 
   OFN ofn;
-  bzero (&ofn, sizeof ofn);
+  memset (&ofn, 0, sizeof ofn);
 
   ofn.lStructSize = (sysdep.Win5p ()
                      ? OPENFILENAME_SIZE_VERSION_500
@@ -1176,7 +1176,7 @@ Fdirectory_name_dialog (lisp keys)
     }
 
   BROWSEINFOW bi;
-  bzero (&bi, sizeof bi);
+  memset (&bi, 0, sizeof bi);
   bi.hwndOwner = get_active_window ();
   bi.lpszTitle = ptitle;
   bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;

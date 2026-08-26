@@ -309,15 +309,6 @@ boole (void *x)
   return x ? Qt : Qnil;
 }
 
-/* srcからdstへsize個のLisp Objectをコピーする。
-   memcpyとはsrcとdstが逆なので注意。
-   BSDのbcopyともちょと違う。Char*用のbcopyもある。*/
-inline void
-bcopy (lisp *src, lisp *dst, size_t size)
-{
-  memcpy (dst, src, sizeof (lisp) * size);
-}
-
 # include "cons.h"
 # include "symbol.h"
 

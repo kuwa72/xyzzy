@@ -202,7 +202,7 @@ Fsi_copy_structure_data (lisp src)
   xstrdata_def (dst) = xstrdata_def (src);
   xstrdata_data (dst) = (lisp *)xmalloc (sizeof (lisp) * xstrdata_nslots (src));
   xstrdata_nslots (dst) = xstrdata_nslots (src);
-  bcopy (xstrdata_data (src), xstrdata_data (dst), xstrdata_nslots (dst));
+  memcpy (xstrdata_data (dst), xstrdata_data (src), (xstrdata_nslots (dst)) * sizeof (*(xstrdata_data (src))));
   return dst;
 }
 

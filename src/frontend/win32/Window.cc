@@ -374,11 +374,11 @@ Window::init (int minibufp, int temporary)
   w_last_bufp = 0;
   w_disp_flags = WDF_WINDOW | WDF_MODELINE;
   w_last_mark_linenum = -1;
-  bzero (&w_rect, sizeof w_rect);
-  bzero (&w_order, sizeof w_order);
-  bzero (w_last_vars, sizeof w_last_vars);
-  bzero (&w_clsize, sizeof w_clsize);
-  bzero (&w_ech, sizeof w_ech);
+  memset (&w_rect, 0, sizeof w_rect);
+  memset (&w_order, 0, sizeof w_order);
+  memset (w_last_vars, 0, sizeof w_last_vars);
+  memset (&w_clsize, 0, sizeof w_clsize);
+  memset (&w_ech, 0, sizeof w_ech);
   w_colors = default_colors;
   w_term_shadow = 0;
   w_term_shadow_rows = 0;
@@ -486,7 +486,7 @@ Window::Window (int minibufp, int temporary)
   w_flags = 0;
   w_last_flags = flags ();
 
-  bzero (&w_point, sizeof w_point);
+  memset (&w_point, 0, sizeof w_point);
   w_mark = NO_MARK_SET;
   w_last_point = 0;
   w_disp = 0;
@@ -3175,7 +3175,7 @@ wc_check_order (winconf *conf, int nwindows, const SIZE &sz)
   int ny = wc_calc_order (conf, nwindows, &RECT::top, &RECT::bottom, sz.cy);
   const int n = nx * ny;
   char *const f = (char *)alloca (n);
-  bzero (f, n);
+  memset (f, 0, n);
   for (int i = 0; i < nwindows; i++)
     for (int y = conf[i].order.top; y < conf[i].order.bottom; y++)
       for (int x = conf[i].order.left; x < conf[i].order.right; x++)

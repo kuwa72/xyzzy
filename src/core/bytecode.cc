@@ -738,11 +738,11 @@ ByteCode::xsave_multiple_value (lex_env &lex)
   multiple_value::value (0) = top ();
   multiple_value_data save;
   save.count = multiple_value::count ();
-  bcopy (multiple_value::data ()->values, save.values, save.count);
+  memcpy (save.values, multiple_value::data ()->values, (save.count) * sizeof (*(multiple_value::data ()->values)));
   protect_gc gcpro (save.values, save.count);
   int next_pc = fetch ();
   process (lex, bc_pc, next_pc);
-  bcopy (save.values, multiple_value::data ()->values, save.count);
+  memcpy (multiple_value::data ()->values, save.values, (save.count) * sizeof (*(save.values)));
   multiple_value::count () = save.count;
 }
 

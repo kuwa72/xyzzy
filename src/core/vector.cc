@@ -29,7 +29,7 @@ copy_vector (lisp src)
 {
   assert (general_vector_p (src));
   lisp vec = alloc_vector (xvector_length (src));
-  bcopy (xvector_contents (src), xvector_contents (vec), xvector_length (src));
+  memcpy (xvector_contents (vec), xvector_contents (src), (xvector_length (src)) * sizeof (*(xvector_contents (src))));
   return vec;
 }
 
@@ -58,7 +58,7 @@ subseq_vector (lisp vector, lisp lstart, lisp lend)
   int start, end;
   seq_start_end (xvector_length (vector), start, end, lstart, lend);
   lisp v = alloc_vector (end - start);
-  bcopy (xvector_contents (vector) + start, xvector_contents (v), end - start);
+  memcpy (xvector_contents (v), xvector_contents (vector) + start, (end - start) * sizeof (*(xvector_contents (vector) + start)));
   return v;
 }
 

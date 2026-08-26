@@ -118,44 +118,6 @@ swap (T &a, T &b)
   b = t;
 }
 
-inline int
-bcmp (const void *p1, const void *p2, size_t size)
-{
-  return memcmp (p1, p2, size);
-}
-
-#ifdef _WIN32
-inline void *
-bzero (void *dst, size_t size)
-{
-  return memset (dst, 0, size);
-}
-#endif
-
-inline void
-bcopy (const Char *src, Char *dst, size_t size)
-{
-  memcpy (dst, src, sizeof (Char) * size);
-}
-
-inline int
-bcmp (const Char *p1, const Char *p2, size_t size)
-{
-  return memcmp (p1, p2, sizeof (Char) * size);
-}
-
-inline void
-bcopy (const ucs4_t *src, ucs4_t *dst, size_t size)
-{
-  memcpy (dst, src, sizeof (ucs4_t) * size);
-}
-
-inline int
-bcmp (const ucs4_t *p1, const ucs4_t *p2, size_t size)
-{
-  return memcmp (p1, p2, sizeof (ucs4_t) * size);
-}
-
 template <class T>
 inline T *
 bfill (T *p0, int start, int end, T x)
