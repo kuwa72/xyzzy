@@ -482,7 +482,7 @@ completion::fix_match_len ()
         ;
     }
 
-  c_match_len = min (c_match_len, p - xstring_contents (c_item));
+  c_match_len = min (c_match_len, int (p - xstring_contents (c_item)));
 }
 
 void

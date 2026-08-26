@@ -13,6 +13,8 @@
 # include <stdlib.h>
 # include <stddef.h>
 # include <string.h>
+# include <algorithm>
+# include <utility>
 #ifdef _MSC_VER
 # include <mbstring.h>
 #endif
@@ -74,49 +76,9 @@ typedef long point_t;
 # undef max
 # define NOMINMAX
 
-template <class T>
-inline const T &
-min (const T &a, const T &b)
-{
-  return a < b ? a : b;
-}
-
-template <class T>
-inline const T &
-max (const T &a, const T &b)
-{
-  return a > b ? a : b;
-}
-
-inline char min (char a, char b) {return a < b ? a : b;}
-inline char max (char a, char b) {return a > b ? a : b;}
-inline u_char min (u_char a, u_char b) {return a < b ? a : b;}
-inline u_char max (u_char a, u_char b) {return a > b ? a : b;}
-inline short min (short a, short b) {return a < b ? a : b;}
-inline short max (short a, short b) {return a > b ? a : b;}
-inline u_short min (u_short a, u_short b) {return a < b ? a : b;}
-inline u_short max (u_short a, u_short b) {return a > b ? a : b;}
-inline int min (int a, int b) {return a < b ? a : b;}
-inline int max (int a, int b) {return a > b ? a : b;}
-inline u_int min (u_int a, u_int b) {return a < b ? a : b;}
-inline u_int max (u_int a, u_int b) {return a > b ? a : b;}
-inline long min (long a, long b) {return a < b ? a : b;}
-inline long max (long a, long b) {return a > b ? a : b;}
-inline u_long min (u_long a, u_long b) {return a < b ? a : b;}
-inline u_long max (u_long a, u_long b) {return a > b ? a : b;}
-inline float min (float a, float b) {return a < b ? a : b;}
-inline float max (float a, float b) {return a > b ? a : b;}
-inline double min (double a, double b) {return a < b ? a : b;}
-inline double max (double a, double b) {return a > b ? a : b;}
-
-template <class T>
-inline void
-swap (T &a, T &b)
-{
-  T t = a;
-  a = b;
-  b = t;
-}
+using std::min;
+using std::max;
+using std::swap;
 
 template <class T>
 inline T *

@@ -49,4 +49,16 @@ xyzzy リリースノート
     ncurses フロントエンドは Windows 向け CIではビルド対象外
     (`ncursesw` が無いと `xyzzy-ncurses` ターゲット自体が生成されない) の
     影響もあり見過ごされていたとみられる。
+  * `src/core/cdecl.h` の独自 `min`/`max`/`swap` (int/long/float 等の型別に
+    手書きしていたオーバーロード群) を削除し、`using std::min; using
+    std::max; using std::swap;` で標準ライブラリのものを使うようにした。
+    #16 ロードマップ Phase 1 の一環。呼び出し側は非修飾の `min (a, b)` の
+    ままで動くよう `using` 宣言でグローバルスコープに引き込む形にした
+    (数百箇所ある既存の呼び出しを `std::min (a, b)` へ書き換える必要が
+    無い)。独自版には `int`/`u_int`/`long` 等の具体的な型ごとの
+    非テンプレート版もあり、`enum` 定数と `int` を混ぜて呼ぶような箇所
+    (例: `max (MIN_WIDTH, w)`、`MIN_WIDTH` は無名 `enum`) は暗黙変換で
+    通っていた。`std::min`/`std::max` は完全な同型テンプレートしか
+    無いためこれらはコンパイルエラーになり、`tools/x build x86_64` で
+    洗い出した 12 箇所に `int (...)` 等の明示キャストを足した。
   *
