@@ -37,6 +37,83 @@
   => 3
   => "abc")
 
+(deftest find-clhs-examples ()
+  (values
+   (find #\d "here are some letters that can be looked at" :test #'char>)
+   (find-if #'oddp '(1 2 3 4 5) :end 3 :from-end t)
+   (find-if-not #'evenp #(1 3 4 6 8) :start 2))
+  => #\Space
+  => 3
+  => nil)
+
+(deftest find-test-not ()
+  ;; :test-not is the negation of :test: matches where (test-not item x)
+  ;; is false, so :test-not #'/= behaves like :test #'=.
+  (values
+   (find 4 '(1 2 4 1 3 4 5) :test-not #'/=)
+   (find 99 '(1 2 4 1 3 4 5) :test-not #'/=))
+  => 4
+  => nil)
+
+(deftest position-clhs-examples ()
+  (values
+   (position #\a "baobab" :from-end t)
+   (position-if #'oddp '((1) (2) (3) (4)) :start 1 :key #'car)
+   (position 595 '())
+   (position-if-not #'integerp '(1 2 3 4 5.0)))
+  => 4
+  => 2
+  => nil
+  => 4)
+
+(deftest position-test-not ()
+  (values
+   (position 4 '(1 2 4 1 3 4 5) :test-not #'/=)
+   (position 4 '(1 2 4 1 3 4 5) :test-not #'/= :from-end t))
+  => 2
+  => 5)
+
+(deftest remove-clhs-examples ()
+  (values
+   (remove 4 '(1 3 4 5 9))
+   (remove 4 '(1 2 4 1 3 4 5))
+   (remove 4 '(1 2 4 1 3 4 5) :count 1)
+   (remove 4 '(1 2 4 1 3 4 5) :count 1 :from-end t)
+   (remove 3 '(1 2 4 1 3 4 5) :test #'> )
+   (remove-if #'oddp '(1 2 4 1 3 4 5))
+   (remove-if #'evenp '(1 2 4 1 3 4 5) :count 1 :from-end t)
+   (remove-if-not #'evenp '(1 2 3 4 5 6 7 8 9) :count 2 :from-end t))
+  => (1 3 5 9)
+  => (1 2 1 3 5)
+  => (1 2 1 3 4 5)
+  => (1 2 4 1 3 5)
+  => (4 3 4 5)
+  => (2 4 4)
+  => (1 2 4 1 3 5)
+  => (1 2 3 4 5 6 8))
+
+(deftest remove-test-not ()
+  (values
+   (remove 4 '(1 2 4 1 3 4 5) :test-not #'/=)
+   (remove 99 '(1 2 4 1 3 4 5) :test-not #'/=))
+  => (1 2 1 3 5)
+  => (1 2 4 1 3 4 5))
+
+(deftest delete-clhs-examples ()
+  (values
+   (delete 4 (list 1 2 4 1 3 4 5))
+   (delete 4 (list 1 2 4 1 3 4 5) :count 1)
+   (delete 4 (list 1 2 4 1 3 4 5) :count 1 :from-end t)
+   (delete 3 (list 1 2 4 1 3 4 5) :test #'> )
+   (delete-if #'oddp (list 1 2 4 1 3 4 5))
+   (delete-if #'evenp (list 1 2 4 1 3 4 5) :count 1 :from-end t))
+  => (1 2 1 3 5)
+  => (1 2 1 3 4 5)
+  => (1 2 4 1 3 5)
+  => (4 3 4 5)
+  => (2 4 4)
+  => (1 2 4 1 3 5))
+
 (deftest remove-duplicates-nil-key (:compare equalp)
   (values
    (remove-duplicates '(1 2 1))
@@ -128,6 +205,30 @@
    (mismatch '(1 3) '(1 2 3) :key nil))
   => 1
   => 1)
+
+(deftest mismatch-clhs-examples ()
+  (values
+   (mismatch "abcd" "ABCDE" :test #'char-equal)
+   (mismatch '(3 2 1 1 2 3) '(1 2 3) :from-end t)
+   (mismatch '(1 2 3) '(2 3 4) :test-not #'eq :key #'oddp)
+   (mismatch '(1 2 3 4 5 6) '(3 4 5 6 7) :start1 2 :end2 4))
+  => 4
+  => 3
+  => nil
+  => nil)
+
+(deftest mismatch-from-end ()
+  (values
+   ;; equal within the overlap, but sequence1 has a longer tail:
+   ;; the mismatch is the length difference, not a byte compare.
+   (mismatch '(1 2 3 4 5) '(3 4 5) :from-end t)
+   ;; a real rightmost difference within an equal-length pair.
+   (mismatch '(1 2 9 4) '(1 2 3 4) :from-end t)
+   ;; identical sequences => nil regardless of direction.
+   (mismatch '(1 2 3) '(1 2 3) :from-end t))
+  => 2
+  => 3
+  => nil)
 
 (deftest merge-nil-key ()
   (values
