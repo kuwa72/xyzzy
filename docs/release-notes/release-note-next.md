@@ -15,6 +15,4 @@ xyzzy リリースノート
 変更
 ----
 
-  * ターミナルのカーソル保存状態を primary/alternate screen と mode 1049 で
-    分離し、DECSC/DECRC で origin mode も復元するようにした。複数の保存機構を
-    使う TUI で、一方の保存位置が他方に上書きされることがあったため。
+  *
