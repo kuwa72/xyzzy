@@ -42,6 +42,9 @@
 # define BITS_PER_LONG (sizeof (long) * CHAR_BIT)
 
 #ifdef _WIN32
+# ifdef PATH_MAX
+#  undef PATH_MAX
+# endif
 # define PATH_MAX 1024
 #else
 # include <limits.h>

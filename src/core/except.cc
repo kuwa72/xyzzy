@@ -378,7 +378,7 @@ bad_object_p (FILE *fp, lisp object)
 {
   if (!IsBadReadPtr (object, sizeof object))
     return 0;
-  fprintf (fp, "(???)\n");
+  fprintf (fp, "(?\?\?)\n");
   return 1;
 }
 

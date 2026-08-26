@@ -2444,7 +2444,8 @@ xdecode_hqx_stream::xdecode_hqx_stream (xinput_stream <u_char> &in)
     }
   s_name[i] = 0;
 
-  if ((s_version = get ()) == eof
+  int version = get ();
+  if (version == eof
       || !read (s_type)
       || !read (s_creator)
       || !read (s_flags)
@@ -2455,6 +2456,7 @@ xdecode_hqx_stream::xdecode_hqx_stream (xinput_stream <u_char> &in)
       corrupted ();
       return;
     }
+  s_version = version;
 
   s_rest_bytes = s_data_len;
 }

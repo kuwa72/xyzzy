@@ -822,7 +822,7 @@ set(CORE_SOURCES
 )
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})
-target_compile_definitions(xyzzy-core PRIVATE UNICODE _UNICODE)
+target_compile_definitions(xyzzy-core PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
     target_include_directories(xyzzy-core PRIVATE ${CORE_DIR} ${GEN_DIR} ${SRC_DIR})
 else()
@@ -936,7 +936,7 @@ set(XYZZY_LINK_LIBS
 # xyzzy: Main GUI application
 # ============================================================
 add_executable(xyzzy WIN32 ${WIN32_SOURCES})
-target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE)
+target_compile_definitions(xyzzy PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
     target_include_directories(xyzzy PRIVATE ${CORE_DIR} ${WIN32_DIR} ${WIN32_DIR}/privctrl ${GEN_DIR})
 else()
@@ -971,7 +971,7 @@ endif()
 # batch-main.cc provides main() which calls WinMain(SW_HIDE).
 # ============================================================
 add_executable(xyzzy-batch ${WIN32_SOURCES} ${WIN32_DIR}/batch-main.cc)
-target_compile_definitions(xyzzy-batch PRIVATE UNICODE _UNICODE)
+target_compile_definitions(xyzzy-batch PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
     target_include_directories(xyzzy-batch PRIVATE ${CORE_DIR} ${WIN32_DIR} ${WIN32_DIR}/privctrl ${GEN_DIR})
 else()
@@ -1007,7 +1007,7 @@ set(CLI_SOURCES
 )
 
 add_executable(xyzzy-cli ${CLI_SOURCES})
-target_compile_definitions(xyzzy-cli PRIVATE UNICODE _UNICODE)
+target_compile_definitions(xyzzy-cli PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
     target_include_directories(xyzzy-cli PRIVATE ${CORE_DIR} ${GEN_DIR})
 else()
@@ -1070,7 +1070,7 @@ if(NOT WIN32)
         )
 
         add_executable(xyzzy-ncurses ${NCURSES_SOURCES})
-        target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE NCURSES_WIDECHAR=1)
+        target_compile_definitions(xyzzy-ncurses PRIVATE UNICODE _UNICODE NCURSES_WIDECHAR=1 DSFMT_MEXP=19937)
         target_compile_options(xyzzy-ncurses PRIVATE
             "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}" "SHELL:-iquote ${SRC_DIR}")
         target_include_directories(xyzzy-ncurses PRIVATE ${ZLIB_INCLUDE_DIRS} ${NCURSESW_INCLUDE_DIR})

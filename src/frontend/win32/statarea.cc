@@ -175,7 +175,7 @@ status_area::time ()
   else
     sprintf (b, " %02d/%02d(%2.2s) %02d:%02d ",
              st.wMonth, st.wDay,
-             "SuMoTuWeThFrSa" + st.wDayOfWeek % 7 * 2,
+             &"SuMoTuWeThFrSa"[st.wDayOfWeek % 7 * 2],
              st.wHour, st.wMinute);
   return calc_extent (ST_TIME, b);
 }

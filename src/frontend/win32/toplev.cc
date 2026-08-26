@@ -1545,7 +1545,7 @@ Fset_quit_char (lisp ch)
   if (vk < 0)
     {
       vk = VkKeyScan (CHAR (cc));
-      if (LOWORD (vk) == -1)
+      if (LOWORD (vk) == 0xffff)
         return Qnil;
       if (HIBYTE (vk) & 1)
         mod |= MOD_SHIFT;

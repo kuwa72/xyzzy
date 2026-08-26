@@ -1083,7 +1083,7 @@ regexp_compile::char_class_fastmap (const Char *p, char *fastmap) const
       if (*p & 0xff)
         {
           if (h)
-            fastmap[h] = p[1] == ((256 / NBITS) << 16) + 0 ? 1 : -1;
+            fastmap[h] = p[1] == ((256 / NBITS) << 8) + 0 ? 1 : -1;
           else
             {
               for (int u = (p[1] >> 8) * NBITS, l = (p[1] & 0xff) * NBITS; l < u; l++)
