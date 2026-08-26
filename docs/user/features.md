@@ -33,10 +33,15 @@ tree-sitter によるハイライトが使えるモードもあります (C, C++
 ### ターミナルエミュレータ
 
 `M-x shell` でシェルを起動したターミナルバッファを開けます。VT100 互換で、
-24bit/256 色、OSC (タイトル変更など)、East Asian Ambiguous 幅の文字、矢印キー、
-IME の入力位置、貼り付け、マウスホイールに対応しています。Windows では ConPTY、
-Linux/macOS では ncurses フロントエンド経由で動きます。ターミナル内のキー操作は
-[キーバインド](keybindings.md#ターミナル) を参照してください。
+24bit/256 色、OSC (タイトル変更・クリップボード)、East Asian Ambiguous 幅の
+文字、矢印キーや機能キー、IME の入力位置、マウス報告 (vim・htop・claude code
+のような TUI が自分でマウスを使うもの)、synchronized output に対応しています。
+Windows では ConPTY、Linux/macOS では ncurses フロントエンド経由で動きます。
+
+Windows 版ではスクロールバック (ホイール・スクロールバー・`S-PageUp`) と、
+マウスによるテキスト選択 (離した時点でクリップボードへ入る) が使えます。
+ターミナル内のキー・マウス操作は [キーバインド](keybindings.md#ターミナル) を
+参照してください。
 
 ### Nerd Font アイコン用フォント枠
 

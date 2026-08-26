@@ -171,3 +171,8 @@ xyzzy リリースノート
       包んでいる本物の端末へ中継する (tmux の allow-passthrough と同じ
       発想)。ncurses 実機で、tmux の `set-clipboard on` を使って中継先
       まで正しい内容が届くことを確認した。
+  * `docs/user/keybindings.md` のターミナル節にマウス操作を書き足し、
+    `docs/user/features.md` のターミナルエミュレータの説明を実態に合わせた。
+    features.md には「マウスホイールに対応しています」と書いてあったが、
+    ターミナルバッファではホイールは何もしていなかった (このリリースで
+    直したもののひとつ)。
