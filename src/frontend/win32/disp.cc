@@ -14,6 +14,8 @@
 #include "painter-win32.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
+extern void terminal_lock ();
+extern void terminal_unlock ();
 
 class color_caret
 {
@@ -2724,6 +2726,9 @@ Window::refresh_terminal (int f)
   if (!term)
     return -1;  // not a terminal buffer
 
+  int r = redraw_mode_line ();
+
+  terminal_lock ();
   sync_terminal_size (term);
 
   /* IME の変換ウィンドウは Windows のキャレット位置 (app.active_frame の
@@ -2748,8 +2753,6 @@ Window::refresh_terminal (int f)
   // Hide Windows caret — terminal draws its own cursor
   hide_caret ();
 
-  int r = redraw_mode_line ();
-
   // Always repaint terminal (it's cheap compared to glyph diffing)
   {
     HDC hdc = GetDC (w_hwnd);
@@ -2757,6 +2760,7 @@ Window::refresh_terminal (int f)
     ReleaseDC (w_hwnd, hdc);
     term->clear_dirty ();
   }
+  terminal_unlock ();
 
   w_disp_flags = 0;
 
@@ -2918,13 +2922,15 @@ Window::update_window ()
       Terminal *term = buffer_terminal (w_bufp);
       if (term)
         {
-          /* リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
-             合わせておかないと、古い桁数のまま描いてしまう。 */
-          sync_terminal_size (term);
           PAINTSTRUCT ps;
           HDC hdc = BeginPaint (w_hwnd, &ps);
+          /* リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
+             合わせておかないと、古い桁数のまま描いてしまう。 */
+          terminal_lock ();
+          sync_terminal_size (term);
           /* WM_PAINT では DC の内容が失われているので全面描き直す。 */
           paint_terminal (hdc, term, 1);
+          terminal_unlock ();
           EndPaint (w_hwnd, &ps);
           return;
         }

@@ -1000,6 +1000,25 @@ set_clipboard_from_osc52 (const char *pcpd)
   delete[] raw;
 }
 
+static CRITICAL_SECTION term_cs;
+static class term_cs_init
+{
+public:
+  term_cs_init () { InitializeCriticalSection (&term_cs); }
+} term_cs_init_instance;
+
+void
+terminal_lock ()
+{
+  EnterCriticalSection (&term_cs);
+}
+
+void
+terminal_unlock ()
+{
+  LeaveCriticalSection (&term_cs);
+}
+
 u_int
 ConPtyProcess::read_process ()
 {
@@ -1017,18 +1036,20 @@ ConPtyProcess::read_process ()
 
       if (p_term)
         {
+          terminal_lock ();
           p_term->feed (buf, n);
+          if (!p_pending)
+            {
+              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+              p_pending = 1;
+            }
+          terminal_unlock ();
           /* feed() の中で DSR / DA の応答が積まれていたら pty へ返す。
              返さないと、位置を問い合わせてから描画する TUI が待たされる。 */
           if (p_term->reply_len ())
             {
               send (p_term->reply_data (), p_term->reply_len ());
               p_term->reply_clear ();
-            }
-          if ((p_term->dirty () || p_term->clipboard_pending ()) && !p_pending)
-            {
-              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
-              p_pending = 1;
             }
         }
     }
@@ -1039,9 +1060,14 @@ ConPtyProcess::read_process ()
 void
 ConPtyProcess::insert_process_output (void *)
 {
-  p_pending = 0;
   if (!p_term)
-    return;
+    {
+      p_pending = 0;
+      return;
+    }
+
+  terminal_lock ();
+  p_pending = 0;
 
   if (p_term->clipboard_pending ())
     {
@@ -1049,7 +1075,10 @@ ConPtyProcess::insert_process_output (void *)
       p_term->clipboard_clear ();
     }
 
-  if (!p_term->dirty ())
+  int dirty = p_term->dirty ();
+  terminal_unlock ();
+
+  if (!dirty)
     return;
 
   // Direct GDI rendering: paint_terminal reads TermCell directly,
@@ -1632,7 +1661,9 @@ buffer_terminal_resize (const Buffer *bp, int rows, int cols)
   ConPtyProcess *cp = find_conpty_process (bp);
   if (!cp || !cp->term ())
     return;
+  terminal_lock ();
   cp->term ()->resize (rows, cols);
+  terminal_unlock ();
   if (cp->hpc () && pResizePseudoConsole)
     {
       COORD size;
