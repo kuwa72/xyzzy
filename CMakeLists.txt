@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(xyzzy VERSION 0.5.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
 # Default to Release build if not specified
@@ -1254,7 +1254,7 @@ add_executable(gendic ${SRC_DIR}/gendic.cc)
 if(MSVC)
     target_compile_options(gendic PRIVATE /W3)
 else()
-    target_compile_options(gendic PRIVATE -Wall -std=c++11)
+    target_compile_options(gendic PRIVATE -Wall -std=c++17)
     if(WIN32)
         target_link_options(gendic PRIVATE -static)
     endif()
