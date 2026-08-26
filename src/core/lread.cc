@@ -50,7 +50,7 @@ inline void
 Token::add (lChar c)
 {
   /* Cast to ucs4_t so we hit StrBuf::add(ucs4_t) — promoting Char (which
-     is still u_int16_t) goes through the int overload that masks with
+     is still uint16_t) goes through the int overload that masks with
      0xff and silently corrupts non-ASCII code points. */
   StrBuf::add (ucs4_t (c));
   tk_index++;

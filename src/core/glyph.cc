@@ -17,7 +17,7 @@
 
 /* ASCII narrow 1 cell の補助。実体は glyph.h の glyph_ascii_cell。 */
 static inline glyph_t
-ga (u_int32_t cp)
+ga (uint32_t cp)
 {
   return glyph_ascii_cell (cp);
 }
@@ -36,16 +36,16 @@ gb (glyph_t bm)
    (まれな edge case、Phase 3 で正規化候補)。
    return: 合成後の code point。p が surrogate pair 後半を消費した場合
            consumed = 1、それ以外 0。 */
-static inline u_int32_t
+static inline uint32_t
 fold_surrogate (Char first, const Char *&p, const Char *pe, int &consumed)
 {
   consumed = 0;
   if (first >= 0xD800 && first <= 0xDBFF
       && p < pe && *p >= 0xDC00 && *p <= 0xDFFF)
     {
-      u_int32_t cp = 0x10000u
-                     + ((u_int32_t (first) - 0xD800u) << 10)
-                     + (u_int32_t (*p) - 0xDC00u);
+      uint32_t cp = 0x10000u
+                     + ((uint32_t (first) - 0xD800u) << 10)
+                     + (uint32_t (*p) - 0xDC00u);
       p++;
       consumed = 1;
       return cp;
@@ -359,7 +359,7 @@ Window::kwdmatch (lisp kwdhash, const Point &point,
 }
 
 glyph_t *
-glyph_dbchar (glyph_t *g, u_int32_t cp, int f, int flags)
+glyph_dbchar (glyph_t *g, uint32_t cp, int f, int flags)
 {
   /* 5b-2: cp は wide (display width 2) と判明した Unicode code point。
      gd_cc 配列は「1 column = 1 cell」の旧レイアウトを 5b-2 では維持し、
@@ -371,7 +371,7 @@ glyph_dbchar (glyph_t *g, u_int32_t cp, int f, int flags)
   if (cp == 0x3000 && (flags & Window::WF_FULLSPC))
     {
       /* 全角スペース: bitmap 描画 (FULLSPC1 + FULLSPC2 の二分割) */
-      glyph_t base = (((glyph_t) (u_int32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
+      glyph_t base = (((glyph_t) (uint32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
                       | GLYPH_CTRL
                       | MAKE_GLYPH_FONT (font_idx));
       *g++ = base | GLYPH_BM_FULLSPC1 | GLYPH_WIDTH_WIDE;
@@ -379,7 +379,7 @@ glyph_dbchar (glyph_t *g, u_int32_t cp, int f, int flags)
     }
   else
     {
-      glyph_t base = ((glyph_t) (u_int32_t) f
+      glyph_t base = ((glyph_t) (uint32_t) f
                       | MAKE_GLYPH_CP (cp)
                       | MAKE_GLYPH_FONT (font_idx));
       *g++ = base | GLYPH_WIDTH_WIDE;
@@ -389,7 +389,7 @@ glyph_dbchar (glyph_t *g, u_int32_t cp, int f, int flags)
 }
 
 glyph_t *
-glyph_sbchar (glyph_t *g, u_int32_t cp, int f, int flags)
+glyph_sbchar (glyph_t *g, uint32_t cp, int f, int flags)
 {
   /* 5b-2: cp は narrow (display width 1) または combining (width 0) と
      判明した code point。combining は当面 emit せず skip する (gd_cc の
@@ -406,7 +406,7 @@ glyph_sbchar (glyph_t *g, u_int32_t cp, int f, int flags)
   /* ASCII の特殊 bitmap: backslash と HALFSPC */
   if (cp == '\\' && app.text_font.use_backsl_p ())
     {
-      *g++ = ((glyph_t) (u_int32_t) f
+      *g++ = ((glyph_t) (uint32_t) f
               | GLYPH_BM_BACKSL
               | MAKE_GLYPH_FONT (font_idx)
               | GLYPH_WIDTH_NARROW);
@@ -414,7 +414,7 @@ glyph_sbchar (glyph_t *g, u_int32_t cp, int f, int flags)
     }
   if (cp == ' ' && (flags & Window::WF_HALFSPC))
     {
-      *g++ = (((glyph_t) (u_int32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
+      *g++ = (((glyph_t) (uint32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
               | GLYPH_CTRL | GLYPH_BM_HALFSPC
               | MAKE_GLYPH_FONT (font_idx)
               | GLYPH_WIDTH_NARROW);
@@ -423,7 +423,7 @@ glyph_sbchar (glyph_t *g, u_int32_t cp, int f, int flags)
 
   /* 通常 narrow cell。低 8 bit の char byte は 5b-3 までの後方互換のため
      ASCII 範囲のみ残す (BMP 以上は 0)。 */
-  glyph_t base = ((glyph_t) (u_int32_t) f
+  glyph_t base = ((glyph_t) (uint32_t) f
                   | MAKE_GLYPH_CP (cp)
                   | MAKE_GLYPH_FONT (font_idx)
                   | GLYPH_WIDTH_NARROW);
@@ -437,13 +437,13 @@ glyph_bmchar (glyph_t *g, Char bm, lisp ch, int f, int n)
   ch = xsymbol_value (ch);
   if (ch == Qnil)
     for (int i = 0; i < n; i++)
-      *g++ = (glyph_t) (u_int32_t) f | ga (' ');
+      *g++ = (glyph_t) (uint32_t) f | ga (' ');
   else if (charp (ch) && unicode_width (xchar_code (ch)) == 1)
     for (int i = 0; i < n; i++)
-      g = glyph_sbchar (g, (u_int32_t) xchar_code (ch), f, 0);
+      g = glyph_sbchar (g, (uint32_t) xchar_code (ch), f, 0);
   else
     {
-      glyph_t cell = (glyph_t) (u_int32_t) f | gb (bm);
+      glyph_t cell = (glyph_t) (uint32_t) f | gb (bm);
       for (int i = 0; i < n; i++)
         *g++ = cell;
     }
@@ -879,7 +879,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                 }
               else
                 {
-                  u_int32_t cp = u_int32_t (cc);
+                  uint32_t cp = uint32_t (cc);
                   int w = unicode_width (cp);
                   if (w == 2)
                     {
@@ -984,7 +984,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                 f |= GLYPH_REVERSED;
             }
 
-          glyph_t cell = (glyph_t) (u_int32_t) f | ga (' ');
+          glyph_t cell = (glyph_t) (uint32_t) f | ga (' ');
           while (n-- > 0)
             *g++ = cell;
         }
@@ -1058,7 +1058,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                                         << GLYPH_TEXTPROP_BG_SHIFT_BITS);
                   int n = min (int (ge - g), 5);
                   for (int i = 0; i < n; i++)
-                    *g++ = (glyph_t) (u_int32_t) f | ga ((u_char) "[EOF]"[i]);
+                    *g++ = (glyph_t) (uint32_t) f | ga ((u_char) "[EOF]"[i]);
                 }
               break;
             }
@@ -1201,7 +1201,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
           else
             {
               int extra = 0;
-              u_int32_t cp = fold_surrogate (cc, p, pe, extra);
+              uint32_t cp = fold_surrogate (cc, p, pe, extra);
               /* Phase 2-1: p_point は cp 単位。pair を渡っても既に 1 cp 進んで
                  いるので extra (= pair の low surrogate 分の cu) を加えない。 */
               (void) extra;
@@ -1235,7 +1235,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                     g = glyph_bmchar (g, GLYPH_BM_NEWLINE, Vdisplay_newline_char,
                                       (f & ~GLYPH_TEXT_MASK) | GLYPH_CTRL, 1);
                   else
-                    *g++ = ((glyph_t) (u_int32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
+                    *g++ = ((glyph_t) (uint32_t) f & ~(glyph_t) GLYPH_TEXT_MASK)
                            | ga (' ');
                   eol = 1;
                   break;
@@ -1256,7 +1256,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                     }
                   else
                     {
-                      glyph_t cell = (glyph_t) (u_int32_t) f | ga (' ');
+                      glyph_t cell = (glyph_t) (uint32_t) f | ga (' ');
                       while (n-- > 0)
                         *g++ = cell;
                     }
@@ -1268,7 +1268,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                       exceed = 1;
                       break;
                     }
-                  glyph_t fbase = ((glyph_t) (u_int32_t) f
+                  glyph_t fbase = ((glyph_t) (uint32_t) f
                                    & ~(glyph_t) GLYPH_TEXT_MASK)
                                   | GLYPH_CTRL;
                   *g++ = fbase | ga ('^');
@@ -1282,7 +1282,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                   exceed = 1;
                   break;
                 }
-              glyph_t fbase = ((glyph_t) (u_int32_t) f
+              glyph_t fbase = ((glyph_t) (uint32_t) f
                                & ~(glyph_t) GLYPH_TEXT_MASK)
                               | GLYPH_CTRL;
               *g++ = fbase | ga ('^');
@@ -1291,7 +1291,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
           else
             {
               int extra = 0;
-              u_int32_t cp = fold_surrogate (cc, p, pe, extra);
+              uint32_t cp = fold_surrogate (cc, p, pe, extra);
               /* Phase 2-1: extra は cu 分、p_point (cp) には加算しない。 */
               (void) extra;
               int w = unicode_width (cp);
@@ -1344,12 +1344,12 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
               *g++ = (GLYPH_CTRL | bm0) + (vlinenum & 1);
             }
           else
-            *g++ = (glyph_t) (u_int32_t) (f | hiddenf) | GLYPH_CTRL | ga ('<');
+            *g++ = (glyph_t) (uint32_t) (f | hiddenf) | GLYPH_CTRL | ga ('<');
         }
 
       if (f)
         {
-          glyph_t fill = (glyph_t) (u_int32_t) f | ga (' ');
+          glyph_t fill = (glyph_t) (uint32_t) f | ga (' ');
           for (; g < grev; g++)
             *g = fill;
         }
@@ -1366,8 +1366,8 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
               && (revkwd & (15 << GLYPH_COLOR_SHIFT_BITS)) <= GLYPH_KEYWORD3R))
         {
           for (glyph_t *p = g0; p < g; p++)
-            *p = (*p & ~(glyph_t) REVMASK) | (u_int32_t) revkwd;
-          glyph_t fill = (glyph_t) (u_int32_t) (revkwd | hiddenf) | ga (' ');
+            *p = (*p & ~(glyph_t) REVMASK) | (uint32_t) revkwd;
+          glyph_t fill = (glyph_t) (uint32_t) (revkwd | hiddenf) | ga (' ');
           for (; g < grev; g++)
             *g = fill;
         }
@@ -1375,7 +1375,7 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
         {
           for (glyph_t *p = g0; p < g; p++)
             if (!(*p & GLYPH_CTRL))
-              *p = (*p & ~(glyph_t) REVMASK) | (u_int32_t) revkwd;
+              *p = (*p & ~(glyph_t) REVMASK) | (uint32_t) revkwd;
         }
     }
 

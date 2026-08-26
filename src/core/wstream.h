@@ -72,7 +72,7 @@ wStream::add (int c)
 }
 
 /* wStream が add を宣言し直しているので StrBuf::add(Char) は名前隠蔽で
-   見えない。ここにも置かないと Char (u_int16_t) は整数拡張で add(int) に
+   見えない。ここにも置かないと Char (uint16_t) は整数拡張で add(int) に
    落ちて上位バイトを失う。詳細は StrBuf::add(Char) のコメント。 */
 inline void
 wStream::add (Char c)

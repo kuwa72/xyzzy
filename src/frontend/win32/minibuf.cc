@@ -91,7 +91,7 @@ count_prompt_columns (const ucs4_t *s, int l)
 {
   int n = 0;
   for (const ucs4_t *se = s + l; s < se; s++)
-    n += char_width (lChar (*s));
+    n += char_width (*s);
   return n;
 }
 

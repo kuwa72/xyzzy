@@ -61,4 +61,29 @@ xyzzy リリースノート
     通っていた。`std::min`/`std::max` は完全な同型テンプレートしか
     無いためこれらはコンパイルエラーになり、`tools/x build x86_64` で
     洗い出した 12 箇所に `int (...)` 等の明示キャストを足した。
+  * 固定幅の独自整数型 `u_int8_t`/`u_int16_t`/`u_int32_t`/`u_int64_t`
+    (`u_char`/`u_short`/`u_long` 等の実体幅に依存するチェーンで定義されて
+    いた) を `<cstdint>` 標準の `uint8_t`/`uint16_t`/`uint32_t`/`uint64_t`
+    に置き換えた。#16 ロードマップ Phase 1「独自整数型の `<cstdint>` への
+    段階的整理」の最初の一歩。`Char`/`ucs2_t`/`ucs4_t` の定義元をこれらに
+    直結させたことで、実際の呼び出し箇所を書き換えずに 14 ファイルの
+    直接利用箇所だけ手直しすれば済んだ。`u_char`/`u_short`/`u_int`/
+    `u_long` 自体 (1300 箇所近い生の利用がある) はプラットフォーム
+    ネイティブ幅に依存する箇所とそうでない箇所の判別が要るため、今回は
+    手を付けていない (後続 PR で段階的に進める)。
+  * 上の置き換えで `src/core/chtype.h` の文字種判定関数
+    (`alpha_char_p`/`digit_char_p`/`kana_char_p` 等) が軒並み
+    「call is ambiguous」でコンパイルエラーになった。`ucs4_t` は
+    `u_int32_t` (=`u_long`) 経由の定義だったため、LLP64 (Win32) では
+    `u_long` が 32bit である都合で `lChar` (`u_long`) と偶然同じ型になって
+    おり、chtype.h はそれを前提に `#ifdef __LP64__` で `ucs4_t` 専用
+    オーバーロードを Win32 では意図的に外していた
+    (`lChar` 版と再定義衝突するため)。`ucs4_t` を `uint32_t` に固定した
+    ことで Win32 でも `unsigned long` と `uint32_t` (=`unsigned int`) は
+    別型になり、前提が崩れた。`ucs4_t` 専用オーバーロードを常に有効にする
+    よう `#ifdef __LP64__` ガードを外して修正した。あわせて
+    `src/frontend/win32/minibuf.cc` の `char_width (lChar (*s))` は
+    `char_width` に `lChar` 版オーバーロードが元々無く (`Char`/`ucs4_t`
+    版のみ)、同じ理由でエラーになったため、素の `ucs4_t` を渡す
+    `char_width (*s)` に直した (`s` は元から `const ucs4_t *`)。
   *
