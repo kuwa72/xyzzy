@@ -14,6 +14,10 @@
 #include "painter-win32.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
+/* Terminal は pty の reader thread が書き換える。読む (描く) 側はこれで
+   排他する。process.cc にある。 */
+extern void terminal_lock ();
+extern void terminal_unlock ();
 
 class color_caret
 {
@@ -321,18 +325,17 @@ Window::update_caret () const
           y = caret_line ();
 
           /* ターミナルは grid が本体で、バッファの point は動かない
-             (常に 0,0)。IME の変換ウィンドウはこのキャレット位置を見て
-             置かれるので、point のままだと変換中の文字が窓の左上に出る。
-             ターミナルのカーソル位置を使う。glyph 由来の背景色の見積もりも
-             ターミナルでは意味が無いので飛ばす。 */
+             (常に 0,0)。カーソル = キャレットの扱いは sync_terminal_caret
+             に集約してあるので、そちらに任せる (WM_SETFOCUS や IME の
+             on/off でここへ来たときも同じ位置・同じ形で出る)。 */
           Terminal *tw = w_bufp ? buffer_terminal (w_bufp) : 0;
           if (tw)
             {
-              x = tw->cursor_col ();
-              y = tw->cursor_row ();
+              sync_terminal_caret ();
+              return;
             }
 
-          if (!tw && w_glyphs.g_rep && y >= 0 && y < w_ch_max.cy)
+          if (w_glyphs.g_rep && y >= 0 && y < w_ch_max.cy)
             {
               int x1 = x + 1;
               const glyph_data *gd = w_glyphs.g_rep->gr_oglyph[y];
@@ -2552,13 +2555,35 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
        カーソルも同じだけずらし、画面外に出たら描かない。 */
   int cur_r = term->cursor_row () + term->scrollback_offset ();
   int cur_c = term->cursor_col ();
-  int draw_cursor = (term->cursor_visible ()
-                     && cur_r >= 0 && cur_r < trows
-                     && cur_c >= 0 && cur_c < tcols
-                     && this == selected_window ());
-  if (!draw_cursor)
-    cur_r = -1;
-  int old_r = w_term_shadow_cursor_row;
+
+  /* カーソルはもうここでは描かない。以前は InvertRect でセルを反転して
+     いたが、Windows キャレット (= IME が変換ウィンドウを置く場所の根拠)
+     とは別物なので、いくら位置を教えても IME がついて来ない環境があった。
+     エディタ側と同じく Windows キャレットそのものをカーソルとして出す。
+     ここでは「どこに・出すかどうか」だけ決めて、描画の後で
+     sync_terminal_caret が実際に動かす。
+
+     * DECTCEM (CSI ?25l) で消されている間は出さない。
+     * スクロールバックを遡っている間は表示行が offset だけずれるので
+       カーソルも同じだけずらし、画面外に出たら出さない。
+
+     さらに、CSI ?2026h 〜 ?2026l (synchronized update) の**途中**では
+     更新しない。ここ (paint_terminal) は Terminal::dirty() を経由せず
+     refresh() のたびに無条件で呼ばれる — content の描画は「毎回描いても
+     安い」という理由で元からそうなっているが、カーソル位置もここで
+     一緒に読んでいるので、フレームの途中 (synchronized update でまだ
+     見せてはいけない状態) にユーザーのキー入力 (IME 変換の開始を含む) が
+     たまたま refresh を誘発すると、その未完成な位置を拾ってしまう。
+     2026l が来て見せてよい状態になるまでは、前回の (安定した) 値を
+     保持する。 */
+  if (!term->sync_update_pending ())
+    {
+      w_term_caret_row = cur_r;
+      w_term_caret_col = cur_c;
+      w_term_caret_show = (term->cursor_visible ()
+                           && cur_r >= 0 && cur_r < trows
+                           && cur_c >= 0 && cur_c < tcols);
+    }
 
   for (int r = 0; r < w_ch_max.cy; r++)
     {
@@ -2590,7 +2615,7 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
             rowbuf[c].attrs ^= TATTR_REVERSE;
         }
 
-      if (shadow_ok && shadow_row && r != cur_r && r != old_r
+      if (shadow_ok && shadow_row
           && !memcmp (shadow_row, rowbuf, rown * sizeof (TermCell)))
         continue;
 
@@ -2671,23 +2696,6 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
         memcpy (shadow_row, rowbuf, rown * sizeof (TermCell));
     }
 
-  // Draw cursor — InvertRect has no neutral Painter equivalent; use the
-  // Win32Painter's hdc directly (this is the Win32 terminal impl).
-  if (draw_cursor)
-    {
-      int cpx = cur_c * cellw + cellw / 2;
-      int cpy = cur_r * cellh;
-      RECT crc = { cpx, cpy, cpx + cellw, cpy + cellh };
-      InvertRect (static_cast <Win32Painter &> (painter).hdc (), &crc);
-      w_term_shadow_cursor_row = cur_r;
-      w_term_shadow_cursor_col = cur_c;
-    }
-  else
-    {
-      w_term_shadow_cursor_row = -1;
-      w_term_shadow_cursor_col = -1;
-    }
-
   // Fill area below terminal rows
   if (trows < w_ch_max.cy)
     painter.fill_rect (0, trows * cellh, w_client.cx, w_client.cy - trows * cellh, def_bg);
@@ -2717,6 +2725,71 @@ Window::sync_terminal_size (Terminal *term)
   buffer_terminal_resize (w_bufp, w_ech.cy, w_ech.cx);
 }
 
+/* ターミナルのカーソルを Windows キャレットとして出す。paint_terminal が
+   決めた位置 (w_term_caret_*) に、セル幅のブロックを反転色 (0xffffff との
+   XOR = InvertRect と同じ見た目) で置く。
+
+   以前は paint_terminal が InvertRect でカーソルを描き、Windows キャレット
+   は位置だけ合わせて隠していた。しかし IME (特に近年の TSF ベースの
+   MS-IME) は ImmSetCompositionWindow で教えた位置より可視キャレットを
+   優先することがあり、キャレットが隠れたままだと変換ウィンドウが古い
+   位置に居座った。エディタ側 (キャレット可視) では IME の位置決めが
+   正しく効いている実績があるので、ターミナルも同じ形にする。
+
+   描画がキャレットの上を塗ると表示が壊れるので、呼び出し側は
+   paint_terminal の前に hide_caret し、後でこれを呼ぶ。DECTCEM
+   (CSI ?25l) で消されている間はキャレットも出さない。
+
+   Terminal をここで読み直さないこと。書き換えるのは pty の reader thread
+   なので、描画とは別の瞬間の値になり、描いた画面とキャレットがずれる。
+   paint_terminal が描いたときの値 (w_term_caret_*) だけを使う。 */
+void
+Window::sync_terminal_caret () const
+{
+  if (this != selected_window () || !app.active_frame.has_focus
+      || !w_bufp || !buffer_terminal (w_bufp))
+    return;
+  int r = w_term_caret_row;
+  int c = w_term_caret_col;
+  if (r < 0 || r >= w_ch_max.cy || c < 0 || c >= w_ch_max.cx)
+    {
+      hide_caret ();
+      return;
+    }
+  int x = caret_xpixel (c);
+  int y = caret_ypixel (r);
+
+  /* DECTCEM (CSI ?25l) で消されている間は普段は見せない。ただし
+
+     * 位置は常に追従させる。アプリはカーソルを隠していても論理的な
+       入力位置に置いている (Ink 系 TUI は frame の最後にフォーカス要素へ
+       CUP してから閉じる) ので、caret_pos を放置すると、変換を始めた
+       ときに「最後にキャレットが見えていた頃の位置」(別バッファに居た
+       頃のものかもしれない) に変換ウィンドウが出る。
+     * IME の変換中はキャレット自体を見せる。近年の TSF ベースの MS-IME
+       は ImmSetCompositionWindow で教えた位置より可視キャレットを優先
+       するため、隠したままだと位置を教えても効かない。変換 UI がすぐ
+       上に被さるので、アプリが自前で描くカーソルと二重に見える実害は
+       ほぼ無い。 */
+  if (!w_term_caret_show && !app.ime_composition)
+    {
+      /* 位置が変わったときだけ動かす (update_caret は一瞬 ShowCaret
+         するので、毎回呼ぶと隠したいのにちらつく)。 */
+      if (app.active_frame.has_caret != w_hwnd
+          || app.active_frame.caret_pos.x != x
+          || app.active_frame.caret_pos.y != y)
+        update_caret (w_hwnd, x, y,
+                      app.text_font.cell ().cx, app.text_font.size ().cy,
+                      RGB (0xff, 0xff, 0xff));
+      hide_caret ();
+      return;
+    }
+
+  update_caret (w_hwnd, x, y,
+                app.text_font.cell ().cx, app.text_font.size ().cy,
+                RGB (0xff, 0xff, 0xff));
+}
+
 int
 Window::refresh_terminal (int f)
 {
@@ -2724,39 +2797,36 @@ Window::refresh_terminal (int f)
   if (!term)
     return -1;  // not a terminal buffer
 
-  sync_terminal_size (term);
-
-  /* IME の変換ウィンドウは Windows のキャレット位置 (app.active_frame の
-     caret_pos) を見て置かれる。ターミナルは自前のブロックカーソルを
-     InvertRect で描いていて Windows キャレットを動かしていなかったので、
-     caret_pos がバッファの point (ターミナルでは更新されない = 0,0) の
-     ままになり、日本語を打つと変換中の文字が窓の左上に出ていた。
-
-     キャレット自体はターミナルのカーソルと二重になるので出さない。位置
-     だけ合わせてから隠す。update_caret が SetCaretPos と set_ime_caret を
-     やってくれるので、それを通す。 */
-  if (this == selected_window ())
-    {
-      int tcr = term->cursor_row ();
-      int tcc = term->cursor_col ();
-      if (tcr >= 0 && tcr < term->rows () && tcc >= 0 && tcc < term->cols ())
-        update_caret (w_hwnd, caret_xpixel (tcc), caret_ypixel (tcr),
-                      2 * sysdep.border.cx, app.text_font.size ().cy,
-                      w_colors[WCOLOR_CARET]);
-    }
-
-  // Hide Windows caret — terminal draws its own cursor
-  hide_caret ();
-
   int r = redraw_mode_line ();
 
   // Always repaint terminal (it's cheap compared to glyph diffing)
   {
+    /* reader thread の feed () と排他してから読む。ロック無しだと feed の
+       途中の状態 (カーソルが文字を書いた直後の位置) を描いてしまい、
+       そこで clear_dirty すると feed 完了時に dirty が立たず、誰も描き
+       直さないままカーソルが取り残されることがあった。ロックの中で
+       見る状態は必ずどこかの feed 完了時点になる。
+
+       dirty は描く前に落とす。描いた直後に reader が続きを食わせたら、
+       それは今描いた絵には入っていないので dirty のままでなければ
+       ならない。synchronized update (CSI ?2026h) で隠されている間は
+       落とさない。t_dirty は「2026l が来た次の dirty () で溜めた分を
+       見せる」ための印なので、出力とは関係なく走る refresh が消して
+       しまうと、完成した frame が次の出力まで出なくなる。 */
+    hide_caret ();  /* キャレットの上を塗る前に消す */
+    terminal_lock ();
+    sync_terminal_size (term);
+    if (term->dirty ())
+      term->clear_dirty ();
     HDC hdc = GetDC (w_hwnd);
     paint_terminal (hdc, term, 0);
     ReleaseDC (w_hwnd, hdc);
-    term->clear_dirty ();
+    terminal_unlock ();
   }
+
+  // Show the Windows caret at the cursor just painted (it IS the
+  // terminal cursor now — paint_terminal no longer draws one).
+  sync_terminal_caret ();
 
   w_disp_flags = 0;
 
@@ -2918,14 +2988,22 @@ Window::update_window ()
       Terminal *term = buffer_terminal (w_bufp);
       if (term)
         {
-          /* リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
-             合わせておかないと、古い桁数のまま描いてしまう。 */
-          sync_terminal_size (term);
+          hide_caret ();  /* キャレットの上を塗る前に消す */
           PAINTSTRUCT ps;
           HDC hdc = BeginPaint (w_hwnd, &ps);
-          /* WM_PAINT では DC の内容が失われているので全面描き直す。 */
+          /* reader thread の feed () と排他 (refresh_terminal と同じ)。
+             リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
+             合わせておかないと、古い桁数のまま描いてしまう。
+             WM_PAINT では DC の内容が失われているので全面描き直す。 */
+          terminal_lock ();
+          sync_terminal_size (term);
           paint_terminal (hdc, term, 1);
+          terminal_unlock ();
           EndPaint (w_hwnd, &ps);
+          /* この経路は refresh () を通らないので、キャレット (= ターミナル
+             のカーソル) もここで出し直す。 */
+          if (GetFocus () == app.toplev)
+            sync_terminal_caret ();
           return;
         }
     }

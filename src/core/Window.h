@@ -493,8 +493,17 @@ struct Window
   struct TermCell *w_term_shadow;
   int w_term_shadow_rows;
   int w_term_shadow_cols;
-  int w_term_shadow_cursor_row;
-  int w_term_shadow_cursor_col;
+
+  /* ターミナルのカーソル = Windows キャレットの位置 (表示行・桁) と
+     可視性。paint_terminal が描いたときの Terminal の状態から決め、
+     sync_terminal_caret がキャレットをここへ動かす。
+
+     Terminal を書き換えるのは pty の reader thread で、描画とキャレット
+     移動は GUI thread なので、それぞれが Terminal を読み直すと別の瞬間の
+     カーソル位置になる。描いた画面と必ず一致させるためにここへ覚える。 */
+  int w_term_caret_row;
+  int w_term_caret_col;
+  int w_term_caret_show;
 
   /* ターミナルのマウス選択。buffer 本文が無いので通常の選択機構
      (w_selection_*) は使えず、格子の座標 (画面上の行・桁。スクロール
@@ -598,6 +607,7 @@ struct Window
   void paint_terminal (HDC, class Terminal *, int force);
   int refresh_terminal (int f);
   void sync_terminal_size (class Terminal *);
+  void sync_terminal_caret () const;
   /* ターミナルのマウス選択 (win32)。 */
   void terminal_selection_range (int *, int *, int *, int *) const;
   int terminal_selected_cell_p (int row, int col) const;

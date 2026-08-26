@@ -1000,6 +1000,41 @@ set_clipboard_from_osc52 (const char *pcpd)
   delete[] raw;
 }
 
+/* Terminal (格子・カーソル・dirty) は pty の reader thread が feed () で
+   書き換え、GUI thread が描画とキャレット合わせで読む。ここを無防備に
+   していたので、GUI が feed の途中の状態を描いてしまうことがあった。
+   途中で clear_dirty されると、feed が終わった時点で dirty が立って
+   いない (セル書き換えの分は消された + カーソルは frame の頭に戻って
+   いて前後比較も「変化なし」) ことがあり、その場合は誰も描き直さず、
+   「最後に文字を描いた場所」にカーソルが取り残されたまま止まる。
+   出力が続く限り次の描画で直るので、Claude Code のようなリアルタイム
+   更新の多い TUI で「出力が止まった瞬間」だけ残る、という見え方になる。
+
+   feed 一回ぶんと「描画 + clear_dirty」をそれぞれ丸ごと排他して、
+   GUI が見るのは必ずどこかの feed 完了時点、と保証する。resize が
+   feed 中に走って格子を realloc する事故もこれで防げる。ロックは
+   全ターミナル共通で 1 本 (どちらの側も短い)。CRITICAL_SECTION は
+   同一スレッドの再入が許されるので、ロック中に sync_terminal_size →
+   buffer_terminal_resize と重ねて取っても良い。 */
+static CRITICAL_SECTION term_cs;
+static class term_cs_init
+{
+public:
+  term_cs_init () { InitializeCriticalSection (&term_cs); }
+} term_cs_init_instance;
+
+void
+terminal_lock ()
+{
+  EnterCriticalSection (&term_cs);
+}
+
+void
+terminal_unlock ()
+{
+  LeaveCriticalSection (&term_cs);
+}
+
 u_int
 ConPtyProcess::read_process ()
 {
@@ -1017,18 +1052,30 @@ ConPtyProcess::read_process ()
 
       if (p_term)
         {
+          terminal_lock ();
           p_term->feed (buf, n);
+          /* 何か食わせたら必ず一度 GUI を起こす。以前は dirty () を見て
+             いたが、dirty は GUI 側が描くときに落とすので、feed () の直後
+             ここで読むまでの隙にちょうど落とされると通知が飛ばず、その
+             chunk の変化が次の出力まで画面に出なかった。起こしすぎても
+             insert_process_output が dirty を見て早々に帰るだけで、
+             通知は p_pending でまとめられるので実質の負荷は変わらない。
+             p_pending の読み書きもロックの中に置いて、GUI 側の
+             「p_pending を下ろす → dirty を見る」と交錯しないようにする。 */
+          if (!p_pending)
+            {
+              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+              p_pending = 1;
+            }
+          terminal_unlock ();
           /* feed() の中で DSR / DA の応答が積まれていたら pty へ返す。
-             返さないと、位置を問い合わせてから描画する TUI が待たされる。 */
+             返さないと、位置を問い合わせてから描画する TUI が待たされる。
+             reply buffer に触るのはこの thread だけなのでロックの外で
+             良く、pty への書き込みが詰まってもロックを抱えない。 */
           if (p_term->reply_len ())
             {
               send (p_term->reply_data (), p_term->reply_len ());
               p_term->reply_clear ();
-            }
-          if ((p_term->dirty () || p_term->clipboard_pending ()) && !p_pending)
-            {
-              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
-              p_pending = 1;
             }
         }
     }
@@ -1039,9 +1086,14 @@ ConPtyProcess::read_process ()
 void
 ConPtyProcess::insert_process_output (void *)
 {
-  p_pending = 0;
   if (!p_term)
-    return;
+    {
+      p_pending = 0;
+      return;
+    }
+
+  terminal_lock ();
+  p_pending = 0;
 
   if (p_term->clipboard_pending ())
     {
@@ -1049,7 +1101,10 @@ ConPtyProcess::insert_process_output (void *)
       p_term->clipboard_clear ();
     }
 
-  if (!p_term->dirty ())
+  int dirty = p_term->dirty ();
+  terminal_unlock ();
+
+  if (!dirty)
     return;
 
   // Direct GDI rendering: paint_terminal reads TermCell directly,
@@ -1632,7 +1687,12 @@ buffer_terminal_resize (const Buffer *bp, int rows, int cols)
   ConPtyProcess *cp = find_conpty_process (bp);
   if (!cp || !cp->term ())
     return;
+  /* resize は格子を作り直す。reader thread の feed () がセルに書いている
+     最中に走らせない。描画側から (ロックを持ったまま) 呼ばれても良い
+     ように、CRITICAL_SECTION の再入に頼る。 */
+  terminal_lock ();
   cp->term ()->resize (rows, cols);
+  terminal_unlock ();
   if (cp->hpc () && pResizePseudoConsole)
     {
       COORD size;

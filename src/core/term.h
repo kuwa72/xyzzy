@@ -52,10 +52,18 @@ class Terminal
   int t_cur_row, t_cur_col;
   int t_scroll_top, t_scroll_bottom;
 
-  // Saved cursor
-  int t_saved_row, t_saved_col;
-  term_color_t t_saved_fg, t_saved_bg;
-  uint8_t t_saved_attrs;
+  // Saved cursor state (DECSC / DECRC / SCP / RCP / Mode 1049)
+  struct SavedCursor
+  {
+    int row, col;
+    term_color_t fg, bg;
+    uint8_t attrs;
+    int origin_mode;
+    SavedCursor () : row (0), col (0), fg (TCOLOR_DEFAULT), bg (TCOLOR_DEFAULT), attrs (0), origin_mode (0) {}
+  };
+  SavedCursor t_saved_primary;
+  SavedCursor t_saved_alt;
+  SavedCursor t_saved_1049;
 
   // Current SGR
   term_color_t t_fg, t_bg;
@@ -186,6 +194,8 @@ public:
   int cursor_row () const { return t_cur_row; }
   int cursor_col () const { return t_cur_col; }
   int cursor_visible () const { return t_cursor_visible; }
+  int scroll_top () const { return t_scroll_top; }
+  int scroll_bottom () const { return t_scroll_bottom; }
   int app_cursor_keys () const { return t_app_cursor_keys; }
   /* Synchronized output (CSI ?2026h) が立っている間は、内部状態は普通に
      更新しつつ dirty() だけ隠す。フロントエンドは dirty() を見て再描画
@@ -195,6 +205,11 @@ public:
      分がまとめて反映される。 */
   int dirty () const { return t_dirty && !t_sync_update; }
   void clear_dirty () { t_dirty = 0; }
+  /* CSI ?2026h 〜 ?2026l の間かどうか。dirty() は「見せてよいか」を畳んで
+     しまうので、それとは別に「今まさにフレームの途中か」を知りたい場所
+     (カーソル位置を Windows キャレットへ反映する場面など、dirty() を
+     経由しない場所) 向け。 */
+  int sync_update_pending () const { return t_sync_update; }
   const TermCell *screen () const { return t_screen; }
   const TermCell *cell_at (int row, int col) const
     { return &t_screen[row * t_cols + col]; }

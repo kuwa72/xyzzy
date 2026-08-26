@@ -17,6 +17,7 @@ text_drop_target tdropt;
 main_frame g_frame;
 mouse_wheel g_wheel;
 
+
 static u_int WINAPI
 quit_thread_entry (void *p)
 {
@@ -823,10 +824,19 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_IME_ENDCOMPOSITION:
       app.ime_composition = 0;
+      /* ターミナルで、変換中だけ見せていたキャレットを DECTCEM の状態に
+         戻す (非ターミナルでは何もしない)。 */
+      if (selected_window ())
+        selected_window ()->sync_terminal_caret ();
       break;
 
     case WM_IME_STARTCOMPOSITION:
       app.ime_composition = 1;
+      /* ターミナルでは、カーソルが DECTCEM で消されていても変換中は
+         キャレットを見せる (sync_terminal_caret のコメント参照)。次の
+         再描画を待たず今すぐ出す。 */
+      if (selected_window ())
+        selected_window ()->sync_terminal_caret ();
       set_ime_caret ();
       break;
 

@@ -383,8 +383,9 @@ Window::init (int minibufp, int temporary)
   w_term_shadow = 0;
   w_term_shadow_rows = 0;
   w_term_shadow_cols = 0;
-  w_term_shadow_cursor_row = -1;
-  w_term_shadow_cursor_col = -1;
+  w_term_caret_row = -1;
+  w_term_caret_col = -1;
+  w_term_caret_show = 0;
   w_term_sel_p = 0;
   w_term_sel_r0 = w_term_sel_c0 = 0;
   w_term_sel_r1 = w_term_sel_c1 = 0;
