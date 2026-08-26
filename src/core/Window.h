@@ -1,7 +1,7 @@
 #ifndef _Window_h_
 # define _Window_h_
 
-typedef u_int64_t glyph_t;
+typedef uint64_t glyph_t;
 
 /*
  GLYPH BITS (Phase 2 layout: u64, code_point + metadata)
@@ -110,8 +110,8 @@ typedef u_int64_t glyph_t;
    get_font_idx(cp) computes this from a code point (fontmap.cc). */
 # define GLYPH_FONT_MASK         0x1e000000u
 # define GLYPH_FONT_SHIFT_BITS   25
-# define GLYPH_FONT(X)           ((u_int32_t)((X) & GLYPH_FONT_MASK))
-# define MAKE_GLYPH_FONT(X)      ((u_int32_t)(X) << GLYPH_FONT_SHIFT_BITS)
+# define GLYPH_FONT(X)           ((uint32_t)((X) & GLYPH_FONT_MASK))
+# define MAKE_GLYPH_FONT(X)      ((uint32_t)(X) << GLYPH_FONT_SHIFT_BITS)
 
 /* width (2 bit): display column count (0=combining/zero, 1=narrow, 2=wide).
    unicode_width(cp) computes this from a code point (eaw.cc). */
@@ -120,7 +120,7 @@ typedef u_int64_t glyph_t;
 # define GLYPH_WIDTH_ZERO        (0u << GLYPH_WIDTH_SHIFT_BITS)
 # define GLYPH_WIDTH_NARROW      (1u << GLYPH_WIDTH_SHIFT_BITS)
 # define GLYPH_WIDTH_WIDE        (2u << GLYPH_WIDTH_SHIFT_BITS)
-# define glyph_width(g)          ((u_int32_t)(((g) & GLYPH_WIDTH_MASK) >> GLYPH_WIDTH_SHIFT_BITS))
+# define glyph_width(g)          ((uint32_t)(((g) & GLYPH_WIDTH_MASK) >> GLYPH_WIDTH_SHIFT_BITS))
 
 /* JUNK (bit 31): marks a padding cell in gd_cc[] that holds no live glyph
    (e.g. trailing cell of a wide glyph, or stale entry before redraw). */
@@ -137,8 +137,8 @@ typedef u_int64_t glyph_t;
 # define GLYPH_CP_SHIFT          32
 # define GLYPH_CP_BITS           21
 # define GLYPH_CP_VALUE_MASK     0x1FFFFFu
-# define MAKE_GLYPH_CP(cp)       ((glyph_t)(u_int32_t)(cp) << GLYPH_CP_SHIFT)
-# define GLYPH_CP(g)             ((u_int32_t)((g) >> GLYPH_CP_SHIFT) & GLYPH_CP_VALUE_MASK)
+# define MAKE_GLYPH_CP(cp)       ((glyph_t)(uint32_t)(cp) << GLYPH_CP_SHIFT)
+# define GLYPH_CP(g)             ((uint32_t)((g) >> GLYPH_CP_SHIFT) & GLYPH_CP_VALUE_MASK)
 
 /* Phase 3 予約: shape_pool への ref。Phase 2 時点で常に false。
    paint 側の fast path / slow path 分岐を先に書いておけば Phase 3 で else 側を

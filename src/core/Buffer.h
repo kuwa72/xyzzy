@@ -166,9 +166,9 @@ safe_split_offset (const Char *p, int c_used, int offset)
 static inline int
 surrogate_pair_width (Char hi, Char lo)
 {
-  u_int32_t cp = 0x10000u
-                 + ((u_int32_t (hi) - 0xD800u) << 10)
-                 + (u_int32_t (lo) - 0xDC00u);
+  uint32_t cp = 0x10000u
+                 + ((uint32_t (hi) - 0xD800u) << 10)
+                 + (uint32_t (lo) - 0xDC00u);
   return unicode_width (cp);
 }
 

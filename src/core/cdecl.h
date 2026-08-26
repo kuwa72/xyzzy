@@ -53,22 +53,17 @@ typedef unsigned char u_char;
 typedef unsigned short u_short;
 typedef unsigned int u_int;
 typedef unsigned long u_long;
-
-typedef u_char u_int8_t;
-typedef u_short u_int16_t;
-typedef u_long u_int32_t;
-typedef uint64_t u_int64_t;
 #endif
 
 typedef uintptr_t pointer_t;
 
-typedef u_int16_t Char;
+typedef uint16_t Char;
 # define CHAR_LIMIT 0x110000  /* full Unicode scalar value space (U+0000..U+10FFFF + 1) */
 typedef u_long lChar;
 const lChar lChar_EOF = lChar (-1);
 
-typedef u_int16_t ucs2_t;
-typedef u_int32_t ucs4_t;
+typedef uint16_t ucs2_t;
+typedef uint32_t ucs4_t;
 
 typedef long point_t;
 

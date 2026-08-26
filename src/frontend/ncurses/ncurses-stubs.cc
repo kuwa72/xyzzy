@@ -2310,7 +2310,7 @@ output_glyph (int row, int col, glyph_t g)
   if (color_pair)
     attrs |= COLOR_PAIR (color_pair);
 
-  u_int32_t cp = GLYPH_CP (g);
+  uint32_t cp = GLYPH_CP (g);
   int width = (int) glyph_width (g);
   if (width == 0)
     width = 1;
@@ -2346,7 +2346,7 @@ output_glyph (int row, int col, glyph_t g)
     }
   else
     {
-      u_int32_t v = cp - 0x10000u;
+      uint32_t v = cp - 0x10000u;
       ws[0] = (wchar_t) (0xD800u + (v >> 10));
       ws[1] = (wchar_t) (0xDC00u + (v & 0x3FFu));
       ws[2] = 0;

@@ -26,15 +26,15 @@
  may replace it later (issue #13 open question).
 */
 
-# include "cdecl.h"       // u_int64_t, fixed-width int types
+# include "cdecl.h"       // uint64_t, fixed-width int types
 # include "platform.h"    // COLORREF, INT, DWORD, RECT
 
 // Painter text primitives operate on glyph_t runs, not Char: a glyph
 // carries a full 21-bit code point (GLYPH_CP, up to 0x110000) plus its
-// display width, which Char (u_int16_t) cannot represent. Each backend
+// display width, which Char (uint16_t) cannot represent. Each backend
 // extracts the code point and does its own encoding (Win32: UTF-16
 // surrogate pairs; ncurses: wchar_t). Mirrors Window.h.
-typedef u_int64_t glyph_t;
+typedef uint64_t glyph_t;
 
 // draw_text flags (subset of the GLYPH_* attributes the Win32 path renders).
 enum

@@ -376,7 +376,7 @@ paint_build_wchars (const glyph_t *g, const glyph_t *ge,
       glyph_t c = *g;
       if (c & GLYPH_JUNK)
         continue;
-      u_int32_t cp = GLYPH_CP (c);
+      uint32_t cp = GLYPH_CP (c);
       int width = (int) glyph_width (c);
       if (width == 0)
         width = 1;  /* combining (将来) は base に併合; 単独なら 1 cell 想定 */
@@ -395,7 +395,7 @@ paint_build_wchars (const glyph_t *g, const glyph_t *ge,
              low=advance だと結合されるが glyph が cell 内で右寄せに見える
              ケースがある。半々は MFC 等の標準的な振り方で、結合 glyph が
              自然に 2 cell に収まる。 */
-          u_int32_t v = cp - 0x10000u;
+          uint32_t v = cp - 0x10000u;
           int half = advance / 2;
           wbuf[n]   = (wchar_t) (0xD800u + (v >> 10));
           wpad[n]   = half;
@@ -1691,7 +1691,7 @@ Window::paint_minibuffer_message (lisp string)
         }
       else
         {
-          u_int32_t cp = u_int32_t (cc);
+          uint32_t cp = uint32_t (cc);
           int w = unicode_width (cp);
           if (w == 2)
             {

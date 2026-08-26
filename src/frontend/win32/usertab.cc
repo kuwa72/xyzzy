@@ -157,7 +157,7 @@ user_tab_bar::need_text (TOOLTIPTEXT &ttt)
 void
 user_tab_bar::draw_item (const draw_item_struct &dis)
 {
-  /* Phase 3: tab label は ucs4 → UTF-16 (Char = u_int16_t) に変換。 */
+  /* Phase 3: tab label は ucs4 → UTF-16 (Char = uint16_t) に変換。 */
   lisp name = item_name ((lisp)dis.data);
   Char buf[ITEM_NAME_MAX];
   int slen = min<int> (xstring_length (name), numberof (buf) / 2);

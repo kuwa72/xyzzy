@@ -335,12 +335,11 @@ inline int kana_char_p (lChar c)
 inline int kanji_char_p (lChar c)
   {return DBCP (c);}
 
-// On LP64 (macOS / Linux) lChar (u_long, 64-bit) and ucs4_t (u_int32_t) are
-// distinct types, so a ucs4_t argument is ambiguous between the int / Char /
-// lChar overloads above. Add ucs4_t overloads to give it an exact match. On
-// LLP64 (Win32) u_long is 32-bit and lChar == ucs4_t, so these would redefine
-// the lChar versions — guard them out there.
-#ifdef __LP64__
+// lChar (u_long, native width) and ucs4_t (a fixed uint32_t) are always
+// distinct types now, even on LLP64 (Win32) where u_long happens to be
+// 32-bit too — uint32_t and unsigned long are still different types. So a
+// ucs4_t argument is ambiguous between the int / Char / lChar overloads
+// above on every platform; add ucs4_t overloads to give it an exact match.
 inline int SBCP (ucs4_t c)
   {return c < 256;}
 inline int DBCP (ucs4_t c)
@@ -359,7 +358,6 @@ inline int kana_char_p (ucs4_t c)
   {return SBCP (c) && kana_char_p (int (c));}
 inline int kanji_char_p (ucs4_t c)
   {return DBCP (c);}
-#endif /* __LP64__ */
 
 inline int
 _char_downcase (int c)
