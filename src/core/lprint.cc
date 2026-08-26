@@ -634,7 +634,7 @@ print_symbol (wStream &stream, const print_control &pc, lisp object)
                || multiple_value::value (1) == Qnil)
         {
           if (xpackage_name (package) == Qnil)
-            stream.add ('#:');
+            stream.add ("#:");
           else
             {
               print_symbol_name (stream, pc, xpackage_name (package));
@@ -4367,9 +4367,9 @@ warn (message_code a1, lisp a2)
 }
 
 void
-format_message (message_code m, ...)
+format_message (int m, ...)
 {
-  const char *fmt = get_message_string (m);
+  const char *fmt = get_message_string (message_code (m));
   va_list ap;
   va_start (ap, m);
   char buf[2048];
@@ -4379,9 +4379,9 @@ format_message (message_code m, ...)
 }
 
 int
-format_yes_or_no_p (message_code m, ...)
+format_yes_or_no_p (int m, ...)
 {
-  const char *fmt = get_message_string (m);
+  const char *fmt = get_message_string (message_code (m));
   va_list ap;
   va_start (ap, m);
   char buf[2048];

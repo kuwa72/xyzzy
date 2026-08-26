@@ -2470,7 +2470,7 @@ tool_bm::load_mapped_bitmap (const wchar_t *filename, HBITMAP &hbm)
   const BITMAPFILEHEADER &bf = *(const BITMAPFILEHEADER *)mf.base ();
   const BITMAPINFOHEADER &bi = *(const BITMAPINFOHEADER *)(&bf + 1);
 
-  if (bf.bfType != 'MB'
+  if (bf.bfType != 0x4d42 /* "BM" */
       || bi.biSize != sizeof bi
       || bi.biWidth <= 0
       || !bi.biHeight

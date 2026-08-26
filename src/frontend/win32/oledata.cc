@@ -781,7 +781,7 @@ event_sink::Release ()
 STDMETHODIMP
 event_sink::QueryInterface (REFIID iid, void **v)
 {
-  if (!v || !this)
+  if (!v)
     return E_INVALIDARG;
   *v = 0;
   if (iid != IID_IUnknown && iid != IID_IDispatch && iid != s_iid)
