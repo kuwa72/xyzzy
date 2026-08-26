@@ -141,7 +141,7 @@ static lisp
 get_window_text (HWND dlg, int id)
 {
   HWND hwnd = GetDlgItem (dlg, id);
-  int l = max (0L, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
+  int l = max<LRESULT> (0, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   *wb = 0;
   GetWindowTextW (hwnd, wb, l);
@@ -333,7 +333,7 @@ lisp
 Dialog::edit_result (dlgctrl *c)
 {
   HWND hwnd = GetDlgItem (d_hwnd, c->id ());
-  int l = max (0L, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
+  int l = max<LRESULT> (0, SendMessageW (hwnd, WM_GETTEXTLENGTH, 0, 0)) + 2;
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   int got = GetWindowTextW (hwnd, wb, l);
   lisp kwd = c->keyword ();
@@ -554,7 +554,7 @@ Dialog::listbox_command (dlgctrl *c, UINT msg)
 lisp
 Dialog::make_lb_string (int id, int getlen, int gettext, int idx)
 {
-  int l = max (0L, SendDlgItemMessageW (d_hwnd, id, getlen, idx, 0)) + 2;
+  int l = max<LRESULT> (0, SendDlgItemMessageW (d_hwnd, id, getlen, idx, 0)) + 2;
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   if (SendDlgItemMessageW (d_hwnd, id, gettext, idx, LPARAM (wb)) == LB_ERR)
     *wb = 0;
@@ -747,7 +747,7 @@ Dialog::combobox_result (dlgctrl *c)
     }
   else
     {
-      int l = max (0L, SendDlgItemMessageW (d_hwnd, id, WM_GETTEXTLENGTH, 0, 0)) + 2;
+      int l = max<LRESULT> (0, SendDlgItemMessageW (d_hwnd, id, WM_GETTEXTLENGTH, 0, 0)) + 2;
       wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
       *wb = 0;
 
@@ -1178,7 +1178,7 @@ lb_match_p (HWND hwnd, int index, lisp columns, int ch, int lindex)
 static int
 lb_match_p (HWND hwnd, int index, int ch)
 {
-  int l = max (0L, SendMessageW (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
+  int l = max<LRESULT> (0, SendMessageW (hwnd, LB_GETTEXTLEN, index, 0)) + 2;
   wchar_t *wb = (wchar_t *)alloca (l * sizeof (wchar_t));
   if (SendMessageW (hwnd, LB_GETTEXT, index, LPARAM (wb)) == LB_ERR)
     return 0;
