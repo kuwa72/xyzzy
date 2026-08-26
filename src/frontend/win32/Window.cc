@@ -385,6 +385,9 @@ Window::init (int minibufp, int temporary)
   w_term_shadow_cols = 0;
   w_term_shadow_cursor_row = -1;
   w_term_shadow_cursor_col = -1;
+  w_term_sel_p = 0;
+  w_term_sel_r0 = w_term_sel_c0 = 0;
+  w_term_sel_r1 = w_term_sel_c1 = 0;
   w_inverse_mode_line = 0;
   w_ime_mode_line = 0;
 
@@ -612,6 +615,34 @@ Window::set_window ()
 {
   assert (this);
   assert (xwindow_wp (lwp) == this);
+
+  /* フォーカス報告 (DECSET 1004)。tmux 等のマルチプレクサが別ペインに
+     切り替えたときと同じで、選択ウィンドウから外れる側/入る側の
+     ターミナルバッファへ ESC[O / ESC[I を送る。要求していないアプリには
+     terminal_focus_to_bytes が 0 を返すので何もしない。 */
+  extern Terminal *buffer_terminal (const Buffer *bp);
+  extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+  Window *prev = app.active_frame.selected;
+  if (prev != this)
+    {
+      if (prev && prev->w_bufp)
+        {
+          Terminal *pt = buffer_terminal (prev->w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (pt, 0, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (prev->w_bufp, b, l);
+        }
+      if (w_bufp)
+        {
+          Terminal *nt = buffer_terminal (w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (nt, 1, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (w_bufp, b, l);
+        }
+    }
+
   app.active_frame.selected = this;
   w_bufp->check_range (w_point);
 }
@@ -1069,6 +1100,141 @@ Window::destroy_windows ()
   app.active_frame.deleted = 0;
 }
 
+/* ターミナルのマウス選択。ターミナルバッファは buffer 本文を持たない
+   (表示は TermCell を直接描いている) ので、xyzzy 本来の選択機構は端から
+   何も掴めない。格子の座標で範囲を持ち、描画側で反転して見せ、離した
+   時点でクリップボードへ入れる (PuTTY や xterm と同じ copy-on-select)。 */
+
+/* アンカーと現在位置を並べ直す。テキストの選択と同じで、開始行は c0 から
+   行末まで、途中の行は丸ごと、終了行は行頭から c1 まで。 */
+void
+Window::terminal_selection_range (int *r0, int *c0, int *r1, int *c1) const
+{
+  if (w_term_sel_r0 < w_term_sel_r1
+      || (w_term_sel_r0 == w_term_sel_r1 && w_term_sel_c0 <= w_term_sel_c1))
+    {
+      *r0 = w_term_sel_r0; *c0 = w_term_sel_c0;
+      *r1 = w_term_sel_r1; *c1 = w_term_sel_c1;
+    }
+  else
+    {
+      *r0 = w_term_sel_r1; *c0 = w_term_sel_c1;
+      *r1 = w_term_sel_r0; *c1 = w_term_sel_c0;
+    }
+}
+
+int
+Window::terminal_selected_cell_p (int row, int col) const
+{
+  if (!w_term_sel_p)
+    return 0;
+  int r0, c0, r1, c1;
+  terminal_selection_range (&r0, &c0, &r1, &c1);
+  if (row < r0 || row > r1)
+    return 0;
+  if (row == r0 && col < c0)
+    return 0;
+  if (row == r1 && col > c1)
+    return 0;
+  return 1;
+}
+
+void
+Window::terminal_clear_selection ()
+{
+  if (!w_term_sel_p)
+    return;
+  w_term_sel_p = 0;
+  w_disp_flags |= WDF_WINDOW;
+}
+
+void
+Window::terminal_copy_selection (Terminal *term) const
+{
+  if (!w_term_sel_p || !term)
+    return;
+
+  int r0, c0, r1, c1;
+  terminal_selection_range (&r0, &c0, &r1, &c1);
+
+  /* 行末の空白は落とす。端末の格子は右端まで空白で埋まっているので、
+     そのまま取ると 1 行ごとに何十桁もの空白が付いてくる。 */
+  int nrows = term->rows ();
+  int ncols = term->cols ();
+  wchar_t *buf = 0;
+  int len = 0, cap = 0;
+  for (int r = r0; r <= r1 && r < nrows; r++)
+    {
+      int from = (r == r0) ? c0 : 0;
+      int to = (r == r1) ? c1 : ncols - 1;
+      if (to >= ncols)
+        to = ncols - 1;
+      int last = from - 1;
+      for (int c = to; c >= from; c--)
+        {
+          const TermCell *tc = term->display_cell (r, c);
+          if (tc->ch && tc->ch != ' ')
+            { last = c; break; }
+        }
+      for (int c = from; c <= last; c++)
+        {
+          const TermCell *tc = term->display_cell (r, c);
+          if (tc->wide == 2)
+            continue;
+          ucs4_t ch = tc->ch ? tc->ch : ' ';
+          if (len + 4 > cap)
+            {
+              cap = cap ? cap * 2 : 256;
+              wchar_t *nb = (wchar_t *)realloc (buf, cap * sizeof (wchar_t));
+              if (!nb)
+                { free (buf); return; }
+              buf = nb;
+            }
+          if (ch < 0x10000)
+            buf[len++] = wchar_t (ch);
+          else
+            {
+              buf[len++] = wchar_t (utf16_ucs4_to_pair_high (ch));
+              buf[len++] = wchar_t (utf16_ucs4_to_pair_low (ch));
+            }
+        }
+      if (r < r1)
+        {
+          if (len + 4 > cap)
+            {
+              cap = cap ? cap * 2 : 256;
+              wchar_t *nb = (wchar_t *)realloc (buf, cap * sizeof (wchar_t));
+              if (!nb)
+                { free (buf); return; }
+              buf = nb;
+            }
+          buf[len++] = L'\r';
+          buf[len++] = L'\n';
+        }
+    }
+
+  if (!len)
+    { free (buf); return; }
+
+  HGLOBAL hmem = GlobalAlloc (GMEM_MOVEABLE, (len + 1) * sizeof (wchar_t));
+  if (!hmem)
+    { free (buf); return; }
+  wchar_t *p = (wchar_t *)GlobalLock (hmem);
+  memcpy (p, buf, len * sizeof (wchar_t));
+  p[len] = L'\0';
+  GlobalUnlock (hmem);
+  free (buf);
+
+  if (OpenClipboard (app.toplev))
+    {
+      EmptyClipboard ();
+      SetClipboardData (CF_UNICODETEXT, hmem);
+      CloseClipboard ();
+    }
+  else
+    GlobalFree (hmem);
+}
+
 void
 Window::update_vscroll_bar ()
 {
@@ -1080,24 +1246,45 @@ Window::update_vscroll_bar ()
           w_vsinfo.sb_seen = ScrollInfo::yes;
           ShowScrollBar (w_hwnd, SB_VERT, 1);
         }
-      int nlines = (w_bufp
+      /* ターミナルバッファは buffer 本文を持たない (表示は TermCell を
+         直接描いている) ので、count_lines () は常に 0 行を返す。範囲が
+         1 ページに収まっている扱いになり、スクロールバックが溜まっていても
+         バーが立たなかった。行数は端末側から取る。
+
+         nPos は上端の行番号 (nMin = 1 起点)。offset = 0 (ライブ) が一番下、
+         offset = count が一番上なので、1 + count - offset。 */
+      extern Terminal *buffer_terminal (const Buffer *bp);
+      Terminal *term = w_bufp ? buffer_terminal (w_bufp) : 0;
+      int nlines, npage, npos;
+      if (term)
+        {
+          npage = term->rows ();
+          nlines = term->scrollback_count () + npage;
+          npos = 1 + term->scrollback_count () - term->scrollback_offset ();
+        }
+      else
+        {
+          nlines = (w_bufp
                     ? (w_bufp->b_fold_columns == Buffer::FOLD_NONE
                        ? w_bufp->count_lines ()
                        : w_bufp->folded_count_lines ())
                     : 1);
-      if (!(flags () & WF_ALT_VSCROLL_BAR))
-        nlines += w_ech.cy - 1;
-      else
-        nlines = max (nlines, int (w_last_top_linenum + w_ech.cy - 1));
-      if (w_vsinfo.nMax != nlines || w_vsinfo.nPage != UINT (w_ech.cy))
+          if (!(flags () & WF_ALT_VSCROLL_BAR))
+            nlines += w_ech.cy - 1;
+          else
+            nlines = max (nlines, int (w_last_top_linenum + w_ech.cy - 1));
+          npage = w_ech.cy;
+          npos = w_last_top_linenum;
+        }
+      if (w_vsinfo.nMax != nlines || w_vsinfo.nPage != UINT (npage))
         {
           w_vsinfo.nMax = nlines;
-          w_vsinfo.nPage = w_ech.cy;
+          w_vsinfo.nPage = npage;
           w_vsinfo.fMask |= SIF_RANGE | SIF_PAGE;
         }
-      if (w_vsinfo.nPos != w_last_top_linenum)
+      if (w_vsinfo.nPos != npos)
         {
-          w_vsinfo.nPos = w_last_top_linenum;
+          w_vsinfo.nPos = npos;
           w_vsinfo.fMask |= SIF_POS;
         }
       if (w_vsinfo.fMask)
@@ -1136,6 +1323,47 @@ Window::process_vscroll (int code)
 {
   if (!w_bufp)
     return;
+
+  /* ターミナルバッファはバーの操作を端末のスクロールバックに向ける。
+     scroll_window () が動かすのは buffer の point で、表示は TermCell を
+     直接描いているので効かない (ホイールと同じ理由)。
+     scrollback の offset は「遡り」が正なので、下へ = 減らす。 */
+  {
+    extern Terminal *buffer_terminal (const Buffer *bp);
+    Terminal *term = buffer_terminal (w_bufp);
+    if (term)
+      {
+        int step = max (symbol_value_as_integer (Vscroll_bar_step, w_bufp), 1);
+        int delta;
+        switch (code)
+          {
+          case SB_LINEDOWN: delta = -step; break;
+          case SB_LINEUP:   delta = step; break;
+          case SB_PAGEDOWN: delta = -vscroll_lines (); break;
+          case SB_PAGEUP:   delta = vscroll_lines (); break;
+          case SB_THUMBTRACK:
+            {
+              ScrollInfo i;
+              i.fMask = SIF_TRACKPOS;
+              GetScrollInfo (w_hwnd, SB_VERT, &i);
+              /* update_vscroll_bar の nPos = 1 + count - offset の逆。 */
+              int off = 1 + term->scrollback_count () - i.nTrackPos;
+              delta = off - term->scrollback_offset ();
+              break;
+            }
+          default:
+            return;
+          }
+        int before = term->scrollback_offset ();
+        term->scrollback_scroll (delta);
+        if (term->scrollback_offset () == before)
+          return;
+        terminal_clear_selection ();  /* 座標がずれるので解除 */
+        w_disp_flags |= WDF_WINDOW;
+        refresh_screen (0);
+        return;
+      }
+  }
 
   switch (code)
     {
@@ -1183,9 +1411,13 @@ Window::wheel_scroll (const wheel_info &wi)
     return;
 
   /* ターミナル (ConPTY) で、アプリがマウス報告を要求している間はホイールも
-     pty へ流す。そうでなければ従来どおり Lisp の mouse-wheel-handler に
-     渡す (スクロールバックを遡る操作)。
-     xterm 互換のホイールはボタン 64 = 上、65 = 下 の press として送る。 */
+     pty へ流す。要求していなければ端末自身のスクロールバックを動かす。
+     xterm 互換のホイールはボタン 64 = 上、65 = 下 の press として送る。
+
+     ターミナルバッファを Lisp の mouse-wheel-handler に渡してはいけない。
+     あちらは buffer の point を動かすが、ターミナルの表示は TermCell を
+     直接描いていて buffer 本文を見ていないので、ホイールを回しても何も
+     起きなかった (「シェルのスクロールバックができない」)。 */
   {
     extern Terminal *buffer_terminal (const Buffer *bp);
     extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
@@ -1222,6 +1454,24 @@ Window::wheel_scroll (const wheel_info &wi)
               }
             return;
           }
+      }
+    if (term)
+      {
+        /* 1 ノッチで wi_nlines 行 (システム設定)。WHEEL_PAGESCROLL は
+           1 画面。wi_value は上が正、scrollback_scroll も遡りが正。 */
+        int nlines = (wi.wi_nlines == WHEEL_PAGESCROLL
+                      ? term->rows () : wi.wi_nlines);
+        if (nlines < 1)
+          nlines = 1;
+        int before = term->scrollback_offset ();
+        term->scrollback_scroll (wi.wi_value * nlines);
+        if (term->scrollback_offset () != before)
+          {
+            terminal_clear_selection ();  /* 座標がずれるので解除 */
+            w_disp_flags |= WDF_WINDOW;
+            refresh_screen (0);
+          }
+        return;
       }
   }
 

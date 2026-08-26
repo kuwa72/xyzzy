@@ -5,6 +5,7 @@
 #define TERM_H
 
 #include <stdint.h>
+#include <time.h>
 
 // SGR attributes
 enum {
@@ -83,6 +84,18 @@ class Terminal
   int t_insert_mode;
   int t_pending_wrap;
 
+  /* REP (CSI Pn b) が繰り返す「直前に置いた文字」。put_char で更新する。
+     0 = まだ何も置いていない (REP は無視)。 */
+  uint32_t t_last_char;
+
+  /* Synchronized output (DECSET/DECRST 2026)。kitty/iTerm2 発祥で
+     WezTerm/foot/Windows Terminal 等も追随した、フレーム単位の再描画を
+     一括で見せるためのモード。詳細は dirty() のコメント。
+     t_sync_update_since はアプリが 2026l を送り忘れて固まったときの
+     強制解除に使う (仕様が推奨する安全策。無いと再描画が永久に止まる)。 */
+  int t_sync_update;
+  time_t t_sync_update_since;
+
   // Tab stops
   uint8_t *t_tabs;
 
@@ -125,8 +138,22 @@ class Terminal
   enum { TPALETTE_SIZE = 258 };
   int32_t *t_palette;
   int t_osc_len;
-  enum { OSC_MAX = 256 };
+  /* OSC 52 (クリップボード書き込み) の payload を持てるだけの大きさ。
+     元は色指定用の 256 バイトだったが、それだと数行コピーしただけの
+     base64 がすぐ切り詰められる。64KiB あれば普段のコピペには十分で、
+     xterm 等の既定の上限とも近い桁。 */
+  enum { OSC_MAX = 65536 };
   char t_osc[OSC_MAX];
+
+  /* OSC 52 (クリップボード書き込み)。読み出し (Pd == "?") は、盗聴に
+     使われうるので実装しない — 最近の端末の多く (kitty/WezTerm/foot 等)
+     も既定で書き込みのみ・読み出しは無効という判断をしている。
+     書き込みは "Pc;Pd" (Pd は base64 のまま) を t_osc に残し、フラグを
+     立てるだけにする。base64 decode も実際のクリップボード API 呼び出し
+     もプラットフォーム依存なのでフロントエンド側でやる。ncurses は
+     クリップボード API を持たないので、OSC をそのまま外側の (本物の)
+     端末へ中継する — tmux の allow-passthrough と同じ発想。 */
+  int t_clip_pending;
 
   /* 端末からアプリへ返す応答 (DSR のカーソル位置、DA の機種応答)。
      feed() の中で積み、フロントエンドが feed() 後に pty へ書き出す。
@@ -160,7 +187,13 @@ public:
   int cursor_col () const { return t_cur_col; }
   int cursor_visible () const { return t_cursor_visible; }
   int app_cursor_keys () const { return t_app_cursor_keys; }
-  int dirty () const { return t_dirty; }
+  /* Synchronized output (CSI ?2026h) が立っている間は、内部状態は普通に
+     更新しつつ dirty() だけ隠す。フロントエンドは dirty() を見て再描画
+     するので、これでフレームの途中経過が画面に出ず、CSI ?2026l が来た
+     時点の完成形だけが一度に出る (ちらつき防止)。t_dirty 自体は消さない
+     — 2026l で t_sync_update が下りた次の dirty() 呼び出しで、隠れていた
+     分がまとめて反映される。 */
+  int dirty () const { return t_dirty && !t_sync_update; }
   void clear_dirty () { t_dirty = 0; }
   const TermCell *screen () const { return t_screen; }
   const TermCell *cell_at (int row, int col) const
@@ -189,6 +222,13 @@ public:
   int mouse_sgr () const { return t_mouse_sgr; }
   int bracketed_paste_p () const { return t_bracketed_paste; }
   int focus_events_p () const { return t_focus_events; }
+
+  /* OSC 52 クリップボード書き込み。feed() 後、他の OSC が来る前に
+     読むこと (t_osc は次の OSC 開始で上書きされる) — reply_data() と
+     同じ「feed() のたびに一度だけドレインする」約束。 */
+  int clipboard_pending () const { return t_clip_pending; }
+  const char *clipboard_raw () const { return t_osc; }  // "Pc;Pd"
+  void clipboard_clear () { t_clip_pending = 0; }
 };
 
 // Convert an lChar key to VT100 escape sequence bytes.
@@ -206,6 +246,13 @@ int terminal_key_to_bytes (const Terminal *term, lChar key, char *buf, int bufsi
 #define TMOUSE_CTRL  16
 int terminal_mouse_to_bytes (const Terminal *term, int kind, int button,
                             int row, int col, int mods,
+                            char *buf, int bufsize);
+
+/* フォーカス報告 (DECSET 1004)。アプリが要求していれば、xyzzy 側で
+   このターミナルバッファが選択ウィンドウになった/外れたときに
+   ESC[I / ESC[O を書く。要求していなければ 0 (送らない)。
+   focused: 1 = フォーカスを得た、0 = 失った。 */
+int terminal_focus_to_bytes (const Terminal *term, int focused,
                             char *buf, int bufsize);
 
 #endif // TERM_H

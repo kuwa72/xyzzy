@@ -152,7 +152,18 @@ static lChar
 ncurses_key_to_lchar (int ret, wint_t wch)
 {
   if (ret == KEY_CODE_YES)
-    return map_ncurses_key (wch);
+    {
+      /* map_ncurses_key は旧 Char encoding (CCF_LEFT = 0xff04 等) を返す。
+         そのまま lChar として扱うと kind タグが無い (=LCKIND_CHAR) ため、
+         呼び出し側 (send_key_to_terminal → terminal_key_to_bytes 等、新
+         encoding を前提とする経路) には「コードポイント 0xff04 の文字」
+         にしか見えない。lc_from_ccf を通して kind=FNKEY 付きの正規の
+         lChar に直す。 */
+      lChar ccf = map_ncurses_key (wch);
+      if (ccf == lChar_EOF)
+        return lChar_EOF;
+      return lc_from_ccf (Char (ccf));
+    }
   return wchar_to_lchar ((wchar_t)wch);
 }
 

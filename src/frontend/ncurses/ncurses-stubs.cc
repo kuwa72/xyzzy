@@ -1667,6 +1667,33 @@ Window::set_buffer (Buffer *bp)
 void
 Window::set_window ()
 {
+  /* フォーカス報告 (DECSET 1004)。tmux 等のマルチプレクサが別ペインに
+     切り替えたときと同じで、選択ウィンドウから外れる側/入る側の
+     ターミナルバッファへ ESC[O / ESC[I を送る。要求していないアプリには
+     terminal_focus_to_bytes が 0 を返すので何もしない。 */
+  extern Terminal *buffer_terminal (const Buffer *bp);
+  extern int buffer_terminal_send (const Buffer *bp, const char *data, int len);
+  Window *prev = app.active_frame.selected;
+  if (prev != this)
+    {
+      if (prev && prev->w_bufp)
+        {
+          Terminal *pt = buffer_terminal (prev->w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (pt, 0, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (prev->w_bufp, b, l);
+        }
+      if (w_bufp)
+        {
+          Terminal *nt = buffer_terminal (w_bufp);
+          char b[8];
+          int l = terminal_focus_to_bytes (nt, 1, b, sizeof b);
+          if (l > 0)
+            buffer_terminal_send (w_bufp, b, l);
+        }
+    }
+
   app.active_frame.selected = this;
   if (w_bufp)
     w_bufp->check_range (w_point);
@@ -3403,9 +3430,11 @@ refresh_screen (int)
           Terminal *sel_term = sel->w_bufp ? buffer_terminal (sel->w_bufp) : 0;
           if (sel_term)
             {
-              // Terminal window: cursor from terminal emulator
-              // Hide cursor when scrolled back
-              if (sel_term->scrollback_offset () > 0)
+              /* Terminal window: cursor from terminal emulator.
+                 スクロールバックを遡っている間と、アプリが DECTCEM
+                 (CSI ?25l) でカーソルを消している間は出さない。 */
+              if (sel_term->scrollback_offset () > 0
+                  || !sel_term->cursor_visible ())
                 curs_set (0);
               else
                 {

@@ -111,6 +111,22 @@ jobs:
           path: lisp/**/*.lc
           key: lc-${{ matrix.arch }}-${{ hashFiles('lisp/**/*.l') }}
 
+      # tools/run-tests.sh refuses to run against .lc older than its .l
+      # (tools/lc-stale.sh, mtime comparison).  That gate is for a working
+      # tree, where "you edited lisp/*.l and forgot to recompile" is a real
+      # mistake; here it always fires on a cache hit.  actions/checkout stamps
+      # every .l with the checkout time while the restored .lc keep the mtime
+      # they had when they were archived, so the .l are newer by construction
+      # -- and the whole library then gets compiled again on every PR that does
+      # not touch lisp/, which is what the cache exists to avoid.
+      #
+      # The cache key is the content hash of every lisp/**/*.l, so a hit is a
+      # stronger statement than any mtime: the sources are byte for byte what
+      # these .lc were built from.  Say so by giving them a newer mtime.
+      - name: Mark the restored .lc as up to date
+        if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit == 'true'
+        run: find lisp -name '*.lc' -exec touch {} +
+
       - name: Byte compile the library
         if: matrix.arch != 'aarch64' && steps.lc.outputs.cache-hit != 'true'
         timeout-minutes: 30
