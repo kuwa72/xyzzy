@@ -204,6 +204,29 @@
   (term-line-string 2 20 (concat "ab" (esc "[2C") "c" (esc "[4D") "Z"))
   => "aZ  c")
 
+(deftest terminal-mode-1049-save-is-independent ()
+  (let ((s (concat (esc "[2;3H") (esc "[?1049h")
+                   (esc "[3;5H") (esc "7")
+                   (esc "[?1049l") "P")))
+    (term-line-string 4 10 s 1))
+  => "  P")
+
+(deftest terminal-decsc-restores-attributes ()
+  (second (term-cell 4 10
+                     (concat (esc "[31m") (esc "7")
+                             (esc "[32m") (esc "8") "X")
+                     0 0))
+  => #x1000001)
+
+(deftest terminal-decsc-restores-origin-mode ()
+  (let ((s (concat (esc "[2;4r") (esc "[?6h")
+                   (esc "[2;2H") (esc "7")
+                   (esc "[?6l") (esc "8")
+                   (esc "[1;1H") "O")))
+    (list (term-line-string 5 10 s 0)
+          (term-line-string 5 10 s 1)))
+  => ("" "O"))
+
 (deftest terminal-el-to-eol ()
   ;; 行頭に戻して ESC[0K で右を消す
   (term-line-string 2 20 (concat "abcdef" (esc "[1;4H") (esc "[0K")))

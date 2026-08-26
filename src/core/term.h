@@ -53,9 +53,17 @@ class Terminal
   int t_scroll_top, t_scroll_bottom;
 
   // Saved cursor
-  int t_saved_row, t_saved_col;
-  term_color_t t_saved_fg, t_saved_bg;
-  uint8_t t_saved_attrs;
+  struct SavedCursor
+  {
+    int row, col;
+    term_color_t fg, bg;
+    uint8_t attrs;
+    int origin_mode;
+    SavedCursor () : row (0), col (0), fg (TCOLOR_DEFAULT), bg (TCOLOR_DEFAULT), attrs (0), origin_mode (0) {}
+  };
+  SavedCursor t_saved_primary;
+  SavedCursor t_saved_alt;
+  SavedCursor t_saved_1049;
 
   // Current SGR
   term_color_t t_fg, t_bg;
