@@ -85,7 +85,7 @@ lisp
 Fsi_www_url_encode (lisp input, lisp output, lisp literal_chars)
 {
   char lc[256];
-  bzero (lc, sizeof lc);
+  memset (lc, 0, sizeof lc);
   if (!literal_chars || literal_chars == Qnil)
     {
       for (int i = '0'; i <= '9'; i++)

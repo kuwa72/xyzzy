@@ -186,7 +186,7 @@ copy_chunk (const Char *src, Chunk *dst, int doff, int size)
   while (1)
     {
       int n = min (dst->c_used - doff, size);
-      bcopy (src, dst->c_text + doff, n);
+      memcpy (dst->c_text + doff, src, n * sizeof (*src));
       size -= n;
       if (!size)
         return;
@@ -598,7 +598,7 @@ Buffer::insert_chars_internal (Point &point, const insertChars *ichars,
         while (rest > 0)
           {
             int n = min (cp->c_used - off, rest);
-            bcopy (s, cp->c_text + off, n);
+            memcpy (cp->c_text + off, s, n * sizeof (*s));
             s += n;
             off += n;
             rest -= n;
@@ -884,8 +884,9 @@ Buffer::insert_file_contents (Window *wp, lisp filename, lisp visit,
             }
           else
             {
-              bcopy (cp->c_text + wp->w_point.p_offset, t_chunk->c_text,
-                     cp->c_used - wp->w_point.p_offset);
+              memcpy (t_chunk->c_text, cp->c_text + wp->w_point.p_offset,
+                      (cp->c_used - wp->w_point.p_offset)
+                      * sizeof (*(cp->c_text + wp->w_point.p_offset)));
               t_chunk->c_used = cp->c_used - wp->w_point.p_offset;
               t_chunk->c_nchars = count_code_points (t_chunk->c_text,
                                                      t_chunk->c_used);
@@ -1097,7 +1098,7 @@ Buffer::delete_region_internal (Point &point, point_t from, point_t to)
         {
           cp->c_used -= size;
           modify_chunk (cp);
-          bcopy (cp->c_text + off + size, cp->c_text + off, cp->c_used - off);
+          memmove (cp->c_text + off, cp->c_text + off + size, (cp->c_used - off) * sizeof (*(cp->c_text + off + size)));
           cp->c_nchars = count_code_points (cp->c_text, cp->c_used);
           break;
         }
@@ -1161,19 +1162,19 @@ Buffer::substring (const Point &point, int size, Char *b) const
   const Chunk *cp = point.p_chunk;
   int n = cp->c_used - point.p_offset;
   if (n >= size)
-    bcopy (cp->c_text + point.p_offset, b, size);
+    memcpy (b, cp->c_text + point.p_offset, (size) * sizeof (*(cp->c_text + point.p_offset)));
   else
     {
-      bcopy (cp->c_text + point.p_offset, b, n);
+      memcpy (b, cp->c_text + point.p_offset, (n) * sizeof (*(cp->c_text + point.p_offset)));
       b += n;
       size -= n;
       for (cp = cp->c_next; size > cp->c_used; cp = cp->c_next)
         {
-          bcopy (cp->c_text, b, cp->c_used);
+          memcpy (b, cp->c_text, (cp->c_used) * sizeof (*(cp->c_text)));
           b += cp->c_used;
           size -= cp->c_used;
         }
-      bcopy (cp->c_text, b, size);
+      memcpy (b, cp->c_text, (size) * sizeof (*(cp->c_text)));
     }
 }
 

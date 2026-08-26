@@ -1509,7 +1509,7 @@ Window::Window (int minibufp, int temporary)
   w_flags = 0;
   w_last_flags = flags ();
 
-  bzero (&w_point, sizeof w_point);
+  memset (&w_point, 0, sizeof w_point);
   w_mark = NO_MARK_SET;
   w_last_point = 0;
   w_disp = 0;
@@ -1534,11 +1534,11 @@ Window::Window (int minibufp, int temporary)
   w_last_bufp = 0;
   w_disp_flags = WDF_WINDOW | WDF_MODELINE;
   w_last_mark_linenum = -1;
-  bzero (&w_rect, sizeof w_rect);
-  bzero (&w_order, sizeof w_order);
-  bzero (w_last_vars, sizeof w_last_vars);
-  bzero (&w_clsize, sizeof w_clsize);
-  bzero (&w_ech, sizeof w_ech);
+  memset (&w_rect, 0, sizeof w_rect);
+  memset (&w_order, 0, sizeof w_order);
+  memset (w_last_vars, 0, sizeof w_last_vars);
+  memset (&w_clsize, 0, sizeof w_clsize);
+  memset (&w_ech, 0, sizeof w_ech);
   w_colors = default_colors;
   w_inverse_mode_line = 0;
   w_ime_mode_line = 0;
@@ -1549,9 +1549,9 @@ Window::Window (int minibufp, int temporary)
   w_ignore_scroll_margin = 0;
   w_hwnd = 0;
   w_hwnd_ml = 0;
-  bzero (&w_vsinfo, sizeof w_vsinfo);
-  bzero (&w_hsinfo, sizeof w_hsinfo);
-  bzero (&w_ch_max, sizeof w_ch_max);
+  memset (&w_vsinfo, 0, sizeof w_vsinfo);
+  memset (&w_hsinfo, 0, sizeof w_hsinfo);
+  memset (&w_ch_max, 0, sizeof w_ch_max);
   w_glyphs = 0;
 }
 
@@ -1588,11 +1588,11 @@ Window::Window (const Window &src)
   w_last_bufp = 0;
   w_disp_flags = WDF_WINDOW | WDF_MODELINE;
   w_last_mark_linenum = -1;
-  bzero (&w_rect, sizeof w_rect);
-  bzero (&w_order, sizeof w_order);
-  bzero (w_last_vars, sizeof w_last_vars);
-  bzero (&w_clsize, sizeof w_clsize);
-  bzero (&w_ech, sizeof w_ech);
+  memset (&w_rect, 0, sizeof w_rect);
+  memset (&w_order, 0, sizeof w_order);
+  memset (w_last_vars, 0, sizeof w_last_vars);
+  memset (&w_clsize, 0, sizeof w_clsize);
+  memset (&w_ech, 0, sizeof w_ech);
   w_colors = default_colors;
   w_inverse_mode_line = 0;
   w_ime_mode_line = 0;
@@ -1603,9 +1603,9 @@ Window::Window (const Window &src)
   w_ignore_scroll_margin = 0;
   w_hwnd = 0;
   w_hwnd_ml = 0;
-  bzero (&w_vsinfo, sizeof w_vsinfo);
-  bzero (&w_hsinfo, sizeof w_hsinfo);
-  bzero (&w_ch_max, sizeof w_ch_max);
+  memset (&w_vsinfo, 0, sizeof w_vsinfo);
+  memset (&w_hsinfo, 0, sizeof w_hsinfo);
+  memset (&w_ch_max, 0, sizeof w_ch_max);
   w_glyphs = 0;
   lwp = make_window ();
   xwindow_wp (lwp) = this;
@@ -4761,8 +4761,8 @@ completion::complete_with_slash (lisp s, int igcase)
   if (stringp (s))
     {
       lisp d = make_string (xstring_length (s) + 1);
-      bcopy (xstring_contents (s), xstring_contents (d),
-             xstring_length (s));
+      memcpy (xstring_contents (d), xstring_contents (s),
+              xstring_length (s) * sizeof (*(xstring_contents (s))));
       xstring_contents (d)[xstring_length (s)] = '/';
       if (!do_completion (d, igcase))
         destruct_string (d);
@@ -4793,10 +4793,13 @@ completion::adjust_prefix (lisp prefix)
 {
   int l = xstring_length (prefix) + c_match_len;
   Char *b = (Char *)alloca (sizeof (Char) * l);
-  bcopy (xstring_contents (prefix), b, xstring_length (prefix));
+  memcpy (b, xstring_contents (prefix),
+          xstring_length (prefix) * sizeof (*(xstring_contents (prefix))));
   if (stringp (c_item))
-    bcopy (xstring_contents (c_item), b + xstring_length (prefix), c_match_len);
-  if (l == xstring_length (c_string) && !bcmp (b, xstring_contents (c_string), l))
+    memcpy (b + xstring_length (prefix), xstring_contents (c_item),
+            c_match_len * sizeof (*(xstring_contents (c_item))));
+  if (l == xstring_length (c_string)
+      && !memcmp (b, xstring_contents (c_string), l * sizeof (*b)))
     c_result = c_string;
   else
     c_result = make_string (b, l);
@@ -4972,7 +4975,8 @@ completion::split_pathname ()
           && xstring_contents (x)[xstring_length (x) - 1] != '/')
         {
           ucs4_t *b = (ucs4_t *)xmalloc ((xstring_length (x) + 1) * sizeof (ucs4_t));
-          bcopy (xstring_contents (x), b, xstring_length (x) * sizeof (ucs4_t));
+          memcpy (b, xstring_contents (x),
+                  xstring_length (x) * sizeof (*(xstring_contents (x))));
           b[xstring_length (x)++] = '/';
           xfree (xstring_contents (x));
           xstring_contents (x) = b;

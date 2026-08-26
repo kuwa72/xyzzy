@@ -927,7 +927,7 @@ skip_chars (lisp chars, int dir)
   check_string (chars);
 
   u_long hi[(256 + sizeof (u_long) - 1) / sizeof (u_long)];
-  bzero (hi, sizeof hi);
+  memset (hi, 0, sizeof hi);
 
   u_long lo[256][(256 + sizeof (u_long) - 1) / sizeof (u_long)];
 
@@ -959,7 +959,7 @@ skip_chars (lisp chars, int dir)
               if (!bitisset (hi, h))
                 {
                   bitset (hi, h);
-                  bzero (lo[h], sizeof lo[h]);
+                  memset (lo[h], 0, sizeof lo[h]);
                 }
               bitset (lo[h], c & 255);
             }
@@ -970,7 +970,7 @@ skip_chars (lisp chars, int dir)
           if (!bitisset (hi, h))
             {
               bitset (hi, h);
-              bzero (lo[h], sizeof lo[h]);
+              memset (lo[h], 0, sizeof lo[h]);
             }
           bitset (lo[h], c & 255);
         }
@@ -1018,7 +1018,7 @@ static lisp
 skip_syntax_spec (lisp syntax_spec, int dir)
 {
   u_char buf[SCmax];
-  bzero (buf, sizeof buf);
+  memset (buf, 0, sizeof buf);
 
   check_string (syntax_spec);
   const ucs4_t *p = xstring_contents (syntax_spec);

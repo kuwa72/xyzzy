@@ -71,7 +71,7 @@ public:
           u_char upper;
         } f[256];
     };
-  charclass () {bzero (hi, sizeof hi);}
+  charclass () {memset (hi, 0, sizeof hi);}
   void set (Char c)
     {
       int h = c >> 8;
@@ -79,7 +79,7 @@ public:
       if (!isset (hi, h))
         {
           set (hi, h);
-          bzero (lo[h], sizeof lo[h]);
+          memset (lo[h], 0, sizeof lo[h]);
         }
       set (lo[h], l);
     }
@@ -1116,7 +1116,7 @@ void
 regexp_compile::char_class_not_fastmap (const Char *p, char *fastmap) const
 {
   char tem[256];
-  bzero (tem, sizeof tem);
+  memset (tem, 0, sizeof tem);
   char_class_fastmap (p, tem);
   for (int i = 0; i < 256; i++)
     if (tem[i] <= 0)
@@ -1390,7 +1390,7 @@ Regexp::compile (const Char *p, int size, int use_fastmap)
     {
       re_match_bol_p = regexp_compile::match_bol_p (re_pattern, re_pattern + re_size);
       re_match_void_p = regexp_compile::match_void_p (re_pattern, re_pattern + re_size);
-      bzero (re_fastmap, sizeof re_fastmap);
+      memset (re_fastmap, 0, sizeof re_fastmap);
       if (!re_match_void_p
           && !re.compile_fastmap (re_fastmap, re_pattern, re_pattern + re_size))
         re_match_void_p = 1;
@@ -1413,7 +1413,7 @@ Regexp::compile (lisp object, int use_fastmap)
   if (use_fastmap)
     {
       regexp_compile re (re_translate, re_syntax_table, 0);
-      bzero (re_fastmap, sizeof re_fastmap);
+      memset (re_fastmap, 0, sizeof re_fastmap);
       if (!re_match_void_p
           && !re.compile_fastmap (re_fastmap, re_pattern, re_pattern + re_size))
         re_match_void_p = 1;
@@ -1431,7 +1431,7 @@ Regexp::merge_fastmap (lisp object, char *fastmap, const syntax_table *tab)
 
   regexp_compile re (translate, tab, 0);
   char buf[256];
-  bzero (buf, sizeof buf);
+  memset (buf, 0, sizeof buf);
   if (!re.compile_fastmap (buf, xregexp_pattern (object),
                            xregexp_pattern (object) + xregexp_length (object)))
     return 0;
@@ -1449,7 +1449,7 @@ Regexp::make_regexp (lisp source) const
   assert (re_pattern);
   lisp re = ::make_regexp ();
   xregexp_pattern (re) = (Char *)xmalloc (sizeof (Char) * re_size);
-  bcopy (re_pattern, xregexp_pattern (re), re_size);
+  memcpy (xregexp_pattern (re), re_pattern, re_size * sizeof (*re_pattern));
   xregexp_length (re) = re_size;
   xregexp_flags (re) = 0;
   if (re_match_void_p)
@@ -1720,7 +1720,7 @@ Regexp::closure (re_point &point, const Char *p, const Char *pe, int shortest)
 Regexp::record_failure::record_failure ()
      : m_ep (m_entbuf)
 {
-  bzero (m_tab, sizeof m_tab);
+  memset (m_tab, 0, sizeof m_tab);
 }
 
 inline u_int
@@ -1735,7 +1735,7 @@ Regexp::record_failure::init ()
   if (m_ep != m_entbuf)
     {
       m_ep = m_entbuf;
-      bzero (m_tab, sizeof m_tab);
+      memset (m_tab, 0, sizeof m_tab);
     }
 }
 
@@ -1833,7 +1833,7 @@ class state_buf
 
 public:
   state_buf () : s_buf (0), s_used (0), s_allocated (0)
-    {bzero (s_bitmap, sizeof s_bitmap);}
+    {memset (s_bitmap, 0, sizeof s_bitmap);}
   ~state_buf () {xfree (s_buf);}
   void add (u_long);
   int test (u_long) const;

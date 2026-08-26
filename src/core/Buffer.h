@@ -209,7 +209,7 @@ struct Chunk
   void clear ();
   void clear_breaks ()
     {
-      bzero (c_breaks, (c_used + 7) / 8);
+      memset (c_breaks, 0, (c_used + 7) / 8);
       c_nbreaks = 0;
     }
   void break_on (int n)

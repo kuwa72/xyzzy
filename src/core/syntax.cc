@@ -18,7 +18,7 @@ Fmake_syntax_table ()
 {
   lisp x = make_syntax_table ();
   syntax_table *p = (syntax_table *)xmalloc (sizeof *p);
-  bzero (p, sizeof *p);
+  memset (p, 0, sizeof *p);
   p->comment_column = -1;
   xsyntax_table (x) = p;
 

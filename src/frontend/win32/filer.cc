@@ -3105,7 +3105,7 @@ ViewerBuffer::readin (ViewerWindow *wp, const wchar_t *path)
   if (path)
     {
       ReadFileContext rfc;
-      bzero (&rfc, sizeof rfc);
+      memset (&rfc, 0, sizeof rfc);
       readin_chunk (rfc, path);
       if (rfc.r_status == ReadFileContext::RFCS_IOERR)
         {

@@ -54,8 +54,8 @@ ldataP::alloc (int type)
     ld_upper_bound = (char *)p + LDATA_PAGE_SIZE;
 
   p->dr_type = type;
-  bzero (p->dr_used, sizeof p->dr_used);
-  bzero (p->dr_gc, sizeof p->dr_gc);
+  memset (p->dr_used, 0, sizeof p->dr_used);
+  memset (p->dr_gc, 0, sizeof p->dr_gc);
   p->dr_prev = 0;
   if (ld_rep)
     ld_rep->dr_prev = p;
@@ -2401,7 +2401,7 @@ rdump_object (FILE *fp, lreadtable *d, int n,
       {
         readf (fp, &d->rcase, sizeof d->rcase);
         d->rep = (readtab_rep *)xmalloc (sizeof (readtab_rep) * READTABLE_REP_SIZE);
-        bzero (d->rep, sizeof (readtab_rep) * READTABLE_REP_SIZE);
+        memset (d->rep, 0, sizeof (readtab_rep) * READTABLE_REP_SIZE);
         for (readtab_rep *r = d->rep, *re = r + READTABLE_REP_SIZE;
              r < re; r++)
           {

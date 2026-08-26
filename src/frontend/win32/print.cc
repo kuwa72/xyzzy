@@ -38,7 +38,7 @@ print_settings::print_settings ()
   ps_range_start = -1;
   ps_range_end = -1;
 
-  bzero (&ps_font, sizeof ps_font);
+  memset (&ps_font, 0, sizeof ps_font);
   init_faces ();
 }
 
@@ -157,7 +157,7 @@ print_settings::make_font (HDC hdc, int charset, int height) const
     }
 
   LOGFONTW lfw;
-  bzero (&lfw, sizeof lfw);
+  memset (&lfw, 0, sizeof lfw);
   wcscpy (lfw.lfFaceName, ps_font[charset].face);
   lfw.lfHeight = height;
   lfw.lfCharSet = ps_font[charset].charset;
@@ -292,7 +292,7 @@ printer_device::get_defaults ()
     return 1;
 
   PRINTDLGW pd;
-  bzero (&pd, sizeof pd);
+  memset (&pd, 0, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.Flags = PD_RETURNDEFAULT;
 
@@ -413,7 +413,7 @@ int
 printer_device::print_setup_dialog (HWND hwnd)
 {
   PRINTDLGW pd;
-  bzero (&pd, sizeof pd);
+  memset (&pd, 0, sizeof pd);
   pd.lStructSize = sizeof pd;
   pd.hwndOwner = hwnd;
   pd.Flags = PD_PRINTSETUP;
@@ -1819,7 +1819,7 @@ print_engine::doprint1 (HWND hwnd)
   SetAbortProc (pe_dev, abort_proc);
 
   DOCINFOW di;
-  bzero (&di, sizeof di);
+  memset (&di, 0, sizeof di);
   di.cbSize = sizeof di;
   di.lpszDocName = wdocname;
 

@@ -223,7 +223,7 @@ vector2variant (const lisp *vec, int len)
   for (long i = 0; i < len; i++, vec++)
     {
       VARIANT variant;
-      bzero (&variant, sizeof variant);
+      memset (&variant, 0, sizeof variant);
       safe_variant sv (variant);
       obj2variant (*vec, variant);
       ole_error (SafeArrayPutElement (sa, &i, &variant));
@@ -247,7 +247,7 @@ list2variant (lisp list)
   for (long i = 0; i < len; i++, list = xcdr (list))
     {
       VARIANT variant;
-      bzero (&variant, sizeof variant);
+      memset (&variant, 0, sizeof variant);
       safe_variant sv (variant);
       obj2variant (xcar (list), variant);
       ole_error (SafeArrayPutElement (sa, &i, &variant));
@@ -477,10 +477,10 @@ ole_invoke (lisp lobj, lisp lprop, lisp args, lisp named_args, int flags)
   int c_named_args = count_named_args (named_args);
 
   DISPPARAMS params;
-  bzero (&params, sizeof params);
+  memset (&params, 0, sizeof params);
   params.cArgs = xlist_length (args) + c_named_args;
   params.rgvarg = (VARIANT *)alloca (sizeof (VARIANT) * params.cArgs);
-  bzero (params.rgvarg, sizeof (VARIANT) * params.cArgs);
+  memset (params.rgvarg, 0, sizeof (VARIANT) * params.cArgs);
 
   if (c_named_args == 0)
     objs2variant (args, params);
@@ -488,22 +488,22 @@ ole_invoke (lisp lobj, lisp lprop, lisp args, lisp named_args, int flags)
     {
       params.cNamedArgs = c_named_args;
       params.rgdispidNamedArgs = (DISPID *)alloca (sizeof (DISPID) * params.cNamedArgs);
-      bzero (params.rgdispidNamedArgs, sizeof (DISPID) * params.cNamedArgs);
+      memset (params.rgdispidNamedArgs, 0, sizeof (DISPID) * params.cNamedArgs);
       objs2variant (xoledata_disp (lobj), lprop, args, named_args, params);
     }
 
   EXCEPINFO excep;
-  bzero (&excep, sizeof excep);
+  memset (&excep, 0, sizeof excep);
   UINT argerr = UINT (-1);
   VARIANT result;
-  bzero (&result, sizeof result);
+  memset (&result, 0, sizeof result);
 
   HRESULT hr = xoledata_disp (lobj)->Invoke (dispid, IID_NULL, LOCALE_USER_DEFAULT,
                                              flags, &params, &result, &excep, &argerr);
   if (FAILED (hr) && GetScode (hr) == DISP_E_EXCEPTION && dispid >= 0x8000)
     {
       cleanup (hr, excep);
-      bzero (&excep, sizeof excep);
+      memset (&excep, 0, sizeof excep);
       hr = xoledata_disp (lobj)->Invoke (dispid, IID_NULL, LOCALE_USER_DEFAULT,
                                          flags, &params, 0, &excep, &argerr);
     }
@@ -823,7 +823,7 @@ event_sink::Invoke (DISPID dispid, REFIID iid, LCID lcid, unsigned short flags,
   if (result)
     VariantClear (result);
   if (excep)
-    bzero (excep, sizeof *excep);
+    memset (excep, 0, sizeof *excep);
   if (argerr)
     *argerr = 0;
 
@@ -882,10 +882,10 @@ Fole_putprop (lisp lobj, lisp lprop, lisp lvalue, lisp args)
   DISPID dispid = get_dispid (xoledata_disp (lobj), lprop);
 
   DISPPARAMS params;
-  bzero (&params, sizeof params);
+  memset (&params, 0, sizeof params);
   params.cArgs = xlist_length (args) + 1;
   params.rgvarg = (VARIANT *)alloca (sizeof (VARIANT) * params.cArgs);
-  bzero (params.rgvarg, sizeof (VARIANT) * params.cArgs);
+  memset (params.rgvarg, 0, sizeof (VARIANT) * params.cArgs);
 
   DISPID dispid_putprop = DISPID_PROPERTYPUT;
   params.cNamedArgs = 1;
@@ -895,7 +895,7 @@ Fole_putprop (lisp lobj, lisp lprop, lisp lvalue, lisp args)
   objs2variant (args, params);
 
   EXCEPINFO excep;
-  bzero (&excep, sizeof excep);
+  memset (&excep, 0, sizeof excep);
   UINT argerr = UINT (-1);
 
   HRESULT hr = xoledata_disp (lobj)->Invoke (dispid, IID_NULL, LOCALE_USER_DEFAULT,
@@ -1022,13 +1022,13 @@ Fole_enumerator_create (lisp lobj)
     FEprogram_error (Einvalid_idispatch);
 
   DISPPARAMS params;
-  bzero (&params, sizeof params);
+  memset (&params, 0, sizeof params);
 
   VARIANT result;
   VariantInit (&result);
 
   EXCEPINFO excep;
-  bzero (&excep, sizeof excep);
+  memset (&excep, 0, sizeof excep);
 
   UINT argerr = UINT (-1);
 

@@ -319,7 +319,7 @@ private:
 public:
   ime_comp_queue () : qindex (0)
     {
-      bzero (qbuf, sizeof qbuf);
+      memset (qbuf, 0, sizeof qbuf);
     }
   ~ime_comp_queue ()
     {

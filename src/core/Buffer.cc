@@ -64,7 +64,7 @@ Chunk::clear ()
   c_nchars = 0;
   c_nlines = 0;
   c_nbreaks = 0;
-  bzero (c_breaks, BREAKS_SIZE);
+  memset (c_breaks, 0, BREAKS_SIZE);
   c_first_eol = -1;
   c_last_eol = -1;
   c_bstate = syntax_state::SS_INVALID;
@@ -435,10 +435,11 @@ Buffer::link_list ()
       Buffer *bp;
       for (bp = b_blist;; bp = bp->b_next)
         {
-          int f = bcmp (xstring_contents (lbuffer_name),
-                        xstring_contents (bp->lbuffer_name),
-                        min (xstring_length (lbuffer_name),
-                             xstring_length (bp->lbuffer_name)));
+          int f = memcmp (xstring_contents (lbuffer_name),
+                          xstring_contents (bp->lbuffer_name),
+                          min (xstring_length (lbuffer_name),
+                               xstring_length (bp->lbuffer_name))
+                          * sizeof (*(xstring_contents (lbuffer_name))));
           if (!f)
             f = xstring_length (lbuffer_name) - xstring_length (bp->lbuffer_name);
           if (f < 0)
@@ -496,7 +497,7 @@ Buffer::find_buffer (const ucs4_t *name, int l, long version)
   Buffer *bp;
   for (bp = b_blist; bp; bp = bp->b_next)
     if (xstring_length (bp->lbuffer_name) == l
-        && !bcmp (xstring_contents (bp->lbuffer_name), name, l)
+        && !memcmp (xstring_contents (bp->lbuffer_name), name, (l) * sizeof (*(xstring_contents (bp->lbuffer_name))))
         && (version == -1 || version == bp->b_version))
       break;
   return bp;
@@ -968,7 +969,7 @@ Fbuffer_name (lisp buffer)
     return bp->lbuffer_name;
 
   ucs4_t buf[BUFFER_NAME_MAX * 2];
-  bcopy (xstring_contents (bp->lbuffer_name), buf, xstring_length (bp->lbuffer_name));
+  memcpy (buf, xstring_contents (bp->lbuffer_name), (xstring_length (bp->lbuffer_name)) * sizeof (*(xstring_contents (bp->lbuffer_name))));
   char v[64];
   sprintf (v, "<%d>", bp->b_version);
   ucs4_t *be = s2w (buf + xstring_length (bp->lbuffer_name), v);
@@ -1178,9 +1179,7 @@ Ffind_name_buffer (lisp name)
   lisp result = Qnil;
   for (Buffer *bp = Buffer::b_blist; bp; bp = bp->b_next)
     if (xstring_length (bp->lbuffer_name) == xstring_length (name)
-        && !bcmp (xstring_contents (bp->lbuffer_name),
-                  xstring_contents (name),
-                  xstring_length (name)))
+        && !memcmp (xstring_contents (bp->lbuffer_name), xstring_contents (name), (xstring_length (name)) * sizeof (*(xstring_contents (bp->lbuffer_name)))))
       result = xcons (bp->lbp, result);
   return result;
 }
@@ -1799,7 +1798,7 @@ check_kinsoku_chars (lisp string)
   if (l <= 1)
     return string;
   ucs4_t *const p0 = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
-  bcopy (xstring_contents (string), p0, l);
+  memcpy (p0, xstring_contents (string), (l) * sizeof (*(xstring_contents (string))));
   qsort (p0, l, sizeof *p0, compare_ucs4);
   ucs4_t *p = p0, *const pe = p + l, *d = p0;
   *d++ = *p++;

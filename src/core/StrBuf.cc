@@ -33,7 +33,7 @@ StrBuf::copy (ucs4_t *b)
   for (const strbuf_chunk *cp = sb_chunk; cp; cp = cp->cdr)
     {
       int size = cp->used - cp->contents;
-      bcopy (cp->contents, b, size);
+      memcpy (b, cp->contents, (size) * sizeof (*(cp->contents)));
       b += size;
     }
 }
@@ -119,14 +119,14 @@ StrBuf::add (const ucs4_t *s, int size)
   int rest = sb_limit - sb_next;
   if (size <= rest)
     {
-      bcopy (s, sb_next, size);
+      memcpy (sb_next, s, size * sizeof (*s));
       sb_next += size;
     }
   else
     {
       while (1)
         {
-          bcopy (s, sb_next, rest);
+          memcpy (sb_next, s, rest * sizeof (*s));
           s += rest;
           size -= rest;
           if (!size)
@@ -240,13 +240,13 @@ StrBuf::make_substring (int start, int end)
           size -= start;
           if (l > size)
             {
-              bcopy (cp->contents + start, p, size);
+              memcpy (p, cp->contents + start, (size) * sizeof (*(cp->contents + start)));
               p += size;
               l -= size;
             }
           else
             {
-              bcopy (cp->contents + start, p, l);
+              memcpy (p, cp->contents + start, (l) * sizeof (*(cp->contents + start)));
 #ifdef DEBUG
               l = 0;
 #endif

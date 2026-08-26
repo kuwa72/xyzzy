@@ -21,7 +21,7 @@ static void
 ctype ()
 {
   char buf[256];
-  bzero (buf, sizeof buf);
+  memset (buf, 0, sizeof buf);
   for (int i = '0'; i <= '9'; i++)
     buf[i] |= _CTN;
   for (int i = 'A'; i <= 'Z'; i++)

@@ -126,7 +126,7 @@ static ucs4_t *
 copy_Chars (ucs4_t *b, const ucs4_t *p, const ucs4_t *pe)
 {
   int l = pe - p;
-  bcopy (p, b, l);
+  memcpy (b, p, l * sizeof (*p));
   return b + l;
 }
 
@@ -443,7 +443,7 @@ Fmerge_pathnames (lisp pathname, lisp defaults)
 
   if (stringp (pathname)
       && l == xstring_length (pathname)
-      && !bcmp (b, xstring_contents (pathname), l))
+      && !memcmp (b, xstring_contents (pathname), l * sizeof (*b)))
     return pathname;
 
   return make_string (b, l);
@@ -478,7 +478,7 @@ Fappend_trail_slash (lisp pathname)
   if (has_trail_slash_p (pathname, 0))
     return pathname;
   lisp p = make_string (xstring_length (pathname) + 1);
-  bcopy (xstring_contents (pathname), xstring_contents (p), xstring_length (pathname));
+  memcpy (xstring_contents (p), xstring_contents (pathname), (xstring_length (pathname)) * sizeof (*(xstring_contents (pathname))));
   xstring_contents (p) [xstring_length (pathname)] = SEPCHAR;
   return p;
 }
@@ -517,13 +517,13 @@ Fdirectory_namestring (lisp pathname)
   if (dirp && p0 != pe)
     {
       if (p0 != buf)
-        bcopy (p0, buf, pe - p0);
+        memcpy (buf, p0, (pe - p0) * sizeof (*(p0)));
       ucs4_t *be = buf + (pe - p0);
       if (!dir_separator_p (int (be[-1])))
         *be++ = '/';
       if (stringp (pathname)
           && be - buf == xstring_length (pathname)
-          && !bcmp (buf, xstring_contents (pathname), xstring_length (pathname)))
+          && !memcmp (buf, xstring_contents (pathname), (xstring_length (pathname)) * sizeof (*(buf))))
         return pathname;
       return make_string (buf, be - buf);
     }
@@ -815,7 +815,7 @@ Ftruename (lisp pathname)
   ucs4_t w[PATH_MAX + 1];
   int l = w2i (truename, w) - w;
   if (stringp (pathname) && l == xstring_length (pathname)
-      && !bcmp (w, xstring_contents (pathname), l))
+      && !memcmp (w, xstring_contents (pathname), l * sizeof (*w)))
     return pathname;
   return make_string (w, l);
 }
@@ -872,7 +872,7 @@ Ffile_system_supports_long_file_name_p (lisp path)
     return Qnil;
   ucs4_t *t = skip_device_or_host (p, pe);
   if (p != buf)
-    bcopy (p, buf, t - p);
+    memcpy (buf, p, (t - p) * sizeof (*(p)));
   t = buf + (t - p);
   *t++ = SEPCHAR;
   wchar_t cbuf[PATH_MAX + 1];
@@ -985,7 +985,7 @@ Fcompile_file_pathname (lisp pathname)
     return Qnil;
   int l = type_e - p0;
   if (p0 != buf)
-    bcopy (p0, buf, l);
+    memcpy (buf, p0, l * sizeof (*p0));
   ucs4_t *b = buf + l;
   if (type_e - type == 1 && (*type == 'l' || *type == 'L'))
     *b++ = *type == 'l' ? 'c' : 'C';
@@ -1760,7 +1760,7 @@ map_sl (lisp path, ucs4_t from, ucs4_t to)
 {
   check_string (path);
   ucs4_t *p0 = (ucs4_t *)alloca (xstring_length (path) * sizeof *p0);
-  bcopy (xstring_contents (path), p0, xstring_length (path));
+  memcpy (p0, xstring_contents (path), (xstring_length (path)) * sizeof (*(xstring_contents (path))));
   int f = 0;
   for (ucs4_t *p = p0, *pe = p0 + xstring_length (path); p < pe; p++)
     if (*p == from)
@@ -1949,7 +1949,7 @@ Fget_disk_usage (lisp dirname, lisp recursive)
   if (p && p[1])
     wcscat (p, L"/");
   gdu du;
-  bzero (&du, sizeof du);
+  memset (&du, 0, sizeof du);
 
   WINFS::SetCurrentDirectory (path);
   DWORD SectorsPerCluster;
@@ -2073,7 +2073,7 @@ Ffile_property (lisp lpath)
     FEsimple_win32_error (GetLastError ());
 
   SHELLEXECUTEINFOW sei;
-  bzero (&sei, sizeof sei);
+  memset (&sei, 0, sizeof sei);
   sei.cbSize = sizeof sei;
   sei.lpFile = path;
   sei.lpVerb = L"properties";

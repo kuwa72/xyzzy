@@ -25,7 +25,7 @@ make_char_encoding (encoding_type type, lisp name, lisp display_name)
   p->type = type;
   p->name = name;
   p->display_name = display_name;
-  bzero (&p->u, sizeof p->u);
+  memset (&p->u, 0, sizeof p->u);
   xsymbol_value (Vinternal_char_encoding_list) =
     xcons (p, xsymbol_value (Vinternal_char_encoding_list));
   return p;

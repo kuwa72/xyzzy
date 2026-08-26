@@ -284,7 +284,7 @@ ChooseFontP::notify_font_size (HWND hwnd, int code)
 
   BYTE charset = BYTE (SendDlgItemMessageW (hwnd, IDC_NAMELIST, LB_GETITEMDATA, i, 0) >> 8);
   LOGFONTW lfw;
-  bzero (&lfw, sizeof lfw);
+  memset (&lfw, 0, sizeof lfw);
   lfw.lfHeight = cf_param.fs_size_pixel ? _wtoi (b) : MulDiv (_wtoi (b), cf_dpi, 72);
   lfw.lfCharSet = charset;
   wcscpy (lfw.lfFaceName, wname);

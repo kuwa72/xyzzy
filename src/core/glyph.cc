@@ -570,7 +570,7 @@ regexp_kwd::regexp_kwd (lisp list, point_t point, const Buffer *bp)
 
   lisp r = rk_list;
   rk_can_fastmap = 1;
-  bzero (rk_fastmap, sizeof rk_fastmap);
+  memset (rk_fastmap, 0, sizeof rk_fastmap);
   do
     {
       lisp regex = check_format (xcar (r));

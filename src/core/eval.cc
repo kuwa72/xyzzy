@@ -1528,10 +1528,10 @@ Fmultiple_value_prog1 (lisp arg, lex_env &lex)
   multiple_value::value (0) = x;
   multiple_value_data save;
   save.count = multiple_value::count ();
-  bcopy (multiple_value::data ()->values, save.values, save.count);
+  memcpy (save.values, multiple_value::data ()->values, (save.count) * sizeof (*(multiple_value::data ()->values)));
   protect_gc gcpro (save.values, save.count);
   Fprogn (xcdr (arg), lex);
-  bcopy (save.values, multiple_value::data ()->values, save.count);
+  memcpy (multiple_value::data ()->values, save.values, (save.count) * sizeof (*(save.values)));
   multiple_value::count () = save.count;
   return x;
 }
@@ -1694,10 +1694,10 @@ Fsave_window_excursion (lisp arg, lex_env &lex)
   multiple_value::value (0) = x;
   multiple_value_data save;
   save.count = multiple_value::count ();
-  bcopy (multiple_value::data ()->values, save.values, save.count);
+  memcpy (save.values, multiple_value::data ()->values, (save.count) * sizeof (*(multiple_value::data ()->values)));
   protect_gc gcpro (save.values, save.count);
   delete wc;
-  bcopy (save.values, multiple_value::data ()->values, save.count);
+  memcpy (multiple_value::data ()->values, save.values, (save.count) * sizeof (*(save.values)));
   multiple_value::count () = save.count;
   return x;
 }

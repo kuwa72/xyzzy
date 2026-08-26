@@ -249,7 +249,7 @@ Fcall_process (lisp cmd, lisp keys)
     open_for_write (herr, errfile, lstderr, &sa);
 
   STARTUPINFOW si;
-  bzero (&si, sizeof si);
+  memset (&si, 0, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW;
   si.wShowWindow = show;
@@ -1310,7 +1310,7 @@ NormalProcess::create (lisp command, lisp execdir, const wchar_t *env, int show)
   int xshow = show_window_parameter (lxshow, SW_SHOWMINNOACTIVE);
 
   STARTUPINFOW si;
-  bzero (&si, sizeof si);
+  memset (&si, 0, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
   si.wShowWindow = xshow;

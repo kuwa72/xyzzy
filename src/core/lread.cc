@@ -2149,7 +2149,7 @@ load_file (lisp filename, lisp realname, lisp if_does_not_exist,
         {
           int l = min (PATH_MAX, xstring_length (realname));
           *b++ = ' ';
-          bcopy (xstring_contents (realname), b, l);
+          memcpy (b, xstring_contents (realname), (l) * sizeof (*(xstring_contents (realname))));
           b += l;
         }
       b = a2w (b, "...\n");

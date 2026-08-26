@@ -743,7 +743,7 @@ Buffer::make_backup_file_name (wchar_t *backup, const wchar_t *xoriginal)
       int max_versions = longname ? MAXVERSIONS : 100;
       int max_verchars = longname ? MAXVERCHARS : 2;
       u_char bitmap[MAXVERSIONS];
-      bzero (bitmap, sizeof bitmap);
+      memset (bitmap, 0, sizeof bitmap);
 
       WIN32_FIND_DATAW fd;
       wchar_t tem[2];

@@ -685,7 +685,7 @@ lookup (u_int hash, const ucs4_t *s, int size, lisp vector)
       if (symbolp (x))
         {
           lisp name = xsymbol_name (x);
-          if (xstring_length (name) == size && !bcmp (xstring_contents (name), s, size))
+          if (xstring_length (name) == size && !memcmp (xstring_contents (name), s, (size) * sizeof (*(xstring_contents (name)))))
             return x;
         }
     }

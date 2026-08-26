@@ -66,7 +66,7 @@ int
 FontObject::create (const wchar_t *face, int h, int charset)
 {
   LOGFONTW lf;
-  bzero (&lf, sizeof lf);
+  memset (&lf, 0, sizeof lf);
   wcsncpy (lf.lfFaceName, face, LF_FACESIZE - 1);
   lf.lfFaceName[LF_FACESIZE - 1] = 0;
   lf.lfHeight = h;
@@ -123,7 +123,7 @@ struct Win32FontMetrics : public FontMetrics
   FontMetricsResult measure (const LOGFONTW &lf) override
   {
     FontMetricsResult r;
-    bzero (&r, sizeof r);
+    memset (&r, 0, sizeof r);
     HFONT hf = CreateFontIndirectW (&lf);
     if (!hf)
       return r;
@@ -556,7 +556,7 @@ FontSet::load_params (FontSetParam &param)
   static_assert (numberof (fs_default_face) == FONT_MAX,
                  "fs_default_face の数が FONT_MAX と合っていない");
 
-  bzero (&param, sizeof param);
+  memset (&param, 0, sizeof param);
 
   if (!read_conf (cfgFont, cfgLineSpacing, param.fs_line_spacing))
     param.fs_line_spacing = 0;
