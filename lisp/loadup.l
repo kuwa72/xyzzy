@@ -92,6 +92,7 @@
 (si:*load-library "fuzzy-buffer") (gc)
 (si:*load-library "imenu") (gc)
 (si:*load-library "snippet") (gc)
+(si:*load-library "iedit") (gc)
 (si:*load-library "memo") (gc)
 (si:*load-library "project") (gc)
 (si:*load-library "git") (gc)

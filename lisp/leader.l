@@ -175,9 +175,11 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 
 ;; Code (c)
 (define-key *leader-code-map* #\s 'imenu)
+(define-key *leader-code-map* #\r 'iedit)
 (define-key *leader-code-map* #\f 'list-function)
 
 (which-key-add-description 'imenu "Symbols")
+(which-key-add-description 'iedit "RenameAll")
 (which-key-add-description 'list-function "FuncDialog")
 
 ;; Open / Notes (o)
