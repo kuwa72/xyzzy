@@ -80,6 +80,7 @@
 (si:*load-library "backup") (gc)
 (si:*load-library "saveplace") (gc)
 (si:*load-library "recentf") (gc)
+(si:*load-library "popup-window") (gc)
 (si:*load-library "leader") (gc)
 (si:*load-library "move-text") (gc)
 (si:*load-library "autopair") (gc)

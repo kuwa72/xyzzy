@@ -175,7 +175,7 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 ---
 
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
-  - `execute-leader-key` (`M-m` または `C-c SPC`): ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) を一覧表示し、キーボードのみで直感的に操作。
+  - `execute-leader-key` (`M-m` または `C-c SPC`): 画面を分割した `*Which Key*` ウィンドウに機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `c:Code`, `h:Help` 等) を段組みで一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
 - **ファジー絞り込み M-x (`lisp/fuzzy-mx.l`)**:
   - `fuzzy-execute-extended-command` (`M-x` / `Leader SPC`): コマンド名を打つそばからファジー絞り込みして選ぶ。空白区切りで複数キーワードを順不同指定できる (`buf list` → `list-buffers`)。直前に実行したコマンドが先に並ぶ (`*fuzzy-mx-history*`)。`*fuzzy-mx-mode*` を nil にすると従来の `read-command-name` (TAB 補完) に戻る。
@@ -194,6 +194,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `(`, `[`, `{`, `"` の入力で閉じ側も自動挿入。閉じ側を自分で打つと重ねずに乗り越え、空の対の中で `BS` を押すと 2 文字まとめて削除。選択範囲があれば置き換えではなく囲む。
   - `toggle-autopair` (`Leader t p`): オン/オフ。対の一覧は `*autopair-pairs*`。
   - キーマップではなく `lisp/cmds.l` の `*self-insert-hook*` / `*delete-backward-hook*` に掛けているので、`(` や `{` をローカルキーマップで奪っているモード (c-mode, lisp-mode, json-mode 等の electric コマンド) でも同じように効く。
+- **キー入力中に一覧を見せる一時ウィンドウ (`lisp/popup-window.l`)**:
+  - `with-popup-window` / `popup-window-draw` / `popup-window-columns`: 「キーを 1 文字ずつ読みながら候補を見せる」ための共通の仕組み。ステータス行 (`message`) を使わないのが要点で、`message` を書いた直後に `read-char` で待つとステータス行が描かれないフロントエンドがある (issue #66)。Leader メニューがこれを使う。
 - **選択範囲の段階的拡大 (`lisp/expand-region.l`)**:
   - `expand-region` (`C-=` / `Leader v`) / `contract-region` (`M-=` / `Leader V`): 単語 → シンボル → 引用符の中 → 引用符ごと → 括弧の中 → 括弧ごと → 行 → 関数定義 → バッファ全体 の順に選択範囲を広げる / 戻す。段階を手続きで並べるのではなく候補を全部作って「今の範囲を真に含む最小のもの」を選ぶので、モードによって成立しない段階は自動的に飛ばされる。
 - **プロジェクト管理 (Project) (`lisp/project.l`)**:
