@@ -87,9 +87,14 @@
   ;;
   ;; 実際に踏んだ例: startup.l は末尾の (si:*startup) から起動処理全体を
   ;; 走らせるので、バイトコンパイルは startup.lc を読み込んでいる最中に
-  ;; 動く。開いたままのファイルは上書きできず「File already exists」で
-  ;; 落ちる。それ以降の stream.l / struct.l / terminal.l ... が丸ごと
+  ;; 動く。それ以降の stream.l / struct.l / terminal.l ... が丸ごと
   ;; 取り残されていた。
+  ;;
+  ;; **なお startup.lc への書き込みは失敗しても何も言わない。** 例外も
+  ;; 出ず、mtime も変わらないまま「成功」で返ってくる (issue #54)。そのため
+  ;; ここの handler-case では捕まらない。tools/bytecompile.sh が
+  ;; 「startup.l が stale なら startup.lc を先に消す」ことで回避している
+  ;; (.lc が無ければソースから読まれるので、誰も開いていない)。
   ;; lisp/wip/ は作業中のコードで、どこからも require されていない。
   ;; コンパイラがスタックを溢れさせて落ちる既知の場所でもあり、そこで死ぬと
   ;; 後続が取り残される。対象から外す。
@@ -163,20 +168,30 @@
 
 (defun makelc-and-exit (&optional (force-recompile *prefix-args*))
   (handler-case
-      (let ((buf (create-new-buffer "*compile log*")))
+      (let ((buf (create-new-buffer "*compile log*"))
+	    (out *standard-output*)
+	    (nfailed 0))
 	(set-buffer buf)
 	(setup-temp-buffer buf)
 	(with-output-to-buffer (buf)
 	  (compile-package :compiler)
 	  (compile-package :lisp)
-	  (compile-files :force-recompile force-recompile)
+	  (setq nfailed (compile-files :force-recompile force-recompile))
 	  (let ((dump (si:dump-image-path)))
 	    (when (file-exist-p dump)
 	      (delete-file dump))))
+	;; バッチ起動では *compile log* バッファは誰にも見られないまま捨てられる。
+	;; **失敗したのに理由がどこにも残らない**ので、失敗したときだけ外へ
+	;; 書き出す (issue #54: bytecompile-output.txt が 0 バイトだった)。
+	;; 成功時に出さないのは、全ファイル分で 1000 行を超えるため。
+	(when (and (integerp nfailed) (plusp nfailed))
+	  (princ (buffer-substring (point-min) (point-max)) out)
+	  (terpri out))
 	(dolist (b (buffer-list))
 	  (set-buffer-modified-p nil b))
 	(kill-xyzzy t))
     (condition (e)
+      (format *standard-output* "~&makelc-and-exit: ~A~%" (si:*condition-string e))
       (kill-xyzzy nil))))
 
 
