@@ -118,3 +118,21 @@
   (format t "All leader unit tests PASSED.~%"))
 
 (run-leader-unit-tests)
+
+(defun test-which-key-description-uses-eq ()
+  ;; 中身が空のキーマップ同士は equal では区別できない (sparse keymap は
+  ;; リストなので構造が一致する)。equal で比較していると、後から登録した
+  ;; 方が前の方の登録を delete してしまう。
+  (let* ((*which-key-description-alist* nil)
+	 (a (make-sparse-keymap))
+	 (b (make-sparse-keymap)))
+    (which-key-add-description a "AAA")
+    (which-key-add-description b "BBB")
+    (assert-equal "AAA" (which-key-get-description a))
+    (assert-equal "BBB" (which-key-get-description b)))
+  ;; 実際に壊れていた形: project と git はどちらも leader.l の時点では空。
+  (assert-equal "Project" (which-key-get-description *leader-project-map*))
+  (assert-equal "Git" (which-key-get-description *leader-git-map*))
+  (assert-equal "Code" (which-key-get-description *leader-code-map*)))
+
+(test-which-key-description-uses-eq)
