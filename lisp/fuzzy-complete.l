@@ -11,6 +11,8 @@
 ;;;
 ;;;   * 縦型 (既定、Vertico 相当) -- 一時バッファ *Candidates* を分割
 ;;;     ウィンドウに出し、1 行 1 候補で並べる。打鍵のたびに書き換える。
+;;;     1 行に収まらない情報 (キー割り当てなどの注釈、Marginalia 相当) を
+;;;     右端へ寄せて出せるのはこちらだけ。
 ;;;   * 横型 -- ステータス行 1 行に幅の許すだけ並べる。*fuzzy-vertical* を
 ;;;     nil にするとこちらになる。
 ;;;
@@ -22,6 +24,8 @@
 (provide "fuzzy-complete")
 
 (in-package "editor")
+
+(require "popup-window")
 
 (export '(fuzzy-score fuzzy-filter fuzzy-completing-read
 	  fuzzy-split-query
@@ -223,9 +227,28 @@ QUERY が空 (または空白だけ) のときは絞り込まず、先頭から 
 	(t (min (max 0 (- index (truncate lines 2)))
 		(- n lines)))))
 
-(defun fuzzy-vertical-lines (matches index lines)
+(defun fuzzy-vertical-row (candidate selected-p annotation width)
+  "縦表示の 1 行。選択行は \"> \" で始める。注釈があれば右端へ寄せる。
+
+幅が足りないときは注釈を落とす。行が折り返すと一覧全体が読めなくなるので、
+注釈より候補そのものを優先する。"
+  (let ((left (concat (if selected-p "> " "  ") candidate)))
+    (if (or (null annotation) (zerop (length annotation)))
+	left
+      (let ((pad (- width (length left) (length annotation))))
+	(if (>= pad 2)
+	    (concat left
+		    (make-sequence 'string pad :initial-element #\SPC)
+		    annotation)
+	  left)))))
+
+(defun fuzzy-vertical-lines (matches index lines &optional annotate (width 80))
   "縦表示に出す行のリストと、その中で選択中の行が何行目かを
-(values LINES SELECTED-ROW) で返す。選択行は \"> \" で始める。"
+(values LINES SELECTED-ROW) で返す。
+
+ANNOTATE は候補名から注釈文字列 (または nil) を返す関数。**見えている行に
+対してだけ呼ぶ。** M-x のように候補が数百件ある相手で、打鍵ごとに全件の
+キー割り当てを引いていては間に合わない。"
   (let* ((n (length matches))
 	 (vec (coerce matches 'vector))
 	 (start (fuzzy-vertical-window-start index n lines))
@@ -233,72 +256,44 @@ QUERY が空 (または空白だけ) のときは絞り込まず、先頭から 
 	 (result nil))
     (do ((i start (1+ i)))
 	((>= i end))
-      (push (concat (if (= i index) "> " "  ") (aref vec i)) result))
+      (let ((cand (aref vec i)))
+	(push (fuzzy-vertical-row cand (= i index)
+				  (and annotate
+				       (ignore-errors (funcall annotate cand)))
+				  width)
+	      result)))
     (values (nreverse result) (- index start))))
 
 (defun fuzzy-vertical-header (prompt query n index)
   "候補ウィンドウの 1 行目。プロンプトと打ちかけのクエリを自分で表示する。
 
 ステータス行 (minibuffer-prompt) にも同じものを出しているが、そちらは
-候補バッファを書き換えた後の再描画で消えることが端末で実測できた。
-打っている文字が見えないのは致命的なので、ウィンドウの中に持つ。"
+message を書いた直後に read-char で待つと描かれないフロントエンドがある
+(issue #66)。打っている文字が見えないのは致命的なので、ウィンドウの中に持つ。"
   (if (zerop n)
       (format nil "~A~A    -- 0 件一致 --" prompt query)
     (format nil "~A~A    -- ~D/~D 件 --" prompt query (1+ index) n)))
-
-(defvar *fuzzy-vertical-saved-window* nil)
 
 (defun fuzzy-vertical-available-p ()
   "縦表示ができる状況か。ミニバッファの中と、分割する余地が無い画面では
 横表示に落とす。"
   (and *fuzzy-vertical*
-       (not (minibuffer-window-p (selected-window)))
-       (ignore-errors (>= (window-lines) 6))))
+       (popup-window-available-p)))
 
-(defun fuzzy-vertical-open ()
-  "候補ウィンドウを開く。呼び出し元は save-window-excursion の中で呼ぶこと。"
-  (let ((buf (get-buffer-create *fuzzy-candidates-buffer-name*)))
-    (setq *fuzzy-vertical-saved-window* (selected-window))
-    ;; 分割してからそちらへ移る。pop-to-buffer は既にそのバッファを
-    ;; 出しているウィンドウがあればそれを使う。
-    (pop-to-buffer buf t)
-    (setq mode-name "Candidates")
-    (setq need-not-save t)
-    (setq auto-save nil)
-    (setq kept-undo-information nil)
-    buf))
-
-(defun fuzzy-vertical-draw (prompt query matches index)
+(defun fuzzy-vertical-draw (prompt query matches index annotate)
   "候補ウィンドウを書き換える。"
-  (let ((buf (find-buffer *fuzzy-candidates-buffer-name*)))
-    (when buf
-      (let* ((n (length matches))
-	     (lines (max 1 (min (1- *fuzzy-vertical-lines*)
-				(max 1 (- (or (ignore-errors (window-lines)) 12) 2))))))
-	(multiple-value-bind (rows row)
-	    (fuzzy-vertical-lines matches index lines)
-	  (let ((buffer-read-only nil))
-	    (erase-buffer buf)
-	    (insert (fuzzy-vertical-header prompt query n index))
-	    (insert "\n")
-	    (dolist (r rows)
-	      (insert r)
-	      (insert "\n")))
-	  ;; 点を選択行に置く: 端末では ">" だけでなくカーソルの位置も
-	  ;; 選択の手がかりになる。
-	  (goto-line (+ 2 row))
-	  (goto-bol)))
-      (refresh-screen))))
+  (let* ((n (length matches))
+	 (width (or (ignore-errors (window-columns)) 80))
+	 (lines (let ((*popup-window-max-lines* *fuzzy-vertical-lines*))
+		  (popup-window-body-lines 1))))
+    (multiple-value-bind (rows row)
+	(fuzzy-vertical-lines matches index lines annotate (max 20 (1- width)))
+      (popup-window-draw *fuzzy-candidates-buffer-name*
+			 (cons (fuzzy-vertical-header prompt query n index) rows)
+			 ;; 見出しが 1 行あるので 1 つ下。
+			 (1+ row)))))
 
-(defun fuzzy-vertical-cleanup ()
-  "候補バッファを片付ける。ウィンドウ構成そのものは
-save-window-excursion が戻すので、ここでは残骸のバッファを消すだけ。"
-  (let ((buf (find-buffer *fuzzy-candidates-buffer-name*)))
-    (when buf
-      (ignore-errors (delete-buffer buf))))
-  (setq *fuzzy-vertical-saved-window* nil))
-
-(defun fuzzy-read-loop (prompt candidates must-match vertical)
+(defun fuzzy-read-loop (prompt candidates must-match vertical annotate)
   "fuzzy-completing-read の本体。VERTICAL が non-nil なら候補を縦型で見せる。"
   (let ((query "") (index 0))
     (catch 'fuzzy-complete-exit
@@ -314,7 +309,7 @@ save-window-excursion が戻すので、ここでは残骸のバッファを消�
 	      (progn
 		;; ステータス行にも出すが、消えることがあるので当てにしない
 		;; (fuzzy-vertical-header の説明を参照)。
-		(fuzzy-vertical-draw prompt query matches index)
+		(fuzzy-vertical-draw prompt query matches index annotate)
 		(minibuffer-prompt "~A~A" prompt query))
 	    (minibuffer-prompt "~A~A~A" prompt query
 			       (fuzzy-format-candidates
@@ -348,7 +343,7 @@ save-window-excursion が戻すので、ここでは残骸のバッファを消�
 	     (t
 	      (ding)))))))))
 
-(defun fuzzy-completing-read (prompt candidates &key must-match)
+(defun fuzzy-completing-read (prompt candidates &key must-match annotate)
   "CANDIDATES を対象に、入力するそばからファジー絞り込みしながら1件選ぶ。
 
 - 文字入力: クエリに追加し、絞り込み直す。空白で区切ると順不同の
@@ -361,14 +356,14 @@ save-window-excursion が戻すので、ここでは残骸のバッファを消�
   空ならば無視する (呼び出し元には必ず候補のいずれかか nil しか返らない)。
 - C-g: nil を返す (キャンセル)。
 
+ANNOTATE は候補名から注釈文字列 (または nil) を返す関数 (Marginalia 相当)。
+縦表示のときだけ使われ、各行の右端へ寄せて出す。**見えている行に対して
+だけ呼ばれる**ので、1 件あたりの計算が多少重くても構わない。
+
 候補は *fuzzy-vertical* が non-nil なら縦型のウィンドウ、nil なら
-ステータス行に並ぶ。縦型のウィンドウは save-window-excursion で囲って
-あるので、選び終わった時点で元のウィンドウ構成に戻る。"
+ステータス行に並ぶ。縦型のウィンドウは with-popup-window で囲ってあるので、
+選び終わった時点で元のウィンドウ構成に戻る。"
   (if (fuzzy-vertical-available-p)
-      (save-window-excursion
-	(unwind-protect
-	    (progn
-	      (fuzzy-vertical-open)
-	      (fuzzy-read-loop prompt candidates must-match t))
-	  (fuzzy-vertical-cleanup)))
-    (fuzzy-read-loop prompt candidates must-match nil)))
+      (with-popup-window (*fuzzy-candidates-buffer-name* "Candidates")
+	(fuzzy-read-loop prompt candidates must-match t annotate))
+    (fuzzy-read-loop prompt candidates must-match nil nil)))

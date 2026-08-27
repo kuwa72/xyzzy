@@ -62,70 +62,145 @@ def unescape(s):
     return bytes(out)
 
 class Screen:
-    """Just enough VT to see what is on the screen."""
+    """Just enough VT to see what this frontend draws.
+
+    The parts that matter beyond plain text are the ones ncurses actually uses
+    to avoid redrawing: a scroll region (DECSTBM) plus SU/SD, insert/delete
+    line, delete/insert character, erase character, and REP.  Without them the
+    dump keeps stale text and reads as a rendering bug in the editor -- which
+    is exactly the wrong conclusion to hand back.  This was learned the hard
+    way: a candidate list looked corrupted ("kickward-delete-char-untabify")
+    when the screen was in fact correct and REP was being dropped here.
+    """
     def __init__(self):
         self.buf = [[' '] * COLS for _ in range(ROWS)]
         self.r = self.c = 0
+        self.last = ' '                 # for REP (CSI b)
+        self.top, self.bot = 0, ROWS - 1
+        self.saved = (0, 0)
+
+    def blank(self):
+        return [' '] * COLS
+
+    def put(self, ch):
+        if self.c < COLS:
+            self.buf[self.r][self.c] = ch
+        self.c += 1
+        if self.c >= COLS:
+            self.c = COLS - 1
+        self.last = ch
+
+    def scroll_up(self, n=1):
+        for _ in range(n):
+            del self.buf[self.top]
+            self.buf.insert(self.bot, self.blank())
+
+    def scroll_down(self, n=1):
+        for _ in range(n):
+            del self.buf[self.bot]
+            self.buf.insert(self.top, self.blank())
+
+    def newline(self):
+        if self.r == self.bot:
+            self.scroll_up()
+        else:
+            self.r = min(ROWS - 1, self.r + 1)
+
     def feed(self, data):
         text = data.decode('utf-8', 'replace')
         i = 0
         while i < len(text):
             ch = text[i]
             if ch == '\x1b':
-                m = re.match(r'\x1b\[([0-9;?]*)([A-Za-z@])', text[i:])
+                rest = text[i:]
+                m = re.match(r'\x1b\[([0-9;?]*)([A-Za-z@`])', rest)
                 if m:
                     self.csi(m.group(1), m.group(2)); i += m.end(); continue
-                m = re.match(r'\x1b[()][A-Za-z0-9]', text[i:])
+                m = re.match(r'\x1b\][^\x07\x1b]*(\x07|\x1b\\)', rest)
                 if m: i += m.end(); continue
-                m = re.match(r'\x1b[=><]', text[i:])
+                m = re.match(r'\x1b[()][A-Za-z0-9]', rest)
                 if m: i += m.end(); continue
-                m = re.match(r'\x1b\][^\x07\x1b]*(\x07|\x1b\\)', text[i:])
-                if m: i += m.end(); continue
+                m = re.match(r'\x1b([78DEMc=><])', rest)
+                if m:
+                    self.esc(m.group(1)); i += m.end(); continue
                 i += 1; continue
             if ch == '\r': self.c = 0
-            elif ch == '\n': self.r = min(self.r + 1, ROWS - 1); self.c = 0
+            elif ch == '\n': self.newline(); self.c = 0
             elif ch == '\b': self.c = max(0, self.c - 1)
             elif ch == '\x07': pass
             elif ch == '\t': self.c = min(COLS - 1, (self.c // 8 + 1) * 8)
-            elif ch >= ' ':
-                if self.c < COLS:
-                    self.buf[self.r][self.c] = ch
-                self.c += 1
-                if self.c >= COLS: self.c = COLS - 1
+            elif ch >= ' ': self.put(ch)
             i += 1
+
+    def esc(self, final):
+        if final == '7': self.saved = (self.r, self.c)
+        elif final == '8': self.r, self.c = self.saved
+        elif final == 'D': self.newline()
+        elif final == 'E': self.newline(); self.c = 0
+        elif final == 'M':
+            if self.r == self.top: self.scroll_down()
+            else: self.r = max(0, self.r - 1)
+        elif final == 'c': self.__init__()
+
     def csi(self, params, final):
         if params.startswith('?'):
             return                      # private mode set/reset: ignore
-        ps = [int(x) if x.isdigit() else 0 for x in params.split(';')] if params else []
+        ps = [int(x) if x.isdigit() else 0
+              for x in params.split(';')] if params else []
         p = lambda k, d=1: ps[k] if len(ps) > k and ps[k] else d
-        if final == 'H' or final == 'f':
+        if final in 'Hf':
             self.r = min(ROWS - 1, p(0) - 1); self.c = min(COLS - 1, p(1) - 1)
         elif final == 'A': self.r = max(0, self.r - p(0))
         elif final == 'B': self.r = min(ROWS - 1, self.r + p(0))
         elif final == 'C': self.c = min(COLS - 1, self.c + p(0))
         elif final == 'D': self.c = max(0, self.c - p(0))
-        elif final == 'G': self.c = min(COLS - 1, p(0) - 1)
+        elif final in 'G`': self.c = min(COLS - 1, p(0) - 1)
         elif final == 'd': self.r = min(ROWS - 1, p(0) - 1)
+        elif final == 'r':
+            self.top = min(ROWS - 1, p(0) - 1)
+            self.bot = min(ROWS - 1, p(1, ROWS) - 1)
+            if self.bot <= self.top: self.top, self.bot = 0, ROWS - 1
+            self.r, self.c = self.top, 0
         elif final == 'J':
             mode = ps[0] if ps else 0
             if mode == 2:
-                self.buf = [[' '] * COLS for _ in range(ROWS)]
+                self.buf = [self.blank() for _ in range(ROWS)]
             elif mode == 0:
                 for c in range(self.c, COLS): self.buf[self.r][c] = ' '
-                for r in range(self.r + 1, ROWS): self.buf[r] = [' '] * COLS
+                for r in range(self.r + 1, ROWS): self.buf[r] = self.blank()
+            elif mode == 1:
+                for r in range(0, self.r): self.buf[r] = self.blank()
+                for c in range(0, self.c + 1): self.buf[self.r][c] = ' '
         elif final == 'K':
             mode = ps[0] if ps else 0
             if mode == 0:
                 for c in range(self.c, COLS): self.buf[self.r][c] = ' '
             elif mode == 1:
                 for c in range(0, self.c + 1): self.buf[self.r][c] = ' '
-            else: self.buf[self.r] = [' '] * COLS
-        elif final == 'L':
+            else: self.buf[self.r] = self.blank()
+        elif final == 'L':                              # insert line
             for _ in range(p(0)):
-                self.buf.insert(self.r, [' '] * COLS); self.buf.pop()
-        elif final == 'M':
+                self.buf.insert(self.r, self.blank()); del self.buf[self.bot + 1]
+        elif final == 'M':                              # delete line
             for _ in range(p(0)):
-                self.buf.pop(self.r); self.buf.append([' '] * COLS)
+                del self.buf[self.r]; self.buf.insert(self.bot, self.blank())
+        elif final == 'S': self.scroll_up(p(0))
+        elif final == 'T': self.scroll_down(p(0))
+        elif final == 'b':                              # REP
+            ch = self.last
+            for _ in range(p(0)): self.put(ch)
+        elif final == 'X':                              # erase chars
+            for c in range(self.c, min(COLS, self.c + p(0))):
+                self.buf[self.r][c] = ' '
+        elif final == 'P':                              # delete chars
+            row = self.buf[self.r]
+            del row[self.c:self.c + p(0)]
+            row.extend([' '] * (COLS - len(row)))
+        elif final == '@':                              # insert chars
+            row = self.buf[self.r]
+            for _ in range(p(0)): row.insert(self.c, ' ')
+            del row[COLS:]
+
     def dump(self):
         return '\n'.join(''.join(row).rstrip() for row in self.buf)
 
@@ -165,6 +240,10 @@ def main():
             drain()
         print("=== after %r ===" % step)
         print(scr.dump())
+    # Cancel whatever prompt the last step may have left open: otherwise the
+    # keys below get typed into it instead of running the command.
+    os.write(fd, b'\x07\x07')      # C-g C-g
+    drain(quiet=0.3, total=5)
     os.write(fd, b'\x1bx')          # M-x
     drain()
     os.write(fd, b'kill-xyzzy\r')

@@ -142,8 +142,16 @@
 	  (message "~A モードの索引の作り方が登録されていない" mode-name)
 	  nil)
       (let* ((entries (imenu-labeled-entries index))
-	     (chosen (fuzzy-completing-read "Jump to: " (mapcar #'car entries)
-					    :must-match t)))
+	     (chosen (fuzzy-completing-read
+		      "Jump to: " (mapcar #'car entries)
+		      :must-match t
+		      ;; 右端に行番号を出す (Marginalia 相当)。同名の項目を
+		      ;; ラベルで区別する必要があるのとは別で、こちらは
+		      ;; 「どのあたりにあるか」を見るためのもの。
+		      :annotate #'(lambda (label)
+				    (let ((line (cdr (assoc label entries
+							    :test #'string=))))
+				      (and line (format nil "L~D" line)))))))
 	(if (null chosen)
 	    (progn (message "Quit") nil)
 	  (let ((line (cdr (assoc chosen entries :test #'string=))))
