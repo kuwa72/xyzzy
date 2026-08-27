@@ -15,6 +15,42 @@ xyzzy リリースノート
 変更
 ----
 
+  * Linux ネイティブビルド (ncurses / CLI フロントエンド) を CI に載せた
+    (`.github/workflows/linux.yml`)。#16 Phase 4 の足場。これまで
+    `src/frontend/ncurses` と `src/frontend/cli` の 13,000 行は MSVC の
+    ジョブでも llvm-mingw のジョブでもコンパイルすらされておらず
+    (どちらも Windows 向けのクロスビルドで、`ncursesw` が無い環境では
+    `xyzzy-ncurses` ターゲット自体が生成されない)、実際に腐っていた。
+    載せるにあたって 2 件直している:
+      - `src/core/stdafx.h` の `min`/`max` をマクロから
+        `using std::min/max` に変えた。#33 で独自 `min`/`max` を
+        `std::` のものに統一した際にこのマクロだけが残っており、
+        `cdecl.h` が `<algorithm>` を include する時点でマクロが生きて
+        いる経路 (`stdafx.h` を先に読む .cc) で `<algorithm>` 自身が
+        コンパイルエラーになっていた。llvm-mingw の libc++ は `<list>`
+        の中で `<algorithm>` を読み切ってしまうので Windows 側のビルド
+        では表面化せず、libstdc++ でだけ壊れていた。単純に消すのでは
+        なく `using` を置いたのは、`src/frontend/win32/privctrl` 以下が
+        `cdecl.h` を通らず、非修飾の `min`/`max` をこのマクロだけに
+        頼っていたため。マクロと違い実引数の型が揃っている必要がある
+        ので、`int` と `LONG` が混ざっていた 3 箇所
+        (`listviewex.cc` 2 箇所、`url.cc` 1 箇所) にキャストを入れた。
+      - `src/frontend/ncurses/ncurses-main.cc` で `user-config-path` を
+        初期化するようにした。この値を設定していたのは Win32 の
+        `init.cc` だけで、POSIX では `#:unbound` のままだったため、
+        起動時に `lisp/backup.l` の
+        `(concat (user-config-path) ".xyzzy.d/backup/")` がそれを掴んで
+        「不正なデータ型です」になり、`startup.l` のロードごと落ちて
+        いた。つまり Linux ビルドは「リンクは通るが起動しない」状態
+        だった。POSIX には Windows の設定ファイル置き場に相当するものが
+        無いのでホームディレクトリを充てている。
+    ジョブはビルドに加えて `tools/linux-smoke.sh` を実行し、ライブラリを
+    最後まで読み込んで式を評価できるところまでを見る。ビルドが通るだけ
+    では上記の 2 件目のような故障が素通りするため。Lisp テストスイート
+    (`misc/run-tests-batch.l`) は Linux ビルドでは一切出力を出さないまま
+    メモリを食い潰し続ける (25 分で 12GB、CPU 100% のまま) ので今回は
+    対象外とし、既知の課題として残す。ローカルでの再現は
+    `tools/x configure linux` → `tools/x build linux` → `tools/x smoke`。
   * GC が多値バッファの未使用スロットまでルートとして走査し、スタック上の
     未初期化値を Lisp オブジェクトのポインタと誤認してアクセス違反を起こす
     問題を修正した。大量の bignum を生成するループや末尾再帰で顕在化して

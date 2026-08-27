@@ -225,6 +225,17 @@ init_home_dir ()
   xsymbol_value (Qhome_dir) = xsymbol_value (Qdefault_dir);
 }
 
+// Win32 では init.cc の init_user_config_path が設定している。POSIX には
+// 対応するもの (xyzzy.ini や設定を置く場所) が無いのでホームを充てる。
+// 未設定のままだと値は #:unbound で、lisp/backup.l の起動時の
+// (concat (user-config-path) ".xyzzy.d/backup/") がそれを掴んで
+// 「不正なデータ型です」で startup.l ごと落ちる。
+static void
+init_user_config_path ()
+{
+  xsymbol_value (Quser_config_path) = xsymbol_value (Qhome_dir);
+}
+
 static void
 init_load_path ()
 {
@@ -550,6 +561,7 @@ init_env_symbols (const char *argv0)
   init_current_dir ();
   init_environ ();
   init_home_dir ();
+  init_user_config_path ();
   init_load_path ();
   // Add :tty to *features* if stdout is connected to a real terminal
   if (isatty (STDOUT_FILENO))

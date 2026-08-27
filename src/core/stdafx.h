@@ -95,11 +95,15 @@ using std::isnan;
 #define _copysign copysign
 #define _chgsign(x) (-(x))
 #endif // _WIN32
-/* min/max macros (MinGW's windows.h only defines for C, not C++) */
-#ifndef min
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#endif
-#ifndef max
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-#endif
+/* min/max: MSVC は windows.h のマクロが使えるが、それ以外のコンパイラでは
+   ここで補う必要がある (src/frontend/win32/privctrl 以下の .cc は cdecl.h を
+   通らないので、非修飾の min/max がここにしか無い)。
+   ただしマクロで補ってはいけない。cdecl.h が <algorithm> を include する
+   時点でマクロが生きている経路 (stdafx.h を先に読む .cc) では
+   <algorithm> 自身がコンパイルエラーになる。llvm-mingw の libc++ は
+   <list> の中で <algorithm> を読み切ってしまうので Windows 向けビルドでは
+   表面化せず、libstdc++ (Linux ネイティブビルド) でだけ壊れていた。 */
+#include <algorithm>
+using std::min;
+using std::max;
 #endif // _MSC_VER

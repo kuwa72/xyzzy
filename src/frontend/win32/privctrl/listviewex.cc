@@ -706,7 +706,7 @@ draw_header (HWND hwnd, listview_item_data *data, const DRAWITEMSTRUCT *dis)
     {
       if (fmt != HDF_RIGHT)
         {
-          x = min (x + 16, r.right + 2);
+          x = min ((LONG)(x + 16), r.right + 2);
           if (x + 8 < dis->rcItem.right)
             {
               if (data->sort_mark_dir == LVSM_DOWN)
@@ -717,7 +717,7 @@ draw_header (HWND hwnd, listview_item_data *data, const DRAWITEMSTRUCT *dis)
         }
       else
         {
-          x = max (x - 24, r.left - 10);
+          x = max ((LONG)(x - 24), r.left - 10);
           if (x >= dis->rcItem.left)
             {
               if (data->sort_mark_dir == LVSM_DOWN)
