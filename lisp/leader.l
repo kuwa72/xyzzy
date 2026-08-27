@@ -114,11 +114,13 @@
 (define-key *leader-toggle-map* #\l 'toggle-line-number)
 (define-key *leader-toggle-map* #\w 'toggle-truncate-lines)
 (define-key *leader-toggle-map* #\c 'calc)
+(define-key *leader-toggle-map* #\p 'toggle-autopair)
 
 (which-key-add-description 'toggle-terminal-drawer "Terminal")
 (which-key-add-description 'toggle-line-number "LineNum")
 (which-key-add-description 'toggle-truncate-lines "Truncate")
 (which-key-add-description 'calc "Calc")
+(which-key-add-description 'toggle-autopair "AutoPair")
 
 ;; Window (w)
 (define-key *leader-window-map* #\s 'split-window)

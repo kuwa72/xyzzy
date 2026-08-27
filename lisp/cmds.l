@@ -19,6 +19,7 @@
 	  delete-horizontal-spaces just-one-space delete-trailing-spaces
 	  delete-indentation split-line back-to-indentation delete-blank-lines
 	  default-input-function self-insert-command *auto-fill-hook newline
+	  *self-insert-hook* *delete-backward-hook*
 	  zap-to-char overwrite-mode toggle-over point-marker
 	  set-mark-command exchange-point-and-mark
 	  upcase-word downcase-word capitalize-word
@@ -127,8 +128,21 @@
       (delete-selection)
     (delete-char n)))
 
+(defvar *delete-backward-hook* nil
+  "non-nil なら、delete-backward-char-or-selection は削除する前に
+(funcall *delete-backward-hook* n) を呼ぶ。関数が non-nil を返したら
+「その関数が削除を済ませた」とみなしてそこで終わる。
+
+自動ペア挿入 (lisp/autopair.l) が空の対 (`()` の中など) を 1 打鍵で消すのに
+使う。キーマップに割り当てないのは *self-insert-hook* と同じ理由で、
+Backspace の届き方がフロントエンドごとに違う (Windows は C-h、ncurses は
+lisp/startup.l が入れる #\\DEL) ため、コマンド 1 箇所に掛けるほうが確実。")
+
 (defun delete-backward-char-or-selection (&optional (n 1))
   (interactive "*p")
+  (when (and *delete-backward-hook*
+	     (funcall *delete-backward-hook* n))
+    (return-from delete-backward-char-or-selection t))
   (delete-char-or-selection (- n)))
 
 (defun backward-delete-char-untabify (&optional (arg 1))
@@ -398,8 +412,26 @@
 (or (boundp 'default-input-function)
     (setq default-input-function 'self-insert-command))
 
+(defvar *self-insert-hook* nil
+  "non-nil なら、self-insert-command は文字を挿入する前に
+(funcall *self-insert-hook* char arg) を呼ぶ。関数が non-nil を返したら
+「その関数が挿入を済ませた」とみなして self-insert-command はそこで終わる。
+nil を返したときは何もなかったものとして通常の挿入へ進む。
+
+自動ペア挿入 (lisp/autopair.l) がここへ入る。キーマップではなくここに
+掛ける理由は、モードごとの electric コマンド (c-electric-insert,
+lisp-electric-close, json-electric-close 等) が `(` `)` `{` `}` を
+自前のローカルキーマップで奪っている一方、いずれも最終的には
+self-insert-command を通るため。ここ 1 箇所で全モードに同じ挙動が効く。
+
+選択範囲の削除より前に呼ぶのは、選択範囲を括弧で囲む動作 (選択したまま
+`(` を打つ) のためで、この場合フックは選択範囲を自分で扱う。")
+
 (defun self-insert-command (&optional (arg 1))
   (interactive "*p")
+  (when (and *self-insert-hook*
+	     (funcall *self-insert-hook* *last-command-char* arg))
+    (return-from self-insert-command t))
   (when (pre-selection-p)
     (delete-region (selection-mark) (selection-point))
     (stop-selection))
