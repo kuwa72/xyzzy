@@ -15,6 +15,21 @@ xyzzy リリースノート
 変更
 ----
 
+  * POSIX のファイルシステム実装 (`WINFS` = `src/core/vfs.h` の各メソッド)
+    を ncurses フロントエンドから `src/core/vfs-posix.cc` へ移した。
+    #16 Phase 4「Core と Frontend の境界分離」の一環。`WINFS` は
+    「フロントエンドごとに埋めるファイルシステムの継ぎ目」で、Windows 側は
+    `src/frontend/win32/vfs.cc` が実装している。POSIX 側の実装は
+    `src/frontend/ncurses/ncurses-stubs.cc` の中にあり、CLI フロントエンド
+    (`src/frontend/cli/cli-stubs.cc`) は代わりに `::CreateFileW` 等への
+    素通しを持っていた。ところが非 Windows ではその `::` 側は
+    `src/core/platform.h` の「常に失敗を返すスタブ」なので、**xyzzy-cli は
+    ファイルを 1 つも開けず・一覧できず・作れない**状態だった (しかも
+    全ての呼び出しがただ「失敗」を返すだけなので、何も表面化しない)。
+    ファイルシステムはフロントエンド固有のものではないので、実装をコアに
+    置いて POSIX の全フロントエンドが同じものを使うようにした。
+    `tools/linux-smoke.sh` に `xyzzy-cli` で `lisp/` を一覧する確認を足して
+    ある (起動して `(+ 1 2)` が通るだけでは、この種の故障は素通りする)。
   * 実装が `src/frontend/win32/` にあるのにヘッダだけ `src/core/` に残って
     いた Win32 専用ヘッダ 14 本 (`print.h`, `preview.h`, `printdlg.h`,
     `ColorDialog.h`, `ChooseFont.h`, `wheel.h`, `archiver.h`, `arc-if.h`,

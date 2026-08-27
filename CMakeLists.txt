@@ -821,6 +821,14 @@ set(CORE_SOURCES
     ${GEN_DIR}/msgdef.cc
 )
 
+# The filesystem seam (src/core/vfs.h, class WINFS) is filled in per platform.
+# On Windows that is src/frontend/win32/vfs.cc, which the GUI targets compile
+# directly; everywhere else it is this, in core, because every POSIX frontend
+# needs the same one.
+if(NOT WIN32)
+    list(APPEND CORE_SOURCES ${CORE_DIR}/vfs-posix.cc)
+endif()
+
 add_library(xyzzy-core STATIC ${CORE_SOURCES})
 target_compile_definitions(xyzzy-core PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
