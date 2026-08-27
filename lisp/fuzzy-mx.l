@@ -20,6 +20,7 @@
 
 (export '(fuzzy-execute-extended-command
 	  *fuzzy-mx-mode*
+	  *fuzzy-mx-annotate*
 	  *fuzzy-mx-history*
 	  *fuzzy-mx-history-max*))
 
@@ -33,6 +34,10 @@
 
 (defvar *fuzzy-mx-history-max* 30
   "*fuzzy-mx-history* に残す件数。")
+
+(defvar *fuzzy-mx-annotate* t
+  "non-nil なら、候補の右端にそのコマンドの割り当てキーを出す
+(Marginalia 相当)。「そのコマンドに近道があるか」が一覧を見るだけで分かる。")
 
 (defun fuzzy-command-table ()
   "対話的に呼べるコマンドの (名前 . シンボル) を名前順に並べて返す。
@@ -70,6 +75,32 @@
     (setq *fuzzy-mx-history*
 	  (subseq *fuzzy-mx-history* 0 *fuzzy-mx-history-max*))))
 
+(defun fuzzy-mx-format-keys (seq)
+  "キーシーケンス (文字、または文字のリスト) を表示用の文字列にする。"
+  (if (characterp seq)
+      (format nil "~:C" seq)
+    (format nil "~{~:C~^ ~}" seq)))
+
+(defun fuzzy-mx-key-annotation (sym)
+  "SYM に割り当てられているキーのうち一番短いものを返す。無ければ nil。
+
+一番短いものを選ぶのは、一覧の目的が「近道を知る」ことなので、
+C-x C-f と F2 が両方あるなら F2 を出したいから。"
+  (let ((seqs (ignore-errors
+		(expand-command-keys
+		 (command-keys sym *global-keymap* (local-keymap))))))
+    (when seqs
+      (fuzzy-mx-format-keys
+       (car (sort seqs #'<
+		  :key #'(lambda (s) (if (characterp s) 1 (length s)))))))))
+
+(defun fuzzy-mx-annotator (table)
+  "コマンド名から割り当てキーを返す関数を作る。TABLE は
+fuzzy-command-table の返り値。"
+  #'(lambda (name)
+      (let ((sym (cdr (assoc name table :test #'string=))))
+	(and sym (fuzzy-mx-key-annotation sym)))))
+
 (defun fuzzy-execute-extended-command (&optional raw arg)
   "コマンド名をファジー絞り込みで選んで実行する (M-x)。
 
@@ -81,7 +112,10 @@
     (let* ((table (fuzzy-command-table))
 	   (names (fuzzy-mx-order-candidates (mapcar #'car table)
 					     *fuzzy-mx-history*))
-	   (name (fuzzy-completing-read "M-x " names :must-match t)))
+	   (name (fuzzy-completing-read "M-x " names
+					:must-match t
+					:annotate (and *fuzzy-mx-annotate*
+						       (fuzzy-mx-annotator table)))))
       (if (null name)
 	  (progn (message "Quit") nil)
 	(let ((command (cdr (assoc name table :test #'string=))))

@@ -56,12 +56,17 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 
 候補は画面を分割した `*Candidates*` ウィンドウに 1 行 1 件で縦に並びます。
 1 行目に打ちかけのクエリと件数、選択中の候補の行頭に `>` が付きます。
+`M-x` では **右端にそのコマンドの割り当てキー**が出ます (Marginalia 相当。
+複数あるときは一番短いもの)。`imenu` では行番号が出ます。
 
 ```
- M-x buf list    -- 1/6 件 --
- > list-buffers
-   minibuffer-next-line-or-search-history
-   minibuffer-previous-line-or-search-history
+ M-x buf    -- 1/67 件 --
+ > save-buffer                                                        C-x C-s
+   next-buffer                                                           Home
+   kill-buffer                                                          C-x k
+   eval-buffer
+   list-buffers                                                       C-x C-b
+   select-buffer                                                           F2
    ...
 ```
 

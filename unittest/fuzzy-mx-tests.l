@@ -323,3 +323,70 @@
     (fuzzy-test-read (fuzzy-keys "buf list" #\RET))
     (find-buffer ed::*fuzzy-candidates-buffer-name*))
   => nil)
+
+;;;
+;;; 注釈 (Marginalia 相当)
+;;;
+
+(deftest fuzzy-vertical-row-right-aligns-annotation ()
+  "注釈を行の右端へ寄せること"
+  (ed::fuzzy-vertical-row "save-buffer" nil "C-x C-s" 30)
+  => "  save-buffer          C-x C-s")
+
+(deftest fuzzy-vertical-row-marks-selection ()
+  "選択行は \"> \" で始まること (注釈があっても)"
+  (ed::fuzzy-vertical-row "save-buffer" t "C-x C-s" 30)
+  => "> save-buffer          C-x C-s")
+
+(deftest fuzzy-vertical-row-without-annotation ()
+  "注釈が nil / 空なら何も足さないこと"
+  (values (ed::fuzzy-vertical-row "abc" nil nil 30)
+	  (ed::fuzzy-vertical-row "abc" nil "" 30))
+  => "  abc"
+  => "  abc")
+
+(deftest fuzzy-vertical-row-drops-annotation-when-too-narrow ()
+  "幅が足りなければ注釈を落とすこと (行が折り返すと一覧が読めなくなる)"
+  (ed::fuzzy-vertical-row "a-very-long-candidate-name" nil "C-x C-s" 20)
+  => "  a-very-long-candidate-name")
+
+(deftest fuzzy-vertical-lines-annotates-visible-rows-only ()
+  "注釈は見えている行に対してだけ引くこと
+(M-x のように候補が数百件あると、打鍵ごとに全件引いていては間に合わない)"
+  (let ((asked nil)
+	(candidates nil))
+    (dotimes (i 30)
+      (push (format nil "c~2,'0D" i) candidates))
+    (setq candidates (nreverse candidates))
+    (ed::fuzzy-vertical-lines candidates 0 3
+			      #'(lambda (name) (push name asked) "X")
+			      40)
+    (length asked))
+  => 3)
+
+(deftest fuzzy-mx-format-keys ()
+  "キーシーケンスの表示"
+  (values (ed::fuzzy-mx-format-keys #\C-s)
+	  (ed::fuzzy-mx-format-keys (list #\C-x #\C-s)))
+  => "C-s"
+  => "C-x C-s")
+
+(deftest fuzzy-mx-key-annotation-picks-the-shortest ()
+  "割り当てが複数あるときは一番短いものを出すこと
+(一覧の目的は近道を知ることなので、C-x C-b と F2 があるなら F2)"
+  (values (ed::fuzzy-mx-key-annotation 'ed::save-buffer)
+	  (ed::fuzzy-mx-key-annotation 'ed::select-buffer)
+	  ;; 割り当ての無いコマンドは nil
+	  (ed::fuzzy-mx-key-annotation 'ed::gomoku))
+  => "C-x C-s"
+  => "F2"
+  => nil)
+
+(deftest fuzzy-mx-annotator ()
+  "コマンド表から注釈を引く関数を作れること"
+  (let* ((table (ed::fuzzy-command-table))
+	 (annotate (ed::fuzzy-mx-annotator table)))
+    (values (funcall annotate "save-buffer")
+	    (funcall annotate "no-such-command-at-all")))
+  => "C-x C-s"
+  => nil)
