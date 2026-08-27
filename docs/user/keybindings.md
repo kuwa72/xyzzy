@@ -16,7 +16,19 @@ xyzzy のデフォルト状態です。`lisp/Gates.l` や `lisp/winkey.l` (Windo
 Leader Key (モダン操作体系 & Which-key ガイダンス)
 -------------------------------------------------
 
-`M-m` または `C-c SPC` を押すと、ミニバッファに利用可能な機能カテゴリが一覧表示され、キーボードだけで迷わず目的のコマンドを実行できます (`lisp/leader.l`)。
+`M-m` または `C-c SPC` を押すと、画面を分割した `*Which Key*` ウィンドウに
+利用可能な機能カテゴリが段組みで一覧表示され、キーボードだけで迷わず目的の
+コマンドを実行できます (`lisp/leader.l`)。
+
+```
+ [Leader]
+ b  Buffer+   f  File+     h  Help+     s  Search+   w  Window+   /  Grep      v  Expand
+ c  Code+     g  Git+      p  Project+  t  Toggle+   SPC  M-x     V  Contract
+```
+
+`+` の付いた項目はサブメニューです。もう 1 打鍵すると
+`[Leader > Window]` のように中身が出ます。選ぶと一覧は閉じ、元のウィンドウ
+構成に戻ってからコマンドが走ります。`C-g` / `ESC` で取り消し。
 
 | キー | カテゴリ / 動作 | 主要サブコマンド |
 |---|---|---|
