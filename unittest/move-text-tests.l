@@ -166,3 +166,37 @@ bbb と空行が入れ替わって末尾の改行が消える)"
 	  (lookup-keymap *global-keymap* #\M-Down))
   => move-text-up
   => move-text-down)
+
+(deftest move-text-does-not-move-past-the-final-newline ()
+  "バッファ末尾の改行の後ろ (行ではなく位置) では何も動かないこと。
+
+弾かずに進むと空の塊と隣の行を入れ替える形になり、末尾の改行が消えた上に
+空行が 1 本前に現れる。文字数は変わらないので長さの比較では見つからない。
+上下を繰り返すとその空行が行間を渡り歩く (報告された症状)。"
+  (with-temp-buffer
+    (insert "aaa\nbbb\n")
+    (goto-char (point-max))
+    (values (ed::move-text-move -1)
+	    (buffer-substring (point-min) (point-max))
+	    (ed::move-text-move 1)
+	    (buffer-substring (point-min) (point-max))))
+  => nil
+  => "aaa\nbbb\n"
+  => nil
+  => "aaa\nbbb\n")
+
+(deftest move-text-empty-buffer ()
+  "空のバッファでも落ちないこと"
+  (with-temp-buffer
+    (values (ed::move-text-move -1) (ed::move-text-move 1)))
+  => nil
+  => nil)
+
+(deftest move-text-last-real-line-still-moves ()
+  "末尾の改行の後ろを弾いても、最後の実在する行はちゃんと動くこと"
+  (with-temp-buffer
+    (insert "aaa\nbbb\nccc\n")
+    (goto-line 3)
+    (ed::move-text-up)
+    (buffer-substring (point-min) (point-max)))
+  => "aaa\nccc\nbbb\n")

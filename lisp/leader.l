@@ -51,14 +51,21 @@
 ;;;
 
 (defun which-key-add-description (target label)
-  "コマンドまたはキーマップに Which-key ガイダンス用ラベルを登録する。"
+  "コマンドまたはキーマップに Which-key ガイダンス用ラベルを登録する。
+
+比較は eq で行う。equal を使うと、まだ空のキーマップ同士が「同じもの」に
+なってしまう: sparse keymap はリストなので、中身が空なら構造が一致する。
+実際にこれで壊れていた -- *leader-project-map* と *leader-git-map* は
+どちらも中身が別ファイル (project.l, git.l) で入るため leader.l の時点では
+空で、後から登録した方が前の方の登録を delete していた。その結果
+Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 になっていた。"
   (setq *which-key-description-alist*
-	(delete target *which-key-description-alist* :key #'car :test #'equal))
+	(delete target *which-key-description-alist* :key #'car :test #'eq))
   (push (cons target label) *which-key-description-alist*))
 
 (defun which-key-get-description (target)
   "コマンドまたはキーマップの説明ラベルを取得する。"
-  (let ((found (assoc target *which-key-description-alist* :test #'equal)))
+  (let ((found (assoc target *which-key-description-alist* :test #'eq)))
     (if found
 	(cdr found)
       (cond ((symbolp target)
@@ -224,9 +231,20 @@
 	    (push (cons (*keymap-index-char i) target) bindings)))))
     (nreverse bindings)))
 
+(defun which-key-binding-lessp (a b)
+  "ガイダンスの並び順。サブメニュー (キーマップ) を先に、その中では
+キーの文字コード順。sparse keymap の中身は定義した順ではなく逆順に
+並んでいるので、そのまま出すと読み手には無秩序に見える。"
+  (let ((pa (keymapp (cdr a)))
+	(pb (keymapp (cdr b))))
+    (cond ((and pa (not pb)) t)
+	  ((and pb (not pa)) nil)
+	  (t (< (char-code (car a)) (char-code (car b)))))))
+
 (defun which-key-format-prompt (title keymap)
   "キーマップの Which-key プロンプト文字列を構築する。"
-  (let ((bindings (which-key-collect-bindings keymap))
+  (let ((bindings (sort (which-key-collect-bindings keymap)
+			#'which-key-binding-lessp))
 	(items nil))
     (dolist (b bindings)
       (let* ((k (car b))
@@ -235,7 +253,7 @@
 	     (desc (which-key-get-description target))
 	     (prefix-p (keymapp target)))
 	(push (format nil "~A:~A~:[~;+~]" kstr desc prefix-p) items)))
-    (format nil "[~A] ~{~A  ~}" title (nreverse items))))
+    (format nil "[~A] ~{~A~^ ~}" title (nreverse items))))
 
 (defun which-key-guide (keymap &optional (title "Leader"))
   "指定したキーマップを Which-key ガイダンス付きで対話的に実行する。"

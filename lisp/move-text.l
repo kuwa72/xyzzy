@@ -84,6 +84,15 @@ FIRST が改行を持たないのは FIRST がバッファ末尾のブロック�
   "DIR が負なら 1 行上へ、正なら 1 行下へ、行単位のブロックを移動する。
 移動できなければ何もせず nil を返す。"
   (multiple-value-bind (from to) (move-text-line-region)
+    ;; FROM と TO が同じになるのは「バッファ末尾の改行の後ろ」に点が
+    ;; あるときだけ。ここは行ではなく位置なので、動かす中身が無い。
+    ;;
+    ;; 弾かずに進むと、空の塊と隣の行を入れ替える形になって、末尾の改行が
+    ;; 消えたうえに空行が 1 本前に現れる ("aaa\nbbb\n" が "aaa\n\nbbb" に
+    ;; なる)。文字数は変わらないが、見た目には行が増えたことになる。
+    ;; 上下を繰り返すとその空行が行間を渡り歩く。
+    (when (= from to)
+      (return-from move-text-move nil))
     (let* ((type (get-selection-type))
 	   (selection (and type
 			   (list type
