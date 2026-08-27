@@ -256,6 +256,20 @@ kbd_queue::fetch (int wait, int)
   // (e.g. read-char *keyboard* in universal-argument).
   // We must also always block here.
 
+  /* コマンドの *途中* で待つ場合、ここまでに書いたものが端末へ出ていない。
+     コマンドループは「コマンドが終わったら描く」形 (command_loop の
+     refresh_screen) なので、read-char で待つコマンドは描かれないまま
+     待ちに入る。isearch / query-replace / Leader メニューのプロンプトが
+     画面に出ないのはこれだった (issue #66)。
+
+     wait で見分けている: コマンドループは fetch (1, ...) を、直前に
+     refresh_screen を済ませてから呼ぶ。コマンドの途中の read-char は
+     stream.cc から fetch (0, 0) で来る。**打鍵ごとに 2 回描かないため**に
+     この区別が要る (ncurses の refresh_screen は毎回全ウィンドウの
+     glyph を作り直すので、余分な 1 回が効く)。 */
+  if (!wait)
+    refresh_screen (0);
+
   // select()-based event loop: multiplex stdin + process pipe fds
   wint_t wch;
   int ret;

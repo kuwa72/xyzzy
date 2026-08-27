@@ -91,6 +91,24 @@ else
   fail=1
 fi
 
+# A prompt written right before a blocking read.  The command loop only paints
+# between commands, so a command that writes with `message` and then waits for a
+# key used to go into the wait undrawn: the prompt never reached the terminal
+# (issue #66).  Anything that asks a question mid-command is on this path, so the
+# failure reads as "the editor is not responding" rather than as a missing line.
+log=$build/smoke-prompt.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(progn (message "SMOKE-PROMPT-VISIBLE") (read-char *keyboard*))\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'SMOKE-PROMPT-VISIBLE' "$log"; then
+  echo 'smoke: mid-command prompt OK -- drawn before the read blocks'
+else
+  echo "smoke: mid-command prompt FAILED, see $log" >&2
+  tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

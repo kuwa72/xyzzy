@@ -82,4 +82,5 @@ jobs:
             _build/linux/smoke-ncurses.txt
             _build/linux/smoke-fileops.txt
             _build/linux/smoke-modeline.txt
+            _build/linux/smoke-prompt.txt
             _build/linux/smoke-cli.txt
