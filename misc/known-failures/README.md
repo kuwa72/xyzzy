@@ -12,6 +12,20 @@ listed by name, and the suite is gated on everything else.  A test that fails
 without being listed here fails the build.  A test that is listed here and
 passes also fails the build, so that the list cannot quietly rot.
 
+Flaky is not the same as "known"
+--------------------------------
+
+A test that fails here but not on CI is not automatically a local-only
+difference.  `uuid-create-4-seq` was treated as one for a long time; it was
+actually flaky and failed on CI too (it compared two `si:uuid-create
+:sequential` results field by field and expected every field within 1, but
+`time_low` is a 100ns clock that moves by thousands between two calls).  Fixed
+in PR #71 rather than listed here.
+
+**A flaky test does not belong in these lists.**  Listing it makes the gate
+lie in both directions: the run is green when it happens to fail and red when
+it happens to pass.  Fix the test instead.
+
 Files
 -----
 

@@ -15,6 +15,13 @@ xyzzy リリースノート
 変更
 ----
 
+  * `CLAUDE.md` と `misc/known-failures/README.md` の記述を直した。
+    「`.lc` が無い手元の run は CI より 3 件多く落ちる」のうち 1 件
+    (`uuid-create-4-seq`) はローカル固有の差ではなく flaky だったので
+    2 件に直し、**「手元だけ落ちると決めつける前に flaky を疑う」**という
+    항目を足した。known-failures の README には「flaky はこのリストに
+    入れるものではない」ことを書いた: 載せると gate が両方向に嘘をつく
+    (落ちたときに緑、通ったときに赤になる)。
   * 走り書きの置き場を追加した (`lisp/memo.l`、`Leader o` の新カテゴリ)。
     #30「クイックメモ / スクラッチバッファ管理」の 1 項目。
     `Leader o s` で `*scratch*` へ跳び (消えていれば作り直す)、
