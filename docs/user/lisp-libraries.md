@@ -180,6 +180,10 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **ファジー絞り込み M-x (`lisp/fuzzy-mx.l`)**:
   - `fuzzy-execute-extended-command` (`M-x` / `Leader SPC`): コマンド名を打つそばからファジー絞り込みして選ぶ。空白区切りで複数キーワードを順不同指定できる (`buf list` → `list-buffers`)。直前に実行したコマンドが先に並ぶ (`*fuzzy-mx-history*`)。`*fuzzy-mx-mode*` を nil にすると従来の `read-command-name` (TAB 補完) に戻る。
   - 候補は `do-all-symbols` + `commandp` で集めるので、まだ読み込んでいないライブラリの autoload コマンドも出る (素の `M-x` と同じ範囲)。
+- **シンボル一覧へのジャンプ (`lisp/imenu.l`)**:
+  - `imenu` (`Leader c s`): バッファ内の関数・クラス・見出しの一覧をファジー絞り込みで選んでジャンプ。飛ぶ前にマークを置くので `C-x C-x` で元の位置へ戻れる。
+  - 索引は `*imenu-generic-expression-alist*` の正規表現で作る (Lisp, Python, JavaScript, TypeScript, Perl, シェル, Markdown, Makefile, CMake, YAML, TOML, CSS)。登録が無いモードでは既存の `build-summary-function` (C 系は `lisp/cfns.l`、Java, Basic) にそのまま任せる。
+  - `*imenu-create-index-function*` をバッファローカルに設定すると、そのバッファだけ独自の索引作成に差し替えられる。
 - **行・選択範囲の上下移動 (`lisp/move-text.l`)**:
   - `move-text-up` (`M-↑`) / `move-text-down` (`M-↓`): 現在行、または選択範囲に含まれる行をまとめて 1 行上/下へ移動。kill-ring を経由しないので貼り付け待ちの内容を潰さず、移動後も同じテキストが選択されたまま残る。
 - **括弧・引用符の自動ペア挿入 (`lisp/autopair.l`)**:
