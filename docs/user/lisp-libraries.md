@@ -183,6 +183,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `(`, `[`, `{`, `"` の入力で閉じ側も自動挿入。閉じ側を自分で打つと重ねずに乗り越え、空の対の中で `BS` を押すと 2 文字まとめて削除。選択範囲があれば置き換えではなく囲む。
   - `toggle-autopair` (`Leader t p`): オン/オフ。対の一覧は `*autopair-pairs*`。
   - キーマップではなく `lisp/cmds.l` の `*self-insert-hook*` / `*delete-backward-hook*` に掛けているので、`(` や `{` をローカルキーマップで奪っているモード (c-mode, lisp-mode, json-mode 等の electric コマンド) でも同じように効く。
+- **選択範囲の段階的拡大 (`lisp/expand-region.l`)**:
+  - `expand-region` (`C-=` / `Leader v`) / `contract-region` (`M-=` / `Leader V`): 単語 → シンボル → 引用符の中 → 引用符ごと → 括弧の中 → 括弧ごと → 行 → 関数定義 → バッファ全体 の順に選択範囲を広げる / 戻す。段階を手続きで並べるのではなく候補を全部作って「今の範囲を真に含む最小のもの」を選ぶので、モードによって成立しない段階は自動的に飛ばされる。
 - **プロジェクト管理 (Project) (`lisp/project.l`)**:
   - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
   - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。

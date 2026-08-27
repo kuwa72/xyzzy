@@ -166,6 +166,8 @@
 ;; ダイレクトショートカット
 (define-key *leader-map* #\SPC 'execute-extended-command)
 (define-key *leader-map* #\/ 'grep)
+(define-key *leader-map* #\v 'expand-region)
+(define-key *leader-map* #\V 'contract-region)
 
 (which-key-add-description *leader-file-map* "File")
 (which-key-add-description *leader-buffer-map* "Buffer")
@@ -176,6 +178,8 @@
 (which-key-add-description *leader-window-map* "Window")
 (which-key-add-description *leader-help-map* "Help")
 (which-key-add-description 'execute-extended-command "M-x")
+(which-key-add-description 'expand-region "Expand")
+(which-key-add-description 'contract-region "Contract")
 
 ;;;
 ;;; ガイダンス生成とキー解釈
