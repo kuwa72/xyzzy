@@ -883,7 +883,7 @@ gc_mark_object ()
   {
     multiple_value_data *mv = multiple_value::data ();
     if (mv)
-      for (int i = 0; i < MULTIPLE_VALUES_LIMIT; i++)
+      for (int i = 0; i < mv->count; i++)
         gc_mark_object (mv->values[i]);
   }
 

@@ -85,3 +85,10 @@
   (multiple-value-bind (q r) (floor 130 11)
     (list q r))
   => (11 9))
+
+(deftest multiple-value-gc-roots-only-live-values ()
+  (dotimes (i 10000)
+    (multiple-value-prog1
+        (values i (+ 100000000000000000000 i))
+      (gc)))
+  => nil)
