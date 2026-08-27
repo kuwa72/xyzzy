@@ -12,7 +12,7 @@
 (export '(*gensym-counter* gensym gentemp))
 (export '(defmacro defun defvar defparameter defconstant do* psetq do dolist dotimes
 	  while prog prog* cond case when unless return loop and or prog1 prog2
-	  nth-value
+	  nth-value destructuring-bind &allow-other-keys
 	  lambda-list-keywords type otherwise))
 (export '(*modules* require provide modulep featurep mc-require))
 
@@ -375,8 +375,158 @@
      (check-type #1# (integer 0 *))
      (nth #1# (multiple-value-list ,form))))
 
+;;;; destructuring-bind
+;;;
+;;; #16 Phase 2: xyzzy にはこれまで destructuring-bind が無かった。
+;;; 破壊束縛ラムダリストの解析自体は lex_env::lambda_bind
+;;; (macro_level=1, src/core/lex.cc) がマクロ呼び出しの構文形に対しては
+;;; &whole・入れ子パターンを含めて既に正しく実装しているが、それは
+;;; 未評価の呼び出しフォームを破壊する経路であり、destructuring-bind
+;;; のように評価済みの値を破壊する用途とは前提が異なる。一方 lambda
+;;; (funcall_lambda, macro_level=0) は &whole と入れ子パターンを明示的
+;;; に禁止している。どちらの既存経路も転用できないため、
+;;; destructuring-bind は独立した Lisp マクロとして一から実装する。
+;;; ラムダリストをマクロ展開時に静的に解析し対応する let* 束縛節を
+;;; 生成するだけなので、defmacro/macrolet 等すべてのマクロ定義の土台
+;;; である C++ 側の共有破壊束縛機構には一切触れない。
+;;;
+;;; push/pop/member 等の setf.l/builtin.l 由来のマクロはこのファイル
+;;; (evalmacs.l) 自身のコンパイル時点ではまだ使えないため使わない
+;;; (member 等 C++ 組み込み関数自体は defun-builtin の有無に関係なく
+;;; 常に呼べる。避けているのは Lisp マクロとして setf.l で定義される
+;;; push/pop のみ)。
+
+;; &key の1要素 SPEC を分解し
+;; (values キーワード名 変数 デフォルト値 supplied-p用の変数) を返す。
+;;
+;; 先頭を文字列リテラル (docstring) にしないこと: find-declaration
+;; (defun/defmacro が展開時に必ず呼ぶ) は本体の先頭が文字列だと
+;; docstring 判定のため safe-car を呼ぶが、safe-car は list.l 側の
+;; 関数でこのファイル (evalmacs.l) の読み込み時点ではまだ定義されて
+;; いない。実際にこれで一度ブートストラップが壊れて踏んだ。
+(defun destructuring-bind-key-spec (spec)
+  (if (symbolp spec)
+      (values (intern (symbol-name spec) "keyword") spec nil nil)
+    (let ((name (car spec)))
+      (if (consp name)
+	  (values (car name) (cadr name) (cadr spec) (caddr spec))
+	(values (intern (symbol-name name) "keyword") name (cadr spec) (caddr spec))))))
+
+;; 破壊束縛ラムダリスト PATTERN を、リストを保持するシンボルまたは
+;; フォーム LIST-FORM に対して破壊するための let* 束縛節のリストを
+;; 返す。PATTERN の各変数位置には (destructuring-bind 自身と同じく)
+;; 入れ子のパターンを書ける。(docstring を避ける理由は上と同じ)
+(defun destructuring-bind-clauses (pattern list-form)
+  (let ((clauses nil)
+	(rest (gensym "DSTR-REST"))
+	(state :required)
+	(saw-rest-or-key nil)
+	(saw-key nil)
+	(allow-other-keys nil)
+	(key-keywords nil))
+    (labels ((add (var form)
+	       (setq clauses (cons (list var form) clauses)))
+	     (splice (cs)
+	       (dolist (c cs)
+		 (setq clauses (cons c clauses))))
+	     (bind (var form)
+	       (if (consp var)
+		   (let ((tmp (gensym "DSTR-SUB")))
+		     (add tmp form)
+		     (splice (destructuring-bind-clauses var tmp)))
+		 (add var form))))
+      (add rest list-form)
+      (when (and (consp pattern) (eq (car pattern) '&whole))
+	(bind (cadr pattern) rest)
+	(setq pattern (cddr pattern)))
+      (*loop
+	(when (null pattern) (return))
+	(unless (consp pattern)
+	  ;; ドット対 (a b . tail): 残りを &rest 相当として扱う。
+	  (bind pattern rest)
+	  (setq saw-rest-or-key t)
+	  (setq pattern nil)
+	  (return))
+	(let ((x (car pattern)))
+	  (cond
+	   ((eq x '&optional)
+	    (setq state :optional)
+	    (setq pattern (cdr pattern)))
+	   ((or (eq x '&rest) (eq x '&body))
+	    (setq state :rest saw-rest-or-key t)
+	    (setq pattern (cdr pattern)))
+	   ((eq x '&key)
+	    (setq state :key saw-rest-or-key t saw-key t)
+	    (setq pattern (cdr pattern)))
+	   ((eq x '&allow-other-keys)
+	    (setq allow-other-keys t)
+	    (setq pattern (cdr pattern)))
+	   ((eq x '&aux)
+	    (setq state :aux)
+	    (setq pattern (cdr pattern)))
+	   (t
+	    (case state
+	      (:required
+	       (bind x `(if (consp ,rest)
+			    (car ,rest)
+			  (error 'too-few-arguments)))
+	       (add rest `(cdr ,rest))
+	       (setq pattern (cdr pattern)))
+	      (:optional
+	       (multiple-value-bind (var default supplied-p)
+		   (if (consp x)
+		       (values (car x) (cadr x) (caddr x))
+		     (values x nil nil))
+		 (let ((sp (gensym "DSTR-SUPPLIEDP")))
+		   (add sp `(consp ,rest))
+		   (bind var `(if ,sp (car ,rest) ,default))
+		   (when supplied-p (add supplied-p sp))
+		   (add rest `(if ,sp (cdr ,rest) ,rest))))
+	       (setq pattern (cdr pattern)))
+	      (:rest
+	       (bind x rest)
+	       (setq pattern (cdr pattern)))
+	      (:key
+	       (multiple-value-bind (keyword var default supplied-p)
+		   (destructuring-bind-key-spec x)
+		 (setq key-keywords (cons keyword key-keywords))
+		 (let ((sp (gensym "DSTR-SUPPLIEDP"))
+		       (marker (gensym "DSTR-NOT-FOUND")))
+		   (add sp `(getf ,rest ,keyword ',marker))
+		   (bind var `(if (eq ,sp ',marker) ,default ,sp))
+		   (when supplied-p
+		     (add supplied-p `(not (eq ,sp ',marker))))))
+	       (setq pattern (cdr pattern)))
+	      (:aux
+	       (if (consp x)
+		   (bind (car x) (cadr x))
+		 (bind x nil))
+	       (setq pattern (cdr pattern)))
+	      (t
+	       (error "不正な破壊束縛ラムダリストです: ~S" x)))))))
+      (cond
+       (saw-key
+	(unless allow-other-keys
+	  (add (gensym "DSTR-CHECK-KEYS")
+	       `(do ((%p ,rest (cddr %p)))
+		    ((null %p))
+		  (unless (member (car %p) ',key-keywords)
+		    (error "認識できないキーワード引数です: ~S" (car %p)))))))
+       ((not saw-rest-or-key)
+	(add (gensym "DSTR-CHECK-EXTRA")
+	     `(when (consp ,rest) (error 'too-many-arguments))))))
+    (nreverse clauses)))
+
+(defmacro destructuring-bind (lambda-list expr &body body)
+  (multiple-value-bind (decl body) (find-declaration body)
+    (let ((whole (gensym "DESTRUCTURING-BIND")))
+      `(let* ((,whole ,expr)
+	      ,@(destructuring-bind-clauses lambda-list whole))
+	 ,@decl
+	 ,@body))))
+
 (defconstant lambda-list-keywords
-  '(&optional &rest &key &aux &body &whole &environment))
+  '(&optional &rest &key &aux &body &whole &environment &allow-other-keys))
 
 (defun si::*flet-helper (name body macro-p)
   (let ((lambda-list (car body)))

@@ -54,6 +54,7 @@
 (setf (get 'return-from 'lisp-indent-hook) 1)
 (setf (get 'multiple-value-call 'lisp-indent-hook) 1)
 (setf (get 'multiple-value-bind 'lisp-indent-hook) 2)
+(setf (get 'destructuring-bind 'lisp-indent-hook) 2)
 (setf (get 'multiple-value-setq 'lisp-indent-hook) 1)
 (setf (get 'eval-when 'lisp-indent-hook) 1)
 (setf (get 'flet 'lisp-indent-hook) 1)
