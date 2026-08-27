@@ -135,12 +135,16 @@
 (define-key *leader-window-map* #\0 'delete-window)
 (define-key *leader-window-map* #\m 'delete-other-windows)
 (define-key *leader-window-map* #\1 'delete-other-windows)
+(define-key *leader-window-map* #\u 'winner-undo)
+(define-key *leader-window-map* #\r 'winner-redo)
 
 (which-key-add-description 'split-window "SplitBelow")
 (which-key-add-description 'split-window-vertically "SplitRight")
 (which-key-add-description 'other-window "Other")
 (which-key-add-description 'delete-window "Close")
 (which-key-add-description 'delete-other-windows "Maximize")
+(which-key-add-description 'winner-undo "LayoutUndo")
+(which-key-add-description 'winner-redo "LayoutRedo")
 
 ;; Code (c)
 (define-key *leader-code-map* #\s 'imenu)

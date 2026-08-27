@@ -27,7 +27,7 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 | `Leader s` | **Search** | `s`/`r`: 検索, `g`: Grep, `q`: 置換 |
 | `Leader g` | **Git** | `s`: ステータス, `d`: 差分, `l`: ログ, `b`: Blame |
 | `Leader t` | **Toggle / Tools** | `t`: ターミナルドロワー, `l`: 行番号, `w`: 折り返し, `c`: 電卓 |
-| `Leader w` | **Window** | `s`: 上下分割, `v`: 左右分割, `o`: 隣へ移動, `d`: 閉じる, `m`: 最大化 |
+| `Leader w` | **Window** | `s`: 上下分割, `v`: 左右分割, `o`: 隣へ移動, `d`: 閉じる, `m`: 最大化, `u`/`r`: レイアウトを戻す/やり直す |
 | `Leader c` | **Code** | `s`: シンボル一覧へジャンプ (`imenu`), `f`: 関数一覧ダイアログ (`list-function`) |
 | `Leader h` | **Help** | `k`: キー説明, `f`: 関数説明, `v`: 変数説明, `b`: 一覧, `a`: Apropos |
 | `Leader SPC` | `M-x` | コマンド名をファジー絞り込みで選んで実行 (`fuzzy-execute-extended-command`) |
