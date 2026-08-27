@@ -85,6 +85,7 @@
 (si:*load-library "autopair") (gc)
 (si:*load-library "expand-region") (gc)
 (si:*load-library "fuzzy-complete") (gc)
+(si:*load-library "fuzzy-mx") (gc)
 (si:*load-library "project") (gc)
 (si:*load-library "git") (gc)
 (si:*load-library "session") (gc)
