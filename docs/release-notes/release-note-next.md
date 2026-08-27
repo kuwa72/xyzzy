@@ -15,6 +15,22 @@ xyzzy リリースノート
 変更
 ----
 
+  * 「終了時に開いていたバッファとウィンドウ分割を次の起動で復元する」機能を
+    文書化し、切り替えコマンド `toggle-resume-session` を足した。#30
+    「ワークスペース / セッション保存」の 1 項目。
+    **実装は元からあった** (`lisp/history.l` の `*save-resume-info*` と
+    `lisp/session.l` の `save-resume-info` / `restore-resume-info`)。ただし
+    既定で無効なうえ利用者向けの文書に一言も無く、事実上気づけない状態だった。
+    まず本当に動くのかを確かめてから書いた: 別プロセスで
+    「`leader.l` の 20 行目を開いて終了 → 起動」を通し、`leader.l` が
+    20 行目で開いた状態で立ち上がることを確認した。
+    **既定は無効のままにした。** 起動時に前回のファイルが全部開くのを望まない
+    人がいて、「毎回きれいな状態で始めたい」使い方と両立しないので、こちらから
+    有効にするものではないと判断した。`~/.xyzzy` に 1 行 (または
+    `M-x toggle-resume-session`) で有効になることを
+    `docs/user/configuration.md` に書いた。
+    `unittest/defaults-tests.l` に 2 件 (仕組みが在って既定が無効であること、
+    書き出しが読み戻せる形であること)。既定を変えるときはテストも直る。
   * `CLAUDE.md` と `misc/known-failures/README.md` の記述を直した。
     「`.lc` が無い手元の run は CI より 3 件多く落ちる」のうち 1 件
     (`uuid-create-4-seq`) はローカル固有の差ではなく flaky だったので

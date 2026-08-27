@@ -8,6 +8,7 @@
 (in-package "editor")
 
 (export '(save-session load-session open-session-dialog save-session-dialog
+	  toggle-resume-session
 	  *default-session-directory* toggle-session-auto-save
 	  close-session close-session-dialog
 	  *buffer-info-variable-list*))
@@ -236,6 +237,17 @@
 (defun toggle-session-auto-save (&optional (arg nil sv))
   (interactive "p")
   (toggle-mode '*auto-save-session-file* arg sv))
+
+(defun toggle-resume-session (&optional (arg nil sv))
+  "終了時のバッファ・ウィンドウ分割を次回起動で復元するかを切り替える
+(*save-resume-info*)。
+
+切り替えは「次に終了するとき」から効く。今から復元されるわけではない。
+既定が無効なのは、起動時に前回のファイルが全部開くのを望まない人がいるため。"
+  (interactive "p")
+  (toggle-mode '*save-resume-info* arg sv)
+  (message "Session resume is ~:[disabled~;enabled~] (次回終了時から)"
+	   *save-resume-info*))
 
 (defun update-session-auto-save-ui ()
   (cond ((null *current-session-file-name*) :disable)

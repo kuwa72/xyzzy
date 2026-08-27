@@ -96,3 +96,35 @@ save-place-find-file-hook/save-place-record-point が truename を無条件に
   => 2
   => t
   => 2)
+
+(deftest test-session-resume-is-available-but-off ()
+  "終了時のセッション復元 (*save-resume-info*) の仕組みが存在し、既定では
+無効であること。
+
+この機能は動くのに未文書・既定オフのまま長く放置されていた
+(docs/user/configuration.md に書いた)。既定を変えるときはここも直る。"
+  (values (boundp 'ed::*save-resume-info*)
+	  ed::*save-resume-info*
+	  (and (fboundp 'ed::save-resume-info) t)
+	  (and (fboundp 'ed::restore-resume-info) t)
+	  (and (fboundp 'ed::toggle-resume-session) t))
+  => t
+  => nil
+  => t
+  => t
+  => t)
+
+(deftest test-session-resume-round-trip ()
+  "save-resume-info が書いた内容が読み戻せる形であること。
+書き出しは (in-package ...) と (ignore-errors (restore-resume-info ...)) の
+2 つの式になる。"
+  (let ((ed::*save-resume-info* t))
+    (let ((out (with-output-to-string (s) (ed::save-resume-info s)))
+	  (heads nil))
+      (with-input-from-string (in out)
+	(loop
+	  (let ((f (read in nil '#1=#:eof)))
+	    (when (eq f '#1#) (return))
+	    (push (car f) heads))))
+      (nreverse heads)))
+  => (in-package ignore-errors))
