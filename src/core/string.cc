@@ -988,12 +988,15 @@ trim (const ucs4_t *&p0, const ucs4_t *&pe, lisp bag)
 }
 
 lisp
-Fsplit_string (lisp string, lisp lsep, lisp ignore_empty, lisp char_bag)
+Fsplit_string (lisp string, lisp lsep, lisp lempty_ok, lisp char_bag)
 {
   string = Fstring (string);
   if (!charp (lsep) && !stringp (lsep))
     FEtype_error (lsep, xsymbol_value (Qor_string_character));
-  int empty_ok = ignore_empty && ignore_empty != Qnil;
+  /* non-nil で空要素を「残す」。lisp/builtin.l の引数名は長らく
+     ignore-empty で、意味が逆に読めた (#57)。ここも ignore_empty という名前
+     だったので empty_ok に揃える。 */
+  int empty_ok = lempty_ok && lempty_ok != Qnil;
   if (char_bag == Qnil)
     char_bag = 0;
   else if (char_bag)

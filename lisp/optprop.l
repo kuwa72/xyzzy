@@ -737,7 +737,7 @@
      (let ((f (cdr (assoc 'mvb data))))
        (setq *info-viewer-title* (and f (file-namestring f))))
      (let ((f (cdr (assoc 'idx data))))
-       (setq *winhelp-index-files* (and f (split-string f #\; t " "))))
+       (setq *winhelp-index-files* (and f (split-string f #\; nil " "))))
      (setq *html-help-path* (cdr (assoc 'html data)))
      (setq *edict-dictionary-path* (cdr (assoc 'dic data)))))
 

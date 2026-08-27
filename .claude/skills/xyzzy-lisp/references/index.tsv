@@ -1586,7 +1586,7 @@ special-file-p	Function	lisp	filesystem	special-file-p PATHNAME
 special-form-p	Function	lisp	variables	special-form-p SYMBOL
 specific-command-prefix	Function	editor	keymaps	specific-command-prefix
 split-line	Function	editor	text	split-line
-split-string	Function	editor	strings	split-string STRING SEPARATOR &optional IGNORE-EMPTY CHAR-BAG
+split-string	Function	editor	strings	split-string STRING SEPARATOR &optional EMPTY-OK CHAR-BAG
 split-window	Function	editor	windows	split-window &optional ARG VERTICAL
 split-window-vertically	Function	editor	windows	split-window-vertically &optional ARG
 sqrt	Function	lisp	numbers	sqrt NUMBER

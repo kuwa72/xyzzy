@@ -253,7 +253,7 @@ K:mkdir  L:ドライブ  M:移動  N:ファイル名  O:圧縮  P:DIR??"
     (when result
       (let ((mask (let ((mask (cdr (assoc 'mask data))))
 		    (or (and mask
-			     (split-string mask #\; t " "))
+			     (split-string mask #\; nil " "))
 			(cddr (assoc 'list data))))))
 	(filer-set-file-mask mask)
 	(filer-reload)
@@ -282,7 +282,7 @@ K:mkdir  L:ドライブ  M:移動  N:ファイル名  O:圧縮  P:DIR??"
       (let ((mask (cdr (assoc 'mask data))))
 	(filer-mark-match-files
 	 (or (and mask
-		  (split-string mask #\; t " "))
+		  (split-string mask #\; nil " "))
 	     (cddr (assoc 'list data))))))))
 
 (defvar *filer-jump-directory-dialog-template*
@@ -1184,7 +1184,7 @@ K:mkdir  L:ドライブ  M:移動  N:ファイル名  O:圧縮  P:DIR??"
 	(add-history pattern '*filer-search-pattern-history*)
 	(let ((found (directory directory
 				:absolute t :recursive t
-				:wild (split-string pattern #\; t " "))))
+				:wild (split-string pattern #\; nil " "))))
 	  (clear-message)
 	  (cond (found
 		 (multiple-value-setq (result data)
