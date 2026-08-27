@@ -179,6 +179,10 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
 - **行・選択範囲の上下移動 (`lisp/move-text.l`)**:
   - `move-text-up` (`M-↑`) / `move-text-down` (`M-↓`): 現在行、または選択範囲に含まれる行をまとめて 1 行上/下へ移動。kill-ring を経由しないので貼り付け待ちの内容を潰さず、移動後も同じテキストが選択されたまま残る。
+- **括弧・引用符の自動ペア挿入 (`lisp/autopair.l`)**:
+  - `(`, `[`, `{`, `"` の入力で閉じ側も自動挿入。閉じ側を自分で打つと重ねずに乗り越え、空の対の中で `BS` を押すと 2 文字まとめて削除。選択範囲があれば置き換えではなく囲む。
+  - `toggle-autopair` (`Leader t p`): オン/オフ。対の一覧は `*autopair-pairs*`。
+  - キーマップではなく `lisp/cmds.l` の `*self-insert-hook*` / `*delete-backward-hook*` に掛けているので、`(` や `{` をローカルキーマップで奪っているモード (c-mode, lisp-mode, json-mode 等の electric コマンド) でも同じように効く。
 - **プロジェクト管理 (Project) (`lisp/project.l`)**:
   - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
   - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。
