@@ -294,6 +294,20 @@ adjust_displace_array (lisp array, void *newp)
 static int
 check_dimensions (lisp dims)
 {
+  /* 上限は LONG_MAX ではなく INT_MAX で見る。
+
+     要素数を持つのは lbase_vector::length で、これは int である。上限を
+     long で見ていたため、**同じコードが 2 通りの上限になっていた**:
+     Windows (LLP64) の long は 32bit なので INT_MAX と同じだが、Linux
+     (LP64) では 64bit で、
+
+       * (make-array '(536870912 1)) が通ってしまい、4GB を確保しようとして
+         メモリを食い潰す (issue #49 の「テストスイートが暴走する」がこれ。
+         12GB まで伸びたところで kill していた)
+       * 2^31 以上では int の length に収まらず、長さが負になる
+
+     という 2 つの形で壊れる。int で見れば Windows の挙動は変わらず、
+     Linux もそれに揃う。 */
   long size = 1;
   for (lisp x = dims; consp (x); x = xcdr (x))
     {
@@ -301,11 +315,11 @@ check_dimensions (lisp dims)
       if (n < 0)
         FErange_error (xcar (x));
       int64_t li = int64_t (size) * int64_t (n);
-      if (int64_t (LONG_MAX) < li)
+      if (int64_t (INT_MAX) < li)
         FEprogram_error (Earray_size_too_large, dims);
       size = long (li);
     }
-  if (int64_t (LONG_MAX) < int64_t (size) * sizeof (lisp))
+  if (int64_t (INT_MAX) < int64_t (size) * int64_t (sizeof (lisp)))
     FEprogram_error (Earray_size_too_large, dims);
   return size;
 }
