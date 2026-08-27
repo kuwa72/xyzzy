@@ -1,3 +1,10 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
+;;;
+;;; このファイルは長く ASCII のみだったので encoding マーカーが無かった。
+;;; **マーカー無しで日本語を書くと、読み込み時に文字列やコメントが壊れて
+;;; ファイルが途中で終わる** (cp932 として読まれ、多バイト文字の後半が
+;;; 改行を食う)。しかもそれは「テストが 1 件も走らない」という形で出るので、
+;;; 足しておく。
 (deftest test-make-array-0 ()
   (equalp
    #()
@@ -39,9 +46,22 @@
   (make-array (list (- (expt 2 31) 1) 1))
   !! program-error)
 
+(defun array-test-make-refused-p (dims)
+  "DIMS で make-array が拒否されるか。
+
+**どの条件が飛ぶかは fixnum の幅で変わる。** fixnum は long と同じ幅なので、
+Windows (long は 32bit) では 2^31 が fixnum ではなく fixnum_value が
+range-error を出し、64bit の POSIX では fixnum なので配列側の program-error に
+なる。**作れないことが要点**なので、種類ではなく拒否されたことを見る。
+deftest の本文に handler-case を直接書くと、節が別々のテスト式として
+扱われてしまうので、関数に出してある。"
+  (handler-case (progn (make-array dims) nil)
+    (range-error () t)
+    (program-error () t)))
+
 (deftest test-make-large-array-5 ()
-  (make-array (list (expt 2 31) 1))
-  !! range-error)
+  (array-test-make-refused-p (list (expt 2 31) 1))
+  => t)
 
 (deftest test-make-large-array-6 ()
   (make-array (list (expt 2 64) 10))
