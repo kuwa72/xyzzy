@@ -1389,9 +1389,10 @@ int mode_line_percent_painter::calc_percent (Buffer *, point_t) { return 0; }
 bool mode_line_point_painter::need_repaint_all () { return false; }
 int mode_line_point_painter::paint_point (HDC) { return 0; }
 
-WindowConfiguration *WindowConfiguration::wc_chain = 0;
-WindowConfiguration::WindowConfiguration () : wc_selected (0), wc_nwindows (0), wc_data (0) {}
-WindowConfiguration::~WindowConfiguration () {}
+/* WindowConfiguration とその lisp 入口は src/core/window-config.cc に移した
+   (issue #82)。ここに空の実装を置いていたため、端末では
+   save-window-excursion が何も戻さず、current-window-configuration は nil を
+   返していた。 */
 
 // ============================================================
 // buffer-bar.cc stubs
@@ -4268,8 +4269,6 @@ Fdeleted_window_p (lisp window)
 }
 
 lisp Fpos_not_visible_in_window_p (lisp, lisp) { return Qnil; }
-lisp Fcurrent_window_configuration () { return Qnil; }
-lisp Fset_window_configuration (lisp) { return Qnil; }
 
 // Screen
 lisp

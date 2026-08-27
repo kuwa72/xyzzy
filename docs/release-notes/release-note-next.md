@@ -80,6 +80,27 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
     `*compile log*` バッファが誰にも見られないまま捨てられるので、
     `bytecompile-output.txt` が 0 バイトのままで「理由がどこにも残らない」
     状態だった。成功時に出さないのは全ファイル分で 1000 行を超えるため。
+  * **端末フロントエンドで `save-window-excursion` が何も戻していなかったのを
+    直した** (#82)。`WindowConfiguration` が空の実装で、
+    `current-window-configuration` は `nil` を返していた。
+    **「一時的にウィンドウを触って元へ戻す」書き方が端末では戻らない**ので、
+    囲んだ中で分割・削除をすると画面にそのまま残る。
+    実装 (`WindowConfiguration` と 2 つの Lisp 入口) を
+    `src/frontend/win32/Window.cc` から `src/core/window-config.cc` へ移した。
+    **中身に Win32 固有のものは無い**: `w_prev`/`w_next` と `w_order`/`w_rect`
+    を組み替えて `Window::compute_geometry` / `set_buffer_params` / `close` を
+    呼ぶだけで、どれも両方のフロントエンドが持っている。二度書くものではない
+    (#16 Phase 4)。
+    移すにあたって 1 箇所だけ直した: 構成の検証が
+    **「一番上のウィンドウの上端は 0」を決め打っていた**。ncurses は 0 行目を
+    メニューバーに使うので上端は 1 で、端末で作った構成が自分で「不正」と
+    判定されていた。今出ているウィンドウから上端を取るようにしたので、
+    どちらのフロントエンドでも通る。
+    `unittest/window-config-tests.l` に 7 件。ただし **Lisp スイートは Windows
+    ビルドでしか走らないので、これは端末側の保証にはならない** (守るのは
+    「core へ移した実装が Windows 側で退行していないこと」)。端末側は
+    `tools/x pty` で確認した: 往復、3 枚から 2 枚への復元、バッファの復元、
+    `save-window-excursion`、Leader メニュー。
   * **`C-x` や `C-c` を押したときも、次に何が打てるかを出すようにした** (#73)。
     #30「Which-key ガイダンス」の残り。`M-m` (Leader) では出ていたが、
     標準のプレフィックスキーでは何も出ていなかった。

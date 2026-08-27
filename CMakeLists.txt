@@ -849,6 +849,7 @@ add_dependencies(xyzzy-core gen-src1-run gen-src2-run)
 if(WIN32)
 set(WIN32_SOURCES
     # UI
+    ${CORE_DIR}/window-config.cc
     ${WIN32_DIR}/Window.cc
     ${WIN32_DIR}/disp.cc
     ${WIN32_DIR}/colors.cc
@@ -1068,6 +1069,10 @@ if(NOT WIN32)
     if(NCURSESW_LIBRARY AND NCURSESW_INCLUDE_DIR)
         set(NCURSES_DIR ${CMAKE_SOURCE_DIR}/src/frontend/ncurses)
         set(NCURSES_SOURCES
+            # Shared with the Win32 frontend; not in CORE_SOURCES because
+            # xyzzy-cli has no windows to configure and cannot satisfy the
+            # Window methods it calls (see src/core/window-config.cc).
+            ${CORE_DIR}/window-config.cc
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
