@@ -182,6 +182,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `open-memo` (`Leader o m`): その日のメモ (既定 `<config>/memo/YYYY-MM-DD.md`) を開き、時刻の見出しを付けて末尾へ。同じ分に何度呼んでも見出しは重ねない。置き場は `*memo-directory*`、ファイル名は `*memo-file-name-format*`、見出しは `*memo-heading-format*` (nil で見出しなし)。
   - `open-memo-directory` (`Leader o M`): 置き場をファイラで開く。
   - メモは **保存されるファイル**。`*scratch*` は保存されないので、残したいものはメモの方へ書く。
+- **バッファ切り替えのファジー化 (`lisp/fuzzy-buffer.l`)**:
+  - `fuzzy-switch-to-buffer` (`C-x b` / `Leader b b`): バッファをファジー絞り込みで選んで切り替える。**直前のバッファが先頭**なので `C-x b RET` で戻れる。一覧に無い名前を打って `RET` するとそのバッファを作る (素の `C-x b` と同じ)。注釈にファイルのディレクトリを出すので、同じ名前のファイルを複数開いていても選べる。内部バッファ (名前が空白で始まるもの) は隠す (`*fuzzy-buffer-hide-internal*`)。
 - **定型コードの挿入 (スニペット) (`lisp/snippet.l`)**:
   - `snippet-expand` (`Leader c e`): 点の直前の略語をテンプレートに展開 (`defun`, `for`, `class` 等)。登録が無ければ一覧から選ぶ方へ回る。
   - `snippet-insert-by-name` (`Leader c i`): このモードのテンプレートをファジー絞り込みで選んで挿入。
@@ -226,7 +228,7 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **トグル式ターミナルドロワー (`lisp/terminal.l`)**:
   - `toggle-terminal-drawer` (`Leader t t`): 画面下部にターミナルバッファ (`*Shell*`) をワンキーでトグル表示・格納。
 - **最近開いたファイル (Recentf) (`lisp/recentf.l`)**:
-  - `recentf-open` (`C-x C-r` / `Leader f r`): 直近に開いたファイルの一覧を補完候補として表示し、選択して素早くオープン。
+  - `recentf-open` (`C-x C-r` / `Leader f r`): 直近に開いたファイルの一覧をファジー絞り込みで選んでオープン。
 - **カーソル位置の記憶・復元 (Save Place) (`lisp/saveplace.l`)**:
   - ファイルを閉じたときのカーソル位置を自動記録し、再度開いた際に前回の編集位置へ自動ジャンプ (`*save-place*`, `*save-place-limit*`)。
 - **ファイラ (`lisp/filer.l`)**:

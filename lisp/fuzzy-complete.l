@@ -293,7 +293,7 @@ message を書いた直後に read-char で待つと描かれないフロント�
 			 ;; 見出しが 1 行あるので 1 つ下。
 			 (1+ row)))))
 
-(defun fuzzy-read-loop (prompt candidates must-match vertical annotate)
+(defun fuzzy-read-loop (prompt candidates must-match vertical annotate allow-new)
   "fuzzy-completing-read の本体。VERTICAL が non-nil なら候補を縦型で見せる。"
   (let ((query "") (index 0))
     (catch 'fuzzy-complete-exit
@@ -319,9 +319,14 @@ message を書いた直後に read-char で待つと描かれないフロント�
 	    (cond
 	     ((char= ch #\RET)
 	      (let ((selected (nth index matches)))
-		(when (or selected (not must-match))
-		  (throw 'fuzzy-complete-exit selected))
-		(ding)))
+		(cond
+		 (selected (throw 'fuzzy-complete-exit selected))
+		 ;; 一致が無くても、打った文字列そのものを返してよい場合。
+		 ;; 「無い名前を打って新しいバッファを作る」ような用途のため。
+		 ((and allow-new (plusp (length query)))
+		  (throw 'fuzzy-complete-exit query))
+		 ((not must-match) (throw 'fuzzy-complete-exit nil))
+		 (t (ding)))))
 	     ((char= ch #\C-g)
 	      (throw 'fuzzy-complete-exit nil))
 	     ((or (char= ch #\C-h) (char= ch #\DEL) (char= ch #\Delete))
@@ -343,7 +348,7 @@ message を書いた直後に read-char で待つと描かれないフロント�
 	     (t
 	      (ding)))))))))
 
-(defun fuzzy-completing-read (prompt candidates &key must-match annotate)
+(defun fuzzy-completing-read (prompt candidates &key must-match annotate allow-new)
   "CANDIDATES を対象に、入力するそばからファジー絞り込みしながら1件選ぶ。
 
 - 文字入力: クエリに追加し、絞り込み直す。空白で区切ると順不同の
@@ -356,6 +361,9 @@ message を書いた直後に read-char で待つと描かれないフロント�
   空ならば無視する (呼び出し元には必ず候補のいずれかか nil しか返らない)。
 - C-g: nil を返す (キャンセル)。
 
+ALLOW-NEW が non-nil なら、一致する候補が無いときの RET で「打った文字列
+そのもの」を返す。無い名前を打って新しいバッファを作る、といった用途のため。
+
 ANNOTATE は候補名から注釈文字列 (または nil) を返す関数 (Marginalia 相当)。
 縦表示のときだけ使われ、各行の右端へ寄せて出す。**見えている行に対して
 だけ呼ばれる**ので、1 件あたりの計算が多少重くても構わない。
@@ -365,5 +373,5 @@ ANNOTATE は候補名から注釈文字列 (または nil) を返す関数 (Marg
 選び終わった時点で元のウィンドウ構成に戻る。"
   (if (fuzzy-vertical-available-p)
       (with-popup-window (*fuzzy-candidates-buffer-name* "Candidates")
-	(fuzzy-read-loop prompt candidates must-match t annotate))
-    (fuzzy-read-loop prompt candidates must-match nil nil)))
+	(fuzzy-read-loop prompt candidates must-match t annotate allow-new))
+    (fuzzy-read-loop prompt candidates must-match nil nil allow-new)))

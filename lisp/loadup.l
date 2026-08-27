@@ -89,6 +89,7 @@
 (si:*load-library "formatter") (gc)
 (si:*load-library "fuzzy-complete") (gc)
 (si:*load-library "fuzzy-mx") (gc)
+(si:*load-library "fuzzy-buffer") (gc)
 (si:*load-library "imenu") (gc)
 (si:*load-library "snippet") (gc)
 (si:*load-library "memo") (gc)
