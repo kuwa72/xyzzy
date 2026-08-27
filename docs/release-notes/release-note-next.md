@@ -15,6 +15,18 @@ xyzzy リリースノート
 変更
 ----
 
+  * 実装が `src/frontend/win32/` にあるのにヘッダだけ `src/core/` に残って
+    いた Win32 専用ヘッダ 14 本 (`print.h`, `preview.h`, `printdlg.h`,
+    `ColorDialog.h`, `ChooseFont.h`, `wheel.h`, `archiver.h`, `arc-if.h`,
+    `comm-arc.h`, `ctl3d.h`, `ctxmenu.h`, `ldialog.h`, `listen.h`,
+    `ipc.h`) を `src/frontend/win32/` へ移し、どこからも参照されていな
+    かった `clock.h` を削除した。#16 Phase 4「`src/core/` 内の Win32 依存
+    の分離」の一環。移動しただけでビルド設定の変更は要らない
+    (Win32 のターゲットは元から `src/frontend/win32` を include パスに
+    持っている)。これで `src/core/*.h` のうち Win32 の型を含むものは
+    48 本から 33 本になった。残りは `ed.h` が引き込んでいる GUI 系
+    (`Window.h`, `kbd.h`, `mouse.h`, `statarea.h`, `font.h`, `xcolor.h`
+    等) が主で、こちらは `ed.h` を分割しないと動かせない。
   * Linux ネイティブビルド (ncurses / CLI フロントエンド) を CI に載せた
     (`.github/workflows/linux.yml`)。#16 Phase 4 の足場。これまで
     `src/frontend/ncurses` と `src/frontend/cli` の 13,000 行は MSVC の
