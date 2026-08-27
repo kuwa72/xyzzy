@@ -209,4 +209,48 @@ xyzzy リリースノート
     無いのは (今回のファイルを除けば) 純 ASCII のファイルだけだった。
     宣言を追加して解決したが、テストを書く上での既知の落とし穴として
     ここにも記録しておく。
+  * `destructuring-bind` を新規実装した (#16 ロードマップ Phase 2
+    「destructuring-bind のフルスペック対応」)。これまで xyzzy には
+    `destructuring-bind` 自体が存在しなかった。破壊束縛ラムダリストの
+    解析は `lex_env::lambda_bind` (`macro_level=1`, `src/core/lex.cc`)
+    がマクロ呼び出しの構文形に対しては `&whole`・入れ子パターンを
+    含めて既に正しく実装しているが、それは未評価の呼び出しフォームを
+    破壊する経路であり、評価済みの値を破壊する `destructuring-bind`
+    とは前提が異なる。一方 `lambda` (`funcall_lambda`, `macro_level=0`)
+    は `&whole` と入れ子パターンを明示的に禁止している。どちらの
+    既存経路も転用できないため、独立した Lisp マクロとして
+    `lisp/evalmacs.l` に一から実装した。ラムダリストをマクロ展開時に
+    静的に解析し対応する `let*` 束縛節を生成するだけなので、
+    `defmacro`/`macrolet` 等すべてのマクロ定義の土台である C++ 側の
+    共有破壊束縛機構には一切触れていない。`&whole`、`&optional`
+    (デフォルト値・supplied-p)、`&rest`/`&body` (同義)、`&key`
+    (デフォルト値・supplied-p・`((:kw var))` によるキーワード名
+    上書き)、`&allow-other-keys`、`&aux`、要素数不一致時の
+    `too-few-arguments`/`too-many-arguments` シグナル、ドット対
+    (`(a b . rest)`) による暗黙の `&rest`、および `&key` の変数位置
+    での入れ子パターン (`((:point (px py)))`。lex.cc 側の共有機構には
+    無い、独立実装ゆえのボーナス) に対応した。CLHS の
+    `destructuring-bind` サンプル例と合わせて `unittest/
+    common-lisp-tests.l` にテストを追加し、動作を固定した。
+  * 上の実装で `&allow-other-keys` を新規シンボルとして導入した際、
+    パッケージ間のシンボル同一性に関わる実バグを踏んで直した。
+    `&optional`/`&rest`/`&key`/`&aux`/`&body`/`&whole`/`&environment`
+    は C++ コアの `DEFLAMBDAKEY` テーブル (`src/gen-syms.cc`) で
+    起動時に一度だけ生成される特別なシンボルで、どのパッケージで
+    書いても常に同一のオブジェクトになる。`&allow-other-keys` は
+    このテーブルに無い (今回追加もしていない、C++ 側の変更は
+    今回のスコープ外) ため、単に `lisp/evalmacs.l` で
+    `(eq x '&allow-other-keys)` と書いただけでは `lisp` パッケージの
+    シンボルしか見ておらず、他のパッケージ (`editor`/`user` など)
+    で `destructuring-bind` を書いた際に読み込まれる
+    `&allow-other-keys` は別パッケージの非 `eq` な別シンボルになり、
+    比較が常に外れて `&key` の変数と誤認識されていた
+    (`(&key x &allow-other-keys)` の `&allow-other-keys` がキーワード
+    `:&allow-other-keys` の変数として束縛されてしまう)。`lisp`
+    パッケージの `export` リストに `&allow-other-keys` を追加し、
+    他パッケージが `lisp` を `:use` することで同一シンボルを継承
+    するようにして直した。テストで `common-lisp-tests.l` (`lisp`
+    パッケージではない) から `destructuring-bind` の `&allow-other-keys`
+    を使うことで、この種のクロスパッケージ不整合を今後も検知できる
+    ようにしてある。
   *
