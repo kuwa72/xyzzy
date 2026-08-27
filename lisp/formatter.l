@@ -29,6 +29,7 @@
 (in-package "editor")
 
 (export '(format-buffer
+	  formatter-expand-file-name
 	  *formatter-alist*
 	  *format-on-save*
 	  *on-save-trim-trailing-whitespace*
@@ -78,13 +79,37 @@ Lisp モードを入れていないのは、xyzzy が自前のインデント
 ;;; 外部フォーマッタ
 ;;;
 
+(defun formatter-expand-file-name (spec file)
+  "SPEC 中の `~A' を FILE に置き換える。
+
+**format は使わない。** コマンド文字列には `~' が別の意味で入りうる。
+Windows の一時ファイル名や短いパス名はそもそも `~' で始まることがあり
+(`make-temp-file-name' は `C:/users/.../Temp/~xyz.tmp' を返す)、format に
+渡すと `~x' が書式指定子として解釈されてコマンドが壊れる。**壊れても
+call-process は起動してしまうので、整形されないことに気づけない。**"
+  (let ((out (make-string-output-stream))
+	(i 0)
+	(n (length spec)))
+    (while (< i n)
+      (let ((c (char spec i)))
+	(if (and (char= c #\~)
+		 (< (1+ i) n)
+		 (char-equal (char spec (1+ i)) #\A))
+	    (progn
+	      (princ file out)
+	      (incf i 2))
+	  (progn
+	    (princ c out)
+	    (incf i)))))
+    (get-output-stream-string out)))
+
 (defun formatter-command-for-buffer ()
   "このバッファに使う整形コマンドの文字列。無ければ nil。"
   (let ((spec (cdr (assoc buffer-mode *formatter-alist* :test #'eq))))
     (and spec
-	 (if (find #\~ spec)
-	     (format nil spec (or (get-buffer-file-name) (buffer-name (selected-buffer))))
-	   spec))))
+	 (formatter-expand-file-name
+	  spec
+	  (or (get-buffer-file-name) (buffer-name (selected-buffer)))))))
 
 (defun formatter-file-contents (file encoding)
   "FILE の中身を文字列で返す。読めなければ nil。"

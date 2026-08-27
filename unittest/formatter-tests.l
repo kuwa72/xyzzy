@@ -22,7 +22,11 @@
 (defun formatter-test-contents ()
   "バッファの中身。CR は落とす: 外部コマンドの出力は CRLF で来るので、
 改行の扱いに環境差が出てもテストが揺れないようにする。"
-  (remove #\CR (buffer-substring (point-min) (point-max))))
+    ;; xyzzy に #\CR という文字名は無い。CR (コード 13) は #\RET である。
+  ;; ここが #\CR だったため、**このファイルは 1 件も走っていなかった**
+  ;; (読み込み時に「不正な文字名です: CR」で落ちていたが、
+  ;; misc/run-tests-batch.l がそれを失敗として数えていなかった)。
+  (remove #\RET (buffer-substring (point-min) (point-max))))
 
 (defmacro with-fake-formatter ((var) &body body)
   "入力の前に FORMATTED という 1 行を足すだけの .cmd を作り、その
@@ -239,3 +243,33 @@ non-nil を返すと保存が中止される。必ず nil を返すこと。
   => nil
   => nil
   => nil)
+
+;;;
+;;; ~A の展開
+;;;
+
+(deftest formatter-expand-file-name-substitutes ()
+  "~A をファイル名に置き換えること"
+  (ed::formatter-expand-file-name "prettier --stdin-filepath \"~A\"" "/tmp/x.js")
+  => "prettier --stdin-filepath \"/tmp/x.js\"")
+
+(deftest formatter-expand-file-name-leaves-other-tildes ()
+  "**~A 以外の ~ には触らないこと。**
+以前は文字列全体を format に渡していたので、コマンドに ~ が入っていると
+書式指定子として食われてコマンドが壊れた。Windows の一時ファイル名は
+~ で始まることがあるので (make-temp-file-name)、実際に踏む。"
+  (values (ed::formatter-expand-file-name "cmd /c \"C:/T/~xyz.cmd\"" "/tmp/x")
+	  (ed::formatter-expand-file-name "fmt ~/bin/x" "/tmp/x")
+	  (ed::formatter-expand-file-name "fmt" "/tmp/x"))
+  => "cmd /c \"C:/T/~xyz.cmd\""
+  => "fmt ~/bin/x"
+  => "fmt")
+
+(deftest formatter-expand-file-name-handles-several ()
+  "~A が複数あれば全部置き換えること。末尾の ~ 単独でも落ちないこと"
+  (values (ed::formatter-expand-file-name "a ~A b ~A" "F")
+	  (ed::formatter-expand-file-name "trailing ~" "F")
+	  (ed::formatter-expand-file-name "lower ~a" "F"))
+  => "a F b F"
+  => "trailing ~"
+  => "lower F")
