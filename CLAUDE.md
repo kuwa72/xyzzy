@@ -46,9 +46,15 @@ override が要るとき (めったに無い):
 **リストに載っているテストが通るようになった場合も赤**になる。
 
 手元の run で出た失敗を安易にリストへ足してはいけない。**`.lc` が無い手元の run は
-CI より 3 件多く落ちる** (`image-startup-option`、`uuid-create-4-seq`、
-`fix-for-FFI-c-function-return-doubl/float-00`)。CI で通っているものを既知失敗に
-登録すると、その瞬間から CI が赤くなる。
+CI より 2 件多く落ちる** (`image-startup-option`、
+`fix-for-FFI-c-function-return-doubl/float-00`)。`tools/x test --bytecompile` を
+使っていればこの 2 件は出ないので、**必ず `--bytecompile` を付ける。**
+CI で通っているものを既知失敗に登録すると、その瞬間から CI が赤くなる。
+
+**「手元だけ落ちる」と決めつける前に、flaky を疑う。** `uuid-create-4-seq` は
+長く「ローカル固有の差分」として扱われていたが、実際は時刻に依存する flaky で
+CI でも落ちていた (PR #71 で修正)。手元で落ちたテストが CI で通っているなら、
+同じ CI ジョブを何度か回してみると分かることがある。
 
 根拠にするのはこれ:
 
