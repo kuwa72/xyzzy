@@ -44,9 +44,12 @@
 ;;;  SET - DISCARD              --->  SET-DISCARD
 ;;;  REF - DISCARD              --->  none
 ;;;  CONSTANT - DISCARD         --->  none
-;;;  NULL/NOT NULL/NOT          --->  none(無条件にやるのはまずい? まだやってないけど)
-;;;  NULL/NOT - IF-NIL-GOTO     ---> IF-NON-NIL-GOTO (予定)
-;;;  NULL/NOT - IF-NON-NIL-GOTO ---> IF-NIL-GOTO (予定)
+;;;  NULL/NOT NULL/NOT                  --->  none(無条件にやるのはまずい? まだやってないけど)
+;;;  NULL/NOT - IF-NIL-GOTO-AND-POP     ---> IF-NON-NIL-GOTO-AND-POP
+;;;  NULL/NOT - IF-NON-NIL-GOTO-AND-POP ---> IF-NIL-GOTO-AND-POP
+;;;  (-AND-POP でない IF-NIL-GOTO/IF-NON-NIL-GOTO は対象外。ジャンプ時に
+;;;   テスト値自体を if の戻り値として残す設計のため、NULL/NOT を消すと
+;;;   戻り値が変わってしまう)
 ;;;  jump optimize
 ;;;  omit unreached code
 ;;;  local return/go            ---> GOTO
@@ -1348,6 +1351,39 @@
 	(remove-nil-insns insn)
       insn)))
 
+;; NULL/NOT - IF-NIL-GOTO-AND-POP / IF-NON-NIL-GOTO-AND-POP の融合
+;; NULL(x) は x の真偽を反転するだけなので、後続の条件ジャンプの向きを
+;; 反転させれば NULL/NOT の呼び出し自体を削除できる。NOT は 'not の
+;; optimize-form (下方) によりコンパイル前に (null ...) へ書き換えられて
+;; いるので、ここでは insn-call の対象を null だけ見ればよい。
+;;
+;; -AND-POP でない IF-NIL-GOTO/IF-NON-NIL-GOTO (2引数 if 専用) には
+;; 適用できない: これらはジャンプ時にテスト値そのものを goto 先に残し
+;; それが if 式全体の戻り値になる (BCif_nil_goto/BCif_non_nil_goto は
+;; top() を pop せずジャンプする)。テスト対象を (null x) から x へ
+;; すり替えると、x が non-nil のときの戻り値が NIL から x 自身へ変わって
+;; しまい (ANSI 上は else 省略時の戻り値は NIL でなければならない)、
+;; 観測可能な意味が変わってしまう。-AND-POP 系はテスト値を必ず pop して
+;; 捨てるだけなので、この問題は起きない。
+(defun optimize-null-if-goto (insn)
+  (let ((mod nil))
+    (do ((i insn (cdr i)))
+	((endp i))
+      (when (and (eq (caar i) 'insn-call)
+		 (eq (cadar i) 'null)
+		 (eql (caddar i) 1)
+		 (member (caadr i)
+			 '(insn-if-nil-goto-and-pop insn-if-non-nil-goto-and-pop)))
+	(setf (caadr i)
+	      (case (caadr i)
+		(insn-if-nil-goto-and-pop 'insn-if-non-nil-goto-and-pop)
+		(t 'insn-if-nil-goto-and-pop)))
+	(setf (car i) 'nil)
+	(setq mod t)))
+    (if mod
+	(remove-nil-insns insn)
+      insn)))
+
 ;; 定数の畳み込み
 ;; 副作用がなく1引数または2引数で多値を返さない数値演算関数のみ
 
@@ -1424,6 +1460,7 @@
     (setq insn (optimize-set-discard insn))
     (setq insn (remove-ref-discard insn))
     (setq insn (constant-folding insn))
+    (setq insn (optimize-null-if-goto insn))
     (setq insn (remove-ref-discard insn))
   )
   insn)
