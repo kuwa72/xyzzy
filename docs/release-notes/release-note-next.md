@@ -51,6 +51,20 @@ xyzzy リリースノート
     ディレクトリを降りていく」もので、候補一覧を絞る話とは別物なので、
     同じ枠に無理に入れると使いにくくなる。プロジェクト内を横断して探すのは
     `Leader p f` (`project-find-file`) が既にファジーである。
+  * カラーテーマの暗い/明るい切り替えを追加した
+    (`toggle-color-theme-dark-light`、`Leader t T`。テーマ選択は
+    `Leader t C`)。#30「ダーク/ライトモード簡単切り替え」の 1 項目。
+    相方は「`X Dark` ↔ `X Light`」という名前の対応と、機械的に導けない組の
+    表 (`*color-theme-counterpart-alist*`: Catppuccin, Rose Pine, Ayu,
+    One Dark/Light) から探す。名前を入れ替えた結果が実在しない場合
+    (`Everforest Light` など) は相方なしとして扱い、既定のテーマの反対側へ
+    移る。
+    **暗いか明るいかは名前ではなく背景色の輝度で判定する。** Dracula・Nord・
+    Molokai のように名前に Dark/Light が入らないテーマが 30 個中の大半を
+    占めるので、名前を見る方法では判定できない。
+    `unittest/color-theme-tests.l` に 10 件。全テーマについて色が引けること、
+    相方の表に実在しない名前が無いこと、**相方が本当に明暗の逆側であること**
+    (表の書き間違いを検出する) を見ている。
   * `uuid-create-4-seq` が不定期に落ちていたのを直した。
     `si:uuid-create :sequential` の**全フィールドの差が 1 以内**であることを
     見ていたが、`time_low` は 100ns 単位の時刻の下位 32bit なので 2 回の
