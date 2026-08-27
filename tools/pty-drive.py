@@ -27,6 +27,12 @@ Environment:
     XYZZY_EXE   the binary to run (default /work/_build/linux/xyzzy, i.e. the
                 path inside the tools/x container)
     XYZZY_PTY_ROWS / XYZZY_PTY_COLS   screen size (default 30x100)
+    XYZZY_PTY_BOOT   seconds to wait for the first paint (default 90).  Start up
+                loads the whole lisp library and draws nothing until it is done:
+                about a second in the tools/x container, seventeen on a cold CI
+                runner.  Waiting only for the output to go quiet returns a blank
+                screen there and then types at a process that is not listening
+                yet, so the wait is for the first paint, not for silence.
 
 The VT parser here understands only what this frontend emits (cursor moves,
 erase, insert/delete line, and the private modes it ignores).  It is a way to
@@ -38,6 +44,7 @@ ROWS = int(os.environ.get("XYZZY_PTY_ROWS", "30"))
 COLS = int(os.environ.get("XYZZY_PTY_COLS", "100"))
 EXE = os.environ.get("XYZZY_EXE", "/work/_build/linux/xyzzy")
 HOME = os.environ.get("XYZZYHOME", "/work")
+BOOT = float(os.environ.get("XYZZY_PTY_BOOT", "90"))
 
 def unescape(s):
     out = bytearray()
@@ -229,7 +236,25 @@ def main():
                 return True
         return True
 
-    drain(quiet=1.5, total=40)
+    # Wait for the first paint rather than for the output to go quiet: nothing
+    # is drawn while lisp/ loads, and that takes long enough on a slow machine
+    # that "quiet for 1.5s" is reached before the screen exists at all.
+    booted = False
+    deadline = time.time() + BOOT
+    while time.time() < deadline:
+        alive = drain(quiet=0.5, total=2.0)
+        if scr.dump().strip():
+            booted = True
+            drain(quiet=1.0, total=10.0)   # let the first screen settle
+            break
+        if not alive:                      # the child closed the pty: it is gone
+            break
+    if not booted:
+        # Say so rather than dumping a blank screen and carrying on: every step
+        # after this would be typed at a process that never came up.
+        st = "exited" if os.waitpid(pid, os.WNOHANG)[0] else "still running"
+        print("=== startup: nothing was drawn within %gs (child %s) ==="
+              % (BOOT, st))
     print("=== startup ===")
     print(scr.dump())
     for step in steps:
@@ -250,6 +275,8 @@ def main():
     drain(quiet=0.4, total=5)
     try: os.close(fd)
     except OSError: pass
-    os.waitpid(pid, 0)
+    # ChildProcessError: the start up check above may already have reaped it.
+    try: os.waitpid(pid, 0)
+    except (ChildProcessError, OSError): pass
 
 main()

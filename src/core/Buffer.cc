@@ -1320,12 +1320,30 @@ Fkill_xyzzy (lisp lexit_code)
   return Qnil;
 }
 
+/* Char は uint16_t なので、L"..." を (const Char *) にキャストしてはいけない
+   (Linux の wchar_t は 4 バイトで、16 bit として読むと 2 文字目が NUL になる)。
+   タイトルバーで使う定数は要素を明示した Char 配列で持つ。 */
+static const Char title_admin_prefix[] = {0x7ba1, 0x7406, 0x8005, ':', ' ', 0};
+static const Char title_separator[] = {' ', '-', ' ', 0};
+
 /* Append a nul-terminated UTF-16 run, stopping at the end of the buffer. */
 static Char *
 wstore (const Char *s, Char *b, Char *be)
 {
   for (; *s && b < be; s++)
     *b++ = *s;
+  return b;
+}
+
+/* 同じことを wchar_t の列に対してやる。要素ごとに詰め替えるのが要点で、
+   (const Char *) へのキャストで済ませると Linux (wchar_t 4 バイト) では
+   2 文字目が NUL になり、1 文字で終わってしまう。BMP 外は落とす
+   (タイトルバーの用途では現れない)。 */
+static Char *
+wstore (const wchar_t *s, Char *b, Char *be)
+{
+  for (; *s && b < be; s++)
+    *b++ = Char (*s);
   return b;
 }
 
@@ -1371,17 +1389,17 @@ Buffer::refresh_title_bar () const
       Char *b = b0;
       Char *be = b0 + l;
       if (Fadmin_user_p () == Qt && sysdep.Win6p ())
-        b = wstore ((const Char *)L"\u7ba1\u7406\u8005: ", b, be);
+        b = wstore (title_admin_prefix, b, be);
       if (xsymbol_value (Vtitle_bar_text_order) != Qnil)
         {
           b = store_title (x, b, be);
-          b = wstore ((const Char *)L" - ", b, be);
-          b = wstore ((const Char *)TitleBarStringW, b, be);
+          b = wstore (title_separator, b, be);
+          b = wstore (TitleBarStringW, b, be);
         }
       else
         {
-          b = wstore ((const Char *)TitleBarStringW, b, be);
-          b = wstore ((const Char *)L" - ", b, be);
+          b = wstore (TitleBarStringW, b, be);
+          b = wstore (title_separator, b, be);
           b = store_title (x, b, be);
         }
       *b = 0;
