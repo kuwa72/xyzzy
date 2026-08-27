@@ -202,60 +202,83 @@ void
 Process::poll_output ()
 {
   u_char rawbuf[4096];
-  ssize_t n = read (p_read_fd, rawbuf, sizeof rawbuf);
-  if (n <= 0)
-    return;
+  int fed = 0;
 
-  if (p_term)
+  // Drain all immediately available output in one go.  Some pty drivers
+  // (WSL2 in particular) do not always wake select() for small chunks that
+  // arrive right after an idle period; reading until EAGAIN makes sure we do
+  // not leave echoed bytes sitting in the pty buffer.
+  for (;;)
     {
-      // Feed raw bytes directly to VT100 terminal emulator.
-      // The terminal handles UTF-8 decoding and escape sequences internally.
-      p_term->feed (rawbuf, (int)n);
-
-      // feed() の中で DSR / DA の応答が積まれていたら pty へ返す。win32 の
-      // ConPtyProcess::read_process は元からこれをやっているが、ncurses 側は
-      // 抜けていた。返さないと、起動時にカーソル位置や端末種別を問い合わせて
-      // から描画するタイプの TUI が、応答を待ってスタートアップで止まったり
-      // 既定値で誤ったレイアウトを組んだりする。
-      if (p_term->reply_len ())
+      ssize_t n = read (p_read_fd, rawbuf, sizeof rawbuf);
+      if (n < 0)
         {
-          send (p_term->reply_data (), p_term->reply_len ());
-          p_term->reply_clear ();
+          if (errno == EAGAIN)
+            break;
+          // Real read error: process what we have already read, if any.
+          if (!fed)
+            return;
+          break;
+        }
+      if (n == 0)
+        {
+          // EOF: caller (poll_processes) will reap the process.  Process any
+          // bytes already read below.
+          break;
         }
 
-      // OSC 52 (クリップボード書き込み)。ncurses には自前のクリップボード
-      // API が無いので、自分を包んでいる本物の端末 (Windows Terminal /
-      // X11 / Wayland 端末) へそのまま中継する — tmux の
-      // allow-passthrough と同じ発想。読み出し (?) は Terminal 側で
-      // すでに弾いてあるので、ここに来るのは書き込みだけ。
-      if (p_term->clipboard_pending ())
-        {
-          printf ("\033]%s\a", p_term->clipboard_raw ());
-          fflush (stdout);
-          p_term->clipboard_clear ();
-        }
+      fed = 1;
 
-      // Trigger screen refresh — render_terminal_window will read
-      // directly from the TermCell grid, no buffer sync needed.
-      if (p_term->dirty ())
+      if (p_term)
+        p_term->feed (rawbuf, (int)n);
+      else
         {
-          for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-            if (wp->w_bufp == p_bufp)
-              {
-                refresh_screen (0);
-                break;
-              }
+          // Fallback: no terminal emulator, insert raw output
+          // (This path is used when terminal is not available)
+          Char outbuf[4096];
+          int outlen = 0;
+          for (int i = 0; i < (int)n && outlen < (int)numberof (outbuf); i++)
+            outbuf[outlen++] = (Char)rawbuf[i];
+          insert_output (outbuf, outlen);
         }
     }
-  else
+
+  if (!fed || !p_term)
+    return;
+
+  // feed() の中で DSR / DA の応答が積まれていたら pty へ返す。win32 の
+  // ConPtyProcess::read_process は元からこれをやっているが、ncurses 側は
+  // 抜けていた。返さないと、起動時にカーソル位置や端末種別を問い合わせて
+  // から描画するタイプの TUI が、応答を待ってスタートアップで止まったり
+  // 既定値で誤ったレイアウトを組んだりする。
+  if (p_term->reply_len ())
     {
-      // Fallback: no terminal emulator, insert raw output
-      // (This path is used when terminal is not available)
-      Char outbuf[4096];
-      int outlen = 0;
-      for (int i = 0; i < (int)n && outlen < (int)numberof (outbuf); i++)
-        outbuf[outlen++] = (Char)rawbuf[i];
-      insert_output (outbuf, outlen);
+      send (p_term->reply_data (), p_term->reply_len ());
+      p_term->reply_clear ();
+    }
+
+  // OSC 52 (クリップボード書き込み)。ncurses には自前のクリップボード
+  // API が無いので、自分を包んでいる本物の端末 (Windows Terminal /
+  // X11 / Wayland 端末) へそのまま中継する — tmux の
+  // allow-passthrough と同じ発想。読み出し (?) は Terminal 側で
+  // すでに弾いてあるので、ここに来るのは書き込みだけ。
+  if (p_term->clipboard_pending ())
+    {
+      printf ("\033]%s\a", p_term->clipboard_raw ());
+      fflush (stdout);
+      p_term->clipboard_clear ();
+    }
+
+  // Trigger screen refresh — render_terminal_window will read
+  // directly from the TermCell grid, no buffer sync needed.
+  if (p_term->dirty ())
+    {
+      for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+        if (wp->w_bufp == p_bufp)
+          {
+            refresh_screen (0);
+            break;
+          }
     }
 }
 

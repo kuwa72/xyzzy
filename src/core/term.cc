@@ -45,7 +45,7 @@ Terminal::Terminal (int rows, int cols)
       t_app_cursor_keys (0), t_origin_mode (0),
       t_wraparound (1), t_insert_mode (0), t_pending_wrap (0),
       t_last_char (0),
-      t_sync_update (0), t_sync_update_since (0),
+      t_sync_update (0), t_sync_update_since (),
       t_scrollback (0), t_scrollback_cols (cols),
       t_scrollback_count (0), t_scrollback_head (0),
       t_scrollback_offset (0),
@@ -819,7 +819,7 @@ Terminal::handle_dec_private (int final_ch)
         case 2026:
           t_sync_update = set;
           if (set)
-            t_sync_update_since = time (0);
+            t_sync_update_since = std::chrono::steady_clock::now ();
           break;
         }
     }
@@ -1355,7 +1355,9 @@ Terminal::feed (const u_char *data, int len)
      再描画がここで止まったまま二度と表示に出なくなる。仕様自体が
      「端末側で妥当な時間内に強制解除しろ」と言っているので、次に何か
      出力が届いた時点でタイムアウトを見て強制的に落とす。 */
-  if (t_sync_update && time (0) - t_sync_update_since >= 2)
+  if (t_sync_update
+      && std::chrono::duration_cast<std::chrono::seconds> (
+           std::chrono::steady_clock::now () - t_sync_update_since).count () >= 2)
     t_sync_update = 0;
 
   // New output arrives: snap back to live view
