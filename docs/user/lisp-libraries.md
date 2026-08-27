@@ -182,6 +182,9 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `snippet-insert-by-name` (`Leader c i`): このモードのテンプレートをファジー絞り込みで選んで挿入。
   - `snippet-next-field` (`M-i`): 展開中のテンプレートの次の入力位置へ。既定値は選択された状態で入るので、そのまま打てば置き換わり、`M-i` で次へ行けば残る。
   - テンプレートの書き方は yasnippet と同じ (`$1`, `${1:既定値}`, `$0`, `$$`)。同じ番号を 2 度書くとミラーになる (`for (int ${1:i} = 0; $1 < ${2:n}; $1++)`)。`define-snippet` で追加。
+- **外部フォーマッタ連携 (`lisp/formatter.l`)**:
+  - `format-buffer` (`M-x`): モードに応じた外部フォーマッタ (`clang-format`, `prettier`, `black`, `shfmt` 等。表は `*formatter-alist*`) にバッファを流し込み、結果に差し替える。**起動できない・終了コードが 0 でない・出力が空、のいずれでもバッファに触らない。**
+  - `*format-on-save*` / `*on-save-trim-trailing-whitespace*` / `*on-save-ensure-final-newline*`: 保存時に整形・行末空白の削除・末尾改行の付加を行う。**いずれも既定で無効** (保存のたびにファイルを黙って書き換える設定を勝手に入れないため)。`toggle-format-on-save` で切り替え。
 - **ファジー絞り込み M-x (`lisp/fuzzy-mx.l`)**:
   - `fuzzy-execute-extended-command` (`M-x` / `Leader SPC`): コマンド名を打つそばからファジー絞り込みして選ぶ。空白区切りで複数キーワードを順不同指定できる (`buf list` → `list-buffers`)。直前に実行したコマンドが先に並ぶ (`*fuzzy-mx-history*`)。`*fuzzy-mx-mode*` を nil にすると従来の `read-command-name` (TAB 補完) に戻る。
   - 候補は `do-all-symbols` + `commandp` で集めるので、まだ読み込んでいないライブラリの autoload コマンドも出る (素の `M-x` と同じ範囲)。
