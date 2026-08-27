@@ -296,13 +296,28 @@ of SHA-384 and SHA-512)."
   => nil)
 
 (deftest uuid-create-4-seq ()
-  ":sequential を指定した場合、前回のUUIDからの差分は1か"
-  (let ((uuid1 (cadr (multiple-value-list (si:uuid-create :sequential t))))
-        (uuid2 (cadr (multiple-value-list (si:uuid-create :sequential t)))))
-    (flet ((test (a b)
-             (<= (abs (- a b)) 1)))
-      (values (every #'test (butlast uuid1) (butlast uuid2))
-              (every #'test (car (last uuid1)) (car (last uuid2))))))
+  ":sequential を指定した場合、同じ機械の連番になっているか
+
+元は「全フィールドの差が 1 以内」を見ていたが、これは通らない。
+time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出しの間に
+何千も進む (実測: 3463378576 → 3463381293)。**同じ tick に 2 回入った
+ときだけ通る**テストになっており、手元でも CI でも落ちた。
+
+連番であることの実質は「同じ機械 (node = MAC) の、同じ clock-seq の、
+時刻が戻っていない 2 つ」なので、それを見る。time_mid は約 7 分ごとに
+繰り上がるので、繰り上がった場合も許す。"
+  (let ((a (cadr (multiple-value-list (si:uuid-create :sequential t))))
+        (b (cadr (multiple-value-list (si:uuid-create :sequential t)))))
+    (values
+     ;; node (MAC アドレス) は同じ機械なら変わらない
+     (equal (car (last a)) (car (last b)))
+     ;; clock-seq も変わらない
+     (equal (subseq a 3 5) (subseq b 3 5))
+     ;; 時刻が戻っていない
+     (or (> (second b) (second a))
+         (and (= (second b) (second a))
+              (>= (car b) (car a))))))
+  => t
   => t
   => t)
 
