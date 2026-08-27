@@ -114,3 +114,215 @@
    (list (list 'compiler::insn-call 'consp 1)
          (list 'compiler::insn-if-nil-goto-and-pop 'l1)))
   => ((compiler::insn-call consp 1) (compiler::insn-if-nil-goto-and-pop l1)))
+
+;; #16 Phase 3: 自己末尾再帰のループ化 ("poor man's TCO")。
+;;
+;; 一般の TCO (相互再帰・高階関数経由の末尾呼び出しも含む) には
+;; VM 側の呼び出し規約変更が要りリスクが高いため対象外とした。ここで
+;; 実装したのは「関数が自分自身を末尾位置で同じ引数個数で呼ぶ」場合
+;; だけをコンパイラ側の変換 (引数を評価してから仮引数を束縛し直し、
+;; 関数先頭 (block 確立後) へ GOTO) で扱う限定版。
+;;
+;; defun の展開は本体を必ず (block 関数名 ...) で包む (CLHS) ので、
+;; その形と「必須引数のみのラムダリスト」が揃った場合だけが対象。
+;; &optional/&rest/&key を含む場合、self-call が非末尾位置 (引数・
+;; let の中など) にある場合、相互再帰の場合はすべて安全に対象外へ
+;; フォールバックし、通常の INSN-CALL のまま (常に正しく動く)。
+;;
+;; if/progn/block だけが *tail-position-p* を伝播させる。テストが
+;; 検証する「深い再帰でスタックオーバーフローしない」という結果は、
+;; 挙動が正しいだけでなく実際にループへ変換されたことの直接的な証拠
+;; になる (素朴な再帰では millions 回のネストは通常どの環境でも
+;; 破綻する)。
+
+(deftest compile-self-tail-call-eligible-name-basic ()
+  (compiler::self-tail-call-eligible-name
+   '(n acc) '((block %tco-fn (if (= n 0) acc (%tco-fn (1- n) acc)))))
+  => %tco-fn)
+
+(deftest compile-self-tail-call-eligible-name-rejects-optional ()
+  (compiler::self-tail-call-eligible-name
+   '(n &optional acc) '((block %tco-fn (if (= n 0) acc (%tco-fn (1- n) acc)))))
+  => nil)
+
+(deftest compile-self-tail-call-eligible-name-rejects-rest ()
+  (compiler::self-tail-call-eligible-name
+   '(n &rest r) '((block %tco-fn nil)))
+  => nil)
+
+(deftest compile-self-tail-call-eligible-name-rejects-multi-form-body ()
+  ;; body が単一の (block ...) でなければ対象外 (defun の展開形とは
+  ;; 異なる。手書きの (lambda (x) (foo) (block name ...)) 等)。
+  (compiler::self-tail-call-eligible-name
+   '(n) '((foo n) (block %tco-fn nil)))
+  => nil)
+
+(deftest compile-self-tail-call-eligible-name-rejects-non-block-body ()
+  (compiler::self-tail-call-eligible-name '(n) '((if n n n)))
+  => nil)
+
+(deftest compile-self-tail-call-p-requires-tail-position ()
+  (let ((compiler::*tail-position-p* nil)
+        (compiler::*self-tail-call-tag* '(some-tag 0 nil))
+        (compiler::*self-tail-call-name* '%tco-fn)
+        (compiler::*self-tail-call-args* '(n acc)))
+    (compiler::self-tail-call-p '%tco-fn 2))
+  => nil)
+
+(deftest compile-self-tail-call-p-requires-matching-name-and-arity ()
+  (let ((compiler::*tail-position-p* t)
+        (compiler::*self-tail-call-tag* '(some-tag 0 nil))
+        (compiler::*self-tail-call-name* '%tco-fn)
+        (compiler::*self-tail-call-args* '(n acc)))
+    (values
+     (and (compiler::self-tail-call-p '%tco-fn 2) t)
+     (compiler::self-tail-call-p '%other-fn 2)
+     (compiler::self-tail-call-p '%tco-fn 1)))
+  => t
+  => nil
+  => nil)
+
+;; 基本の正しさ: 末尾再帰でのアキュムレータ渡し。
+;; compile は「空でない環境で定義された関数」(自由変数を持つ closure)
+;; をコンパイルできない (compile.l 自身の既存の制約)。deftest の本体は
+;; それ自体レキシカルな環境の中で評価されるため、そこで直接 defun する
+;; と定義される関数がその環境を抱え込んでしまいコンパイルできない。
+;; unittest/simple-test.l の compile-and-eval マクロや defstruct 系の
+;; 既存テストと同じ理由・同じ回避策で、defun フォームを (eval '...) 越し
+;; に評価してトップレベル (空) の環境で定義する。
+
+(deftest compile-self-tail-call-accumulator-correctness ()
+  (eval '(defun %tco-sum-acc (lst acc)
+	   (if (null lst)
+	       acc
+	     (%tco-sum-acc (cdr lst) (+ acc (car lst))))))
+  (compile '%tco-sum-acc)
+  (%tco-sum-acc '(1 2 3 4 5) 0)
+  => 15)
+
+;; 並行代入の意味論: 後の引数式が前の仮引数の (再束縛前の) 値を
+;; 参照していても正しく計算できる。(* n acc) は再束縛前の n を使う
+;; 必要がある。
+(deftest compile-self-tail-call-parallel-assignment ()
+  (eval '(defun %tco-fact-acc (n acc)
+	   (if (= n 0)
+	       acc
+	     (%tco-fact-acc (1- n) (* n acc)))))
+  (compile '%tco-fact-acc)
+  (%tco-fact-acc 10 1)
+  => 3628800)
+
+;; 本命: 素朴な再帰なら確実に破綻する深さ (数百万) でもスタック
+;; オーバーフローせずに正しい値を返す。これはループへの変換が実際に
+;; 発火していることの直接的な証拠。
+(deftest compile-self-tail-call-deep-recursion-no-overflow ()
+  (eval '(defun %tco-count-down (n)
+	   (if (= n 0)
+	       :done
+	     (%tco-count-down (1- n)))))
+  (compile '%tco-count-down)
+  (%tco-count-down 3000000)
+  => :done)
+
+(deftest compile-self-tail-call-deep-recursion-accumulator ()
+  (eval '(defun %tco-sum-to (n acc)
+	   (if (= n 0)
+	       acc
+	     (%tco-sum-to (1- n) (+ acc n)))))
+  (compile '%tco-sum-to)
+  (%tco-sum-to 1000000 0)
+  => 500000500000)
+
+;; 非末尾の再帰呼び出しは対象外のまま (安全なフォールバック)。
+;; 最適化されなくても正しく動くことだけを確認する (深くはしない)。
+(deftest compile-self-tail-call-non-tail-call-still-correct ()
+  (eval '(defun %tco-sum-non-tail (n)
+	   (if (= n 0)
+	       0
+	     (+ n (%tco-sum-non-tail (1- n))))))
+  (compile '%tco-sum-non-tail)
+  (%tco-sum-non-tail 100)
+  => 5050)
+
+;; &optional を含む場合は対象外 (self-tail-call-eligible-name が
+;; nil を返す) だが、通常の再帰として正しく動く。
+(deftest compile-self-tail-call-skipped-for-optional-args ()
+  (eval '(defun %tco-opt (n &optional (acc 0))
+	   (if (= n 0)
+	       acc
+	     (%tco-opt (1- n) (+ acc n)))))
+  (compile '%tco-opt)
+  (%tco-opt 100)
+  => 5050)
+
+;; 自己呼び出しが引数位置 (非末尾) にある場合は対象外だが正しく動く。
+(deftest compile-self-tail-call-skipped-when-call-is-an-argument ()
+  (eval '(defun %tco-arg-pos (n)
+	   (if (= n 0)
+	       0
+	     (1+ (%tco-arg-pos (1- n))))))
+  (compile '%tco-arg-pos)
+  (%tco-arg-pos 100)
+  => 100)
+
+;; let の中にある自己呼び出しは対象外 (動的環境を持ち越すため意図的
+;; に伝播させない) だが正しく動く。
+(deftest compile-self-tail-call-skipped-inside-let ()
+  (eval '(defun %tco-in-let (n acc)
+	   (if (= n 0)
+	       acc
+	     (let ((next (1- n)))
+	       (%tco-in-let next (+ acc n))))))
+  (compile '%tco-in-let)
+  (%tco-in-let 100 0)
+  => 5050)
+
+;; 相互再帰は対象外 (名前が一致しない) だが正しく動く。
+(deftest compile-self-tail-call-mutual-recursion-still-correct ()
+  (eval '(defun %tco-even-p (n)
+	   (if (= n 0)
+	       t
+	     (%tco-odd-p (1- n)))))
+  (eval '(defun %tco-odd-p (n)
+	   (if (= n 0)
+	       nil
+	     (%tco-even-p (1- n)))))
+  (compile '%tco-even-p)
+  (compile '%tco-odd-p)
+  (values (%tco-even-p 100) (%tco-odd-p 100))
+  => t
+  => nil)
+
+;; when/unless/and は if/progn へ展開されるので、その中の末尾呼び出し
+;; も検出される。
+(deftest compile-self-tail-call-through-when ()
+  (eval '(defun %tco-when (n acc)
+	   (when t
+	     (if (= n 0)
+		 acc
+	       (%tco-when (1- n) (+ acc n))))))
+  (compile '%tco-when)
+  (%tco-when 1000000 0)
+  => 500000500000)
+
+(deftest compile-self-tail-call-through-unless ()
+  ;; unless 自体が (if の then 分岐として) 関数の末尾位置にあり、かつ
+  ;; unless の中の自己呼び出しがその唯一のフォーム (= unless 自身の
+  ;; 末尾位置) である場合にだけ検出される。
+  (eval '(defun %tco-unless (n acc)
+	   (if (= n 0)
+	       acc
+	     (unless nil
+	       (%tco-unless (1- n) (+ acc n))))))
+  (compile '%tco-unless)
+  (%tco-unless 1000000 0)
+  => 500000500000)
+
+(deftest compile-self-tail-call-through-and ()
+  (eval '(defun %tco-and (n acc)
+	   (if (= n 0)
+	       acc
+	     (and t (%tco-and (1- n) (+ acc n))))))
+  (compile '%tco-and)
+  (%tco-and 1000000 0)
+  => 500000500000)
