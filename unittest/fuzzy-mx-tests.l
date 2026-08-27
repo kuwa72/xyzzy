@@ -266,3 +266,60 @@
       (let ((ed::*fuzzy-max-candidates* 5))
 	(ed::fuzzy-completing-read "test: " candidates))))
   => "cand-20")
+
+;;;
+;;; 縦型表示 (Vertico 相当)
+;;;
+
+(deftest fuzzy-vertical-window-start-fits ()
+  "件数が行数に収まるなら先頭から出すこと"
+  (values (ed::fuzzy-vertical-window-start 0 3 10)
+	  (ed::fuzzy-vertical-window-start 2 3 10))
+  => 0
+  => 0)
+
+(deftest fuzzy-vertical-window-start-centers-and-clamps ()
+  "選択を真ん中に置き、両端では止まること"
+  (values (ed::fuzzy-vertical-window-start 0 100 10)
+	  (ed::fuzzy-vertical-window-start 20 100 10)
+	  (ed::fuzzy-vertical-window-start 99 100 10))
+  => 0
+  => 15
+  => 90)
+
+(deftest fuzzy-vertical-lines-marks-selection ()
+  "選択行だけ \"> \" で始まり、その行が何行目かも返すこと"
+  (multiple-value-bind (rows row)
+      (ed::fuzzy-vertical-lines '("aa" "bb" "cc") 1 10)
+    (values rows row))
+  => ("  aa" "> bb" "  cc")
+  => 1)
+
+(deftest fuzzy-vertical-lines-scrolls ()
+  "行数より件数が多いときは窓の中だけを返し、選択行の位置も窓内の値になること"
+  (let ((c '("c0" "c1" "c2" "c3" "c4" "c5" "c6" "c7" "c8" "c9")))
+    (multiple-value-bind (rows row)
+	(ed::fuzzy-vertical-lines c 7 4)
+      (values rows row)))
+  => ("  c5" "  c6" "> c7" "  c8")
+  => 2)
+
+(deftest fuzzy-vertical-header ()
+  "1 行目にプロンプトと打ちかけのクエリと件数が出ること"
+  (values (ed::fuzzy-vertical-header "M-x " "buf" 6 0)
+	  (ed::fuzzy-vertical-header "M-x " "zzz" 0 0))
+  => "M-x buf    -- 1/6 件 --"
+  => "M-x zzz    -- 0 件一致 --")
+
+(deftest fuzzy-read-horizontal-path ()
+  "*fuzzy-vertical* を nil にしてもステータス行表示で同じように選べること"
+  (let ((ed::*fuzzy-vertical* nil))
+    (fuzzy-test-read (fuzzy-keys "buf list" #\RET)))
+  => "list-buffers")
+
+(deftest fuzzy-read-vertical-cleans-up ()
+  "縦型で選んだ後に候補バッファが残らないこと"
+  (let ((ed::*fuzzy-vertical* t))
+    (fuzzy-test-read (fuzzy-keys "buf list" #\RET))
+    (find-buffer ed::*fuzzy-candidates-buffer-name*))
+  => nil)
