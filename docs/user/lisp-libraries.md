@@ -177,6 +177,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
   - `execute-leader-key` (`M-m` または `C-c SPC`): ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) を一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+- **行・選択範囲の上下移動 (`lisp/move-text.l`)**:
+  - `move-text-up` (`M-↑`) / `move-text-down` (`M-↓`): 現在行、または選択範囲に含まれる行をまとめて 1 行上/下へ移動。kill-ring を経由しないので貼り付け待ちの内容を潰さず、移動後も同じテキストが選択されたまま残る。
 - **プロジェクト管理 (Project) (`lisp/project.l`)**:
   - `project-find-file` (`Leader p f`): プロジェクト配下の全ファイルをインクリメンタル補完で選択してオープン。
   - `project-grep` (`Leader p g`): プロジェクトルート配下の全ファイルを対象とした一括検索。
