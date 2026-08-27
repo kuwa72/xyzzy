@@ -72,3 +72,22 @@ cmake --build build-curses --target xyzzy-ncurses -- -j$(nproc)
 ```
 
 bytecompile で Lisp ファイル (.l) をバイトコンパイル (.lc) します。初回起動が大幅に速くなります。
+
+### 端末フロントエンドの画面を見る
+
+Linux ビルドには Lisp テストスイートが無く (#49)、`tools/linux-smoke.sh` は
+「プロセスが起動する」ところまでしか見ません。**画面に何が描かれるか**
+(カーソルの位置、ポップアップの見え方、そもそもキーがコマンドループに
+届いているか) は見るしかないので、pty に繋いで打鍵を流し込み、画面を
+テキストで吐く道具を置いてあります。
+
+```bash
+tools/x build linux
+tools/x pty '(defun foo (x' '\e\e(buffer-substring (point-min) (point-max))\r'
+```
+
+引数 1 つが 1 ステップで、キーを送ってから出力が落ち着いたところで画面を
+印字します。エスケープと環境変数は `tools/pty-drive.py` の docstring に
+あります。`\e\e` (eval-expression) の結果はステータス行に出て、
+ステータス行も画面の一部として吐かれるので、動いているエディタに
+その場で質問するのが一番速い確認方法です。
