@@ -48,7 +48,7 @@
      ',name))
 
 (deftype eql (x)
-  `(member (,x)))
+  `(member ,x))
 
 (deftype fixnum ()
   `(integer ,most-negative-fixnum ,most-positive-fixnum))
@@ -111,6 +111,12 @@
     (sequence . sequencep)
     (stream . streamp)
     (symbol . symbolp)
+    (two-way-stream . two-way-stream-p)
+    (echo-stream . echo-stream-p)
+    (broadcast-stream . broadcast-stream-p)
+    (synonym-stream . synonym-stream-p)
+    (string-stream . string-stream-p)
+    (concatenated-stream . concatenated-stream-p)
 
     ;; non-standard types
     (ed:buffer . ed:bufferp)
@@ -358,7 +364,7 @@
 	  ((eq t1 'member)
 	   (dolist (x r1 (values t t))
 	     (unless (typep x type2)
-	       (return (value nil t)))))
+	       (return (values nil t)))))
 	  ((eq t1 'or)
 	   (dolist (x r1 (values t t))
 	     (multiple-value-bind (u v)
@@ -381,16 +387,25 @@
 	  ((eq t2 'satisfies) (values nil nil))
 	  ((eq t2 'member) (values nil nil))
 	  ((eq t2 'or)
-	   (dolist (x r2 (values t t))
-	     (unless (subtypep type1 x)
-	       (return (values nil nil)))))
+	   ;; type1 is a subtype of (or A B ...) if it is a subtype of any
+	   ;; single disjunct. That is sufficient but not necessary (e.g. a
+	   ;; numeric range split across disjuncts could still qualify), so
+	   ;; failing to find a match is reported as "don't know" rather
+	   ;; than "definitely not", per the ANSI-legal (values nil nil).
+	   (dolist (x r2 (values nil nil))
+	     (when (subtypep type1 x)
+	       (return (values t t)))))
 	  ((eq t2 'and)
+	   ;; type1 is a subtype of (and A B ...) only if it is a subtype of
+	   ;; every conjunct. A definite failure against any one conjunct is
+	   ;; a definite failure overall; an uncertain sub-check propagates
+	   ;; as uncertainty rather than a false "definitely not".
 	   (let ((f t))
-	     (dolist (x r2 (values nil f))
+	     (dolist (x r2 (values t f))
 	       (multiple-value-bind (u v)
 		   (subtypep type1 x)
-		 (when u
-		   (return (values t t)))
+		 (unless u
+		   (return (values nil v)))
 		 (or v (setq f nil))))))
 	  ((eq t2 'not)
 	   (if (subtypep type1 (car r2))
