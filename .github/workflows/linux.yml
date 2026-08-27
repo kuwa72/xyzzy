@@ -1,0 +1,83 @@
+name: linux
+
+# The POSIX frontends (src/frontend/ncurses, src/frontend/cli) built natively
+# with gcc.  Neither build.yml (MSVC) nor mingw.yml (llvm-mingw) touches them:
+# both cross build for Windows, and the ncurses target is not even generated
+# without ncursesw.  Until this existed, nothing anywhere ran a compiler over
+# those 13,000 lines, and the damage was not hypothetical --
+#
+#   * #33 (std::min/max) left a min/max macro in src/core/stdafx.h that breaks
+#     <algorithm> itself under libstdc++.  llvm-mingw uses libc++, where <list>
+#     has already pulled <algorithm> in by then, so it stayed green;
+#   * user-config-path was never set outside Win32, so every native build since
+#     lisp/backup.l started reading it died in startup.l;
+#   * a heap buffer overflow in ncurses-stubs.cc (fixed in #33) sat there
+#     because, as that release note says, the file is not in anyone's CI.
+#
+# What it buys beyond the POSIX code: a third compiler (gcc, next to MSVC and
+# clang) reading the shared core, and the only build of the core that is not
+# also a Windows build -- which is what Phase 4 of #16 is trying to make true
+# of src/core/ in general.
+on:
+  push:
+    branches: [ main ]
+  # A topic branch gets its CI from the pull request; see the note in mingw.yml
+  # about why listing both events wedges a required check.
+  pull_request:
+  # Nothing here is pinned: ubuntu-latest, gcc, ncursesw and zlib all move
+  # underneath this.  This is the cheapest job in the repository (a few
+  # minutes), so it runs nightly rather than waiting for a commit to blame.
+  schedule:
+    - cron: '30 18 * * *'   # 03:30 JST
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: linux native (gcc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # libncurses-dev carries the wide character headers (ncursesw/) that
+      # CMakeLists looks for; without it the xyzzy-ncurses target is silently
+      # not generated and this job would only be building xyzzy-cli.
+      - name: Install the build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libncurses-dev zlib1g-dev
+
+      - name: Configure
+        run: cmake -S . -B _build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        timeout-minutes: 30
+        run: cmake --build _build/linux
+
+      # An ncursesw that configure did not find leaves no xyzzy-ncurses target
+      # and no error message loud enough to notice, so name both binaries here:
+      # a build that quietly produced only xyzzy-cli fails on this line.
+      - name: Show what was built
+        run: file _build/linux/xyzzy _build/linux/xyzzy-cli && ls -lh _build/linux/xyzzy _build/linux/xyzzy-cli
+
+      # The runtime gate.  See tools/linux-smoke.sh for what it covers and why
+      # the lisp suite is not run here yet.
+      - name: Smoke test
+        timeout-minutes: 10
+        run: tools/linux-smoke.sh
+
+      - name: Collect what the run left behind
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-native
+          if-no-files-found: ignore
+          path: |
+            _build/linux/smoke-ncurses.txt
+            _build/linux/smoke-cli.txt

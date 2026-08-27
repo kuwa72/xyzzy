@@ -55,7 +55,7 @@ dopaint (HWND hwnd, HDC hdc)
       l = wcslen (s[i]);
       SetTextColor (hdc, i == 1 ? hl : bg);
       GetTextExtentPoint32W (hdc, s[i], l, &sz);
-      r.right = min (r.left + sz.cx, xmax);
+      r.right = min (r.left + sz.cx, (LONG)xmax);
       ExtTextOutW (hdc, r.left, 0, ETO_CLIPPED, &r, s[i], l, 0);
       if (i == 1)
         {

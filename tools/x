@@ -4,17 +4,24 @@
 #
 #   tools/x image                  build the container image
 #   tools/x shell                  interactive shell inside the container
-#   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64 | aarch64)
+#   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64 | aarch64 | linux)
 #   tools/x arm-prep               generate src/core/gen/ for aarch64 (uses x86_64)
 #   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
 #   tools/x bytecompile [ARCH]     byte compile the lisp library (makes start up fast)
 #   tools/x package   [ARCH]       install into _dist/ARCH (a runnable tree to copy out)
 #   tools/x test      [ARCH] ...   run the lisp test suite under Wine
+#   tools/x smoke                  start the natively built POSIX binaries once (ARCH linux)
 #   tools/x wine      [ARCH] ...   run xyzzy-batch.exe with the test environment set
 #   tools/x screenshot [FILE]      capture the virtual display (default _build/screenshot.png)
 #   tools/x run       [ARCH] ...   run an arbitrary command in the container
 #
 # ARCH defaults to $XYZZY_ARCH or x86_64.
+#
+# ARCH "linux" is not a cross build: it builds the POSIX frontends
+# (src/frontend/ncurses, src/frontend/cli) as native ELF binaries with the
+# container's gcc, which is what .github/workflows/linux.yml does.  Wine, the
+# byte compiler and the lisp suite are not part of it; "tools/x smoke" is the
+# runtime check it has.
 #
 # The MSVC build stays as it is; this is a second toolchain over the same
 # CMakeLists, so a failure here is reproducible on any Linux or macOS box.
@@ -94,7 +101,7 @@ cmd=${1:-help}
 
 # An optional first argument selects the target architecture.
 case "${1:-}" in
-  i686|x86_64|aarch64) ARCH=$1; shift ;;
+  i686|x86_64|aarch64|linux) ARCH=$1; shift ;;
   *) ARCH=$ARCH_DEFAULT ;;
 esac
 
@@ -106,11 +113,20 @@ case "$cmd" in
     docker_run bash
     ;;
   configure)
-    docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
-      -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
+    # The native build takes no toolchain file: the compiler is the container's
+    # own gcc and the product is ELF, not PE.
+    if [ "$ARCH" = linux ]; then
+      docker_run cmake -S /work -B /work/_build/linux -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
+    else
+      docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
+    fi
     ;;
   build)
     docker_run cmake --build "/work/_build/$ARCH" "$@"
@@ -126,6 +142,9 @@ case "$cmd" in
     ;;
   test)
     docker_run tools/run-tests.sh "$ARCH" "$@"
+    ;;
+  smoke)
+    docker_run tools/linux-smoke.sh "$@"
     ;;
   wine)
     docker_run tools/wine-run.sh "$ARCH" "$@"

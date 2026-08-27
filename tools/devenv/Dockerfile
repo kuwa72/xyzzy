@@ -26,6 +26,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # git: the build fetches tree-sitter and its grammars with FetchContent.
 # xz-utils: the llvm-mingw release is a .tar.xz.
+# libncurses-dev, zlib1g-dev: for the native POSIX build (tools/x linux), which
+#   is a Linux ELF build with the host gcc rather than a cross build -- the same
+#   thing .github/workflows/linux.yml does.  libncurses-dev is the one that
+#   carries the wide character headers; without it CMakeLists skips the
+#   xyzzy-ncurses target without failing.
 RUN dpkg --add-architecture i386 \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -38,6 +43,7 @@ RUN dpkg --add-architecture i386 \
       git \
       gzip \
       imagemagick \
+      libncurses-dev \
       make \
       ninja-build \
       python3 \
@@ -49,6 +55,7 @@ RUN dpkg --add-architecture i386 \
       xauth \
       xvfb \
       xz-utils \
+      zlib1g-dev \
  && rm -rf /var/lib/apt/lists/*
 
 ARG LLVM_MINGW_VERSION=20260616
