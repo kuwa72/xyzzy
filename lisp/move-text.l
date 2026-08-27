@@ -65,6 +65,24 @@ FIRST が改行を持たないのは FIRST がバッファ末尾のブロック�
     (values (concat second "\n" (move-text-drop-newline first))
 	    (1+ (length second)))))
 
+(defun move-text-replace (start end text)
+  "[START,END) を TEXT で置き換える。長さが違うときは何も書かずに nil を返す。
+
+move-text は必ず「同じ文字を並べ替える」操作なので、置き換えの前後で
+バッファの長さが変わることは無い。にもかかわらず変わるなら、この関数より
+手前の計算がどこかで狂っている。そのまま書き込むとユーザのバッファが
+壊れる (実際に「最下行の直前で M-Down するとテキストが増える」という
+報告があり、手元では再現できていない) ので、書かずに諦める。
+
+安全側に倒すのが目的で、これが nil を返すのは常にバグである。"
+  (if (/= (length text) (- end start))
+      nil
+    (progn
+      (delete-region start end)
+      (goto-char start)
+      (insert text)
+      t)))
+
 (defun move-text-restore (block-from rel col selection)
   "移動後のブロック先頭 BLOCK-FROM を基準に、点と選択範囲を張り直す。"
   (if selection
@@ -114,10 +132,8 @@ FIRST が改行を持たないのは FIRST がバッファ末尾のブロック�
 	       ;; 上へ動かすので (前の行, ブロック) を入れ替える。入れ替え後
 	       ;; ブロックは先頭に来るので、開始位置は範囲の先頭そのもの。
 	       (text (move-text-swap-text prev-text block-text)))
-	  (delete-region prev-from to)
-	  (goto-char prev-from)
-	  (insert text)
-	  (move-text-restore prev-from rel col selection)))
+	  (when (move-text-replace prev-from to text)
+	    (move-text-restore prev-from rel col selection))))
        (t
 	(when (>= to (point-max))
 	  (return-from move-text-move nil))
@@ -128,16 +144,13 @@ FIRST が改行を持たないのは FIRST がバッファ末尾のブロック�
 	  (multiple-value-bind (text offset)
 	      (move-text-swap-text (buffer-substring from to)
 				   (buffer-substring to next-to))
-	    (delete-region from next-to)
-	    (goto-char from)
-	    (insert text)
-	    (move-text-restore (+ from offset) rel col selection)))))
-      t)))
+	    (when (move-text-replace from next-to text)
+	      (move-text-restore (+ from offset) rel col selection)))))))))
 
 (defun move-text-up (&optional (n 1))
   "現在行、または選択範囲の行をまとめて N 行上へ移動する。"
   (interactive "*p")
-  (dotimes (i (max n 1))
+  (dotimes (i (max (or n 1) 1))
     (unless (move-text-move -1)
       (ding)
       (return))))
@@ -145,7 +158,7 @@ FIRST が改行を持たないのは FIRST がバッファ末尾のブロック�
 (defun move-text-down (&optional (n 1))
   "現在行、または選択範囲の行をまとめて N 行下へ移動する。"
   (interactive "*p")
-  (dotimes (i (max n 1))
+  (dotimes (i (max (or n 1) 1))
     (unless (move-text-move 1)
       (ding)
       (return))))
