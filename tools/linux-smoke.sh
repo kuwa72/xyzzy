@@ -43,14 +43,51 @@ else
   fail=1
 fi
 
+# File operations, in the frontend that has the lisp library loaded.  Every
+# call below reached a "return FALSE" stub in platform.h until the POSIX side
+# was written (see src/core/vfs-posix.cc): copy-file copied nothing, and every
+# file was dated 1601-01-01, which is what the "changed on disk since you read
+# it" check was comparing against.  The equality against get-universal-time is
+# the point -- a timestamp that merely exists was there before, and it was
+# wrong by three centuries.
+tmp=$build/smoke-fileops
+rm -rf "$tmp" && mkdir -p "$tmp"
+log=$build/smoke-fileops.txt
+"$build/xyzzy" --batch -e "(progn
+  (with-open-file (s \"$tmp/a.txt\" :direction :output :if-exists :supersede)
+    (princ \"SMOKE\" s))
+  (copy-file \"$tmp/a.txt\" \"$tmp/b.txt\" :if-exists :overwrite)
+  (format t \"SMOKE-FILEOPS ~S ~S ~S~%\"
+          (with-open-file (s \"$tmp/b.txt\") (read-line s nil))
+          (< (abs (- (file-write-time \"$tmp/a.txt\") (get-universal-time))) 60)
+          (equal (file-write-time \"$tmp/a.txt\") (file-write-time \"$tmp/b.txt\")))
+  (kill-xyzzy))" >"$log" 2>&1 || true
+if grep -qE '^SMOKE-FILEOPS "SMOKE" t t[[:space:]]*$' "$log"; then
+  echo 'smoke: file operations OK -- copy-file copies, timestamps are this century'
+else
+  echo "smoke: file operations FAILED, see $log" >&2
+  grep '^SMOKE-FILEOPS' "$log" >&2 || cat "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.
+#
+# The second expression is the filesystem: directory goes through WINFS
+# (src/core/vfs.h), whose POSIX side is src/core/vfs-posix.cc.  When that side
+# was still inside the ncurses frontend, this frontend got a WINFS that
+# forwarded to the always-fail stubs in platform.h and could not list, open or
+# create anything -- while still starting up and evaluating (+ 1 2) happily.
+# Note that xyzzy-cli does not load lisp/, so only builtins are available here.
 log=$build/smoke-cli.txt
-echo '(+ 1 2)' | "$build/xyzzy-cli" >"$log" 2>&1 || true
+printf '%s\n' \
+  '(+ 1 2)' \
+  "(if (> (length (directory \"$root/lisp/\")) 100) 424242 0)" \
+  | "$build/xyzzy-cli" >"$log" 2>&1 || true
 # The lisp streams write CRLF even here, so the result line ends "3\r".
-if grep -qE '^> 3[[:space:]]*$' "$log"; then
-  echo "smoke: cli REPL OK -- (+ 1 2) => 3"
+if grep -qE '^> 3[[:space:]]*$' "$log" && grep -qE '^> 424242[[:space:]]*$' "$log"; then
+  echo "smoke: cli REPL OK -- (+ 1 2) => 3, lisp/ listed through WINFS"
 else
   echo "smoke: cli REPL FAILED, see $log" >&2
   cat "$log" >&2

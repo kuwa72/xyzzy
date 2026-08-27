@@ -15,6 +15,38 @@ xyzzy リリースノート
 変更
 ----
 
+  * POSIX 側で「常に失敗を返すだけ」だったファイル操作を実装した
+    (`src/core/vfs-posix.cc`)。対象は `GetFileTime` / `SetFileTime` /
+    `GetFileInformationByHandle` / `CopyFileW` / `CopyFileA` /
+    `GetDriveTypeW`。非 Windows での HANDLE はファイルディスクリプタなので、
+    いずれも `fstat`/`futimens`/read-write ループで素直に書ける。これにより
+    `copy-file` の `:copy-attributes` と `:if-exists :newer`、
+    「2 つのパスが同じファイルか」の判定 (POSIX では device + inode)、
+    バックアップのコピーが POSIX でも動くようになった。
+    あわせて、ディレクトリ列挙 (`WINFS::FindFirstFile`/`FindNextFile`/
+    `get_file_data`) が `WIN32_FIND_DATA` のタイムスタンプ 3 種を
+    埋めていなかったのを直した。ゼロのままだったため **POSIX では全ての
+    ファイルの日付が 1601-01-01 になり**、`file-write-time` も、
+    「開いた後にディスク上で変更されたか」の判定もそれを見ていた。
+    `GetDriveTypeW` は `DRIVE_UNKNOWN` ではなく `DRIVE_FIXED` を返す。
+    呼び出し元は「バックアップを書いてよい場所か」(`fileio.cc`) と
+    「取り出せるメディアか」(`pathname.cc`) の判定に使っており、POSIX では
+    どちらも「固定ディスク」が正しい答えになる。
+  * POSIX のファイルシステム実装 (`WINFS` = `src/core/vfs.h` の各メソッド)
+    を ncurses フロントエンドから `src/core/vfs-posix.cc` へ移した。
+    #16 Phase 4「Core と Frontend の境界分離」の一環。`WINFS` は
+    「フロントエンドごとに埋めるファイルシステムの継ぎ目」で、Windows 側は
+    `src/frontend/win32/vfs.cc` が実装している。POSIX 側の実装は
+    `src/frontend/ncurses/ncurses-stubs.cc` の中にあり、CLI フロントエンド
+    (`src/frontend/cli/cli-stubs.cc`) は代わりに `::CreateFileW` 等への
+    素通しを持っていた。ところが非 Windows ではその `::` 側は
+    `src/core/platform.h` の「常に失敗を返すスタブ」なので、**xyzzy-cli は
+    ファイルを 1 つも開けず・一覧できず・作れない**状態だった (しかも
+    全ての呼び出しがただ「失敗」を返すだけなので、何も表面化しない)。
+    ファイルシステムはフロントエンド固有のものではないので、実装をコアに
+    置いて POSIX の全フロントエンドが同じものを使うようにした。
+    `tools/linux-smoke.sh` に `xyzzy-cli` で `lisp/` を一覧する確認を足して
+    ある (起動して `(+ 1 2)` が通るだけでは、この種の故障は素通りする)。
   * 実装が `src/frontend/win32/` にあるのにヘッダだけ `src/core/` に残って
     いた Win32 専用ヘッダ 14 本 (`print.h`, `preview.h`, `printdlg.h`,
     `ColorDialog.h`, `ChooseFont.h`, `wheel.h`, `archiver.h`, `arc-if.h`,

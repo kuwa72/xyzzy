@@ -582,7 +582,10 @@ inline LONG CompareFileTime(const FILETIME *a, const FILETIME *b) {
   if (a->dwLowDateTime != b->dwLowDateTime) return a->dwLowDateTime < b->dwLowDateTime ? -1 : 1;
   return 0;
 }
-inline BOOL SetFileTime(HANDLE, const FILETIME*, const FILETIME*, const FILETIME*) { return FALSE; }
+// Implemented in src/core/vfs-posix.cc (fstat / futimens on the fd the HANDLE
+// carries).  Out of line because they need <sys/stat.h>, which this header
+// deliberately does not drag into every translation unit.
+BOOL SetFileTime(HANDLE, const FILETIME*, const FILETIME*, const FILETIME*);
 
 typedef union _LARGE_INTEGER {
   struct { DWORD LowPart; LONG HighPart; };
@@ -1487,7 +1490,7 @@ inline DWORD GetTempPathW (DWORD n, LPWSTR buf)
   size_t r = mbstowcs (buf, t, n);
   return r == (size_t)-1 ? 0 : DWORD (r);
 }
-inline BOOL CopyFileW (LPCWSTR, LPCWSTR, BOOL) { return FALSE; }
+BOOL CopyFileW (LPCWSTR, LPCWSTR, BOOL);
 
 // UUID stubs
 inline long UuidCreate(void *) { return -1; }
@@ -1544,7 +1547,7 @@ inline void GetLocalTime(SYSTEMTIME *st) {
 }
 
 // File operations
-inline BOOL GetFileTime(HANDLE, FILETIME*, FILETIME*, FILETIME*) { return FALSE; }
+BOOL GetFileTime(HANDLE, FILETIME*, FILETIME*, FILETIME*);
 inline DWORD SetFilePointer(HANDLE h, LONG lo, LONG* hi, DWORD method) {
   int whence = (method == 0) ? SEEK_SET : (method == 1) ? SEEK_CUR : SEEK_END;
   off_t offset = (off_t)(unsigned long)lo;
@@ -1559,8 +1562,13 @@ inline BOOL SetEndOfFile(HANDLE h) {
   if (pos == (off_t)-1) return FALSE;
   return ftruncate((int)(intptr_t)h, pos) == 0;
 }
-inline DWORD GetDriveTypeW(LPCWSTR) { return 0; }
-inline BOOL CopyFileA(LPCSTR, LPCSTR, BOOL) { return FALSE; }
+// There is one filesystem and it is neither removable nor a CD: callers use
+// this to decide whether a path lives on something they should not write
+// backups to (fileio.cc) and whether it can be ejected (pathname.cc), and
+// "fixed" is the right answer to both.  DRIVE_UNKNOWN (0) was not: it left
+// backup-by-copying set to :remote for every file.
+inline DWORD GetDriveTypeW(LPCWSTR) { return DRIVE_FIXED; }
+BOOL CopyFileA(LPCSTR, LPCSTR, BOOL);
 
 // BY_HANDLE_FILE_INFORMATION
 typedef struct _BY_HANDLE_FILE_INFORMATION {
@@ -1575,7 +1583,7 @@ typedef struct _BY_HANDLE_FILE_INFORMATION {
   DWORD nFileIndexHigh;
   DWORD nFileIndexLow;
 } BY_HANDLE_FILE_INFORMATION;
-inline BOOL GetFileInformationByHandle(HANDLE, BY_HANDLE_FILE_INFORMATION*) { return FALSE; }
+BOOL GetFileInformationByHandle(HANDLE, BY_HANDLE_FILE_INFORMATION*);
 
 // User
 inline BOOL GetUserNameA(LPSTR buf, DWORD *len) {

@@ -397,7 +397,14 @@ main_frame g_frame;
 // vfs.cc stubs (WINFS static methods used by core)
 // Straight passthrough to the Win32 W APIs; no UNC share handling. Paths are
 // already UTF-16 by the time they get here, so there is nothing to convert.
+//
+// Windows only.  Off Windows those ::-qualified names are the always-fail
+// stubs in src/core/platform.h, so this passthrough gave the CLI frontend a
+// filesystem that could not open, list, copy or delete anything -- and said
+// nothing about it, since every call simply returned "failed".  The POSIX
+// implementation is src/core/vfs-posix.cc, which core links instead.
 // ============================================================
+#ifdef _WIN32
 
 wchar_t WINFS::wfs_share_cache[MAX_PATH * 2];
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx =
@@ -467,6 +474,8 @@ int WINAPI WINFS::get_file_data (const wchar_t *path, WIN32_FIND_DATAW &fd)
   ::FindClose (h);
   return 1;
 }
+
+#endif // _WIN32
 
 // ============================================================
 // dll.cc stubs
@@ -718,8 +727,9 @@ lisp Fdo_events () { return Qnil; }
 #ifndef _WIN32
 #include <unistd.h>
 
-// FindClose stub for Linux CLI (handles are always INVALID_HANDLE_VALUE)
-BOOL FindClose (HANDLE) { return TRUE; }
+// FindClose now comes from src/core/vfs-posix.cc, together with the
+// FindFirstFile that hands out the handle it has to release.  It was a
+// "return TRUE" here for as long as those handles were always invalid.
 
 lisp Fadmin_user_p ()
 {
