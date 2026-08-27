@@ -8,7 +8,10 @@
 (in-package "editor")
 
 (export '(*color-theme-table* *current-color-theme*
-	  set-color-theme clear-color-theme select-color-theme))
+	  set-color-theme clear-color-theme select-color-theme
+	  toggle-color-theme-dark-light color-theme-dark-p
+	  *color-theme-counterpart-alist*
+	  *color-theme-default-dark* *color-theme-default-light*))
 
 ;;; 表示色をまとめて切り替えるカラーテーマ。
 ;;;
@@ -258,6 +261,77 @@
   (apply-color-theme name t)
   (setq *current-color-theme* name)
   (message "カラーテーマ: ~A" name))
+
+(defvar *color-theme-counterpart-alist*
+  '(("Catppuccin Mocha"    . "Catppuccin Latte")
+    ("Catppuccin Macchiato" . "Catppuccin Latte")
+    ("Catppuccin Frappe"   . "Catppuccin Latte")
+    ("Rose Pine"           . "Rose Pine Dawn")
+    ("Rose Pine Moon"      . "Rose Pine Dawn")
+    ("Ayu Mirage"          . "Ayu Light")
+    ("One Dark"            . "One Light"))
+  "暗い/明るいの対応のうち、名前から機械的に導けないもの。
+「X Dark」と「X Light」の組は下の色替えで自動的に対応が付くので、ここには
+書かない。片方向だけ書けばよい (逆向きも探す)。")
+
+(defvar *color-theme-default-dark* "One Dark"
+  "対応する暗いテーマが見つからないときに使うテーマ。")
+
+(defvar *color-theme-default-light* "One Light"
+  "対応する明るいテーマが見つからないときに使うテーマ。")
+
+(defun color-theme-dark-p (name)
+  "NAME のテーマが暗いか。**名前ではなく背景色の明るさで決める。**
+名前に Dark/Light と入っていないテーマ (Dracula, Nord, Molokai …) が
+たくさんあるので、名前を見る方法では大半を判定できない。
+
+背景色はベクタの 1 番目。COLORREF は 0x00BBGGRR なので、そこから
+R/G/B を取り出して輝度 (ITU-R BT.601) を出す。"
+  (let ((colors (color-theme-colors name)))
+    (and colors
+	 (let* ((bg (aref colors 1))
+		(r (logand bg #xff))
+		(g (logand (ash bg -8) #xff))
+		(b (logand (ash bg -16) #xff)))
+	   (< (+ (* 299 r) (* 587 g) (* 114 b)) 128000)))))
+
+(defun color-theme-swap-dark-light (name)
+  "\"X Dark\" と \"X Light\" を入れ替えた名前を返す。どちらでもなければ nil。"
+  (let ((n (length name)))
+    (cond ((and (> n 5) (string= name " Dark" :start1 (- n 5)))
+	   (concat (subseq name 0 (- n 5)) " Light"))
+	  ((and (> n 6) (string= name " Light" :start1 (- n 6)))
+	   (concat (subseq name 0 (- n 6)) " Dark"))
+	  (t nil))))
+
+(defun color-theme-counterpart (name)
+  "NAME の暗い/明るい相方のテーマ名。無ければ nil。"
+  (let ((pair (or (cdr (assoc name *color-theme-counterpart-alist*
+			      :test #'string=))
+		  (car (rassoc name *color-theme-counterpart-alist*
+			       :test #'string=))
+		  (color-theme-swap-dark-light name))))
+    (and pair (color-theme-colors pair) pair)))
+
+(defun toggle-color-theme-dark-light ()
+  "暗いテーマと明るいテーマを切り替える。
+
+相方が分かるならそれへ、分からなければ *color-theme-default-dark* /
+*color-theme-default-light* の反対側へ移る。テーマを当てていない状態からは
+暗い方へ移る (xyzzy 標準の表示色は明るいので)。"
+  (interactive)
+  (let* ((current *current-color-theme*)
+	 (target (or (and current (color-theme-counterpart current))
+		     (if (and current (color-theme-dark-p current))
+			 *color-theme-default-light*
+		       *color-theme-default-dark*))))
+    (if (null (color-theme-colors target))
+	(progn
+	  (message "切り替え先のテーマがありません: ~A" target)
+	  nil)
+      (progn
+	(set-color-theme target)
+	target))))
 
 (defun color-theme-snapshot ()
   "全バッファの現在の表示色 (get-buffer-colors) を控える。プレビューを
