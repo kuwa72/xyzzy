@@ -212,6 +212,12 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `(`, `[`, `{`, `"` の入力で閉じ側も自動挿入。閉じ側を自分で打つと重ねずに乗り越え、空の対の中で `BS` を押すと 2 文字まとめて削除。選択範囲があれば置き換えではなく囲む。
   - `toggle-autopair` (`Leader t p`): オン/オフ。対の一覧は `*autopair-pairs*`。
   - キーマップではなく `lisp/cmds.l` の `*self-insert-hook*` / `*delete-backward-hook*` に掛けているので、`(` や `{` をローカルキーマップで奪っているモード (c-mode, lisp-mode, json-mode 等の electric コマンド) でも同じように効く。
+- **モード行の組み立て (`lisp/modeline.l`)**:
+  - モード行にプロジェクトルートのディレクトリ名と Git のブランチ名を出す (doom-modeline の軽い版)。`toggle-rich-modeline` (`Leader t m`) で素のモード行に戻る。並べる項目は `*modeline-segments*`、区切りは `*modeline-separator*`。
+  - `mode-line-format` は C++ 側が `%` 指定子を展開する**ただの文字列**なので、Lisp で組み立てた文字列を buffer-local に差し込む形にしている。その代わり**色分けも右寄せもできない** (モード行は 1 色で描かれ、展開後の幅は Lisp から分からない)。
+  - ブランチ名は `git` を起動せず `.git/HEAD` を直接読む。上に遡って `.git` を探す部分だけキャッシュする (`modeline-clear-cache` で忘れる)。`.git` がファイルの場合 (worktree / submodule) は `gitdir:` を辿る。
+  - Lisp が作った文字列は `modeline-quote` で `%` を潰してから渡す。潰さないと C++ 側が書式指定子として食う。
+  - 起動時に自動で有効になるが、`~/.xyzzy` で `mode-line-format` を設定している場合は何もしない (素の値のままかどうかを見ている)。
 - **キー入力中に一覧を見せる一時ウィンドウ (`lisp/popup-window.l`)**:
   - `with-popup-window` / `popup-window-draw` / `popup-window-columns`: 「キーを 1 文字ずつ読みながら候補を見せる」ための共通の仕組み。ステータス行 (`message`) を使わないのが要点で、`message` を書いた直後に `read-char` で待つとステータス行が描かれないフロントエンドがある (issue #66)。Leader メニューがこれを使う。
   - `popup-window-columns` に行数の上限を渡すと、**列を増やして収める**。増やしても入り切らない場合は入る分だけ出して「`... +N`」と残りの個数を書く。黙って切ると「これで全部だ」と読めてしまう。
