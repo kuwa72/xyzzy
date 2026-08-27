@@ -177,6 +177,11 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
   - `execute-leader-key` (`M-m` または `C-c SPC`): 画面を分割した `*Which Key*` ウィンドウに機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `c:Code`, `h:Help` 等) を段組みで一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+- **定型コードの挿入 (スニペット) (`lisp/snippet.l`)**:
+  - `snippet-expand` (`Leader c e`): 点の直前の略語をテンプレートに展開 (`defun`, `for`, `class` 等)。登録が無ければ一覧から選ぶ方へ回る。
+  - `snippet-insert-by-name` (`Leader c i`): このモードのテンプレートをファジー絞り込みで選んで挿入。
+  - `snippet-next-field` (`M-i`): 展開中のテンプレートの次の入力位置へ。既定値は選択された状態で入るので、そのまま打てば置き換わり、`M-i` で次へ行けば残る。
+  - テンプレートの書き方は yasnippet と同じ (`$1`, `${1:既定値}`, `$0`, `$$`)。同じ番号を 2 度書くとミラーになる (`for (int ${1:i} = 0; $1 < ${2:n}; $1++)`)。`define-snippet` で追加。
 - **ファジー絞り込み M-x (`lisp/fuzzy-mx.l`)**:
   - `fuzzy-execute-extended-command` (`M-x` / `Leader SPC`): コマンド名を打つそばからファジー絞り込みして選ぶ。空白区切りで複数キーワードを順不同指定できる (`buf list` → `list-buffers`)。直前に実行したコマンドが先に並ぶ (`*fuzzy-mx-history*`)。`*fuzzy-mx-mode*` を nil にすると従来の `read-command-name` (TAB 補完) に戻る。
   - 候補は `do-all-symbols` + `commandp` で集めるので、まだ読み込んでいないライブラリの autoload コマンドも出る (素の `M-x` と同じ範囲)。
