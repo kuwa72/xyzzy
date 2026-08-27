@@ -40,6 +40,7 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 | `Leader g` | **Git** | `s`: ステータス, `d`: 差分, `l`: ログ, `b`: Blame |
 | `Leader t` | **Toggle / Tools** | `t`: ターミナルドロワー, `l`: 行番号, `w`: 折り返し, `c`: 電卓 |
 | `Leader w` | **Window** | `s`: 上下分割, `v`: 左右分割, `o`: 隣へ移動, `d`: 閉じる, `m`: 最大化, `u`/`r`: レイアウトを戻す/やり直す |
+| `Leader o` | **Open / Notes** | `s`: `*scratch*` へ跳ぶ, `m`: その日のメモを開いて追記, `M`: メモの置き場をファイラで開く |
 | `Leader c` | **Code** | `s`: シンボル一覧へジャンプ (`imenu`), `i`: 定型コードを一覧から挿入, `e`: 略語を定型コードに展開, `f`: 関数一覧ダイアログ (`list-function`) |
 | `Leader h` | **Help** | `k`: キー説明, `f`: 関数説明, `v`: 変数説明, `b`: 一覧, `a`: Apropos |
 | `Leader SPC` | `M-x` | コマンド名をファジー絞り込みで選んで実行 (`fuzzy-execute-extended-command`) |

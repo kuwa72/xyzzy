@@ -19,6 +19,7 @@
 	  *leader-window-map*
 	  *leader-help-map*
 	  *leader-code-map*
+	  *leader-open-map*
 	  *which-key-mode*
 	  *which-key-description-alist*
 	  *which-key-buffer-name*
@@ -51,6 +52,7 @@
 (defvar *leader-window-map* (make-sparse-keymap))
 (defvar *leader-help-map* (make-sparse-keymap))
 (defvar *leader-code-map* (make-sparse-keymap))
+(defvar *leader-open-map* (make-sparse-keymap))
 
 ;;;
 ;;; 説明ラベル設定ヘルパー
@@ -166,6 +168,15 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (which-key-add-description 'imenu "Symbols")
 (which-key-add-description 'list-function "FuncDialog")
 
+;; Open / Notes (o)
+(define-key *leader-open-map* #\s 'open-scratch)
+(define-key *leader-open-map* #\m 'open-memo)
+(define-key *leader-open-map* #\M 'open-memo-directory)
+
+(which-key-add-description 'open-scratch "Scratch")
+(which-key-add-description 'open-memo "Memo")
+(which-key-add-description 'open-memo-directory "MemoDir")
+
 ;; Help (h)
 (define-key *leader-help-map* #\k 'describe-key)
 (define-key *leader-help-map* #\f 'describe-function)
@@ -188,6 +199,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (define-key *leader-map* #\t *leader-toggle-map*)
 (define-key *leader-map* #\w *leader-window-map*)
 (define-key *leader-map* #\c *leader-code-map*)
+(define-key *leader-map* #\o *leader-open-map*)
 (define-key *leader-map* #\h *leader-help-map*)
 
 ;; ダイレクトショートカット
@@ -204,6 +216,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (which-key-add-description *leader-toggle-map* "Toggle")
 (which-key-add-description *leader-window-map* "Window")
 (which-key-add-description *leader-code-map* "Code")
+(which-key-add-description *leader-open-map* "Open")
 (which-key-add-description *leader-help-map* "Help")
 (which-key-add-description 'fuzzy-execute-extended-command "M-x")
 (which-key-add-description 'expand-region "Expand")
