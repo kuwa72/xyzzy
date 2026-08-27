@@ -97,6 +97,19 @@
             ;; Track exit code via finish hook (called before *current-session*
             ;; is cleared, so we can still read ssn-fail-count).
             (defvar *batch-exit-code* nil)
+
+            ;; A file that fails to load is a failure.  It used to print
+            ;; "ERROR loading ..." and nothing else: the exit code was
+            ;; unaffected and the known-failures gate never saw it, so
+            ;; unittest/formatter-tests.l (an undefined character name) and
+            ;; unittest/leader-tests.l (a stale assertion) sat there running
+            ;; *none* of their tests while the suite reported green.  A whole
+            ;; file dropping out is worse than one test failing, not better.
+            (defvar *batch-load-errors* nil)
+            (defun batch-load-error (name e)
+              (push name *batch-load-errors*)
+              (format *standard-output* "ERROR loading ~A: ~A~%" name e))
+
             (setq *tests-run-finish-hook*
                   #'(lambda (pass fail total)
                       (multiple-value-bind (failed passed) (batch-test-results)
@@ -115,7 +128,8 @@
                                     (length failed) file))
                           (setq *batch-exit-code* 0))
                          ((null *batch-known-failures*)
-                          (setq *batch-exit-code* (if (zerop fail) 0 1)))
+                          (setq *batch-exit-code*
+                                (if (and (zerop fail) (null *batch-load-errors*)) 0 1)))
                          (t
                           (let ((unexpected (set-difference failed *batch-known-failures*
                                                             :test #'string-equal))
@@ -134,8 +148,13 @@
                             ;; from running at all, and a name can legitimately
                             ;; be listed for a target that skips it.
                             (batch-report-names "listed but did not run" not-run)
+                            ;; Files that failed to load count too.  This hook
+                            ;; runs last, so without them here it would write
+                            ;; the load errors back out of the exit code.
                             (setq *batch-exit-code*
-                                  (if (and (null unexpected) (null fixed)) 0 1))))))))
+                                  (if (and (null unexpected) (null fixed)
+                                           (null *batch-load-errors*))
+                                      0 1))))))))
 
             ;; What to leave out.  A name ending in .l skips a whole file, any
             ;; other name skips that one test, and XYZZY_TEST_EXCLUDE (comma
@@ -200,7 +219,7 @@
                     (handler-case
                         (load-test-file f)
                       (condition (e)
-                        (format *standard-output* "ERROR loading ~A: ~A~%" f e))))))
+                        (batch-load-error (file-namestring f) e))))))
               ;; Also load foreign-test.l (named *-test.l not *-tests.l).
               ;; It goes through the same exclude check as the rest: it was the
               ;; one file a platform could not skip.
@@ -214,7 +233,7 @@
                         (format *standard-output* "  ~A~%" foreign-test)
                         (load-test-file foreign-test)))
                   (condition (e)
-                    (format *standard-output* "ERROR loading foreign-test.l: ~A~%" e)))))
+                    (batch-load-error "foreign-test.l" e)))))
 
             ;; Patch warn to print-and-return rather than signal a condition.
             ;; In batch mode there is no interactive debugger, so unhandled
@@ -267,6 +286,11 @@
                 (condition (e)
                   (format *standard-output* "~%=== ERROR during tests: ~A ===~%" e)
                   (setq *batch-exit-code* 1))))
+            ;; Say it at the end as well: none of the tests in a file that
+            ;; failed to load ran at all, so the pass count on its own lies.
+            (when *batch-load-errors*
+              (format *standard-output* "=== files that failed to load ~D: ~{~A~^ ~} ===~%"
+                      (length *batch-load-errors*) (reverse *batch-load-errors*)))
             ;; Say it again at the end: a pass that skipped things should not
             ;; read as a clean pass.
             (when *batch-excluded*

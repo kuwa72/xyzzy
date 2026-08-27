@@ -32,7 +32,10 @@
   (assert-equal *leader-help-map* (lookup-keymap *leader-map* #\h))
 
   ;; ダイレクトキー
-  (assert-equal 'execute-extended-command (lookup-keymap *leader-map* #\SPC))
+  ;; Leader SPC は #56 でファジー版に差し替えた。ここが古い名前のままだった
+  ;; ため、**このファイルはここで落ちて以降が 1 件も走っていなかった**
+  ;; (misc/run-tests-batch.l が読み込み失敗を数えていなかった)。
+  (assert-equal 'fuzzy-execute-extended-command (lookup-keymap *leader-map* #\SPC))
   (assert-equal 'grep (lookup-keymap *leader-map* #\/)))
 
 (defun test-leader-category-bindings ()
@@ -43,7 +46,9 @@
   (assert-equal 'open-filer (lookup-keymap *leader-file-map* #\d))
 
   ;; Buffer
-  (assert-equal 'switch-to-buffer (lookup-keymap *leader-buffer-map* #\b))
+  ;; leader.l は switch-to-buffer を入れるが、後から読まれる
+  ;; lisp/fuzzy-buffer.l が上書きする。**効いている方**を見る。
+  (assert-equal 'fuzzy-switch-to-buffer (lookup-keymap *leader-buffer-map* #\b))
   (assert-equal 'kill-selected-buffer (lookup-keymap *leader-buffer-map* #\k))
   (assert-equal 'list-buffers (lookup-keymap *leader-buffer-map* #\l))
 
