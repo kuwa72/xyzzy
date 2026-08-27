@@ -3329,9 +3329,16 @@ render_window (Window *wp, int total_cols)
 static void draw_persistent_menu_bar ();
 
 void
-refresh_screen (int)
+refresh_screen (int f)
 {
   init_ncurses_colors ();
+
+  // refresh_screen(1) is supposed to force a full repaint (Win32 does).
+  // ncurses otherwise relies on its own diff, which can miss updates in
+  // terminal-backed windows after an idle period, leaving the shell buffer
+  // frozen until the app is resized or alt-tabbed.
+  if (f)
+    touchwin (stdscr);
 
   // Handle terminal resize (SIGWINCH / KEY_RESIZE)
   if (g_need_resize)

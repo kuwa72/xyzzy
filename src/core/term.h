@@ -4,8 +4,8 @@
 #ifndef TERM_H
 #define TERM_H
 
+#include <chrono>
 #include <stdint.h>
-#include <time.h>
 
 // SGR attributes
 enum {
@@ -94,7 +94,7 @@ class Terminal
      t_sync_update_since はアプリが 2026l を送り忘れて固まったときの
      強制解除に使う (仕様が推奨する安全策。無いと再描画が永久に止まる)。 */
   int t_sync_update;
-  time_t t_sync_update_since;
+  std::chrono::steady_clock::time_point t_sync_update_since;
 
   // Tab stops
   uint8_t *t_tabs;
