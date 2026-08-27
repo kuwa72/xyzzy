@@ -70,6 +70,27 @@ else
   fail=1
 fi
 
+# The mode line, drawn by the frontend from the % specifiers in
+# mode-line-format.  Nothing in the lisp suite can see this: the suite runs on
+# the Windows builds, and this is code that differs by platform.  It has already
+# been wrong -- (const Char *)L"lf" is 16-bit-correct on Windows (wchar_t is 2
+# bytes) and truncates to "l" on Linux (wchar_t is 4 bytes), so the terminal
+# drew "[utf8n:l]" and neither the build nor the link said a word.  The check
+# sets its own format instead of reading the default one, so that changing the
+# default mode line cannot silently turn it off.
+log=$build/smoke-modeline.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(progn (setq mode-line-format "SMOKE-MODELINE[%k:%l][%*]") (update-mode-line t))\r' \
+  >"$log" 2>&1 || true
+if grep -q 'SMOKE-MODELINE\[utf8n:lf\]\[--\]' "$log"; then
+  echo 'smoke: mode line OK -- % specifiers expand to their full strings'
+else
+  echo "smoke: mode line FAILED, see $log" >&2
+  grep -n 'SMOKE-MODELINE' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

@@ -1425,8 +1425,17 @@ lisp Fabbreviate_display_string (lisp string, lisp, lisp) { return string; }
    src/frontend/win32/binfo.cc と同じ Char* 実装に揃える。ime_mode のみ
    ncurses 固有 (端末任せで常に "--")。 */
 
+/* Char は uint16_t なので、L"..." を (const Char *) にキャストしてはいけない。
+   Windows の wchar_t は 2 バイトなので偶然一致するが、Linux では 4 バイトで、
+   'l' が 6C 00 00 00 と並ぶ。これを 16 bit で読むと 006C 0000 になり、2 文字目が
+   NUL になって "lf" が "l" に化ける (モード行の %l が実際にそうなっていた)。
+   要素を明示した Char 配列で持つ。 */
+static const Char eol_name_lf[] = {'l', 'f', 0};
+static const Char eol_name_crlf[] = {'c', 'r', 'l', 'f', 0};
+static const Char eol_name_cr[] = {'c', 'r', 0};
+
 const Char *const buffer_info::b_eol_name[] =
-  {(const Char *)L"lf", (const Char *)L"crlf", (const Char *)L"cr"};
+  {eol_name_lf, eol_name_crlf, eol_name_cr};
 
 static Char *
 stwncpy (Char *b, Char *be, const char *s, size_t max)
