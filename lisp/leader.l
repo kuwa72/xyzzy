@@ -7,6 +7,8 @@
 
 (in-package "editor")
 
+(require "popup-window")
+
 (export '(*leader-map*
 	  *leader-file-map*
 	  *leader-buffer-map*
@@ -19,13 +21,17 @@
 	  *leader-code-map*
 	  *which-key-mode*
 	  *which-key-description-alist*
+	  *which-key-buffer-name*
 	  execute-leader-key
 	  which-key-guide
 	  leader-define-key
 	  toggle-which-key))
 
 (defvar *which-key-mode* t
-  "nil でなければ、Leader Key やプレフィックスキー入力時にミニバッファへ候補一覧を表示する。")
+  "nil でなければ、Leader Key やプレフィックスキー入力時に候補一覧を表示する。")
+
+(defvar *which-key-buffer-name* "*Which Key*"
+  "候補一覧を出す一時バッファの名前。")
 
 (defvar *which-key-description-alist* nil
   "コマンドまたはキーマップの短い表示用ラベルの alist。
@@ -255,41 +261,93 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 	(push (format nil "~A:~A~:[~;+~]" kstr desc prefix-p) items)))
     (format nil "[~A] ~{~A~^ ~}" title (nreverse items))))
 
-(defun which-key-guide (keymap &optional (title "Leader"))
-  "指定したキーマップを Which-key ガイダンス付きで対話的に実行する。"
+(defun which-key-item-strings (keymap)
+  "キーマップの候補を "f  File+" の形の文字列リストにする。並び順は
+which-key-binding-lessp と同じ (サブメニューが先、キーの文字コード順)。"
+  (mapcar #'(lambda (b)
+	      (format nil "~A  ~A~:[~;+~]"
+		      (which-key-format-key (car b))
+		      (which-key-get-description (cdr b))
+		      (keymapp (cdr b))))
+	  (sort (which-key-collect-bindings keymap)
+		#'which-key-binding-lessp)))
+
+(defun which-key-popup-lines (path keymap width)
+  "一時ウィンドウに出す行のリスト。1 行目は今いる階層の名前。"
+  (cons (format nil "[~A]" path)
+	(popup-window-columns (which-key-item-strings keymap)
+			      (max 20 (- width 1)))))
+
+(defun which-key-read (keymap title popup)
+  "キーマップを辿ってコマンドを 1 つ選び、そのコマンドを返す。
+選ばれなかった (キャンセル・未定義) ときは nil。
+
+**ここではコマンドを実行しない。** 実行は呼び出し元が一時ウィンドウを
+片付けてウィンドウ構成を戻した後に行う。ここで実行してしまうと、
+Leader w s のようにウィンドウを分割するコマンドの結果が、直後の
+後片付け (ウィンドウ構成の復元) で消える。
+
+POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステータス行へ出す。"
   (let ((current-map keymap)
 	(path title))
     (loop
       (unless (keymapp current-map)
 	(message "~A is not a valid keymap" current-map)
 	(return nil))
-      (let ((prompt (if *which-key-mode*
-			(which-key-format-prompt path current-map)
-		      (format nil "[~A] " path))))
-	(message "~A" prompt)
-	(let ((ch (read-char *keyboard*)))
-	  (cond
-	   ;; キャンセルキー
-	   ((or (char= ch #\C-g) (char= ch #\ESC))
-	    (message "Quit")
-	    (return nil))
-	   ;; キーマップから検索
-	   (t
-	    (let ((target (lookup-keymap current-map ch)))
-	      (cond
-	       ((null target)
-		(message "Leader: ~A is undefined" (which-key-format-key ch))
-		(return nil))
-	       ((keymapp target)
-		;; サブキーマップへ遷移
-		(let ((sub-desc (which-key-get-description target)))
-		  (setq path (format nil "~A > ~A" path sub-desc))
-		  (setq current-map target)))
-	       (t
-		;; コマンド実行
-		(message "")
-		(call-interactively target)
-		(return t)))))))))))
+      (if popup
+	  (popup-window-draw *which-key-buffer-name*
+			     (which-key-popup-lines
+			      path current-map
+			      (or (ignore-errors (window-columns)) 80)))
+	(let ((prompt (if *which-key-mode*
+			  (which-key-format-prompt path current-map)
+			(format nil "[~A] " path))))
+	  (message "~A" prompt)))
+      (let ((ch (read-char *keyboard*)))
+	(cond
+	 ((or (char= ch #\C-g) (char= ch #\ESC))
+	  (message "Quit")
+	  (return nil))
+	 (t
+	  (let ((target (lookup-keymap current-map ch)))
+	    (cond
+	     ((null target)
+	      (message "Leader: ~A is undefined" (which-key-format-key ch))
+	      (return nil))
+	     ((keymapp target)
+	      (let ((sub-desc (which-key-get-description target)))
+		(setq path (format nil "~A > ~A" path sub-desc))
+		(setq current-map target)))
+	     (t
+	      (return target))))))))))
+
+(defun which-key-guide (keymap &optional (title "Leader"))
+  "指定したキーマップを Which-key ガイダンス付きで対話的に実行する。
+
+候補は一時ウィンドウ (*Which Key*) に段組みで出す。ステータス行に出す形は
+「message を書いた直後に read-char で待つと描かれない」フロントエンドが
+あって当てにならない (issue #66)。ウィンドウが出せないとき
+(ミニバッファの中、画面が狭い) だけステータス行へ落とす。"
+  (if (and *which-key-mode* (popup-window-available-p))
+      (let ((conf (current-window-configuration))
+	    (target nil))
+	(unwind-protect
+	    (progn
+	      (popup-window-open *which-key-buffer-name* "Which Key")
+	      (setq target (which-key-read keymap title t)))
+	  ;; 実行の前に元のウィンドウ構成へ戻す。順序が逆だと、選んだ
+	  ;; コマンドがウィンドウを触る種類のものだったときに結果が消える。
+	  (ignore-errors (set-window-configuration conf))
+	  (popup-window-close *which-key-buffer-name*))
+	(when target
+	  (message "")
+	  (call-interactively target)
+	  t))
+    (let ((target (which-key-read keymap title nil)))
+      (when target
+	(message "")
+	(call-interactively target)
+	t))))
 
 ;;;
 ;;; コマンド・ユーザー定義ヘルパー

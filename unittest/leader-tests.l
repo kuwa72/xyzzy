@@ -136,3 +136,19 @@
   (assert-equal "Code" (which-key-get-description *leader-code-map*)))
 
 (test-which-key-description-uses-eq)
+
+(defun test-which-key-popup-lines ()
+  ;; 1 行目は今いる階層の名前、以降が段組み。
+  (let ((lines (which-key-popup-lines "Leader > File" *leader-file-map* 80)))
+    (assert-equal "[Leader > File]" (first lines))
+    (assert-true (> (length lines) 1))
+    ;; 全部の項目がどこかの行に出ていること
+    (let ((joined (format nil "~{~A~^ ~}" (cdr lines))))
+      (dolist (label '("Find" "Recent" "Save" "WriteAs" "Filer"))
+	(assert-true (string-match label joined)))))
+  ;; 項目の文字列はキーとラベル、サブメニューには + が付く。
+  (let ((items (which-key-item-strings *leader-map*)))
+    (assert-true (member "f  File+" items :test #'string=))
+    (assert-true (member "/  Grep" items :test #'string=))))
+
+(test-which-key-popup-lines)
