@@ -177,6 +177,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
   - `execute-leader-key` (`M-m` または `C-c SPC`): 画面を分割した `*Which Key*` ウィンドウに機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `c:Code`, `h:Help` 等) を段組みで一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+  - `C-x` / `C-c` などの**標準のプレフィックスキー**でも候補を出す。コマンドループが `*prefix-key-hook*` (core に追加) でプレフィックス待ちを知らせてくるので、待機中のキーマップを前優先でまとめてステータス行に 1 行出す。入り切らない分は「`+57`」と件数を書く。`toggle-which-key-prefix` でオン/オフ。
+  - **プレフィックスキーでは分割ウィンドウを使わない。** プレフィックス待ちの最中 (`dispatch` の中) にウィンドウを作って消すと、端末フロントエンドで画面が更新されなくなる (issue #83)。`C-x` は日常の打鍵なので、そこでレイアウトを触るのは危険が大きい。
 - **走り書きの置き場 (`lisp/memo.l`)**:
   - `open-scratch` (`Leader o s`): `*scratch*` へ跳ぶ。消えていれば作り直す。
   - `open-memo` (`Leader o m`): その日のメモ (既定 `<config>/memo/YYYY-MM-DD.md`) を開き、時刻の見出しを付けて末尾へ。同じ分に何度呼んでも見出しは重ねない。置き場は `*memo-directory*`、ファイル名は `*memo-file-name-format*`、見出しは `*memo-heading-format*` (nil で見出しなし)。
@@ -212,6 +214,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - キーマップではなく `lisp/cmds.l` の `*self-insert-hook*` / `*delete-backward-hook*` に掛けているので、`(` や `{` をローカルキーマップで奪っているモード (c-mode, lisp-mode, json-mode 等の electric コマンド) でも同じように効く。
 - **キー入力中に一覧を見せる一時ウィンドウ (`lisp/popup-window.l`)**:
   - `with-popup-window` / `popup-window-draw` / `popup-window-columns`: 「キーを 1 文字ずつ読みながら候補を見せる」ための共通の仕組み。ステータス行 (`message`) を使わないのが要点で、`message` を書いた直後に `read-char` で待つとステータス行が描かれないフロントエンドがある (issue #66)。Leader メニューがこれを使う。
+  - `popup-window-columns` に行数の上限を渡すと、**列を増やして収める**。増やしても入り切らない場合は入る分だけ出して「`... +N`」と残りの個数を書く。黙って切ると「これで全部だ」と読めてしまう。
+  - `popup-window-close` は**ウィンドウを明示的に消す**。ウィンドウ構成の復元 (`save-window-excursion` / `set-window-configuration`) は端末フロントエンドでは何もしないので (issue #82)、それに任せると一時ウィンドウが残る。
 - **選択範囲の段階的拡大 (`lisp/expand-region.l`)**:
   - `expand-region` (`C-=` / `Leader v`) / `contract-region` (`M-=` / `Leader V`): 単語 → シンボル → 引用符の中 → 引用符ごと → 括弧の中 → 括弧ごと → 行 → 関数定義 → バッファ全体 の順に選択範囲を広げる / 戻す。段階を手続きで並べるのではなく候補を全部作って「今の範囲を真に含む最小のもの」を選ぶので、モードによって成立しない段階は自動的に飛ばされる。
 - **プロジェクト管理 (Project) (`lisp/project.l`)**:

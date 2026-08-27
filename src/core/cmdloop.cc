@@ -30,7 +30,25 @@ public:
   lisp lookup (lChar lc) {return lookup_keymap (lc, v_vec, v_length);}
   void translate (lisp, lisp);
   void gc_mark_object (void (*)(lisp));
+  lisp pending_keymaps () const;
 };
+
+/* プレフィックスキー待ちのときに、次のキーを探しているキーマップの一覧。
+   lookup_keymap は v_vec の各要素を「そのキーの先のキーマップ」に進め、
+   行き先が無かったものを Qnil にするので、残っている keymap がそれである。
+   先にあるものが優先 (selection → minor → local → global)。 */
+lisp
+keyvec::pending_keymaps () const
+{
+  lisp r = Qnil;
+  for (long i = v_length - 1; i >= 0; i--)
+    if (v_vec[i] != Qnil && Fkeymapp (v_vec[i]) != Qnil)
+      {
+        protect_gc gcpro (r);
+        r = xcons (v_vec[i], r);
+      }
+  return r;
+}
 
 void
 keyvec::init ()
@@ -87,6 +105,51 @@ keyvec::gc_mark_object (void (*fn)(lisp))
 }
 
 static keyvec g_map;
+
+/* *prefix-key-hook* を「出した」かどうか。プレフィックス待ちに入るたびに
+   立て、待ちが終わったら nil を渡して下ろす。フックが画面に何か出している
+   場合、それを片付ける機会をこちらから作らないと出したままになる:
+   キーが未定義だった経路 (C-x の下に無いキー) は *post-command-hook* まで
+   来ないし、逆にコマンドが走る経路では *pre-command-hook* より先に片付けて
+   もらう必要がある (後片付けでウィンドウ構成を戻すので、コマンドの結果を
+   消してしまう)。 */
+static int g_prefix_hook_shown;
+
+static void
+run_prefix_key_hook (lisp keymaps, lisp key)
+{
+  protect_gc gcpro1 (keymaps);
+  protect_gc gcpro2 (key);
+  try
+    {
+      selected_buffer ()->run_hook (Vprefix_key_hook, keymaps, key);
+    }
+  catch (nonlocal_jump &)
+    {
+      /* 待ちの最中なので黙って捨てたくなるが、黙ると「候補が出ない」が
+         原因不明になる。1 回出す。 */
+      print_condition (nonlocal_jump::data ());
+    }
+}
+
+static void
+prefix_key_hook_enter (lChar cp)
+{
+  lisp maps = g_map.pending_keymaps ();
+  protect_gc gcpro (maps);
+  g_prefix_hook_shown = 1;
+  run_prefix_key_hook (maps, make_char (ucs4_t (cp)));
+}
+
+static void
+prefix_key_hook_leave ()
+{
+  if (g_prefix_hook_shown)
+    {
+      g_prefix_hook_shown = 0;
+      run_prefix_key_hook (Qnil, Qnil);
+    }
+}
 
 void
 toplev_gc_mark (void (*fn)(lisp))
@@ -223,11 +286,18 @@ dispatch (lChar cc)
           app.keyseq.push (c, !app.kbdq.macro_is_running ());
           Fcontinue_pre_selection ();
           app.kbdq.close_ime ();
+          /* キーボードマクロの再生中は誰も見ていないので出さない
+             (出すと 1 打鍵ごとに画面を作り直すことになる)。 */
+          if (!app.kbdq.macro_is_running ())
+            prefix_key_hook_enter (cp);
           return Qt;
         }
     }
 
 run_command:
+  /* ここまで来たらプレフィックスの列は解決した (未定義だった場合も含む)。
+     *pre-command-hook* より先に片付けさせる。 */
+  prefix_key_hook_leave ();
   xsymbol_value (Vlast_command) = xsymbol_value (Vthis_command);
   xsymbol_value (Vthis_command) = command;
   xsymbol_value (Vlast_command_char) = make_char (ucs4_t (cp));
@@ -244,6 +314,8 @@ run_command:
               app.keyseq.push (c, !app.kbdq.macro_is_running ());
               Fcontinue_pre_selection ();
               app.kbdq.close_ime ();
+              if (!app.kbdq.macro_is_running ())
+                prefix_key_hook_enter (cp);
               return Qt;
             }
           command = new_command;

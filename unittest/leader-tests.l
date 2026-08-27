@@ -182,3 +182,99 @@
     (assert-equal (list #\c #\d) seq)))
 
 (test-leader-define-key)
+
+(defun test-which-key-merge-bindings ()
+  ;; 前にあるキーマップが優先されること。コマンドループが渡してくる順は
+  ;; selection -> minor -> local -> global で、実際に効くのは前のものである。
+  (let ((a (make-sparse-keymap))
+	(b (make-sparse-keymap)))
+    (define-key a #\x 'find-file)
+    (define-key b #\x 'save-buffer)
+    (define-key b #\y 'grep)
+    (let ((merged (which-key-merge-bindings (list a b))))
+      (assert-equal 'find-file (cdr (assoc #\x merged :test #'eql)))
+      (assert-equal 'grep (cdr (assoc #\y merged :test #'eql)))
+      (assert-equal 2 (length merged))))
+  ;; キーマップでないものが混じっても落ちないこと
+  (assert-equal nil (which-key-merge-bindings (list nil 'not-a-keymap))))
+
+(test-which-key-merge-bindings)
+
+(defun test-which-key-collect-bindings-normalizes ()
+  ;; full keymap の中のプレフィックスはシンボルで入っているので、
+  ;; lookup-keymap の結果をそのまま渡されることがある。keymapp で正規化する。
+  (let* ((sub (make-sparse-keymap))
+	 (name (gensym "TEST-PREFIX-")))
+    (define-key sub #\z 'find-file)
+    (set name sub)
+    (setf (symbol-function name) sub)
+    ;; シンボルを渡しても中身が取れること (keymapp がキーマップを返す)
+    (let ((direct (which-key-collect-bindings sub)))
+      (assert-equal 1 (length direct))
+      (assert-equal 'find-file (cdr (car direct))))))
+
+(test-which-key-collect-bindings-normalizes)
+
+(defun test-which-key-prompt-from-bindings ()
+  (let ((*which-key-description-alist* nil)
+	(bindings nil))
+    (dolist (c '(#\a #\b #\c #\d #\e #\f #\g #\h))
+      (push (cons c 'find-file) bindings))
+    (setq bindings (nreverse bindings))
+    ;; 幅が十分なら全部出て、残り件数は付かない
+    (let ((wide (which-key-prompt-from-bindings "C-x" bindings 200)))
+      (assert-true (string-match "^\\[C-x\\] " wide))
+      (assert-equal nil (string-match "\\+[0-9]" wide)))
+    ;; 幅が足りなければ切って、残りの件数を書く
+    (let ((narrow (which-key-prompt-from-bindings "C-x" bindings 40)))
+      (assert-true (<= (length narrow) 40))
+      (assert-true (string-match "\\+[0-9]" narrow)))))
+
+(test-which-key-prompt-from-bindings)
+
+(defun test-which-key-prefix-hook ()
+  ;; nil を渡すと待ちの終わりとして状態を捨てること
+  (let ((*which-key-prefix-state* '(t #\C-x)))
+    (which-key-prefix-hook nil nil)
+    (assert-equal nil *which-key-prefix-state*))
+  ;; 無効なら何も覚えないこと
+  (let ((*which-key-prefix-mode* nil)
+	(*which-key-prefix-state* nil)
+	(map (make-sparse-keymap)))
+    (define-key map #\z 'find-file)
+    (which-key-prefix-hook (list map) #\C-x)
+    (assert-equal nil *which-key-prefix-state*))
+  ;; 有効なら打ったキーを覚えて、次の呼び出しで繋がること
+  (let ((*which-key-prefix-mode* t)
+	(*which-key-mode* t)
+	(*which-key-prefix-state* nil)
+	(map (make-sparse-keymap))
+	(sub (make-sparse-keymap)))
+    (define-key sub #\z 'find-file)
+    (define-key map #\4 sub)
+    (which-key-prefix-hook (list map) #\C-x)
+    (assert-equal (list #\C-x) (which-key-prefix-keys))
+    (which-key-prefix-hook (list sub) #\4)
+    (assert-equal (list #\C-x #\4) (which-key-prefix-keys))
+    (assert-equal "C-x 4" (which-key-prefix-path (which-key-prefix-keys)))
+    (which-key-prefix-hook nil nil)
+    (assert-equal nil *which-key-prefix-state*)))
+
+(test-which-key-prefix-hook)
+
+(defun test-prefix-key-hook-is-installed ()
+  ;; コマンドループがこの名前でフックを呼ぶ。外れていると C-x で何も出ない。
+  (assert-true (boundp '*prefix-key-hook*))
+  (assert-true (and (member 'which-key-prefix-hook *prefix-key-hook*) t)))
+
+(test-prefix-key-hook-is-installed)
+
+(defun test-toggle-which-key-prefix ()
+  (let ((*which-key-prefix-mode* t)
+	(*which-key-prefix-state* nil))
+    (assert-equal nil (toggle-which-key-prefix))
+    (assert-equal t (toggle-which-key-prefix))
+    (assert-equal nil (toggle-which-key-prefix nil))
+    (assert-equal t (toggle-which-key-prefix t))))
+
+(test-toggle-which-key-prefix)

@@ -60,3 +60,42 @@
   => t
   => t
   => t)
+
+(deftest popup-window-fit-cuts-long-strings ()
+  "幅に収まらない文字列を切ること"
+  (values (ed::popup-window-fit "abcdef" 3)
+	  (ed::popup-window-fit "ab" 3)
+	  (ed::popup-window-fit "abc" nil))
+  => "abc"
+  => "ab"
+  => "abc")
+
+(deftest popup-window-columns-adds-columns-to-fit-max-rows ()
+  "行数の上限を渡すと、列を増やして (1 列を狭めて) 収めること。
+項目が長いと自然な段組みは 2 列 6 行になるが、上限 4 行なら 3 列 4 行になる。"
+  (let ((items (let (l)
+		 (dotimes (i 12)
+		   (push (format nil "~D-~A" i
+				 (make-sequence 'string 43 :initial-element #\a))
+			 l))
+		 (nreverse l))))
+    (values (length (ed::popup-window-columns items 100))
+	    (length (ed::popup-window-columns items 100 4))))
+  => 6
+  => 4)
+
+(deftest popup-window-columns-reports-what-it-dropped ()
+  "列を増やしても収まらないときは、落とした件数を書くこと
+(黙って切ると「これで全部だ」と読めてしまう)"
+  (let* ((items (let (l) (dotimes (i 40) (push (format nil "item~D" i) l))
+			 (nreverse l)))
+	 (rows (ed::popup-window-columns items 40 3)))
+    (values (<= (length rows) 3)
+	    (and (string-match "^\\.\\.\\. \\+[0-9]+$" (car (last rows))) t)))
+  => t
+  => t)
+
+(deftest popup-window-columns-ignores-max-rows-when-it-fits ()
+  "上限に収まっているときは何も変えないこと"
+  (ed::popup-window-columns '("a" "b" "c" "d" "e" "f") 12 10)
+  => ("a  c  e" "b  d  f"))

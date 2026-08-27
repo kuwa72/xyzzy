@@ -46,6 +46,20 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 | `Leader SPC` | `M-x` | コマンド名をファジー絞り込みで選んで実行 (`fuzzy-execute-extended-command`) |
 | `Leader /` | `Grep` | Grep 検索 |
 
+`C-x` や `C-c` を押したときも、次に何が打てるかがステータス行に出ます。
+
+```
+[C-x] C-k  Kanji+  4  OtherWin+  6  Frame+  r  Register+  C-a  add-mode-abbrev  C-b  List  +57
+```
+
+`+` の付いたものはさらに次のキーがあるプレフィックスで、`+57` は「あと 57 個
+あって 1 行に入らなかった」という意味です。`C-x 4` のように絞られていけば全部
+出ます。`M-x toggle-which-key-prefix` でオン/オフ。
+
+`M-m` (Leader) の候補一覧が分割ウィンドウに段組みで出るのに対し、こちらは
+ステータス行 1 行です。**`C-x` は日常の打鍵なので、待っている間だけ画面の
+レイアウトが変わるのを避けています。**
+
 `M-x` (`Leader SPC` も同じ)、`Leader p f` (プロジェクト内ファイル検索)、
 `Leader p p` (プロジェクト切替) は、入力するそばから部分一致でファジー
 絞り込みするミニバッファ (`lisp/fuzzy-complete.l`) を使います。通常の

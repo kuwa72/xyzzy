@@ -2413,6 +2413,7 @@ static symbols ed[] =
   DEFVAR2 (*last-command*),
   MAKE_SYMBOL2 (*pre-command-hook*),
   MAKE_SYMBOL2 (*post-command-hook*),
+  MAKE_SYMBOL2 (*prefix-key-hook*),
   DEFVAR2 (*blink-caret*),
   DEFUN3 (call-menu, 1, 0, 0),
   DEFUN3 (set-quit-char, 1, 0, 0),
