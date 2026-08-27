@@ -56,6 +56,20 @@ fi
 # A dump image holds absolute addresses from the binary that wrote it.
 rm -f "$build/xyzzy-batch.wxp"
 
+# lisp/startup.l is the one file that cannot be compiled over its own .lc:
+# xyzzy-batch reads startup.lc as part of coming up, and the write that would
+# replace it does nothing -- no error, no new mtime, and the .lc stays as it was
+# (issue #54).  Every later run then finds startup.l stale again and this script
+# fails, so a single edit to startup.l blocks the whole library and the test
+# suite with it.
+#
+# Deleting it first is what makes the write land: with no .lc, start up reads
+# startup.l as source, so nothing is holding the file open.  The cost is one
+# slower start up for this run.
+if [ "$force" = yes ] || printf '%s\n' "$stale" | grep -q '/lisp/startup\.l$'; then
+  rm -f "$root/lisp/startup.lc"
+fi
+
 unset XYZZYINIFILE XYZZYCONFIGPATH
 export XYZZYHOME=$root
 cd "$root"

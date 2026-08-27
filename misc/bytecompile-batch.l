@@ -6,6 +6,13 @@
 
 (setq *post-startup-hook*
       #'(lambda ()
+          ;; makelc の出力 (どのファイルがなぜ失敗したか) は
+          ;; *standard-output* へ行く。バッチ起動では、それが繋がっていないと
+          ;; **失敗理由がどこにも残らない** (tools/bytecompile.sh が拾う
+          ;; bytecompile-output.txt が 0 バイトになる)。issue #54 の
+          ;; 「何も出ない」がこれだった。
+          (setq *standard-output* *terminal-io*)
+          (setq *error-output* *terminal-io*)
           (let ((logfile (merge-pathnames "bytecompile-progress.log"
                                           (si:system-root))))
             (handler-case
