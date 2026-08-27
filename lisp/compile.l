@@ -54,6 +54,11 @@
 ;;;  omit unreached code
 ;;;  local return/go            ---> GOTO
 ;;;  constant folding
+;;;  self tail call             ---> GOTO (自己末尾再帰のループ化。
+;;;   defun 展開の (block 関数名 ...) と一致する名前・引数個数の末尾
+;;;   呼び出しだけが対象。一般の TCO (相互再帰・高階関数経由) は VM
+;;;   側の呼び出し規約変更が要るため対象外。self-tail-call-p /
+;;;   compile-self-tail-call / *tail-position-p* 系を参照)
 
 (lisp:in-package "lisp")
 
@@ -111,7 +116,37 @@
   ;; *INSN-LIST*: 中間コードのリスト
   (defvar *insn-list* nil)
 
-  (defvar *compile-time-too* nil))
+  (defvar *compile-time-too* nil)
+
+  ;; 自己末尾再帰のループ化 (poor man's TCO) のための状態。
+  ;; 一般の TCO (相互再帰・高階関数経由の末尾呼び出しも含む) には
+  ;; VM 側の呼び出し規約変更が要るため対象外。ここでは「関数が自分
+  ;; 自身を末尾位置で呼ぶ」という限定的だが実用上多いケースだけを、
+  ;; コンパイラ側だけの変換 (引数を束縛し直して関数先頭へ GOTO) で
+  ;; 扱う。
+
+  ;; *TAIL-POSITION-P*: 現在コンパイル中のフォームが、コンパイル対象
+  ;; 関数の末尾位置 (呼び出し元へその値がそのまま返る位置) にあるか。
+  ;; if の分岐・progn の最後のフォーム・block の最後のフォームのみが
+  ;; これを引き継ぐ (let/catch/unwind-protect 等では意図的に伝播させ
+  ;; ない。動的環境を持ち越す必要があり安全に GOTO できないため)。
+  (defvar *tail-position-p* nil)
+
+  ;; *SELF-TAIL-CALL-NAME*: 現在コンパイル中の関数の名前 (defun の
+  ;; 展開が作る (block NAME ...) の NAME)。&optional/&rest/&key/&aux
+  ;; を含むラムダリストや、body が単一の named block でない場合は nil
+  ;; (この最適化の対象外)。
+  (defvar *self-tail-call-name* nil)
+
+  ;; *SELF-TAIL-CALL-ARGS*: 上のラムダリスト (必須引数のみ、シンボルの
+  ;; リスト)。呼び出し時の引数の個数・再束縛対象の変数名として使う。
+  (defvar *self-tail-call-args* nil)
+
+  ;; *SELF-TAIL-CALL-TAG*: ループ先頭 (関数 body の先頭、block 確立後)
+  ;; の GOTO タグ。compile-block が対象の block に入った時点で初めて
+  ;; セットする (estab-block より後にする必要がある。ループの度に
+  ;; insn-block を再実行するのは避けたいため)。
+  (defvar *self-tail-call-tag* nil))
 
 (let ()
   (setf (get 'defun 'toplevel-macro) 'print-defun)
@@ -549,6 +584,24 @@
 			      :datum arg)))))
     vars))
 
+;; BODY (宣言/interactive を除いた lambda の本体) が単一の
+;; (block NAME ...) フォームで、かつ RAW-LAMBDA-LIST が必須引数のみ
+;; (&optional/&rest/&key/&aux を含まない) の場合に NAME を返す。
+;; defun の展開は本体を必ず (block 関数名 ...) で包む (CLHS)。この形
+;; さえ揃えば自己末尾再帰のループ化の対象にする -- flet/labels の本体
+;; はこの形にならないので自然に対象外になる。
+(defun self-tail-call-eligible-name (raw-lambda-list body)
+  (and (consp body)
+       (endp (cdr body))
+       (consp (car body))
+       (eq (caar body) 'block)
+       (symbolp (cadar body))
+       (cadar body)
+       (notany #'(lambda (x)
+		   (member x '(&optional &rest &key &aux)))
+	       raw-lambda-list)
+       (cadar body)))
+
 (defun compile-lambda (form)
   (multiple-value-bind (decl body)
       (lisp::find-declaration (cddr form))
@@ -556,7 +609,12 @@
 	(lisp::find-interactive body)
       (let* ((*stack-frame-index* *stack-frame-index*)
 	     (args (parse-lambda-list (cadr form)))
-	     (nargs (length args)))
+	     (nargs (length args))
+	     (*self-tail-call-name*
+	      (self-tail-call-eligible-name (cadr form) body))
+	     (*self-tail-call-args* (and *self-tail-call-name* (cadr form)))
+	     (*self-tail-call-tag* nil)
+	     (*tail-position-p* t))
 	(push args *bound-vars*)
 	(make-stack-frame args)
 	(mark-special-vars (process-declare decl))
@@ -661,20 +719,47 @@
 			   (cdr f))))))))
 
 
+;; TARGETがちょうど今コンパイル中の関数自身への、末尾位置での、
+;; 同じ引数個数の呼び出しか (自己末尾再帰のループ化の対象か)。
+(defun self-tail-call-p (target nargs)
+  (and *tail-position-p*
+       *self-tail-call-tag*
+       (eq target *self-tail-call-name*)
+       (= nargs (length *self-tail-call-args*))))
+
+;; 自己への末尾呼び出しを、INSN-CALL の代わりに「引数を評価してから
+;; 仮引数を束縛し直し、ループ先頭へ GOTO」に変換する。引数は全て
+;; (古い変数値を使って) 評価してからまとめて束縛し直すので、
+;; (fact (1- n) (* n acc)) のように後の引数式が前の仮引数を参照して
+;; いても正しい (並行代入の意味論)。
+(defun compile-self-tail-call (form)
+  (let ((*tail-position-p* nil))
+    (dolist (f (cdr form))
+      (compile-form f)))
+  (dolist (var (reverse *self-tail-call-args*))
+    (compile-varset var)
+    (decf *stack-depth*)
+    (output-insn 'insn-discard))
+  (output-insn 'insn-goto *self-tail-call-tag*))
+
 (defun compile-call (form)
   (let ((f (assoc (car form) *macro-environment* :test #'eq)))
     (cond ((null f)
 	   (when (and (consp (car form))
 		      (eq (caar form) 'lambda))
 	     (push 'funcall form))
-	   (dolist (f (cdr form))
-	     (compile-form f))
-	   (output-insn 'insn-call (car form) (- (length form) 1)))
+	   (if (self-tail-call-p (car form) (- (length form) 1))
+	       (compile-self-tail-call form)
+	     (let ((*tail-position-p* nil))
+	       (dolist (f (cdr form))
+		 (compile-form f))
+	       (output-insn 'insn-call (car form) (- (length form) 1)))))
 	  ((symbolp (cdr f))
-	   (compile-form (cdr f))
-	   (dolist (f (cdr form))
-	     (compile-form f))
-	   (output-insn 'insn-call 'funcall (length form)))
+	   (let ((*tail-position-p* nil))
+	     (compile-form (cdr f))
+	     (dolist (f (cdr form))
+	       (compile-form f))
+	     (output-insn 'insn-call 'funcall (length form))))
 	  (t
 	   (compile-error "不正な関数コールです: ~S" form)))))
 
@@ -686,7 +771,15 @@
 	   (if (symbolp (car form))
 	       (let ((tem (get (car form) 'special-form)))
 		 (cond (tem
-			(funcall tem (cdr form)))
+			;; if/progn/block だけが「自分の最後のサブフォームは呼び出し元の
+			;; 末尾位置と同じ末尾位置である」という性質を持つ。それ以外の
+			;; special form (let/catch/unwind-protect/tagbody 等) のサブ
+			;; フォームは動的環境を持ち越すため *tail-position-p* を伝播
+			;; させてはいけない (安全側のデフォルトは「末尾ではない」)。
+			(if (member tem '(compile-if compile-progn compile-block))
+			    (funcall tem (cdr form))
+			  (let ((*tail-position-p* nil))
+			    (funcall tem (cdr form)))))
 		       (t
 			(and (setq tem (get (car form) 'compiler-effect))
 			     (funcall tem form))
@@ -721,11 +814,22 @@
 	       (output-insn 'insn-discard)))))))
 
 (defun compile-progn (form)
-  (compile-form (car form))
-  (dolist (x (cdr form))
-    (decf *stack-depth*)
-    (output-insn 'insn-discard)
-    (compile-form x)))
+  ;; 最後のフォームだけが *tail-position-p* を引き継ぐ (呼び出し元の
+  ;; 末尾位置と同じ)。それ以外はどうせ値を discard するので末尾では
+  ;; ない。
+  (if (endp (cdr form))
+      (compile-form (car form))
+    (progn
+      (let ((*tail-position-p* nil))
+	(compile-form (car form)))
+      (do ((f (cdr form) (cdr f)))
+	  ((endp f))
+	(decf *stack-depth*)
+	(output-insn 'insn-discard)
+	(if (endp (cdr f))
+	    (compile-form (car f))
+	  (let ((*tail-position-p* nil))
+	    (compile-form (car f))))))))
 
 (defun compile-locally (form)
   (multiple-value-bind (decl body)
@@ -949,7 +1053,19 @@
       (compile-error "BLOCKフォームの形式が不正です: ~S" form))
   (check-type (car form) symbol)
   (estab-block (car form))
-  (compile-progn (cdr form))
+  ;; 自己末尾再帰のループ化: このブロックが defun の展開が作る
+  ;; (block 関数名 ...) で、まだループ先頭のタグを確立していなければ
+  ;; ここで確立する。estab-block の *後* に置くこと (insn-block を
+  ;; ループの度に再実行したくない)。*self-tail-call-tag* が既に
+  ;; non-nil なら (同名の block が入れ子になっている等) 二重に確立
+  ;; しない。
+  (if (and *self-tail-call-name*
+	   (eq (car form) *self-tail-call-name*)
+	   (null *self-tail-call-tag*))
+      (let ((*self-tail-call-tag* (make-tag)))
+	(output-label *self-tail-call-tag*)
+	(compile-progn (cdr form)))
+    (compile-progn (cdr form)))
   (unestab-block))
 
 (defun compile-return-from (form)
@@ -973,10 +1089,15 @@
       (output-insn 'insn-goto (cadr goal)))))
 
 (defun compile-if (form)
+  ;; 条件式は末尾位置ではない (呼び出し元へその値が返るわけではない)
+  ;; ので *tail-position-p* を落とす。then/else の各分岐は呼び出し元
+  ;; から見て自分がいた末尾位置をそのまま引き継ぐ (ambient の値へ
+  ;; 触れないことでそのまま伝播させる)。
   (let ((l (length form)))
     (cond ((= l 2)
 	   (let ((donetag (make-tag)))
-	     (compile-form (car form))
+	     (let ((*tail-position-p* nil))
+	       (compile-form (car form)))
 	     (output-insn 'insn-if-nil-goto donetag)
 	     (decf *stack-depth*)
 	     (compile-form (cadr form))
@@ -984,7 +1105,8 @@
 	  ((= l 3)
 	   (let ((elsetag (make-tag))
 		 (donetag (make-tag)))
-	     (compile-form (car form))
+	     (let ((*tail-position-p* nil))
+	       (compile-form (car form)))
 	     (output-insn 'insn-if-nil-goto-and-pop elsetag)
 	     (decf *stack-depth*)
 	     (compile-form (cadr form))
