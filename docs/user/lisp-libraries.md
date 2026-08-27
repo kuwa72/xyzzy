@@ -184,6 +184,8 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `imenu` (`Leader c s`): バッファ内の関数・クラス・見出しの一覧をファジー絞り込みで選んでジャンプ。飛ぶ前にマークを置くので `C-x C-x` で元の位置へ戻れる。
   - 索引は `*imenu-generic-expression-alist*` の正規表現で作る (Lisp, Python, JavaScript, TypeScript, Perl, シェル, Markdown, Makefile, CMake, YAML, TOML, CSS)。登録が無いモードでは既存の `build-summary-function` (C 系は `lisp/cfns.l`、Java, Basic) にそのまま任せる。
   - `*imenu-create-index-function*` をバッファローカルに設定すると、そのバッファだけ独自の索引作成に差し替えられる。
+- **ファジー絞り込みの縦型候補表示 (`lisp/fuzzy-complete.l`)**:
+  - 候補を分割ウィンドウ (`*Candidates*`) に 1 行 1 件で並べる (Vertico 相当)。1 行目にプロンプトと打ちかけのクエリと件数、選択行に `>`。`*fuzzy-vertical*` を nil にするとステータス行 1 行の表示に戻る。行数は `*fuzzy-vertical-lines*`。
 - **行・選択範囲の上下移動 (`lisp/move-text.l`)**:
   - `move-text-up` (`M-↑`) / `move-text-down` (`M-↓`): 現在行、または選択範囲に含まれる行をまとめて 1 行上/下へ移動。kill-ring を経由しないので貼り付け待ちの内容を潰さず、移動後も同じテキストが選択されたまま残る。
 - **括弧・引用符の自動ペア挿入 (`lisp/autopair.l`)**:

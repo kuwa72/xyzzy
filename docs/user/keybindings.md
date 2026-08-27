@@ -30,7 +30,7 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 | `Leader w` | **Window** | `s`: 上下分割, `v`: 左右分割, `o`: 隣へ移動, `d`: 閉じる, `m`: 最大化 |
 | `Leader c` | **Code** | `s`: シンボル一覧へジャンプ (`imenu`), `f`: 関数一覧ダイアログ (`list-function`) |
 | `Leader h` | **Help** | `k`: キー説明, `f`: 関数説明, `v`: 変数説明, `b`: 一覧, `a`: Apropos |
-| `Leader SPC` | `M-x` | コマンド名を実行 (`execute-extended-command`) |
+| `Leader SPC` | `M-x` | コマンド名をファジー絞り込みで選んで実行 (`fuzzy-execute-extended-command`) |
 | `Leader /` | `Grep` | Grep 検索 |
 
 `M-x` (`Leader SPC` も同じ)、`Leader p f` (プロジェクト内ファイル検索)、
@@ -41,8 +41,22 @@ Leader Key (モダン操作体系 & Which-key ガイダンス)
 
 **空白で区切って複数のキーワードを打つと、順不同でどれも含むものに
 絞られます** (`buf list` で `list-buffers`、`find file` で `find-file`)。
-候補はステータス行に幅の許すだけ並び、選択中のものは `[...]` で囲まれます。
-入り切らなかった側には `…` が付きます。
+
+候補は画面を分割した `*Candidates*` ウィンドウに 1 行 1 件で縦に並びます。
+1 行目に打ちかけのクエリと件数、選択中の候補の行頭に `>` が付きます。
+
+```
+ M-x buf list    -- 1/6 件 --
+ > list-buffers
+   minibuffer-next-line-or-search-history
+   minibuffer-previous-line-or-search-history
+   ...
+```
+
+選び終わると (`RET` でも `C-g` でも) ウィンドウ構成は元に戻ります。
+`*fuzzy-vertical*` を nil にすると、従来のステータス行 1 行に幅の許すだけ
+並べる表示になります (選択中のものは `[...]` で囲まれ、入り切らなかった側に
+`…` が付く)。行数は `*fuzzy-vertical-lines*` で変えられます。
 
 | キー | 動作 |
 |---|---|
