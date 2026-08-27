@@ -253,4 +253,44 @@ xyzzy リリースノート
     パッケージではない) から `destructuring-bind` の `&allow-other-keys`
     を使うことで、この種のクロスパッケージ不整合を今後も検知できる
     ようにしてある。
+  * #16 ロードマップ Phase 2「typespec / 型システムのサポート拡充」を
+    監査し、`lisp/typespec.l` の `subtypep` に実バグ 3 件を見つけて
+    修正した。全体としては `subtypep` は既に本格的な実装で
+    (数値区間の包含判定、配列次元の包含判定、`and`/`or`/`not` の
+    再帰処理まで実装済み)、「複合型は常に `(values nil nil)` を返す
+    だけの玩具実装」ではなかったが、`unittest/typespec-tests.l` は
+    xyzzy 独自拡張型 (`wait-object` 等) のテストしかなく、ANSI CL の
+    基本的な型指定子 (数値区間、`member`、`and`/`or`/`not`、`eql`、
+    `satisfies`) を検証するテストが皆無だったため、これらのバグは
+    見過ごされていた。
+      - `member` を第1引数側に取る分岐 (`(subtypep '(member ...) X)`)
+        で、要素が対象型を満たさない場合に未定義関数 `value` を
+        呼んでいた (`values` のタイプミス)。
+        `(subtypep '(member 1 2 "a") 'integer)` が正しく
+        `(values nil t)` を返す代わりに関数未定義エラーで落ちていた。
+      - `(deftype eql (x) `(member (,x)))` が値を余分な1重リストで
+        包んでいた (`(member (,x))` ではなく `(member ,x)` であるべき
+        だった)。`typep` は `eql` 専用のハンドラを直接持っており
+        `canonicalize-type` を経由しないため影響を受けなかったが、
+        `subtypep` は `canonicalize-type` 経由でこの (誤った)
+        展開形を使うため、`(subtypep '(eql 5) 'integer)` が誤って
+        `nil` を返していた (5 というリストになるはずが `(5)` という
+        リストの要素同士を比較してしまい常に不一致になっていた)。
+      - `(subtypep type1 '(or A B))` と `(subtypep type1 '(and A B))`
+        の分岐ロジックが互いに入れ替わっていた。`or` 側は「type1 が
+        **全ての**要素の部分型である」ことを要求し (本来は
+        **いずれか1つ**で十分)、`and` 側は「type1 が**いずれか1つ**の
+        要素の部分型であれば」成立としていた (本来は**全て**が必要)。
+        結果、`(subtypep 'integer '(or integer float))` が誤って
+        `nil` を、`(subtypep 'integer '(and integer string))` が
+        誤って `t` を返していた。
+    3 件とも `unittest/typespec-tests.l` に CLHS 準拠の回帰テストを
+    追加して固定した。ついでに、`two-way-stream`/`echo-stream`/
+    `broadcast-stream`/`synonym-stream`/`string-stream`/
+    `concatenated-stream` の組み込み述語 (`two-way-stream-p` 等) は
+    既に存在するのに `typespec-alist` に登録されておらず、`subtypep`
+    はこれらを `stream` の部分型として認識するのに `typep` は常に
+    `nil` を返す不整合があったため、6 エントリを追加して揃えた
+    (`pathname`/CLOS 系の型は xyzzy の設計上そもそも存在しないため
+    対象外とした)。
   *
