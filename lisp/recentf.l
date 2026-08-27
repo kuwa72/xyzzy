@@ -7,6 +7,8 @@
 
 (in-package "editor")
 
+(require "fuzzy-complete")
+
 (export '(*recentf-list* *recentf-max-saved-items*
 	  recentf-open recentf-cleanup recentf-add-file))
 
@@ -40,9 +42,8 @@
   (let ((candidates (remove-if-not #'file-exist-p *recentf-list*)))
     (unless candidates
       (error "最近開いたファイルはありません"))
-    (let ((file (completing-read "Recent file: " candidates
-				 :default (car candidates)
-				 :must-match t)))
+    (let ((file (fuzzy-completing-read "Recent file: " candidates
+				      :must-match t)))
       (when (and file (stringp file) (not (string= file "")))
 	(find-file file)))))
 

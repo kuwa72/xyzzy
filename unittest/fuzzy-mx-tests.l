@@ -390,3 +390,22 @@
 	    (funcall annotate "no-such-command-at-all")))
   => "C-x C-s"
   => nil)
+
+(deftest fuzzy-read-allow-new-returns-the-query ()
+  ":allow-new のとき、一致が無ければ打った文字列そのものが返ること
+(無い名前を打って新しいバッファを作る用途)"
+  (values (with-fuzzy-keys (fuzzy-keys "brand-new-name" #\RET)
+	    (ed::fuzzy-completing-read "test: " *fuzzy-test-candidates*
+				       :allow-new t))
+	  ;; 一致があるときは候補の方を返す
+	  (with-fuzzy-keys (fuzzy-keys "buf list" #\RET)
+	    (ed::fuzzy-completing-read "test: " *fuzzy-test-candidates*
+				       :allow-new t)))
+  => "brand-new-name"
+  => "list-buffers")
+
+(deftest fuzzy-read-allow-new-ignores-empty-query ()
+  "クエリが空のままの RET では、打った文字列 (空) ではなく候補が返ること"
+  (with-fuzzy-keys (list #\RET)
+    (ed::fuzzy-completing-read "test: " *fuzzy-test-candidates* :allow-new t))
+  => "list-buffers")
