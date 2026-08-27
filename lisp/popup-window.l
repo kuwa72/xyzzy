@@ -22,9 +22,13 @@
 (export '(*popup-window-max-lines*
 	  with-popup-window
 	  popup-window-available-p
+	  popup-window-open
+	  popup-window-close
 	  popup-window-draw
 	  popup-window-body-lines
-	  popup-window-columns))
+	  popup-window-fit
+	  popup-window-columns
+	  *popup-window-min-column-width*))
 
 (defvar *popup-window-max-lines* 12
   "一時ウィンドウに使う行数の上限。画面が狭いときはそれに合わせて縮む。")
@@ -49,10 +53,25 @@
     buf))
 
 (defun popup-window-close (name)
-  "一時バッファを消す。ウィンドウ構成は save-window-excursion が戻す。"
+  "一時ウィンドウを閉じてバッファを消す。
+
+**ウィンドウを明示的に消すのが要点である。** ウィンドウ構成の復元
+(save-window-excursion / set-window-configuration) は端末フロントエンド
+(ncurses) では何もしない: WindowConfiguration が空の実装で、
+current-window-configuration は nil を返す (issue #82)。構成の復元に任せると、
+端末では一時ウィンドウが画面に残ったままになる (実際に残っていた)。"
   (let ((buf (find-buffer name)))
     (when buf
-      (ignore-errors (delete-buffer buf))))
+      (let ((obuf (selected-buffer))
+	    (w (get-buffer-window buf)))
+	(when w
+	  (ignore-errors
+	    (set-window w)
+	    (delete-window))
+	  (unless (eq obuf buf)
+	    (let ((ow (get-buffer-window obuf)))
+	      (when ow (ignore-errors (set-window ow))))))
+	(ignore-errors (delete-buffer buf)))))
   t)
 
 (defmacro with-popup-window ((name &optional (label "Popup")) &body body)
@@ -89,30 +108,61 @@ CURSOR-ROW 行目 (0 起点) に点を置いて画面を更新する。"
       (refresh-screen)
       t)))
 
-(defun popup-window-columns (items width)
+(defvar *popup-window-min-column-width* 16
+  "段組みを詰めるときの 1 列の下限。これより狭くするとコマンド名が読めない。")
+
+(defun popup-window-fit (string width)
+  "STRING を幅 WIDTH に収める。長ければ後ろを落とす。"
+  (if (or (null width) (<= (length string) width))
+      string
+    (subseq string 0 (max 0 width))))
+
+(defun popup-window-columns (items width &optional max-rows)
   "ITEMS (文字列のリスト) を幅 WIDTH に収まる段組みにして、行のリストで返す。
 
 縦に読んで順番になるよう列優先で詰める。横優先だと、項目が増えたときに
-同じものが毎回違う列に来て目が慣れない。"
+同じものが毎回違う列に来て目が慣れない。
+
+MAX-ROWS を渡すと、その行数に収まるよう **列を増やして** 詰める。増やしても
+入り切らない場合は入る分だけ出し、最後に「... +N」と残りの個数を書く。
+**黙って切ると「これで全部だ」と読めてしまう。** 一時ウィンドウは画面の
+半分しか無いので、C-x のように 60 個以上あるキーマップでは実際に起きる。"
   (if (null items)
       nil
     (let* ((n (length items))
-	   (w (+ 2 (reduce #'max (mapcar #'length items))))
-	   (ncols (max 1 (truncate (max width w) w)))
+	   (natural (+ 2 (reduce #'max (mapcar #'length items))))
+	   (ncols (max 1 (truncate (max width natural) natural)))
 	   (nrows (ceiling n ncols))
-	   (vec (coerce items 'vector))
-	   (rows nil))
-      (dotimes (r nrows)
-	(let ((out (make-string-output-stream)))
-	  (dotimes (c ncols)
-	    (let ((i (+ r (* c nrows))))
-	      (when (< i n)
-		(let ((s (aref vec i)))
-		  (princ s out)
-		  ;; 右にまだ列があるときだけ埋める (行末に空白を残さない)。
-		  (when (< (+ r (* (1+ c) nrows)) n)
-		    (princ (make-sequence 'string (- w (length s))
-					  :initial-element #\SPC)
-			   out))))))
-	  (push (string-right-trim " " (get-output-stream-string out)) rows)))
-      (nreverse rows))))
+	   (dropped 0)
+	   (w natural))
+      (when (and max-rows (> nrows max-rows))
+	;; 列を増やす。1 列の幅が下限を切るところで打ち切る。
+	(setq ncols (min (ceiling n max-rows)
+			 (max 1 (truncate width *popup-window-min-column-width*))))
+	(setq w (max *popup-window-min-column-width* (truncate width ncols)))
+	(if (>= (* ncols max-rows) n)
+	    (setq nrows (ceiling n ncols))
+	  ;; 入り切らない。残りの個数を書く 1 行を空けておく。
+	  (progn
+	    (setq nrows (max 1 (1- max-rows)))
+	    (setq dropped (- n (* ncols nrows))))))
+      (let ((cap (- n dropped))
+	    (vec (coerce items 'vector))
+	    (rows nil))
+	(dotimes (r nrows)
+	  (let ((out (make-string-output-stream)))
+	    (dotimes (c ncols)
+	      (let ((i (+ r (* c nrows))))
+		(when (< i cap)
+		  (let ((s (popup-window-fit (aref vec i) (- w 2))))
+		    (princ s out)
+		    ;; 右にまだ列があるときだけ埋める (行末に空白を残さない)。
+		    (when (< (+ r (* (1+ c) nrows)) cap)
+		      (princ (make-sequence 'string (- w (length s))
+					    :initial-element #\SPC)
+			     out))))))
+	    (push (string-right-trim " " (get-output-stream-string out)) rows)))
+	(setq rows (nreverse rows))
+	(if (plusp dropped)
+	    (append rows (list (format nil "... +~D" dropped)))
+	  rows)))))

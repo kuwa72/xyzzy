@@ -23,6 +23,12 @@
 	  *which-key-mode*
 	  *which-key-description-alist*
 	  *which-key-buffer-name*
+	  *which-key-prefix-mode*
+	  which-key-merge-bindings
+	  which-key-lines-from-bindings
+	  which-key-prompt-from-bindings
+	  which-key-prefix-hook
+	  toggle-which-key-prefix
 	  execute-leader-key
 	  which-key-guide
 	  leader-define-key
@@ -240,7 +246,13 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 	(t (format nil "~:C" key))))
 
 (defun which-key-collect-bindings (keymap)
-  "キーマップ内の全バインディングを ((key . target) ...) のリストで返す。"
+  "キーマップ内の全バインディングを ((key . target) ...) のリストで返す。
+
+**渡されたものが keymapp を通っていない場合もある。** full keymap の中の
+プレフィックスは `ctl-x-4-prefix` のようなシンボルで入っているので、
+lookup-keymap の結果をそのまま渡されるとシンボルが来る。keymapp は
+キーマップそのもの (ベクタまたはリスト) を返すので、それで正規化する。"
+  (setq keymap (or (keymapp keymap) keymap))
   (let (bindings)
     (if (consp keymap)
 	;; sparse keymap
@@ -278,22 +290,65 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 	(push (format nil "~A:~A~:[~;+~]" kstr desc prefix-p) items)))
     (format nil "[~A] ~{~A~^ ~}" title (nreverse items))))
 
-(defun which-key-item-strings (keymap)
-  "キーマップの候補を "f  File+" の形の文字列リストにする。並び順は
+(defun which-key-binding-strings (bindings)
+  "((key . target) ...) を 「f  File+」 の形の文字列リストにする。並び順は
 which-key-binding-lessp と同じ (サブメニューが先、キーの文字コード順)。"
   (mapcar #'(lambda (b)
 	      (format nil "~A  ~A~:[~;+~]"
 		      (which-key-format-key (car b))
 		      (which-key-get-description (cdr b))
 		      (keymapp (cdr b))))
-	  (sort (which-key-collect-bindings keymap)
-		#'which-key-binding-lessp)))
+	  (sort (copy-list bindings) #'which-key-binding-lessp)))
+
+(defun which-key-item-strings (keymap)
+  "キーマップの候補を 「f  File+」 の形の文字列リストにする。"
+  (which-key-binding-strings (which-key-collect-bindings keymap)))
+
+(defun which-key-merge-bindings (keymaps)
+  "複数のキーマップの候補を、**前にあるものを優先して** 1 つにまとめる。
+
+コマンドループが渡してくる待機中のキーマップは selection → minor → local →
+global の順で、実際に効くのは前にあるものである。同じキーが複数のマップに
+あるとき、後ろのものを出すと嘘になる。"
+  (let ((seen nil))
+    (dolist (m keymaps)
+      (dolist (b (ignore-errors (which-key-collect-bindings m)))
+	(unless (assoc (car b) seen :test #'eql)
+	  (push b seen))))
+    (nreverse seen)))
+
+(defun which-key-lines-from-bindings (path bindings width &optional max-rows)
+  "一時ウィンドウに出す行のリスト。1 行目は今いる階層の名前。"
+  (cons (format nil "[~A]" path)
+	(popup-window-columns (which-key-binding-strings bindings)
+			      (max 20 (- width 1))
+			      max-rows)))
 
 (defun which-key-popup-lines (path keymap width)
   "一時ウィンドウに出す行のリスト。1 行目は今いる階層の名前。"
-  (cons (format nil "[~A]" path)
-	(popup-window-columns (which-key-item-strings keymap)
-			      (max 20 (- width 1)))))
+  (which-key-lines-from-bindings path (which-key-collect-bindings keymap) width))
+
+(defun which-key-prompt-from-bindings (path bindings width)
+  "ステータス行に出す 1 行。WIDTH に収まる分だけ出し、入り切らなければ
+「あと何個あるか」を書く。**黙って切ると「これで全部だ」と読めてしまう。**"
+  (let* ((items (which-key-binding-strings bindings))
+	 (head (format nil "[~A] " path))
+	 (out (make-string-output-stream))
+	 (n 0)
+	 (used (length head)))
+    (dolist (i items)
+      ;; 残りの個数を書く分の余地 (" +NN") を残しておく。
+      (when (> (+ used (length i) 1 5) width)
+	(return))
+      (princ i out)
+      (princ "  " out)
+      (incf used (+ (length i) 2))
+      (incf n))
+    (let ((body (get-output-stream-string out))
+	  (rest (- (length items) n)))
+      (if (plusp rest)
+	  (format nil "~A~A+~D" head body rest)
+	(format nil "~A~A" head body)))))
 
 (defun which-key-read (keymap title popup)
   "キーマップを辿ってコマンドを 1 つ選び、そのコマンドを返す。
@@ -313,9 +368,10 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	(return nil))
       (if popup
 	  (popup-window-draw *which-key-buffer-name*
-			     (which-key-popup-lines
-			      path current-map
-			      (or (ignore-errors (window-columns)) 80)))
+			     (which-key-lines-from-bindings
+			      path (which-key-collect-bindings current-map)
+			      (or (ignore-errors (window-columns)) 80)
+			      (popup-window-body-lines 1)))
 	(let ((prompt (if *which-key-mode*
 			  (which-key-format-prompt path current-map)
 			(format nil "[~A] " path))))
@@ -354,6 +410,11 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	      (setq target (which-key-read keymap title t)))
 	  ;; 実行の前に元のウィンドウ構成へ戻す。順序が逆だと、選んだ
 	  ;; コマンドがウィンドウを触る種類のものだったときに結果が消える。
+	  ;;
+	  ;; **一時ウィンドウを消すのは popup-window-close の方である。**
+	  ;; set-window-configuration は端末フロントエンドでは何もしないので
+	  ;; (issue #82)、これに任せていた間、端末では Leader メニューを
+	  ;; キャンセルすると *Which Key* が画面に残っていた。
 	  (ignore-errors (set-window-configuration conf))
 	  (popup-window-close *which-key-buffer-name*))
 	(when target
@@ -365,6 +426,156 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	(message "")
 	(call-interactively target)
 	t))))
+
+;;;
+;;; 標準のプレフィックスキー用の短いラベル
+;;;
+;;; ラベルが無いとコマンド名がそのまま出る。C-x は 60 個以上あるので段組みの
+;;; 1 列が狭くなり、"inverse-add-mode-abbrev" のような名前は途中で切れて
+;;; 読めなくなる。**よく使うものだけ短い名前を付ける。** 付いていないものは
+;;; コマンド名のまま出る (それでも当たりは付く)。
+;;;
+
+(which-key-add-description 'other-window "Other")
+(which-key-add-description 'move-previous-window "PrevWin")
+(which-key-add-description 'split-window "Split")
+(which-key-add-description 'split-window-vertically "SplitV")
+(which-key-add-description 'delete-window "DelWin")
+(which-key-add-description 'delete-other-windows "OnlyWin")
+(which-key-add-description 'enlarge-window "Taller")
+(which-key-add-description 'shrink-window "Shorter")
+(which-key-add-description 'enlarge-window-horizontally "Wider")
+(which-key-add-description 'shrink-window-horizontally "Narrower")
+(which-key-add-description 'kill-buffer "KillBuf")
+(which-key-add-description 'save-some-buffers "SaveAll")
+(which-key-add-description 'insert-file "InsFile")
+(which-key-add-description 'find-other-file "OtherFile")
+(which-key-add-description 'eval-last-sexp "EvalSexp")
+(which-key-add-description 'exchange-point-and-mark "Exchange")
+(which-key-add-description 'narrow-to-region "Narrow")
+(which-key-add-description 'widen "Widen")
+(which-key-add-description 'toggle-read-only "ReadOnly")
+(which-key-add-description 'upcase-region "Upcase")
+(which-key-add-description 'downcase-region "Downcase")
+(which-key-add-description 'transpose-lines "Transpose")
+(which-key-add-description 'delete-blank-lines "DelBlank")
+(which-key-add-description 'what-cursor-position "CurPos")
+(which-key-add-description 'describe-key-briefly "DescKey")
+(which-key-add-description 'next-error "NextErr")
+(which-key-add-description 'set-variable "SetVar")
+(which-key-add-description 'set-fill-column "FillCol")
+(which-key-add-description 'set-fill-prefix "FillPfx")
+(which-key-add-description 'start-kbd-macro "MacroBeg")
+(which-key-add-description 'end-kbd-macro "MacroEnd")
+(which-key-add-description 'call-last-kbd-macro "MacroRun")
+(which-key-add-description 'dabbrev-expand "Dabbrev")
+(which-key-add-description 'expand-abbrev "Abbrev")
+(which-key-add-description 'kill-xyzzy "Quit")
+(which-key-add-description 'rename "Rename")
+(which-key-add-description 'mark-page "MarkPage")
+(which-key-add-description 'forward-page "NextPage")
+(which-key-add-description 'backward-page "PrevPage")
+(which-key-add-description 'scroll-left "ScrollL")
+(which-key-add-description 'scroll-right "ScrollR")
+(which-key-add-description 'fuzzy-switch-to-buffer "Switch")
+(which-key-add-description 'run-console "Console")
+(which-key-add-description 'launch-application "Launch")
+(which-key-add-description 'execute-subprocess "Subproc")
+(which-key-add-description 'filter-buffer "FilterBuf")
+(which-key-add-description 'filter-region "FilterRgn")
+(which-key-add-description 'pipe-command "Pipe")
+
+;; プレフィックス側にも名前を付ける。full keymap の中ではシンボルで入って
+;; いるので、シンボルとキーマップの両方に登録しておく。
+(dolist (e (list (cons #\C-k "Kanji") (cons #\4 "OtherWin")
+		 (cons #\6 "Frame") (cons #\r "Register")))
+  (let ((cx (keymapp (lookup-keymap *global-keymap* #\C-x))))
+    (when cx
+      (let ((target (lookup-keymap cx (car e))))
+	(when target
+	  (which-key-add-description target (cdr e))
+	  (let ((km (keymapp target)))
+	    (when (and km (not (eq km target)))
+	      (which-key-add-description km (cdr e)))))))))
+
+;;;
+;;; 標準のプレフィックスキー (C-x / C-c など) の候補一覧
+;;;
+;;; M-m は execute-leader-key という *コマンド* なので、その中で自分でキーを
+;;; 読みながら候補を描ける。一方 C-x は *キーマップ* が割り当てられていて、
+;;; 次のキーを待つのは C++ 側のコマンドループである。そこには Lisp のフックが
+;;; 無かったので、*prefix-key-hook* を足した (issue #73)。
+;;;
+;;; フックは 2 通りで呼ばれる:
+;;;
+;;;   (keymaps key)  プレフィックス待ちに入った (keymaps は待機中のキーマップ)
+;;;   (nil nil)      待ちが終わった (コマンドが決まった / 未定義だった)
+;;;
+;;; 終わりの呼び出しは *pre-command-hook* より先に来る。**コマンドが走る前に
+;;; 片付けないと、ウィンドウを触るコマンド (C-x 2 など) の結果を後片付けで
+;;; 消してしまう。** Leader メニューで実際に踏んだ問題と同じである。
+;;;
+
+(defvar *which-key-prefix-mode* t
+  "C-x や C-c のような標準のプレフィックスキーでも候補一覧を出すか。")
+
+(defvar *which-key-prefix-state* nil
+  "プレフィックス待ちの間だけ non-nil。(keys...) を覚えておくためのもの。
+直接触らない。")
+
+(defun which-key-prefix-hook (keymaps key)
+  "コマンドループから呼ばれる。KEYMAPS が nil なら待ちの終わり。
+
+**ここで失敗しても打鍵の処理は続けなければならない**ので、全部包んで捨てる。
+候補が出ないだけなら困らないが、C-x が動かなくなるのは困る。"
+  (ignore-errors
+    (if (null keymaps)
+	(which-key-prefix-teardown)
+      (when (and *which-key-mode* *which-key-prefix-mode*)
+	(which-key-prefix-show keymaps key))))
+  t)
+
+(defun which-key-prefix-keys ()
+  (cdr *which-key-prefix-state*))
+
+(defun which-key-prefix-path (keys)
+  (format nil "~{~A~^ ~}" (mapcar #'which-key-format-key keys)))
+
+(defun which-key-prefix-show (keymaps key)
+  "プレフィックス待ちの候補をステータス行に出す。
+
+**分割ウィンドウには出さない。** 一時ウィンドウを出す形も書いてみたが、
+プレフィックス待ちの最中 (コマンドループの dispatch の中) にウィンドウを
+作って消すと、端末フロントエンドで画面が更新されなくなり、続くコマンドが
+一時ウィンドウの方で走った (issue #83)。C-x は日常のキーなので、そこで
+レイアウトを触るのは危険が大きすぎる。ステータス行なら 1 行に収まる分だけ
+出て、ウィンドウには触らない。"
+  (let ((bindings (which-key-merge-bindings keymaps)))
+    (when bindings
+      (let ((keys (append (which-key-prefix-keys) (list key))))
+	(setq *which-key-prefix-state* (cons t keys))
+	(message "~A" (which-key-prompt-from-bindings
+		       (which-key-prefix-path keys) bindings
+		       (max 20 (1- (or (ignore-errors (window-columns)) 80)))))
+	t))))
+
+(defun which-key-prefix-teardown ()
+  "待ちが終わったので出したものを片付ける。"
+  (when *which-key-prefix-state*
+    (setq *which-key-prefix-state* nil)
+    (message ""))
+  t)
+
+(defun toggle-which-key-prefix (&optional (arg nil sv))
+  "C-x / C-c などでの候補一覧の表示を切り替える。"
+  (interactive)
+  (setq *which-key-prefix-mode* (if sv arg (not *which-key-prefix-mode*)))
+  (unless *which-key-prefix-mode*
+    (which-key-prefix-teardown))
+  (message "which-key (prefix keys): ~:[off~;on~]" *which-key-prefix-mode*)
+  *which-key-prefix-mode*)
+
+(add-hook '*prefix-key-hook* 'which-key-prefix-hook)
 
 ;;;
 ;;; コマンド・ユーザー定義ヘルパー
