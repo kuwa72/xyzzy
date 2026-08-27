@@ -77,11 +77,14 @@ fi
 # bytes) and truncates to "l" on Linux (wchar_t is 4 bytes), so the terminal
 # drew "[utf8n:l]" and neither the build nor the link said a word.  The check
 # sets its own format instead of reading the default one, so that changing the
-# default mode line cannot silently turn it off.
+# default mode line cannot silently turn it off.  lisp/modeline.l rebuilds
+# mode-line-format from *post-command-hook*, which would overwrite the format
+# set here before it is ever drawn, so turn that off first (ignore-errors: the
+# command does not exist on older trees).
 log=$build/smoke-modeline.txt
 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
   python3 "$root/tools/pty-drive.py" \
-  '\e\e(progn (setq mode-line-format "SMOKE-MODELINE[%k:%l][%*]") (update-mode-line t))\r' \
+  '\e\e(progn (ignore-errors (toggle-rich-modeline nil)) (setq mode-line-format "SMOKE-MODELINE[%k:%l][%*]") (update-mode-line t))\r' \
   >"$log" 2>&1 || true
 if grep -q 'SMOKE-MODELINE\[utf8n:lf\]\[--\]' "$log"; then
   echo 'smoke: mode line OK -- % specifiers expand to their full strings'
