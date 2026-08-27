@@ -24,6 +24,36 @@ xyzzy リリースノート
     (`(defun foo (x` と打つと `(defun foo (x))` になる)。
     `\e\e` (eval-expression) の結果がステータス行に出るので、動いている
     エディタにその場で質問できる。
+  * `M-x` をファジー絞り込みにした (`lisp/fuzzy-mx.l`、`Leader SPC` も同じ)。
+    #30「ミニバッファ・補完 UI の強化」の 1 項目。素の `M-x`
+    (`execute-extended-command`) は `interactive` の "C" 指定から C++ 側の
+    `read-command-name` を呼ぶので絞り込み方に手を入れる隙が無く、
+    コマンド名の一覧を Lisp 側 (`do-all-symbols` + `commandp`) で作って
+    `lisp/fuzzy-complete.l` の絞り込みループに渡す形にした。autoload の
+    スタブも `commandp` なので、まだ読み込んでいないライブラリのコマンドも
+    候補に出る (素の `M-x` と同じ範囲になる)。直前に実行したものが先に
+    並ぶ履歴も付けた。`*fuzzy-mx-mode*` を nil にすると従来の
+    `read-command-name` に戻る。
+  * ファジー絞り込みを空白区切りの順不同マッチ (Emacs の orderless 相当)
+    に対応させた (`lisp/fuzzy-complete.l`)。`buf list` で `list-buffers`、
+    `find file` で `find-file` が出る。トークン 1 つずつは今までと同じ
+    「順序を守った部分列一致」のままなので、絞り込みの効き方は変わらない。
+  * ファジー絞り込みの候補表示をステータス行の幅に合わせた
+    (`lisp/fuzzy-complete.l`)。選択中の候補を必ず含めたうえで前後へ広げ、
+    入り切らなかった側に `…` を付ける。**あわせて、絞り込み結果自体を
+    表示件数で切っていたのをやめた。** これは表示の都合ではなくバグで、
+    `*fuzzy-max-candidates*` (既定 15) より後ろの候補は `C-n` で選ぶことが
+    できなかった。650 件あるコマンド名を相手にする `M-x` では致命的になる。
+  * ファジー絞り込みのスコアに「一致が散らばった分」のペナルティを足した
+    (`lisp/fuzzy-complete.l`)。単語区切り直後の一致ボーナスだけだと、長い
+    名前の中に文字がばらばらに散っているものがボーナスを何度も稼いで上に
+    来てしまう。実例: `buf` で `save-buffer` よりも
+    `backward-delete-char-untabify` (b...u...b...if) が上に出た。
+  * ファジー絞り込みのループ (`fuzzy-completing-read`) にテストを付けた。
+    `read-char` を差し替えて打鍵列を流し込む形なので、キーマップを経由
+    しないだけでループの中身は実際の操作と同じ経路を通る。これまで
+    純粋な関数 (スコア計算・絞り込み) だけがテストされていて、`C-n`/`C-p`/
+    `C-h`/`C-u`/`C-g` の分岐は一度も動かされていなかった。
   * 現在行 (選択中なら選択範囲に含まれる行) をそのまま 1 行上/下へ移動する
     `move-text-up` / `move-text-down` を追加した (`lisp/move-text.l`、
     `M-↑` / `M-↓`)。#30「編集体験の強化」の 1 項目。同じことは `C-k` して

@@ -177,6 +177,9 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
   - `execute-leader-key` (`M-m` または `C-c SPC`): ミニバッファに利用可能な機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `h:Help` 等) を一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+- **ファジー絞り込み M-x (`lisp/fuzzy-mx.l`)**:
+  - `fuzzy-execute-extended-command` (`M-x` / `Leader SPC`): コマンド名を打つそばからファジー絞り込みして選ぶ。空白区切りで複数キーワードを順不同指定できる (`buf list` → `list-buffers`)。直前に実行したコマンドが先に並ぶ (`*fuzzy-mx-history*`)。`*fuzzy-mx-mode*` を nil にすると従来の `read-command-name` (TAB 補完) に戻る。
+  - 候補は `do-all-symbols` + `commandp` で集めるので、まだ読み込んでいないライブラリの autoload コマンドも出る (素の `M-x` と同じ範囲)。
 - **行・選択範囲の上下移動 (`lisp/move-text.l`)**:
   - `move-text-up` (`M-↑`) / `move-text-down` (`M-↓`): 現在行、または選択範囲に含まれる行をまとめて 1 行上/下へ移動。kill-ring を経由しないので貼り付け待ちの内容を潰さず、移動後も同じテキストが選択されたまま残る。
 - **括弧・引用符の自動ペア挿入 (`lisp/autopair.l`)**:
