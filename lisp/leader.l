@@ -16,6 +16,7 @@
 	  *leader-toggle-map*
 	  *leader-window-map*
 	  *leader-help-map*
+	  *leader-code-map*
 	  *which-key-mode*
 	  *which-key-description-alist*
 	  execute-leader-key
@@ -43,6 +44,7 @@
 (defvar *leader-toggle-map* (make-sparse-keymap))
 (defvar *leader-window-map* (make-sparse-keymap))
 (defvar *leader-help-map* (make-sparse-keymap))
+(defvar *leader-code-map* (make-sparse-keymap))
 
 ;;;
 ;;; 説明ラベル設定ヘルパー
@@ -140,6 +142,13 @@
 (which-key-add-description 'delete-window "Close")
 (which-key-add-description 'delete-other-windows "Maximize")
 
+;; Code (c)
+(define-key *leader-code-map* #\s 'imenu)
+(define-key *leader-code-map* #\f 'list-function)
+
+(which-key-add-description 'imenu "Symbols")
+(which-key-add-description 'list-function "FuncDialog")
+
 ;; Help (h)
 (define-key *leader-help-map* #\k 'describe-key)
 (define-key *leader-help-map* #\f 'describe-function)
@@ -161,6 +170,7 @@
 (define-key *leader-map* #\g *leader-git-map*)
 (define-key *leader-map* #\t *leader-toggle-map*)
 (define-key *leader-map* #\w *leader-window-map*)
+(define-key *leader-map* #\c *leader-code-map*)
 (define-key *leader-map* #\h *leader-help-map*)
 
 ;; ダイレクトショートカット
@@ -176,6 +186,7 @@
 (which-key-add-description *leader-git-map* "Git")
 (which-key-add-description *leader-toggle-map* "Toggle")
 (which-key-add-description *leader-window-map* "Window")
+(which-key-add-description *leader-code-map* "Code")
 (which-key-add-description *leader-help-map* "Help")
 (which-key-add-description 'fuzzy-execute-extended-command "M-x")
 (which-key-add-description 'expand-region "Expand")
