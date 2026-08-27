@@ -84,6 +84,7 @@
 (si:*load-library "move-text") (gc)
 (si:*load-library "autopair") (gc)
 (si:*load-library "expand-region") (gc)
+(si:*load-library "winner") (gc)
 (si:*load-library "fuzzy-complete") (gc)
 (si:*load-library "fuzzy-mx") (gc)
 (si:*load-library "imenu") (gc)
