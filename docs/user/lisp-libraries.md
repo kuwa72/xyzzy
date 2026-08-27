@@ -177,6 +177,11 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
 - **Leader Key & Which-key ガイダンス (`lisp/leader.l`)**:
   - `execute-leader-key` (`M-m` または `C-c SPC`): 画面を分割した `*Which Key*` ウィンドウに機能カテゴリ (`f:File`, `b:Buffer`, `p:Project`, `s:Search`, `g:Git`, `t:Toggle`, `w:Window`, `c:Code`, `h:Help` 等) を段組みで一覧表示し、キーボードのみで直感的に操作。
   - `leader-define-key`: 独自の Leader ショートカットとラベルを動的に登録。
+- **走り書きの置き場 (`lisp/memo.l`)**:
+  - `open-scratch` (`Leader o s`): `*scratch*` へ跳ぶ。消えていれば作り直す。
+  - `open-memo` (`Leader o m`): その日のメモ (既定 `<config>/memo/YYYY-MM-DD.md`) を開き、時刻の見出しを付けて末尾へ。同じ分に何度呼んでも見出しは重ねない。置き場は `*memo-directory*`、ファイル名は `*memo-file-name-format*`、見出しは `*memo-heading-format*` (nil で見出しなし)。
+  - `open-memo-directory` (`Leader o M`): 置き場をファイラで開く。
+  - メモは **保存されるファイル**。`*scratch*` は保存されないので、残したいものはメモの方へ書く。
 - **定型コードの挿入 (スニペット) (`lisp/snippet.l`)**:
   - `snippet-expand` (`Leader c e`): 点の直前の略語をテンプレートに展開 (`defun`, `for`, `class` 等)。登録が無ければ一覧から選ぶ方へ回る。
   - `snippet-insert-by-name` (`Leader c i`): このモードのテンプレートをファジー絞り込みで選んで挿入。
