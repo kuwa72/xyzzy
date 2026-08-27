@@ -64,6 +64,37 @@ from_os_path (const char *s, wchar_t *b, int n)
   return l;
 }
 
+#if defined (__APPLE__)
+# define ST_ATIME(st) ((st).st_atimespec)
+# define ST_MTIME(st) ((st).st_mtimespec)
+# define ST_CTIME(st) ((st).st_ctimespec)
+#else
+# define ST_ATIME(st) ((st).st_atim)
+# define ST_MTIME(st) ((st).st_mtim)
+# define ST_CTIME(st) ((st).st_ctim)
+#endif
+
+// FILETIME counts 100ns units from 1601-01-01; the offset to the Unix epoch is
+// the same constant SystemTimeToFileTime in platform.h uses.
+#define FILETIME_EPOCH_OFFSET 11644473600ULL
+
+static void
+timespec_to_filetime (const struct timespec &ts, FILETIME *ft)
+{
+  uint64_t v = ((uint64_t)ts.tv_sec + FILETIME_EPOCH_OFFSET) * 10000000ULL
+               + (uint64_t)ts.tv_nsec / 100;
+  ft->dwLowDateTime = (DWORD)v;
+  ft->dwHighDateTime = (DWORD)(v >> 32);
+}
+
+static void
+filetime_to_timespec (const FILETIME *ft, struct timespec &ts)
+{
+  uint64_t v = ((uint64_t)ft->dwHighDateTime << 32) | ft->dwLowDateTime;
+  ts.tv_sec = (time_t)(v / 10000000ULL - FILETIME_EPOCH_OFFSET);
+  ts.tv_nsec = (long)(v % 10000000ULL) * 100;
+}
+
 static DWORD posix_get_file_attrs (const char *p)
 {
   struct stat st;
@@ -141,9 +172,17 @@ fill_find_data (LPWIN32_FIND_DATAW d, const char *basedir, const char *name)
   if (stat (fullpath, &st) == 0)
     {
       if (S_ISDIR (st.st_mode))
-        d->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        d->dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
+      if (!(st.st_mode & S_IWUSR))
+        d->dwFileAttributes |= FILE_ATTRIBUTE_READONLY;
       d->nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
       d->nFileSizeHigh = (DWORD)(st.st_size >> 32);
+      // Leaving these zero dated every file 1601-01-01, which is what
+      // file-write-time returned for anything on this side, and what the
+      // "changed on disk since you read it" check compared against.
+      timespec_to_filetime (ST_CTIME (st), &d->ftCreationTime);
+      timespec_to_filetime (ST_ATIME (st), &d->ftLastAccessTime);
+      timespec_to_filetime (ST_MTIME (st), &d->ftLastWriteTime);
     }
 }
 
@@ -337,8 +376,161 @@ int WINAPI WINFS::get_file_data (const wchar_t *path, WIN32_FIND_DATAW &fd)
     fd.dwFileAttributes |= FILE_ATTRIBUTE_READONLY;
   fd.nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
   fd.nFileSizeHigh = (DWORD)(st.st_size >> 32);
+  timespec_to_filetime (ST_CTIME (st), &fd.ftCreationTime);
+  timespec_to_filetime (ST_ATIME (st), &fd.ftLastAccessTime);
+  timespec_to_filetime (ST_MTIME (st), &fd.ftLastWriteTime);
   // Extract filename from path
   const char *name = strrchr (p.c_str (), '/');
   from_os_path (name ? name + 1 : p.c_str (), fd.cFileName, MAX_PATH);
   return 1;
+}
+
+// ============================================================
+// File calls that core makes directly rather than through WINFS.
+// These were declared in src/core/platform.h as inline stubs returning
+// "failed", which is why copy-file and everything that reads or writes a file
+// time did nothing here.  A HANDLE outside Windows is the fd (see
+// WINFS::CreateFile above), so all of them are one fstat away.
+// ============================================================
+
+BOOL
+GetFileTime (HANDLE h, FILETIME *ctime, FILETIME *atime, FILETIME *mtime)
+{
+  struct stat st;
+  if (h == INVALID_HANDLE_VALUE || fstat ((int)(intptr_t)h, &st) != 0)
+    return FALSE;
+  // POSIX has no creation time.  st_ctime is the inode change time, which is
+  // not the same thing, but every caller here compares one file's timestamps
+  // against another's rather than reading a wall clock date out of it.
+  if (ctime)
+    timespec_to_filetime (ST_CTIME (st), ctime);
+  if (atime)
+    timespec_to_filetime (ST_ATIME (st), atime);
+  if (mtime)
+    timespec_to_filetime (ST_MTIME (st), mtime);
+  return TRUE;
+}
+
+BOOL
+SetFileTime (HANDLE h, const FILETIME *, const FILETIME *atime,
+             const FILETIME *mtime)
+{
+  // The creation time is dropped: nothing on POSIX can set it.
+  if (h == INVALID_HANDLE_VALUE)
+    return FALSE;
+  struct timespec ts[2];
+  if (atime)
+    filetime_to_timespec (atime, ts[0]);
+  else
+    ts[0].tv_sec = 0, ts[0].tv_nsec = UTIME_OMIT;
+  if (mtime)
+    filetime_to_timespec (mtime, ts[1]);
+  else
+    ts[1].tv_sec = 0, ts[1].tv_nsec = UTIME_OMIT;
+  return futimens ((int)(intptr_t)h, ts) == 0;
+}
+
+BOOL
+GetFileInformationByHandle (HANDLE h, BY_HANDLE_FILE_INFORMATION *info)
+{
+  struct stat st;
+  if (!info || h == INVALID_HANDLE_VALUE
+      || fstat ((int)(intptr_t)h, &st) != 0)
+    return FALSE;
+  memset (info, 0, sizeof *info);
+  if (S_ISDIR (st.st_mode))
+    info->dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
+  if (!(st.st_mode & S_IWUSR))
+    info->dwFileAttributes |= FILE_ATTRIBUTE_READONLY;
+  timespec_to_filetime (ST_CTIME (st), &info->ftCreationTime);
+  timespec_to_filetime (ST_ATIME (st), &info->ftLastAccessTime);
+  timespec_to_filetime (ST_MTIME (st), &info->ftLastWriteTime);
+  // The one caller (fileio.cc) asks "are these two handles the same file",
+  // which on POSIX is exactly the device and inode pair.
+  info->dwVolumeSerialNumber = (DWORD)st.st_dev;
+  info->nFileSizeLow = (DWORD)(st.st_size & 0xffffffff);
+  info->nFileSizeHigh = (DWORD)((uint64_t)st.st_size >> 32);
+  info->nNumberOfLinks = (DWORD)st.st_nlink;
+  info->nFileIndexLow = (DWORD)((uint64_t)st.st_ino & 0xffffffff);
+  info->nFileIndexHigh = (DWORD)((uint64_t)st.st_ino >> 32);
+  return TRUE;
+}
+
+static BOOL
+copy_file (const char *from, const char *to, BOOL fail_if_exists)
+{
+  int rfd = open (from, O_RDONLY);
+  if (rfd < 0)
+    return FALSE;
+  struct stat st;
+  if (fstat (rfd, &st) != 0)
+    {
+      close (rfd);
+      return FALSE;
+    }
+  int flags = O_WRONLY | O_CREAT | (fail_if_exists ? O_EXCL : O_TRUNC);
+  int wfd = open (to, flags, st.st_mode & 0777);
+  if (wfd < 0)
+    {
+      close (rfd);
+      return FALSE;
+    }
+
+  char buf[64 * 1024];
+  BOOL ok = TRUE;
+  for (;;)
+    {
+      ssize_t n = read (rfd, buf, sizeof buf);
+      if (n < 0)
+        {
+          ok = FALSE;
+          break;
+        }
+      if (!n)
+        break;
+      for (ssize_t off = 0; off < n;)
+        {
+          ssize_t w = write (wfd, buf + off, n - off);
+          if (w <= 0)
+            {
+              ok = FALSE;
+              break;
+            }
+          off += w;
+        }
+      if (!ok)
+        break;
+    }
+
+  if (ok)
+    {
+      // CopyFile keeps the timestamps; a backup copy that claims to have been
+      // written now is not a backup of anything.
+      struct timespec ts[2];
+      ts[0] = ST_ATIME (st);
+      ts[1] = ST_MTIME (st);
+      futimens (wfd, ts);
+    }
+
+  close (rfd);
+  if (close (wfd) != 0)
+    ok = FALSE;
+  if (!ok)
+    unlink (to);
+  return ok;
+}
+
+BOOL
+CopyFileA (LPCSTR from, LPCSTR to, BOOL fail_if_exists)
+{
+  return from && to ? copy_file (from, to, fail_if_exists) : FALSE;
+}
+
+BOOL
+CopyFileW (LPCWSTR from, LPCWSTR to, BOOL fail_if_exists)
+{
+  if (!from || !to)
+    return FALSE;
+  os_path f (from), t (to);
+  return copy_file (f, t, fail_if_exists);
 }

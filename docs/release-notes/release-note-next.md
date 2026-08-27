@@ -15,6 +15,23 @@ xyzzy リリースノート
 変更
 ----
 
+  * POSIX 側で「常に失敗を返すだけ」だったファイル操作を実装した
+    (`src/core/vfs-posix.cc`)。対象は `GetFileTime` / `SetFileTime` /
+    `GetFileInformationByHandle` / `CopyFileW` / `CopyFileA` /
+    `GetDriveTypeW`。非 Windows での HANDLE はファイルディスクリプタなので、
+    いずれも `fstat`/`futimens`/read-write ループで素直に書ける。これにより
+    `copy-file` の `:copy-attributes` と `:if-exists :newer`、
+    「2 つのパスが同じファイルか」の判定 (POSIX では device + inode)、
+    バックアップのコピーが POSIX でも動くようになった。
+    あわせて、ディレクトリ列挙 (`WINFS::FindFirstFile`/`FindNextFile`/
+    `get_file_data`) が `WIN32_FIND_DATA` のタイムスタンプ 3 種を
+    埋めていなかったのを直した。ゼロのままだったため **POSIX では全ての
+    ファイルの日付が 1601-01-01 になり**、`file-write-time` も、
+    「開いた後にディスク上で変更されたか」の判定もそれを見ていた。
+    `GetDriveTypeW` は `DRIVE_UNKNOWN` ではなく `DRIVE_FIXED` を返す。
+    呼び出し元は「バックアップを書いてよい場所か」(`fileio.cc`) と
+    「取り出せるメディアか」(`pathname.cc`) の判定に使っており、POSIX では
+    どちらも「固定ディスク」が正しい答えになる。
   * POSIX のファイルシステム実装 (`WINFS` = `src/core/vfs.h` の各メソッド)
     を ncurses フロントエンドから `src/core/vfs-posix.cc` へ移した。
     #16 Phase 4「Core と Frontend の境界分離」の一環。`WINFS` は
