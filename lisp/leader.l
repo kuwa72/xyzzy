@@ -360,12 +360,20 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 
 (defun leader-define-key (key-seq command &optional label)
   "Leader Key にキーシーケンスとコマンドを登録する。
-key-seq は \"f o\" のようなスペース区切り文字列、または '(#\\f #\\o) のようなリスト。
-label は Which-key ガイダンスで表示する短い名称。"
-  (let ((keys (if (stringp key-seq)
-		  (mapcar #'(lambda (s) (char s 0))
-			  (split-string key-seq #\SPC t))
-		keys))
+
+KEY-SEQ は \"f o\" のようなスペース区切り文字列、または '(#\\f #\\o) のような
+文字のリスト。1 文字だけなら文字そのものでもよい。
+LABEL は Which-key ガイダンスで表示する短い名称。
+
+**自分で作ったキーマップを M-m へ直接割り当てないこと。** そうすると
+xyzzy 標準のプレフィックスキー処理に入り、候補一覧が出なくなる
+(ステータス行に \"m-\" と出て次のキーを待つだけになる)。M-m は
+execute-leader-key のままにして、項目はこの関数で足す。"
+  (let ((keys (cond ((stringp key-seq)
+		     (mapcar #'(lambda (s) (char s 0))
+			     (split-string key-seq " \t" nil)))
+		    ((characterp key-seq) (list key-seq))
+		    (t (copy-list key-seq))))
 	(map *leader-map*))
     (while (cdr keys)
       (let* ((k (car keys))

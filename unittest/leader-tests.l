@@ -152,3 +152,33 @@
     (assert-true (member "/  Grep" items :test #'string=))))
 
 (test-which-key-popup-lines)
+
+(defun test-leader-define-key ()
+  ;; 文字列 (スペース区切り)
+  (let ((*leader-map* (make-sparse-keymap))
+	(*which-key-description-alist* nil))
+    (leader-define-key "z" 'find-file "Find")
+    (assert-equal 'find-file (lookup-keymap *leader-map* #\z))
+    (assert-equal "Find" (which-key-get-description 'find-file))
+    ;; 2 打鍵。途中のキーマップは自動で作られる
+    (leader-define-key "y q" 'save-buffer)
+    (let ((sub (lookup-keymap *leader-map* #\y)))
+      (assert-true (keymapp sub))
+      (assert-equal 'save-buffer (lookup-keymap sub #\q))))
+  ;; 文字のリスト。以前はここで未定義変数 keys を参照していて動かなかった
+  (let ((*leader-map* (make-sparse-keymap)))
+    (leader-define-key '(#\a #\b) 'grep)
+    (let ((sub (lookup-keymap *leader-map* #\a)))
+      (assert-true (keymapp sub))
+      (assert-equal 'grep (lookup-keymap sub #\b))))
+  ;; 文字そのもの
+  (let ((*leader-map* (make-sparse-keymap)))
+    (leader-define-key #\k 'kill-buffer)
+    (assert-equal 'kill-buffer (lookup-keymap *leader-map* #\k)))
+  ;; 呼び出し側のリストを壊さないこと (copy-list している)
+  (let ((*leader-map* (make-sparse-keymap))
+	(seq (list #\c #\d)))
+    (leader-define-key seq 'grep)
+    (assert-equal (list #\c #\d) seq)))
+
+(test-leader-define-key)
