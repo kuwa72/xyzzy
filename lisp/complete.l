@@ -200,7 +200,7 @@
 	(delete-duplicates
 	 (mapcan #'(lambda (dir)
 		     (directory dir :wild *executable-file-suffixes*))
-		 (split-string (si:getenv "PATH") #\; t))
+		 (split-string (si:getenv "PATH") #\; nil))
 	 :test #'equalp))
   (message "Building executable list...done"))
 

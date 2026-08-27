@@ -27977,7 +27977,7 @@ declare をごらんください。
 <chapter>
 <title>split-string</title>
 <type>Function</type>
-<arguments>split-string STRING SEPARATOR &amp;optional IGNORE-EMPTY CHAR-BAG</arguments>
+<arguments>split-string STRING SEPARATOR &amp;optional EMPTY-OK CHAR-BAG</arguments>
 <package>editor</package>
 <description>
 文字列を指定されたセパレータ文字で分割したリストにします。
@@ -27985,8 +27985,11 @@ declare をごらんください。
 
   STRING       : 分割する文字列を指定します。
   SEPARATOR    : セパレータ文字を指定します。
-  IGNORE-EMPTY : 長さが0の文字列も（つまり、セパレータ文字が連続するような場合）
-                 を許すかどうかを指定します。
+  EMPTY-OK     : 長さが0の文字列も（つまり、セパレータ文字が連続するような場合）
+                 を許すかどうかを指定します。non-nil で残し、nil で捨てます。
+                 「無視する」ではなく「許す」方が non-nil です。
+                 なお、末尾のセパレータに対しては non-nil でも空要素を
+                 作りません（先頭側とは非対称です）。
   CHAR-BAG     : 分割した後の文字列の前後をトリムするための文字群を指定します。
   
 使用例：

@@ -127,7 +127,7 @@
 	    (setq *gresreg-save-buffer* (cdr (assoc 'save data)))
 	    (or no-dirs (setq *gresreg-subdir* (cdr (assoc 'subdir data))))
 	    (gresreg-process pattern replacement
-			     (split-string file #\; t " ")
+			     (split-string file #\; nil " ")
 			     (or dirlist dir)
 			     (eq result 'query)
 			     *gresreg-save-buffer*)))))))

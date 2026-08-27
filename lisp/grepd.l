@@ -279,7 +279,7 @@
 	    (or no-dirs (setq *grep-subdir* (cdr (assoc 'subdir data))))
 	    (setq *grep-async* (cdr (assoc 'async data)))
 	    (setq *grep-name-only* (cdr (assoc 'name data)))
-	    (scan-files pattern (split-string file #\; t " ")
+	    (scan-files pattern (split-string file #\; nil " ")
 			(or dirlist dir) *grep-async*)
 	    t))))))
 

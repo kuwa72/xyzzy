@@ -341,6 +341,8 @@
   (let ((string (get-clipboard-data)))
     (when string
       (stop-selection)
+      ;; 第 3 引数の t は「空要素を残す」(実装は empty_ok)。矩形の途中に
+      ;; 空行があってもその行を残さないと以降の行がずれるので、ここは残す。
       (let ((*rectangle-kill-buffer* (split-string string #\LFD t)))
 	(yank-rectangle)))))
 

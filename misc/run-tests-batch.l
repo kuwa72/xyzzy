@@ -41,7 +41,7 @@
             ;; With the variable unset nothing changes: any failure exits 1.
             (defun batch-read-known-failures (spec base)
               (let ((names nil))
-                (dolist (path (split-string spec #\, t " "))
+                (dolist (path (split-string spec #\, nil " "))
                   (let ((file (merge-pathnames path base)))
                     (if (not (file-exist-p file))
                         (format *standard-output*
@@ -172,12 +172,12 @@
             (setq *batch-exclude*
                   (let ((env (si:getenv "XYZZY_TEST_EXCLUDE")))
                     (if (and env (plusp (length env)))
-                        (split-string env #\, t " ")
+                        (split-string env #\, nil " ")
                       *batch-default-exclude*)))
             (let ((extra (si:getenv "XYZZY_TEST_EXCLUDE_EXTRA")))
               (when (and extra (plusp (length extra)))
                 (setq *batch-exclude*
-                      (append *batch-exclude* (split-string extra #\, t " ")))))
+                      (append *batch-exclude* (split-string extra #\, nil " ")))))
             (defun batch-excluded-p (name)
               (find name *batch-exclude* :test #'string-equal))
 

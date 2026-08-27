@@ -929,7 +929,7 @@
 (si::defun-builtin current-selection-keymap ())
 (si::defun-builtin ding ())
 (si::defun-builtin message-box (message &optional title styles &key :button1 :button2 :button3 :button4 :button5 :no-wrap))
-(si::defun-builtin split-string (string separator &optional ignore-empty char-bag))
+(si::defun-builtin split-string (string separator &optional empty-ok char-bag))
 (si::defun-builtin quote-string (string target-char quote-char))
 (si::defun-builtin abbreviate-display-string (string length &optional pathnamep))
 (si::defun-builtin abbreviate-string-column (string column))

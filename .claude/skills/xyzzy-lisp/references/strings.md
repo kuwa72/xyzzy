@@ -394,7 +394,7 @@ INDEXは0を基底とします。
 ## `split-string`
 
 - Function / package: editor / 定義: builtin.l
-- 呼び出し: `split-string STRING SEPARATOR &optional IGNORE-EMPTY CHAR-BAG`
+- 呼び出し: `split-string STRING SEPARATOR &optional EMPTY-OK CHAR-BAG`
 
 ```text
 文字列を指定されたセパレータ文字で分割したリストにします。
@@ -402,8 +402,11 @@ INDEXは0を基底とします。
 
   STRING       : 分割する文字列を指定します。
   SEPARATOR    : セパレータ文字を指定します。
-  IGNORE-EMPTY : 長さが0の文字列も（つまり、セパレータ文字が連続するような場合）
-                 を許すかどうかを指定します。
+  EMPTY-OK     : 長さが0の文字列も（つまり、セパレータ文字が連続するような場合）
+                 を許すかどうかを指定します。non-nil で残し、nil で捨てます。
+                 「無視する」ではなく「許す」方が non-nil です。
+                 なお、末尾のセパレータに対しては non-nil でも空要素を
+                 作りません（先頭側とは非対称です）。
   CHAR-BAG     : 分割した後の文字列の前後をトリムするための文字群を指定します。
   
 使用例：
