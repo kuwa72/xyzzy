@@ -200,3 +200,53 @@ bbb と空行が入れ替わって末尾の改行が消える)"
     (ed::move-text-up)
     (buffer-substring (point-min) (point-max)))
   => "aaa\nccc\nbbb\n")
+
+(deftest move-text-replace-refuses-length-change ()
+  "長さが合わない置き換えは書かずに nil を返すこと。
+
+move-text は必ず「同じ文字を並べ替える」操作なので、置き換えの前後で
+バッファの長さが変わることは無い。変わるならこちらの計算が狂っている
+ということなので、書き込まずに諦める。"
+  (with-temp-buffer
+    (insert "abcdef")
+    (values (ed::move-text-replace 0 3 "XY")
+	    (buffer-substring (point-min) (point-max))
+	    (ed::move-text-replace 0 3 "XYZW")
+	    (buffer-substring (point-min) (point-max))
+	    (ed::move-text-replace 0 3 "XYZ")
+	    (buffer-substring (point-min) (point-max))))
+  => nil
+  => "abcdef"
+  => nil
+  => "abcdef"
+  => t
+  => "XYZdef")
+
+(deftest move-text-length-never-changes ()
+  "あらゆる形・位置・方向で、バッファの長さが変わらないこと。
+報告された「テキストが増殖する」に対する総当たりの回帰テスト。"
+  (let ((bad nil))
+    (dolist (shape (list "aaaa
+bbbb" "aaaa
+bbbb
+" "aaaa
+bbbb
+cccc" "aaaa
+bbbb
+cccc
+" "aaaa
+" "aaaa" "
+" ""))
+      (dotimes (p (1+ (length shape)))
+	(dolist (dir '(-1 1))
+	  (with-temp-buffer
+	    (insert shape)
+	    (goto-char p)
+	    (let ((before (length (buffer-substring (point-min) (point-max)))))
+	      (dotimes (i 3)
+		(ed::move-text-move dir))
+	      (let ((after (length (buffer-substring (point-min) (point-max)))))
+		(unless (= before after)
+		  (push (list shape p dir before after) bad))))))))
+    bad)
+  => nil)
