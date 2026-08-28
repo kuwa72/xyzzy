@@ -529,7 +529,23 @@ lisp Fsi_ts_query_buffer_sync (lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_instance_number () { return make_fixnum (0); }
 lisp Fsi_plugin_arg () { return Qnil; }
 lisp Fsi_snarf_documentation (lisp, lisp) { return Qnil; }
-lisp Fsi_get_documentation_string (lisp, lisp, lisp, lisp) { return Qnil; }
+
+/* plist に入っている分は返す。理由は
+   src/frontend/ncurses/ncurses-stubs.cc の同じ関数の説明を参照 (issue #105)。 */
+lisp
+Fsi_get_documentation_string (lisp symbol, lisp indicator, lisp apropos, lisp)
+{
+  lisp doc = Fget (symbol, indicator, Qnil);
+  if (!stringp (doc))
+    return Qnil;
+  if (apropos == Qnil)
+    return doc;
+  const ucs4_t *p = xstring_contents (doc);
+  const ucs4_t *p0 = p;
+  for (const ucs4_t *pe = p + xstring_length (doc); p < pe && *p != '\n'; p++)
+    ;
+  return make_string (p0, p - p0);
+}
 
 // ============================================================
 // assert.cc stubs

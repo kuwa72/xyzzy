@@ -1121,7 +1121,32 @@ lisp Fsi_ts_query_buffer_sync (lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_instance_number () { return make_fixnum (0); }
 lisp Fsi_plugin_arg () { return Qnil; }
 lisp Fsi_snarf_documentation (lisp, lisp) { return Qnil; }
-lisp Fsi_get_documentation_string (lisp, lisp, lisp, lisp) { return Qnil; }
+
+/* **plist に入っている分は返す。** 常に nil を返していたので、
+   `(documentation 'foo 'function)` が nil になっていた -- docstring は
+   `lisp::function-documentation` に文字列で入っているのに、それを見る唯一の
+   経路がここだった (issue #105)。`M-x describe-function` も同じ。
+
+   Win32 側 (src/frontend/win32/doc.cc) はこの後にもう 1 段あり、property が
+   文字列でなく整数なら etc/DOC の中のオフセットとして mmap で読む。**ここに
+   その段は無くてよい:** DOC を書くのは Fsi_snarf_documentation で、それが
+   POSIX では空実装なので、property が整数になることがない。同じ理由で
+   src/frontend/cli/cli-stubs.cc にも同じものが入っている。 */
+lisp
+Fsi_get_documentation_string (lisp symbol, lisp indicator, lisp apropos, lisp)
+{
+  lisp doc = Fget (symbol, indicator, Qnil);
+  if (!stringp (doc))
+    return Qnil;
+  if (apropos == Qnil)
+    return doc;
+  /* apropos は 1 行目だけ。 */
+  const ucs4_t *p = xstring_contents (doc);
+  const ucs4_t *p0 = p;
+  for (const ucs4_t *pe = p + xstring_length (doc); p < pe && *p != '\n'; p++)
+    ;
+  return make_string (p0, p - p0);
+}
 
 // ============================================================
 // assert.cc stubs

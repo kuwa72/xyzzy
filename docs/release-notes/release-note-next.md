@@ -36,6 +36,27 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末フロントエンドで `documentation` が常に nil を返していたのを直した**
+    (issue #105)。`M-x describe-function` が何も出さないのもこれ。
+
+    `si:*get-documentation-string` が**空実装**だった
+    (`src/frontend/ncurses/ncurses-stubs.cc`、`src/frontend/cli/cli-stubs.cc`)。
+    docstring は `lisp::function-documentation` に文字列で入っているのに、
+    **それを見る唯一の経路がここ**なので、`(documentation 'foo 'function)` は
+    常に nil になっていた。
+
+    Win32 側 (`src/frontend/win32/doc.cc`) はこの後にもう 1 段あり、property が
+    文字列ではなく整数なら `etc/DOC` の中のオフセットとして mmap で読む。
+    **端末側にその段は要らない**: `DOC` を書くのは `si:*snarf-documentation` で、
+    それが POSIX では空実装なので、property が整数になることがない。組み込み
+    関数の説明 (`(documentation 'car 'function)`) は `DOC` 由来なので nil の
+    まま。
+
+    Linux の Lisp スイートを CI に載せた (#49) ことで `redefun-docstring` が
+    落ちるものとして見えるようになり、**理由が分からないまま
+    `misc/known-failures/linux.txt` に置いてあった 4 件の 1 件目**がこれだった。
+    直したので一覧から外した。
+
   * **64bit の `long` を持つ環境で bignum の計算が黙って間違っていたのを直した。**
     Linux ネイティブビルドで Lisp テストスイートを通せるようにした作業
     (issue #49) の途中で見つかった。**Windows では一度も表に出ていない。**
