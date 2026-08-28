@@ -13,6 +13,8 @@
 
 (in-package "editor")
 
+(export '(*ts-highlight* toggle-ts-highlight))
+
 ;;; --- Configuration -------------------------------------------------------
 
 (defvar *ts-grammar-directory*
@@ -80,10 +82,25 @@ COLORS is an alist of (capture-name . fg-color-number)."
   "Mode-specific indent calculator. Set by each mode's ts enable hook.
 Called by ts-test-indent with no arguments; should return a column or nil.")
 
+(defvar *ts-highlight* t
+  "nil なら tree-sitter による色付けを行わない。
+
+**tree-sitter の色はカラーテーマの配色に従わない。** `set-text-attribute' の
+`:foreground' が指すのは「文字1〜文字15」という固定の 16 色表
+(`Window::w_textprop_forecolor') で、カラーテーマが書き換えるのは
+「キーワード1」などの役割色 (`set-buffer-colors', USER_DEFINABLE_COLORS) と
+いう別の表である。そのため、キーワードファイルによる色付け (テーマに従う) の
+上に tree-sitter が固定色で塗り重なる。テーマを選んでいると浮いて見える
+(issue #98)。
+
+配色を合わせるには「文字1〜15」を Lisp から設定できるようにする必要があり、
+それが入るまでの逃げ道としてこの変数を用意してある。`toggle-ts-highlight' で
+切り替えられる。")
+
 (defun ts-enable-for-buffer ()
   "Enable tree-sitter highlighting for the current buffer (uses buffer-mode)."
   (interactive)
-  (let ((entry (gethash buffer-mode *ts-grammar-registry*)))
+  (let ((entry (and *ts-highlight* (gethash buffer-mode *ts-grammar-registry*))))
     (when entry
       (setq *ts-buffer-grammar*   (first  entry)
             *ts-buffer-query*     (second entry)
@@ -99,6 +116,25 @@ Called by ts-test-indent with no arguments; should return a column or nil.")
   (stop-timer 'ts-do-highlight)
   (save-excursion
     (delete-text-attributes 'ts-face)))
+
+(defun toggle-ts-highlight (&optional (arg nil sv))
+  "tree-sitter による色付けの有効・無効を切り替える。
+
+無効にすると、開いているバッファの色付けもその場で外す。有効にしても
+既に開いているバッファには効かないので、そのバッファで
+`ts-enable-for-buffer' を呼ぶか開き直すこと。"
+  (interactive)
+  (setq *ts-highlight* (if sv arg (not *ts-highlight*)))
+  (unless *ts-highlight*
+    (dolist (buf (buffer-list))
+      (ignore-errors
+	(save-excursion
+	  (set-buffer buf)
+	  (when *ts-highlight-active*
+	    (ts-disable-for-buffer))))))
+  (message "tree-sitter highlight: ~:[off~;on~]" *ts-highlight*)
+  *ts-highlight*)
+
 
 ;;; --- Highlight scheduling ------------------------------------------------
 
