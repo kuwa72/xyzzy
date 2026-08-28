@@ -324,6 +324,34 @@ bignum_rep *coerce_to_bignum_rep (lisp, bignum_rep_long *);
 long coerce_to_long (lisp);
 int64_t coerce_to_int64 (lisp);
 
+/* a * b が int64_t に収まるか。収まるなら *r に積を入れて 0 を返す。
+
+   **`long` の幅が処理系で変わるので要る。** src/num-arith.d の整数どうしの
+   掛け算は `int64_t (x) * int64_t (y)` を計算して make_integer に渡す形で、
+   これは「オペランドが 32bit に収まるなら積は int64 に収まる」ことを当てに
+   していた。`long` が 32bit の Windows (LLP64) ではそのとおりだが、64bit の
+   Linux (LP64) では 2^32 が bignum ではなく long_int になるので、
+   **(* (expt 2 32) (expt 2 32)) が int64 を溢れて 0 になっていた**
+   (issue #49)。答えが黙って変わるので、上限の検査より悪い。
+
+   掛けてから確かめる形 (z / b != a) は、符号付きの溢れがそもそも未定義動作
+   なので使えない。割り算で先に確かめる。 */
+inline int
+int64_multiply_overflows (int64_t a, int64_t b, int64_t *r)
+{
+  if (a == 0 || b == 0)
+    {
+      *r = 0;
+      return 0;
+    }
+  if (a > 0
+      ? (b > 0 ? a > INT64_MAX / b : b < INT64_MIN / a)
+      : (b > 0 ? a < INT64_MIN / b : b < INT64_MAX / a))
+    return 1;
+  *r = a * b;
+  return 0;
+}
+
 lisp number_add (lisp, lisp);
 lisp number_subtract (lisp, lisp);
 lisp number_multiply (lisp, lisp);

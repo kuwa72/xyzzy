@@ -1,0 +1,238 @@
+# Known failures on the native POSIX build (linux.yml), run as
+# _build/linux/xyzzy --batch.  See README.md.
+#
+# **This list is about the frontend not being finished, not about a toolchain
+# difference.**  misc/known-failures/mingw.txt holds "MSVC passes, mingw does
+# not"; everything here is "Windows passes, POSIX has no implementation yet".
+# So a line coming off this list is progress on src/frontend/ncurses and
+# src/core/vfs-posix.cc, and #50 is where the missing pieces are listed.
+#
+# Tests that take the *process* down do not belong here -- a dead process ends
+# the run and everything after it goes unmeasured.  Those go in the exclude list
+# in tools/run-tests.sh, with the reason.
+#
+# Baseline: main @ a63a907 + this branch, 158 names.
+#
+# 内訳の数はグループの見出しの下に並んでいる名前を数えれば分かる。1 つでも
+# 通るようになったら run が赤くなるので、そのとき消す。
+
+# FFI: Windows の DLL を読み、その関数を呼ぶ。
+# 
+# `load-library` / `define-dll-entry` / `make-c-function` は LoadLibrary と
+# GetProcAddress、それに Win32 の呼び出し規約 (stdcall) の上に建っている。POSIX
+# 側には対応するものがまだ無い (#50)。dlopen へ載せ替えれば大半は動くはずだが、
+# stdcall と可変長引数の扱いは別に考える必要がある。
+
+c-callable-check-type-1
+c-callable-typep
+c-function-check-type-1
+c-function-typep
+c-vaargs-invalid-vaargs-0
+define-dll-entry-int32-arg
+define-dll-entry-int64-arg
+define-dll-entry-return-int32
+define-dll-entry-return-int64
+define-dll-entry-return-uint32
+define-dll-entry-return-uint64
+define-dll-entry-uint32-arg
+define-dll-entry-uint64-arg
+defun-c-callable-cdecl
+defun-c-callable-stdcall
+dll-module-check-type-1
+dll-module-p
+dll-module-typep
+fix-for-ffi-c-function-return-doubl/float-00
+funcall-expand-vaargs
+funcall-invalid-c-args
+funcall-invalid-vaargs-1
+funcall-invalid-vaargs-2
+funcall-invalid-vaargs-3
+funcall-invalid-vaargs-4
+funcall-invalid-vaargs-5
+funcall-invalid-vaargs-6
+funcall-invalid-vaargs-7
+funcall-vaargs
+funcall-vaargs-2
+funcall-vaargs-default-argument-promotions
+funcall-vaargs-noarg
+make-c-function-stdcall-rest
+pack-unpack-int32-overflow
+pack-unpack-uint32
+pack-unpack-uint64
+pack-unpack-uint64-offset
+
+# Win32 API を直接呼ぶもの。
+# 
+# `uuid-create` は CoCreateGuid、`last-win32-error` は GetLastError、
+# `shell-operation-*` は SHFileOperation、`machine-type` は GetSystemInfo、
+# `wait-object` は WaitForMultipleObjects、`add-putenv` / `test-environ` は
+# Win32 の環境変数ブロック。`handle-access-violation` / `handle-divide-by-zero` は
+# ハードウェア例外を win32-exception として受け取るもので、SEH が要る。
+# `formatter-*` は外部の整形コマンドを Win32 のプロセス起動で呼ぶ。
+
+add-putenv-04
+fix-start-timer
+formatter-before-save-returns-nil
+formatter-run-replaces-on-success
+handle-access-violation
+handle-access-violation-2
+handle-divide-by-zero
+last-win32-error
+last-win32-error-getlasterror
+machine-type
+shell-operation-copy
+shell-operation-copy-multi
+shell-operation-delete
+shell-operation-delete-multi
+shell-operation-invalid-arg-1
+shell-operation-invalid-arg-2
+shell-operation-invalid-arg-3
+shell-operation-invalid-arg-4
+shell-operation-invalid-arg-5
+shell-operation-invalid-arg-6
+shell-operation-invalid-arg-7
+shell-operation-invalid-arg-8
+shell-operation-move
+shell-operation-move-multi2
+shell-operation-rename
+test-environ-1
+test-environ-2
+uuid-create-1
+uuid-create-1-seq
+uuid-create-2
+uuid-create-2-seq
+uuid-create-3
+uuid-create-3-seq
+uuid-create-4
+uuid-create-4-seq
+wait-object-check-type-1
+wait-object-typep
+
+# ファイル名とパス。src/core/vfs-posix.cc の未実装ぶん。
+# 
+# `chdir` はドライブごとのカレントディレクトリという Win32 の概念に、
+# `truename` は大文字小文字と短縮名に、`user-config-path` / `xyzzy-ini-path` は
+# レジストリと ini ファイルに依っている。`directory--*` は WIN32_FIND_DATA の
+# 属性 (FILE_ATTRIBUTE_*) をそのまま見ている。
+
+chdir-0
+chdir-1
+chdir-2
+chdir-3
+chdir-4
+chdir-5
+chdir-6
+chdir-path-not-found
+directory--absolute
+directory--file-info
+directory--show-dots
+directory--test-absolute
+directory--test-file-info
+fix-*load-pathname*-from-dump-image
+fix-truename-1
+fix-truename-2
+fix-truename-3
+fix-truename-4
+image-startup-option
+user-config-path-startup-option
+user-config-path-startup-option-and-xyzzyconfigpath
+user-config-path-xyzzyconfigpath
+xyzzy-ini-path
+xyzzy-ini-path-startup-option
+xyzzy-ini-path-startup-option-and-xyzzyinifile
+xyzzy-ini-path-xyzzyinifile
+
+# コマンドライン引数の処理。
+# 
+# どれも `eval-in-another-xyzzy` で**自分自身をもう 1 つ起動して**引数の効きを
+# 見る。POSIX ビルドでは子プロセスが同じ tty を取り合うので、そのままでは
+# 測れない。`--batch` を必ず付ける形に直せば動くはずで、それは
+# `unittest/test-helpers.l` の側の作業になる。
+
+process-command-line--c
+process-command-line--column
+process-command-line--e
+process-command-line--eval
+process-command-line--f
+process-command-line--funcall
+process-command-line--g
+process-command-line--go
+process-command-line--i
+process-command-line--kill
+process-command-line--l
+process-command-line--load
+process-command-line--load-path
+process-command-line--m
+process-command-line--mailto
+process-command-line--mode
+process-command-line--p
+process-command-line--r
+process-command-line--require
+process-command-line--ro
+process-command-line--rw
+process-command-line--s
+process-command-line--s
+process-command-line--trace
+process-command-line--work-dir
+
+# ウィンドウの分割と構成。**`--batch` では curses を初期化しない。**
+# 
+# そのためフレームに大きさが無く、`split-window` は 「分割できません」で
+# 失敗する。ウィンドウを触るテストは全部そこで落ちる (`with-output-to-temp-buffer`
+# も内部で分割するので巻き込まれる)。
+# 
+# **これは端末の実装が足りないのではなく、バッチモードに画面が無いことによる。**
+# Windows ビルドの xyzzy-batch は隠しウィンドウを持っているので通る。端末側で
+# 同じことをするには、バッチでも大きさだけ持った仮のフレームを作る必要がある。
+
+add-deleted-window-p-01
+echo-area-grows-for-a-long-message
+echo-area-respects-the-line-limit
+echo-area-splits-on-a-newline
+echo-area-still-runs-format-directives
+fix-previous-pseudo-frame-test
+non-bmp-buffer-roundtrip
+popup-window-open-realizes-the-window-size
+popup-window-open-reuses-its-own-window
+popup-window-open-splits-the-selected-window
+save-window-excursion-restores-the-layout
+save-window-excursion-returns-the-body-value
+window-configuration-restores-fewer-windows
+window-configuration-restores-the-buffer
+window-configuration-round-trip
+window-grid-survives-a-vertical-split
+window-grid-survives-delete-then-split
+window-space-comes-back-after-delete
+window-space-does-not-leak-over-repeats
+winner-mode-off-records-nothing
+winner-new-change-clears-redo
+winner-record-is-idempotent
+winner-redo-reapplies
+winner-ring-is-bounded
+winner-signature-changes-on-split
+winner-signature-ignores-selection
+winner-undo-restores-previous-layout
+
+# OLE / COM。POSIX には COM が無い。
+# 
+# ole-tests.l は丸ごと除外してある (tools/run-tests.sh に理由)。ここに残るのは
+# 別のファイルから OLE を触っているもの。
+
+fix-ole-method
+lisp-mode-eval-last-sexp
+
+# **まだ理由が分かっていないもの。**
+# 
+# Windows では通り、Linux では落ちる。フロントエンドやプラットフォーム API に
+# 直接は関係していないように見えるので、**本物の移植バグである可能性がある。**
+# ここに置いたまま放置しないための印として、理由を書けないことを明示しておく。
+# 
+#   * redefun-docstring -- defun の docstring が取れない (nil が返る)
+#   * text-mode-does-not-save-buffer-package -- *buffer-package* が残る
+#   * fix (cdr '#1='#1#) printing -- 循環リストの表示
+#   * fix-abbreviate-display-string -- パスの短縮 (mingw でも落ちる)
+
+fix (cdr '#1='#1#) printing
+fix-abbreviate-display-string
+redefun-docstring
+text-mode-does-not-save-buffer-package

@@ -39,6 +39,21 @@
             ;; because a list nobody prunes stops meaning anything.
             ;;
             ;; With the variable unset nothing changes: any failure exits 1.
+            ;; Where a comment starts on a line, or nil.
+            ;;
+            ;; **A test name can contain #.**  There is one called
+            ;; |fix (cdr '#1='#1#) printing|, and cutting the line at the first
+            ;; # read it as "fix (cdr '" -- so the name could not be listed at
+            ;; all and the run stayed red no matter what was written here.
+            ;; Only a # at the start of a line or right after whitespace begins
+            ;; a comment; every # inside that name is preceded by ' or a digit.
+            (defun batch-comment-start (line)
+              (dotimes (i (length line))
+                (when (and (char= (char line i) #\#)
+                           (or (zerop i)
+                               (member (char line (1- i)) '(#\SPC #\TAB))))
+                  (return i))))
+
             (defun batch-read-known-failures (spec base)
               (let ((names nil))
                 (dolist (path (split-string spec #\, nil " "))
@@ -52,7 +67,7 @@
                             (unless line (return))
                             ;; read-line drops the newline; a file written on
                             ;; Windows still leaves the CR behind.
-                            (let* ((hash (position #\# line))
+                            (let* ((hash (batch-comment-start line))
                                    (name (string-trim
                                           " \t\r\n"
                                           (if hash (subseq line 0 hash) line))))

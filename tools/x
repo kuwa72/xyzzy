@@ -32,6 +32,22 @@ IMAGE=xyzzy-devenv
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ARCH_DEFAULT=${XYZZY_ARCH:-x86_64}
 
+# **メモリの上限を必ず付ける。** 上限が無いと、コンテナの中で暴走したものが
+# ホストのメモリを取り切る。WSL では VM ごと膨らむので、**ホストが道連れに
+# なる。** 実際に起きている: lisp テストスイートが make-array の上限の穴で
+# 12.65 GiB まで伸びてホストの上限に迫った (issue #49、PR #91 で修正)。
+# 上限があれば、暴走してもコンテナが OOM で殺されるだけで済む。
+#
+# 8g はビルド (ninja + clang を並列) には十分で、上の暴走は止まる大きさ。
+# --memory-swap を同じ値にするのは、既定 (memory の 2 倍) だとスワップまで
+# 使って WSL の VM が伸びるため。
+#
+# XYZZY_DOCKER_MEMORY= (空) で外せる。CPU は既定では絞らない: 張り付いても
+# 待てば戻るのに対して、絞るとビルドが目に見えて遅くなる。必要なら
+# XYZZY_DOCKER_CPUS=2 のように渡す。
+: "${XYZZY_DOCKER_MEMORY=8g}"
+: "${XYZZY_DOCKER_CPUS=}"
+
 # A `git worktree add` sibling (e.g. to build a second commit for comparison
 # without disturbing $ROOT) is otherwise invisible in here: only $ROOT is
 # bind-mounted.  Mount every OTHER worktree registered against this checkout
@@ -70,6 +86,14 @@ docker_run() {
   tty_flag=""
   [ -t 0 ] && tty_flag="-it"
 
+  limit_flag=""
+  if [ -n "$XYZZY_DOCKER_MEMORY" ]; then
+    limit_flag="--memory $XYZZY_DOCKER_MEMORY --memory-swap $XYZZY_DOCKER_MEMORY"
+  fi
+  if [ -n "$XYZZY_DOCKER_CPUS" ]; then
+    limit_flag="$limit_flag --cpus $XYZZY_DOCKER_CPUS"
+  fi
+
   if [ -z "${XYZZY_SIBLINGS_DIR+set}" ]; then
     siblings_flag=$(siblings_mounts)
   elif [ -n "$XYZZY_SIBLINGS_DIR" ]; then
@@ -78,8 +102,12 @@ docker_run() {
     siblings_flag=""
   fi
 
+  # --init: tini を PID 1 に置く。これが無いと中のプロセスが PID 1 になり、
+  # SIGTERM の既定動作が「無視」なので docker stop / Ctrl-C で止まらず、
+  # 子プロセスも回収されない。
+  #
   # shellcheck disable=SC2086
-  exec docker run --rm $tty_flag $siblings_flag \
+  exec docker run --rm --init $tty_flag $limit_flag $siblings_flag \
     --platform linux/amd64 \
     -v "$ROOT":/work \
     -v xyzzy-wine64:/wine \
