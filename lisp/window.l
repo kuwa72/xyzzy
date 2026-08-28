@@ -7,6 +7,22 @@
 
 (in-package "editor")
 
+;;; ステータス行 (エコー領域) の高さの上限。issue #97。
+;;;
+;;; **`defvar' では値が入らない。** この変数は C++ 側 (gen-syms.cc の DEFVAR2)
+;;; が nil で束縛済みで、`defvar' は束縛済みの変数へは代入しない。C++ 側は
+;;; 整数でなければ既定値 (10) を使うので nil でも動くが、`M-x describe-variable'
+;;; で見えるように値と説明をここで付けておく。
+(setq *max-minibuffer-message-lines* 10)
+(setf (get '*max-minibuffer-message-lines* 'lisp::variable-documentation)
+      "`message' の出力が何行まで伸びてよいか。
+
+長いメッセージはステータス行を高くして全部出す。1 にすると以前と同じ
+「常に 1 行、収まらない分は切る」になる。画面に入り切らない高さは
+入る分まで詰められる (編集中のウィンドウが 1 行 + モード行は残る)。
+
+メッセージに改行を書けば、そこで行が変わる。")
+
 (export '(count-windows pop-to-buffer other-window move-previous-window
 	  *pop-up-windows* display-buffer
 	  split-window-vertically split-window-horizontally

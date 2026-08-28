@@ -424,16 +424,7 @@ command_loop ()
       if (app.kbdq.macro_is_running ())
         pending_refresh_screen ();
       else
-        {
-          if (stringp (xsymbol_value (Vminibuffer_message)))
-            {
-              xsymbol_value (Vminibuffer_message) = Qnil;
-              Window *mw = Window::minibuffer_window ();
-              if (mw)
-                mw->w_disp_flags |= Window::WDF_WINDOW;
-            }
-          refresh_screen (1);
-        }
+        refresh_screen (1);
       xsymbol_value (Vquit_flag) = Qnil;
       xsymbol_value (Vinhibit_quit) = Qnil;
       xsymbol_value (Vsi_find_motion) = Qt;
@@ -443,6 +434,19 @@ command_loop ()
       lChar c = app.kbdq.fetch (1, toplev_accept_mouse_move_p ());
       if (c == lChar_EOF)
         break;
+
+      /* エコー領域のメッセージは**次の打鍵で消す。** 以前はキーを待つ前に
+         消していた。プロンプト (interactive "c" など、同じコマンドの中で
+         出して読んで消すもの) にはそれで足りたが、`message' の出力先を
+         ここへ回すと**読む前に消える。** 打鍵まで残す方が Emacs の
+         エコー領域と同じで、待っている間ずっと読める (issue #97)。 */
+      if (stringp (xsymbol_value (Vminibuffer_message)))
+        {
+          xsymbol_value (Vminibuffer_message) = Qnil;
+          Window *mw = Window::minibuffer_window ();
+          if (mw)
+            mw->w_disp_flags |= Window::WDF_WINDOW;
+        }
 
       while (1)
         {

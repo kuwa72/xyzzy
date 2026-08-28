@@ -706,13 +706,14 @@ Window::change_parameters (const FontSetParam &param,
                            const XCOLORREF *fg, const XCOLORREF *bg,
                            bool change_color_p)
 {
-  int ocell = app.text_font.cell ().cy;
-
+  /* 以前はここでフォントを変える前のセル高 (ocell) を compute_geometry へ
+     渡していた。ステータス行の行数をその高さから割り戻していたからで、
+     行数は w_minibuffer_lines が持つようになったので要らない (issue #97)。 */
   app.text_font.create (param);
   if (change_color_p)
     init_colors (colors, mlcolors, fg, bg);
 
-  compute_geometry (app.active_frame.size, ocell);
+  compute_geometry (app.active_frame.size);
 
   for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
     wp->invalidate_glyphs ();
@@ -901,7 +902,7 @@ compute_size (int *o, int n, int old_size, int new_size)
 }
 
 void
-Window::compute_geometry (const SIZE &old_size, int lcell)
+Window::compute_geometry (const SIZE &old_size, int)
 {
   if (!app.active_frame.windows)
     return;
@@ -914,14 +915,19 @@ Window::compute_geometry (const SIZE &old_size, int lcell)
     ;
   wp->w_rect.left = 0;
   wp->w_rect.right = new_size.cx;
+  /* 高さは w_minibuffer_lines 行分。**以前は今の高さから行数を割り戻して
+     いた** (`old_h / lcell`) ので、フォントを変えても行数は保たれる代わりに
+     行数を変える手段が無かった (issue #97)。 */
   int old_h = wp->w_rect.bottom - wp->w_rect.top;
-  int old_l = static_cast<int> (old_h / lcell);
-  int new_h = old_l * app.text_font.cell ().cy + 4;
+  int new_h = w_minibuffer_lines * app.text_font.cell ().cy + 4;
   int min_h = app.text_font.cell ().cy + 4;
   int max_h = new_size.cy - (sysdep.edge.cy + FRAME_WIDTH + min_h + app.modeline_param.m_height + 4);
   new_h = max (new_h, min_h);
-  if (max_h < new_h)
-    new_h = old_h;
+  if (new_h > max_h)
+    /* 入り切らないぶんは詰める。**元の高さへ戻してはいけない**: 伸ばせ
+       ないのではなく「伸ばせるところまで伸ばす」のが期待する挙動である。
+       画面が min_h さえ置けないほど狭いときだけ、今の高さを保つ。 */
+    new_h = max_h >= min_h ? max_h : old_h;
 
   wp->w_rect.bottom = new_size.cy;
   wp->w_rect.top = new_size.cy - new_h;

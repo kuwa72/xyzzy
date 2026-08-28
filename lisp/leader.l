@@ -26,6 +26,7 @@
 	  *which-key-prefix-mode*
 	  which-key-merge-bindings
 	  which-key-lines-from-bindings
+	  which-key-status-lines
 	  which-key-prompt-from-bindings
 	  which-key-prefix-hook
 	  toggle-which-key-prefix
@@ -334,9 +335,27 @@ global の順で、実際に効くのは前にあるものである。同じキ�
   "一時ウィンドウに出す行のリスト。1 行目は今いる階層の名前。"
   (which-key-lines-from-bindings path (which-key-collect-bindings keymap) width))
 
+(defun which-key-status-lines (path bindings)
+  "ステータス行 (エコー領域) に出す行のリスト。
+
+**エコー領域は表示量に応じて複数行になる** (issue #97) ので、1 行へ詰め込む
+必要が無くなった。`C-x' は 60 個以上あり、1 行では 8 個 +「+55」しか出せて
+いなかった (#84)。段組みにして `*max-minibuffer-message-lines*' 行まで使う。
+入り切らない分は `popup-window-columns' が「... +N」と個数を書く。"
+  (which-key-lines-from-bindings
+   path bindings
+   (max 20 (1- (popup-window-measured-columns)))
+   (max 1 (1- (if (and (boundp '*max-minibuffer-message-lines*)
+		       (integerp *max-minibuffer-message-lines*))
+		  *max-minibuffer-message-lines*
+		2)))))
+
 (defun which-key-prompt-from-bindings (path bindings width)
   "ステータス行に出す 1 行。WIDTH に収まる分だけ出し、入り切らなければ
-「あと何個あるか」を書く。**黙って切ると「これで全部だ」と読めてしまう。**"
+「あと何個あるか」を書く。**黙って切ると「これで全部だ」と読めてしまう。**
+
+エコー領域が 1 行しか使えない設定 (`*message-in-echo-area*' が nil) の
+ときに使う。複数行使えるなら `which-key-status-lines' の方が読める。"
   (let* ((items (which-key-binding-strings bindings))
 	 (head (format nil "[~A] " path))
 	 (out (make-string-output-stream))
@@ -557,15 +576,23 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 プレフィックス待ちの最中 (コマンドループの dispatch の中) にウィンドウを
 作って消すと、端末フロントエンドで画面が更新されなくなり、続くコマンドが
 一時ウィンドウの方で走った (issue #83)。C-x は日常のキーなので、そこで
-レイアウトを触るのは危険が大きすぎる。ステータス行なら 1 行に収まる分だけ
-出て、ウィンドウには触らない。"
+レイアウトを触るのは危険が大きすぎる。ステータス行ならウィンドウには
+触らない。
+
+**ステータス行は表示量に応じて複数行になる** (issue #97) ので、段組みで
+出す。`*message-in-echo-area*' が nil のときは 1 行しか使えないので、
+そのときだけ 1 行に詰めた形に落とす。"
   (let ((bindings (which-key-merge-bindings keymaps)))
     (when bindings
       (let ((keys (append (which-key-prefix-keys) (list key))))
 	(setq *which-key-prefix-state* (cons t keys))
-	(message "~A" (which-key-prompt-from-bindings
-		       (which-key-prefix-path keys) bindings
-		       (max 20 (1- (popup-window-measured-columns)))))
+	(if (and (boundp '*message-in-echo-area*) *message-in-echo-area*)
+	    (message "~{~A~^~%~}"
+		     (which-key-status-lines
+		      (which-key-prefix-path keys) bindings))
+	  (message "~A" (which-key-prompt-from-bindings
+			 (which-key-prefix-path keys) bindings
+			 (max 20 (1- (popup-window-measured-columns))))))
 	t))))
 
 (defun which-key-prefix-teardown ()
