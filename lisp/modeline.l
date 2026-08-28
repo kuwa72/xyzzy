@@ -176,10 +176,11 @@
 		    (concat (remove-trail-slash
 			     (namestring (merge-pathnames g d)))
 			    "/")))))))
-	(let ((parent (directory-namestring (remove-trail-slash d))))
-	  (if (or (null parent) (string= parent "") (string= parent d))
-	      (setq d nil)
-	    (setq d parent)))))
+	;; 親を取るのは parent-directory に任せる (lisp/project.l)。
+	;; **自分で「親が同じなら終わり」と書くと Windows で無限ループになる**:
+	;; C:/ の親を尋ねると、ドライブ C: のカレントディレクトリが返ってきて
+	;; 長い方へ戻る。
+	(setq d (parent-directory d))))
     nil))
 
 (defun modeline-head-file (dir)
