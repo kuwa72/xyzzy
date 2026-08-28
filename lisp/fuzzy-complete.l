@@ -197,7 +197,7 @@ QUERY が空 (または空白だけ) のときは絞り込まず、先頭から 
 
 (defun fuzzy-status-width ()
   "ステータス行に使える桁数の見積り。"
-  (or (ignore-errors (window-columns)) 80))
+  (popup-window-measured-columns))
 
 (defun fuzzy-format-candidates (matches index query total &optional head-length)
   "ステータス行1行に収める候補一覧の表示文字列を作る。選択中の候補は
@@ -283,7 +283,7 @@ message を書いた直後に read-char で待つと描かれないフロント�
 (defun fuzzy-vertical-draw (prompt query matches index annotate)
   "候補ウィンドウを書き換える。"
   (let* ((n (length matches))
-	 (width (or (ignore-errors (window-columns)) 80))
+	 (width (popup-window-measured-columns))
 	 (lines (let ((*popup-window-max-lines* *fuzzy-vertical-lines*))
 		  (popup-window-body-lines 1))))
     (multiple-value-bind (rows row)

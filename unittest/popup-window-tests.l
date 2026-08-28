@@ -144,3 +144,46 @@ pop-to-buffer は「画面が既に分割されていたら新たに分割せず
 	  (values n1 n2)))))
   => 2
   => 2)
+
+(deftest popup-window-open-realizes-the-window-size ()
+  "**開いた直後に大きさが取れること。**
+
+Win32 では split-window の直後のウィンドウは window-lines / window-columns が
+1 を返し、実際の大きさになるのは次の描画のときである (フレームのウィンドウ配置
+は refresh_screen で反映される)。1 行 1 桁として段組みを組むと候補が 1 個しか
+出ない。実際に Leader メニューが
+
+    [Leader]
+    b  Buffer+
+    ... +13
+
+になった。popup-window-open が開いた後に refresh-screen を呼ぶ。"
+  (save-window-excursion
+    (delete-other-windows)
+    (let ((name " *popup size test*"))
+      (ed::popup-window-open name "Test")
+      (let ((lines (ed::popup-window-measured-lines))
+	    (cols (ed::popup-window-measured-columns 0)))
+	(ed::popup-window-close name)
+	(values (and lines (> lines 2) t)
+		(> cols 20)))))
+  => t
+  => t)
+
+(deftest popup-window-columns-in-a-fresh-window-keeps-everything ()
+  "開いた直後の一時ウィンドウで段組みを組んでも項目が落ちないこと。
+落ちると Leader メニューが「1 個 + ... +N」になる (上のテストの続き)。"
+  (save-window-excursion
+    (delete-other-windows)
+    (let ((name " *popup fresh test*")
+	  (items (list "a  A" "b  B" "c  C" "d  D" "e  E" "f  F"
+		       "g  G" "h  H" "i  I" "j  J" "k  K" "l  L")))
+      (ed::popup-window-open name "Test")
+      (let ((rows (ed::popup-window-columns
+		   items
+		   (ed::popup-window-measured-columns)
+		   (ed::popup-window-body-lines 1))))
+	(ed::popup-window-close name)
+	(not (some #'(lambda (r) (and (string-match "^\\.\\.\\. \\+" r) t))
+		   rows)))))
+  => t)

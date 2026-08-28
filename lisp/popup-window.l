@@ -28,6 +28,8 @@
 	  popup-window-refresh-frame
 	  popup-window-draw
 	  popup-window-body-lines
+	  popup-window-measured-lines
+	  popup-window-measured-columns
 	  popup-window-fit
 	  popup-window-columns
 	  *popup-window-min-column-width*))
@@ -84,6 +86,12 @@ M-m を打つと、モード行だけ *Which Key* になってシェルの画面
     (setq need-not-save t)
     (setq auto-save nil)
     (setq kept-undo-information nil)
+    ;; **大きさを確定させる。** Win32 では split-window の直後のウィンドウは
+    ;; window-lines / window-columns が 1 を返し、実際の大きさになるのは次の
+    ;; 描画のときである (フレームのウィンドウ配置は refresh_screen の
+    ;; move_all_windows で反映される)。ここで測らずに段組みを組むと「1 行 x
+    ;; 1 桁」として計算して、候補が 1 個しか出ない (実際にそうなった)。
+    (ignore-errors (refresh-screen))
     buf))
 
 (defun popup-window-close (name)
@@ -131,10 +139,27 @@ BODY の値をそのまま返す。**再描画は save-window-excursion がウ�
 
 (setf (get 'with-popup-window 'lisp-indent-hook) 1)
 
+(defun popup-window-measured-lines ()
+  "今のウィンドウの行数。**確定していなければ nil。**
+
+Win32 では作りたてのウィンドウが 1 を返す (上の popup-window-open の説明)。
+一時ウィンドウが 1 行や 2 行ということは実際には無いので、そういう値は
+「まだ分からない」として扱う。段組みの計算に 1 を渡すと候補が 1 個しか
+出なくなるので、黙って小さい値を信じてはいけない。"
+  (let ((n (ignore-errors (window-lines))))
+    (and (integerp n) (> n 2) n)))
+
+(defun popup-window-measured-columns (&optional (default 80))
+  "今のウィンドウの桁数。確定していなければ DEFAULT。"
+  (let ((n (ignore-errors (window-columns))))
+    (if (and (integerp n) (> n 20)) n default)))
+
 (defun popup-window-body-lines (&optional (reserve 0))
   "一時ウィンドウの中身に使える行数。RESERVE は見出しなどに取っておく分。"
   (max 1 (min (- *popup-window-max-lines* reserve)
-	      (max 1 (- (or (ignore-errors (window-lines)) 12) 1 reserve)))))
+	      (max 1 (- (or (popup-window-measured-lines)
+			    (1+ *popup-window-max-lines*))
+			1 reserve)))))
 
 (defun popup-window-draw (name lines &optional (cursor-row 0))
   "NAME のバッファの中身を LINES (文字列のリスト) で置き換え、
