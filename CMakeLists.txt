@@ -38,34 +38,42 @@ endif()
 # ============================================================
 # Version description from git
 # ============================================================
-find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty --long
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_DESCRIBE_LONG
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-        RESULT_VARIABLE GIT_DESCRIBE_RESULT
-    )
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_DESCRIBE
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    if(GIT_DESCRIBE_RESULT EQUAL 0 AND NOT "${GIT_DESCRIBE}" STREQUAL "${GIT_DESCRIBE_LONG}")
-        # Not exactly on a tag - include describe string
-        set(VERSION_DESCRIBE_CONTENT "#define PROGRAM_VERSION_DESCRIBE_STRING \"${GIT_DESCRIBE}\"")
-    else()
-        set(VERSION_DESCRIBE_CONTENT "/* On tag or no tags - use default version string */")
+# The version string that the title bar and the About dialog show comes from
+# `git describe`, written into src/core/gen/version-describe.h by
+# cmake/git-describe.cmake.  **That script runs on every build**, not only at
+# configure time: the commit changes far more often than this file does, and a
+# stale hash in the title bar is worse than no hash -- it names a build you are
+# not running.  The script rewrites the header only when the content changes.
+# Run once now so the header exists for the very first configure.
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -DXYZZY_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_SOURCE_DIR}/cmake/git-describe.cmake)
+
+# Declaring the header as an OUTPUT is what makes the build graph correct:
+# version.cc includes it, so the generator knows to run this before compiling
+# and to recompile when it changes.  A custom target with no output does not
+# achieve that -- it runs, rewrites the header, and the object file is left
+# alone (measured with `ninja -d explain`).
+#
+# DEPENDS is on the git files that say "the commit moved".  `--dirty` also
+# reacts to uncommitted edits, which no single file records, so the -dirty
+# suffix can be one build behind.  The hash -- which is what tells a local
+# build from a release -- is not.
+set(GIT_DESCRIBE_DEPS "")
+foreach(f HEAD index)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/.git/${f}")
+        list(APPEND GIT_DESCRIBE_DEPS "${CMAKE_SOURCE_DIR}/.git/${f}")
     endif()
-else()
-    set(VERSION_DESCRIBE_CONTENT "/* No git info available */")
-endif()
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/src/core/gen)
-file(WRITE ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h "${VERSION_DESCRIBE_CONTENT}\n")
+endforeach()
+add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h
+    COMMAND ${CMAKE_COMMAND} -DXYZZY_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_SOURCE_DIR}/cmake/git-describe.cmake
+    DEPENDS ${GIT_DESCRIBE_DEPS} ${CMAKE_SOURCE_DIR}/cmake/git-describe.cmake
+    COMMENT "Updating version-describe.h from git describe"
+    VERBATIM)
+add_custom_target(xyzzy-version-describe
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/core/gen/version-describe.h)
 
 # Generate version.h from template (single source of truth: PROJECT_VERSION)
 #
@@ -830,6 +838,8 @@ if(NOT WIN32)
 endif()
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})
+# version.cc reads gen/version-describe.h; make sure it is current first.
+add_dependencies(xyzzy-core xyzzy-version-describe)
 target_compile_definitions(xyzzy-core PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
 if(MSVC)
     target_include_directories(xyzzy-core PRIVATE ${CORE_DIR} ${GEN_DIR} ${SRC_DIR})
