@@ -3394,9 +3394,18 @@ Window::compute_geometry (const SIZE &, int)
   if (nx == 0 || ny == 0)
     return;
 
-  // Build boundary arrays from current w_rect positions
+  // Build boundary arrays from current w_rect positions.
+  //
+  // **埋まらない添字が無いことを当てにしない。** w_order に穴があると
+  // (compact_window_orders の説明) alloca のごみをそのまま座標として使い、
+  // ゼロ高のウィンドウや画面外のウィンドウができる。番号を詰めてあれば
+  // 穴は無いが、ここでも -1 で始めて埋め残しを直前の境界で塞ぐ。
   int *const ox = (int *)alloca (sizeof *ox * (nx + 1));
   int *const oy = (int *)alloca (sizeof *oy * (ny + 1));
+  for (int i = 0; i <= nx; i++)
+    ox[i] = -1;
+  for (int i = 0; i <= ny; i++)
+    oy[i] = -1;
   for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
     {
       ox[wp->w_order.left] = wp->w_rect.left;
@@ -3404,6 +3413,16 @@ Window::compute_geometry (const SIZE &, int)
       ox[wp->w_order.right] = wp->w_rect.right;
       oy[wp->w_order.bottom] = wp->w_rect.bottom;
     }
+  if (ox[0] < 0)
+    ox[0] = 0;
+  if (oy[0] < 0)
+    oy[0] = 0;
+  for (int i = 1; i <= nx; i++)
+    if (ox[i] < 0)
+      ox[i] = ox[i - 1];
+  for (int i = 1; i <= ny; i++)
+    if (oy[i] < 0)
+      oy[i] = oy[i - 1];
 
   // Proportionally redistribute to new terminal size
   // reserve row 0 (menu bar) + the minibuffer rows
@@ -3704,6 +3723,8 @@ Window::delete_window ()
       if (can) can->set_window ();
     }
 
+  // 消した側の境界番号が宙に浮くので詰める (src/core/window-config.cc)。
+  compact_orders ();
   compute_geometry ();
   return 1;
 }

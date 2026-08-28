@@ -558,6 +558,10 @@ struct Window
   // (src/core/textprop-colors.cc)。
   static void textprop_colors_changed ();
 
+  // w_order の番号を詰める (src/core/window-config.cc)。ウィンドウを消した
+  // 後に呼ぶ。穴が残ると compute_geometry が未初期化の境界を使う (issue #83)。
+  static void compact_orders ();
+
   // ステータス行 (エコー領域) の行数。**メッセージの量で変わる** (issue #97)。
   // 高さの計算はこれを見る。以前はミニバッファウィンドウの今の高さから
   // 行数を割り戻していたので、誰も高さを変えられなかった。

@@ -945,8 +945,22 @@ Window::compute_geometry (const SIZE &old_size, int)
     }
 
   // compute normal windows geometry
+  //
+  // **埋まらない添字が無いことを当てにしない。** w_order に穴があると
+  // (Window::compact_orders の説明、src/core/window-config.cc) alloca の
+  // ごみをそのまま座標として使う。`(split-window) (delete-window)
+  // (split-window)` と続けるとウィンドウが 2 枚とも 1 行になっていた
+  // (issue #83)。番号を詰めてあれば穴は無いが、ここでも -1 で始めて
+  // 埋め残しを直前の境界で塞ぐ。
   int *const ox = (int *)alloca (sizeof *ox * (nx + 1));
   int *const oy = (int *)alloca (sizeof *oy * (ny + 1));
+  {
+    int i;
+    for (i = 0; i <= nx; i++)
+      ox[i] = -1;
+    for (i = 0; i <= ny; i++)
+      oy[i] = -1;
+  }
   for (wp = app.active_frame.windows; wp->w_next; wp = wp->w_next)
     {
       ox[wp->w_order.left] = wp->w_rect.left;
@@ -954,6 +968,19 @@ Window::compute_geometry (const SIZE &old_size, int)
       ox[wp->w_order.right] = wp->w_rect.right;
       oy[wp->w_order.bottom] = wp->w_rect.bottom;
     }
+  {
+    int i;
+    if (ox[0] < 0)
+      ox[0] = 0;
+    if (oy[0] < 0)
+      oy[0] = 0;
+    for (i = 1; i <= nx; i++)
+      if (ox[i] < 0)
+        ox[i] = ox[i - 1];
+    for (i = 1; i <= ny; i++)
+      if (oy[i] < 0)
+        oy[i] = oy[i - 1];
+  }
 
   compute_size (ox, nx, ow, new_size.cx);
   compute_size (oy, ny, oh, new_size.cy - new_h);
@@ -2004,6 +2031,8 @@ Window::delete_window ()
   if (!wp || !wp->w_bufp)
     wp = can;
   wp->set_window ();
+  // 消した側の境界番号が宙に浮くので詰める (src/core/window-config.cc)。
+  compact_orders ();
   compute_geometry ();
   Buffer::maybe_modify_buffer_bar ();
   return 1;
