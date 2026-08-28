@@ -23,7 +23,9 @@
 	  with-popup-window
 	  popup-window-available-p
 	  popup-window-open
+	  popup-window-window-list
 	  popup-window-close
+	  popup-window-refresh-frame
 	  popup-window-draw
 	  popup-window-body-lines
 	  popup-window-fit
@@ -39,13 +41,45 @@
   (and (not (minibuffer-window-p (selected-window)))
        (ignore-errors (>= (window-lines) 6))))
 
+(defun popup-window-window-list ()
+  "今のフレームのウィンドウを並べたリスト (ミニバッファは含まない)。"
+  (let ((ws nil)
+	(w (selected-window)))
+    (loop
+      (push w ws)
+      (setq w (next-window w))
+      (when (eq w (selected-window))
+	(return)))
+    (nreverse ws)))
+
 (defun popup-window-open (name label)
-  "NAME のバッファを分割ウィンドウに出して選択する。
-呼び出し元は save-window-excursion の中で呼ぶこと。"
-  (let ((buf (get-buffer-create name)))
-    ;; pop-to-buffer は既にそのバッファを出しているウィンドウがあれば
-    ;; それを使い、無ければ分割する。
-    (pop-to-buffer buf t)
+  "NAME のバッファを一時ウィンドウに出して選択する。
+呼び出し元は with-popup-window (または save-window-excursion) の中で呼ぶこと。
+
+**今いるウィンドウを分割する。pop-to-buffer は使わない。**
+`pop-to-buffer' は「画面が既に分割されていたら新たに分割せず、別のウィンドウへ
+移ってそこに出す」仕様なので、**無関係なウィンドウを奪う。** シェルを出して
+いるウィンドウを奪われると、そのウィンドウは描き直されないまま中身だけ
+入れ替わり、**候補が出ていないように見えた** (報告あり: 端末を並べた状態で
+M-m を打つと、モード行だけ *Which Key* になってシェルの画面が残る)。
+
+既にこのバッファを出しているウィンドウがあれば、それを使う (打鍵ごとに
+描き直す間、同じウィンドウを使い続けるため)。"
+  (let* ((buf (get-buffer-create name))
+	 (shown (get-buffer-window buf)))
+    (if shown
+	(set-window shown)
+      (let ((before (popup-window-window-list)))
+	;; 分割できないほど狭い場合は今のウィンドウをそのまま使う
+	;; (ウィンドウ構成は呼び出し元が戻す)。
+	(when (ignore-errors (split-window) t)
+	  ;; split-window は元のウィンドウを選択したままにするので、
+	  ;; 増えたウィンドウを差分で見つけて移る (next-window の順序に
+	  ;; 依存しない)。
+	  (let ((new (car (set-difference (popup-window-window-list) before))))
+	    (when new
+	      (set-window new))))))
+    (set-buffer buf)
     (setq mode-name label)
     (setq need-not-save t)
     (setq auto-save nil)
@@ -53,35 +87,47 @@
     buf))
 
 (defun popup-window-close (name)
-  "一時ウィンドウを閉じてバッファを消す。
+  "一時バッファを消す。
 
-**ウィンドウを明示的に消すのが要点である。** ウィンドウ構成の復元
-(save-window-excursion / set-window-configuration) は端末フロントエンド
-(ncurses) では何もしない: WindowConfiguration が空の実装で、
-current-window-configuration は nil を返す (issue #82)。構成の復元に任せると、
-端末では一時ウィンドウが画面に残ったままになる (実際に残っていた)。"
+**ウィンドウは消さない。** ウィンドウ構成の復元 (save-window-excursion /
+set-window-configuration) が消す。ここで delete-window していた時期があるが
+(端末フロントエンドで構成の復元が効かなかった #82 への回避)、#82 が直った後は
+不要になったうえ、**Win32 で一時ウィンドウの文字が画面に残る**原因になった
+(M-x shell で実際に残った。下の popup-window-refresh-frame の説明を参照)。"
   (let ((buf (find-buffer name)))
     (when buf
-      (let ((obuf (selected-buffer))
-	    (w (get-buffer-window buf)))
-	(when w
-	  (ignore-errors
-	    (set-window w)
-	    (delete-window))
-	  (unless (eq obuf buf)
-	    (let ((ow (get-buffer-window obuf)))
-	      (when ow (ignore-errors (set-window ow))))))
-	(ignore-errors (delete-buffer buf)))))
+      (ignore-errors (delete-buffer buf))))
+  t)
+
+(defun popup-window-refresh-frame ()
+  "画面全体を描き直させる。**一時ウィンドウを片付けた後に呼ぶ。**
+
+一時ウィンドウが消えて残りのウィンドウが広がった行は、そのままだと誰も
+描き直さない。その後に走るのが「変わった行だけ描く」種類の描画 (非同期の
+プロセス出力など) だけだと、**一時ウィンドウの文字が画面に残ったままになる。**
+`M-x shell` で実際に残った: 候補一覧が消えた後、shell の出力は最初の 3 行しか
+無いので、候補が描かれていた 4 行目以降が誰にも塗り直されなかった。
+
+Win32 では (refresh-screen t) は全ウィンドウに再描画の印を付けるだけで、
+実際に描くのは次の描画のタイミングなので安い。"
+  (ignore-errors (refresh-screen t))
   t)
 
 (defmacro with-popup-window ((name &optional (label "Popup")) &body body)
-  "NAME の一時ウィンドウを開いて BODY を実行し、後始末する。"
-  `(save-window-excursion
-     (unwind-protect
-	 (progn
-	   (popup-window-open ,name ,label)
-	   ,@body)
-       (popup-window-close ,name))))
+  "NAME の一時ウィンドウを開いて BODY を実行し、後始末する。
+
+BODY の値をそのまま返す。**再描画は save-window-excursion がウィンドウ構成を
+戻した後で行う** (戻す前に印を付けても、戻す処理でウィンドウの大きさが変わる)。"
+  (let ((result (gensym "popup-result-")))
+    `(let ((,result
+	    (save-window-excursion
+	      (unwind-protect
+		  (progn
+		    (popup-window-open ,name ,label)
+		    ,@body)
+		(popup-window-close ,name)))))
+       (popup-window-refresh-frame)
+       ,result)))
 
 (setf (get 'with-popup-window 'lisp-indent-hook) 1)
 
