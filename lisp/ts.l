@@ -83,19 +83,19 @@ COLORS is an alist of (capture-name . fg-color-number)."
 Called by ts-test-indent with no arguments; should return a column or nil.")
 
 (defvar *ts-highlight* t
-  "nil なら tree-sitter による色付けを行わない。
+  "nil なら tree-sitter による色付けを行わない。`toggle-ts-highlight' で
+切り替えられる。
 
-**tree-sitter の色はカラーテーマの配色に従わない。** `set-text-attribute' の
-`:foreground' が指すのは「文字1〜文字15」という固定の 16 色表
-(`Window::w_textprop_forecolor') で、カラーテーマが書き換えるのは
-「キーワード1」などの役割色 (`set-buffer-colors', USER_DEFINABLE_COLORS) と
-いう別の表である。そのため、キーワードファイルによる色付け (テーマに従う) の
-上に tree-sitter が固定色で塗り重なる。テーマを選んでいると浮いて見える
-(issue #98)。
+tree-sitter が使う `set-text-attribute' の `:foreground' が指すのは
+「文字1〜文字15」という 16 色表で、カラーテーマが書き換える役割色
+(`set-buffer-colors') とは別物である。以前はこの表を Lisp から触れず、
+選んだ配色の上に赤・緑・黄の固定色が塗り重なっていた (issue #98)。今は
+カラーテーマが `set-text-attribute-colors' でこの表も背景に合わせるので、
+色付けを切らなくてもテーマから浮かない。
 
-配色を合わせるには「文字1〜15」を Lisp から設定できるようにする必要があり、
-それが入るまでの逃げ道としてこの変数を用意してある。`toggle-ts-highlight' で
-切り替えられる。")
+**色みそのものは番号で決まったまま**である (1 は赤、2 は緑…)。テーマの
+キーワード色をそのまま使うわけではないので、配色が気に入らなければこれを
+nil にしてキーワードファイルの色付けだけにできる。")
 
 (defun ts-enable-for-buffer ()
   "Enable tree-sitter highlighting for the current buffer (uses buffer-mode)."

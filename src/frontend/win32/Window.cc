@@ -61,48 +61,9 @@ XCOLORREF Window::default_xcolors[USER_DEFINABLE_COLORS];
 COLORREF Window::modeline_colors[2];
 XCOLORREF Window::modeline_xcolors[2];
 
-COLORREF Window::w_textprop_forecolor[GLYPH_TEXTPROP_NCOLORS] =
-{
-  RGB (0x00, 0x00, 0x00),
-  RGB (0xff, 0x00, 0x00),
-  RGB (0x00, 0xff, 0x00),
-  RGB (0xff, 0xff, 0x00),
-  RGB (0x00, 0x00, 0xff),
-  RGB (0xff, 0x00, 0xff),
-  RGB (0x00, 0xff, 0xff),
-  RGB (0xff, 0xff, 0xff),
-  RGB (0x00, 0x00, 0x00),
-  RGB (0x80, 0x00, 0x00),
-  RGB (0x00, 0x80, 0x00),
-  RGB (0x80, 0x80, 0x00),
-  RGB (0x00, 0x00, 0x80),
-  RGB (0x80, 0x00, 0x80),
-  RGB (0x00, 0x80, 0x80),
-  RGB (0x80, 0x80, 0x80),
-};
-
-COLORREF Window::w_textprop_backcolor[GLYPH_TEXTPROP_NCOLORS] =
-{
-  RGB (0x00, 0x00, 0x00),
-  RGB (0xff, 0x00, 0x00),
-  RGB (0x00, 0xff, 0x00),
-  RGB (0xff, 0xff, 0x00),
-  RGB (0x00, 0x00, 0xff),
-  RGB (0xff, 0x00, 0xff),
-  RGB (0x00, 0xff, 0xff),
-  RGB (0xff, 0xff, 0xff),
-  RGB (0x00, 0x00, 0x00),
-  RGB (0x80, 0x00, 0x00),
-  RGB (0x00, 0x80, 0x00),
-  RGB (0x80, 0x80, 0x00),
-  RGB (0x00, 0x00, 0x80),
-  RGB (0x80, 0x00, 0x80),
-  RGB (0x00, 0x80, 0x80),
-  RGB (0x80, 0x80, 0x80),
-};
-
-XCOLORREF Window::w_textprop_xforecolor[GLYPH_TEXTPROP_NCOLORS];
-XCOLORREF Window::w_textprop_xbackcolor[GLYPH_TEXTPROP_NCOLORS];
+/* 「文字1〜15」の表 (w_textprop_forecolor / backcolor とその x 付き) の
+   定義は src/core/textprop-colors.cc へ移した。端末フロントエンドにも
+   同じ表が要るため (issue #98)。 */
 
 const wcolor_index_name wcolor_index_names[] =
 {
@@ -701,6 +662,27 @@ Window::init_colors (const XCOLORREF *colors, const XCOLORREF *mlcolors,
       write_conf (cfgColors, b, w_textprop_xbackcolor[i].rgb, 1);
     }
   flush_conf ();
+}
+
+void
+Window::textprop_colors_changed ()
+{
+  /* init_colors と同じ後始末のうち、ini への書き込みを**しない**もの。
+     テーマによる上書きは表示色の設定ではないので保存してはいけない
+     (src/core/textprop-colors.cc)。 */
+  HDC hdc = GetDC (0);
+  int i;
+  for (i = 1; i < numberof (w_textprop_forecolor); i++)
+    w_textprop_forecolor[i] = GetNearestColor (hdc, w_textprop_forecolor[i]);
+  for (i = 1; i < numberof (w_textprop_backcolor); i++)
+    w_textprop_backcolor[i] = GetNearestColor (hdc, w_textprop_backcolor[i]);
+  ReleaseDC (0, hdc);
+
+  /* 色は描画のときに glyph から引かれるので、glyph 自体は作り直さなくてよい。
+     ただし「前回描いた内容と同じ cell は描かない」ので、控えを捨てないと
+     色だけが変わった行が塗り直されない。 */
+  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+    wp->invalidate_glyphs ();
 }
 
 inline void

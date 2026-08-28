@@ -553,6 +553,10 @@ struct Window
 
   static void init_colors (const XCOLORREF * = 0, const XCOLORREF * = 0,
                            const XCOLORREF * = 0, const XCOLORREF * = 0);
+  // 「文字1〜15」の表 (w_textprop_forecolor / backcolor) を書き換えた後に
+  // 呼ぶ。フロントエンドが色を作り直して画面を描き直す
+  // (src/core/textprop-colors.cc)。
+  static void textprop_colors_changed ();
   void change_color ();
 
   int flags () const;
