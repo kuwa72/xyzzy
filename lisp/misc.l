@@ -22,7 +22,8 @@
 	    execute-extended-command call-interactively
 	    concat vconcat char-name *etc-path* etc-path cd trap-errors
 	    setup-temp-buffer toggle-trace-on-error
-	    *use-global-ime* *default-load-path*)))
+	    *use-global-ime* *default-load-path*
+	    *message-in-echo-area*)))
 
 (defvar *use-global-ime* nil)
 
@@ -171,14 +172,40 @@
 (defun msgbox (fmt &rest args)
   (message-box (apply #'format nil fmt args) nil '(:ok :information)))
 
+(defvar *message-in-echo-area* t
+  "`message' の出力先をエコー領域 (ミニバッファの行) にするか。
+
+**長いメッセージを読めるようにするための設定である** (issue #97)。下の
+バーは Win32 のステータスバーで、時計や行桁のパーツと横に並んでいるため
+高さを変えると不格好になる。エコー領域は伸縮するように作られていて、
+普段は 1 行空いたままなので、そこへ回すと**表示量に応じて複数行に
+なる。** 上限は `*max-minibuffer-message-lines*'。
+
+nil にすると以前と同じで、下のバーに 1 行で出る (収まらない分は切れる)。
+
+ミニバッファで入力中は、入力を隠さないよう下のバーへ出す。")
+
 (defun message (fmt &rest args)
-  (terpri *status-window*)
-  (apply #'format *status-window* fmt args)
-  (terpri *status-window*)
+  (let ((text (apply #'format nil fmt args)))
+    (if (and *message-in-echo-area*
+	     ;; ミニバッファで読んでいる間はそちらが使っている。
+	     (null (window-buffer (minibuffer-window))))
+	(progn
+	  ;; **下のバーに古いメッセージを残さない。** 2 箇所に別々の
+	  ;; メッセージが出ていると、どちらが今のものか分からない。
+	  (princ "\n \n" *status-window*)
+	  (if (and (stringp text) (plusp (length text)))
+	      (si:*minibuffer-message text nil)
+	    (si:*minibuffer-message nil)))
+      (progn
+	(terpri *status-window*)
+	(princ text *status-window*)
+	(terpri *status-window*))))
   t)
 
 (defun clear-message ()
-  (princ "\n \n" *status-window*))
+  (princ "\n \n" *status-window*)
+  (si:*minibuffer-message nil))
 
 (defun minibuffer-message (fmt &rest args)
   (si:*minibuffer-message (apply #'format nil fmt args) nil))

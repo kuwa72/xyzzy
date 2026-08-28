@@ -2442,6 +2442,7 @@ static symbols ed[] =
   DEFVAR2 (*overwrite-caret-shape*),
   MAKE_SYMBOL2 (*inverse-mark-line*),
   DEFVAR2 (*inhibit-reverse-keywords*),
+  DEFVAR2 (*max-minibuffer-message-lines*),
   MAKE_SYMBOL2 (*scroll-margin*),
   MAKE_SYMBOL2 (*jump-scroll-threshold*),
   DEFVAR2 (*show-cursor-line-always*),

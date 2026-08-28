@@ -557,6 +557,14 @@ struct Window
   // 呼ぶ。フロントエンドが色を作り直して画面を描き直す
   // (src/core/textprop-colors.cc)。
   static void textprop_colors_changed ();
+
+  // ステータス行 (エコー領域) の行数。**メッセージの量で変わる** (issue #97)。
+  // 高さの計算はこれを見る。以前はミニバッファウィンドウの今の高さから
+  // 行数を割り戻していたので、誰も高さを変えられなかった。
+  static int w_minibuffer_lines;
+  // 今のメッセージに要る行数を求めて w_minibuffer_lines を更新する。
+  // 変わったら 1 を返す (呼び出し側が再配置と再描画をする)。
+  static int adjust_minibuffer_lines ();
   void change_color ();
 
   int flags () const;

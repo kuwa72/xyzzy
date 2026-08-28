@@ -436,6 +436,9 @@ public:
 
   ATOM atom_toplev;
   int minibuffer_prompt_column;
+  /* ステータス行のメッセージが複数行になれるので (issue #97)、
+     プロンプトのキャレットは行も要る。 */
+  int minibuffer_prompt_row;
 
   utimer user_timer;
 

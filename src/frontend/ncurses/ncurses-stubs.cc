@@ -11,6 +11,7 @@
 #include "colors.h"
 #include "version.h"
 #include "term.h"
+#include "minibuffer-message.h"
 
 // ============================================================
 // Global objects (normally defined in init.cc and sysdep.cc)
@@ -46,6 +47,7 @@ Application::Application ()
   quit_mod = MOD_CONTROL;
   ini_file_path = 0;
   minibuffer_prompt_column = -1;
+  minibuffer_prompt_row = 0;
 
   int tem;
   initial_stack = &tem;
@@ -1060,7 +1062,31 @@ lisp Fsi_startup ()
   return Fsi_load_library (make_string ("startup"), Qnil);
 }
 
-lisp Fsi_minibuffer_message (lisp, lisp) { return Qnil; }
+/* **空実装だった。** そのため端末では `minibuffer-message' もプロンプトも
+   何も出さず、`message' の出力先をエコー領域へ回した時点で (issue #97)
+   メッセージが 1 つも見えなくなった。Win32 の Fsi_minibuffer_message
+   (src/frontend/win32/toplev.cc) と同じことをする。 */
+lisp
+Fsi_minibuffer_message (lisp message, lisp prompt)
+{
+  app.minibuffer_prompt_column = -1;
+  app.minibuffer_prompt_row = 0;
+  if (message == Qnil)
+    xsymbol_value (Vminibuffer_message) = Qnil;
+  else
+    {
+      check_string (message);
+      xsymbol_value (Vminibuffer_message) = message;
+      xsymbol_value (Vminibuffer_prompt) = boole (prompt && prompt != Qnil);
+    }
+  Window *mini = Window::minibuffer_window ();
+  if (mini)
+    mini->w_disp_flags |= Window::WDF_WINDOW;
+  if (!app.kbdq.macro_is_running ())
+    refresh_screen (0);
+  return Qt;
+}
+
 lisp Fsi_show_window_foreground () { return Qnil; }
 lisp Fsi_activate_toplevel () { return Qnil; }
 lisp Fsi_app_user_model_id () { return Qnil; }
@@ -2370,50 +2396,64 @@ draw_minibuffer (Window *mini, int row, int cols)
 }
 
 // Draw status line (echo area) showing StatusWindow content
+// Put one character of a status-line row, advancing x.
 static void
-draw_status_line (int row, int cols)
+status_line_putc (int row, int &x, ucs4_t c)
 {
-  move (row, 0);
-  clrtoeol ();
+  if (c < 0x20)
+    return;                     // skip control chars
+  if (c < 0x80)
+    {
+      mvaddch (row, x, c);
+      x++;
+      return;
+    }
+  wchar_t wc = (wchar_t)c;
+  if (wc == 0)
+    {
+      mvaddch (row, x, '?');
+      x++;
+      return;
+    }
+  cchar_t cc;
+  wchar_t ws[2] = {wc, 0};
+  setcchar (&cc, ws, 0, 0, NULL);
+  mvadd_wch (row, x, &cc);
+  int w = wcwidth ((wchar_t)wc);
+  x += (w > 0) ? w : 1;
+}
+
+// Draw the status line (echo area) over NROWS rows starting at TOP.
+//
+// **メッセージは複数行になれる** (issue #97)。行の割り方は高さを決める側と
+// 同じもの (src/core/minibuffer-message.cc) を使う。別々に数えると
+// 「4 行分の高さを取ったのに 3 行しか描かない」という食い違いになる。
+static void
+draw_status_line (int top, int nrows, int cols)
+{
+  for (int i = 0; i < nrows; i++)
+    {
+      move (top + i, 0);
+      clrtoeol ();
+    }
 
   // Check for Vminibuffer_message first (set by (message ...) Lisp function)
   lisp msg = xsymbol_value (Vminibuffer_message);
   if (stringp (msg))
     {
+      minibuffer_row *rows
+        = (minibuffer_row *)alloca (sizeof (minibuffer_row) * max (1, nrows));
+      int n = minibuffer_message_layout (msg, cols, nrows, rows);
       const ucs4_t *s = xstring_contents (msg);
-      int len = xstring_length (msg);
-      int x = 0;
-      for (int i = 0; i < len && x < cols; i++)
+      for (int i = 0; i < n; i++)
         {
-          ucs4_t c = s[i];
-          if (c < 0x20)
-            ; // skip control chars
-          else if (c < 0x80)
-            {
-              mvaddch (row, x, c);
-              x++;
-            }
-          else
-            {
-              wchar_t wc = (wchar_t)c;
-              if (wc != 0)
-                {
-                  cchar_t cc;
-                  wchar_t ws[2] = {wc, 0};
-                  setcchar (&cc, ws, 0, 0, NULL);
-                  mvadd_wch (row, x, &cc);
-                  int w = wcwidth ((wchar_t)wc);
-                  x += (w > 0) ? w : 1;
-                }
-              else
-                {
-                  mvaddch (row, x, '?');
-                  x++;
-                }
-            }
+          int x = 0;
+          for (int j = rows[i].p1; j < rows[i].p2 && x < cols; j++)
+            status_line_putc (top + i, x, s[j]);
         }
       return;
     }
+  int row = top;
 
   // Otherwise show StatusWindow content
   int l = g_status_len;
@@ -3076,6 +3116,15 @@ refresh_screen (int f)
   if (rows < 3 || cols < 4)
     return;
 
+  /* ステータス行の高さをメッセージの量に合わせる (issue #97)。**描く前に。**
+     高さが変わると他のウィンドウの高さも変わる。 */
+  if (Window::adjust_minibuffer_lines ())
+    {
+      for (Buffer *bp = Buffer::b_blist; bp; bp = bp->b_next)
+        bp->window_size_changed ();
+      clear ();
+    }
+
   Window *sel = selected_window ();
   if (!sel)
     return;
@@ -3137,7 +3186,8 @@ refresh_screen (int f)
     }
   else
     {
-      draw_status_line (rows - 1, cols);
+      draw_status_line (rows - Window::w_minibuffer_lines,
+                        Window::w_minibuffer_lines, cols);
 
       // Position cursor in active window
       if (!sel->minibuffer_window_p ())
@@ -3319,11 +3369,16 @@ Window::compute_geometry (const SIZE &, int)
   if (!mini)
     return;
 
-  // Minibuffer gets the last row
+  /* ステータス行 (エコー領域) は最後の w_minibuffer_lines 行。
+     **メッセージの量で高さが変わる** (issue #97)。編集中のウィンドウに
+     本文 1 行 + モード行は残す。行 0 はメニューバーが使う。 */
+  int mini_lines = max (1, min (Window::w_minibuffer_lines, rows - 3));
+  Window::w_minibuffer_lines = mini_lines;
   mini->w_rect.left = 0;
   mini->w_rect.right = cols;
-  mini->w_rect.top = rows - 1;
+  mini->w_rect.top = rows - mini_lines;
   mini->w_rect.bottom = rows;
+  ncurses_calc_client_size (mini, cols, mini_lines);
 
   // Collect max grid dimensions from w_order
   long nx = 0, ny = 0;
@@ -3351,7 +3406,8 @@ Window::compute_geometry (const SIZE &, int)
     }
 
   // Proportionally redistribute to new terminal size
-  int avail_rows = rows - 2;  // reserve row 0 (menu bar) + last row (minibuffer)
+  // reserve row 0 (menu bar) + the minibuffer rows
+  int avail_rows = max (1, rows - 1 - mini_lines);
   ncurses_compute_size (ox, nx, ow, cols);
   ncurses_compute_size (oy, ny, oh, avail_rows);
 

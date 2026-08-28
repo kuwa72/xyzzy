@@ -43,6 +43,7 @@ Application::Application ()
   quit_mod = MOD_CONTROL;
   ini_file_path = 0;
   minibuffer_prompt_column = -1;
+  minibuffer_prompt_row = 0;
 
   int tem;
   initial_stack = &tem;

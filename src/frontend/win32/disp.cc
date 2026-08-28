@@ -12,6 +12,7 @@
 #include "term.h"
 #include "eaw.h"
 #include "painter-win32.h"
+#include "minibuffer-message.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
 
@@ -312,7 +313,8 @@ Window::update_caret () const
         {
           calc_caret_shape (sz, 0, 0, 0);
           x = app.minibuffer_prompt_column - 1;
-          y = 0;
+          /* メッセージが複数行になれるので、キャレットは最後の行 (issue #97) */
+          y = app.minibuffer_prompt_row;
         }
       else
         {
@@ -1663,57 +1665,74 @@ Window::paint_minibuffer_message (lisp string)
   if (!w_glyphs.g_rep && !alloc_glyph_rep ())
     return;
 
+  /* **1 行しか埋めていなかった。** ウィンドウ側は前から複数行になれたが
+     (compute_geometry がステータス行の行数を持っている)、描く側が 1 行で
+     打ち切っていたので、長いメッセージは読めなかった (issue #97)。
+     行の割り方は高さを決める側と同じものを使う
+     (src/core/minibuffer-message.cc)。 */
+  int maxrows = max (1, int (w_ch_max.cy));
+  minibuffer_row *rows
+    = (minibuffer_row *)alloca (sizeof (minibuffer_row) * maxrows);
+  int nrows = minibuffer_message_layout (string, max (1, int (w_ch_max.cx) - 1),
+                                         maxrows, rows);
+
+  const ucs4_t *const contents = xstring_contents (string);
   glyph_data **gr = w_glyphs.g_rep->gr_nglyph;
+  int y;
 
-  glyph_t *g = (*gr)->gd_cc;
-  glyph_t *ge = g + w_ch_max.cx;
-  *g++ = ' ';
-
-  const ucs4_t *p = xstring_contents (string);
-  const ucs4_t *pe = p + xstring_length (string);
-
-  while (g < ge && p < pe)
+  for (y = 0; y < nrows; y++, gr++)
     {
-      ucs4_t cc = *p++;
-      if (cc < ' ')
+      glyph_t *g = (*gr)->gd_cc;
+      glyph_t *ge = g + w_ch_max.cx;
+      *g++ = ' ';
+
+      const ucs4_t *p = contents + rows[y].p1;
+      const ucs4_t *pe = contents + rows[y].p2;
+
+      while (g < ge && p < pe)
         {
-          if (g + 1 == ge)
-            break;
-          *g++ = GLYPH_CTRL | '^';
-          *g++ = GLYPH_CTRL | cc + '@';
-        }
-      else if (cc == CC_DEL)
-        {
-          if (g + 1 == ge)
-            break;
-          *g++ = GLYPH_CTRL | '^';
-          *g++ = GLYPH_CTRL | '?';
-        }
-      else
-        {
-          uint32_t cp = uint32_t (cc);
-          int w = unicode_width (cp);
-          if (w == 2)
+          ucs4_t cc = *p++;
+          if (cc < ' ')
             {
               if (g + 1 == ge)
                 break;
-              g = glyph_dbchar (g, cp, 0, 0);
+              *g++ = GLYPH_CTRL | '^';
+              *g++ = GLYPH_CTRL | cc + '@';
+            }
+          else if (cc == CC_DEL)
+            {
+              if (g + 1 == ge)
+                break;
+              *g++ = GLYPH_CTRL | '^';
+              *g++ = GLYPH_CTRL | '?';
             }
           else
-            g = glyph_sbchar (g, cp, 0, 0);
+            {
+              uint32_t cp = uint32_t (cc);
+              int w = unicode_width (cp);
+              if (w == 2)
+                {
+                  if (g + 1 == ge)
+                    break;
+                  g = glyph_dbchar (g, cp, 0, 0);
+                }
+              else
+                g = glyph_sbchar (g, cp, 0, 0);
+            }
         }
+
+      /* プロンプトのキャレットは**最後の行の末尾**に置く。 */
+      app.minibuffer_prompt_column = g - (*gr)->gd_cc;
+      app.minibuffer_prompt_row = y;
+
+      for (; g > (*gr)->gd_cc && g[-1] == ' '; g--)
+        ;
+      *g = 0;
+      (*gr)->gd_len = g - (*gr)->gd_cc;
+      (*gr)->gd_mod = 1;
     }
 
-  app.minibuffer_prompt_column = g - (*gr)->gd_cc;
-
-  for (; g > (*gr)->gd_cc && g[-1] == ' '; g--)
-    ;
-  *g = 0;
-  (*gr)->gd_len = g - (*gr)->gd_cc;
-  (*gr)->gd_mod = 1;
-
-  gr++;
-  for (int y = 1; y < w_ch_max.cy; y++, gr++)
+  for (; y < w_ch_max.cy; y++, gr++)
     {
       (*gr)->gd_len = 0;
       (*gr)->gd_cc[0] = 0;
@@ -2769,6 +2788,11 @@ void
 refresh_screen (int f)
 {
   Window::destroy_windows ();
+  /* ステータス行の高さをメッセージの量に合わせる (issue #97)。**ウィンドウを
+     動かす前に。** 高さが変わると他のウィンドウの高さも変わるので、
+     move_all_windows より後にやると 1 回描画が古い配置で走る。 */
+  if (Window::adjust_minibuffer_lines ())
+    app.active_frame.windows_moved = 1;
   if (app.active_frame.windows_moved)
     Window::move_all_windows ();
 

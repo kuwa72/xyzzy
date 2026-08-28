@@ -861,6 +861,7 @@ set(WIN32_SOURCES
     # UI
     ${CORE_DIR}/window-config.cc
     ${CORE_DIR}/textprop-colors.cc
+    ${CORE_DIR}/minibuffer-message.cc
     ${WIN32_DIR}/Window.cc
     ${WIN32_DIR}/disp.cc
     ${WIN32_DIR}/colors.cc
@@ -1085,6 +1086,7 @@ if(NOT WIN32)
             # Window methods it calls (see src/core/window-config.cc).
             ${CORE_DIR}/window-config.cc
             ${CORE_DIR}/textprop-colors.cc
+            ${CORE_DIR}/minibuffer-message.cc
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
