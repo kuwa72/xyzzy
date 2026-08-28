@@ -11,7 +11,10 @@
 	  set-color-theme clear-color-theme select-color-theme
 	  toggle-color-theme-dark-light color-theme-dark-p
 	  *color-theme-counterpart-alist*
-	  *color-theme-default-dark* *color-theme-default-light*))
+	  *color-theme-default-dark* *color-theme-default-light*
+	  *color-theme-textprop-base* *color-theme-textprop-contrast-ratio*
+	  *color-theme-textprop-background-tint*
+	  color-theme-textprop-foreground color-theme-textprop-background))
 
 ;;; 表示色をまとめて切り替えるカラーテーマ。
 ;;;
@@ -229,6 +232,118 @@
      #x2a2a2a #xd4d4d4 #xf44747 #x858585 #x264f78
      #xffffff #x007acc)))
 
+;;; 「文字1〜15」— set-text-attribute の :foreground / :background が指す
+;;; 別の 16 色表 (src/core/textprop-colors.cc)。
+;;;
+;;; 上のベクタが決めるのは「キーワード1」などの役割色だけで、この表は
+;;; 共通設定→表示色のダイアログからしか変えられなかった。そのため
+;;; :foreground を使う色付け — tree-sitter、calendar の土日、diff、hideif、
+;;; ispell — だけがテーマから取り残され、選んだ配色の上に赤・緑・黄の
+;;; 固定色で塗り重なっていた (issue #98)。
+;;;
+;;; テーマごとに 15 色を書き並べるのではなく、標準色から**導く。** 30 個の
+;;; テーマに 15 色ずつ手で足すと、元の配色に無い色を発明することになる。
+
+(defvar *color-theme-textprop-base*
+  (map 'vector #'%rgb-to-colorref
+       #(#x000000
+	 #xff0000 #x00ff00 #xffff00 #x0000ff #xff00ff #x00ffff #xffffff
+	 #x000000 #x800000 #x008000 #x808000 #x000080 #x800080 #x008080 #x808080))
+  "「文字1〜15」の xyzzy 標準色 (0 番は使われない)。赤・緑・黄・青・マゼンタ・
+シアン・白と、その暗い版が並ぶ。src/core/textprop-colors.cc の既定値と同じ。")
+
+(defvar *color-theme-textprop-contrast-ratio* 45
+  "「文字1〜15」の文字色に、背景に対して確保するコントラスト比 (10 倍した
+整数)。45 = 4.5:1 で、WCAG が本文に求める比。")
+
+(defvar *color-theme-textprop-background-tint* 75
+  "「文字1〜15」の背景色を、テーマの背景色へ寄せる割合 (%)。")
+
+(defun %color-theme-relative-luminance (colorref)
+  "COLORREF の相対輝度 (0〜1000)。
+
+**成分を 2 乗してから重み付けする。** ITU-R BT.601 のような単純な加重平均を
+ガンマの付いた値にそのまま当てると、明るい背景で「差がある」と判定される色が
+実際には読めない。黄色 (#ffff00) は白との BT.601 の差が 29 しか無いが、
+2 乗してから見ると 928 対 1000 で、暗くしないと読めないことが分かる。"
+  (let ((r (logand colorref #xff))
+	(g (logand (ash colorref -8) #xff))
+	(b (logand (ash colorref -16) #xff)))
+    (truncate (+ (* 213 r r) (* 715 g g) (* 72 b b)) 65025)))
+
+(defun %color-theme-contrast-ratio (a b)
+  "2 色のコントラスト比 (10 倍した整数)。WCAG の (L1+0.05)/(L2+0.05)。"
+  (let* ((la (%color-theme-relative-luminance a))
+	 (lb (%color-theme-relative-luminance b))
+	 (hi (max la lb))
+	 (lo (min la lb)))
+    (truncate (* 10 (+ hi 50)) (+ lo 50))))
+
+(defun %color-theme-mix (a b ratio)
+  "色 A を B の方へ RATIO (0〜100 %) だけ寄せた COLORREF。
+COLORREF は 0x00BBGGRR だが、成分ごとに混ぜるだけなので並びは問わない。"
+  (let ((rest (- 100 ratio))
+	(result 0))
+    (dotimes (i 3)
+      (let ((shift (* i 8)))
+	(setq result
+	      (logior result
+		      (ash (truncate (+ (* rest (logand (ash a (- shift)) #xff))
+					(* ratio (logand (ash b (- shift)) #xff)))
+				     100)
+			   shift)))))
+    result))
+
+(defun %color-theme-fit-contrast (colorref bg ratio)
+  "COLORREF を、背景 BG とのコントラスト比が RATIO 以上になるまで白か黒へ
+寄せる。足りている色はそのまま返す。
+
+**色みは変えない。** 白へ混ぜると彩度が落ち、黒へ混ぜると成分の比が保たれる
+ので、どちらも赤は赤のままになる。
+
+寄せる先は「白と黒のうち、背景とのコントラストが大きい方」。明るい背景なら
+黒、暗い背景なら白が選ばれる。中間の灰色の背景では白へ寄せても目標に届かない
+ことがあるので、明るさで場合分けせずこう決める。
+
+割合は 5% 刻みで上げる。コントラスト比は混色に対して線形ではないので、
+逆算するより刻んで試す方が短くて確実。"
+  (let ((toward (if (>= (%color-theme-contrast-ratio #xffffff bg)
+			(%color-theme-contrast-ratio 0 bg))
+		    #xffffff
+		  0)))
+    (do ((i 0 (1+ i)))
+	;; 白 (黒) まで寄せても届かない背景。それ以上できることは無い。
+	((> i 20) toward)
+      (let ((c (%color-theme-mix colorref toward (* i 5))))
+	(when (>= (%color-theme-contrast-ratio c bg) ratio)
+	  (return c))))))
+
+(defun color-theme-textprop-foreground (colors)
+  "役割色ベクタ COLORS から「文字1〜15」の文字色表を作る。
+
+**色みは変えず、明るさだけを背景に合わせる。** 番号ごとの意味を当てにして
+いるコードがある (calendar は日曜日に `:foreground 1' の赤、土曜日に
+4 の青を使っている)。番号を別の色みへ振り替えることはできない。暗い背景で
+黒に近い色が沈む、明るい背景で黄色が読めない、という部分だけを直す。"
+  (let ((bg (aref colors 1)))
+    (map 'vector
+	 #'(lambda (c)
+	     (%color-theme-fit-contrast
+	      c bg *color-theme-textprop-contrast-ratio*))
+	 *color-theme-textprop-base*)))
+
+(defun color-theme-textprop-background (colors)
+  "役割色ベクタ COLORS から「文字1〜15」の背景色表を作る。
+
+背景として敷く色なので、文字色とは逆に**目立たせない。** 標準の色みを
+テーマの背景へ大きく寄せて、色みがそれと分かる程度の淡い地色にする。
+純色の赤や黄をそのまま敷くと、上に載る文字が読めなくなる。"
+  (let ((bg (aref colors 1)))
+    (map 'vector
+	 #'(lambda (c)
+	     (%color-theme-mix c bg *color-theme-textprop-background-tint*))
+	 *color-theme-textprop-base*)))
+
 (defvar *color-theme-table*
   (mapcar #'(lambda (theme)
 	      (cons (car theme)
@@ -249,6 +364,9 @@
   (let ((colors (color-theme-colors name)))
     (unless colors
       (error "不明なカラーテーマです: ~A" name))
+    ;; 「文字1〜15」はバッファごとではなく全体で 1 つなので、ループの外。
+    (set-text-attribute-colors (color-theme-textprop-foreground colors)
+			       (color-theme-textprop-background colors))
     (dolist (buffer (buffer-list))
       (when (or force (null (find-buffer-colors buffer)))
 	(set-buffer-colors colors buffer)))
@@ -339,12 +457,15 @@ R/G/B を取り出して輝度 (ITU-R BT.601) を出す。"
    正確に戻すために使う。プレビューは force t で適用するため、ディレクト
    リ単位の色設定 (loptprop.l) が乗ったバッファも一時的に上書きされる。
    テーマ名ベースで『戻す』とそちらは復元できないので、生の値を控える。"
-  (mapcar #'(lambda (buffer) (cons buffer (get-buffer-colors buffer)))
-	  (buffer-list)))
+  (list (mapcar #'(lambda (buffer) (cons buffer (get-buffer-colors buffer)))
+		(buffer-list))
+	(get-text-attribute-colors)
+	(get-text-attribute-colors t)))
 
 (defun color-theme-restore (snapshot)
-  (dolist (entry snapshot)
+  (dolist (entry (first snapshot))
     (set-buffer-colors (cdr entry) (car entry)))
+  (set-text-attribute-colors (second snapshot) (third snapshot))
   (refresh-screen t))
 
 ;;; カラーテーマ選択バッファ。
@@ -453,6 +574,9 @@ R/G/B を取り出して輝度 (ITU-R BT.601) を出す。"
 (defun clear-color-theme ()
   (interactive)
   (setq *current-color-theme* nil)
+  ;; nil は「表示色の設定として保存されている値へ戻す」。テーマによる
+  ;; 上書きは ini に書かないので、これで元へ戻る。
+  (set-text-attribute-colors nil nil)
   (dolist (buffer (buffer-list))
     (unless (find-buffer-colors buffer)
       (set-buffer-colors nil buffer)))

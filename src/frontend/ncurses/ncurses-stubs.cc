@@ -1889,13 +1889,6 @@ ncurses_calc_client_size (Window *wp, int width, int height)
     }
 }
 
-// Map xyzzy color index (0-15) to ncurses color number.
-static short
-xyzzy_to_ncurses_color (int idx)
-{
-  return (short)(idx & 7);
-}
-
 // Whether xyzzy color index is a "bright" variant (0-7)
 static int
 xyzzy_color_bright (int idx)
@@ -2635,6 +2628,8 @@ glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
 }
 
 // Initialize ncurses color pairs for syntax highlighting and text properties
+static void init_textprop_color_pairs ();
+static short colorref_to_ncurses_color (COLORREF);
 static int g_colors_initialized = 0;
 
 static void
@@ -2657,8 +2652,21 @@ init_ncurses_colors ()
   init_pair (MENU_PAIR, COLOR_BLACK, COLOR_WHITE);      // menu normal
   init_pair (MENU_SEL_PAIR, COLOR_WHITE, COLOR_BLACK);  // menu selected
 
-  // Color pairs for text properties (16-271)
-  // Only initialize combinations that fit within COLOR_PAIRS limit
+  init_textprop_color_pairs ();
+}
+
+// Color pairs for text properties (16-271) -- the "文字1〜15" palette.
+//
+// 色は添字から直に決めず、Window::w_textprop_forecolor の COLORREF を端末色へ
+// 量子化する。この表はカラーテーマから差し替えられる (issue #98,
+// src/core/textprop-colors.cc) ので、添字を見ていると差し替えが効かない。
+// 既定値のままなら結果は以前と同じ色になる (#ff0000 -> 赤 など)。
+//
+// 明るい版と暗い版 (1-7 と 9-15) の区別は output_glyph 側の A_BOLD が付ける。
+// どちらも同じ端末色へ量子化されるので、その役割はここでは持てない。
+static void
+init_textprop_color_pairs ()
+{
   int max_pairs = COLOR_PAIRS;
   for (int fg = 0; fg < 16; fg++)
     for (int bg = 0; bg < 16; bg++)
@@ -2666,10 +2674,23 @@ init_ncurses_colors ()
         int pair = TEXTPROP_PAIR (fg, bg);
         if (pair >= max_pairs)
           break;
-        short ncfg = (fg == 0) ? -1 : xyzzy_to_ncurses_color (fg);
-        short ncbg = (bg == 0) ? -1 : xyzzy_to_ncurses_color (bg);
+        short ncfg = (fg == 0) ? -1
+                     : colorref_to_ncurses_color (Window::w_textprop_forecolor[fg]);
+        short ncbg = (bg == 0) ? -1
+                     : colorref_to_ncurses_color (Window::w_textprop_backcolor[bg]);
         init_pair ((short)pair, ncfg, ncbg);
       }
+}
+
+/* 「文字1〜15」の表が Lisp から差し替えられたときの後始末
+   (src/core/textprop-colors.cc)。端末では色そのものを cell に持てないので、
+   色ペアを作り直して全ウィンドウに再描画の印を付ける。 */
+void
+Window::textprop_colors_changed ()
+{
+  init_textprop_color_pairs ();
+  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+    wp->w_disp_flags |= WDF_WINDOW;
 }
 
 // SIGWINCH flag (set in ncurses-main.cc)

@@ -1896,6 +1896,8 @@ static symbols ed[] =
   MAKE_SYMBOL2 (exclusive-lock-file),
   DEFUN3 (set-buffer-colors, 1, 1, 0),
   DEFUN3 (get-buffer-colors, 0, 1, 0),
+  DEFUN3 (set-text-attribute-colors, 1, 1, 0),
+  DEFUN3 (get-text-attribute-colors, 0, 1, 0),
   DEFVAR2 (*change-buffer-colors-hook*),
   DEFVAR2 (*sort-buffer-list-by-created-order*),
   DEFVAR2 (*buffer-list-sort-ignore-case*),

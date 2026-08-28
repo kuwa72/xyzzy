@@ -754,6 +754,8 @@
 (si::defun-builtin file-locked-p (&optional buffer))
 (si::defun-builtin set-buffer-colors (colors &optional buffer))
 (si::defun-builtin get-buffer-colors (&optional buffer))
+(si::defun-builtin set-text-attribute-colors (foreground &optional background))
+(si::defun-builtin get-text-attribute-colors (&optional background))
 (si::defun-builtin set-default-fold-width (width))
 (si::defun-builtin set-buffer-fold-width (width &optional buffer))
 (si::defun-builtin default-fold-width (width))
