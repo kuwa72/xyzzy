@@ -621,3 +621,82 @@ Fset_window_configuration (lisp lconf)
 
   return Qnil;
 }
+
+/* w_order の番号を詰める。**ウィンドウを消した後に呼ぶ。**
+
+   compute_geometry は各ウィンドウの w_order を添字にして境界の配列を埋める
+   ので、**誰も使っていない番号が残ると、その境界は未初期化のまま**になる
+   (alloca のごみ)。ウィンドウを消すと隣が w_order を吸うので、消えた側の
+   境界番号だけが宙に浮く。
+
+   1 枚だけ残っている間は両端の 2 本しか要らないので害が出ない。**次に
+   split したときに、その穴のところへ新しい境界が挿し込まれて壊れる。**
+   ゼロ高のウィンドウができ、しかもそれが選択されたままになるので、以降
+   打鍵しても画面が変わらないように見える (issue #83: プレフィックスキー
+   待ちの間に一時ウィンドウを出して消すと画面が更新されなくなる、の正体)。
+
+   **両フロントエンドで起きる。** Lisp から
+   `(split-window) (delete-window) (split-window)` と続けるだけで、Win32 でも
+   ウィンドウが 2 枚とも 1 行になる。端末では画面が固まる。ここに置いてある
+   のはそのため。 */
+static int
+order_add (long *v, int &n, int max, long x)
+{
+  for (int i = 0; i < n; i++)
+    if (v[i] == x)
+      return 1;
+  if (n >= max)
+    return 0;
+  v[n++] = x;
+  return 1;
+}
+
+static void
+order_sort (long *v, int n)
+{
+  // 数個しか無いので挿入ソートで足りる。
+  for (int i = 1; i < n; i++)
+    {
+      long x = v[i];
+      int j = i - 1;
+      for (; j >= 0 && v[j] > x; j--)
+        v[j + 1] = v[j];
+      v[j + 1] = x;
+    }
+}
+
+static long
+order_index (const long *v, int n, long x)
+{
+  for (int i = 0; i < n; i++)
+    if (v[i] == x)
+      return i;
+  return 0;
+}
+
+void
+Window::compact_orders ()
+{
+  enum {ORDER_MAX = 64};
+  long xs[ORDER_MAX], ys[ORDER_MAX];
+  int nxs = 0, nys = 0;
+  Window *mini = Window::minibuffer_window ();
+
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    if (!order_add (xs, nxs, ORDER_MAX, wp->w_order.left)
+        || !order_add (xs, nxs, ORDER_MAX, wp->w_order.right)
+        || !order_add (ys, nys, ORDER_MAX, wp->w_order.top)
+        || !order_add (ys, nys, ORDER_MAX, wp->w_order.bottom))
+      return;                   // 詰めきれないほど多い: 触らない
+
+  order_sort (xs, nxs);
+  order_sort (ys, nys);
+
+  for (Window *wp = app.active_frame.windows; wp && wp != mini; wp = wp->w_next)
+    {
+      wp->w_order.left = order_index (xs, nxs, wp->w_order.left);
+      wp->w_order.right = order_index (xs, nxs, wp->w_order.right);
+      wp->w_order.top = order_index (ys, nys, wp->w_order.top);
+      wp->w_order.bottom = order_index (ys, nys, wp->w_order.bottom);
+    }
+}

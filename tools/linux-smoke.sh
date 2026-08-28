@@ -112,6 +112,42 @@ else
   fail=1
 fi
 
+# Creating and destroying a window during a prefix key wait.  The layout grid
+# (w_order) has to stay dense: deleting a window leaves the boundary number it
+# used unreferenced, and the next split inserts a new boundary at that hole,
+# where compute_geometry then read uninitialized alloca memory.  The result was
+# a zero-height window that stayed *selected*, so **every following keystroke
+# went to a window nobody could see and the screen stopped changing** (issue
+# #83).  Nothing in the lisp suite can see it: the suite runs on the Windows
+# builds, where the same sequence happens to survive.
+#
+# The check asks the editor for the height of the window it is left in rather
+# than looking at the screen.  Reading the screen is what the bug reads like,
+# but the dump depends on when the drain gives up, and that made the check
+# flaky.  A zero-height selected window is the same defect and is a number.
+#
+# The expression *returns* the marker instead of calling `message': ESC ESC
+# reports its own result with `message', so a message from inside is overwritten
+# by "t" the moment the expression finishes.
+#
+# The hook only fires for C-x (char code 24), and tears down only while the
+# temporary buffer is the selected one, so that the ESC ESC used to ask the
+# question neither creates a second temporary window nor deletes a real one.
+log=$build/smoke-prefix-window.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(setq *prefix-key-hook* (list (lambda (keymaps key) (if keymaps (when (eql (char-code key) 24) (pop-to-buffer (get-buffer-create "*T*") t)) (when (equal (buffer-name (selected-buffer)) "*T*") (delete-window) (delete-buffer (find-buffer "*T*")))))))\r\w' \
+  '\Cx\w' '2\w' \
+  '\e\e(format nil "SMOKE-PREFIX-WINDOW ~:[NG~;OK~] ~S" (and (> (window-lines) 4) t) (list (count-windows) (window-lines)))\r\w' \
+  >"$log" 2>&1 || true
+if grep -q 'SMOKE-PREFIX-WINDOW OK' "$log"; then
+  echo 'smoke: window churn during a prefix key OK -- no zero-height window left'
+else
+  echo "smoke: window churn during a prefix key FAILED, see $log" >&2
+  grep -n 'SMOKE-PREFIX-WINDOW' "$log" >&2 || tail -30 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.
