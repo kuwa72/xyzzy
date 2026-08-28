@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: EDITOR -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: utf-8 -*-
 ;;; tree-sitter: generic syntax highlighting infrastructure
 ;;;
 ;;; Language-specific support lives in the respective mode files:

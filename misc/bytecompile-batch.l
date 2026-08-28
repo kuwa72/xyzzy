@@ -1,3 +1,4 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 ;; Batch byte-compile and exit
 ;; Usage: xyzzy -q -load misc/bytecompile-batch.l
 ;;
