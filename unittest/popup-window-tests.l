@@ -99,3 +99,48 @@
   "上限に収まっているときは何も変えないこと"
   (ed::popup-window-columns '("a" "b" "c" "d" "e" "f") 12 10)
   => ("a  c  e" "b  d  f"))
+
+(deftest popup-window-open-splits-the-selected-window ()
+  "**別のウィンドウを奪わず、今いるウィンドウを分割すること。**
+
+pop-to-buffer は「画面が既に分割されていたら新たに分割せず、別のウィンドウへ
+移ってそこに出す」ので、シェルなどを出している無関係なウィンドウを奪っていた
+(端末を並べた状態で M-m を打つと、モード行だけ *Which Key* になってシェルの
+画面が残るという報告があった)。"
+  (save-window-excursion
+    (delete-other-windows)
+    (let ((name " *popup split test*")
+	  (other (get-buffer-create " *popup other*")))
+      (unwind-protect
+	  (progn
+	    ;; 2 枚にして、片方に別のバッファを出しておく
+	    (split-window)
+	    (let* ((before (ed::popup-window-window-list))
+		   (n-before (length before))
+		   (keep (buffer-name (selected-buffer))))
+	      (ed::popup-window-open name "Test")
+	      (let ((after (ed::popup-window-window-list)))
+		(ed::popup-window-close name)
+		(values (- (length after) n-before)
+			;; 奪われていないこと: 元のウィンドウはまだ生きている
+			(every #'(lambda (w) (member w after)) before)))))
+	(progn
+	  (set-buffer-modified-p nil other)
+	  (ignore-errors (delete-buffer other))))))
+  => 1
+  => t)
+
+(deftest popup-window-open-reuses-its-own-window ()
+  "既にそのバッファを出しているウィンドウがあれば増やさないこと
+(打鍵ごとに描き直す間、同じウィンドウを使い続ける)"
+  (save-window-excursion
+    (delete-other-windows)
+    (let ((name " *popup reuse test*"))
+      (ed::popup-window-open name "Test")
+      (let ((n1 (length (ed::popup-window-window-list))))
+	(ed::popup-window-open name "Test")
+	(let ((n2 (length (ed::popup-window-window-list))))
+	  (ed::popup-window-close name)
+	  (values n1 n2)))))
+  => 2
+  => 2)

@@ -420,7 +420,10 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	  ;; (issue #82)、これに任せていた間、端末では Leader メニューを
 	  ;; キャンセルすると *Which Key* が画面に残っていた。
 	  (ignore-errors (set-window-configuration conf))
-	  (popup-window-close *which-key-buffer-name*))
+	  (popup-window-close *which-key-buffer-name*)
+	  ;; 構成を戻した後で画面全体を描き直させる。広がった行を誰も塗り
+	  ;; 直さないと、一時ウィンドウの文字が残る。
+	  (popup-window-refresh-frame))
 	(when target
 	  (message "")
 	  (call-interactively target)
