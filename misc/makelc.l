@@ -160,8 +160,9 @@
       (reload-files)
       (format t "DONE.~%")
       (refresh)
+      ;; nil のことがある (下の makelc-and-exit の説明)。
       (let ((dump (si:dump-image-path)))
-	(when (file-exist-p dump)
+	(when (and dump (file-exist-p dump))
 	  (delete-file dump)))
       )
     (set-buffer-modified-p nil buf)))
@@ -177,8 +178,12 @@
 	  (compile-package :compiler)
 	  (compile-package :lisp)
 	  (setq nfailed (compile-files :force-recompile force-recompile))
+	  ;; **`si:dump-image-path' は nil を返すことがある。** ダンプイメージの
+	  ;; 場所を決めるのは Win32 の init_dump_path だけで、POSIX ビルドには
+	  ;; ダンプイメージが無い。nil をそのまま `file-exist-p' へ渡していたので
+	  ;; 「不正なデータ型です: nil: pathname」で丸ごと失敗していた (issue #49)。
 	  (let ((dump (si:dump-image-path)))
-	    (when (file-exist-p dump)
+	    (when (and dump (file-exist-p dump))
 	      (delete-file dump))))
 	;; バッチ起動では *compile log* バッファは誰にも見られないまま捨てられる。
 	;; **失敗したのに理由がどこにも残らない**ので、失敗したときだけ外へ

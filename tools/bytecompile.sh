@@ -3,7 +3,12 @@
 # bytecompile cmake target does on Windows.  Runs inside the container
 # (tools/x bytecompile).
 #
-#   tools/bytecompile.sh <i686|x86_64> [--force]
+#   tools/bytecompile.sh <i686|x86_64|linux> [--force]
+#
+# ARCH "linux" uses the native POSIX build instead of Wine.  The .lc files are
+# not tracked by git, so a fresh checkout has none, and tools/run-tests.sh
+# refuses to run against a library that has no .lc -- which is why the lisp
+# suite in linux.yml passes --bytecompile.
 #
 # Without the .lc files every start up reads the whole library as source, which
 # takes minutes under Wine; with them it takes seconds.  The files land next to
@@ -31,17 +36,28 @@ build=$root/_build/$arch
 # shellcheck source=lc-stale.sh
 . "$root/tools/lc-stale.sh"
 
+# native=yes means "no Wine anywhere in this script".  The POSIX build has no
+# separate batch binary; --batch is a flag on the one exe.
+native=no
 case $arch in
   i686)   export WINEPREFIX=/wine32 WINEARCH=win32 ;;
   x86_64) export WINEPREFIX=/wine   WINEARCH=win64 ;;
+  linux)  native=yes ;;
   aarch64)
     echo "bytecompile.sh: an ARM64 build cannot be run here; aarch64 is build only" >&2
     exit 2 ;;
   *) echo "bytecompile.sh: unknown architecture $arch" >&2; exit 2 ;;
 esac
 
-[ -x "$build/xyzzy-batch.exe" ] || {
-  echo "bytecompile.sh: $build/xyzzy-batch.exe not built" >&2; exit 2; }
+if [ "$native" = yes ]; then
+  exe=$build/xyzzy
+  runner=("$exe" --batch)
+else
+  exe=$build/xyzzy-batch.exe
+  runner=(wine "$exe")
+fi
+
+[ -x "$exe" ] || { echo "bytecompile.sh: $exe not built" >&2; exit 2; }
 
 # .lc is portable bytecode: lisp/foreign.l resolves pointer-width-dependent C
 # types from the *loading* process's own *features*, not from whichever exe
@@ -54,7 +70,7 @@ if [ "$force" = no ] && [ -z "$stale" ]; then
 fi
 
 # A dump image holds absolute addresses from the binary that wrote it.
-rm -f "$build/xyzzy-batch.wxp"
+rm -f "${exe%.exe}.wxp"
 
 # lisp/startup.l is the one file that cannot be compiled over its own .lc:
 # xyzzy-batch reads startup.lc as part of coming up, and the write that would
@@ -90,10 +106,12 @@ echo "bytecompile.sh: byte compiling the lisp library ($arch)..."
 # through Wine that writes nothing and exits non-zero says nothing about why,
 # and the exit code alone is what this step used to report.
 set +e
-wine "$build/xyzzy-batch.exe" -q -load misc/bytecompile-batch.l >"$log" 2>&1
+"${runner[@]}" -q -load misc/bytecompile-batch.l >"$log" 2>&1
 status=$?
 set -e
-wineserver -k 2>/dev/null || true
+if [ "$native" = no ]; then
+  wineserver -k 2>/dev/null || true
+fi
 
 echo "----- xyzzy-batch output (exit $status) -----"
 cat "$log" || true

@@ -39,7 +39,7 @@ jobs:
   native:
     name: linux native (gcc)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
 
     steps:
       - uses: actions/checkout@v7
@@ -66,11 +66,28 @@ jobs:
       - name: Show what was built
         run: file _build/linux/xyzzy _build/linux/xyzzy-cli && ls -lh _build/linux/xyzzy _build/linux/xyzzy-cli
 
-      # The runtime gate.  See tools/linux-smoke.sh for what it covers and why
-      # the lisp suite is not run here yet.
+      # The runtime gate for things the lisp suite cannot see: what the terminal
+      # actually draws.  See tools/linux-smoke.sh.
       - name: Smoke test
         timeout-minutes: 10
         run: tools/linux-smoke.sh
+
+      # The lisp suite, gated on misc/known-failures/{common,linux}.txt.
+      #
+      # Until now this job only checked that the binaries come up: **nothing
+      # ran the 780-odd tests against the POSIX frontend**, because the suite
+      # used to eat the host's memory instead of finishing (issue #49 -- an
+      # array-size limit that varied with the width of `long`, fixed in #91).
+      # What it found the first time it ran to the end: two crashes and a
+      # silently wrong bignum multiply.
+      #
+      # --bytecompile because .lc is not tracked by git, so a fresh checkout has
+      # none and run-tests.sh refuses to measure a library it cannot tell is
+      # current.  It also means this job byte compiles the whole library with a
+      # third compiler's build, which is a check of its own.
+      - name: Lisp test suite
+        timeout-minutes: 20
+        run: tools/run-tests.sh linux --bytecompile
 
       - name: Collect what the run left behind
         if: always()
@@ -83,4 +100,7 @@ jobs:
             _build/linux/smoke-fileops.txt
             _build/linux/smoke-modeline.txt
             _build/linux/smoke-prompt.txt
+            _build/linux/smoke-prefix-window.txt
             _build/linux/smoke-cli.txt
+            _build/linux/test-output.txt
+            _build/linux/bytecompile-output.txt

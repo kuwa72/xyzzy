@@ -23,10 +23,31 @@ lowpart (u_long x)
   return u_short (x & BR_MAX);
 }
 
+/* **BR_MAX でマスクしてはいけない。**
+
+   `u_long` が 32bit なら `x >> 16` の結果は必ず 16bit なので、このマスクは
+   何もしていなかった。`long` が 64bit の環境 (LP64: Linux, macOS) では
+   **bit 32 以上を全部捨てる。**
+
+   効いていたのは 2 とおりの使い方の片方だけ。桁上がりの取り出し
+   (add / subtract / multiply / divide のループ) では被除数が 2^32 に収まって
+   いるのでマスクは無害だが、**u_long を u_short の列へ分解する**
+   bignum_rep_long::init などでは、1 回目の down で値が消える。
+
+   その結果、LP64 では 2^32 以上の long が bignum と混ざる演算すべてで
+   0 として扱われていた。答えが黙って変わる:
+
+     (* 4294967296 (expt 2 64))     => 0                       (正しくは 2^96)
+     (- (expt 2 64) 4294967296)     => 18446744073709551616    (引かれていない)
+     (* 4294967296 4294967296)      => 0                       (正しくは 2^64)
+
+   Windows では `long` が 32bit なので一度も表に出ていない (issue #49、
+   Linux ネイティブビルドで Lisp テストスイートを通して見つかった)。
+   マスクを外すと 32bit 環境の挙動は 1 ビットも変わらない。 */
 static inline u_long
 down (u_long x)
 {
-  return (x >> BR_SHIFT) & BR_MAX;
+  return x >> BR_SHIFT;
 }
 
 static inline u_long

@@ -4581,15 +4581,26 @@ completion::fix_match_len ()
 void
 completion::adjust_prefix (lisp prefix)
 {
+  /* **バッファは ucs4_t で取る。** ここは `Char *b = alloca (sizeof (Char) * l)`
+     と書いてあり、`Char` は 2 バイト (src/core/cdecl.h) なのに、そこへ
+     `sizeof (*(xstring_contents (...)))` = ucs4_t の 4 バイト単位で
+     memcpy していた。**必要な半分しか確保していないスタックへ書いていた**
+     ことになる。添字も Char 単位で進むので位置も合わない。
+
+     Win32 側 (src/frontend/win32/minibuf.cc) は ucs4_t へ移してあり、こちらは
+     移す前のコードが残っていた。ファイル名の補完で落ちる (Linux ネイティブ
+     ビルドで Lisp テストスイートが signal 11 で死ぬ 2 番目の原因、issue #49)。
+     短い名前だと alloca の余りに収まって表に出ないので、**長いパスと
+     マルチバイトの名前で初めて落ちる。** */
   int l = xstring_length (prefix) + c_match_len;
-  Char *b = (Char *)alloca (sizeof (Char) * l);
+  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
   memcpy (b, xstring_contents (prefix),
-          xstring_length (prefix) * sizeof (*(xstring_contents (prefix))));
+          xstring_length (prefix) * sizeof (ucs4_t));
   if (stringp (c_item))
     memcpy (b + xstring_length (prefix), xstring_contents (c_item),
-            c_match_len * sizeof (*(xstring_contents (c_item))));
+            c_match_len * sizeof (ucs4_t));
   if (l == xstring_length (c_string)
-      && !memcmp (b, xstring_contents (c_string), l * sizeof (*b)))
+      && !memcmp (b, xstring_contents (c_string), l * sizeof (ucs4_t)))
     c_result = c_string;
   else
     c_result = make_string (b, l);

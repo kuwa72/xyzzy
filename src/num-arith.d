@@ -343,7 +343,19 @@ cD: {return complex_subtract (x->real, x->imag, ly, make_fixnum (0));}
 lisp
 number_multiply (x, y)
 {
-ss: {return make_integer (int64_t (x) * int64_t (y));}
+ss: {
+      /* **溢れたら bignum へ落とす。** ここは int64 の積が必ず収まると当てに
+         していたが、それは `long` が 32bit のとき (Windows, LLP64) だけ正しい。
+         `long` が 64bit の Linux (LP64) では 2^32 が long_int になるので、
+         (* (expt 2 32) (expt 2 32)) が溢れて 0 を返していた (issue #49)。
+         number.h の説明を参照。 */
+      int64_t z;
+      if (!int64_multiply_overflows (int64_t (x), int64_t (y), &z))
+        return make_integer (z);
+      bignum_rep_long xx (x);
+      bignum_rep_long yy (y);
+      return make_integer (multiply (0, &xx, &yy));
+    }
 sl: ss
 sb: {
       if (x == 1)

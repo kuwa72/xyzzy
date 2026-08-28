@@ -1133,6 +1133,15 @@ Fuser_config_path ()
 lisp
 Fxyzzy_ini_path ()
 {
+  /* **null で呼ばれる。** ini ファイルの場所を決めるのは Win32 の
+     init_user_inifile_path だけで、端末 / CLI フロントエンドでは
+     app.ini_file_path が 0 のままである (read_conf / write_conf が空実装で、
+     設定を保存する先が無い)。ここで make_string (0) を渡していたので、
+     `(xyzzy-ini-path)` を呼ぶと**プロセスが落ちていた** (Linux ネイティブ
+     ビルドで Lisp テストスイートが signal 11 で死ぬ原因、issue #49)。
+     Lisp から呼べる関数がプロセスを落としてはいけない。 */
+  if (!app.ini_file_path)
+    return Qnil;
   return make_string (app.ini_file_path);
 }
 
