@@ -9,7 +9,8 @@
 
 (require "fuzzy-complete")
 
-(export '(*project-root-markers*
+(export '(parent-directory
+	  *project-root-markers*
 	  *project-list*
 	  *project-ignored-directories*
 	  project-current-root
@@ -35,6 +36,32 @@
 (define-history-variable *project-list* nil
   "過去に開いたプロジェクトルートのリスト。")
 
+(defun parent-directory (dir)
+  "DIR の親ディレクトリ。これ以上遡れなければ nil。
+
+**「短くなったこと」で判定するのが要点である。** 上へ遡るのに
+`(directory-namestring (remove-trail-slash dir))` を使うが、Windows の `C:` は
+「ドライブ C: のカレントディレクトリ」を意味するので、`C:/` を渡すと
+
+    C:/  ->  C:  ->  C:/Users/ykuwa/Downloads/xyzzy-latest/xyzzy-amd64/
+
+と **長い方へ戻ってくる**。「親が自分と同じなら終わり」だけを見ていると、
+そこから同じ数ディレクトリを永久に巡回する。**実機の Windows で、起動直後に
+CPU 100% で応答が無くなる形で踏んだ。** container の Wine ではカレント
+ドライブが Z: だったため `C:` が `C:/` を返し、再現しなかった。
+
+長さが必ず 1 以上減ることを条件にすれば、正の整数が単調減少するので必ず
+止まる。親が長くなる場合 (8.3 形式の展開など) はそこで遡るのをやめるが、
+「それ以上上に何かを探しに行かない」だけで害は無い。"
+  (when (and dir (stringp dir) (plusp (length dir)))
+    (let ((parent (ignore-errors
+                    (directory-namestring (remove-trail-slash dir)))))
+      (and parent
+	   (stringp parent)
+	   (plusp (length parent))
+	   (< (length parent) (length dir))
+	   parent))))
+
 (defun project-find-root-directory (start-dir)
   "start-dir から親ディレクトリを遡り、プロジェクトルートを探す。"
   (let* ((tn (truename start-dir))
@@ -51,10 +78,10 @@
 	(let ((path (merge-pathnames marker dir)))
 	  (when (file-exist-p path)
 	    (return-from project-find-root-directory (directory-namestring path)))))
-      (let ((parent (directory-namestring (remove-trail-slash dir))))
-	(if (or (null parent) (string= parent dir) (string= parent ""))
-	    (return nil)
-	  (setq dir parent))))
+      (let ((parent (parent-directory dir)))
+	(if parent
+	    (setq dir parent)
+	  (return nil))))
     nil))
 
 (defun project-current-root (&optional dir)
