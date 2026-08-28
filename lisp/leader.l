@@ -374,7 +374,7 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	  (popup-window-draw *which-key-buffer-name*
 			     (which-key-lines-from-bindings
 			      path (which-key-collect-bindings current-map)
-			      (or (ignore-errors (window-columns)) 80)
+			      (popup-window-measured-columns)
 			      (popup-window-body-lines 1)))
 	(let ((prompt (if *which-key-mode*
 			  (which-key-format-prompt path current-map)
@@ -563,7 +563,7 @@ POPUP が non-nil なら候補を一時ウィンドウへ、nil ならステー�
 	(setq *which-key-prefix-state* (cons t keys))
 	(message "~A" (which-key-prompt-from-bindings
 		       (which-key-prefix-path keys) bindings
-		       (max 20 (1- (or (ignore-errors (window-columns)) 80)))))
+		       (max 20 (1- (popup-window-measured-columns)))))
 	t))))
 
 (defun which-key-prefix-teardown ()
