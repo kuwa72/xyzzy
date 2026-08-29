@@ -651,7 +651,11 @@ completion::complete_filename (const wchar_t *path, lisp show_dots, lisp ignores
               goto ignore;
             }
         }
-      if (!do_completion (name, 1))
+      /* **突き合わせの大文字小文字はファイルシステムに合わせる**
+         (src/core/vfs.h の WINFS::case_insensitive_names)。ここは 1 の
+         決め打ちで、Win32 では正しいが POSIX ビルドでは打った字を
+         書き換えて存在しないパスを作っていた。 */
+      if (!do_completion (name, WINFS::case_insensitive_names))
         destruct_string (name);
     ignore:
       ;

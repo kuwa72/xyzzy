@@ -18,6 +18,20 @@ protected:
                                                 LPWSTR lpBuffer, LPWSTR *lpFilePart);
   static DWORD WINAPI internal_GetFileAttributes (LPCWSTR lpFileName);
 public:
+  /* **ファイル名の大文字小文字を区別しないファイルシステムか。**
+     Win32 は区別しない (1)、POSIX は区別する (0)。ファイル名補完がこれを見る。
+
+     これがプラットフォームの `#ifdef` ではなくファイルシステムの seam に
+     居るのは、**区別するかどうかはファイルシステムの性質であって
+     フロントエンドの性質ではない**ため。GUI 版と端末版で違ってはいけない。
+
+     厳密には Windows でも POSIX でも例外はある (macOS の既定は区別しない、
+     Linux 上の一部のマウントは区別しない) が、それを本当に知るには
+     パスごとに問い合わせるしか無い。ここが対象にしているのは
+     「打った字を勝手に書き換えて存在しないパスを作らない」ことで、
+     ビルド単位の既定で足りる。 */
+  static const int case_insensitive_names;
+
   static wchar_t wfs_share_cache[MAX_PATH * 2];
 
   static void clear_share_cache () {*wfs_share_cache = 0;}
