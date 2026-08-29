@@ -188,43 +188,28 @@ process-command-line--trace
 process-command-line--work-dir
 fix (cdr '#1='#1#) printing
 
-# ウィンドウの分割と構成。**`--batch` では curses を初期化しない。**
-# 
-# そのためフレームに大きさが無く、`split-window` は 「分割できません」で
-# 失敗する。ウィンドウを触るテストは全部そこで落ちる (`with-output-to-temp-buffer`
-# も内部で分割するので巻き込まれる)。
-# 
-# **これは端末の実装が足りないのではなく、バッチモードに画面が無いことによる。**
-# Windows ビルドの xyzzy-batch は隠しウィンドウを持っているので通る。端末側で
-# 同じことをするには、バッチでも大きさだけ持った仮のフレームを作る必要がある。
-
-add-deleted-window-p-01
-echo-area-grows-for-a-long-message
-echo-area-respects-the-line-limit
-echo-area-splits-on-a-newline
-echo-area-still-runs-format-directives
-fix-previous-pseudo-frame-test
-non-bmp-buffer-roundtrip
-popup-window-open-realizes-the-window-size
-popup-window-open-reuses-its-own-window
-popup-window-open-splits-the-selected-window
-save-window-excursion-restores-the-layout
-save-window-excursion-returns-the-body-value
-window-configuration-restores-fewer-windows
-window-configuration-restores-the-buffer
-window-configuration-round-trip
-window-grid-survives-a-vertical-split
-window-grid-survives-delete-then-split
-window-space-comes-back-after-delete
-window-space-does-not-leak-over-repeats
-winner-mode-off-records-nothing
-winner-new-change-clears-redo
-winner-record-is-idempotent
-winner-redo-reapplies
-winner-ring-is-bounded
-winner-signature-changes-on-split
-winner-signature-ignores-selection
-winner-undo-restores-previous-layout
+# ウィンドウの分割と構成、エコー領域 — **この群は空になった。**
+#
+# ここには 27 件が並んでいて、「`--batch` には画面が無いから仕方ない」と
+# 書いてあった。**それが間違いだった。** 原因は画面の有無ではなく、
+# `compute_geometry` が `getmaxyx (stdscr, ...)` を直に呼んでいたことである。
+# `--batch` では curses を上げないので `stdscr` が 0 で、`getmaxyx` は
+# rows も cols も -1 にする。それで `app.active_frame.size` が毎回 -1 に
+# 上書きされ、`create_batch_windows` が置いていた 80x24 が消えていた。
+# その結果すべてのウィンドウの矩形が潰れ、`split-window` は「分割できません」、
+# `window-height` は 1、`screen-height` は -1 を返していた。
+#
+# **画面が無いのは正しいが、大きさが無いのは正しくない。** 端末の大きさを
+# 取る所を 1 箇所 (`term_size`) にまとめ、curses が上がっていなければ
+# フレームの持っている大きさを使うようにしたら 23 件が通った。
+#
+# 残った 4 件のうち 3 件は `window-lines` の別のバグだった: モード行の
+# 1 行を一律に引いていて、**モード行を持たないミニバッファでも引いていた。**
+# 残り 1 件は `*current-pseudo-frame*` が nil のときの `pseudo-frame-name`。
+# どちらも「バッチだから」ではなく、ただのバグだった。
+#
+# **教訓として残す: 「環境の制約」と書いてある既知失敗は疑う価値がある。**
+# 27 件のうち 27 件が環境ではなく実装の問題だった。
 
 # OLE / COM。POSIX には COM が無い。
 # 
