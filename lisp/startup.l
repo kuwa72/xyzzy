@@ -13,7 +13,18 @@
 ;; Must use ed:: prefix since these are in the editor package
 #+ncurses
 (progn
-  (defvar ed::*buffer-package* nil)
+  ;; **`defvar' を使ってはいけない。** defvar はシンボルを special にし、
+  ;; **special な変数はバッファローカルになれない** (set_globally が
+  ;; SFspecial を見てバッファローカルの経路を通らずグローバルへ書く、
+  ;; src/core/eval.cc)。その結果 *buffer-package* が全バッファで共通になり、
+  ;; `text-mode' の kill-all-local-variables が消せなくなっていた
+  ;; (issue #105)。lisp/lispmode.l と同じ形にする。
+  ;;
+  ;; **効くかどうかが .lc を作ったビルドで変わる。** `#+ncurses' は読み込み時
+  ;; の条件なので、Windows ビルドが startup.l をバイトコンパイルするとこの
+  ;; ブロックは .lc から消える。端末ビルドで作ると残る。同じ .lc を両方で
+  ;; 読む作りなので、ここに副作用のある式を置くと再現性が落ちる。
+  (setq-default ed::*buffer-package* nil)
   (make-variable-buffer-local 'ed::*buffer-package*))
 
 (provide "startup")

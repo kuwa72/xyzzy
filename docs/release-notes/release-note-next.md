@@ -36,6 +36,33 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末フロントエンドで `*buffer-package*` がバッファローカルにならず、
+    全バッファで共通になっていたのを直した** (issue #105)。あるバッファで
+    `M-x set-buffer-package` すると他のバッファの package まで変わり、
+    `text-mode` にしても元に戻らない。
+
+    `lisp/startup.l` の `#+ncurses` の互換ブロックが **`defvar`** を使って
+    いた。
+
+    ```lisp
+    #+ncurses
+    (progn
+      (defvar ed::*buffer-package* nil)
+      (make-variable-buffer-local 'ed::*buffer-package*))
+    ```
+
+    **`defvar` はシンボルを special にし、special な変数はバッファローカルに
+    なれない。** `set_globally` (`src/core/eval.cc`) は `SFspecial` を見ると
+    バッファローカルの経路を通らずグローバルへ書くので、後から
+    `make-variable-buffer-local` を呼んでも効かない。同じ変数を用意している
+    `lisp/lispmode.l` は `setq-default` を使っており、そちらが正しい形だった。
+
+    **効くかどうかが `.lc` を作ったビルドで変わる**という気持ちの悪い性質も
+    あった。`#+ncurses` は読み込み時の条件なので、Windows ビルドが
+    `startup.l` をバイトコンパイルするとこのブロックは `.lc` から消え、端末
+    ビルドで作ると残る。**同じ `.lc` を両方のビルドで読む作り**なので、ここに
+    副作用のある式を置くと再現性が落ちる。そのことをコメントに書き足した。
+
   * **端末フロントエンドで `documentation` が常に nil を返していたのを直した**
     (issue #105)。`M-x describe-function` が何も出さないのもこれ。
 

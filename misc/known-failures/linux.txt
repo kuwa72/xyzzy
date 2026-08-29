@@ -12,7 +12,8 @@
 # in tools/run-tests.sh, with the reason.
 #
 # Baseline: main @ a63a907 + this branch, 158 names。以降 1 件ずつ減っている
-# (redefun-docstring は issue #105 で直したので外した)。
+# (redefun-docstring と text-mode-does-not-save-buffer-package は
+# issue #105 で直したので外した)。
 #
 # 内訳の数はグループの見出しの下に並んでいる名前を数えれば分かる。1 つでも
 # 通るようになったら run が赤くなるので、そのとき消す。
@@ -228,10 +229,8 @@ lisp-mode-eval-last-sexp
 # 直接は関係していないように見えるので、**本物の移植バグである可能性がある。**
 # ここに置いたまま放置しないための印として、理由を書けないことを明示しておく。
 # 
-#   * text-mode-does-not-save-buffer-package -- *buffer-package* が残る
 #   * fix (cdr '#1='#1#) printing -- 循環リストの表示
 #   * fix-abbreviate-display-string -- パスの短縮 (mingw でも落ちる)
 
 fix (cdr '#1='#1#) printing
 fix-abbreviate-display-string
-text-mode-does-not-save-buffer-package
