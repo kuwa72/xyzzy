@@ -11,9 +11,14 @@
 # the run and everything after it goes unmeasured.  Those go in the exclude list
 # in tools/run-tests.sh, with the reason.
 #
-# Baseline: main @ a63a907 + this branch, 158 names。以降 1 件ずつ減っている
-# (redefun-docstring と text-mode-does-not-save-buffer-package は
-# issue #105 で直したので外した)。
+# Baseline: main @ a63a907 で 158 件。以降 1 件ずつ減っている
+# (redefun-docstring と text-mode-does-not-save-buffer-package は issue #105 で
+# 直したので外した)。
+#
+# **「理由が分からない」群は空になった。** 4 件あったうち 2 件は本物の移植バグ
+# (上の 2 件)、残る 2 件は分類の間違いだった: 循環リストの印字はサブプロセス群、
+# `abbreviate-display-string` は mingw でも落ちるので POSIX 固有ではない。
+# 理由の書けない名前を置いたままにしないこと。
 #
 # 内訳の数はグループの見出しの下に並んでいる名前を数えれば分かる。1 つでも
 # 通るようになったら run が赤くなるので、そのとき消す。
@@ -150,6 +155,11 @@ xyzzy-ini-path-xyzzyinifile
 # 見る。POSIX ビルドでは子プロセスが同じ tty を取り合うので、そのままでは
 # 測れない。`--batch` を必ず付ける形に直せば動くはずで、それは
 # `unittest/test-helpers.l` の側の作業になる。
+#
+# `fix (cdr '#1='#1#) printing` も同じ理由でここにある。**測ろうとしている
+# 循環リストの印字そのものは端末ビルドでも正しく動く**
+# (`(write (cdr '#1='#1#) :circle t)` => `"#1=((quote . #1#))"`)。
+# 落ちているのは子プロセスの側だけ。
 
 process-command-line--c
 process-command-line--column
@@ -176,6 +186,7 @@ process-command-line--s
 process-command-line--s
 process-command-line--trace
 process-command-line--work-dir
+fix (cdr '#1='#1#) printing
 
 # ウィンドウの分割と構成。**`--batch` では curses を初期化しない。**
 # 
@@ -223,14 +234,12 @@ winner-undo-restores-previous-layout
 fix-ole-method
 lisp-mode-eval-last-sexp
 
-# **まだ理由が分かっていないもの。**
+# mingw でも落ちるもの。**POSIX 固有ではない。**
 # 
-# Windows では通り、Linux では落ちる。フロントエンドやプラットフォーム API に
-# 直接は関係していないように見えるので、**本物の移植バグである可能性がある。**
-# ここに置いたまま放置しないための印として、理由を書けないことを明示しておく。
-# 
-#   * fix (cdr '#1='#1#) printing -- 循環リストの表示
-#   * fix-abbreviate-display-string -- パスの短縮 (mingw でも落ちる)
+# `abbreviate-display-string` (表示用にパスを短くする) は、端末ビルドと
+# mingw ビルドが**同じ結果を返し**、MSVC だけが違う。両方とも短縮せずに
+# 元の文字列を返す。つまり POSIX の実装不足ではなく、幅の測り方が MSVC と
+# 違うということである。misc/known-failures/mingw.txt にも同じ名前があり、
+# 理由が分かっていないのもそちらと同じ。
 
-fix (cdr '#1='#1#) printing
 fix-abbreviate-display-string
