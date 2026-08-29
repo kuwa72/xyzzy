@@ -221,6 +221,8 @@ askpass (const wchar_t *path1, const wchar_t *path2)
 
 wchar_t WINFS::wfs_share_cache[MAX_PATH * 2];
 
+const int WINFS::case_insensitive_names = 1;
+
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx =
   (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandleW (L"KERNEL32"),
                                              "GetDiskFreeSpaceExW");

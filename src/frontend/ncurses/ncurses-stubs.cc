@@ -4774,7 +4774,13 @@ completion::complete_filename_scan (const wchar_t *path, lisp show_dots, lisp ig
               goto ignore;
             }
         }
-      if (!do_completion (name, 1))
+      /* **突き合わせの大文字小文字はファイルシステムに合わせる**
+         (src/core/vfs.h の WINFS::case_insensitive_names)。ここは 1 の
+         決め打ちで、Win32 では正しいが POSIX では違う。`/work` に
+         `README.md` `RELEASING.md` `reference/` があるとき `/work/RE` が
+         `/work/re` に化けていた — **打った字を書き換えて存在しないパスを
+         作っていた。** */
+      if (!do_completion (name, WINFS::case_insensitive_names))
         destruct_string (name);
     ignore:
       ;

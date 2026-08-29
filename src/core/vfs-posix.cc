@@ -20,6 +20,7 @@
 
 wchar_t WINFS::wfs_share_cache[MAX_PATH * 2];
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx = 0;
+const int WINFS::case_insensitive_names = 0;
 
 // POSIX implementations of WINFS methods for ncurses frontend
 
