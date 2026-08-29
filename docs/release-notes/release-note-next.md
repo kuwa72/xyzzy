@@ -36,6 +36,45 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末でプロンプト関数 15 個が何も聞かずに nil を返していたのを直した**
+    (issue #114)。`read-string` / `read-file-name` / `completing-read` /
+    `read-buffer-name` / `read-integer` / `read-sexp` ほか、
+    `src/frontend/ncurses/ncurses-stubs.cc` に全部が `return Qnil;` で
+    並んでいた。
+
+    ```lisp
+    (read-string "Name: ")   ; プロンプトが出ず、その場で nil
+    ```
+
+    **未実装だったのではない。** ミニバッファを読む土台 (`read_minibuffer`
+    ほか 4 つ) は端末側にも実装済みで、**win32 側とシグネチャまで一致して
+    いた。Lisp から呼べる形に繋いでいなかっただけである。** `C-x C-f` や
+    `M-x` のプロンプトが端末でもちゃんと出ていたのはそのためで、
+    `interactive` の指定は `src/core/eval.cc` が土台を直接呼ぶ。
+    **Lisp から `read-string` を呼んだときだけ nil が返っていた。**
+
+    **エラーではなく nil なので、呼んだ側は「空文字列を入力された」あるいは
+    「取り消された」と解釈して静かに違うことをする。** `M-x set-variable` の
+    「Value: 」、略称の展開 (`lisp/abbrev.l`)、ispell の「Replace with: 」、
+    `M-x` 履歴の「Redo: 」などがこれを踏んでいた。
+
+    包み 16 個を `src/core/minibuffer-read.cc` に移し、フロントエンドに残る
+    seam を 4 つに絞った (`src/core/fns.h` に書いてある)。包みは
+    「キーワード引数をほどいて土台を呼ぶ」だけで、プラットフォームに固有な
+    ものは何も無い。
+
+    **一緒に `minibuffer-buffer` の中身違いも直った。** core が返すべきなのは
+    「そのミニバッファに入った時点で選ばれていたバッファ」で、端末側は
+    「ミニバッファウィンドウに表示されているバッファ」= ミニバッファ自身を
+    返し、引数も見ていなかった。`lisp/dabbrev.l` がミニバッファでの補完に
+    これを使うので、**端末ではミニバッファ自身の文字しか候補にならなかった。**
+
+    `unittest/minibuffer-read-tests.l` (17 件)。**プロンプトを出す関数は
+    入力を待つのでバッチでは動かせないので、「引数を検査するか」を見る。**
+    prompt に数を渡すと、繋がっていれば `type-error`、スタブなら黙って nil。
+    「nil が返る」は呼んだ側から見て「空入力」と区別がつかないので、
+    **この形でないと壊れていても誰も気付かない。** プロンプトが実際に出て
+    値が返ることは pty で確かめた (端末の画面はスイートから触れない)。
   * **ミニバッファの補完エンジンを `src/core/completion.cc` に一本化した**
     (#16 Phase 4「core と frontend の境界分離」)。同じ 520 行が
     `src/frontend/win32/minibuf.cc` と `src/frontend/ncurses/ncurses-stubs.cc`

@@ -4427,46 +4427,21 @@ Fminibuffer_window_p (lisp window)
   return boole (xwindow_wp (window) && xwindow_wp (window)->minibuffer_window_p ());
 }
 
-lisp
-Fminibuffer_buffer (lisp window)
-{
-  Window *mini = Window::minibuffer_window ();
-  return (mini && mini->w_bufp) ? mini->w_bufp->lbp : Qnil;
-}
-lisp Fminibuffer_default (lisp buffer)
-{
-  return Buffer::coerce_to_buffer (buffer)->lminibuffer_default;
-}
-lisp Fminibuffer_completion_list (lisp buffer)
-{
-  return Buffer::coerce_to_buffer (buffer)->lcomplete_list;
-}
-lisp Fminibuffer_completion_type (lisp buffer)
-{
-  return Buffer::coerce_to_buffer (buffer)->lcomplete_type;
-}
-lisp Fminibuffer_dialog_title (lisp buffer)
-{
-  return Buffer::coerce_to_buffer (buffer)->ldialog_title;
-}
+/* Fminibuffer_buffer / Fminibuffer_default / Fminibuffer_completion_list /
+   Fminibuffer_completion_type / Fminibuffer_dialog_title と、Fread_* 15 個 /
+   Fcompleting_read / F{quit,exit}_recursive_edit は
+   src/core/minibuffer-read.cc へ移した。
 
-// Read functions (minibuffer input)
-lisp Fread_string (lisp, lisp) { return Qnil; }
-lisp Fread_integer (lisp, lisp) { return Qnil; }
-lisp Fread_sexp (lisp, lisp) { return Qnil; }
-lisp Fread_command_name (lisp, lisp) { return Qnil; }
-lisp Fread_function_name (lisp, lisp) { return Qnil; }
-lisp Fread_variable_name (lisp, lisp) { return Qnil; }
-lisp Fread_symbol_name (lisp, lisp) { return Qnil; }
-lisp Fread_buffer_name (lisp, lisp) { return Qnil; }
-lisp Fread_exist_buffer_name (lisp, lisp) { return Qnil; }
-lisp Fread_file_name (lisp, lisp) { return Qnil; }
-lisp Fread_exist_file_name (lisp, lisp) { return Qnil; }
-lisp Fread_file_name_list (lisp, lisp) { return Qnil; }
-lisp Fread_directory_name (lisp, lisp) { return Qnil; }
-lisp Fread_char_encoding (lisp, lisp) { return Qnil; }
-lisp Fread_exact_char_encoding (lisp, lisp) { return Qnil; }
-lisp Fcompleting_read (lisp, lisp, lisp) { return Qnil; }
+   **ここにあった Fread_* は全部 `return Qnil' で、何も聞かずに nil を
+   返していた** (issue #114)。土台 (read_minibuffer / complete_read /
+   read_filename / minibuffer_read_integer) はこのファイルの中に実装済みで、
+   win32 側とシグネチャも一致していた。繋いでいなかっただけである。
+
+   Fminibuffer_buffer はここだけ**別のものを返していた**: core が返すべき
+   なのは「そのミニバッファに入った時点で選ばれていたバッファ」で、ここは
+   「ミニバッファウィンドウのバッファ」= ミニバッファ自身を返し、引数も
+   見ていなかった。lisp/dabbrev.l がこれを使うので、ミニバッファでの補完が
+   ミニバッファ自身の文字しか見ていなかった。 */
 
 /* 補完エンジン (class completion と Fdo_completion) は src/core/completion.cc
    へ移した。**ここには win32/minibuf.cc の写しが置かれていて、片方だけが
@@ -6947,31 +6922,6 @@ lisp Flist_xyzzy_windows () { return Qnil; }
 lisp Fnext_xyzzy_window () { return Qnil; }
 lisp Fprevious_xyzzy_window () { return Qnil; }
 lisp Fget_recent_keys () { return Qnil; }
-lisp Fexit_recursive_edit (lisp value)
-{
-  nonlocal_data *nld = nonlocal_jump::data ();
-  nld->type = Qexit_this_level;
-  nld->value = value ? value : Qnil;
-  nld->tag = Qnil;
-  nld->id = Qnil;
-  throw nonlocal_jump ();
-  /*NOTREACHED*/
-  return Qnil;
-}
-
-lisp Fquit_recursive_edit (lisp silent)
-{
-  nonlocal_data *nld = nonlocal_jump::data ();
-  nld->type = Qexit_this_level;
-  nld->value = Qnil;
-  nld->tag = Qnil;
-  nld->id = xsymbol_value (silent && silent != Qnil
-                           ? Vierror_silent_quit
-                           : Vierror_quit);
-  throw nonlocal_jump ();
-  /*NOTREACHED*/
-  return Qnil;
-}
 lisp Fquit_char () { return make_char ('G' - '@'); }
 lisp Fset_quit_char (lisp) { return Qnil; }
 lisp Fset_cursor (lisp) { return Qnil; }

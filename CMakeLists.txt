@@ -820,6 +820,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/mman.cc
     ${CORE_DIR}/cmdloop.cc
     ${CORE_DIR}/completion.cc
+    ${CORE_DIR}/minibuffer-read.cc
     ${CORE_DIR}/glyph.cc
     ${CORE_DIR}/term.cc
     ${CORE_DIR}/term-lisp.cc
