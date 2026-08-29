@@ -352,6 +352,42 @@ int64_multiply_overflows (int64_t a, int64_t b, int64_t *r)
   return 0;
 }
 
+/* a + b / a - b が int64_t に収まるか。収まるなら *r に入れて 0 を返す。
+
+   **掛け算と同じ穴が足し算と引き算にも空いていた。** src/num-arith.d の
+   整数どうしの足し算は `int64_t (x) + int64_t (y)` を make_integer に渡す形で、
+   `long` が 32bit なら和は必ず int64 に収まる。**64bit だと収まらない。**
+   LP64 では `most-positive-fixnum` が 2^63-1 なので:
+
+     (+ most-positive-fixnum 1)  =>  -9223372036854775808
+     (+ most-positive-fixnum
+        most-positive-fixnum)    =>  -2
+     (- most-negative-fixnum 1)  =>  9223372036854775807
+
+   **例外にもならず、符号だけ反転した値が返る。** bignum へ上がるべき所で
+   黙って巻き戻っていた。掛け算は issue #49 で直したが、こちらは残っていた。
+
+   足してから確かめるのは符号付き溢れが未定義動作なので使えない。
+   足す前に上限との差で確かめる。 */
+inline int
+int64_add_overflows (int64_t a, int64_t b, int64_t *r)
+{
+  if (b > 0 ? a > INT64_MAX - b : b < 0 && a < INT64_MIN - b)
+    return 1;
+  *r = a + b;
+  return 0;
+}
+
+inline int
+int64_subtract_overflows (int64_t a, int64_t b, int64_t *r)
+{
+  /* **`-b` を先に作ってはいけない。** b == INT64_MIN のとき -b が溢れる。 */
+  if (b > 0 ? a < INT64_MIN + b : b < 0 && a > INT64_MAX + b)
+    return 1;
+  *r = a - b;
+  return 0;
+}
+
 lisp number_add (lisp, lisp);
 lisp number_subtract (lisp, lisp);
 lisp number_multiply (lisp, lisp);
