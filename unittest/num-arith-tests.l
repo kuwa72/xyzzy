@@ -162,3 +162,58 @@
   => -1
   => 0
   => -1)
+
+;;; fixnum の端での足し算・引き算・符号反転。**bignum へ上がるべき所で
+;;; 黙って巻き戻っていた。**
+;;;
+;;; `long' の幅は処理系で変わる。`most-positive-fixnum' は Windows (LLP64) で
+;;; 2^31-1、Linux (LP64) で 2^63-1。src/num-arith.d の整数どうしの足し算は
+;;; `int64_t (x) + int64_t (y)` を計算していて、これは long が 32bit なら
+;;; 必ず収まるが 64bit だと溢れる。例外にもならず、符号だけ反転した値が
+;;; 返っていた:
+;;;
+;;;   (+ most-positive-fixnum 1)  =>  most-negative-fixnum
+;;;   (- most-negative-fixnum 1)  =>  most-positive-fixnum
+;;;   (abs most-negative-fixnum)  =>  most-negative-fixnum
+;;;
+;;; 掛け算の同じ穴は issue #49 で直したが、足し算・引き算・符号反転が
+;;; 残っていた。
+;;;
+;;; **期待値を数値で書かない。** fixnum の幅がプラットフォームで違うので、
+;;; 数値で書くと片方でしか意味を持たない。代わりに「大小関係」と
+;;; 「既に正しいと分かっている掛け算との一致」で見る。
+
+(deftest fixnum-boundary-add-goes-to-bignum ()
+  (values
+   ;; 溢れると most-negative-fixnum になるので、大小で捕まる
+   (> (+ most-positive-fixnum 1) most-positive-fixnum)
+   (> (1+ most-positive-fixnum) most-positive-fixnum)
+   ;; 掛け算は既に正しいので、突き合わせれば値まで確かめられる
+   (= (+ most-positive-fixnum most-positive-fixnum)
+      (* most-positive-fixnum 2)))
+  => t
+  => t
+  => t)
+
+(deftest fixnum-boundary-subtract-goes-to-bignum ()
+  (values
+   (< (- most-negative-fixnum 1) most-negative-fixnum)
+   (< (1- most-negative-fixnum) most-negative-fixnum)
+   ;; mpf - mnf = 2*mpf + 1
+   (= (- most-positive-fixnum most-negative-fixnum)
+      (+ (* most-positive-fixnum 2) 1)))
+  => t
+  => t
+  => t)
+
+(deftest fixnum-boundary-negate-goes-to-bignum ()
+  (values
+   (plusp (- most-negative-fixnum))
+   (plusp (abs most-negative-fixnum))
+   ;; -mnf = mpf + 1
+   (= (- most-negative-fixnum) (+ most-positive-fixnum 1))
+   (= (abs most-negative-fixnum) (- most-negative-fixnum)))
+  => t
+  => t
+  => t
+  => t)

@@ -211,7 +211,16 @@ lisp
 number_negate (x)
 {
 s: {return make_fixnum (-x);}
-l: {return make_integer (-int64_t (x));}
+l: {
+     /* **-INT64_MIN は溢れる。** `long` が 64bit だと
+        most-negative-fixnum がちょうどそれで、`(- most-negative-fixnum)`
+        と `(abs most-negative-fixnum)` が負の値をそのまま返していた
+        (Fabs は number_negate を通る)。 */
+     if (int64_t (x) != INT64_MIN)
+       return make_integer (-int64_t (x));
+     bignum_rep_long xx (x);
+     return make_integer (negate (0, &xx));
+   }
 b: {return make_integer (negate (0, x));}
 r: {return make_ratio (number_negate (x->num), x->den);}
 F: {return make_single_float (-x);}
@@ -223,7 +232,17 @@ lisp
 number_add (x, y)
 {
 ss: {return make_fixnum (x + y);}
-sl: {return make_integer (int64_t (x) + int64_t (y));}
+sl: {
+      /* **溢れたら bignum へ落とす。** 掛け算と同じ穴 (number.h の
+         int64_add_overflows の説明)。`long` が 64bit だと和が int64 を
+         溢れ、(+ most-positive-fixnum 1) が符号だけ反転した値を返していた。 */
+      int64_t z;
+      if (!int64_add_overflows (int64_t (x), int64_t (y), &z))
+        return make_integer (z);
+      bignum_rep_long xx (x);
+      bignum_rep_long yy (y);
+      return make_integer (add (0, &xx, &yy, 0));
+    }
 sb: {
       bignum_rep_long xx (x);
       return make_integer (add (0, &xx, y, 0));
@@ -282,7 +301,16 @@ lisp
 number_subtract (x, y)
 {
 ss: {return make_fixnum (x - y);}
-sl: {return make_integer (int64_t (x) - int64_t (y));}
+sl: {
+      /* 足し算と同じ (number.h の int64_subtract_overflows の説明)。
+         (- most-negative-fixnum 1) が most-positive-fixnum を返していた。 */
+      int64_t z;
+      if (!int64_subtract_overflows (int64_t (x), int64_t (y), &z))
+        return make_integer (z);
+      bignum_rep_long xx (x);
+      bignum_rep_long yy (y);
+      return make_integer (add (0, &xx, &yy, 1));
+    }
 sb: {
       bignum_rep_long xx (x);
       return make_integer (add (0, &xx, y, 1));
