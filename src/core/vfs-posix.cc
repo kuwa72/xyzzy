@@ -230,14 +230,29 @@ HANDLE WINAPI WINFS::FindFirstFile (LPCWSTR p, LPWIN32_FIND_DATAW d)
   else
     strcpy (dirpath, ".");
 
+  /* **失敗するときは必ず errno を立てる。** 非 Win32 では GetLastError () は
+     errno を返す (src/core/platform.h) ので、ここが errno に触らずに
+     INVALID_HANDLE_VALUE を返すと、**呼び出し側が前の操作の errno を
+     「この失敗の理由」として読む。** 補完はこれを見て「候補が無い」と
+     「そこを読めない」を分けるので (src/core/completion.cc)、残り物の errno で
+     file_error が上がる。 */
+  errno = 0;
   DIR *dir = opendir (dirpath);
   if (!dir)
-    return INVALID_HANDLE_VALUE;
+    {
+      if (!errno)
+        errno = ENOENT;
+      return INVALID_HANDLE_VALUE;
+    }
 
   struct dirent *ent = readdir_skip_dots (dir);
   if (!ent)
     {
       closedir (dir);
+      /* 空のディレクトリ。Win32 の FindFirstFile がグロブに何も合わない
+         ときに返す ERROR_FILE_NOT_FOUND と同じ意味にする (その値は 2 で、
+         ENOENT も 2)。 */
+      errno = ENOENT;
       return INVALID_HANDLE_VALUE;
     }
 
