@@ -1700,11 +1700,27 @@ mkdirhier (wchar_t *path, int exists_ok)
       if (e == ERROR_FILE_EXISTS || e == ERROR_ALREADY_EXISTS)
         return 0;
     }
-  map_sl_to_backsl (path);
-  for (wchar_t *p = path; (p = wcschr (p, L'\\')); *p++ = '\\')
+  /* **区切りを書き換えずに辿る。** ここは `map_sl_to_backsl (path)` で全体を
+     `\` に直してから `wcschr (path, L'\\')` で親を辿っていた。Win32 では
+     `/` も `\` も区切りなので害が無いが、POSIX では `\` はファイル名に使える
+     普通の文字なので、`/home/x/y` が `\home\x\y` という **1 個の相対
+     ディレクトリ名**に化ける。mkdir はそれを作れてしまい、最後の
+     CreateDirectory が成功するので mkdirhier は 1 を返す。**カレント
+     ディレクトリに `\home\kuwa72\.xyzzy.d\backup` のようなゴミが出来て、
+     本来のディレクトリは出来ていないのに create-directory は t を返す**
+     状態だった。バックアップの置き場も同じ経路で作るので、端末版で保存する
+     たびにカレントディレクトリが汚れていた。
+
+     `/` と `\` の両方を区切りとして見て、元の文字はそのまま戻す。 */
+  for (wchar_t *p = path; ; p++)
     {
+      p = wcspbrk (p, L"/\\");
+      if (!p)
+        break;
+      wchar_t c = *p;
       *p = 0;
       WINFS::CreateDirectory (path, 0);
+      *p = c;
     }
   if (WINFS::CreateDirectory (path, 0))
     return 1;
