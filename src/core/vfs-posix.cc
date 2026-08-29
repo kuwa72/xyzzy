@@ -44,6 +44,19 @@ public:
         n = PATH_MAX;
       ucs4_t *e = w2i (w, int (n), cp);
       i2u8 (cp, int (e - cp), buf);
+      /* **`\' を区切りとして受ける。** core のパス層はどのプラットフォームでも
+         `/` と `\` の両方を区切りとして扱い、`namestring' は `\` を `/` に
+         直して返す (src/core/pathname.cc)。したがって **xyzzy から見て
+         「名前に `\` を含むファイル」は POSIX でも最初から到達できない。**
+         にもかかわらずここが `\` をただのバイトとして通していたため、
+         `map_sl_to_backsl' を掛けてから WINFS を呼ぶ経路 (mkdirhier,
+         Ftruename, rename_short_name) が `\home\kuwa72\...` という 1 個の
+         **相対ディレクトリ名**を OS に渡していた。mkdir はそれを作れてしまう
+         ので、カレントディレクトリにゴミが出来た上で成功が返っていた。
+         境界で core と同じ解釈に揃える。 */
+      for (char *p = buf; *p; p++)
+        if (*p == '\\')
+          *p = '/';
     }
   operator const char * () const {return buf;}
   const char *c_str () const {return buf;}
@@ -205,7 +218,13 @@ HANDLE WINAPI WINFS::FindFirstFile (LPCWSTR p, LPWIN32_FIND_DATAW d)
 
   // Remove trailing wildcard (e.g., "/*" or "/*.*")
   char *slash = strrchr (dirpath, '/');
-  if (slash)
+  if (slash == dirpath)
+    /* **ルート直下は "/" を残す。** ルートに対するグロブ (スラッシュ 1 個の
+       あとにワイルドカード) から区切りを切り落とすと空文字列になり、
+       opendir ("") が必ず失敗する。`(directory "/")' が nil を返し、
+       `/` 直下のファイル名補完が :no-completions になっていた。 */
+    dirpath[1] = 0;
+  else if (slash)
     *slash = 0;
   else
     strcpy (dirpath, ".");
