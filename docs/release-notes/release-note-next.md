@@ -36,6 +36,43 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末ビルドの `--batch` でウィンドウの大きさが失われていたのを直した。**
+    Linux の既知失敗が **159 件から 132 件へ減った** (issue #50)。
+
+    `--batch` では curses を上げないので `stdscr` が 0 になる。そこへ
+    `compute_geometry` が `getmaxyx (stdscr, ...)` を直に呼んでいて、
+    rows も cols も -1 になり、**`app.active_frame.size` が毎回 -1 に
+    上書きされていた** (起動時に置いた 80x24 が消える)。その結果すべての
+    ウィンドウの矩形が潰れ、`split-window` は「分割できません」、
+    `window-height` は 1、`screen-height` は -1 を返していた。
+
+    端末の大きさを取る所を 1 箇所 (`term_size`) にまとめ、curses が上がって
+    いなければフレームの持っている大きさを使うようにした。**23 件が通るように
+    なった** (`split-window` / `window-configuration` / `save-window-excursion` /
+    `popup-window` / `winner` / `add-deleted-window-p` / `non-bmp-buffer-roundtrip`)。
+
+    **これが効いたのは、既知失敗に書いてあった理由が間違っていたからである。**
+    そこには「`--batch` には画面が無いから仕方ない」と書いてあった。画面が
+    無いのは正しいが、**大きさが無いのは正しくない。** 27 件のうち 27 件が
+    環境ではなく実装の問題だった。既知失敗リストの理由欄にこの教訓を残した。
+
+    残った 4 件も環境ではなかった。3 件は `window-lines` が**モード行の 1 行を
+    一律に引いていた**こと (`(window-lines (minibuffer-window))` が 1 少なく
+    返る。**ミニバッファにモード行は無い**)。判定に `w_disp_flags &
+    WDF_MODELINE` を使ってはいけないことも分かった: あれは「モード行を
+    持つか」ではなく**「モード行を描き直す必要があるか」という再描画
+    フラグ**で、描くたびに立って消える。1 件は `*current-pseudo-frame*` が
+    nil のときに `next-pseudo-frame` / `previous-pseudo-frame` が
+    `pseudo-frame-name` へ nil を渡して型エラーになること (端末ではタブバーが
+    無く初期フレームが作られないので常にこの状態)。
+
+    ついでに **`random-type` が Linux で 9% の確率で落ちる flaky だった**のも
+    直した。上限が 10^20 で、fixnum の幅は `long` の幅なので
+    **プラットフォームで変わる**: Windows (LLP64) は 2^31 なので 10^20 の
+    乱数は必ず bignum になるが、Linux (LP64) は 2^63 ≈ 9.2×10^18 で、
+    10^20 が fixnum に収まる確率が 1/10.8 ある (実測で 2000 回中 177 回)。
+    **「Linux だけ落ちる」ように見えるので環境の違いに見えてしまう**種類の
+    flaky で、上限を 10^40 にした。
   * **端末でプロンプト関数 15 個が何も聞かずに nil を返していたのを直した**
     (issue #114)。`read-string` / `read-file-name` / `completing-read` /
     `read-buffer-name` / `read-integer` / `read-sexp` ほか、

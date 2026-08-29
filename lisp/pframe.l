@@ -137,12 +137,20 @@
     (when result
       (switch-pseudo-frame (cdr (assoc 'list data))))))
 
+;; **`*current-pseudo-frame*' が nil のことがある。** 擬似フレームが 1 つも
+;; 作られていない状態で、`pseudo-frame-name' に nil を渡すと
+;; 「不正なデータ型です: nil: structure」になる。端末フロントエンドでは
+;; タブバーが無く初期フレームが作られないので、常にこの状態である。
+;; ここは「切り替える先が無い」だけなので nil を返して何もしない
+;; (フレームが 0 個なら frame も nil になり、下の `eq' が成り立って
+;; そのまま nil が返る)。
 (defun other-pseudo-frame ()
   (interactive)
   (let* ((frames (list-pseudo-frames))
-	 (frame (or (cadr (member (pseudo-frame-name *current-pseudo-frame*)
-				  frames
-				  :key #'pseudo-frame-name :test #'string=))
+	 (frame (or (and *current-pseudo-frame*
+			 (cadr (member (pseudo-frame-name *current-pseudo-frame*)
+				       frames
+				       :key #'pseudo-frame-name :test #'string=)))
 		    (car frames))))
     (unless (eq frame *current-pseudo-frame*)
       (select-pseudo-frame frame)
@@ -153,9 +161,10 @@
 (defun previous-pseudo-frame ()
   (interactive)
   (let* ((frames (list-pseudo-frames))
-	 (frame (let ((n (position (pseudo-frame-name *current-pseudo-frame*)
-				   frames
-				   :key #'pseudo-frame-name :test #'string=)))
+	 (frame (let ((n (and *current-pseudo-frame*
+			      (position (pseudo-frame-name *current-pseudo-frame*)
+					frames
+					:key #'pseudo-frame-name :test #'string=))))
 		  (if (and n (plusp n))
 		      (nth (- n 1) frames)
 		    (car (last frames))))))

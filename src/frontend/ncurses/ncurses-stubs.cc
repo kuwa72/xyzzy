@@ -3101,6 +3101,29 @@ render_window (Window *wp, int total_cols)
 
 static void draw_persistent_menu_bar ();
 
+/* **端末の大きさ。`getmaxyx' を直に使ってはいけない。**
+   `--batch` では curses を上げないので `stdscr` が 0 で、`getmaxyx` は
+   rows も cols も -1 にする。ここが `app.active_frame.size` をその -1 で
+   上書きしていたため、**ncurses-main.cc の create_batch_windows が置いた
+   80x24 が毎回消えていた。** その結果すべてのウィンドウの矩形が潰れ、
+   `split-window` が「分割できません」で失敗し、`window-height` は 1、
+   `screen-height` は -1 を返していた。ウィンドウを触るテストが Linux で
+   丸ごと落ちていた (issue #50 の「window 系」の原因はこれ)。
+
+   バッチに画面が無いのは正しい。**大きさが無いのは正しくない。** 画面が
+   無いときはフレームが持っている大きさをそのまま使う。 */
+static void
+term_size (int &rows, int &cols)
+{
+  if (stdscr)
+    {
+      getmaxyx (stdscr, rows, cols);
+      return;
+    }
+  rows = app.active_frame.size.cy;
+  cols = app.active_frame.size.cx;
+}
+
 void
 refresh_screen (int f)
 {
@@ -3136,7 +3159,7 @@ refresh_screen (int f)
     }
 
   int rows, cols;
-  getmaxyx (stdscr, rows, cols);
+  term_size (rows, cols);
 
   if (rows < 3 || cols < 4)
     return;
@@ -3385,7 +3408,7 @@ Window::compute_geometry (const SIZE &, int)
     return;
 
   int rows, cols;
-  getmaxyx (stdscr, rows, cols);
+  term_size (rows, cols);
   app.active_frame.size.cx = cols;
   app.active_frame.size.cy = rows;
 
@@ -4165,12 +4188,32 @@ Fwindow_buffer (lisp window)
   return wp->w_bufp ? wp->w_bufp->lbp : Qnil;
 }
 
+/* **モード行のある窓だけ 1 行引く。** w_rect はモード行の行も含むので、
+   本文の行数はそこから 1 引いた値になる。ただし**ミニバッファ
+   (エコー領域) にモード行は無い**ので、一律に引くとエコー領域が 1 行
+   少なく見える。1 行のときは max (h, 1) に救われて表に出ないが、
+   複数行になるとずれる: `*max-minibuffer-message-lines*' が 3 で
+   8 行のメッセージを出したとき `(window-lines (minibuffer-window))' が
+   2 を返していた。
+
+   **判定に `w_disp_flags & WDF_MODELINE' を使ってはいけない。** あれは
+   「モード行を持つか」ではなく**「モード行を描き直す必要があるか」**という
+   再描画フラグで、描くたびに立って消える (Window のコンストラクタが既定で
+   立てるし、リサイズ時にも全ウィンドウへ OR で足される)。構造として
+   モード行を持たないのはミニバッファウィンドウだけなので、それを聞く。 */
+static int
+window_text_lines (const Window *wp)
+{
+  int h = wp->w_rect.bottom - wp->w_rect.top;
+  if (!wp->minibuffer_window_p ())
+    h--;
+  return max (h, 1);
+}
+
 lisp
 Fwindow_height (lisp window)
 {
-  Window *wp = Window::coerce_to_window (window);
-  int h = wp->w_rect.bottom - wp->w_rect.top - 1;
-  return make_fixnum (max (h, 1));
+  return make_fixnum (window_text_lines (Window::coerce_to_window (window)));
 }
 
 lisp
@@ -4183,9 +4226,7 @@ Fwindow_width (lisp window)
 lisp
 Fwindow_lines (lisp window)
 {
-  Window *wp = Window::coerce_to_window (window);
-  int h = wp->w_rect.bottom - wp->w_rect.top - 1;
-  return make_fixnum (max (h, 1));
+  return make_fixnum (window_text_lines (Window::coerce_to_window (window)));
 }
 
 lisp
@@ -4398,7 +4439,7 @@ lisp
 Fscreen_height ()
 {
   int rows, cols;
-  getmaxyx (stdscr, rows, cols);
+  term_size (rows, cols);
   return make_fixnum (rows);
 }
 
@@ -4406,7 +4447,7 @@ lisp
 Fscreen_width ()
 {
   int rows, cols;
-  getmaxyx (stdscr, rows, cols);
+  term_size (rows, cols);
   return make_fixnum (cols);
 }
 
