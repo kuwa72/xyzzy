@@ -105,7 +105,12 @@ void recalc_toplevel ();
 void set_caret_blink_time ();
 void restore_caret_blink_time ();
 
-/* minibuf.cc */
+/* ミニバッファ。**下の 4 つがフロントエンドの seam** で、Win32 は
+   src/frontend/win32/minibuf.cc、端末は src/frontend/ncurses/ncurses-stubs.cc、
+   ヘッドレスは src/frontend/cli/cli-stubs.cc が埋める。Lisp から見える入口
+   (`read-string' など) はどれもこの 4 つを呼ぶだけなので core にある
+   (src/core/minibuffer-read.cc)。src/core/eval.cc の interactive 指定も
+   ここを直接呼ぶ。 */
 lisp load_default (lisp, int);
 lisp load_history (lisp, int);
 lisp load_history (lisp, int, lisp);
