@@ -561,9 +561,9 @@ make_temp_file_name (wchar_t *path, wchar_t *p, int dirp, HANDLE tmpl,
         return 1;
 
       int e = GetLastError ();
-      if (e == ERROR_PATH_NOT_FOUND)
+      if (os_error_path_not_found (e))
         break;
-      if (e != ERROR_FILE_EXISTS && e != ERROR_ALREADY_EXISTS && ++fail > 10)
+      if (!os_error_already_exists (e) && ++fail > 10)
         break;
     }
   return 0;
@@ -699,7 +699,7 @@ pack_backupfile (wchar_t *old_name, wchar_t *oe, u_char *bitmap, int max_version
           {
             xsnwprintf (ne, 16, L"%d~", j++);
             if (WINFS::MoveFile (old_name, new_name)
-                || GetLastError () != ERROR_ALREADY_EXISTS)
+                || !os_error_already_exists (GetLastError ()))
               break;
           }
       }
@@ -1106,7 +1106,7 @@ make_backup_file (const wchar_t *filename, wchar_t *backup, int &result)
                   if (WINFS::MoveFile (filename, tem))
                     break;
                   int e = GetLastError ();
-                  if (e != ERROR_ALREADY_EXISTS)
+                  if (!os_error_already_exists (e))
                     return 0;
                 }
               if (!WINFS::MoveFile (tem, backup))
@@ -1133,7 +1133,7 @@ make_temp_file (wchar_t *tmpname, const wchar_t *filename)
   if (!make_temp_file_name (tmpname))
     {
       int e = GetLastError ();
-      if (e == ERROR_PATH_NOT_FOUND)
+      if (os_error_path_not_found (e))
         {
           p[1] = 0;
           file_error (e, make_string (tmpname));
@@ -1476,7 +1476,7 @@ Buffer::lock_file (lisp name, int force)
                              FILE_ATTRIBUTE_ARCHIVE, 0);
       if (h == INVALID_HANDLE_VALUE)
         {
-          if (GetLastError () == ERROR_SHARING_VIOLATION)
+          if (os_error_sharing_violation (GetLastError ()))
             result = Kshared;
         }
       else
