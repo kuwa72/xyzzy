@@ -219,6 +219,54 @@ handle_resize (kbd_queue &kbdq)
 void poll_processes ();
 int collect_process_fds (fd_set *fds);
 
+/* --- 直近の打鍵の記録 ----------------------------------------------------
+ *
+ * `get-recent-keys` (`C-h l` = `view-lossage`) が読む。**端末では
+ * ncurses-stubs.cc の「nil を返す」スタブだったので、view-lossage は
+ * 空の *Help* を出していた。**
+ *
+ * Win32 側 (src/frontend/win32/kbd.cc の `copy_queue`) は**入力キューの環状
+ * バッファをそのまま履歴として使う** (head が進んだ後ろに消費済みの打鍵が
+ * 残るので、head から後ろへ辿る)。端末側の `fetch` は端末から読んだ字を
+ * `cc[]` を経由せずに返すので、その履歴が空になる。
+ *
+ * **入力キューには手を出さない。** 別に小さな環を持つ方が、待ちと取り消しの
+ * 絡んだキューの不変条件に触らずに済む。fetch が返す所を通すだけにした
+ * (再帰で呼び直す枝は内側が記録する)。
+ */
+
+enum {RECENT_KEYS_MAX = 128};
+static Char recent_keys[RECENT_KEYS_MAX];
+static long recent_keys_count;   /* 書いた総数。環の位置はこれを割った余り */
+
+static inline lChar
+record_key (lChar c)
+{
+  /* メニューの選択と EOF は打鍵ではない (Win32 側の copy_queue も外す)。 */
+  if (c != lChar_EOF && !(c & LCHAR_MENU))
+    {
+      recent_keys[recent_keys_count % RECENT_KEYS_MAX] = Char (c);
+      recent_keys_count++;
+    }
+  return c;
+}
+
+/* 古い順に詰めて返す。src/frontend/ncurses/ncurses-stubs.cc の
+   `Fget_recent_keys` が呼ぶ。 */
+int
+ncurses_copy_recent_keys (Char *b, int size)
+{
+  long n = recent_keys_count;
+  if (n > RECENT_KEYS_MAX)
+    n = RECENT_KEYS_MAX;
+  if (n > size)
+    n = size;
+  long first = recent_keys_count - n;
+  for (long i = 0; i < n; i++)
+    b[i] = recent_keys[(first + i) % RECENT_KEYS_MAX];
+  return int (n);
+}
+
 lChar
 kbd_queue::fetch (int wait, int)
 {
@@ -228,7 +276,7 @@ kbd_queue::fetch (int wait, int)
       lChar c = pending;
       pending = lChar_EOF;
       fetchlog ("fetch: from pending 0x%lx\n", (unsigned long)c);
-      return c;
+      return record_key (c);
     }
 
   // Check internal queue
@@ -237,7 +285,7 @@ kbd_queue::fetch (int wait, int)
       lChar c = cc[head];
       head = (head + 1) % QUEUE_MAX;
       fetchlog ("fetch: from queue 0x%lx\n", (unsigned long)c);
-      return c;
+      return record_key (c);
     }
 
   // Keyboard macro: macro_char() reads from the macro string.
@@ -327,7 +375,7 @@ kbd_queue::fetch (int wait, int)
             {
               lChar c = pending;
               pending = lChar_EOF;
-              return c;
+              return record_key (c);
             }
         }
 
@@ -363,7 +411,7 @@ kbd_queue::fetch (int wait, int)
                   if (mc != lChar_EOF)
                     {
                       fetchlog ("fetch: mouse → 0x%lx\n", (unsigned long)mc);
-                      return mc;
+                      return record_key (mc);
                     }
                   continue;
                 }
@@ -461,24 +509,29 @@ kbd_queue::fetch (int wait, int)
     }
 
   fetchlog ("fetch: → lChar=0x%lx\n", (unsigned long)result);
-  return result;
+  return record_key (result);
 }
 
 lChar
 kbd_queue::peek (int)
 {
-  // peek in xyzzy is actually a non-blocking fetch (consumes the character)
+  /* peek in xyzzy is actually a non-blocking fetch (consumes the character)
+
+     **ここも記録する。** 名前は peek だが字を消費するので、`fetch` だけを
+     記録していると **ミニバッファに打った字と、まとめて届いた打鍵が
+     view-lossage から抜ける** (実測: `abc` を 1 回の書き込みで送ると `a`
+     しか残らなかった)。 */
   if (pending != lChar_EOF)
     {
       lChar c = pending;
       pending = lChar_EOF;
-      return c;
+      return record_key (c);
     }
   if (head != tail)
     {
       lChar c = cc[head];
       head = (head + 1) % QUEUE_MAX;
-      return c;
+      return record_key (c);
     }
 
   // Non-blocking check from ncurses
@@ -497,10 +550,10 @@ kbd_queue::peek (int)
   if (ret == KEY_CODE_YES && wch == KEY_MOUSE)
     {
       lChar mc = handle_mouse_event ();
-      return mc;  // may be lChar_EOF if unhandled
+      return record_key (mc);  // may be lChar_EOF if unhandled
     }
 
-  return ncurses_key_to_lchar (ret, wch);
+  return record_key (ncurses_key_to_lchar (ret, wch));
 }
 
 int

@@ -36,6 +36,32 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末で嘘をついていた述語と、空だった view-lossage を直した** (issue #50)。
+
+    どちらも `src/frontend/ncurses/ncurses-stubs.cc` で nil を返していた。
+
+    **`pos-not-visible-in-window-p` は「常に nil」= 「どこでも見えている」と
+    答えていた。** 中身は Win32 に依っていない — 表示の先頭 (`w_disp`) と
+    ウィンドウの高さ (`w_ech.cy`) から行番号を比べるだけで、どちらの
+    フロントエンドも両方を埋めている。それでも
+    `src/frontend/win32/Window.cc` に居たので、端末側は書かれていなかった。
+    `src/core/window-config.cc` へ移した。**嘘をつく述語は、呼ぶ側を間違った
+    方に分岐させる**: `lisp/ispell.l` は見えない位置でも画面を送らず、公開
+    されている `pos-visible-in-window-p` も嘘を返していた。
+
+    **`view-lossage` (`C-h l`) は空の *Help* を出していた。**
+    `get-recent-keys` が nil を返すため。Win32 側は**入力キューの環状バッファを
+    履歴として使い回している** (head が進んだ後ろに消費済みの打鍵が残る) が、
+    端末側の `fetch` は端末から読んだ字をキューを経由せずに返すので、そこが
+    空になる。**入力キューには手を出さず**、別に小さな環を持たせた。
+
+    **`peek` も記録することが要点だった。** 名前は peek だが字を消費するので、
+    `fetch` だけ記録していると「まとめて届いた打鍵」と「ミニバッファに打った
+    字」が履歴から抜ける (`abc` を 1 回の書き込みで送ると `a` しか残らない)。
+
+    `unittest/window-visible-tests.l` に 3 件。view-lossage の方は打鍵が要る
+    ので `tools/linux-smoke.sh` に入れた (Lisp スイートからはキーを打てない)。
+
   * **POSIX の FFI テストが「ライブラリを開けない」だけで落ちていたのを直した**
     (issue #50、既知失敗 40 -> 17)。
 

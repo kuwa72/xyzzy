@@ -2506,33 +2506,6 @@ Window::frame_window_resize (HWND hwnd, LPARAM lparam, const POINT *real)
 
 
 lisp
-Fpos_not_visible_in_window_p (lisp point, lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  Buffer *bp = wp->w_bufp;
-  if (!bp)
-    return Qnil;
-  Point cur (wp->w_point);
-  bp->goto_char (cur, bp->coerce_to_point (point));
-  long top, linenum;
-  if (bp->b_fold_columns == Buffer::FOLD_NONE)
-    {
-      linenum = bp->point_linenum (cur);
-      top = bp->point_linenum (wp->w_disp);
-    }
-  else
-    {
-      linenum = bp->folded_point_linenum (cur);
-      top = bp->folded_point_linenum (wp->w_disp);
-    }
-  return (linenum < top
-          ? make_fixnum (-1)
-          : (linenum >= top + wp->w_ech.cy
-             ? make_fixnum (1)
-             : Qnil));
-}
-
-lisp
 Fget_window_flags ()
 {
   return make_fixnum (Window::w_default_flags);

@@ -4226,7 +4226,10 @@ Window::enlarge_window (int n, int side)
 
 
 
-lisp Fpos_not_visible_in_window_p (lisp, lisp) { return Qnil; }
+/* **`pos-not-visible-in-window-p` のスタブは消した。** 実装は
+   src/core/window-config.cc にあり、そちらは両方のフロントエンドが
+   コンパイルする。**「常に nil」= 「どこでも見えている」と答える述語**
+   だったので、呼ぶ側が間違った方に分岐していた。 */
 
 // Screen
 lisp
@@ -6705,7 +6708,18 @@ lisp Fcount_xyzzy_instance () { return make_fixnum (1); }
 lisp Flist_xyzzy_windows () { return Qnil; }
 lisp Fnext_xyzzy_window () { return Qnil; }
 lisp Fprevious_xyzzy_window () { return Qnil; }
-lisp Fget_recent_keys () { return Qnil; }
+/* 直近の打鍵。環は src/frontend/ncurses/ncurses-kbd.cc が持つ
+   (`fetch` が返す所で記録している)。**ここは nil を返すスタブだったので、
+   `view-lossage` (C-h l) が空の *Help* を出していた。** */
+int ncurses_copy_recent_keys (Char *, int);
+
+lisp
+Fget_recent_keys ()
+{
+  Char b[128];
+  int n = ncurses_copy_recent_keys (b, numberof (b));
+  return make_string (b, n);
+}
 lisp Fquit_char () { return make_char ('G' - '@'); }
 lisp Fset_quit_char (lisp) { return Qnil; }
 lisp Fset_cursor (lisp) { return Qnil; }
