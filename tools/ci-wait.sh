@@ -64,9 +64,16 @@ if [ -z "$runs" ]; then
 else
   for run in $runs; do
     # ログは大きいので、要る行だけ抜く。ジョブ名は先頭のタブ区切りの 1 列目。
+    #
+    # **行の頭に錨を打つ。** ログの各行は
+    #   ジョブ名 <TAB> ステップ名 <TAB> 2026-08-30T04:49:43.1426570Z 本文
+    # なので、`Z ` の直後だけを見る。錨無しで探すと、**PR の本文が CI のログに
+    # 出てくる場面 (event payload の JSON) で、そこに書いた出力例が拾われる。**
+    # 実際に踏んだ: この道具を紹介する PR の本文に実行例を貼ったら、その例が
+    # 3 ジョブ分「テストの結果」として並んだ。
     gh run view "$run" --log 2>/dev/null \
-      | grep -aE 'Total [0-9]+ tests|=== known failures|=== now passing|=== unexpected failures' \
-      | awk -F'\t' '{ job = $1; sub(/^[0-9T:.Z-]+ /, "", $NF); printf "%-26s %s\n", job, $NF }' \
+      | grep -aE '[0-9]Z (Total [0-9]+ tests|=== (known failures|now passing|unexpected failures))' \
+      | awk -F'\t' '{ job = $1; sub(/^[^ ]*Z /, "", $NF); printf "%-26s %s\n", job, $NF }' \
       | sort -u
   done
 fi
