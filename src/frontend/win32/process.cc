@@ -303,7 +303,10 @@ Fcall_process (lisp cmd, lisp keys)
   return wait == Qt ? make_fixnum (exit_code) : Qt;
 }
 
-class Process
+/* 共通部分は core の `ProcessBase' (src/core/process-base.h) にある。
+   ここに残るのは Win32 の実体だけ: 読み取りスレッド、その排他、
+   出力の溜め場。 */
+class Process : public ProcessBase
 {
 protected:
   struct read_data
@@ -313,12 +316,6 @@ protected:
       int done;
     };
 
-  Buffer *p_bufp;
-  lisp p_proc;
-  lisp p_filter;
-  lisp p_sentinel;
-  lisp p_last_incode;
-  lisp p_marker;
   xbuffered_read_stream *p_input_stream;
   StrBuf p_osbuf;
   CRITICAL_SECTION p_cri;
@@ -341,29 +338,25 @@ protected:
 public:
   virtual ~Process ();
   virtual void wait_terminate () = 0;
-  virtual void signal () = 0;
-  virtual void kill () = 0;
+  /* **名前を `_proc' に揃えた。** 元は `signal ()` / `kill ()` で、POSIX の
+     `kill(2)` / `signal(3)` と衝突するのを避けて ncurses 側が `_proc' を
+     付けていた。衝突しない方に合わせて基底 (ProcessBase) の virtual に
+     している。 */
+  virtual void signal_proc () = 0;
+  virtual void kill_proc () = 0;
   virtual void send (const char *, int) const = 0;
   virtual void insert_process_output (void *);
-  lisp process_buffer () const {return p_bufp->lbp;}
   void flush_input ();
   void store_output (const ucs4_t *, int);
   virtual int readin (u_char *, int) = 0;
-  int incode_modified_p () const
-    {return xprocess_incode (p_proc) != p_last_incode;}
-  eol_code eolcode () const {return xprocess_eol_code (p_proc);}
-  lisp &filter () {return p_filter;}
-  lisp &sentinel () {return p_sentinel;}
-  lisp &marker () {return p_marker;}
-  static lisp make_process_marker (Buffer *bp)
+
+  /* `process-send-string' の前後。**Win32 だけが中身を持つ** (基底では
+     何もしない)。別スレッドが読んでいる間に溜まった出力を、書き終わって
+     から本体へ知らせる。 */
+  virtual void begin_send_string () {p_in_send_string = 1;}
+  virtual void end_send_string ()
     {
-      lisp marker = Fmake_marker (bp->lbp);
-      xmarker_point (marker) = bp->b_contents.p2;
-      return marker;
-    }
-  int &in_send_string_p () {return p_in_send_string;}
-  void end_send_string ()
-    {
+      p_in_send_string = 0;
       if (!p_pending)
         {
           EnterCriticalSection (&p_cri);
@@ -396,9 +389,8 @@ process_eol_code (lisp code)
 }
 
 Process::Process (Buffer *bp, lisp pl, lisp marker)
-     : p_bufp (bp), p_proc (pl), p_filter (Qnil), p_sentinel (Qnil),
-       p_marker (marker), p_input_stream (0), p_in_send_string (0),
-       p_pending (0)
+     : ProcessBase (bp, pl, marker), p_input_stream (0),
+       p_in_send_string (0), p_pending (0)
 {
   InitializeCriticalSection (&p_cri);
 }
@@ -792,13 +784,13 @@ public:
     }
   void create (lisp command, lisp execdir, const wchar_t *env);
   virtual void wait_terminate ();
-  virtual void signal ()
+  virtual void signal_proc ()
     {
       // Send Ctrl+C via the pty
       char cc = 0x03;
       send (&cc, 1);
     }
-  virtual void kill ()
+  virtual void kill_proc ()
     {
       if (p_process.valid ())
         TerminateProcess (p_process, 2);
@@ -1119,14 +1111,14 @@ public:
   NormalProcess (Buffer *bp, lisp pl, lisp marker) : Process (bp, pl, marker) {}
   virtual ~NormalProcess () {}
   virtual void wait_terminate ();
-  virtual void signal ()
+  virtual void signal_proc ()
     {
       if (sysdep.WinNTp ())
         signal_nt ();
       else
         signal_win95 ();
     }
-  virtual void kill ()
+  virtual void kill_proc ()
     {
       if (!TerminateProcess (p_process, 2))
         FEsimple_win32_error (GetLastError ());
@@ -1448,12 +1440,12 @@ public:
   SocketProcess (Buffer *bp, lisp pl, lisp marker) : Process (bp, pl, marker) {}
   virtual ~SocketProcess () {}
   virtual void wait_terminate ();
-  virtual void signal ()
+  virtual void signal_proc ()
     {
       try {p_so.close ();}
       catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope ());}
     }
-  virtual void kill ()
+  virtual void kill_proc ()
     {
       try {p_so.close (1);}
       catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope ());}
@@ -1581,7 +1573,7 @@ find_conpty_process (const Buffer *bp)
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      ProcessBase *pr = xprocess_data (xcar (p));
       if (pr && pr->process_buffer () == bp->lbp)
         {
           ConPtyProcess *cp = dynamic_cast<ConPtyProcess *>(pr);
@@ -1649,7 +1641,7 @@ query_kill_subprocesses ()
     return 0;
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     if (xprocess_data (xcar (p)))
-      xprocess_data (xcar (p))->signal ();
+      xprocess_data (xcar (p))->signal_proc ();
   return 1;
 }
 
@@ -1658,7 +1650,7 @@ process_gc_mark (void (*fn)(lisp))
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      ProcessBase *pr = xprocess_data (xcar (p));
       if (pr)
         {
           (*fn)(pr->filter ());
@@ -1679,108 +1671,17 @@ process_gc_mark (void (*fn)(lisp))
 
 
 
-lisp
-Fsignal_process (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (pr)
-    pr->signal ();
-  return Qt;
-}
 
-lisp
-Fkill_process (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (pr)
-    pr->kill ();
-  return Qt;
-}
 
-class in_process_send_string
-{
-  Process &i_pr;
-public:
-  in_process_send_string (Process &pr) : i_pr (pr)
-    {i_pr.in_send_string_p () = 1;}
-  ~in_process_send_string ()
-    {
-      i_pr.in_send_string_p () = 0;
-      i_pr.end_send_string ();
-    }
-};
+/* in_process_send_string と process_output_byte_stream は
+   src/core/process-lisp.cc へ移した (両フロントエンドで 1 文字も違わず、
+   基底の virtual だけで書ける)。 */
 
-lisp
-Fprocess_send_string (lisp process, lisp string)
-{
-  check_process (process);
-  check_string (string);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  Char_input_string_stream is (string);
-  process_output_byte_stream os (*pr);
-  encoding_output_stream_helper s (xprocess_outcode (process), is, eol_noconv);
 
-  in_process_send_string in (*pr);
-  copy_xstream (s, os);
 
-  return Qt;
-}
 
-lisp
-Fset_process_filter (lisp process, lisp filter)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  pr->filter () = filter;
-  return Qt;
-}
 
-lisp
-Fprocess_filter (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->filter ();
-}
 
-lisp
-Fset_process_sentinel (lisp process, lisp sentinel)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  pr->sentinel () = sentinel;
-  return Qt;
-}
-
-lisp
-Fprocess_sentinel (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->sentinel ();
-}
-
-lisp
-Fprocess_marker (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->marker ();
-}
 
 static void
 se_error (lisp lpath, int e)

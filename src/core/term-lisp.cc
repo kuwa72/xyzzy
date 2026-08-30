@@ -16,8 +16,9 @@ static Terminal *
 process_terminal (lisp process)
 {
   check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
+  /* 実体が在るかだけを見る。**基底の型で足りる** (Terminal はバッファから
+     フロントエンドに聞く)。 */
+  if (!xprocess_data (process))
     return 0;
   lisp lbuf = xprocess_buffer (process);
   if (!bufferp (lbuf))

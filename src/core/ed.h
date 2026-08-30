@@ -474,6 +474,9 @@ public:
 };
 
 # include "Buffer.h"
+/* process-base.h は Buffer が完全型になってから (p_bufp->lbp を触る)。
+   lprocess.h の方は前方宣言で足りるので上に置いてある。 */
+# include "process-base.h"
 # include "Window.h"
 # include "syntax.h"
 # include "msgbox.h"

@@ -22,6 +22,8 @@
 
 #include "stdafx.h"
 #include "ed.h"
+#include "byte-stream.h"
+#include "encoding.h"
 
 /* 文字コードの指定を検査して正規化する。nil なら
    `*default-process-encoding*`。自動判別は入力の途中で切り替わるので
@@ -134,3 +136,129 @@ Fset_process_eol_code (lisp process, lisp code)
   return Qt;
 }
 
+
+/* ここから下は `Process` の実体に触るもの。**core の基底
+   (`ProcessBase`, src/core/process-base.h) 越しに触るので、フロントエンドの
+   `class Process` の宣言は要らない。** 以前は基底が無く、`xprocess_data` が
+   フロントエンドの不完全型を返していたので、この 8 個が両方に 2 つあった
+   (issue #127)。 */
+
+/* 文字列を送る先。**`send` が基底の virtual なので core に置ける。**
+   これも両フロントエンドに 1 文字も違わない形で 2 つあった。 */
+class process_output_byte_stream: public byte_output_stream
+{
+  ProcessBase &p_proc;
+  u_char p_buf[1024];
+protected:
+  virtual u_char *sflush (u_char *b, u_char *be, int)
+    {
+      p_proc.send ((char *)b, be - b);
+      return b;
+    }
+public:
+  process_output_byte_stream (ProcessBase &proc)
+       : byte_output_stream (p_buf, p_buf + sizeof p_buf), p_proc (proc) {}
+};
+
+/* 送信中であることを実体へ知らせる。**Win32 だけが中身を持つ**
+   (別スレッドが読んでいる間に溜まった出力を、書き終わってから本体へ
+   知らせる)。POSIX は同期なので基底の何もしない実装が使われる。 */
+class in_process_send_string
+{
+  ProcessBase &i_pr;
+public:
+  in_process_send_string (ProcessBase &pr) : i_pr (pr)
+    {i_pr.begin_send_string ();}
+  ~in_process_send_string ()
+    {i_pr.end_send_string ();}
+};
+
+lisp
+Fsignal_process (lisp process)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (pr)
+    pr->signal_proc ();
+  return Qt;
+}
+
+lisp
+Fkill_process (lisp process)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (pr)
+    pr->kill_proc ();
+  return Qt;
+}
+
+lisp
+Fprocess_send_string (lisp process, lisp string)
+{
+  check_process (process);
+  check_string (string);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  Char_input_string_stream is (string);
+  process_output_byte_stream os (*pr);
+  encoding_output_stream_helper s (xprocess_outcode (process), is, eol_noconv);
+
+  in_process_send_string in (*pr);
+  copy_xstream (s, os);
+
+  return Qt;
+}
+
+lisp
+Fset_process_filter (lisp process, lisp filter)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  pr->filter () = filter;
+  return Qt;
+}
+
+lisp
+Fprocess_filter (lisp process)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  return pr->filter ();
+}
+
+lisp
+Fset_process_sentinel (lisp process, lisp sentinel)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  pr->sentinel () = sentinel;
+  return Qt;
+}
+
+lisp
+Fprocess_sentinel (lisp process)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  return pr->sentinel ();
+}
+
+lisp
+Fprocess_marker (lisp process)
+{
+  check_process (process);
+  ProcessBase *pr = xprocess_data (process);
+  if (!pr)
+    return Qnil;
+  return pr->marker ();
+}

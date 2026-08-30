@@ -29,14 +29,10 @@ void refresh_screen (int);
 // Process class — POSIX implementation
 // ============================================================
 
-class Process
+/* 共通部分は core の `ProcessBase' (src/core/process-base.h) にある。
+   ここに残るのは POSIX の実体だけ: pid、パイプ 2 本、端末エミュレータ。 */
+class Process : public ProcessBase
 {
-  Buffer *p_bufp;
-  lisp p_proc;
-  lisp p_filter;
-  lisp p_sentinel;
-  lisp p_last_incode;
-  lisp p_marker;
   pid_t p_pid;
   int p_read_fd;   // pipe: child stdout/stderr → parent read
   int p_write_fd;  // pipe: parent write → child stdin
@@ -52,32 +48,27 @@ public:
   void poll_output ();
   void terminated ();
   void send (const char *s, int l) const;
-  void signal_proc () const;
-  void kill_proc () const;
+  void signal_proc ();
+  void kill_proc ();
 
-  lisp process_buffer () const { return p_bufp->lbp; }
-  lisp &filter () { return p_filter; }
-  lisp &sentinel () { return p_sentinel; }
-  lisp &marker () { return p_marker; }
+  /* **この 3 つは基底に上げない。** fd も `Terminal' も Win32 には対応する
+     概念が無く、置くと基底がプラットフォームを知ることになる。呼ぶ側は
+     下の `posix_process ()' で降ろす。 */
   int read_fd () const { return p_read_fd; }
   pid_t pid () const { return p_pid; }
   Terminal *term () const { return p_term; }
-
-  int incode_modified_p () const
-    { return xprocess_incode (p_proc) != p_last_incode; }
-  eol_code eolcode () const { return xprocess_eol_code (p_proc); }
-
-  static lisp make_process_marker (Buffer *bp)
-    {
-      lisp marker = Fmake_marker (bp->lbp);
-      xmarker_point (marker) = bp->b_contents.p2;
-      return marker;
-    }
 };
 
+/* `xprocess_data' は core の基底を返すので、上の POSIX 固有のメソッドを
+   呼ぶ所だけここで降ろす。 */
+static inline Process *
+posix_process (lisp p)
+{
+  return static_cast <Process *> (xprocess_data (p));
+}
+
 Process::Process (Buffer *bp, lisp pl, lisp marker)
-     : p_bufp (bp), p_proc (pl), p_filter (Qnil), p_sentinel (Qnil),
-       p_last_incode (Qnil), p_marker (marker),
+     : ProcessBase (bp, pl, marker),
        p_pid (-1), p_read_fd (-1), p_write_fd (-1), p_term (0)
 {
 }
@@ -358,14 +349,14 @@ Process::send (const char *s, int l) const
 }
 
 void
-Process::signal_proc () const
+Process::signal_proc ()
 {
   if (p_pid > 0)
     ::kill (p_pid, SIGINT);
 }
 
 void
-Process::kill_proc () const
+Process::kill_proc ()
 {
   if (p_pid > 0)
     ::kill (p_pid, SIGKILL);
@@ -399,7 +390,7 @@ poll_processes ()
 restart:
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (!pr)
         continue;
 
@@ -435,7 +426,7 @@ collect_process_fds (fd_set *fds)
   int maxfd = -1;
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (pr && pr->read_fd () >= 0)
         {
           FD_SET (pr->read_fd (), fds);
@@ -678,7 +669,7 @@ buffer_terminal (const Buffer *bp)
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (pr && pr->process_buffer () == bp->lbp && pr->term ())
         return pr->term ();
     }
@@ -690,7 +681,7 @@ buffer_terminal_resize (const Buffer *bp, int rows, int cols)
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (pr && pr->process_buffer () == bp->lbp && pr->term ())
         {
           Terminal *t = pr->term ();
@@ -720,7 +711,7 @@ buffer_terminal_send (const Buffer *bp, const char *data, int len)
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (pr && pr->process_buffer () == bp->lbp && pr->term ()
           && pr->read_fd () >= 0)
         {
@@ -760,7 +751,7 @@ process_gc_mark (void (*fn)(lisp))
 {
   for (lisp p = xsymbol_value (Vprocess_list); consp (p); p = xcdr (p))
     {
-      Process *pr = xprocess_data (xcar (p));
+      Process *pr = posix_process (xcar (p));
       if (pr)
         {
           (*fn)(pr->filter ());
@@ -781,92 +772,13 @@ process_gc_mark (void (*fn)(lisp))
 
 
 
-lisp
-Fsignal_process (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (pr)
-    pr->signal_proc ();
-  return Qt;
-}
 
-lisp
-Fkill_process (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (pr)
-    pr->kill_proc ();
-  return Qt;
-}
 
-lisp
-Fprocess_send_string (lisp process, lisp string)
-{
-  check_process (process);
-  check_string (string);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  Char_input_string_stream is (string);
-  process_output_byte_stream os (*pr);
-  encoding_output_stream_helper s (xprocess_outcode (process), is, eol_noconv);
-  copy_xstream (s, os);
-  return Qt;
-}
 
-lisp
-Fset_process_filter (lisp process, lisp filter)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  pr->filter () = filter;
-  return Qt;
-}
 
-lisp
-Fprocess_filter (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->filter ();
-}
 
-lisp
-Fset_process_sentinel (lisp process, lisp sentinel)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  pr->sentinel () = sentinel;
-  return Qt;
-}
 
-lisp
-Fprocess_sentinel (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->sentinel ();
-}
 
-lisp
-Fprocess_marker (lisp process)
-{
-  check_process (process);
-  Process *pr = xprocess_data (process);
-  if (!pr)
-    return Qnil;
-  return pr->marker ();
-}
 
 // ============================================================
 // Stubs for Win32-only functions
