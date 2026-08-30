@@ -1697,7 +1697,18 @@ mkdirhier (wchar_t *path, int exists_ok)
   else
     {
       int e = GetLastError ();
-      if (e == ERROR_FILE_EXISTS || e == ERROR_ALREADY_EXISTS)
+      /* **POSIX では errno を見る。** 非 Win32 の `GetLastError ()' は errno を
+         返すが (src/core/platform.h)、`ERROR_*' は本物の Win32 の番号のままなので
+         `EEXIST' (17) は `ERROR_FILE_EXISTS' (80) にも
+         `ERROR_ALREADY_EXISTS' (183) にも一致しない。その結果、既にある
+         ディレクトリに対する `create-directory' が**エラーにならず t を
+         返していた** (Windows では "File already exists." になる)。
+         番号の体系そのものを揃える話は別に切ってある。 */
+      if (e == ERROR_FILE_EXISTS || e == ERROR_ALREADY_EXISTS
+#ifndef _WIN32
+          || e == EEXIST
+#endif
+          )
         return 0;
     }
   /* **区切りを書き換えずに辿る。** ここは `map_sl_to_backsl (path)` で全体を
