@@ -36,6 +36,35 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で `directory` とパスの扱いを 3 つ直した** (既知失敗 76 -> 71)。
+    どれも `misc/known-failures/linux.txt` が
+    「`directory--*` は WIN32_FIND_DATA の属性 (FILE_ATTRIBUTE_*) をそのまま
+    見ている」という理由で 5 件まとめて片付けていたものだが、**5 件のどれも
+    属性を見ていなかった。** 測り直したら別々の 3 つの理由で、全部直せた。
+
+    **`get-file-info` が nil を返すスタブだった** (`ncurses-stubs.cc`)。
+    中身は `strict_get_file_data` を呼んで `make_file_info` に渡すだけで、
+    その `WINFS::get_file_data` は非 Win32 でも stat で実装済み。
+    `#ifdef _WIN32` の中にあっただけ。**`directory` の `:file-info t` は同じ
+    `make_file_info` を通って動いていたので、同じ情報が片方の入口からだけ
+    出ていた。**
+
+    **`(directory dir :show-dots t)` が `./` と `../` を返さなかった。**
+    Win32 の `FindFirstFile` はディレクトリのグロブでこの 2 つを返し、
+    **弾くのは呼び出し側の仕事** (`glob.cc` の `DF_SHOW_DOTS`、
+    `completion.cc`) なのに、`vfs-posix.cc` が `readdir` の段で先に落として
+    いた。再帰で無限に潜る心配は無い (`glob.cc` はドットのときは再帰の枝に
+    入らない)。
+
+    **`(merge-pathnames "/work/etc" "c:/hoge")` が `"c:/work/etc"` を
+    返していた。** ドライブの無い rooted パスに defaults のドライブを被せる
+    のは Win32 では正しい (`\foo` は「カレントドライブの \foo」の意味) が、
+    **POSIX には被せるドライブという概念が無いので、付いた `c:` は嘘**に
+    なる。非 Win32 では `/` で始まればそれで完全とした。
+
+    **属性を見ているという理由は、テストを読めば違うと分かるものだった**
+    (`directory--absolute` は `merge-pathnames` に `c:/hoge` を渡している)。
+    既知失敗の分類を書くときは、テストが実際に何を呼んでいるかを見る。
   * **文法エラーを見つけて色と下線を付ける `flymake` を追加した**
     (issue #137、`lisp/flymake.l`、`M-x flymake-check` / `Leader c c`)。
     #30「リアルタイム文法エラー / 警告表示」の 1 項目。
