@@ -36,6 +36,28 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **`si:uuid-create` を POSIX でも実装した** (issue #50)。Linux の既知失敗が
+    **76 件へ** (`uuid-create-*` 8 件)。
+
+    Win32 は RPC の `UuidCreate` / `UuidCreateSequential` を呼ぶ。POSIX に
+    対応するものは無いが、**RFC 4122 の中身は「乱数」(version 4) か
+    「時刻 + 機械の識別子」(version 1) で、どちらも標準の手段で作れる。**
+
+    **`libuuid` には依存しなかった。** `/dev/urandom` と `clock_gettime` で
+    足りるので、**Linux ビルドの依存を ncurses と zlib だけに保った。**
+    既知失敗リストには「`CoCreateGuid` には `uuid_generate` があるので移植
+    できる余地がある」と書いてあったが、依存を増やさずに済む方を選んだ。
+
+    `node` は RFC 4122 §4.5 が「MAC が取れないときは乱数にしてマルチキャスト
+    ビットを立てる」と決めているのでそうした。**プロセスの間は変えない**ので
+    「同じ機械の連番」という性質は保たれる (clock-seq も同じ)。同じ tick で
+    2 回呼ばれたら時刻を 1 進めて、「時刻が戻らない」を満たす。
+
+    ```
+    v4       168cfdf0-dc28-4844-8f08-e522d22f27f7   (毎回違う)
+    v1 1回目  cd78a996-a45f-11f1-acb2-b1378dace5f7
+    v1 2回目  cd78ae64-a45f-11f1-acb2-b1378dace5f7   (node と clock-seq は同じ)
+    ```
   * **`si:pack-*` / `si:unpack-*` が幅を素の型で書いていたのを直した**
     (issue #50)。Linux の既知失敗が **88 件へ**。**「FFI」の群に並んでいたが、
     FFI とは関係が無かった** — チャンク (バイト列) を読み書きするだけで
