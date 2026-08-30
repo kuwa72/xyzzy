@@ -143,6 +143,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (define-key *leader-toggle-map* #\C 'select-color-theme)
 (define-key *leader-toggle-map* #\m 'toggle-rich-modeline)
 (define-key *leader-toggle-map* #\s 'toggle-ts-highlight)
+(define-key *leader-toggle-map* #\g 'toggle-golden-ratio)
 
 (which-key-add-description 'toggle-terminal-drawer "Terminal")
 (which-key-add-description 'toggle-line-number "LineNum")
@@ -153,6 +154,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (which-key-add-description 'select-color-theme "Theme")
 (which-key-add-description 'toggle-rich-modeline "ModeLine")
 (which-key-add-description 'toggle-ts-highlight "Syntax")
+(which-key-add-description 'toggle-golden-ratio "GoldenRatio")
 
 ;; Window (w)
 (define-key *leader-window-map* #\s 'split-window)
