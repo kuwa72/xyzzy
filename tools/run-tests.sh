@@ -123,12 +123,6 @@ cd "$root"
 #     there and the build stops with the error above.  x86_64 is unaffected
 #     (llvm-mingw uses real SEH there) and passes all three.
 #
-#   kill-xyzzy-exit-code (linux only)
-#     Starts (si:system-path) **without --batch** and waits for it.  On Windows
-#     a GUI opens minimized and exits; the terminal frontend takes over the same
-#     tty and never comes back.  ":show :minimize" is a Win32 idea to begin
-#     with.
-#
 #   ole-tests.l (linux only, the whole file)
 #     Drives Internet Explorer through COM.  There is no COM here, so every test
 #     in the file is meaningless -- and fix-ole-for-each-2 does not merely fail,
@@ -146,7 +140,7 @@ cd "$root"
 skip=win32-exception-slots,pack/unpack-bad-ptr
 case $arch in
   i686) skip=$skip,handle-divide-by-zero,handle-access-violation,handle-access-violation-2 ;;
-  linux) skip=$skip,kill-xyzzy-exit-code,ole-tests.l,git-tests.l ;;
+  linux) skip=$skip,ole-tests.l,git-tests.l ;;
 esac
 : "${XYZZY_TEST_EXCLUDE_EXTRA:=$skip}"
 export XYZZY_TEST_EXCLUDE_EXTRA

@@ -149,44 +149,24 @@ xyzzy-ini-path-startup-option
 xyzzy-ini-path-startup-option-and-xyzzyinifile
 xyzzy-ini-path-xyzzyinifile
 
-# コマンドライン引数の処理。
-# 
-# どれも `eval-in-another-xyzzy` で**自分自身をもう 1 つ起動して**引数の効きを
-# 見る。POSIX ビルドでは子プロセスが同じ tty を取り合うので、そのままでは
-# 測れない。`--batch` を必ず付ける形に直せば動くはずで、それは
-# `unittest/test-helpers.l` の側の作業になる。
+# コマンドライン引数の処理 — **この群も空になった。**
 #
-# `fix (cdr '#1='#1#) printing` も同じ理由でここにある。**測ろうとしている
-# 循環リストの印字そのものは端末ビルドでも正しく動く**
-# (`(write (cdr '#1='#1#) :circle t)` => `"#1=((quote . #1#))"`)。
-# 落ちているのは子プロセスの側だけ。
-
-process-command-line--c
-process-command-line--column
-process-command-line--e
-process-command-line--eval
-process-command-line--f
-process-command-line--funcall
-process-command-line--g
-process-command-line--go
-process-command-line--i
-process-command-line--kill
-process-command-line--l
-process-command-line--load
-process-command-line--load-path
-process-command-line--m
-process-command-line--mailto
-process-command-line--mode
-process-command-line--p
-process-command-line--r
-process-command-line--require
-process-command-line--ro
-process-command-line--rw
-process-command-line--s
-process-command-line--s
-process-command-line--trace
-process-command-line--work-dir
-fix (cdr '#1='#1#) printing
+# ここには 26 件 (`process-command-line--*` 25 件と
+# `fix (cdr '#1='#1#) printing`) が並んでいて、「POSIX では子プロセスが同じ
+# tty を取り合うので測れない」と書いてあった。**原因の見立ては当たっていて、
+# 直せば通った。**
+#
+# どれも自分自身をもう 1 つ起動して引数の効きを見る。子に `--batch` を
+# 付けないと、子が親と同じ tty で curses を初期化しようとして、どちらも
+# 進まない (結果ファイルが書かれず "result not sent."、`call-process` は 1)。
+# コマンド行を組む所を `unittest/simple-test.l` の `test-self-command` に
+# まとめ、端末ビルドでは `--batch` を足すようにした。
+#
+# 2 件だけ別の理由だった: `-e(view-mode)` と `-eval (view-mode)` は
+# **括弧がシェルに食われていた。** POSIX では子プロセスを `/bin/sh -c` で
+# 起動するので `(` が構文エラーになる (cmd.exe はここでは括弧を特別扱い
+# しないので Windows では通っていた)。このファイルの他の指定は最初から
+# `-e \"~S\"` の形で引用符に囲まれていて、この 2 つだけが漏れていた。
 
 # ウィンドウの分割と構成、エコー領域 — **この群は空になった。**
 #

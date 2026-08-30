@@ -988,10 +988,33 @@ Returns list of failures."
 ;;; - 戻り値も readable に印字できないものはアウト
 ;;; - レキシカル変数を持ち込めない...
 
+;;; 自分自身を子プロセスとして起動するコマンド行。
+;;;
+;;; **走っている実行ファイルをそのまま使う。** ここは
+;;; `(merge-pathnames "xyzzy.exe" (si:system-root))' と決め打ちで、
+;;; POSIX ビルドには `.exe' が無いので当たらなかった。CI では
+;;; misc/run-tests-batch.l がこの関数を丸ごと差し替えて回避していたが、
+;;; **コマンド行を組む所が 2 つある状態**になっていたのでこちらに寄せた。
+;;;
+;;; **端末フロントエンドでは `--batch' が必須。** 付けないと子プロセスが親と
+;;; 同じ tty で curses を初期化しようとして、どちらも進まなくなる (結果
+;;; ファイルが書かれず "result not sent."、`call-process' は 1 を返す)。
+;;; Windows では GUI が最小化で開いて終わるので要らず、xyzzy-batch.exe は
+;;; そもそもバッチ専用でこの指定を持たない。
+;;;
+;;; `#+ncurses' は読み込み時の条件で、**このファイルは常にソースで読み込まれる**
+;;; (misc/run-tests-batch.l が `load' する) ので、実際に走っているビルドを見る。
+(defun test-self-command (&rest args)
+  (format nil "~A~A~{ ~A~}"
+          (si:system-path)
+          #+ncurses " --batch"
+          #-ncurses ""
+          args))
+
 (defun eval-in-another-xyzzy--make-command-string (form options result-filename)
   (let ((out (gensym "tmpfile-stream-")))
     (format nil "~A ~A -e ~S"
-            (merge-pathnames "xyzzy.exe" (si:system-root))
+            (test-self-command)
             options
             (let ((*print-circle* t))
               (prin1-to-string
