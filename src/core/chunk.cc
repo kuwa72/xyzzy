@@ -223,6 +223,17 @@ chunk_ptr (lisp chunk, lisp loffset, int size)
   return p;
 }
 
+/* **幅は必ず固定幅の型で書く。** ここは `int8` に `char`、`int32` に `long`
+   といった素の型を渡していた。`long` が 32bit の Windows (LLP64) では合って
+   いるが、64bit の LP64 では `unpack-int32` が**4 バイトの欄から 8 バイト
+   読む**ことになり、32bit からの符号拡張も起きない:
+
+     0xFFFFFFFF を pack して (si:unpack-int32 ...)  =>  4294967295
+                                                    (正: -1)
+
+   `char` も同じ理由で危ない。符号の有無が処理系任せで、**Linux の ARM では
+   `char` は符号無し**なので `unpack-int8` が負の値を返せなくなる
+   (MSVC は常に符号付きなので Windows では表に出ない)。 */
 template<typename T>
 lisp
 unpack_integer (lisp chunk, lisp offset)
@@ -242,37 +253,37 @@ unpack_integer (lisp chunk, lisp offset)
 lisp
 Fsi_unpack_int8 (lisp chunk, lisp offset)
 {
-  return unpack_integer <char> (chunk, offset);
+  return unpack_integer <int8_t> (chunk, offset);
 }
 
 lisp
 Fsi_unpack_uint8 (lisp chunk, lisp offset)
 {
-  return unpack_integer <u_char> (chunk, offset);
+  return unpack_integer <uint8_t> (chunk, offset);
 }
 
 lisp
 Fsi_unpack_int16 (lisp chunk, lisp offset)
 {
-  return unpack_integer <short> (chunk, offset);
+  return unpack_integer <int16_t> (chunk, offset);
 }
 
 lisp
 Fsi_unpack_uint16 (lisp chunk, lisp offset)
 {
-  return unpack_integer <u_short> (chunk, offset);
+  return unpack_integer <uint16_t> (chunk, offset);
 }
 
 lisp
 Fsi_unpack_int32 (lisp chunk, lisp offset)
 {
-  return unpack_integer <long> (chunk, offset);
+  return unpack_integer <int32_t> (chunk, offset);
 }
 
 lisp
 Fsi_unpack_uint32 (lisp chunk, lisp offset)
 {
-  return unpack_integer <u_long> (chunk, offset);
+  return unpack_integer <uint32_t> (chunk, offset);
 }
 
 lisp
@@ -449,37 +460,37 @@ pack_integer (lisp chunk, lisp offset, lisp value)
 lisp
 Fsi_pack_int8 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <char> (chunk, offset, value);
+  return pack_integer <int8_t> (chunk, offset, value);
 }
 
 lisp
 Fsi_pack_uint8 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <u_char> (chunk, offset, value);
+  return pack_integer <uint8_t> (chunk, offset, value);
 }
 
 lisp
 Fsi_pack_int16 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <short> (chunk, offset, value);
+  return pack_integer <int16_t> (chunk, offset, value);
 }
 
 lisp
 Fsi_pack_uint16 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <u_short> (chunk, offset, value);
+  return pack_integer <uint16_t> (chunk, offset, value);
 }
 
 lisp
 Fsi_pack_int32 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <long> (chunk, offset, value);
+  return pack_integer <int32_t> (chunk, offset, value);
 }
 
 lisp
 Fsi_pack_uint32 (lisp chunk, lisp offset, lisp value)
 {
-  return pack_integer <u_long> (chunk, offset, value);
+  return pack_integer <uint32_t> (chunk, offset, value);
 }
 
 lisp
