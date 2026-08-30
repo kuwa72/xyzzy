@@ -184,3 +184,38 @@ Window::coerce_to_window (lisp object)
     FEprogram_error (Edeleted_window);
   return xwindow_wp (object);
 }
+
+/* **null を返す形に揃えた。** win32 側は `assert` 2 つのあと
+   `selected_window ()->lwp` を返していて、選択中のウィンドウが無いときは
+   ヌル参照になる。端末側は `?:` で nil を返していた。**`assert` は
+   リリースビルドで消えるので、win32 側は実質何も守っていない。**
+
+   画面がまだ無い (端末の起動途中) / そもそも無い (ヘッドレスの CLI) 状態は
+   実在するので、Lisp から呼んで落ちない方を採る。不変条件の検査は
+   ウィンドウが在るときだけ残した。 */
+lisp
+Fselected_window ()
+{
+  Window *wp = selected_window ();
+  if (!wp)
+    return Qnil;
+  assert (xwindow_wp (wp->lwp) == wp);
+  return wp->lwp;
+}
+
+/* `Window::enlarge_window' は src/core/Window.h で宣言されている seam。
+   **端末側はこれを実装せず、この Lisp 関数の中に 80 行のジオメトリ計算を
+   直に書いていた**ので、同じ関数が 2 つの別物になっていた。実装を
+   src/frontend/ncurses/ncurses-stubs.cc のメソッドへ移したので、入口は
+   1 つで済む。 */
+lisp
+Fenlarge_window (lisp nlines, lisp side)
+{
+  Window *wp = selected_window ();
+  if (!wp
+      || !wp->enlarge_window ((!nlines || nlines == Qnil)
+                              ? 1 : fixnum_value (nlines),
+                              side && side != Qnil))
+    FEsimple_error (Ecannot_change_window_size);
+  return Qt;
+}

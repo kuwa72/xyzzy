@@ -825,3 +825,8 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 }
 
 #endif // !_WIN32
+
+/* ヘッドレスにウィンドウは無いので、大きさも変えられない。宣言は core の
+   Window.h にあり、src/core/window-lisp.cc の Fenlarge_window から呼ばれる
+   ので、実体は要る (0 = 変えられなかった)。 */
+int Window::enlarge_window (int, int) { return 0; }
