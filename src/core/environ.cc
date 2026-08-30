@@ -99,20 +99,35 @@ WriteRegistry::remove (const Char *key) const
   return 0;
 }
 
+/* **`alloca` した領域を返してはいけない。** ここは
+   `Char *lisp_to_wsz (lisp s)` が `alloca` して返す形だった。返った時点で
+   その領域は無効で、しかも `Fwrite_registry` は section と key で 2 回呼ぶ
+   ので、**2 回目の `alloca` が 1 回目と同じ場所を取り、section が key の
+   文字列を指していた。**
+
+   **インライン展開されると壊れない** (`alloca` が呼ぶ側の枠に載って別々の
+   場所になる) ので、最適化の具合で動く/壊れるが変わる。gcc は
+   `-Wreturn-local-addr` で言ってくる。
+
+   呼ぶ側の領域に書く形にした (`pathname2wstr` と同じ約束)。マクロにして
+   `alloca` を呼び出しの場所に置く。**引数を 2 度評価する**ので、渡すのは
+   変数だけにすること (今の呼び出しは全部そうなっている)。 */
 static Char *
-lisp_to_wsz (lisp s)
+lisp_to_wsz (lisp s, Char *b)
 {
   /* Phase 3: ucs4 → UTF-16 (worst case 2x for non-BMP). */
-  Char *b = (Char *)alloca (i2wl (s) * sizeof (Char));
   i2w (s, (ucs2_t *)b);
   return b;
 }
+
+#define LISP_TO_WSZ(S) \
+  lisp_to_wsz ((S), (Char *)alloca (i2wl (S) * sizeof (Char)))
 
 lisp
 Fwrite_registry (lisp lsection, lisp lkey, lisp val)
 {
   lsection = Fstring (lsection);
-  Char *section = lisp_to_wsz (lsection);
+  Char *section = LISP_TO_WSZ (lsection);
 
   Char *key;
   if (lkey == Qnil)
@@ -120,7 +135,7 @@ Fwrite_registry (lisp lsection, lisp lkey, lisp val)
   else
     {
       lkey = Fstring (lkey);
-      key = lisp_to_wsz (lkey);
+      key = LISP_TO_WSZ (lkey);
     }
 
   if (val != Qnil && !stringp (val) && !fixnump (val))
@@ -139,7 +154,7 @@ Fwrite_registry (lisp lsection, lisp lkey, lisp val)
 
   if (stringp (val))
     {
-      Char *b = lisp_to_wsz (val);
+      Char *b = LISP_TO_WSZ (val);
       int n = xstring_length (val);
       if (!r.set (key, b, (n + 1) * sizeof (Char)))
         FEsimple_win32_error (GetLastError (), lkey);
@@ -155,7 +170,7 @@ lisp
 Fwrite_registry_literally (lisp lsection, lisp lkey, lisp val)
 {
   lsection = Fstring (lsection);
-  Char *section = lisp_to_wsz (lsection);
+  Char *section = LISP_TO_WSZ (lsection);
 
   Char *key;
   if (lkey == Qnil)
@@ -163,7 +178,7 @@ Fwrite_registry_literally (lisp lsection, lisp lkey, lisp val)
   else
     {
       lkey = Fstring (lkey);
-      key = lisp_to_wsz (lkey);
+      key = LISP_TO_WSZ (lkey);
     }
 
   if (val != Qnil)
@@ -207,7 +222,7 @@ lisp
 Fread_registry (lisp lsection, lisp lkey, lisp lroot)
 {
   lsection = Fstring (lsection);
-  Char *section = lisp_to_wsz (lsection);
+  Char *section = LISP_TO_WSZ (lsection);
 
   Char *key;
   if (lkey == Qnil)
@@ -215,7 +230,7 @@ Fread_registry (lisp lsection, lisp lkey, lisp lroot)
   else
     {
       lkey = Fstring (lkey);
-      key = lisp_to_wsz (lkey);
+      key = LISP_TO_WSZ (lkey);
     }
 
   ReadRegistry r (check_root (lroot), section);
@@ -301,7 +316,7 @@ lisp
 Flist_registry_key (lisp lsection, lisp lroot)
 {
   lsection = Fstring (lsection);
-  Char *section = lisp_to_wsz (lsection);
+  Char *section = LISP_TO_WSZ (lsection);
 
   EnumRegistry r (check_root (lroot), section);
   if (r.fail ())

@@ -195,7 +195,7 @@ Buffer::read_file_contents (ReadFileContext &rfc, xread_stream &sin)
       if (int (t - last_tick) >= 300)
         {
           last_tick = t;
-          sprintf (msg, "Reading %d/%d bytes...",
+          sprintf (msg, "Reading %ld/%ld bytes...",
                    total_bytes - sin.input_stream ().rest_chars (),
                    total_bytes);
           app.status_window.text (msg);

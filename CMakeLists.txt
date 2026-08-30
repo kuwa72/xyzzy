@@ -376,10 +376,35 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 else()
     # GCC / Clang (non-MSVC)
+    #
+    # **`-Wformat` はここでは明示的に有効にする。** 上の 2 つ (MSVC の /wd4477、
+    # Clang の -Wno-format) は塞いだままにする: Windows は LLP64 で `long` が
+    # 32bit なので、このコードベースに山ほどある `%d` + `long` が**すべて
+    # 偽陽性**になる (実測で 100 件以上)。
+    #
+    # **LP64 では話が逆で、`%d` に `long` を渡すのは本物の間違いである。**
+    # 実在した 4 件を直してから有効にした (2026-08-31 時点で 0 件)。
+    #
+    # **`-Wno-format` を外すだけでは効かない。** gcc は `-Wformat` を既定で
+    # 有効にしていない (`-Wall` に入っている) ので、外しても何も出ない。
+    # 一度それで「0 件だった」と誤解した。clang は既定で有効なので、あちらは
+    # `-Wno-format` が効いている。
+    #
+    # `-Wall` を丸ごと入れるのはやめた: 測ったら 396 件出て、その大半は
+    # `-Wnarrowing` 60 / `-Wsign-compare` 51 / `-Wparentheses` 42 のような
+    # このコードベースの書き方そのものだった。**残りは issue に書いた。**
+    #
+    # mingw-gcc (Windows + この枝) では偽陽性が出るが、CI が回しているのは
+    # llvm-mingw と MSVC で、どちらも上の枝である。
     add_compile_options(
         -fms-extensions
         -fno-operator-names
-        -Wno-format
+        -Wformat
+        # **`-Wformat-truncation` は塞ぐ。** 出るのは `snprintf` を境界付きで
+        # 正しく使っている 6 箇所で、「入り切らないかもしれない」という指摘で
+        # ある (溢れはしない)。長いパスが切れる話は本当だが、それは
+        # `-Wformat` が見ている型の食い違いとは別の問題である。
+        -Wno-format-truncation
         -Wno-parentheses
         -Wno-unused-value
         -Wno-switch

@@ -404,7 +404,7 @@ read_minibuffer (const ucs4_t *prompt, long prompt_length, lisp def,
           && n == 4)
         strcpy (bp->b_prompt_arg, "C-u ");
       else if (safe_fixnum_value (xsymbol_value (Vprefix_value), &n))
-        sprintf (bp->b_prompt_arg, "%d ", n);
+        sprintf (bp->b_prompt_arg, "%ld ", n);
     }
   bp->b_prompt_columns += strlen (bp->b_prompt_arg);
 
@@ -1635,7 +1635,7 @@ buffer_info::position (Char *b, Char *be) const
   else if (b_wp)
     {
       char tem[64];
-      int tl = snprintf (tem, sizeof tem, "%d:%d", b_wp->w_plinenum, b_wp->w_column);
+      int tl = snprintf (tem, sizeof tem, "%ld:%ld", b_wp->w_plinenum, b_wp->w_column);
       b = stwncpy (b, be, tem, tl);
     }
   return b;
