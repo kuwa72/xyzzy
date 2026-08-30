@@ -822,6 +822,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/completion.cc
     ${CORE_DIR}/minibuffer-read.cc
     ${CORE_DIR}/window-lisp.cc
+    ${CORE_DIR}/process-lisp.cc
     ${CORE_DIR}/glyph.cc
     ${CORE_DIR}/term.cc
     ${CORE_DIR}/term-lisp.cc

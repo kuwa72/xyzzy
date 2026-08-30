@@ -378,25 +378,13 @@ public:
     }
 };
 
-static lisp
-process_char_encoding (lisp encoding)
-{
-  if (encoding == Qnil)
-    encoding = xsymbol_value (Vdefault_process_encoding);
-  check_char_encoding (encoding);
-  if (xchar_encoding_type (encoding) == encoding_auto_detect)
-    FEtype_error (encoding, Qchar_encoding);
-  return encoding;
-}
+/* process_char_encoding と process_io_encoding は src/core/process-lisp.cc へ
+   移した (端末側と 1 文字も違わなかった)。
 
-void
-process_io_encoding (lisp &incode, lisp &outcode, lisp keys)
-{
-  incode = process_char_encoding (find_keyword (Kincode, keys));
-  outcode = process_char_encoding (find_keyword (Koutcode, keys));
-}
-
-static eol_code
+   process_eol_code は**中身が違う**ので残る。**この関数がプラットフォームの
+   違いそのもの**で、既定の改行コードが Win32 は CRLF、POSIX は LF になる。
+   core から呼ばれるので static を外した (宣言は src/core/fns.h)。 */
+eol_code
 process_eol_code (lisp code)
 {
   if (code == Qnil)
@@ -1680,95 +1668,16 @@ process_gc_mark (void (*fn)(lisp))
     }
 }
 
-lisp
-Fbuffer_process (lisp buffer)
-{
-  return Buffer::coerce_to_buffer (buffer)->lprocess;
-}
 
-lisp
-Fprocess_buffer (lisp process)
-{
-  check_process (process);
-  return xprocess_buffer (process);
-}
 
-lisp
-Fprocess_command (lisp process)
-{
-  check_process (process);
-  return xprocess_command (process);
-}
 
-lisp
-Fprocess_status (lisp process)
-{
-  check_process (process);
-  switch (xprocess_status (process))
-    {
-    case PS_RUN:
-      return Krun;
 
-    case PS_EXIT:
-      return Kexit;
 
-    default:
-      return Qnil;
-    }
-}
 
-lisp
-Fprocess_exit_code (lisp process)
-{
-  check_process (process);
-  return (xprocess_status (process) == PS_EXIT
-          ? make_fixnum (xprocess_exit_code (process)) : Qnil);
-}
 
-lisp
-Fprocess_incode (lisp process)
-{
-  check_process (process);
-  return xprocess_incode (process);
-}
 
-lisp
-Fprocess_outcode (lisp process)
-{
-  check_process (process);
-  return xprocess_outcode (process);
-}
 
-lisp
-Fset_process_incode (lisp process, lisp encoding)
-{
-  check_process (process);
-  xprocess_incode (process) = process_char_encoding (encoding);
-  return Qt;
-}
 
-lisp
-Fset_process_outcode (lisp process, lisp encoding)
-{
-  check_process (process);
-  xprocess_outcode (process) = process_char_encoding (encoding);
-  return Qt;
-}
-
-lisp
-Fprocess_eol_code (lisp process)
-{
-  check_process (process);
-  return make_fixnum (xprocess_eol_code (process));
-}
-
-lisp
-Fset_process_eol_code (lisp process, lisp code)
-{
-  check_process (process);
-  xprocess_eol_code (process) = process_eol_code (code);
-  return Qt;
-}
 
 lisp
 Fsignal_process (lisp process)

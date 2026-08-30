@@ -36,6 +36,30 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **プロセスを触る Lisp 関数 11 個を core に一本化した** (#16 Phase 4)。
+    `buffer-process` / `process-buffer` / `process-command` /
+    `process-status` / `process-exit-code` / `process-incode` /
+    `process-outcode` / `set-process-incode` / `set-process-outcode` /
+    `process-eol-code` / `set-process-eol-code`。
+
+    読み書きしているのは `lprocess` の枠 (バッファ、コマンド行、状態、
+    終了コード、入出力の文字コード、改行コード) だけで、**プロセスの実体
+    (Win32 のスレッドとハンドル / POSIX の pid とパイプ) には触らない。**
+    `process_char_encoding` と `process_io_encoding` も 1 文字も違わなかった
+    ので一緒に移した。
+
+    **`process_eol_code` だけは中身が違うので、フロントエンドの seam として
+    残した。** 既定の改行コードが Win32 は CRLF、POSIX は LF になる —
+    **この 5 行の関数がプラットフォームの違いそのもの**なので、core に上げて
+    `#ifdef` で分けるより宣言で示す方が分かりやすい。
+
+    **`Process` のメソッドを呼ぶ 6 個はまだ移せていない** (`filter` /
+    `sentinel` / `marker` / `signal-process` / `kill-process` /
+    `process-send-string`)。`class Process` が両フロントエンドに別々に定義
+    されていて core に宣言が無く、共通部分を基底クラスに切り出す作業が先に
+    要る。データメンバ 6 個とメソッド 7 個が 1 文字も違わないので切り出す形は
+    見えているが、`xprocess_data` の触点が 38 箇所あるので issue #127 に
+    分けた。
   * **`selected-window` と `enlarge-window` も core に一本化した**
     (#16 Phase 4)。前の項の 13 個は「1 文字も違わない」ので移せたが、この
     2 つは**中身が違っていた。理由を見たら、どちらも片方が間に合わせだった。**

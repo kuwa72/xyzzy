@@ -134,6 +134,19 @@ int buffer_has_process (const Buffer *);
 int query_kill_subprocesses ();
 void process_gc_mark (void (*)(lisp));
 
+/* process-lisp.cc (core) */
+void process_io_encoding (lisp &, lisp &, lisp);
+
+/* **`process_eol_code' はフロントエンドの seam。** 既定の改行コードが
+   プラットフォームで違うだけの関数で、Win32 は `eol_crlf'、POSIX は `eol_lf'
+   を返す。中身は 5 行なので core に上げて `#ifdef' で分けるより、
+   「ここが違う」と宣言で示す方が分かりやすい。
+
+   `eol_code` の中身は Buffer.h まで出てこない (fns.h はそれより先に
+   読まれる) ので、lprocess.h と同じ形で不完全宣言だけしておく。 */
+enum eol_code : int;
+eol_code process_eol_code (lisp);
+
 /* menu.cc */
 int init_menu_flags (lisp);
 void init_menu_popup (WPARAM, LPARAM);
