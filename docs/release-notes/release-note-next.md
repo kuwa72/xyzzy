@@ -36,6 +36,64 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX ビルドが設定を読み書きするようになった** (issue #143、既知失敗
+    70 -> 65)。**Linux ビルドはそれまで `xyzzy.ini` を一切読まず、書かず、
+    `(xyzzy-ini-path)` は nil を返していた。**
+
+    `read_conf` / `write_conf` は `ncurses-stubs.cc` と `cli-stubs.cc` で
+    **0 を返す空実装**だった (17 個の overload が全部)。既知失敗リストには
+    「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、
+    **レジストリが要るのは別の話で、ini ファイルの方は移植できた。**
+
+    **848 行あった `win32/conf.cc` のうち Win32 に触っていたのは
+    `Get/WritePrivateProfileStringW` の 2 つだけ**で、残りは書式の処理
+    (`long` の 10 進と 16 進、`int` の配列、`RECT`、`LOGFONTW`、
+    `WINDOWPLACEMENT`) だった。その 2 つを書き (`src/core/ini-posix.cc`)、
+    残りを core へ移した (`src/core/conf-io.cc`)。あちらに残したのは
+    ウィンドウの位置 (モニタとタスクバーを見るもの) とレジストリからの移行で、
+    どちらも本当に Win32 の話。
+
+    **`PRLOGFONT` の定義を `src/core/conf.h` へ移した。** 印刷のフォントの
+    記述だが中身は数と文字列だけで、`src/frontend/win32/print.h` にあったため
+    `write_conf (..., const PRLOGFONT &)` を core へ移せなかった (欄を読むので
+    前方宣言では足りない)。**フロントエンドのヘッダを core から見に行くのでは
+    なく、共通のものを core に置く。**
+
+    **書き込みは読んで差し替えて書き戻す。** キーの順も、他の節も、コメントも
+    壊さない。INI は人が手で編集するファイルなので、書き換えのたびに並びが
+    変わると差分が読めなくなる。**一時ファイルへ書いて rename する**ので、
+    途中で落ちても元の ini が半端な状態で残らない。
+
+    **`environ::load_geometry` / `save_geometry` から位置以外の設定を切り
+    出した** (`load_settings` / `save_settings`)。端末に WINDOWPLACEMENT の
+    意味は無いが、行番号の表示や折り返しの既定は端末でも意味がある。
+    分かれていなかったので、**端末ビルドは 1 つも読めなかった。**
+
+    設定の場所は Win32 と同じ優先順位で決める (`-config` / `XYZZYCONFIGPATH`
+    → `-ini` / `XYZZYINIFILE` → `<ホーム>/xyzzy.ini`)。
+
+    **`-config` と `-ini` は Lisp へ渡す引数から取り除く。** `estartup.l` の
+    `process-command-line-1` に case が無いので、渡すと**ファイル名として
+    `find-file` され、そこで起動が止まっていた** (実測)。Win32 の `init.cc`
+    も同じ形で先頭から取り除いている。ただし `--batch` は跨ぐ必要がある:
+    `test-self-command` が `<xyzzy> --batch -ini "path" -q -e "..."` の形で
+    組むので、跨がないと後ろの `-ini` が見えない。
+
+    **`-ini` の相対指定は絶対パスにする** (`WINFS::GetFullPathName`、Win32 の
+    `init.cc` と同じ呼び出し)。途中で `chdir` すると同じ相対パスが別の
+    ファイルを指してしまう。
+
+    `unittest/ini-tests.l` に 5 件。**Win32 と POSIX で同じテストになる** —
+    読む側の入口は別だが、上に載っている書式の処理は共通なので、ini を置いて
+    設定が効くかを見れば両方測れる。観測に `default-fold-width` を使うのは
+    **Lisp から見える ini 由来の設定がこれしか無い**ため。コメント・空行・
+    大文字小文字を混ぜたものも読めることを見ている (ini は人が手で編集する)。
+
+    残る 2 件 (`xyzzy-ini-path-XYZZYINIFILE` /
+    `user-config-path-XYZZYCONFIGPATH`) は**環境変数を子プロセスへ渡す方の
+    問題で、ini とは関係が無い。** 非 Win32 の `call-process` /
+    `make-process` が `:environ` を丸ごと無視している。**`XYZZYINIFILE`
+    自体は効く。**
   * **POSIX で「途中のディレクトリが無い」と「最後の名前が無い」を区別する
     ようにした** (既知失敗 71 -> 70)。
 

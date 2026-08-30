@@ -88,7 +88,20 @@ DECLARE_CONF (cfgSelectionTextColor, "selectionTextColor");
 DECLARE_CONF (cfgUnselectedModeLineBg, "unselectedModeLineBg");
 DECLARE_CONF (cfgUnselectedModeLineFg, "unselectedModeLineFg");
 
-struct PRLOGFONT;
+/* **定義をここに置く。** 印刷のフォントの記述だが、中身は数と文字列だけで
+   Win32 に依っていない。src/frontend/win32/print.h にあったため、
+   `write_conf (..., const PRLOGFONT &)` を core (src/core/conf-io.cc) へ
+   移せなかった — 欄を読むので前方宣言では足りない。**フロントエンドの
+   ヘッダを core から見に行くのではなく、共通のものを core に置く**
+   (issue #143、#16 Phase 4)。 */
+struct PRLOGFONT
+{
+  int point;
+  u_char charset;
+  u_char bold;
+  u_char italic;
+  wchar_t face[LF_FACESIZE];   /* font names are not all inside CP932 */
+};
 
 void write_conf (const char *, const char *, const char *);
 void write_conf (const char *, const char *, const wchar_t *);
@@ -127,5 +140,12 @@ void delete_conf (const char *);
 
 int reg2ini ();
 void reg_delete_tree ();
+
+#ifndef _WIN32
+/* 設定の置き場所を決める (src/core/ini-posix.cc)。Win32 の init.cc の
+   `init_user_config_path' / `init_user_inifile_path' に相当する。
+   `-config' と `-ini' の値を渡す (無ければ 0 — 環境変数を見る)。 */
+void init_posix_config_paths (const char *config_path, const char *ini_file);
+#endif
 
 #endif /* _conf_h_ */

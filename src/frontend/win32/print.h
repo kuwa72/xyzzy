@@ -3,14 +3,9 @@
 
 #define MAX_HEADER_LENGTH 256
 
-struct PRLOGFONT
-{
-  int point;
-  u_char charset;
-  u_char bold;
-  u_char italic;
-  wchar_t face[LF_FACESIZE];   /* font names are not all inside CP932 */
-};
+/* PRLOGFONT の定義は src/core/conf.h へ移した (issue #143)。
+   `write_conf` / `read_conf` が欄を読むので、core から見える所に無いと
+   INI の読み書きを core へ移せなかった。 */
 
 class print_settings;
 

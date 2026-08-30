@@ -266,33 +266,21 @@ void stdctl_hook_init (HINSTANCE) {}
 int stdctl_operation (int) { return 0; }
 
 // ============================================================
-// conf.cc stubs (all overloads)
+// conf.cc stubs
 // ============================================================
+//
+// **read_conf / write_conf のスタブは消した。** 実装が
+// src/core/conf-io.cc へ移り、INI の読み書きは src/core/ini-posix.cc が
+// 持っている (issue #143)。スタブを残すと、**静的ライブラリの側が引かれず
+// リンクは通るのに実装が使われない** ので、必ず消すこと。
+//
+// ここに残っているのはウィンドウの位置 (モニタとタスクバーを見るもの) と
+// レジストリからの移行で、どちらも本当に Win32 の話。
 
-void write_conf (const char *, const char *, const char *) {}
-void write_conf (const char *, const char *, long, int) {}
-void write_conf (const char *, const char *, const int *, int, int) {}
-void write_conf (const char *, const char *, const RECT &) {}
-void write_conf (const char *, const char *, const LOGFONTA &) {}
-void write_conf (const char *, const char *, const PRLOGFONT &) {}
-void write_conf (const char *, const char *, const WINDOWPLACEMENT &) {}
-int read_conf (const char *, const char *, char *, int) { return 0; }
-int read_conf (const char *, const char *, int &) { return 0; }
-#if INT_MAX != LONG_MAX
-int read_conf (const char *, const char *, u_long &) { return 0; }
-#endif
-int read_conf (const char *, const char *, int *, int) { return 0; }
-int read_conf (const char *, const char *, RECT &) { return 0; }
-int read_conf (const char *, const char *, LOGFONTA &) { return 0; }
-int read_conf (const char *, const char *, PRLOGFONT &) { return 0; }
-int read_conf (const char *, const char *, WINDOWPLACEMENT &) { return 0; }
-void flush_conf () {}
 int conf_load_geometry (HWND, const char *, const char *, int, int) { return 0; }
 void conf_save_geometry (HWND, const char *, const char *, int, int) {}
 void adjust_snap_window_size (HWND, WINDOWPLACEMENT &) {}
 void make_geometry_key (char *buf, size_t, const char *prefix) { if (buf) *buf = 0; }
-void conf_write_string (const char *, const char *, const char *) {}
-void delete_conf (const char *) {}
 int reg2ini () { return 0; }
 void reg_delete_tree () {}
 

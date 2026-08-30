@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "ed.h"
+#include "conf.h"   // init_posix_config_paths (issue #143)
 #include "Window.h"
 #include "syntaxinfo.h"
 
@@ -225,15 +226,66 @@ init_home_dir ()
   xsymbol_value (Qhome_dir) = xsymbol_value (Qdefault_dir);
 }
 
-// Win32 では init.cc の init_user_config_path が設定している。POSIX には
-// 対応するもの (xyzzy.ini や設定を置く場所) が無いのでホームを充てる。
-// 未設定のままだと値は #:unbound で、lisp/backup.l の起動時の
-// (concat (user-config-path) ".xyzzy.d/backup/") がそれを掴んで
-// 「不正なデータ型です」で startup.l ごと落ちる。
+// `-config' と `-ini' の値。init () が argv から拾って、
+// init_user_config_path が使う。**Win32 は init.cc がダンプ読み込みより前に
+// 同じことをしている**ので、順序を合わせてある (設定の場所は Lisp が動き
+// 始める前に決まっていなければならない)。
+static const char *startup_config_path;
+static const char *startup_ini_file;
+// Lisp に渡す引数はここから。`-config' / `-ini' は Lisp が知らない
+// (estartup.l の process-command-line-1 に case が無く、ファイル名として
+// find-file されてしまう) ので、**取り除いて渡す。**
+static int startup_args_from = 1;
+
+/* **`-config' と `-ini' は Lisp が動き出す前に読み、引数から取り除く。**
+   設定の場所は startup.l が (user-config-path) を使うより前に決まって
+   いなければならない。
+
+   **先頭に並んでいる分だけを見る。** Win32 の init.cc も
+   `for (ac = 1; ac < wargc - 1; ac += 2) ... else break;` と同じ形で、
+   途中に現れたものは触らない (`-e "(...)"` の引数に `-ini` という文字列が
+   来ることもある)。 */
+static void
+scan_config_options (int argc, char **argv)
+{
+  int i = 1;
+  while (i < argc)
+    {
+      /* `--batch' はフロントエンドの選択で、Lisp には渡らない。
+         **先頭に来るので、跨がないと後ろの `-ini' が見えない**
+         (unittest/simple-test.l の test-self-command が
+         `<xyzzy> --batch -ini "path" -q -e "..."' の形で組む)。 */
+      if (!strcmp (argv[i], "--batch"))
+        {
+          i++;
+          continue;
+        }
+      if (i + 1 >= argc)
+        break;
+      if (!strcmp (argv[i], "-config"))
+        startup_config_path = argv[i + 1];
+      else if (!strcmp (argv[i], "-ini"))
+        startup_ini_file = argv[i + 1];
+      else
+        break;
+      i += 2;
+    }
+  startup_args_from = i;
+}
+
+// 既定は Qhome_dir。**未設定のままだと値は #:unbound で、lisp/backup.l の
+// 起動時の (concat (user-config-path) ".xyzzy.d/backup/") がそれを掴んで
+// 「不正なデータ型です」で startup.l ごと落ちる。**
+//
+// そのあと init_posix_config_paths (src/core/ini-posix.cc) が
+// `-config' / `XYZZYCONFIGPATH' / `-ini' / `XYZZYINIFILE' を見て上書きし、
+// app.ini_file_path を決める。Win32 の init_user_config_path /
+// init_user_inifile_path に相当する (issue #143)。
 static void
 init_user_config_path ()
 {
   xsymbol_value (Quser_config_path) = xsymbol_value (Qhome_dir);
+  init_posix_config_paths (startup_config_path, startup_ini_file);
 }
 
 static void
@@ -562,6 +614,11 @@ init_env_symbols (const char *argv0)
   init_environ ();
   init_home_dir ();
   init_user_config_path ();
+  /* **設定を xyzzy.ini から読む。** 位置以外の設定 (行番号の表示、折り返しの
+     既定など) は端末でも意味がある。init_user_config_path が
+     app.ini_file_path を決めた後でなければ読む先が無いので、この順序
+     (issue #143)。 */
+  environ::load_settings ();
   init_load_path ();
   // Add :tty to *features* if stdout is connected to a real terminal
   if (isatty (STDOUT_FILENO))
@@ -1021,6 +1078,7 @@ public:
       if (strcmp (argv[i], "--self-test") == 0)
         m_self_test = 1;
 
+
     // SIGWINCH
     struct sigaction sa;
     sa.sa_handler = sigwinch_handler;
@@ -1074,6 +1132,14 @@ public:
 
   void cleanup () override
   {
+    /* **設定を書き戻す。** ここでしか書かないので、落ちたときは前回の内容が
+       残る (設定は失うより古い方がまし)。**endwin より前に書く**必要は無いが、
+       画面を戻した後にファイル入出力で固まると端末が壊れて見えるので前に置く。
+
+       Win32 は toplev.cc が終了時に environ::save_geometry を呼んでいて、
+       その後半と同じもの。 */
+    if (app.ini_file_path)
+      environ::save_settings ();
     ncurses_cleanup ();
   }
 
@@ -1206,8 +1272,9 @@ public:
     // handles -q, -load, -eval, etc. (same mechanism as Win32 xyzzy-batch)
     {
       lisp p = Qnil;
-      // Build list in reverse, skip argv[0] and --batch
-      for (int i = argc - 1; i >= 1; i--)
+      // Build list in reverse, skip argv[0], --batch, and the leading
+      // -config / -ini pairs (scan_config_options consumed those).
+      for (int i = argc - 1; i >= startup_args_from; i--)
         {
           if (strcmp (argv[i], "--batch") == 0)
             continue;
@@ -1303,6 +1370,7 @@ int main (int argc, char **argv)
     sigaction(SIGBUS, &sa, NULL);
   }
   setlocale (LC_ALL, "");
+  scan_config_options (argc, argv);
 
   // Determine frontend mode
   int batch_mode = 0;

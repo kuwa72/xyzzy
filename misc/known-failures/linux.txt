@@ -195,12 +195,7 @@ fix-truename-2
 fix-truename-3
 fix-truename-4
 image-startup-option
-user-config-path-startup-option
-user-config-path-startup-option-and-xyzzyconfigpath
 user-config-path-xyzzyconfigpath
-xyzzy-ini-path
-xyzzy-ini-path-startup-option
-xyzzy-ini-path-startup-option-and-xyzzyinifile
 xyzzy-ini-path-xyzzyinifile
 
 # コマンドライン引数の処理 — **この群も空になった。**
