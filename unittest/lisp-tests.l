@@ -116,9 +116,17 @@
   (string= (machine-instance) (machine-name))
   => t)
 
+;; **プラットフォームごとに名前が違う。** Win32 は GetSystemInfo の値を
+;; "x86" / "x64" / "IA64" と呼び、POSIX は "x86" / "amd64" / "aarch64" と
+;; 呼ぶ (src/core/environ.cc)。同じ CPU に別の名前が付くが、どちらも
+;; そのプラットフォームで通じる呼び方なので揃えていない。
+;;
+;; **POSIX 側の名前を書いていなかったため、この期待値は空になっていた**
+;; (`#+x86` も `#+x64` も立たない) — それが既知失敗の理由で、
+;; 「GetSystemInfo が無いから」ではなかった。
 (deftest machine-type ()
   (machine-type)
-  => #+x86 "x86" #+x64 "x64" #+ia64 "IA64")
+  => #+x86 "x86" #+x64 "x64" #+ia64 "IA64" #+amd64 "amd64" #+aarch64 "aarch64")
 
 (deftest machine-version ()
   (string= (machine-version) (si:getenv "PROCESSOR_IDENTIFIER"))

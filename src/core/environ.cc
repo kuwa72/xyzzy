@@ -821,6 +821,10 @@ init_environ ()
     case Sysdep::MACHINETYPE_IA64:
       xsymbol_value (Vfeatures) = xcons (Kia64, xsymbol_value (Vfeatures));
       xsymbol_value (Vmachine_type) = make_string ("IA64");
+      /* **`break' が無く、下の UNKNOWN へ落ちて nil で上書きしていた。**
+         IA64 では `(machine-type)' が nil を返す。実機はもう無いが、
+         fall through の事故なので直す。 */
+      break;
     case Sysdep::MACHINETYPE_UNKNOWN:
       xsymbol_value (Vmachine_type) = Qnil;
       break;

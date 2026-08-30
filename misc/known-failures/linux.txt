@@ -81,8 +81,16 @@ make-c-function-stdcall-rest
 
 # Win32 API を直接呼ぶもの。
 # 
-# `last-win32-error` は GetLastError、
-# `machine-type` は GetSystemInfo、`wait-object` は WaitForMultipleObjects。
+# `last-win32-error` 2 件は **GetLastError ではなく FFI で止まっている。**
+# どちらも `MultiByteToWideChar` を DLL 経由で呼んでいて (foreign-test.l)、
+# 呼ぶ側が無い (#133)。上の FFI 群と同じ理由なので、そちらが動けば一緒に
+# 通るはず。`wait-object` は WaitForMultipleObjects。
+#
+# **`machine-type` はここから外れた。** 「GetSystemInfo」と書いてあったが、
+# **POSIX でも `machine-type` は値を返していた** ("amd64")。落ちていたのは
+# テストの期待値が `#+x86 "x86" #+x64 "x64" #+ia64 "IA64"` で、**POSIX の
+# 名前 (amd64 / aarch64) を書いていなかったため期待値が空になっていた**から。
+# 期待値に足した。
 #
 # **`add-putenv-04` と `test-environ-*` 3 件はここから外れた。** 前は
 # 「Win32 の環境変数ブロック」と書いてあったが、**環境変数ブロックは
@@ -128,7 +136,6 @@ handle-access-violation-2
 handle-divide-by-zero
 last-win32-error
 last-win32-error-getlasterror
-machine-type
 wait-object-check-type-1
 wait-object-typep
 
