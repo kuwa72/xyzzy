@@ -49,6 +49,17 @@ no_checks_p () {
   gh pr checks "$pr" 2>&1 | grep -q 'no checks reported'
 }
 
+# **衝突している PR にはチェックが 1 つも付かない。** GitHub は merge ref を
+# 作れないので workflow が発火せず、上の窓と**見分けが付かないまま 30 分待つ**
+# ことになる。実際に踏んだ (PR #148: base の PR が squash merge された直後で、
+# 待っても何も来なかった)。先に見る。
+if [ "$(gh pr view "$pr" --json mergeable -q .mergeable 2>/dev/null)" = CONFLICTING ]; then
+  echo "ci-wait: PR #$pr は衝突している。**チェックは付かない** (GitHub が"
+  echo "ci-wait: merge ref を作れないので workflow が発火しない)。"
+  echo "ci-wait: main へ rebase してから出し直す。"
+  exit 2
+fi
+
 deadline=$(( $(date +%s) + limit ))
 announced=0
 rc=1
