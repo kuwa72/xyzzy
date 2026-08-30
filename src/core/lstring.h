@@ -122,6 +122,9 @@ size_t i2u8l (const ucs4_t *, int);
 char *i2u8 (const ucs4_t *, int, char *);
 size_t u82il (const char *);
 ucs4_t *u82i (const char *, ucs4_t *);
+size_t u82il (const char *, const char *, int);
+ucs4_t *u82i (ucs4_t *, const char *, const char *, int);
+char *i2u8 (char *, char *, const ucs4_t *, size_t);
 lisp make_string_from_utf8 (const char *);
 inline int w2il (const wchar_t *p) { return w2il (p, int (wcslen (p))); }
 Char *s2w_u16 (Char *, const char *);  /* SJIS → UTF-16 for Win32 API use */

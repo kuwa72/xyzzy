@@ -36,6 +36,34 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX でチャンクの中の文字列が CP932 になっていたのを UTF-8 にした。**
+
+    チャンクは C の `char *` で、**そのバイト列の意味はプラットフォームで
+    違う**: Win32 の ANSI API (`MessageBoxA`、`atoi` など) は CP932 を読み、
+    POSIX の C 関数は UTF-8 を読む。`si:make-string-chunk` /
+    `si:unpack-string` / `si:pack-string` はどれも CP932 決め打ちだった。
+
+    ```lisp
+    ;; POSIX、直す前
+    (si:make-string-chunk "日本語")   ; -> 93 FA 96 7B 8C EA  (CP932)
+    ;; 直したあと
+    (si:make-string-chunk "日本語")   ; -> E6 97 A5 E6 9C AC E8 AA 9E  (UTF-8)
+    ```
+
+    **読み書きが対称なので、Lisp の中で往復させる限り気付かない。** 壊れるのは
+    C に渡したときだけである — つまり FFI で非 ASCII の文字列を渡したときで、
+    そこは POSIX では今回のリリースで初めて動くようになった所でもある。
+
+    プラットフォームの分岐は変換の 6 つ (向き 2 x 区切り方 3) に閉じ込めた
+    (`src/core/chunk.cc`)。パスと環境変数が既に同じ考え方で書かれている
+    (`src/core/vfs-posix.cc` の `os_path`、`src/core/environ.cc`)。
+    長さで区切る UTF-8 の変換器が無かったので足した (`src/core/utils.cc`、
+    CP932 側の `s2wl` / `s2w` / `w2s` と同じ約束)。
+
+    `unittest/ffi-portable-tests.l` に 3 件。**バイト列そのものを見る。**
+    往復させるテストは前から通っていた (両方向が同じエンコーディングだった
+    ため) ので、それでは捕まらない。
+
   * **`si:hmac-sha-*` が、0x80 以上のバイトを含む短い鍵で違う値を出していたのを
     直した** (全ターゲットの既知失敗 1 件)。
 

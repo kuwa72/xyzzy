@@ -129,3 +129,51 @@
              nil)
     (error (c) t))
   => t)
+
+;;; --- チャンクの中の文字列のエンコーディング -------------------------------
+;;;
+;;; **チャンクは C の `char *` で、そのバイト列の意味はプラットフォームで
+;;; 違う。** Win32 の ANSI API は CP932 を読み、POSIX の C 関数は UTF-8 を
+;;; 読む。`si:make-string-chunk` / `si:unpack-string` / `si:pack-string` は
+;;; どちらも CP932 決め打ちだった (内部表現が CP932 のバイト列だった頃は
+;;; それが恒等変換で、Unicode 移行のときに残った)。
+;;;
+;;; **読み書きが対称なので、Lisp の中で往復させる限り気付かない。** POSIX で
+;;; 壊れるのは C に渡したときだけで、そこには自動のテストが届かない。
+;;; **だからバイト列そのものを見る。**
+
+(defun chunk-test-bytes (chunk n)
+  (let (r)
+    (dotimes (i n)
+      (push (si:unpack-uint8 chunk i) r))
+    (nreverse r)))
+
+(defun chunk-test-expected-bytes ()
+  "\"日本語\" のバイト列。"
+  (if (featurep :unix)
+      '(230 151 165 230 156 172 232 170 158)   ; UTF-8
+    '(147 250 150 123 140 234)))               ; CP932
+
+(deftest chunk-string-uses-the-platform-byte-encoding ()
+  (let* ((c (si:make-string-chunk "日本語"))
+         (n (1- (si:chunk-size c))))
+    (list (equal (chunk-test-bytes c n) (chunk-test-expected-bytes))
+          (si:unpack-string c 0)))
+  => (t "日本語"))
+
+(deftest chunk-string-round-trips ()
+  "書いて読んで元に戻ること。**これは前からできていた** (両方向が同じ
+エンコーディングだったので)。ここが崩れていないことを見る。"
+  (let ((s "abc 日本語 aあb"))
+    (equal s (si:unpack-string (si:make-string-chunk s) 0)))
+  => t)
+
+(deftest pack-string-uses-the-same-encoding ()
+  "`si:pack-string` も同じバイト列を書くこと。**`si:make-string-chunk` だけ
+直しても、こちらが違うと同じチャンクの中で 2 通りのバイト列が混ざる。**"
+  (let ((c (si:make-chunk nil 64)))
+    (si:pack-string c 0 "日本語" 32)
+    (list (equal (chunk-test-bytes c (length (chunk-test-expected-bytes)))
+                 (chunk-test-expected-bytes))
+          (si:unpack-string c 0)))
+  => (t "日本語"))
