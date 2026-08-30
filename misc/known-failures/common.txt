@@ -9,11 +9,35 @@
 # not the same bug.
 fix-ole-for-each-2
 
-# (octet-length "..." :external-format ...) for the non-UTF-16 encodings.  Both
-# of these predate the unicode migration and are almost certainly the same bug
-# counted twice.
-octet-length-eucjp
-octet-length-utf8
+# **`octet-length-eucjp` / `octet-length-utf8` はここから外れた。**
+#
+# 「どちらも unicode 移行より前のもので、ほぼ確実に同じバグを 2 回数えている」
+# と書いてあった。**同じ 1 つの原因だったのは当たっていたが、バグではなく
+# テストが古かった。** 2 件はどちらも
+#
+#     (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "漢字"))
+#
+# が 6 になることを期待していた。内部表現が CP932 のバイト列だった頃は、変換
+# した結果の「文字」がそのままバイトで、それを CP932 で数え直しても同じ数に
+# なったので成り立っていた。**ucs4 になったあとはバイト値が U+00E6 などの
+# 文字として入り、CP932 で数え直すと増える** (U+00A2 は CP932 で 2 バイト
+# なので "漢字" が 6 ではなく 7 になる)。
+#
+# **実装を直す方には倒せなかった。** `:encoding` を省いたときの既定を
+# 「文字数を数える」に変えれば 2 件は通るが、**同じファイルの
+# `octet-length-sjis` が既定は CP932 だと言っていて通っている。** 両方を同時に
+# 満たす答えは無く、公開 API の既定を黙って変える話になる (リファレンスの
+# 主たる例 `(si:octet-length "abcあいう") => 9` も CP932 の側)。
+#
+# テストを 2 つに割った: `octet-length-*` は `:encoding` を渡す方だけを見て、
+# バイト数の方は `convert-encoding-from-internal-byte-counts` が `length` で
+# 見る。**どちらも元の期待値のまま通る。** 既定が CP932 であること自体も
+# `octet-length-of-a-converted-string-counts-in-cp932` で書き留めた。
+#
+# リファレンスの「デフォルトはエンコーディング変換なし」と、そこにあった
+# 12 という例 (実際は 13) も直した。既定を
+# `*default-fileio-encoding*` (このフォークでは UTF-8) に寄せるかどうかは
+# issue #154 に分けた。
 
 # HMAC-SHA2 test vector 3 (the long-key case).
 #

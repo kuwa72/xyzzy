@@ -777,7 +777,7 @@ MD5ハッシュ値を得ます。
 指定したエンコーディングでエンコードした場合の文字列のバイトサイズを求めます。
 
   STRING    : バイトサイズを求める文字列
-  :encoding : エンコーディング。デフォルトはエンコーディング変換なし
+  :encoding : エンコーディング。デフォルトは CP932 (Shift_JIS)
   :start    : 開始位置。デフォルトは 0 で非負の整数
   :end      : 終了位置。デフォルトは nil で、 nil の場合は文字列の長さを
               指定した場合と等しい動作
@@ -791,11 +791,22 @@ MD5ハッシュ値を得ます。
   => 6
   (si:octet-length "abcアイウ" :encoding *encoding-utf8n*)
   => 12
-  (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "abcアイウ"))
-  => 12
 
 補足：
   xyzzy 0.2.2.238 から利用可能です。
+
+  :encoding を省いたときのデフォルトは、以前ここに「エンコーディング変換
+  なし」と書いてありました。内部表現が CP932 のバイト列だった頃はそれで
+  正しかったのですが、内部表現が Unicode になったあとは「変換なし」に当たる
+  ものが無く、実際には CP932 でエンコードした長さを返します。
+
+  そのため、すでにバイト列になっている文字列を渡すと、そのバイト数とは
+  一致しません。バイト数が知りたい場合は length を使ってください。
+
+  (length (convert-encoding-from-internal *encoding-utf8n* "abcアイウ"))
+  => 12
+  (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "abcアイウ"))
+  => 13   ; CP932 で数え直すので一致しない
 ```
 
 ## `si:quoted-printable-decode`
