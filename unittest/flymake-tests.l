@@ -263,3 +263,54 @@ foo.pl had compilation errors."
 	  (ed::flymake-after-save))
       (flymake-test-cleanup buf)))
   => nil)
+
+;;;
+;;; 入力が止まってから検査する (`*flymake-idle-delay*')
+;;;
+
+;; **既定は nil** (保存時の入口と同じく、勝手に外部プロセスを起動しない)。
+(deftest flymake-idle-is-off-by-default ()
+  *flymake-idle-delay*
+  => nil)
+
+;; nil なら `*post-command-hook*' はタイマを張らないこと。
+;; **張ってしまうと、打鍵ごとに張って発火して何もせず消えるのを繰り返す。**
+(deftest flymake-schedule-does-nothing-when-off ()
+  (let ((buf (flymake-test-buffer)))
+    (unwind-protect
+        (let ((*flymake-idle-delay* nil))
+          (list (ed::flymake-schedule)
+                ;; 張られていないので、止めるものが無い
+                (and (stop-timer 'ed::flymake-idle-check) t)))
+      (flymake-test-cleanup buf)))
+  => (nil nil))
+
+;; 設定の無いモードでは、`*flymake-idle-delay*' があってもタイマを張らない。
+(deftest flymake-schedule-does-nothing-without-a-checker ()
+  (let ((buf (flymake-test-buffer)))
+    (unwind-protect
+        (let ((*flymake-idle-delay* 0.05)
+              (ed::*flymake-alist* nil))
+          (ed::flymake-schedule)
+          (and (stop-timer 'ed::flymake-idle-check) t))
+      (flymake-test-cleanup buf)))
+  => nil)
+
+;; **入力が止まったあとに 1 回走ること。** `echo` を偽のチェッカにして、
+;; `flymake-schedule` のあと待つと装飾が付いている。
+(deftest flymake-idle-check-runs-after-a-pause ()
+  (let ((buf (flymake-test-buffer)))
+    (unwind-protect
+        (let ((*flymake-idle-delay* 0.05)
+              (ed::*flymake-alist*
+               (list (list buffer-mode
+                           :command "echo x.c:2:1: error: idle-diagnostic"))))
+          (ed::flymake-schedule)
+          ;; タイマが動くのは待っている間 (sleep-for が期限を見る)。
+          (sleep-for 0.5)
+          (list (and ed::*flymake-diagnostics* t)
+                (fourth (first ed::*flymake-diagnostics*))
+                (buffer-modified-p)))
+      (progn (ignore-errors (stop-timer 'ed::flymake-idle-check))
+             (flymake-test-cleanup buf))))
+  => (t "idle-diagnostic" nil))

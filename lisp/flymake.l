@@ -16,6 +16,10 @@
 ;;; **既定は無効。** 保存のたびに外部プロセスが起動するのを望まない使い方と
 ;;; 両立しないうえ、コマンド行が間違っていると黙ってノイズが出る。
 ;;; `lisp/formatter.l' の保存時整形と同じ判断。
+;;;
+;;; 入口は 2 つ: `*flymake-on-save*' (保存時) と `*flymake-idle-delay*'
+;;; (入力が止まってから)。**どちらも既定は nil。** 後者は `start-timer' が
+;;; 要るので、POSIX では #149 まで書けなかった。
 
 (provide "flymake")
 
@@ -25,7 +29,8 @@
 	  flymake-next-error flymake-previous-error
 	  flymake-list-errors flymake-echo-error
 	  toggle-flymake
-	  *flymake-on-save* *flymake-alist* *flymake-format-alist*
+	  *flymake-on-save* *flymake-idle-delay*
+	  *flymake-alist* *flymake-format-alist*
 	  *flymake-error-attributes* *flymake-warning-attributes*
 	  *flymake-note-attributes*))
 
@@ -35,6 +40,19 @@
 既定で nil なのは、保存のたびに外部プロセスが起動するのを勝手に入れない
 ため。`M-x toggle-flymake' で切り替える。無効でも `M-x flymake-check' は
 使える。")
+
+(defvar *flymake-idle-delay* nil
+  "秒数なら、**入力が止まってからその時間後に**検査する。nil なら保存時のみ。
+
+`*flymake-on-save*' が nil でもこちらは効く (別の入口)。
+
+**既定は nil。** 打鍵が止まるたびに外部プロセスが起動するので、重い検査
+コマンド (`g++` など) では待たされる。速い linter を使うときだけ入れる:
+
+    (setq ed::*flymake-idle-delay* 0.5)
+
+`lisp/ts.l' の遅延ハイライトと同じ形で、`*post-command-hook*' から 1 回だけの
+タイマを張り直す。**打鍵ごとに走るのではなく、止まってから 1 回**になる。")
 
 (defvar *flymake-alist*
   '((c-mode            :command "gcc -fsyntax-only -Wall \"~A\"")
@@ -313,6 +331,29 @@ FORMATS は試す形の名前の一覧 (既定は (:gcc))。**モードごとに
   nil)
 
 (add-hook '*after-save-buffer-hook* 'flymake-after-save)
+
+(defun flymake-idle-check ()
+  "タイマから呼ばれる。**黙って検査する** (エコー領域に何も出さない)。"
+  (when (and *flymake-idle-delay* (flymake-spec-for-buffer))
+    (ignore-errors (flymake-check t))
+    (refresh-screen))
+  nil)
+
+(defun flymake-schedule ()
+  "`*post-command-hook*' から、1 回だけのタイマを張り直す。
+
+**打鍵ごとに検査するのではない。** 張り直すので、入力が続いている間は発火せず、
+止まってから `*flymake-idle-delay*' 秒後に 1 回だけ走る (`lisp/ts.l' の
+`ts-schedule-highlight' と同じ形)。
+
+設定の無いモードでは**タイマを張らない** — 打鍵ごとに張って発火して何もせず
+消える、を繰り返す意味が無い。"
+  (when (and *flymake-idle-delay* (flymake-spec-for-buffer))
+    (stop-timer 'flymake-idle-check)
+    (start-timer *flymake-idle-delay* 'flymake-idle-check t))
+  nil)
+
+(add-hook '*post-command-hook* 'flymake-schedule)
 
 ;;;
 ;;; 移動と一覧
