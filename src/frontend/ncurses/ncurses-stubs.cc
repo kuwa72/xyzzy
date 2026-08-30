@@ -920,15 +920,9 @@ key_sequence::key_sequence ()
   k_last_used = 0;
 }
 
-utimer::utimer ()
-{
-  t_hwnd = 0;
-  t_timer_on = 0;
-}
-
-utimer::~utimer () {}
-
-void utimer::gc_mark (void (*)(lisp)) {}
+/* `utimer` の実体は src/core/utimer.cc にある (issue #50)。**スタブを残すと
+   静的ライブラリの側が引かれず、待ち行列を持たない utimer が使われて
+   `start-timer` が黙って何もしない。** */
 
 // ============================================================
 // Lisp object destructors (GC needs these)
@@ -6632,8 +6626,9 @@ lisp Ftab_bar_list_items (lisp) { return Qnil; }
 lisp Ftab_bar_modify_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 
 // Timer
-lisp Fstart_timer (lisp, lisp, lisp) { return Qnil; }
-lisp Fstop_timer (lisp) { return Qnil; }
+/* `start-timer` / `stop-timer` は src/core/utimer.cc へ移した。**スタブを
+   残すと静的ライブラリの側が引かれない。** 期限が来たかどうかを見るのは
+   ncurses-kbd.cc の select ループ (POSIX には SetTimer が無い)。 */
 
 // Listen server
 lisp Fstart_xyzzy_server () { return Qnil; }

@@ -919,6 +919,44 @@ Fshell_execute (lisp, lisp, lisp, lisp)
 // sit-for / sleep-for
 // ============================================================
 
+/* **待っている間もユーザタイマを動かす。** Win32 の `sleep-for` は
+   メッセージループを回すのでその間もタイマが動く。POSIX で 1 回の `select` で
+   寝てしまうと、`(start-timer 0.5 f)` のあと `(sleep-for 0.2)` で待つコードが
+   永遠に進まない (unittest の `fix-start-timer` がまさにその形)。
+
+   期限が来ているものを呼ぶ。`timer ()` は Lisp を呼ぶので、投げてきたものは
+   ここで捨てる (待っている側は待ち続けるのが筋)。 */
+static void
+run_due_timers ()
+{
+  if (app.user_timer.next_timeout_ms () == 0)
+    {
+      try {app.user_timer.timer ();} catch (nonlocal_jump &) {}
+    }
+}
+
+/* 次に `select` で待つ長さ (ミリ秒)。残り時間とタイマの期限の小さい方。
+   **0 は返さない** — 0 で回すと、期限が過ぎたまま進まないタイマがあったとき
+   busy loop になる。 */
+static int
+wait_slice_ms (double remaining_sec)
+{
+  int slice = int (remaining_sec * 1000);
+  if (slice > 100)
+    slice = 100;                /* プロセスの監視と同じ刻み */
+  int next = app.user_timer.next_timeout_ms ();
+  if (next >= 0 && next < slice)
+    slice = next;
+  return slice > 0 ? slice : 1;
+}
+
+static void
+fill_timeval (struct timeval &tv, int ms)
+{
+  tv.tv_sec = ms / 1000;
+  tv.tv_usec = (ms % 1000) * 1000;
+}
+
 lisp
 Fsit_for (lisp timeout, lisp nodisp)
 {
@@ -926,34 +964,41 @@ Fsit_for (lisp timeout, lisp nodisp)
   if (sec <= 0)
     return Qt;
 
-  long usec = (long)(sec * 1000000);
-  struct timeval tv;
-  tv.tv_sec = usec / 1000000;
-  tv.tv_usec = usec % 1000000;
-
-  fd_set rfds;
-  FD_ZERO (&rfds);
-  FD_SET (STDIN_FILENO, &rfds);
-  int maxfd = STDIN_FILENO;
-
-  // Also monitor process fds
-  int pmax = collect_process_fds (&rfds);
-  if (pmax > maxfd)
-    maxfd = pmax;
-
-  int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
-  if (ret > 0)
+  double remaining = sec;
+  while (remaining > 0)
     {
-      // Check process fds first
-      poll_processes ();
-      if (FD_ISSET (STDIN_FILENO, &rfds))
-        return Qnil;  // keyboard input available
+      run_due_timers ();
+
+      fd_set rfds;
+      FD_ZERO (&rfds);
+      FD_SET (STDIN_FILENO, &rfds);
+      int maxfd = STDIN_FILENO;
+
+      // Also monitor process fds
+      int pmax = collect_process_fds (&rfds);
+      if (pmax > maxfd)
+        maxfd = pmax;
+
+      int ms = wait_slice_ms (remaining);
+      struct timeval tv;
+      fill_timeval (tv, ms);
+
+      int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
+      if (ret > 0)
+        {
+          // Check process fds first
+          poll_processes ();
+          if (FD_ISSET (STDIN_FILENO, &rfds))
+            return Qnil;  // keyboard input available
+        }
+      else if (ret == 0)
+        {
+          // Timeout: poll processes in case any terminated
+          poll_processes ();
+        }
+      remaining -= ms / 1000.0;
     }
-  else if (ret == 0)
-    {
-      // Timeout: poll processes in case any terminated
-      poll_processes ();
-    }
+  run_due_timers ();
   return Qt;
 }
 
@@ -964,30 +1009,37 @@ Fsleep_for (lisp timeout)
   if (sec <= 0)
     return Qt;
 
-  long usec = (long)(sec * 1000000);
-  struct timeval tv;
-  tv.tv_sec = usec / 1000000;
-  tv.tv_usec = usec % 1000000;
-
-  // Sleep but still poll processes
-  fd_set rfds;
-  FD_ZERO (&rfds);
-  int maxfd = -1;
-  int pmax = collect_process_fds (&rfds);
-  if (pmax > maxfd)
-    maxfd = pmax;
-
-  if (maxfd >= 0)
+  double remaining = sec;
+  while (remaining > 0)
     {
-      // Monitor process fds during sleep
-      int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
-      if (ret > 0)
-        poll_processes ();
+      run_due_timers ();
+
+      // Sleep but still poll processes
+      fd_set rfds;
+      FD_ZERO (&rfds);
+      int maxfd = -1;
+      int pmax = collect_process_fds (&rfds);
+      if (pmax > maxfd)
+        maxfd = pmax;
+
+      int ms = wait_slice_ms (remaining);
+      struct timeval tv;
+      fill_timeval (tv, ms);
+
+      if (maxfd >= 0)
+        {
+          // Monitor process fds during sleep
+          int ret = select (maxfd + 1, &rfds, 0, 0, &tv);
+          if (ret > 0)
+            poll_processes ();
+        }
+      else
+        {
+          // No processes, just sleep
+          select (0, 0, 0, 0, &tv);
+        }
+      remaining -= ms / 1000.0;
     }
-  else
-    {
-      // No processes, just sleep
-      select (0, 0, 0, 0, &tv);
-    }
+  run_due_timers ();
   return Qt;
 }

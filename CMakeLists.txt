@@ -762,6 +762,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/ces.cc
     ${CORE_DIR}/conf-io.cc
     ${CORE_DIR}/dll-call.cc
+    ${CORE_DIR}/utimer.cc
     ${CORE_DIR}/char.cc
     ${CORE_DIR}/chname.cc
     ${CORE_DIR}/chunk.cc
@@ -913,7 +914,6 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/conf.cc
     ${WIN32_DIR}/vfs.cc
     ${WIN32_DIR}/thread.cc
-    ${WIN32_DIR}/utimer.cc
     ${WIN32_DIR}/monitor.cc
     ${WIN32_DIR}/binfo.cc
     ${WIN32_DIR}/doc.cc

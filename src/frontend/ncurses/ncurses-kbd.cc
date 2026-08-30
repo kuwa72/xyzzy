@@ -287,12 +287,35 @@ kbd_queue::fetch (int wait, int)
       if (pmax > maxfd)
         maxfd = pmax;
 
-      // 100ms timeout: allows periodic process polling and resize checks
+      /* 100ms timeout: allows periodic process polling and resize checks.
+         **ユーザタイマの期限が先に来るならそちらに合わせる。** POSIX には
+         `SetTimer` に相当するものが無いので、**待つ側が期限を見るしかない**
+         (src/core/utimer.cc)。ここを 100ms 固定にしていたため
+         `start-timer` が使えず、`lisp/ts.l` の遅延ハイライトと
+         `lisp/grepd.l` の非同期 grep が動かなかった。 */
+      int timeout_ms = 100;
+      int next = app.user_timer.next_timeout_ms ();
+      if (next >= 0 && next < timeout_ms)
+        timeout_ms = next;
+
       struct timeval tv;
-      tv.tv_sec = 0;
-      tv.tv_usec = 100000;
+      tv.tv_sec = timeout_ms / 1000;
+      tv.tv_usec = (timeout_ms % 1000) * 1000;
 
       int sel = select (maxfd + 1, &rfds, 0, 0, &tv);
+
+      /* **期限が来たものを呼ぶ。** select が入力で戻ったときも見る:
+         打鍵が続いている間タイマが止まると、入力中こそ動いてほしい
+         遅延ハイライトが動かない。
+
+         `timer ()` は Lisp を呼ぶので、**その中で画面が変わることがある。**
+         入力を読む前に呼んでおく (読んだあとだと、そのキーの処理と
+         入れ替わって順序が読めなくなる)。 */
+      if (app.user_timer.next_timeout_ms () == 0)
+        {
+          try {app.user_timer.timer ();} catch (nonlocal_jump &) {}
+          refresh_screen (0);
+        }
 
       // Handle resize (SIGWINCH sets g_need_resize)
       if (g_need_resize)

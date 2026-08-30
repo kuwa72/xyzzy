@@ -130,6 +130,23 @@ make-c-function-stdcall-rest
 #     そこで守られるはずの性質が丸ごと測られなくなる。
 # `handle-access-violation` / `handle-divide-by-zero` はハードウェア例外を
 # win32-exception として受け取るもので、SEH が要る。
+#
+# **`fix-start-timer` はここから外れた。** 「Win32 の環境変数ブロック」の
+# 群に混ざっていたが、`start-timer` は環境変数と関係が無い。`utimer` の
+# **OS に触っている部分は `SetTimer` / `KillTimer` の 2 つだけ**で、残りは
+# 待ち行列の管理だった。core へ移し (src/core/utimer.cc)、POSIX では端末の
+# `select` の待ち時間を次の期限に合わせる形にした。
+#
+# **1 件の既知失敗の裏に、測られていない機能が 2 つあった。**
+# `lisp/ts.l` の tree-sitter ハイライトの遅延更新と `lisp/grepd.l` の
+# 非同期 grep が `start-timer` を使っていて、どちらも黙って動かなかった。
+#
+# 直す途中で platform.h の時刻の 2 つのバグも出た:
+# **`GetSystemTime` が `wMilliseconds` を 0 に固定していた** (SYSTEMTIME を
+# 通る時刻の分解能が 1 秒で、0.05 秒のタイマが秒が変わるまで来ない) と、
+# **`SystemTimeToFileTime` が `mktime` (ローカル時刻) を使っていた**
+# (`GetSystemTime` は `gmtime` で作るので round trip がタイムゾーンの分だけ
+# ずれる。TZ=UTC のコンテナでは見えなかった)。
 # `formatter-*` は外部の整形コマンドを Win32 のプロセス起動で呼ぶ。
 #
 # **`shell-operation-*` 15 件はここから外れた。** SHFileOperation を呼んで
@@ -151,7 +168,6 @@ make-c-function-stdcall-rest
 # SEH (ハードウェア例外を Lisp のコンディションとして受け取る) と
 # レジストリは無い。分類を書くときはそこを見分けること。
 
-fix-start-timer
 formatter-before-save-returns-nil
 formatter-run-replaces-on-success
 handle-access-violation

@@ -36,6 +36,40 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で `start-timer` / `stop-timer` が動くようになった**
+    (既知失敗 57 -> 56)。**それまで nil を返すスタブだった。**
+
+    既知失敗は `fix-start-timer` の 1 件だけだったが、**1 件の裏に測られて
+    いない機能が 2 つあった**: `lisp/ts.l` の tree-sitter ハイライトの遅延
+    更新 (`start-timer 0.1`) と `lisp/grepd.l` の非同期 grep が、どちらも
+    黙って動かなかった。
+
+    **`utimer` が OS に触っているのは `SetTimer` / `KillTimer` の 2 つだけ**で、
+    残りは待ち行列の管理だった。core へ移し (`src/core/utimer.cc`)、POSIX では
+    **端末の `select` の待ち時間を次の期限に合わせる** (`next_timeout_ms`)。
+    POSIX には「時間が来たら呼んでくれる」仕組みが無いので、待つ側が期限を
+    見るしかない。
+
+    `sleep-for` / `sit-for` も**待っている間に期限の来たものを呼ぶ**ように
+    した。Win32 はその間メッセージループを回すのでタイマが動く。1 回の
+    `select` で寝てしまうと、`(start-timer 0.5 f)` のあと `(sleep-for 0.2)` で
+    待つコードが永遠に進まない (`fix-start-timer` がまさにその形)。
+
+    `unittest/timer-tests.l` に 5 件 (1 回だけ / 繰り返し / 止められる /
+    知らない関数は nil / **`sleep-for` の途中で呼ばれる**)。
+  * **POSIX の時刻が 1 秒刻みで、しかもタイムゾーンの分ずれていたのを直した**
+    (`src/core/platform.h`)。タイマを直す途中で出てきた 2 つのバグ。
+
+    **`GetSystemTime` が `wMilliseconds` を 0 に固定していた。** SYSTEMTIME を
+    通る時刻の分解能が 1 秒だったので、**0.05 秒のタイマが「秒が変わるまで」
+    来なかった** (実測: `(start-timer 0.05 f)` のあと `(sleep-for 0.5)` で
+    0 回。直したあとは 10 回)。`GetLocalTime` も同じ。
+
+    **`SystemTimeToFileTime` が `mktime` を使っていた。** SYSTEMTIME は Win32
+    では UTC で、`GetSystemTime` も `gmtime` で作っているのに、`mktime` は
+    **ローカル時刻として解釈する**。round trip がタイムゾーンの分だけずれて
+    いた (`set-file-write-time` が UTC でない環境で違う時刻を書く)。
+    **コンテナは TZ=UTC なので見えなかった。** `timegm` に直した。
   * **POSIX で FFI が使えるようになった** (issue #133 の段階 2〜3、
     既知失敗 59 -> 57)。**libffi は要らなかった。**
 
