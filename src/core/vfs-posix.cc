@@ -200,14 +200,6 @@ fill_find_data (LPWIN32_FIND_DATAW d, const char *basedir, const char *name)
     }
 }
 
-static struct dirent *
-readdir_skip_dots (DIR *dir)
-{
-  struct dirent *ent = readdir (dir);
-  while (ent && (strcmp (ent->d_name, ".") == 0 || strcmp (ent->d_name, "..") == 0))
-    ent = readdir (dir);
-  return ent;
-}
 
 HANDLE WINAPI WINFS::FindFirstFile (LPCWSTR p, LPWIN32_FIND_DATAW d)
 {
@@ -245,13 +237,21 @@ HANDLE WINAPI WINFS::FindFirstFile (LPCWSTR p, LPWIN32_FIND_DATAW d)
       return INVALID_HANDLE_VALUE;
     }
 
-  struct dirent *ent = readdir_skip_dots (dir);
+  /* **"." と ".." も返す。** Win32 の FindFirstFile はディレクトリに対する
+     グロブでこの 2 つを返し、**弾くのは呼び出し側の仕事**である
+     (src/core/glob.cc の DF_SHOW_DOTS、src/core/completion.cc)。ここで
+     先に落としていたため `(directory dir :show-dots t)' が "./" と "../" を
+     返さず、Win32 と挙動が違っていた。
+     再帰で無限に潜る心配は無い: glob.cc はドットのときは `continue' して
+     再帰の枝に入らない。 */
+  struct dirent *ent = readdir (dir);
   if (!ent)
     {
       closedir (dir);
       /* 空のディレクトリ。Win32 の FindFirstFile がグロブに何も合わない
          ときに返す ERROR_FILE_NOT_FOUND と同じ意味にする (その値は 2 で、
-         ENOENT も 2)。 */
+         ENOENT も 2)。**"." が必ずあるので、実在するディレクトリでここへ
+         来ることは無い** (Win32 も同じ)。 */
       errno = ENOENT;
       return INVALID_HANDLE_VALUE;
     }
@@ -271,7 +271,7 @@ BOOL WINAPI WINFS::FindNextFile (HANDLE h, LPWIN32_FIND_DATAW d)
   if (!fh || !fh->dir)
     return FALSE;
 
-  struct dirent *ent = readdir_skip_dots (fh->dir);
+  struct dirent *ent = readdir (fh->dir);
   if (!ent)
     return FALSE;
 

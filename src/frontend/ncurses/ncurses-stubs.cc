@@ -6716,7 +6716,6 @@ lisp Fcreate_shortcut (lisp, lisp, lisp) { return Qnil; }
 lisp Fresolve_shortcut (lisp) { return Qnil; }
 lisp Feject_media (lisp) { return Qnil; }
 lisp Fget_special_folder_location (lisp) { return Qnil; }
-lisp Fget_file_info (lisp) { return Qnil; }
 
 // Misc
 lisp Fmain_loop () { command_loop (); return Qnil; }

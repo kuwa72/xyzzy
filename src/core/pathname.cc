@@ -313,9 +313,22 @@ parse_namestring (pathbuf_t buf, const ucs4_t *name, int nl, const ucs4_t *defal
   ucs4_t *root;
 
   int abs = trail < traile && dir_separator_p (int (*trail));
-  if (path.dev && abs)
+#ifdef _WIN32
+  const int rooted_is_complete = 0;
+#else
+  /* **非 Win32 にドライブは無い。** `/' で始まっていればそのパスは完全で、
+     defaults から借りるものは何も無い。
+
+     ここが Win32 と同じだと `(merge-pathnames "/work/etc" "c:/hoge")' が
+     **"c:/work/etc"** を返す (実測)。ドライブの無い rooted パスに defaults の
+     ドライブを被せるのは Win32 では正しい (`\foo' は「カレントドライブの
+     \foo」という意味なので) が、POSIX では被せるドライブという概念自体が
+     無いので、付いた `c:' は嘘になる。 */
+  const int rooted_is_complete = 1;
+#endif
+  if (abs && (path.dev || rooted_is_complete))
     {
-      b = root = copy_Chars (b, path.dev, path.deve);
+      b = root = (path.dev ? copy_Chars (b, path.dev, path.deve) : b);
       b = copy_Chars (b, trail, traile);
     }
   else
@@ -2614,7 +2627,13 @@ make_file_info (const WIN32_FIND_DATAW &fd)
                     0);
 }
 
-#ifdef _WIN32
+/* **`get-file-info' はプラットフォームに依らない。** 中身は
+   `strict_get_file_data' を呼んで `make_file_info' に渡すだけで、その
+   `WINFS::get_file_data' は非 Win32 でも stat で実装されている
+   (src/core/vfs-posix.cc)。`#ifdef _WIN32' の中にあったため POSIX では
+   ncurses-stubs.cc の nil を返すスタブが使われていて、**`directory' の
+   `:file-info t' は動くのに `get-file-info' だけが nil を返していた** —
+   同じ `make_file_info' を通るのに片方だけ空という状態だった。 */
 lisp
 Fget_file_info (lisp lpath)
 {
@@ -2626,6 +2645,7 @@ Fget_file_info (lisp lpath)
   return make_file_info (fd);
 }
 
+#ifdef _WIN32
 wchar_t *
 root_path_name (wchar_t *buf, const wchar_t *path)
 {

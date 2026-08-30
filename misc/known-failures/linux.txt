@@ -145,8 +145,28 @@ wait-object-typep
 # `fix-truename-1` から `-4` は `(get-system-directory)` と `SystemRoot` を
 # 使うので上と同じ。`user-config-path` / `xyzzy-ini-path` はレジストリと ini
 # ファイル、`image-startup-option` と `fix-*load-pathname*-from-dump-image` は
-# ダンプイメージに依っている。`directory--*` は WIN32_FIND_DATA の属性
-# (FILE_ATTRIBUTE_*) をそのまま見ている。
+# ダンプイメージに依っている。
+#
+# **`directory--*` 5 件はここから外れた。** 前はこのコメントに
+# 「WIN32_FIND_DATA の属性 (FILE_ATTRIBUTE_*) をそのまま見ている」と
+# 書いてあったが、**5 件のどれも属性を見ていなかった。** 測り直したら
+# 別々の 3 つの理由で、全部直せた:
+#
+#   * `get-file-info` が **ncurses-stubs.cc で nil を返すスタブ**だった。
+#     中身は `strict_get_file_data` を呼んで `make_file_info` に渡すだけで、
+#     その `WINFS::get_file_data` は非 Win32 でも stat で実装済み。
+#     `#ifdef _WIN32` の中にあっただけで、**`directory` の `:file-info t` は
+#     同じ `make_file_info` を通って動いていた** (片方だけ空だった)。
+#   * `:show-dots t` が `./` と `../` を返さなかった。Win32 の
+#     FindFirstFile はこの 2 つを返し、**弾くのは呼び出し側の仕事**
+#     (glob.cc の DF_SHOW_DOTS) なのに、vfs-posix.cc が先に落としていた。
+#   * `(merge-pathnames "/work/etc" "c:/hoge")` が **"c:/work/etc"** を
+#     返していた。ドライブの無い rooted パスに defaults のドライブを被せる
+#     のは Win32 では正しいが、POSIX には被せるドライブが無いので嘘になる。
+#
+# **属性を見ているという理由は、テストを読めば違うと分かるものだった**
+# (`directory--absolute` は `merge-pathnames` に `c:/hoge` を渡している)。
+# 分類を書くときは、テストが実際に何を呼んでいるかを見ること。
 #
 # **エラーの番号と文言はここから外した。** POSIX では `GetLastError ()` が
 # errno を返すのに `ERROR_*` は Win32 の番号のままで、両者が同じ整数の欄に
@@ -161,11 +181,6 @@ chdir-4
 chdir-5
 chdir-6
 chdir-path-not-found
-directory--absolute
-directory--file-info
-directory--show-dots
-directory--test-absolute
-directory--test-file-info
 fix-*load-pathname*-from-dump-image
 fix-truename-1
 fix-truename-2
