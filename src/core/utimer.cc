@@ -1,3 +1,18 @@
+// -*-C++-*-
+//
+// ユーザタイマ (`start-timer` / `stop-timer`)。
+//
+// **OS に触っているのは `start_timer` / `stop_timer` の 2 つだけ**で、残りは
+// 待ち行列の管理。src/frontend/win32/utimer.cc にあったため、**POSIX では
+// `Fstart_timer` が nil を返すスタブになっていて、`lisp/ts.l` の
+// tree-sitter ハイライトの遅延更新と `lisp/grepd.l` の非同期 grep が
+// 黙って動かなかった。**
+//
+// Win32 は `SetTimer` でメッセージを飛ばしてもらう。POSIX にはメッセージ
+// ループが無いので、**端末フロントエンドの `select` の待ち時間を次の期限に
+// 合わせる** (src/frontend/ncurses/ncurses-kbd.cc が `next_timeout_ms` を
+// 見て、期限が来たら `timer ()` を呼ぶ)。
+
 #include "stdafx.h"
 #include "ed.h"
 
@@ -21,6 +36,8 @@ utimer::~utimer ()
   while (!t_defers.empty_p ())
     delete t_defers.remove_head ();
 }
+
+#ifdef _WIN32
 
 void
 utimer::stop_timer ()
@@ -49,6 +66,43 @@ utimer::start_timer (const utime_t &t)
       t_timer_on = 1;
     }
 }
+
+#else /* !_WIN32 */
+
+/* **POSIX には「時間が来たら呼んでくれる」仕組みが無い。** 端末
+   フロントエンドの `select` が待つ時間を次の期限に合わせて、期限が来たら
+   `timer ()` を呼ぶ (src/frontend/ncurses/ncurses-kbd.cc)。ここは印を
+   付けるだけ。 */
+void
+utimer::stop_timer ()
+{
+  t_timer_on = 0;
+}
+
+void
+utimer::start_timer (const utime_t &)
+{
+  t_timer_on = t_entries.head () ? 1 : 0;
+}
+
+int
+utimer::next_timeout_ms ()
+{
+  timer_entry *entry = t_entries.head ();
+  if (!entry)
+    return -1;                  /* 待っているものが無い */
+
+  utime_t t;
+  current_time (t);
+  utime_t d = (entry->te_time - t) / (timer_entry::UNITS_PER_SEC / 1000);
+  if (d <= 0)
+    return 0;                   /* もう過ぎている */
+  if (d > INT_MAX)
+    return INT_MAX;
+  return int (d);
+}
+
+#endif /* !_WIN32 */
 
 void
 utimer::insert (timer_entry *entry)

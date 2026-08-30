@@ -42,6 +42,13 @@ public:
   void init (HWND hwnd) {t_hwnd = hwnd;}
   void cleanup () {stop_timer ();}
   void timer ();
+#ifndef _WIN32
+  /* 次の期限までの残り (ミリ秒)。待っているものが無ければ -1、既に過ぎて
+     いれば 0。**端末フロントエンドの `select` の待ち時間に使う** —
+     POSIX には `SetTimer` に相当するものが無いので、待つ側が期限を見る
+     (src/core/utimer.cc、src/frontend/ncurses/ncurses-kbd.cc)。 */
+  int next_timeout_ms ();
+#endif
   void add (u_long, lisp, int);
   int remove (lisp);
   void gc_mark (void (*)(lisp));

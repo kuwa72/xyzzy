@@ -329,15 +329,9 @@ key_sequence::key_sequence ()
   k_last_used = 0;
 }
 
-utimer::utimer ()
-{
-  t_hwnd = 0;
-  t_timer_on = 0;
-}
-
-utimer::~utimer () {}
-
-void utimer::gc_mark (void (*)(lisp)) {}
+/* `utimer` の実体は src/core/utimer.cc にある (issue #50)。**スタブを残すと
+   静的ライブラリの側が引かれず、待ち行列を持たない utimer が使われて
+   `start-timer` が黙って何もしない。** */
 
 // ============================================================
 // Lisp object destructors (GC needs these)

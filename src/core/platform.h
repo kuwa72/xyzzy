@@ -1018,22 +1018,39 @@ typedef struct _TIME_ZONE_INFORMATION {
   LONG DaylightBias;
 } TIME_ZONE_INFORMATION;
 
+/* **ミリ秒を埋める。** `wMilliseconds` を 0 に固定していたので、SYSTEMTIME を
+   通る時刻の分解能が 1 秒だった。`utimer` (src/core/utimer.h の
+   `current_time`) がこれを使うので、**0.05 秒のタイマが「秒が変わるまで」
+   来なかった** — `(start-timer 0.05 f)` のあと `(sleep-for 0.4)` で待つと
+   1 回も呼ばれない (実測)。 */
 inline void GetSystemTime(SYSTEMTIME *st) {
-  time_t t = time(0);
-  struct tm *tm = gmtime(&t);
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  time_t t = ts.tv_sec;
+  struct tm tmbuf;
+  struct tm *tm = gmtime_r(&t, &tmbuf);
   st->wYear = tm->tm_year + 1900; st->wMonth = tm->tm_mon + 1;
   st->wDay = tm->tm_mday; st->wDayOfWeek = tm->tm_wday;
   st->wHour = tm->tm_hour; st->wMinute = tm->tm_min;
-  st->wSecond = tm->tm_sec; st->wMilliseconds = 0;
+  st->wSecond = tm->tm_sec;
+  st->wMilliseconds = (WORD)(ts.tv_nsec / 1000000);
 }
 
+/* **`timegm` を使う (`mktime` ではない)。** SYSTEMTIME は Win32 では UTC で、
+   `GetSystemTime` も `gmtime` で作っている。`mktime` は**ローカル時刻として
+   解釈する**ので、round trip がタイムゾーンの分だけずれていた
+   (`set-file-write-time` が UTC でない環境で違う時刻を書く。コンテナは
+   TZ=UTC なので見えなかった)。
+
+   ミリ秒も足す。上の注を参照。 */
 inline BOOL SystemTimeToFileTime(const SYSTEMTIME *st, FILETIME *ft) {
   struct tm tm = {};
   tm.tm_year = st->wYear - 1900; tm.tm_mon = st->wMonth - 1;
   tm.tm_mday = st->wDay; tm.tm_hour = st->wHour;
   tm.tm_min = st->wMinute; tm.tm_sec = st->wSecond;
-  time_t t = mktime(&tm);
-  uint64_t v = ((uint64_t)t + 11644473600ULL) * 10000000ULL;
+  time_t t = timegm(&tm);
+  uint64_t v = ((uint64_t)t + 11644473600ULL) * 10000000ULL
+               + (uint64_t)st->wMilliseconds * 10000ULL;
   ft->dwLowDateTime = (DWORD)v;
   ft->dwHighDateTime = (DWORD)(v >> 32);
   return TRUE;
@@ -1563,13 +1580,18 @@ inline DWORD GetTimeZoneInformation(TIME_ZONE_INFORMATION *tzi) {
   memset(tzi, 0, sizeof(*tzi));
   return TIME_ZONE_ID_UNKNOWN;
 }
+/* ミリ秒を埋める (GetSystemTime の注を参照)。 */
 inline void GetLocalTime(SYSTEMTIME *st) {
-  time_t t = time(0);
-  struct tm *tm = localtime(&t);
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  time_t t = ts.tv_sec;
+  struct tm tmbuf;
+  struct tm *tm = localtime_r(&t, &tmbuf);
   st->wYear = tm->tm_year + 1900; st->wMonth = tm->tm_mon + 1;
   st->wDay = tm->tm_mday; st->wDayOfWeek = tm->tm_wday;
   st->wHour = tm->tm_hour; st->wMinute = tm->tm_min;
-  st->wSecond = tm->tm_sec; st->wMilliseconds = 0;
+  st->wSecond = tm->tm_sec;
+  st->wMilliseconds = (WORD)(ts.tv_nsec / 1000000);
 }
 
 // File operations
