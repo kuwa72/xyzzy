@@ -36,6 +36,30 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **メニューを触る Lisp 関数 5 個とヘルパ 3 個も core に一本化した**
+    (#16 Phase 4)。`set-menu` / `get-menu` / `get-menu-position` /
+    `current-menu` / `use-local-menu` と、`check_popup_menu` /
+    `find_tag_position` / `get_menu`。
+
+    **一度「移せない」と判断して間違えた場所である。** 前の項の作業で
+    「`win32_menu_p` などフロントエンド側のヘルパに依っているので別にする」と
+    書いたが、測ったら違った:
+
+    | 見立て | 実際 |
+    | --- | --- |
+    | `win32_menu_p` はフロントエンドのヘルパ | **core のマクロ** (`src/core/ed.h`) |
+    | `check_popup_menu` はフロントエンドのヘルパ | **core で宣言済み。** 定義が 2 つあっただけ |
+    | `find_tag_position` / `get_menu` は Win32 を触る | **core のアクセサしか触らない** |
+
+    **名前に win32 と付いているだけで Win32 だと決めつけていた。** `HMENU` の
+    値は `lwin32_menu` の中に入っているが、それを解釈するのはフロントエンド
+    だけで、移した側は「ハンドルが立っているか」しか見ない。
+
+    本当に足りないものが 1 つだけあった。`xwin32_menu_items` は**両フロント
+    エンドがローカルに `#define xwin32_menu_items xwin32_menu_command` と
+    書いていた。** 同じ枠が葉では「コマンド」、ポップアップでは「中の項目の
+    リスト」という**二役**を持つ、という知識がその 1 行に埋まっていた。
+    名前ごと core へ上げて、二役であることをコメントに書いた。
   * **`class Process` の共通部分を core の基底クラスに切り出し、残る
     プロセス関数 8 個も一本化した** (issue #127、#16 Phase 4)。これで
     プロセスを触る Lisp 関数は 19 個すべてが core にある。

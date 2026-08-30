@@ -21,10 +21,15 @@
 // 移していないもの:
 //   * `Fselected_window' と `Fenlarge_window' は中身が違う (前者は win32 が
 //     余分なことをし、後者はピクセルと文字セルで計算が違う)。
-//   * メニューの 5 個 (`Fget_menu' など) も 1 文字も違わないが、
-//     `check_popup_menu' / `get_menu' / `find_tag_position' /
-//     `win32_menu_p' というフロントエンド側のヘルパに依っている。
-//     それらを先に揃える必要があるので別にする。
+//   * `Fselected_window' と `Fenlarge_window' は中身が違っていたが、あとで
+//     揃えて移した。
+//
+// **メニューの 5 個について、ここに間違ったことを書いていた。**
+// 「`check_popup_menu' / `get_menu' / `find_tag_position' / `win32_menu_p' と
+// いうフロントエンド側のヘルパに依っている」と書いたが、測ったら違った:
+// `win32_menu_p' は core のマクロ、`check_popup_menu' は core で宣言済み、
+// 残る 2 つが触るのは core のアクセサだけだった。**名前に win32 と付いて
+// いるだけで Win32 だと決めつけていた。** src/core/menu-lisp.cc へ移した。
 
 #include "stdafx.h"
 #include "ed.h"

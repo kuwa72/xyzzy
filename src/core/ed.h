@@ -199,6 +199,13 @@ xwin32_menu_command (lisp x)
   return ((lwin32_menu *)x)->command;
 }
 
+/* **同じ枠が 2 つの意味を持つ。** 葉の項目では「実行するコマンド」、
+   ポップアップでは「中に入っている項目のリスト」。両フロントエンドが
+   `#define xwin32_menu_items xwin32_menu_command' をローカルに書いて
+   使い分けていたので、名前ごと core に上げた。
+   src/core/menu-lisp.cc がこちらの名前で読む。 */
+#define xwin32_menu_items xwin32_menu_command
+
 inline lisp &
 xwin32_menu_name (lisp x)
 {
@@ -207,6 +214,9 @@ xwin32_menu_name (lisp x)
 }
 
 void check_popup_menu (lisp lmenu);
+/* src/core/menu-lisp.cc。`Fdelete_menu' が両フロントエンドで使う
+   (あちらは本物のメニューを触るので core には移せない)。 */
+lisp get_menu (lisp lmenu, lisp tag, lisp positionp, int &pos);
 
 class lwin32_dde_handle: public lisp_object
 {
