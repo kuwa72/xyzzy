@@ -595,7 +595,7 @@ minibuffer_read_integer (const ucs4_t *prompt, long prompt_length)
 // menu.cc — ncurses TUI menu implementation
 // ============================================================
 
-#define xwin32_menu_items xwin32_menu_command
+/* xwin32_menu_items は src/core/ed.h へ移した。 */
 
 #ifndef MF_GRAYED
 #define MF_GRAYED    0x0001
@@ -619,17 +619,6 @@ make_win32_menu ()
   return p;
 }
 
-void
-check_popup_menu (lisp lmenu)
-{
-  check_win32_menu (lmenu);
-  if (!xwin32_menu_handle (lmenu))
-    {
-      if (!xwin32_menu_id (lmenu))
-        FEprogram_error (Euninitialized_menu_item);
-      FEprogram_error (Eis_not_popup_menu);
-    }
-}
 
 static lisp
 create_new_item (int &id, lisp tag, lisp command, lisp init)
@@ -808,51 +797,7 @@ lookup_menu_command (int id)
   return Qnil;
 }
 
-static int
-find_tag_position (lisp &lmenu, lisp tag)
-{
-  for (lisp p = xwin32_menu_items (lmenu); consp (p); p = xcdr (p))
-    {
-      lisp x = xcar (p);
-      if (xwin32_menu_tag (x) == tag)
-        return xlist_length (xcdr (p));
-      if (xwin32_menu_handle (x))
-        {
-          int pos = find_tag_position (x, tag);
-          if (pos >= 0)
-            {
-              lmenu = x;
-              return pos;
-            }
-        }
-    }
-  return -1;
-}
 
-static lisp
-get_menu (lisp lmenu, lisp tag, lisp positionp, int &pos)
-{
-  check_popup_menu (lmenu);
-  if (positionp && positionp != Qnil)
-    {
-      pos = fixnum_value (tag);
-      if (pos < 0)
-        FErange_error (tag);
-    }
-  else
-    {
-      pos = find_tag_position (lmenu, tag);
-      if (pos < 0)
-        return Qnil;
-    }
-
-  int l = xlist_length (xwin32_menu_items (lmenu));
-  if (pos >= l)
-    return Qnil;
-
-  l -= pos + 1;
-  return Fnth (make_fixnum (l), xwin32_menu_items (lmenu));
-}
 
 lisp
 track_popup_menu (lisp, lisp, const POINT *) { return Qnil; }
@@ -5067,55 +5012,10 @@ Fcopy_menu_items (lisp old_menu, lisp new_menu)
   return new_menu;
 }
 
-lisp
-Fset_menu (lisp lmenu)
-{
-  if (lmenu != Qnil)
-    check_popup_menu (lmenu);
-  xsymbol_value (Vdefault_menu) = lmenu;
-  return lmenu;
-}
 
-lisp
-Fcurrent_menu (lisp buffer)
-{
-  if (!buffer)
-    return (win32_menu_p (selected_buffer ()->lmenu)
-            ? selected_buffer ()->lmenu
-            : xsymbol_value (Vdefault_menu));
-  else if (buffer == Qnil)
-    return xsymbol_value (Vdefault_menu);
-  else
-    return Buffer::coerce_to_buffer (buffer)->lmenu;
-}
 
-lisp
-Fget_menu (lisp lmenu, lisp tag, lisp positionp)
-{
-  int pos;
-  return get_menu (lmenu, tag, positionp, pos);
-}
 
-lisp
-Fget_menu_position (lisp lmenu, lisp tag)
-{
-  check_popup_menu (lmenu);
-  int pos = find_tag_position (lmenu, tag);
-  if (pos < 0)
-    return Qnil;
-  multiple_value::count () = 2;
-  multiple_value::value (1) = lmenu;
-  return make_fixnum (pos);
-}
 
-lisp
-Fuse_local_menu (lisp lmenu)
-{
-  if (lmenu != Qnil)
-    check_popup_menu (lmenu);
-  selected_buffer ()->lmenu = lmenu;
-  return lmenu;
-}
 
 // ---- TUI menu rendering helpers ----
 
