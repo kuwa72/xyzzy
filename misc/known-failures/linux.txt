@@ -81,9 +81,30 @@ make-c-function-stdcall-rest
 
 # Win32 API を直接呼ぶもの。
 # 
-# `last-win32-error` は GetLastError、
-# `machine-type` は GetSystemInfo、`wait-object` は WaitForMultipleObjects、
-# `add-putenv` / `test-environ` は Win32 の環境変数ブロック。
+# `last-win32-error` 2 件は **GetLastError ではなく FFI で止まっている。**
+# どちらも `MultiByteToWideChar` を DLL 経由で呼んでいて (foreign-test.l)、
+# 呼ぶ側が無い (#133)。上の FFI 群と同じ理由なので、そちらが動けば一緒に
+# 通るはず。`wait-object` は WaitForMultipleObjects。
+#
+# **`machine-type` はここから外れた。** 「GetSystemInfo」と書いてあったが、
+# **POSIX でも `machine-type` は値を返していた** ("amd64")。落ちていたのは
+# テストの期待値が `#+x86 "x86" #+x64 "x64" #+ia64 "IA64"` で、**POSIX の
+# 名前 (amd64 / aarch64) を書いていなかったため期待値が空になっていた**から。
+# 期待値に足した。
+#
+# **`add-putenv-04` と `test-environ-*` 3 件はここから外れた。** 前は
+# 「Win32 の環境変数ブロック」と書いてあったが、**環境変数ブロックは
+# 関係が無く、2 つ別の話だった**:
+#
+#   * `si:putenv` が POSIX で**成功を返して何もしていなかった。**
+#     POSIX の `putenv` は渡した文字列を**複写せずポインタを環境に置く**のに、
+#     `alloca` で積んだ文字列を渡していた。`setenv` / `unsetenv` に直した
+#     (Win32 の `_wputenv` は複写するので、あちらは正しい。**同じ名前で
+#     約束が違うものを platform.h で別名にしてはいけなかった。**)
+#   * `test-environ-*` の突き合わせ相手が `cmd.exe /c set` だった。
+#     POSIX では `env` を使う形にした。**この 2 件が POSIX で測れていれば
+#     putenv の壊れ方は捕まっていた** — 「外の目」を Windows 専用にすると、
+#     そこで守られるはずの性質が丸ごと測られなくなる。
 # `handle-access-violation` / `handle-divide-by-zero` はハードウェア例外を
 # win32-exception として受け取るもので、SEH が要る。
 # `formatter-*` は外部の整形コマンドを Win32 のプロセス起動で呼ぶ。
@@ -107,7 +128,6 @@ make-c-function-stdcall-rest
 # SEH (ハードウェア例外を Lisp のコンディションとして受け取る) と
 # レジストリは無い。分類を書くときはそこを見分けること。
 
-add-putenv-04
 fix-start-timer
 formatter-before-save-returns-nil
 formatter-run-replaces-on-success
@@ -116,9 +136,6 @@ handle-access-violation-2
 handle-divide-by-zero
 last-win32-error
 last-win32-error-getlasterror
-machine-type
-test-environ-1
-test-environ-2
 wait-object-check-type-1
 wait-object-typep
 
