@@ -983,7 +983,6 @@ main_frame g_frame;
 // dll.cc stubs
 // ============================================================
 
-void init_c_callable (lisp) {}
 
 // ============================================================
 // Lisp-callable frontend functions (registered in symbol table)
@@ -1030,10 +1029,14 @@ lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
 /* Fsi_load_dll_module は src/core/dll-posix.cc が dlopen で実装する
    ようになったので、ここのスタブを消した。呼び出しの側
    (make-c-function / make-c-callable) はまだスタブ -- issue #133。 */
-lisp Fsi_make_c_function (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
+/* **FFI のスタブは消した。** 型の検査と `si:make-c-function' は
+   src/core/dll-call.cc、実際に呼ぶ所は src/core/dll-posix.cc にある
+   (issue #133 の段階 2〜3)。**スタブを残すと静的ライブラリの側が引かれず、
+   リンクは通るのに実装が使われない。**
+
+   `si:make-c-callable` (Lisp の関数を C から呼べるアドレスにするもの) は
+   まだ無い — 実行時に機械語を作る必要がある (段階 4)。 */
 lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fsi_last_win32_error () { return Qnil; }
-lisp Fsi_set_last_win32_error (lisp) { return Qnil; }
 lisp Fsi_load_ts_grammar (lisp, lisp) { return Qnil; }
 lisp Fsi_ts_query_buffer (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_ts_grammar_p (lisp) { return Qnil; }
@@ -3715,8 +3718,6 @@ void Buffer::cleanup_waitobj_list () {}
 
 #include "dll.h"
 
-lisp funcall_dll (lisp, lisp) { return Qnil; }
-lisp funcall_c_callable (lisp, lisp) { return Qnil; }
 
 // ============================================================
 // Monitor stubs

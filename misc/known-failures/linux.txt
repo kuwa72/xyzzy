@@ -23,12 +23,37 @@
 # 内訳の数はグループの見出しの下に並んでいる名前を数えれば分かる。1 つでも
 # 通るようになったら run が赤くなるので、そのとき消す。
 
-# FFI: Windows の DLL を読み、その関数を呼ぶ。
+# FFI: DLL / 共有ライブラリを読み、その関数を呼ぶ。
 #
-# `load-library` / `define-dll-entry` / `make-c-function` は LoadLibrary と
-# GetProcAddress、それに Win32 の呼び出し規約 (stdcall) の上に建っている。POSIX
-# 側には対応するものがまだ無い (#50)。dlopen へ載せ替えれば大半は動くはずだが、
-# stdcall と可変長引数の扱いは別に考える必要がある。
+# **POSIX でも呼べるようになった (#133 の段階 2〜3)。** 前はここに
+# 「dlopen へ載せ替えれば大半は動くはずだが、stdcall と可変長引数の扱いは
+# 別に考える必要がある」と書いてあり、**libffi を入れるかどうかの判断待ちに
+# していたが、その判断は要らなかった。**
+#
+# `src/frontend/win32/dll.cc` の x86_64 の枝は、アセンブリでも libffi でも
+# なく**関数ポインタのキャスト**で呼んでいる (`int64_t (*)(int64_t, ...)` へ
+# キャストして呼ぶと、**呼び出し規約はコンパイラが出す**)。同じ形を
+# src/core/dll-posix.cc に置いた。POSIX x86_64 / aarch64 には規約が 1 つしか
+# 無いので、stdcall の区別も要らない。
+#
+# 実測 (glibc): `abs(-5)` = 5、`getpid()` が `si:getpid` と一致、
+# `atoi("42")` = 42、`llabs(-8589934592)` = 8589934592、`strchr` がポインタを
+# 返す。`unittest/ffi-portable-tests.l` に 9 件 (**両方のプラットフォームで
+# 同じテストになる**)。
+#
+# **ここに残っているのは 2 種類だけ:**
+#
+#   * `c-callable-*` 2 件 — **Lisp の関数を C から呼べるアドレスにする**もの。
+#     実行時に機械語を作る必要がある (`lc_callable::insn`)。ABI ごとに書くか
+#     libffi の closure を使うかの判断が残っている (#133 の段階 4)。
+#   * それ以外 — **テストが MSVC のランタイム固有の関数を呼んでいる。**
+#     `_itoa` / `_atoi64` / `_i64toa` / `_ui64toa` は msvcrt にしかない。
+#     **実装の不足ではない** (同じことを標準 C の関数でやる
+#     ffi-portable-tests.l は POSIX でも通る)。
+#
+# `fix-for-ffi-c-function-return-doubl/float-00` は返り値が double のもので、
+# 返り値だけなら POSIX でも通る形に書いてある。**手元の run では
+# `.lc` が無いと落ちるが CI では通る**ので、ここに載っているのは別の理由。
 #
 # **`pack-unpack-*` 4 件はここから外れた。FFI とは関係が無かった。**
 # `si:pack-*` / `si:unpack-*` はチャンク (バイト列) を読み書きするだけで DLL を
@@ -50,8 +75,6 @@
 
 c-callable-check-type-1
 c-callable-typep
-c-function-check-type-1
-c-function-typep
 c-vaargs-invalid-vaargs-0
 define-dll-entry-int32-arg
 define-dll-entry-int64-arg
