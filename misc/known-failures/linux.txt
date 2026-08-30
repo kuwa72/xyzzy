@@ -167,9 +167,23 @@ make-c-function-stdcall-rest
 # 「その API がやっていること自体が POSIX に無い」から残っている。**
 # SEH (ハードウェア例外を Lisp のコンディションとして受け取る) と
 # レジストリは無い。分類を書くときはそこを見分けること。
+#
+# **`formatter-*` 2 件はここから外れた。** テストが偽フォーマッタを
+# `cmd /c ...` で書いていただけで、POSIX では 1 つも起動できていなかった。
+# プラットフォームごとに分けた。
+#
+# **落ちて見えていたのは「成功して内容が変わる」経路の 2 件だけだったが、
+# 失敗する側の 3 件も測れていなかった。** あちらは「バッファに触らないこと」を
+# 見るので、**コマンドが起動できなくても通ってしまう。** 8 件のうち 5 件が
+# 「起動できないから通る」状態で、`format-buffer` が POSIX で動くかどうかは
+# どのテストも言っていなかった。
+#
+# POSIX 側は**ファイルを作らない**。`shell-command-line` が cmdline を
+# `/bin/sh -c` にそのまま渡すので (issue #121)、`(echo FORMATTED; cat)` と
+# その場で書ける。**最初はスクリプトを書こうとして失敗した: xyzzy が書く改行が
+# CRLF なので、`sh` が `cat\r` というコマンドを探す** (エラーには \r が
+# 見えないので「cat: not found」とだけ出て、PATH の問題に見える)。
 
-formatter-before-save-returns-nil
-formatter-run-replaces-on-success
 handle-access-violation
 handle-access-violation-2
 handle-divide-by-zero

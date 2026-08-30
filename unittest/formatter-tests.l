@@ -3,19 +3,25 @@
 ;;; lisp/formatter.l のテスト。
 ;;;
 ;;; 外部コマンドを本当に起動する部分も見ている。フォーマッタ本体
-;;; (clang-format 等) は環境に無いので、代わりを 4 つ用意した:
+;;; (clang-format 等) は環境に無いので、代わりを 5 つ用意した:
 ;;;
-;;;   with-fake-formatter -- 入力の前に FORMATTED を 1 行足すだけの .cmd。
+;;;   with-fake-formatter -- 入力の前に FORMATTED を 1 行足すだけのスクリプト。
 ;;;                          「成功して内容が変わる」経路。Wine の cmd には
 ;;;                          sort が無く more は入力をそのまま返すだけなので、
 ;;;                          変換するフィルタは自分で書くしかない。
-;;;   cmd /c more         -- 入力をそのまま返す。「成功したが内容は同じ」経路
-;;;   cmd /c exit 1       -- 終了コード非 0 の失敗例
-;;;   cmd /c break        -- 0 で終わるが何も出力しない例 (ここが一番危ない)
-;;;   no-such-formatter   -- 起動できない例
+;;;   formatter-test-cat    -- 入力をそのまま返す。「成功したが内容は同じ」経路
+;;;   formatter-test-fail   -- 終了コード非 0 の失敗例
+;;;   formatter-test-silent -- 0 で終わるが何も出力しない例 (ここが一番危ない)
+;;;   no-such-formatter     -- 起動できない例
 ;;;
 ;;; 大事なのは後ろの 3 つで、いずれもバッファに触らないこと。触ると
 ;;; 「保存したらファイルが空になった」になる。
+;;;
+;;; **コマンドはプラットフォームで分ける。** ここは `cmd /c ...` 決め打ちで、
+;;; POSIX では 1 つも起動できていなかった。**「成功して内容が変わる」経路だけが
+;;; 既知失敗として見えていたが、失敗する側の 3 件も「起動できないので
+;;; バッファに触らない」で通っていた** — 測りたい性質は測れていなかった
+;;; (issue #50)。
 
 (require "formatter")
 
@@ -28,18 +34,44 @@
   ;; misc/run-tests-batch.l がそれを失敗として数えていなかった)。
   (remove #\RET (buffer-substring (point-min) (point-max))))
 
+(defun formatter-test-cat ()
+  "入力をそのまま返すコマンド。"
+  (if (featurep :unix) "cat" "cmd /c more"))
+
+(defun formatter-test-fail ()
+  "終了コードが 0 でないコマンド。"
+  (if (featurep :unix) "exit 1" "cmd /c exit 1"))
+
+(defun formatter-test-silent ()
+  "0 で終わるが何も出力しないコマンド。**ここで差し替えるとファイルが消える。**"
+  (if (featurep :unix) "true" "cmd /c break"))
+
+(defun formatter-test-call-with-fake-formatter (fn)
+  "入力の前に FORMATTED を 1 行足すだけのフィルタのコマンド文字列を作って
+FN に渡す。
+
+**POSIX ではファイルを作らない。** `shell-command-line' が cmdline を
+`/bin/sh -c' にそのまま渡すので (issue #121)、パイプを含む式をその場で書ける。
+
+**ここでファイルを書こうとすると、xyzzy が書く改行が CRLF なので `sh' が
+`cat\r' というコマンドを探して失敗する** (エラーには \r が見えないので
+「cat: not found」とだけ出る)。Windows 側は `cmd /c' に複合式を渡すのが
+面倒なので .cmd を作る (Wine の cmd には sort が無く more は入力をそのまま
+返すだけなので、変換するフィルタは自分で書くしかない)。"
+  (if (featurep :unix)
+      (funcall fn "(echo FORMATTED; cat)")
+    (let ((file (concat (make-temp-file-name) ".cmd")))
+      (unwind-protect
+	  (progn
+	    (with-open-file (s file :direction :output :if-exists :supersede)
+	      (format s "@echo off~%echo FORMATTED~%more~%"))
+	    (funcall fn (format nil "cmd /c \"~A\"" file)))
+	(ignore-errors (delete-file file))))))
+
 (defmacro with-fake-formatter ((var) &body body)
-  "入力の前に FORMATTED という 1 行を足すだけの .cmd を作り、その
-コマンド文字列を VAR に束縛して BODY を実行する。"
-  `(let ((,var nil)
-	 (%file (concat (make-temp-file-name) ".cmd")))
-     (unwind-protect
-	 (progn
-	   (with-open-file (s %file :direction :output :if-exists :supersede)
-	     (format s "@echo off~%echo FORMATTED~%more~%"))
-	   (setq ,var (format nil "cmd /c \"~A\"" %file))
-	   ,@body)
-       (ignore-errors (delete-file %file)))))
+  "入力の前に FORMATTED という 1 行を足すだけのフィルタのコマンド文字列を
+VAR に束縛して BODY を実行する。"
+  `(formatter-test-call-with-fake-formatter #'(lambda (,var) ,@body)))
 
 ;;;
 ;;; コマンドの選択
@@ -87,7 +119,7 @@
   "終了コードが 0 でなければバッファに触らないこと"
   (with-temp-buffer
     (insert "ccc\naaa\n")
-    (values (ed::formatter-run "cmd /c exit 1" t)
+    (values (ed::formatter-run (formatter-test-fail) t)
 	    (formatter-test-contents)))
   => nil
   => "ccc\naaa\n")
@@ -97,7 +129,7 @@
 (ここで差し替えるとファイルが消える)"
   (with-temp-buffer
     (insert "ccc\naaa\n")
-    (values (ed::formatter-run "cmd /c break" t)
+    (values (ed::formatter-run (formatter-test-silent) t)
 	    (formatter-test-contents)))
   => nil
   => "ccc\naaa\n")
@@ -113,10 +145,10 @@
 
 (deftest formatter-run-does-nothing-when-already-formatted ()
   "出力が今の内容と同じなら差し替えないこと (バッファを無駄に変更済みに
-しないため)。cmd /c more は入力をそのまま返す。"
+しないため)。入力をそのまま返すコマンドで見る。"
   (with-temp-buffer
     (insert "aaa\nbbb\nccc\n")
-    (values (ed::formatter-run "cmd /c more" t)
+    (values (ed::formatter-run (formatter-test-cat) t)
 	    (formatter-test-contents)))
   => nil
   => "aaa\nbbb\nccc\n")
