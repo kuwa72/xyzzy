@@ -164,12 +164,12 @@ wait-object-typep
 # (src/core/conf-io.cc)。**Linux ビルドはそれまで設定を一切読み書きして
 # いなかった。**
 #
-# 残る 2 件 (`xyzzy-ini-path-XYZZYINIFILE` と
-# `user-config-path-XYZZYCONFIGPATH`) は**環境変数を子プロセスへ渡す方の
-# 問題で、ini とは関係が無い。** 非 Win32 の `call-process` /
-# `make-process` が `:environ` を丸ごと無視している
-# (ncurses-process.cc に Kenviron が出てこない)。**`XYZZYINIFILE` 自体は
-# 効く** — 手で環境変数を置いて起動すれば読む。
+# **残る 2 件も外れた。** `xyzzy-ini-path-XYZZYINIFILE` と
+# `user-config-path-XYZZYCONFIGPATH` は ini とは関係が無く、**環境変数を
+# 子プロセスへ渡す方の問題**だった: 非 Win32 の `call-process` /
+# `make-process` が `:environ` を丸ごと無視していた (`Kenviron` が
+# ncurses-process.cc に出てこなかった)。実装した (`build_environ`)。
+# **この 7 件の群は空になった。**
 #
 # **`directory--*` 5 件はここから外れた。** 前はこのコメントに
 # 「WIN32_FIND_DATA の属性 (FILE_ATTRIBUTE_*) をそのまま見ている」と
@@ -210,8 +210,6 @@ fix-truename-2
 fix-truename-3
 fix-truename-4
 image-startup-option
-user-config-path-xyzzyconfigpath
-xyzzy-ini-path-xyzzyinifile
 
 # コマンドライン引数の処理 — **この群も空になった。**
 #

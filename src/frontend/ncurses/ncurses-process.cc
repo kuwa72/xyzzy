@@ -25,6 +25,91 @@ void refresh_screen (int);
 
 #include "term.h"
 
+/* `:environ' で渡された (("NAME" . "VALUE") ...) を execve に渡す配列に
+   する。値が nil の項は**その名前を消す**。
+
+   **fork の前に作る。** 子の中で `setenv' を呼ぶ方が短いが、`setenv' は
+   malloc するので、**fork した瞬間に別のスレッドが malloc のロックを
+   持っていると子が固まる。** xyzzy はスレッドを使う。子の中で呼んで良いのは
+   `open' / `dup2' / `chdir' / `signal' / `exec*' のような async-signal-safe な
+   ものだけなので、配列は親で組んで `execve' に渡す。
+
+   **1 塊の xmalloc で確保して、その先頭を BLOCK で返す。** 配列は塊の途中を
+   指すので、`xfree (envp)' では解放できない (呼ぶ側は BLOCK を xfree する)。
+   lenv が nil なら 0 を返す — その場合は呼ぶ側が `environ' をそのまま使う。 */
+static char **
+build_environ (lisp lenv, void *&block)
+{
+  block = 0;
+  if (!consp (lenv))
+    return 0;
+
+  /* まず要る大きさを測る。既存の environ の数 + 指定の数 + 終端。 */
+  size_t nenv = 0;
+  for (char **e = environ; e && *e; e++, nenv++)
+    ;
+  size_t nspec = 0, lspec = 0;
+  for (lisp le = lenv; consp (le); le = xcdr (le))
+    {
+      lisp x = xcar (le);
+      if (!consp (x) || !stringp (xcar (x)))
+        continue;
+      nspec++;
+      lspec += i2u8l (xstring_contents (xcar (x)), xstring_length (xcar (x))) + 2;
+      if (stringp (xcdr (x)))
+        lspec += i2u8l (xstring_contents (xcdr (x)), xstring_length (xcdr (x)));
+    }
+
+  size_t nptr = nenv + nspec + 1;
+  size_t lb = (lspec + sizeof (char *) - 1) / sizeof (char *) * sizeof (char *);
+  char *buf = (char *)xmalloc (lb + sizeof (char *) * nptr);
+  block = buf;
+  char **envp = (char **)(buf + lb);
+
+  size_t n = 0;
+  for (char **e = environ; e && *e; e++)
+    envp[n++] = *e;
+
+  /* 指定を上書きする。**名前が同じものを差し替える** — 後ろに足すだけだと
+     execve に同じ名前が 2 つ並び、どちらが効くかは処理系任せになる。 */
+  char *b = buf;
+  for (lisp le = lenv; consp (le); le = xcdr (le))
+    {
+      lisp x = xcar (le);
+      if (!consp (x) || !stringp (xcar (x)))
+        continue;
+
+      char *entry = b;
+      b = i2u8 (xstring_contents (xcar (x)), xstring_length (xcar (x)), b);
+      size_t namelen = b - entry;
+      *b++ = '=';
+      if (stringp (xcdr (x)))
+        b = i2u8 (xstring_contents (xcdr (x)), xstring_length (xcdr (x)), b);
+      *b++ = 0;
+
+      int found = 0;
+      for (size_t i = 0; i < n; i++)
+        if (!strncmp (envp[i], entry, namelen) && envp[i][namelen] == '=')
+          {
+            if (xcdr (x) == Qnil)
+              {
+                /* 消す: 後ろを詰める。 */
+                for (size_t j = i; j + 1 < n; j++)
+                  envp[j] = envp[j + 1];
+                n--;
+              }
+            else
+              envp[i] = entry;
+            found = 1;
+            break;
+          }
+      if (!found && xcdr (x) != Qnil)
+        envp[n++] = entry;
+    }
+  envp[n] = 0;
+  return envp;
+}
+
 // ============================================================
 // Process class — POSIX implementation
 // ============================================================
@@ -44,7 +129,7 @@ public:
   Process (Buffer *bp, lisp pl, lisp marker);
   ~Process ();
 
-  void create (lisp command, lisp execdir);
+  void create (lisp command, lisp execdir, lisp lenv);
   void poll_output ();
   void terminated ();
   void send (const char *s, int l) const;
@@ -89,7 +174,7 @@ Process::~Process ()
 }
 
 void
-Process::create (lisp command, lisp execdir)
+Process::create (lisp command, lisp execdir, lisp lenv)
 {
   /* A Unix command line and a Unix pathname are UTF-8 bytes, not CP932. */
   char *cmdline = (char *)alloca (i2u8l (xstring_contents (command),
@@ -98,6 +183,10 @@ Process::create (lisp command, lisp execdir)
 
   char dir[PATH_MAX * 2 + 1];
   pathname2u8 (execdir, dir);
+
+  /* **fork の前に組む** (build_environ の注を参照)。 */
+  void *envblock;
+  char **envp = build_environ (lenv, envblock);
 
   // Use forkpty() to give the child a pseudo-terminal.
   // This enables shell prompts, line editing, and terminal-aware
@@ -111,7 +200,10 @@ Process::create (lisp command, lisp execdir)
 
   pid_t pid = forkpty (&master_fd, NULL, NULL, &ws);
   if (pid < 0)
-    FEsimple_error (Ecreate_thread_failed);
+    {
+      xfree (envblock);         /* FEsimple_error は longjmp する */
+      FEsimple_error (Ecreate_thread_failed);
+    }
 
   if (pid == 0)
     {
@@ -124,9 +216,17 @@ Process::create (lisp command, lisp execdir)
       signal (SIGQUIT, SIG_DFL);
       signal (SIGPIPE, SIG_DFL);
 
-      execl ("/bin/sh", "sh", "-c", cmdline, (char *)0);
+      if (envp)
+        {
+          char *argv[] = {(char *)"sh", (char *)"-c", cmdline, 0};
+          execve ("/bin/sh", argv, envp);
+        }
+      else
+        execl ("/bin/sh", "sh", "-c", cmdline, (char *)0);
       _exit (127);
     }
+
+  xfree (envblock);
 
   // Parent process — single master fd for both read and write
   p_read_fd = master_fd;
@@ -531,9 +631,16 @@ Fcall_process (lisp cmd, lisp keys)
   if (wait != Qnil && !realp (wait))
     wait = Qt;
 
+  /* **fork の前に組む** (build_environ の注を参照)。 */
+  void *envblock;
+  char **envp = build_environ (find_keyword (Kenviron, keys), envblock);
+
   pid_t pid = fork ();
   if (pid < 0)
-    FEsimple_error (Ecreate_thread_failed);
+    {
+      xfree (envblock);         /* FEsimple_error は longjmp する */
+      FEsimple_error (Ecreate_thread_failed);
+    }
 
   if (pid == 0)
     {
@@ -569,11 +676,18 @@ Fcall_process (lisp cmd, lisp keys)
       signal (SIGQUIT, SIG_DFL);
       signal (SIGPIPE, SIG_DFL);
 
-      execl ("/bin/sh", "sh", "-c", cmdline, (char *)0);
+      if (envp)
+        {
+          char *argv[] = {(char *)"sh", (char *)"-c", cmdline, 0};
+          execve ("/bin/sh", argv, envp);
+        }
+      else
+        execl ("/bin/sh", "sh", "-c", cmdline, (char *)0);
       _exit (127);
     }
 
   // Parent
+  xfree (envblock);
   DWORD exit_code = 0;
   if (wait == Qt)
     {
@@ -632,7 +746,7 @@ Fmake_process (lisp command, lisp keys)
   Process *pr = new Process (bp, process, Process::make_process_marker (bp));
   try
     {
-      pr->create (command, execdir);
+      pr->create (command, execdir, find_keyword (Kenviron, keys));
     }
   catch (nonlocal_jump &)
     {

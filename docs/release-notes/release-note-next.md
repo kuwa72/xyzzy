@@ -36,6 +36,37 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で `call-process` / `make-process` の `:environ` が効くように
+    なった** (既知失敗 65 -> 63)。**それまで丸ごと無視していた**ので、
+    子プロセスに環境変数を渡す手段が無かった。
+
+    ```lisp
+    (call-process "sh -c 'echo $HOME'" :environ '(("HOME" . "/tmp/fake")))  ; -> /tmp/fake
+    (call-process "sh -c 'echo [${HOME-unset}]'" :environ '(("HOME" . nil))) ; -> [unset]
+    ```
+
+    値が nil の項はその名前を**消す**。指定した名前が既にあれば**差し替える**
+    — 後ろに足すだけだと `execve` に同じ名前が 2 つ並び、どちらが効くかは
+    処理系任せになる (実測で `env | grep -c '^HOME='` が 1 であることを確認)。
+    指定しなかった分は親から継がれる (PATH など)。
+
+    **配列は fork の前に組む。** 子の中で `setenv` を呼ぶ方が短いが、
+    `setenv` は malloc するので、**fork した瞬間に別のスレッドが malloc の
+    ロックを持っていると子が固まる。** xyzzy はスレッドを使う。子の中で
+    呼んで良いのは async-signal-safe なものだけなので、親で組んで `execve`
+    に渡す。
+
+    これで #143 の残り 2 件 (`xyzzy-ini-path-XYZZYINIFILE` /
+    `user-config-path-XYZZYCONFIGPATH`) も通り、**その群は空になった。**
+    `unittest/ini-tests.l` に環境変数から ini の場所を渡すテストと、
+    **起動オプションが環境変数に勝つ**テストを足した (順序は Win32 と同じで
+    なければならない)。
+  * **`tools/ci-wait.sh` が push 直後に「落ちた」と誤報するのを直した。**
+    チェックがまだ 1 つも登録されていない窓で
+    `gh pr checks --watch` を呼ぶと、待たずに
+    `no checks reported on the '...' branch` で 1 を返す。**待ち時間 0 で
+    「落ちたものがある」と出るので、CI を見に行って初めて分かる。**
+    チェックが現れるまで待ってから `--watch` に入るようにした。
   * **`tools/x test` がテストの前にビルドするようになった。** `run-tests.sh` は
     ビルドしないので、**ソースを直したあとの `tools/x test` が古い exe を
     測って通ってしまっていた。**
