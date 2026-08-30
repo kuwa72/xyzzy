@@ -3312,16 +3312,6 @@ Window::minibuffer_window ()
 // Window management (ncurses implementation)
 // ============================================================
 
-Window *
-Window::coerce_to_window (lisp object)
-{
-  if (!object || object == Qnil)
-    return selected_window ();
-  check_window (object);
-  if (!xwindow_wp (object))
-    FEprogram_error (Edeleted_window);
-  return xwindow_wp (object);
-}
 
 int
 Window::count_windows ()
@@ -3784,24 +3774,6 @@ Window::delete_window ()
 lisp Fbegin_wait_cursor () { return Qnil; }
 lisp Fend_wait_cursor () { return Qnil; }
 
-lisp
-Fget_buffer_window (lisp buffer, lisp curwin)
-{
-  Buffer *bp = Buffer::coerce_to_buffer (buffer);
-  Window *cwp = ((curwin && curwin != Qnil)
-                 ? Window::coerce_to_window (curwin) : 0);
-  int f = 0;
-  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-    if (wp->w_bufp == bp)
-      {
-        if (wp != cwp)
-          return wp->lwp;
-        if (f)
-          return wp->lwp;
-        f = 1;
-      }
-  return f ? cwp->lwp : Qnil;
-}
 
 // Fprocess_marker: implemented in ncurses-process.cc
 void Buffer::cleanup_waitobj_list () {}
@@ -4181,12 +4153,6 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 // Window management
 lisp Fselected_window () { return selected_window () ? selected_window ()->lwp : Qnil; }
 
-lisp
-Fwindow_buffer (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  return wp->w_bufp ? wp->w_bufp->lbp : Qnil;
-}
 
 /* **モード行のある窓だけ 1 行引く。** w_rect はモード行の行も含むので、
    本文の行数はそこから 1 引いた値になる。ただし**ミニバッファ
@@ -4239,40 +4205,8 @@ Fwindow_columns (lisp window)
   return make_fixnum (max (w, 1));
 }
 
-lisp
-Fwindow_coordinate (lisp lwindow)
-{
-  Window *wp = Window::coerce_to_window (lwindow);
-  return make_list (make_fixnum (wp->w_rect.left),
-                    make_fixnum (wp->w_rect.top),
-                    make_fixnum (wp->w_rect.right),
-                    make_fixnum (wp->w_rect.bottom),
-                    0);
-}
 
-lisp
-Fget_window_line (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
-                      ? (wp->w_bufp->point_linenum (wp->w_point)
-                         - wp->w_bufp->point_linenum (wp->w_disp))
-                      : (wp->w_bufp->folded_point_linenum (wp->w_point)
-                         - wp->w_bufp->folded_point_linenum (wp->w_disp)));
-}
 
-lisp
-Fget_window_start_line (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
-                      ? wp->w_bufp->point_linenum (wp->w_disp)
-                      : wp->w_bufp->folded_point_linenum (wp->w_disp));
-}
 
 lisp Fget_window_handle (lisp) { return Qnil; }
 lisp Fget_window_flags () { return make_fixnum (0); }
@@ -4280,36 +4214,9 @@ lisp Fset_window_flags (lisp) { return Qnil; }
 lisp Fget_local_window_flags (lisp) { return make_fixnum (0); }
 lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
 
-lisp
-Fset_window (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  wp->set_window ();
-  return Qt;
-}
 
-lisp
-Fsplit_window (lisp arg, lisp verticalp)
-{
-  selected_window ()->split (!arg || arg == Qnil || arg == Qt ? 0 : fixnum_value (arg),
-                             verticalp && verticalp != Qnil);
-  return Qt;
-}
 
-lisp
-Fdelete_window ()
-{
-  return boole (selected_window ()->delete_window ());
-}
 
-lisp
-Fdelete_other_windows ()
-{
-  selected_window ()->delete_other_windows ();
-  return Qt;
-}
 
 lisp
 Fenlarge_window (lisp nlines, lisp side)
@@ -4394,43 +4301,8 @@ Fenlarge_window (lisp nlines, lisp side)
   return Qt;
 }
 
-lisp
-Fnext_window (lisp window, lisp minibufp)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!minibufp)
-    minibufp = Qnil;
-  Window *next = wp->w_next;
-  if (!next
-      || (!next->w_bufp && minibufp != Qt)
-      || (next->minibuffer_window_p ()
-          && minibufp != Qnil && minibufp != Qt))
-    next = app.active_frame.windows;
-  return next->lwp;
-}
 
-lisp
-Fprevious_window (lisp window, lisp minibufp)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!minibufp)
-    minibufp = Qnil;
-  Window *prev = wp->w_prev;
-  if (!prev)
-    prev = Window::minibuffer_window ();
-  if ((!prev->w_bufp && minibufp != Qt)
-      || (prev->minibuffer_window_p ()
-          && minibufp != Qnil && minibufp != Qt))
-    prev = prev->w_prev;
-  return prev->lwp;
-}
 
-lisp
-Fdeleted_window_p (lisp window)
-{
-  check_window (window);
-  return boole (!xwindow_wp (window));
-}
 
 lisp Fpos_not_visible_in_window_p (lisp, lisp) { return Qnil; }
 
@@ -4461,12 +4333,6 @@ Fminibuffer_window ()
   return mini ? mini->lwp : Qnil;
 }
 
-lisp
-Fminibuffer_window_p (lisp window)
-{
-  check_window (window);
-  return boole (xwindow_wp (window) && xwindow_wp (window)->minibuffer_window_p ());
-}
 
 /* Fminibuffer_buffer / Fminibuffer_default / Fminibuffer_completion_list /
    Fminibuffer_completion_type / Fminibuffer_dialog_title と、Fread_* 15 個 /

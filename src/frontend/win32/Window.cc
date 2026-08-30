@@ -1608,16 +1608,6 @@ Window::process_hscroll (int code)
   refresh_screen (1);
 }
 
-Window *
-Window::coerce_to_window (lisp object)
-{
-  if (!object || object == Qnil)
-    return selected_window ();
-  check_window (object);
-  if (!xwindow_wp (object))
-    FEprogram_error (Edeleted_window);
-  return xwindow_wp (object);
-}
 
 Window *
 Window::minibuffer_window ()
@@ -1808,13 +1798,6 @@ Window::split (int nlines, int verticalp)
   Buffer::maybe_modify_buffer_bar ();
 }
 
-lisp
-Fsplit_window (lisp arg, lisp verticalp)
-{
-  selected_window ()->split (!arg || arg == Qnil || arg == Qt ? 0 : fixnum_value (arg),
-                             verticalp && verticalp != Qnil);
-  return Qt;
-}
 
 void
 Window::close ()
@@ -1872,12 +1855,6 @@ Window::delete_other_windows ()
   Buffer::maybe_modify_buffer_bar ();
 }
 
-lisp
-Fdelete_other_windows ()
-{
-  selected_window ()->delete_other_windows ();
-  return Qt;
-}
 
 int
 Window::find_resizeable_edge (LONG RECT::*edge1, LONG RECT::*edge2,
@@ -2038,18 +2015,7 @@ Window::delete_window ()
   return 1;
 }
 
-lisp
-Fdelete_window ()
-{
-  return boole (selected_window ()->delete_window ());
-}
 
-lisp
-Fdeleted_window_p (lisp window)
-{
-  check_window (window);
-  return boole (!xwindow_wp (window));
-}
 
 lisp
 Fselected_window ()
@@ -2065,79 +2031,11 @@ Fminibuffer_window ()
   return Window::minibuffer_window ()->lwp;
 }
 
-lisp
-Fminibuffer_window_p (lisp window)
-{
-  check_window (window);
-  return boole (xwindow_wp (window) && xwindow_wp (window)->minibuffer_window_p ());
-}
 
-lisp
-Fwindow_buffer (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  return wp->w_bufp ? wp->w_bufp->lbp : Qnil;
-}
 
-lisp
-Fnext_window (lisp window, lisp minibufp)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!minibufp)
-    minibufp = Qnil;
-  Window *next = wp->w_next;
-  if (!next
-      || (!next->w_bufp && minibufp != Qt)
-      || (next->minibuffer_window_p ()
-          && minibufp != Qnil && minibufp != Qt))
-    next = app.active_frame.windows;
-  return next->lwp;
-}
 
-lisp
-Fprevious_window (lisp window, lisp minibufp)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!minibufp)
-    minibufp = Qnil;
-  Window *prev = wp->w_prev;
-  if (!prev)
-    prev = Window::minibuffer_window ();
-  if ((!prev->w_bufp && minibufp != Qt)
-      || (prev->minibuffer_window_p ()
-          && minibufp != Qnil && minibufp != Qt))
-    prev = prev->w_prev;
-  return prev->lwp;
-}
 
-lisp
-Fget_buffer_window (lisp buffer, lisp curwin)
-{
-  Buffer *bp = Buffer::coerce_to_buffer (buffer);
-  Window *cwp = ((curwin && curwin != Qnil)
-                 ? Window::coerce_to_window (curwin) : 0);
-  int f = 0;
-  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-    if (wp->w_bufp == bp)
-      {
-        if (wp != cwp)
-          return wp->lwp;
-        if (f)
-          return wp->lwp;
-        f = 1;
-      }
-  return f ? cwp->lwp : Qnil;
-}
 
-lisp
-Fset_window (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  wp->set_window ();
-  return Qt;
-}
 
 lisp
 Fscreen_width ()
@@ -2191,29 +2089,7 @@ Fwindow_columns (lisp window)
   return make_fixnum (max (w, 1));
 }
 
-lisp
-Fget_window_line (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
-                      ? (wp->w_bufp->point_linenum (wp->w_point)
-                         - wp->w_bufp->point_linenum (wp->w_disp))
-                      : (wp->w_bufp->folded_point_linenum (wp->w_point)
-                         - wp->w_bufp->folded_point_linenum (wp->w_disp)));
-}
 
-lisp
-Fget_window_start_line (lisp window)
-{
-  Window *wp = Window::coerce_to_window (window);
-  if (!wp->w_bufp)
-    return Qnil;
-  return make_fixnum (wp->w_bufp->b_fold_columns == Buffer::FOLD_NONE
-                      ? wp->w_bufp->point_linenum (wp->w_disp)
-                      : wp->w_bufp->folded_point_linenum (wp->w_disp));
-}
 
 lisp
 Fget_window_handle (lisp window)
@@ -2910,16 +2786,6 @@ Factivate_xyzzy_window (lisp x)
 }
 
 
-lisp
-Fwindow_coordinate (lisp lwindow)
-{
-  Window *wp = Window::coerce_to_window (lwindow);
-  return make_list (make_fixnum (wp->w_rect.left),
-                    make_fixnum (wp->w_rect.top),
-                    make_fixnum (wp->w_rect.right),
-                    make_fixnum (wp->w_rect.bottom),
-                    0);
-}
 
 
 #ifndef SPI_GETFOREGROUNDLOCKTIMEOUT
