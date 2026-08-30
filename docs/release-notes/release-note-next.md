@@ -36,6 +36,60 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **エラー番号に「どの空間の番号か」を持たせた** (issue #120)。前の項で
+    直した文言の件は、そこだけ塞いでも同じ事故が別の場所で起きる形だったので、
+    設計から直した。
+
+    番号の空間が 3 つあるのに、同じ整数の欄に裸で入っていた:
+
+    | category | Win32 | POSIX |
+    | --- | --- | --- |
+    | `CRTL_ERROR` | errno | errno |
+    | `WIN32_ERROR` | `GetLastError ()` の値 | **errno** |
+    | `WSA_ERROR` (新) | `WSA*` | **errno** |
+
+    **`WSA_ERROR` を足したのが要点。** それまでソケットのエラーは
+    `WIN32_ERROR` として上がっていて、文言を選ぶ側は番号だけを見るので、
+    POSIX でファイルの `ENOENT` (2) がソケットの表の `WSATRY_AGAIN` (2) に
+    当たっていた。**番号だけを裸で持ち回ると空間をまたいで誤って当たる。**
+
+    他の処理系を調べたところ、同じ結論に落ち着いていた。C++ の
+    `std::error_code` は `value` + `category`、Python は PEP 3151 で `errno` と
+    `winerror` を**別の属性**に分け、Rust は `ErrorKind` の裏に
+    `raw_os_error ()` を残し、libuv は生の番号を `sys_errno_` に取っておく。
+    APR は互いに素な番号の範囲に置いて出自が分かるようにしている。
+    **番号だけを裸で持ち回っている実装は 1 つも無かった。** GNU Emacs だけが
+    「errno に寄せて生の番号を捨てる」形だが、変換がラッパごとに散っていて
+    中央に 1 か所が無い。
+
+    xyzzy には `xerror_type` (category) と `file_error_condition`
+    (番号 → 移植可能な Lisp の条件の写像、Rust の `decode_error_kind` 相当) が
+    **既にあった**ので、新しい仕組みは足していない。3 つ直しただけである:
+
+    ひとつ、`print_error` を category で分岐させた。ふたつ、
+    `file_error_condition` を Win32 と POSIX で分け、POSIX の枝を errno で
+    書いた。**ディレクトリでないものへ `chdir` すると `ENOTDIR` (20) が
+    `ERROR_BAD_UNIT` (20) に当たって `bad-unit` になっていたのが
+    `path-not-found` になる。** みっつ、番号を直に比べていた 13 箇所を
+    「意味を聞く」述語 (`os_error_already_exists` など、`src/core/error.h`) に
+    替えた。**`:if-access-denied` の再試行は `EACCES` (13) が
+    `ERROR_ACCESS_DENIED` (5) に一致しないので POSIX で一度も走っていなかった。**
+
+    **`ERROR_*` を errno の別名にする案は採らなかった。** それをやると
+    `ERROR_FILE_NOT_FOUND` と `ERROR_PATH_NOT_FOUND` が両方 `ENOENT` になって
+    `switch` の `case` が重複し、しかもソケットのエラーと同じ空間で完全に
+    重なる。**enum にしても救われない**: 同じ値の enumerator は合法で無警告、
+    網羅性の検査は名前ではなく値で効くので、別名にした 2 つを黙って 1 つとして
+    飲み込む (実測で確認した)。
+
+    Windows 側も 1 つ変わる。`ERROR_DIRECTORY` (ディレクトリ名として不正) に
+    対応する `case` が無く `file-error` に落ちていたので、`path-not-found` を
+    返すようにした。**同じ操作に同じ条件が付くようになる**(ファイルへ
+    `chdir` したとき、両方で `path-not-found`)。
+
+    `unittest/directory-ops-tests.l` に 1 件。**条件名を期待値に書けること
+    自体が、番号の解釈が揃っている証拠になる** (文言は環境で変わるので
+    別のテストで見ている)。
   * **POSIX ビルドでファイル操作のエラーの文言が全部でたらめだったのを
     直した** (issue #120)。
 

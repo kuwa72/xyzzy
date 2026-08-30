@@ -25,6 +25,61 @@ get_shfileoperation_proc ()
 }
 #endif // _WIN32
 
+/* OS のエラー番号を、移植可能な Lisp の条件へ写す。**この写像が 1 か所に
+   あるのが xyzzy の強みで、Rust の `decode_error_kind' や Python の
+   PEP 3151 の例外階層と同じ役割を持つ** (GNU Emacs は同じことをラッパごとに
+   散らしてしまっている)。
+
+   番号の空間はプラットフォームで違う。`GetLastError ()' は Win32 では Win32 の
+   コード、POSIX では errno を返す (src/core/platform.h) ので、枝を分ける。
+   **分けずに Win32 の `ERROR_*' へ当てていたので、意味の違う条件が返って
+   いた**: ディレクトリでないものへ `chdir' すると `ENOTDIR' (20) が
+   `ERROR_BAD_UNIT' (20) に当たり、`path-not-found' ではなく `bad-unit' に
+   なっていた。issue #120 を参照。 */
+#ifndef _WIN32
+static lisp
+file_error_condition (int e)
+{
+  switch (e)
+    {
+    case ENOENT:
+      return QCfile_not_found;
+
+    case ENOTDIR:
+    case ENAMETOOLONG:
+      /* パスの途中がディレクトリでない / 長すぎる。Win32 が
+         ERROR_PATH_NOT_FOUND を返す場面に相当する。 */
+      return QCpath_not_found;
+
+    case EACCES:
+    case EPERM:
+      return QCaccess_denied;
+
+    case ENXIO:
+    case ENODEV:
+      return QCbad_unit;
+
+    case EXDEV:
+      return QCnot_same_device;
+
+    case EROFS:
+      return QCwrite_protected;
+
+    case EBUSY:
+    case ETXTBSY:
+      return QCsharing_violation;
+
+    case EEXIST:
+      return QCfile_exists;
+
+    case ENOTEMPTY:
+      return QCnot_empty;
+
+    default:
+      return QCfile_error;
+    }
+}
+#else
 static lisp
 file_error_condition (int e)
 {
@@ -34,6 +89,11 @@ file_error_condition (int e)
       return QCfile_not_found;
 
     case ERROR_PATH_NOT_FOUND:
+    case ERROR_DIRECTORY:
+      /* ERROR_DIRECTORY は「ディレクトリ名として不正」。ディレクトリでない
+         ものを `chdir' に渡すと Win32 はこれを返し、POSIX は ENOTDIR を返す。
+         **Win32 側はこの case が無くて `file-error' に落ちていた**ので、
+         同じ操作に同じ条件が付くように揃えた。 */
       return QCpath_not_found;
 
     case ERROR_ACCESS_DENIED:
@@ -77,6 +137,7 @@ file_error_condition (int e)
       return QCfile_error;
     }
 }
+#endif /* _WIN32 */
 
 void
 file_error (message_code c, lisp path)
@@ -1266,7 +1327,7 @@ Fdelete_file (lisp name, lisp keys)
       if (!WINFS::DeleteFile (buf))
         {
           int e = GetLastError ();
-          if (e == ERROR_ACCESS_DENIED)
+          if (os_error_access_denied (e))
             {
               DWORD atr = solve_access_denied (access_denied, buf, name);
               if (atr == -1)
@@ -1441,15 +1502,14 @@ safe_write_handle::open_for_write (lisp if_exists, int open_mode, int &e)
       if (open_mode == OPEN_EXISTING)
         ;
       else if (open_mode != OPEN_ALWAYS
-               || GetLastError () != ERROR_ALREADY_EXISTS)
+               || !os_error_already_exists (GetLastError ()))
         sw_delete_if_fail = 1;
       return OFW_OK1;
     }
 
   e = GetLastError ();
   if (if_exists == Kskip)
-    return ((e == ERROR_FILE_EXISTS || e == ERROR_ALREADY_EXISTS)
-            ? OFW_SKIP : OFW_BAD);
+    return os_error_already_exists (e) ? OFW_SKIP : OFW_BAD;
 
   if (if_exists != Knewer || e != ERROR_FILE_NOT_FOUND)
     return OFW_BAD;
@@ -1527,7 +1587,7 @@ Fcopy_file (lisp from_name, lisp to_name, lisp keys)
 
   int e;
   int ofw = w.open_for_write (if_exists, open_mode, e);
-  if (ofw == OFW_BAD && e == ERROR_ACCESS_DENIED)
+  if (ofw == OFW_BAD && os_error_access_denied (e))
     {
       DWORD atr = solve_access_denied (access_denied, w.path (), to_name);
       if (atr == -1)
@@ -1657,7 +1717,7 @@ Frename_file (lisp from_name, lisp to_name, lisp keys)
               DWORD atr = WINFS::GetFileAttributes (tof);
               if (atr != DWORD (-1) && atr & FILE_ATTRIBUTE_DIRECTORY)
                 file_error (ERROR_ACCESS_DENIED, to_name);
-              if (e != ERROR_ACCESS_DENIED)
+              if (!os_error_access_denied (e))
                 file_error (e, to_name);
               atr = solve_access_denied (access_denied, tof, to_name);
               if (atr == -1)
@@ -1697,18 +1757,12 @@ mkdirhier (wchar_t *path, int exists_ok)
   else
     {
       int e = GetLastError ();
-      /* **POSIX では errno を見る。** 非 Win32 の `GetLastError ()' は errno を
-         返すが (src/core/platform.h)、`ERROR_*' は本物の Win32 の番号のままなので
-         `EEXIST' (17) は `ERROR_FILE_EXISTS' (80) にも
-         `ERROR_ALREADY_EXISTS' (183) にも一致しない。その結果、既にある
+      /* 番号を直に比べない (src/core/error.h の os_error_* の説明)。POSIX で
+         `EEXIST' (17) が `ERROR_FILE_EXISTS' (80) にも
+         `ERROR_ALREADY_EXISTS' (183) にも一致しなかったため、既にある
          ディレクトリに対する `create-directory' が**エラーにならず t を
-         返していた** (Windows では "File already exists." になる)。
-         番号の体系そのものを揃える話は別に切ってある。 */
-      if (e == ERROR_FILE_EXISTS || e == ERROR_ALREADY_EXISTS
-#ifndef _WIN32
-          || e == EEXIST
-#endif
-          )
+         返していた** (Windows では "File already exists.")。 */
+      if (os_error_already_exists (e))
         return 0;
     }
   /* **区切りを書き換えずに辿る。** ここは `map_sl_to_backsl (path)` で全体を
@@ -1765,7 +1819,7 @@ Fdelete_directory (lisp dirname, lisp keys)
   if (!WINFS::RemoveDirectory (name))
     {
       int e = GetLastError ();
-      if (e == ERROR_ACCESS_DENIED)
+      if (os_error_access_denied (e))
         {
           DWORD atr = solve_access_denied (access_denied, name, dirname);
           if (atr == -1)

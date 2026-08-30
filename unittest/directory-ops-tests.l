@@ -16,10 +16,19 @@
   (let ((root (dirops-test-root)))
     (when (file-directory-p root)
       ;; 深い方から消す。delete-directory は空でないと消せない。
-      (dolist (d (sort (directory root :recursive t :absolute t :file-only nil)
+      ;;
+      ;; **ファイルも消す。** ここはディレクトリだけ消していたので、中に
+      ;; 作ったファイルが残って root が消えず、次に走るテストの
+      ;; `create-directory' が `file-exists' で落ちた。しかも残るのは
+      ;; テストが終わった**あと**なので、**同じ run では気付けず、次の run や
+      ;; 別アーキの run で初めて出る**。実際に x86_64 の run で
+      ;; 「前は通っていた 2 件」が一緒に落ちて分かった。
+      (dolist (e (sort (directory root :recursive t :absolute t)
                        #'> :key #'length))
-        (when (file-directory-p d)
-          (ignore-errors (delete-directory d))))
+        (ignore-errors
+          (if (file-directory-p e)
+              (delete-directory e)
+            (delete-file e))))
       (ignore-errors (delete-directory root)))))
 
 ;; 多段のディレクトリを作ると、葉まで本当に出来ているか。
@@ -104,3 +113,40 @@
           (not (and msg (string-match "Undocumented win32 error" msg)))
           (not (and msg (string-match "SERVERFAIL" msg)))))
   => (t t t))
+
+(defun dirops-condition-name (c)
+  "コンディション C の型名。"
+  (si:*structure-definition-name (si:*structure-definition c)))
+
+(defmacro dirops-condition-of (form)
+  "FORM が上げたコンディションの型名。上がらなければ :no-error。"
+  `(handler-case (progn ,form :no-error)
+     (error (c) (dirops-condition-name c))))
+
+;; **同じ失敗に同じ条件が付くか。** ここが揃うのは、エラー番号の空間が
+;; プラットフォームごとに正しく解釈されているときだけである。
+;;
+;; POSIX では `GetLastError ()' が errno を返すのに、それを Win32 の
+;; `ERROR_*' と突き合わせていたので、条件名が別のものになっていた
+;; (issue #120):
+;;   * ディレクトリでないものへ `chdir' → `ENOTDIR' (20) が
+;;     `ERROR_BAD_UNIT' (20) に当たって `bad-unit'
+;;   * 既にあるディレクトリを `create-directory' → `EEXIST' (17) が
+;;     `ERROR_FILE_EXISTS' (80) にも一致せず、そもそもエラーにならない
+;;
+;; **条件名を期待値に書けること自体が、番号の解釈が揃っている証拠になる。**
+;; 文言は環境で変わるので見ない (それは別のテストで見ている)。
+(deftest file-error-conditions-match-the-failure ()
+  (let ((saved (cwd)))
+    (unwind-protect
+        (let ((root (dirops-test-root)))
+          (dirops-cleanup)
+          (create-directory root)
+          (let ((file (merge-pathnames "a.txt" root)))
+            (with-open-file (s file :direction :output :if-exists :supersede)
+              (princ "x" s))
+            (list (dirops-condition-of (create-directory root))
+                  (dirops-condition-of (delete-directory root))
+                  (dirops-condition-of (chdir file)))))
+      (progn (chdir saved) (dirops-cleanup))))
+  => (file-exists not-empty path-not-found))

@@ -1366,66 +1366,87 @@ print_package (wStream &stream, const print_control &, lisp object)
   stream.add ('>');
 }
 
+/* エラーの文言。**番号だけでは何の番号か分からないので、必ず category
+   (`xerror_type', src/core/error.h) と対で見る。**
+
+   3 つの空間が同じ `number' の欄に入る:
+
+     CRTL_ERROR   C ランタイムの errno
+     WIN32_ERROR  OS のエラーコード。Win32 では GetLastError () の値、
+                  POSIX では errno (src/core/platform.h の GetLastError)
+     WSA_ERROR    ソケットのエラー。Win32 では WSA*、POSIX では errno
+                  (platform.h が WSA* を errno の別名として define している)
+
+   **category を見ずに番号だけで文言を選ぶと、空間をまたいで誤って当たる。**
+   実際に起きていた: POSIX でファイルが見つからない `ENOENT` (2) が、
+   ソケットの表の `WSATRY_AGAIN` (2) に当たって
+   「Non-Authoritative; Host not found, or SERVERFAIL」と出ていた。
+   issue #120 を参照。 */
 static void
 print_error (wStream &stream, const print_control &, lisp object)
 {
-  if (xerror_type (object) == CRTL_ERROR)
-    stream.add (strerror (xerror_number (object)));
-#ifndef _WIN32
-  /* **POSIX では WIN32_ERROR の番号も errno である。** 非 Win32 の
-     `GetLastError ()' は errno を返す (src/core/platform.h) ので、ファイルの
-     エラーもソケットのエラーも中身は errno になる。それを Win32 のコードとして
-     引いていたため、**出る文言が全部でたらめだった**:
+  const int e = xerror_number (object);
 
-       (with-open-file (s "/no/such/file"))
-         -> "Non-Authoritative; Host not found, or SERVERFAIL"
-       (delete-directory "空でないディレクトリ")
-         -> "Undocumented win32 error: 39"
-       (chdir "ファイル")
-         -> "Undocumented win32 error: 20"
-
-     1 つ目は下の `sock::errmsg' が先に引かれるせい。**POSIX では WSA* 定数が
-     errno そのものとして define されている**ので (WSATRY_AGAIN が 2、ENOENT も
-     2)、ファイルのエラーがソケットの表に当たる。2 つ目と 3 つ目は
-     `FormatMessageW' が非 Win32 ではスタブで、番号をそのまま印字する経路に
-     落ちるせい。
-
-     errno なら strerror が正しい文言を持っている。**ソケットのエラーも POSIX
-     では errno なので、この 1 本で両方が正しくなる。** 例外は core が
-     Win32 の定数をそのまま渡している数箇所 (ERROR_INVALID_NAME など) で、
-     そこは "Unknown error 123" のようになる。番号の体系そのものを揃える話は
-     別に切ってある。 */
-  else
-    stream.add (strerror (xerror_number (object)));
-#else
-  else
+  switch (xerror_type (object))
     {
-      const char *s = sock::errmsg (xerror_number (object));
-      if (s)
-        stream.add (s);
-      else
-        {
-          wchar_t wbuf[1024];
-          static wchar_t *args[] = {(wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", 0,};
-          DWORD wlen = FormatMessageW ((FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY
-                                        | FORMAT_MESSAGE_MAX_WIDTH_MASK),
-                                       0, xerror_number (object), GetUserDefaultLangID (),
-                                       wbuf, numberof (wbuf), (va_list *)args);
-          if (wlen)
-            {
-              ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * wlen);
-              for (DWORD wi = 0; wi < wlen; wi++) tmp[wi] = ucs4_t (wbuf[wi]);
-              stream.add (tmp, wlen);
-            }
-          else
-            {
-              char buf[64];
-              wsprintfA (buf, "Undocumented win32 error: %d", xerror_number (object));
-              stream.add (buf);
-            }
-        }
+    case CRTL_ERROR:
+      stream.add (strerror (e));
+      return;
+
+    case WSA_ERROR:
+#ifdef _WIN32
+      /* Win32 の WSA* は Win32 のコード空間にある独立した番号。 */
+      {
+        const char *s = sock::errmsg (e);
+        if (s)
+          {
+            stream.add (s);
+            return;
+          }
+      }
+#else
+      /* POSIX では WSA* は errno そのもの。strerror が正しい。 */
+      stream.add (strerror (e));
+      return;
+#endif
+      break;
+
+    case WIN32_ERROR:
+#ifndef _WIN32
+      /* POSIX では GetLastError () が errno を返すので、この番号も errno。
+
+         **`sock::errmsg' を引いてはいけない。** POSIX では WSA* 定数が errno
+         の別名なので、ファイルのエラーがソケットの表に当たる (上のコメント)。
+
+         例外は core が Win32 の定数をそのまま渡している数箇所
+         (`ERROR_INVALID_NAME' など) で、そこは "Unknown error 123" のように
+         なる。番号の体系を揃える作業 (issue #120 の段取り 3) で消える。 */
+      stream.add (strerror (e));
+      return;
+#endif
+      break;
     }
-#endif /* _WIN32 */
+
+#ifdef _WIN32
+  /* ここまで来るのは Win32 の OS コードと、表に無い WSA*。 */
+  wchar_t wbuf[1024];
+  static wchar_t *args[] = {(wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", (wchar_t *)L"", 0,};
+  DWORD wlen = FormatMessageW ((FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY
+                                | FORMAT_MESSAGE_MAX_WIDTH_MASK),
+                               0, e, GetUserDefaultLangID (),
+                               wbuf, numberof (wbuf), (va_list *)args);
+  if (wlen)
+    {
+      ucs4_t *tmp = (ucs4_t *)alloca (sizeof (ucs4_t) * wlen);
+      for (DWORD wi = 0; wi < wlen; wi++) tmp[wi] = ucs4_t (wbuf[wi]);
+      stream.add (tmp, wlen);
+      return;
+    }
+#endif
+
+  char buf[64];
+  wsprintfA (buf, "Undocumented win32 error: %d", e);
+  stream.add (buf);
 }
 
 static void

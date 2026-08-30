@@ -752,7 +752,10 @@ FEsocket_error (int e, const char *ope)
       xsymbol_value (Vinhibit_quit) = Qnil;
       FEquit ();
     }
-  COND2 (socket_error, make_error (WIN32_ERROR, e), make_string (ope ? ope : ""));
+  /* **WSA_ERROR で上げる。** ここは sock_error (src/core/sock.cc) からの
+     一本道で、番号は WSAGetLastError () の値。WIN32_ERROR にしていたため
+     文言を選ぶ側 (print_error) がファイルのエラーと区別できなかった。 */
+  COND2 (socket_error, make_error (WSA_ERROR, e), make_string (ope ? ope : ""));
 }
 
 lisp
