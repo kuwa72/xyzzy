@@ -1093,6 +1093,7 @@ if(NOT WIN32)
             ${CORE_DIR}/textprop-colors.cc
             ${CORE_DIR}/minibuffer-message.cc
             ${CORE_DIR}/ts.cc
+            ${CORE_DIR}/abbrev-columns.cc
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
