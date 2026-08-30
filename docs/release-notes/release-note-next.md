@@ -36,6 +36,28 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で「途中のディレクトリが無い」と「最後の名前が無い」を区別する
+    ようにした** (既知失敗 71 -> 70)。
+
+    ```
+    /no/such/dir/zzz  -> path-not-found  (途中が無い)
+    /tmp/zzz-nope     -> file-not-found  (最後だけ無い)
+    ```
+
+    Win32 はこれを `ERROR_PATH_NOT_FOUND` と `ERROR_FILE_NOT_FOUND` で分ける
+    が、**POSIX の `ENOENT` は両方を指す**ので、POSIX ビルドでは前者も
+    `file-not-found` になっていた。
+
+    **`ENOENT` だけは番号から条件を決められない。** `file_error (int, lisp)`
+    が**番号とパスの両方を持つ唯一の場所**なので、そこで親を stat して分けた
+    (`refine_not_found`)。`file_error_condition` は番号しか見ないのでそこには
+    書けない。1 か所で分けたので `chdir` だけでなく `open` や `delete-file`
+    でも Win32 と同じ条件が付く。遡るのは 1 段だけ (親が無い理由まで辿る
+    必要は無い。Win32 も `ERROR_PATH_NOT_FOUND` の 1 つで済ませている)。
+
+    既知失敗リストには「区別するには自分で親を辿って確かめるしかない」と
+    書いてあった。**そのとおりだったので、そうした。「しかない」で止めずに、
+    その手が本当に取れないのかを見る。**
   * **POSIX で `directory` とパスの扱いを 3 つ直した** (既知失敗 76 -> 71)。
     どれも `misc/known-failures/linux.txt` が
     「`directory--*` は WIN32_FIND_DATA の属性 (FILE_ATTRIBUTE_*) をそのまま
