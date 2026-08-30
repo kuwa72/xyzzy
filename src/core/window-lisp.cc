@@ -224,3 +224,18 @@ Fenlarge_window (lisp nlines, lisp side)
     FEsimple_error (Ecannot_change_window_size);
   return Qt;
 }
+
+/* `si:*startup' は「startup ライブラリを読む」だけで、両フロントエンドに
+   1 文字も違わない形で 2 つあった (win32/init.cc と ncurses-stubs.cc)。
+   **`Fsi_load_library' は core なので、ここに置ける。**
+
+   これで「空白を除いて 1 文字も違わない関数」は 0 になった。測り始めた
+   時点では 34 個あった (ウィンドウ 13 + プロセス 19 + メニュー 5 のうち
+   重なりを除いた数)。残る差分はどれも中身が違うもので、`Fmake_process'
+   (20% 差) と `Fadd_menu_item' (23% 差) は実体の作り方そのものが違い、
+   `Fsi_minibuffer_message' (7% 差) は端末だけが持つ行位置を扱う。 */
+lisp
+Fsi_startup ()
+{
+  return Fsi_load_library (make_string ("startup"), Qnil);
+}
