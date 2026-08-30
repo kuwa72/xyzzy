@@ -3884,11 +3884,8 @@ lisp Fsi_search_path (lisp, lisp, lisp)
   return Qnil;
 }
 
-lisp Fsi_file_operation (lisp, lisp, lisp, lisp)
-{
-  FEsimple_error (Eremove_not_supported);
-  return Qnil;
-}
+/* Fsi_file_operation は src/core/pathname.cc が POSIX でも実装するように
+   なったので、ここのスタブ (Eremove_not_supported を上げるだけ) を消した。 */
 
 lisp Fset_per_device_directory (lisp)
 {

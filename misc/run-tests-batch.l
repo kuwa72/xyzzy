@@ -194,13 +194,19 @@
             ;;     same thing with FO_COPY and passes, and move-multi2 passes
             ;;     too, so it is that one call.  This used to exclude the whole
             ;;     of pathnames-tests.l, which cost the other 15 tests in it.
+            ;;     **Excluded on Win32 only.**  The crash is inside the Win32
+            ;;     shell call; the POSIX build implements si:*file-operation
+            ;;     with plain file operations (src/core/pathname.cc) and has
+            ;;     nothing to crash in, so it runs the test.
             (defvar *batch-default-exclude*
-              '("test-ole-reader-macro-args"
-                "make-vector--fill-pointer-and-initial-contents"
-                "test-print-debug-output-stream"
-                "sha-224"
-                "fix-ole-event-sink-load-typelib"
-                "shell-operation-move-multi"))
+              (append
+               '("test-ole-reader-macro-args"
+                 "make-vector--fill-pointer-and-initial-contents"
+                 "test-print-debug-output-stream"
+                 "sha-224"
+                 "fix-ole-event-sink-load-typelib")
+               #+ncurses '()
+               #-ncurses '("shell-operation-move-multi")))
             (defvar *batch-excluded* nil)
             (defvar *batch-exclude* nil)
             (setq *batch-exclude*
