@@ -834,10 +834,13 @@
   !! path-not-found)
 
 (deftest kill-xyzzy-exit-code ()
+  ;; **自分自身を起動するときは test-self-command を通す** (simple-test.l)。
+  ;; 端末フロントエンドでは `--batch' が要る: 付けないと子プロセスが親と同じ
+  ;; tty で curses を初期化しようとして、どちらも戻ってこない。
   (flet ((run-xyzzy-and-kill (&optional (exit-code nil sp))
-           (call-process (format nil "~A -e \"(kill-xyzzy ~A)\""
-                                 (si:system-path)
-                                 (if sp exit-code ""))
+           (call-process (test-self-command
+                          (format nil "-e \"(kill-xyzzy ~A)\""
+                                  (if sp exit-code "")))
                          :show :minimize
                          :wait t)))
     (values
@@ -1234,13 +1237,18 @@
 (deftest process-command-line--e ()
   (eval-in-another-xyzzy
    `(equal buffer-mode 'view-mode)
-   :options "-e(view-mode)")
+   ;; **括弧はシェルに食われるので引用符で囲む。** POSIX では子プロセスを
+   ;; `/bin/sh -c' で起動するので、`-e(view-mode)' は sh の構文エラーになる
+   ;; (cmd.exe はここでは括弧を特別扱いしないので Windows では通っていた)。
+   ;; 引用符はどちらのシェルも剥がすので、xyzzy が受け取る引数は変わらない。
+   ;; このファイルの他の指定 (`-e \"~S\"') は最初からこの形になっている。
+   :options "-e\"(view-mode)\"")
   => t)
 
 (deftest process-command-line--eval ()
   (eval-in-another-xyzzy
    `(equal buffer-mode 'view-mode)
-   :options "-eval (view-mode)")
+   :options "-eval \"(view-mode)\"")
   => t)
 
 (deftest process-command-line--g ()
@@ -1274,8 +1282,7 @@
   => t)
 
 (deftest process-command-line--kill ()
-  (call-process (format nil "~A -kill -e \"(kill-xyzzy nil)\""
-                        (si:system-path))
+  (call-process (test-self-command "-kill" "-e \"(kill-xyzzy nil)\"")
                 :show :minimize
                 :wait t)
   => 0)

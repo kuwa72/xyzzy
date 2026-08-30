@@ -261,31 +261,14 @@
                              args)
                       nil))
 
-            ;; Override eval-in-another-xyzzy subprocess to use the
-            ;; current executable (si:system-path) instead of hardcoded
-            ;; "xyzzy.exe".  This allows subprocess tests to work under
-            ;; xyzzy-batch.exe in CI.
-            (setf (symbol-function 'eval-in-another-xyzzy--make-command-string)
-                  #'(lambda (form options result-filename)
-                      (let ((out (gensym "tmpfile-stream-")))
-                        (format nil "~A ~A -e ~S"
-                                (si:system-path)
-                                options
-                                (let ((*print-circle* t))
-                                  (prin1-to-string
-                                   `(progn
-                                      (with-open-file (,out ,result-filename
-                                                       :direction :output
-                                                       :if-does-not-exist :create)
-                                        (handler-case
-                                            (let ((values (multiple-value-list ,form)))
-                                              (format ,out ":return~%~{~S~%~}" values))
-                                          (error (error)
-                                            (format ,out ":error~%~S" error))))
-                                      (kill-xyzzy))))))))
+            ;; The command line for spawning ourselves as a child now lives in
+            ;; unittest/simple-test.l (test-self-command).  It used to be
+            ;; overridden here because the version there hardcoded "xyzzy.exe",
+            ;; which does not exist on POSIX -- two places building the same
+            ;; command line, and only one of them knew about --batch.
             (format *standard-output*
-                    "=== Subprocess tests will use: ~A ===~%" (si:system-path))
-
+                    "=== Subprocess tests will use: ~A ===~%"
+                    (test-self-command))
             ;; Run everything that was not excluded by name.  run-all-tests
             ;; would take *tests* whole, so the list is filtered here.
             (format *standard-output* "=== Running tests ===~%")
