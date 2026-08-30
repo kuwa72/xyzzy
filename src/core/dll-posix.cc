@@ -90,7 +90,7 @@ Fsi_load_dll_module (lisp lname)
  * x86_64 の枝が同じ形で書かれていて、そこから持ってきた。POSIX x86_64 /
  * aarch64 には規約が 1 つしか無いので、stdcall と cdecl の区別も要らない。
  *
- * **float / double の引数は受け付けない。** SysV では整数と浮動小数で別の
+ * **float / double の引数は受け付けない。可変長引数も同じ。** SysV では整数と浮動小数で別の
  * レジスタ列を使うので、int64_t を並べるキャスト 1 本では渡せない。
  * **これは Win32 の x86_64 側と同じ制限**で、あちらも同じ理由で断っている
  * (返り値の float / double は別の型でキャストすれば渡せるので、そちらは通る)。
@@ -174,14 +174,28 @@ funcall_dll (lisp fn, lisp arglist)
             {
             case CTYPE_FLOAT:
             case CTYPE_DOUBLE:
-              {
-                /* **可変長引数の double はビット列を整数の枠で渡す。**
-                   Win32 の x86_64 側と同じ扱い。SysV では可変長の浮動小数は
-                   XMM も使うので、これで通るのは受け側が整数として読む場合に
-                   限る。**厳密に合わせるには段階 4 と同じ仕掛けが要る。** */
-                double d = coerce_to_double_float (val);
-                memcpy (&a[total], &d, sizeof d);
-              }
+              /* **断る。落ちるので。**
+                 ここは「ビット列を整数の枠で渡す。受け側が整数として読むなら
+                 通る」と書いて通していた (Win32 の x86_64 側と同じ扱い)。
+                 **測ったら通らないどころか SIGSEGV でエディタが落ちた。**
+
+                     (sprintf b "foo: %d, %.3f, %s"
+                              (c:c-vaargs (c:int 123) (c:double 1.23)
+                                          (c:string ...)))
+                     -> Fatal signal 11 (_IO_sprintf の中)
+
+                 SysV x86_64 の可変長引数では、**`al` に「ベクタレジスタを
+                 何本使ったか」を入れる約束**になっている。整数の関数型へ
+                 キャストして呼ぶと `al` は 0 になり、呼ばれた側は
+                 レジスタ保存領域の浮動小数の欄を**埋めないまま**読む。
+                 1 個だけなら直前の xmm に残った値で偶然合うことがあり、
+                 それが「通ることもある」の正体だった。
+
+                 **正しくやるには段階 4 と同じ仕掛け (ABI ごとの機械語か
+                 libffi) が要る** (issue #133)。それまでは、間違った値を返す
+                 より落ちない方を選ぶ。固定引数の float / double を断って
+                 いるのと同じ理由・同じ返し方にした。 */
+              FEprogram_error (Edll_not_initialized, fn);
               break;
             default:
               a[total] = cast_to_int64 (val);

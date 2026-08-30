@@ -49,6 +49,12 @@ no_checks_p () {
   gh pr checks "$pr" 2>&1 | grep -q 'no checks reported'
 }
 
+# 実際に fail になったチェックの名前。**pending は数えない。**
+failed_checks () {
+  gh pr checks "$pr" --json bucket,name \
+    -q '.[] | select(.bucket == "fail" or .bucket == "cancel") | .name' 2>/dev/null
+}
+
 # **衝突している PR にはチェックが 1 つも付かない。** GitHub は merge ref を
 # 作れないので workflow が発火せず、上の窓と**見分けが付かないまま 30 分待つ**
 # ことになる。実際に踏んだ (PR #148: base の PR が squash merge された直後で、
@@ -88,6 +94,17 @@ while :; do
   # **「落ちた」と読まずにもう一周する。**
   if no_checks_p; then
     announced=0
+    continue
+  fi
+
+  # **非 0 で戻っても、実際に fail になったチェックが 1 つも無いことがある。**
+  # force-push の直後などに run が入れ替わると、--watch が「まだ全部 pending」
+  # のまま 1 を返す。実際に踏んだ (PR #159: 7 件すべて pending の一覧を出して
+  # 「落ちたものがある」と言った)。**落ちたと言うのは fail の行があるときだけ。**
+  if [ "$rc" -ne 0 ] && [ -z "$(failed_checks)" ]; then
+    echo "ci-wait: --watch が非 0 で戻ったが、fail のチェックは無い。待ち直す"
+    announced=0
+    sleep 10
     continue
   fi
   break
