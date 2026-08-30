@@ -144,6 +144,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (define-key *leader-toggle-map* #\m 'toggle-rich-modeline)
 (define-key *leader-toggle-map* #\s 'toggle-ts-highlight)
 (define-key *leader-toggle-map* #\g 'toggle-golden-ratio)
+(define-key *leader-toggle-map* #\f 'toggle-flymake)
 
 (which-key-add-description 'toggle-terminal-drawer "Terminal")
 (which-key-add-description 'toggle-line-number "LineNum")
@@ -155,6 +156,7 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (which-key-add-description 'toggle-rich-modeline "ModeLine")
 (which-key-add-description 'toggle-ts-highlight "Syntax")
 (which-key-add-description 'toggle-golden-ratio "GoldenRatio")
+(which-key-add-description 'toggle-flymake "Flymake")
 
 ;; Window (w)
 (define-key *leader-window-map* #\s 'split-window)
@@ -182,10 +184,18 @@ Leader メニューの表示が 「p:Project+」 ではなく 「p:prefix+」 �
 (define-key *leader-code-map* #\s 'imenu)
 (define-key *leader-code-map* #\r 'iedit)
 (define-key *leader-code-map* #\f 'list-function)
+(define-key *leader-code-map* #\c 'flymake-check)
+(define-key *leader-code-map* #\n 'flymake-next-error)
+(define-key *leader-code-map* #\p 'flymake-previous-error)
+(define-key *leader-code-map* #\e 'flymake-list-errors)
 
 (which-key-add-description 'imenu "Symbols")
 (which-key-add-description 'iedit "RenameAll")
 (which-key-add-description 'list-function "FuncDialog")
+(which-key-add-description 'flymake-check "Check")
+(which-key-add-description 'flymake-next-error "NextError")
+(which-key-add-description 'flymake-previous-error "PrevError")
+(which-key-add-description 'flymake-list-errors "ListErrors")
 
 ;; Open / Notes (o)
 (define-key *leader-open-map* #\s 'open-scratch)

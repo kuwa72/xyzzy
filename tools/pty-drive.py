@@ -34,6 +34,17 @@ Environment:
                 screen there and then types at a process that is not listening
                 yet, so the wait is for the first paint, not for silence.
 
+    XYZZY_PTY_RAW   if set, also print the raw byte stream for each step with
+                escapes made visible.  The screen model below tracks characters
+                only and drops SGR, so a change that is *only* an attribute --
+                a colour, a bold, an underline -- leaves the dump identical and
+                reads as "nothing happened".  That covers everything built on
+                set-text-attribute: tree-sitter highlighting, diff, ispell,
+                calendar, flymake.  Grep the raw stream for the SGR you expect
+                (underline is ESC[4m) rather than adding an attribute plane to
+                the screen, which would have to mirror every scroll, insert and
+                erase below to stay honest.
+
 The VT parser here understands only what this frontend emits (cursor moves,
 erase, insert/delete line, and the private modes it ignores).  It is a way to
 read the screen, not a terminal emulator.
@@ -45,6 +56,7 @@ COLS = int(os.environ.get("XYZZY_PTY_COLS", "100"))
 EXE = os.environ.get("XYZZY_EXE", "/work/_build/linux/xyzzy")
 HOME = os.environ.get("XYZZYHOME", "/work")
 BOOT = float(os.environ.get("XYZZY_PTY_BOOT", "90"))
+RAW = bool(os.environ.get("XYZZY_PTY_RAW"))
 
 def unescape(s):
     out = bytearray()
@@ -221,6 +233,7 @@ def main():
         os.execv(EXE, [EXE])
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
     scr = Screen()
+    raw = bytearray()
 
     def drain(quiet=0.6, total=25.0):
         end = time.time() + total
@@ -231,6 +244,7 @@ def main():
                 try: data = os.read(fd, 65536)
                 except OSError: return False
                 if not data: return False
+                if RAW: raw.extend(data)
                 scr.feed(data); last = time.time()
             elif time.time() - last > quiet:
                 return True
@@ -265,6 +279,10 @@ def main():
             drain()
         print("=== after %r ===" % step)
         print(scr.dump())
+        if RAW:
+            print("=== raw after %r ===" % step)
+            print(repr(bytes(raw)))
+            del raw[:]
     # Cancel whatever prompt the last step may have left open: otherwise the
     # keys below get typed into it instead of running the command.
     os.write(fd, b'\x07\x07')      # C-g C-g
