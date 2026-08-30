@@ -1100,6 +1100,12 @@ public:
     extern void ncurses_mouse_init ();
     ncurses_mouse_init ();
 
+    /* **走っている Lisp を C-g で止められるようにする。** `QUIT` から
+       間引いて端末を覗く手を入れる (src/core/quit-poll.cc、issue #162)。
+       ここより前に入れても意味が無い: `initscr` の前は覗く相手が無い。 */
+    extern void ncurses_install_quit_poll ();
+    ncurses_install_quit_poll ();
+
     create_ncurses_windows ();
     create_default_buffers ();
 

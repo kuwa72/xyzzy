@@ -251,6 +251,73 @@ record_key (lChar c)
   return c;
 }
 
+/* --- 走っている Lisp を止める --------------------------------------------
+ *
+ * `QUIT` から間引いて呼ばれる (src/core/quit-poll.cc)。**端末を覗いて、
+ * quit char なら `quit-flag` を立てる。** それ以外のバイトは入力キューへ
+ * 戻す。
+ *
+ * **入力経路の中では何もしない。** `fetch` は中で `refresh_screen` や
+ * ユーザタイマを回し、そこから Lisp が走って `QUIT` に来ることがある。
+ * そのときに端末を読むと、`fetch` が読むはずのバイトを横から取ってしまう。
+ * 深さで数えているのは `fetch` が自分を呼び直す枝があるため。
+ */
+
+static int in_input_path;
+
+struct input_path_guard
+{
+  input_path_guard () {in_input_path++;}
+  ~input_path_guard () {in_input_path--;}
+};
+
+/* 止めるキー。既定は C-g。`quit-char` / `set-quit-char` が読み書きする
+   (src/frontend/ncurses/ncurses-stubs.cc)。 */
+lChar ncurses_quit_char = 'G' - '@';
+
+static void
+ncurses_poll_quit_char ()
+{
+  if (in_input_path)
+    return;
+
+  /* **`select` で fd を見るだけでは足りない。** 打鍵は ncurses の内部
+     バッファに入っていることがある: `fetch` が RET を読んだときに、その直後の
+     C-g まで一緒に読み込まれていて、**fd の側には何も残っていない。** 実際に
+     踏んだ (最初の実装は `select` を先に置いていて、RET の直後に送った C-g を
+     取り落とした)。
+     `wget_wch` を nodelay で呼ぶと、内部バッファと fd の両方を見る。 */
+  nodelay (stdscr, TRUE);
+  wint_t wch;
+  int ret = wget_wch (stdscr, &wch);
+  nodelay (stdscr, FALSE);
+  if (ret == ERR)
+    return;
+
+  if (ret == KEY_CODE_YES && wch == KEY_RESIZE)
+    {
+      g_need_resize = 1;
+      return;
+    }
+
+  lChar c = ncurses_key_to_lchar (ret, wch);
+  if (c == ncurses_quit_char)
+    {
+      xsymbol_value (Vquit_flag) = Qt;
+      return;
+    }
+  /* **取ったバイトは捨てない。** 順番を保つため末尾へ入れる。 */
+  if (c != lChar_EOF)
+    app.kbdq.putc (c);
+}
+
+void
+ncurses_install_quit_poll ()
+{
+  extern void (*g_quit_poll_hook) ();
+  g_quit_poll_hook = ncurses_poll_quit_char;
+}
+
 /* 古い順に詰めて返す。src/frontend/ncurses/ncurses-stubs.cc の
    `Fget_recent_keys` が呼ぶ。 */
 int
@@ -270,6 +337,8 @@ ncurses_copy_recent_keys (Char *b, int size)
 lChar
 kbd_queue::fetch (int wait, int)
 {
+  input_path_guard ipg;
+
   // Return pending character first
   if (pending != lChar_EOF)
     {
@@ -515,6 +584,8 @@ kbd_queue::fetch (int wait, int)
 lChar
 kbd_queue::peek (int)
 {
+  input_path_guard ipg;
+
   /* peek in xyzzy is actually a non-blocking fetch (consumes the character)
 
      **ここも記録する。** 名前は peek だが字を消費するので、`fetch` だけを
@@ -559,6 +630,8 @@ kbd_queue::peek (int)
 int
 kbd_queue::listen ()
 {
+  input_path_guard ipg;
+
   if (pending != lChar_EOF || head != tail)
     return 1;
   nodelay (stdscr, TRUE);
