@@ -839,6 +839,17 @@ init_environ ()
 #else
   xsymbol_value (Vos_platform) = Qnil;
   xsymbol_value (Vfeatures) = xcons (Kunix, xsymbol_value (Vfeatures));
+
+  /* **`get-windows-directory` / `get-system-directory` が未束縛のままだった。**
+     値を入れているのは src/frontend/win32/init.cc の `init_windows_dir' だけ
+     で、POSIX にはそれに当たるものが無い。
+
+     未束縛だと **`#:unbound` という内部の印がそのまま Lisp へ出てくる**:
+     読んでも `unbound-variable` にならないので `ignore-errors` でも捕まらず、
+     どこにも無い値がリストや `merge-pathnames` へ流れていく。POSIX に
+     Windows ディレクトリは無いので、**「無い」を表す nil を入れる。** */
+  xsymbol_value (Qwindows_dir) = Qnil;
+  xsymbol_value (Qsystem_dir) = Qnil;
 #ifdef __linux__
   xsymbol_value (Vfeatures) = xcons (Klinux, xsymbol_value (Vfeatures));
 #endif

@@ -70,3 +70,19 @@
   => "hoge1"
   => "hoge2"
   => "hoge2")
+
+;;; --- Windows 固有のディレクトリ -----------------------------------------
+
+;; **未束縛の変数を読むと `#:unbound' がそのまま出てくる。** 値を入れている
+;; のは src/frontend/win32/init.cc の `init_windows_dir' だけで、POSIX には
+;; それに当たるものが無い。読んでも `unbound-variable' にならないので
+;; `ignore-errors' でも捕まらず、**どこにも無い値が merge-pathnames や
+;; リストへ静かに流れていく。** `unittest/editor-tests.l' の chdir-* 7 件と
+;; `unittest/lisp-tests.l' の fix-truename-* 4 件がこれを踏んでいた
+;; (issue #50)。
+;;
+;; POSIX に Windows ディレクトリは無いので、**「無い」を表す nil が正しい。**
+(deftest windows-directories-are-bound ()
+  (list (let ((d (get-windows-directory))) (if (featurep :unix) (null d) (stringp d)))
+        (let ((d (get-system-directory)))  (if (featurep :unix) (null d) (stringp d))))
+  => (t t))

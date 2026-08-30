@@ -739,24 +739,54 @@ lisp-indent-hook property"
   => 4
   => 2)
 
+;;; --- truename ------------------------------------------------------------
+;;;
+;;; **この 4 件は「深く入れ子になった実在するパス」が要るだけで、測っている
+;;; 性質は Windows 固有ではない。** `C:\Windows\system32\drivers\etc\hosts`
+;;; を決め打ちしていたので POSIX では 4 件まとめて落ち、**その裏で
+;;; `truename` は一度も測られていなかった** (issue #50)。
+;;;
+;;; 深さが要るのは、`truename` が一段ずつ実名を引き直す作りで、**途中の一段で
+;;; 間違えても最後だけ見ていると気付けない**ため。
+
+(defun truename-test-nested-file ()
+  "実在するファイル。何段か下にあること。
+tzdata の置き場所は配布によって 1 段違うので、在る方を採る。"
+  (if (featurep :unix)
+      (or (find-if #'file-exist-p '("/usr/share/zoneinfo/UTC"
+                                    "/usr/share/zoneinfo/Etc/UTC"))
+          "/usr/share/zoneinfo/UTC")
+    (merge-pathnames "drivers/etc/hosts" (get-system-directory))))
+
+(defun truename-test-nested-dirs ()
+  "実在するディレクトリ。浅い方へ 1 段ずつ。"
+  (if (featurep :unix) '("/usr/share/zoneinfo/" "/usr/share/" "/usr/")
+    (list (merge-pathnames "drivers/etc" (get-system-directory))
+          (merge-pathnames "drivers" (get-system-directory))
+          (merge-pathnames "System32" (si:getenv "SystemRoot")))))
+
 (deftest fix-truename-1 ()
-  (let ((path (merge-pathnames "drivers/etc/hosts" (get-system-directory))))
-    (path-equal path (truename path)))
+  "ファイルの実名。"
+  (let ((path (truename-test-nested-file)))
+    (and (file-exist-p path) (path-equal path (truename path))))
   => t)
 
 (deftest fix-truename-2 ()
-  (let ((path (merge-pathnames "drivers/etc" (get-system-directory))))
-    (path-equal path (truename path)))
+  "一番深いディレクトリの実名。"
+  (let ((path (first (truename-test-nested-dirs))))
+    (and (file-directory-p path) (path-equal path (truename path))))
   => t)
 
 (deftest fix-truename-3 ()
-  (let ((path (merge-pathnames "drivers" (get-system-directory))))
-    (path-equal path (truename path)))
+  "その 1 つ上。"
+  (let ((path (second (truename-test-nested-dirs))))
+    (and (file-directory-p path) (path-equal path (truename path))))
   => t)
 
 (deftest fix-truename-4 ()
-  (let ((path (merge-pathnames "System32" (si:getenv "SystemRoot"))))
-    (path-equal path (truename path)))
+  "さらに 1 つ上。"
+  (let ((path (third (truename-test-nested-dirs))))
+    (and (file-directory-p path) (path-equal path (truename path))))
   => t)
 
 #+wow64

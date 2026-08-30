@@ -180,18 +180,42 @@ wait-object-typep
 
 # ファイル名とパス。
 #
-# **理由を測り直した。以前ここには「`chdir` はドライブごとのカレント
-# ディレクトリという Win32 の概念に依っている」と書いてあったが、それは
-# 違った。** `chdir` 自体は POSIX でも正しく動く:
+# **`chdir-*` 7 件と `fix-truename-*` 4 件はここから外れた。**
 #
-#     (chdir "/tmp/") => t   (cwd) => "/tmp/"
-#     (chdir)         => t   (cwd) => ホーム
+# 理由は 2 度書き直している。最初は「`chdir` はドライブごとのカレント
+# ディレクトリという Win32 の概念に依っている」で、これは違った (`chdir`
+# 自体は POSIX でも正しく動く)。次に「`(get-windows-directory)` と
+# `(get-system-directory)` が **POSIX では nil を返す**ので、テストが
+# Windows のディレクトリを前提にしているだけ」と書いた。**前半は違った:
+# nil ではなく未束縛だった。**
 #
-# `chdir-0` から `chdir-6` が落ちるのは、どれも `(get-windows-directory)` と
-# `(get-system-directory)` を行き先に使っていて、**POSIX ではこの 2 つが nil を
-# 返す**ため (`C:\Windows` に相当するものは無いので、nil が正しい)。
-# つまりテストが Windows のディレクトリを前提にしているだけで、実装の不足では
-# ない。`chdir-3` は `get-disk-usage`、`chdir-4` は `cmd /c dir` も使う。
+#     (get-windows-directory)                 => #:unbound
+#     (ignore-errors (get-windows-directory)) => #:unbound   (捕まらない)
+#
+# 値を入れているのは src/frontend/win32/init.cc の `init_windows_dir' だけで、
+# POSIX にはそれに当たるものが無い。**未束縛の変数を読むと `#:unbound' という
+# 内部の印がそのまま Lisp へ出てくる**: `unbound-variable` にならないので
+# `ignore-errors` でも止まらず、**どこにも無い値が `merge-pathnames` や
+# リストへ静かに流れていく。** POSIX に Windows ディレクトリは無いので nil を
+# 入れた (src/core/environ.cc)。`unittest/environ-tests.l` に 1 件。
+#
+# **テストの方は「実在する入れ子のディレクトリ」が要るだけだった。**
+# `chdir-*` は `(get-windows-directory)` / `(get-system-directory)` を
+# `C:\Windows` と `C:\Windows\system32` = 「2 段の入れ子」として使い、
+# `fix-truename-*` は `system32\drivers\etc\hosts` を「何段か下にある
+# 実在するパス」として使っていただけである。プラットフォームごとに選ぶ形に
+# 直した (POSIX は `/usr/` と `/usr/share/`、`/usr/share/zoneinfo/UTC`)。
+# **11 件の裏で `chdir` と `truename` が一度も測られていなかった。**
+#
+# 1 件だけ期待値の意味が違ったので書き換えた。`chdir-6` は 4 つ目の `..` が
+# nil を返すことを見ていて、それは「Windows のドライブの根には親が無い」と
+# いう形の言い方である。POSIX の `/` の親は `/` 自身なので同じ理屈にならない。
+# 測りたいのは**「これ以上は上がれない」**なので、居場所が動かないことで
+# 書いた (実装は同じ判定をしていて、POSIX でも根では nil が返る)。
+#
+# `chdir-3` の `get-disk-usage` は POSIX では nil を返すが、このテストが見て
+# いるのは戻り値ではなく**呼んだあとに居場所が戻っているか**なので通る。
+# `chdir-4` の `cmd /c dir` は `ls` にした。
 #
 # **`chdir-path-not-found` はここから外れた。** 前はこのコメントに
 # 「POSIX の chdir は ENOENT しか返さないので、区別するには自分で親を辿って
@@ -207,9 +231,8 @@ wait-object-typep
 # 1 か所で分けたので chdir だけでなく open や delete-file でも Win32 と
 # 同じ条件が付く。
 #
-# `fix-truename-1` から `-4` は `(get-system-directory)` と `SystemRoot` を
-# 使うので上と同じ。`image-startup-option` と
-# `fix-*load-pathname*-from-dump-image` はダンプイメージに依っている。
+# `image-startup-option` と `fix-*load-pathname*-from-dump-image` は
+# ダンプイメージに依っている。
 #
 # **`user-config-path` / `xyzzy-ini-path` は 7 件のうち 5 件が外れた。** 前は
 # 「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、
@@ -253,18 +276,7 @@ wait-object-typep
 # 混ざっている。文言 (src/core/lprint.cc) と `create-directory` の既存判定は
 # 直したが、番号の体系そのものを揃える話は別 issue にした。
 
-chdir-0
-chdir-1
-chdir-2
-chdir-3
-chdir-4
-chdir-5
-chdir-6
 fix-*load-pathname*-from-dump-image
-fix-truename-1
-fix-truename-2
-fix-truename-3
-fix-truename-4
 image-startup-option
 
 # コマンドライン引数の処理 — **この群も空になった。**
