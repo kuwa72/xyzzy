@@ -25,6 +25,7 @@ const int WINFS::case_insensitive_names = 0;
 // POSIX implementations of WINFS methods for ncurses frontend
 
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -291,9 +292,59 @@ BOOL FindClose (HANDLE h)
   return TRUE;
 }
 
-BOOL WINAPI WINFS::GetDiskFreeSpace (LPCWSTR, LPDWORD, LPDWORD, LPDWORD, LPDWORD)
+/* ディスクの空き。`statvfs` で埋まる。
+   **これがスタブだったので `get-disk-usage` は失敗を返し、`Fget_disk_usage`
+   が `file_error` を投げていた** — 実在するディレクトリを渡しても
+   「file-not-found」になる。使う側 (ファイラの容量表示など) からは
+   「そのディレクトリが無い」と読めるので、たちが悪い。
+
+   `lpRootPathName` が 0 なら「今いるボリューム」の意味 (呼ぶ側が先に
+   `SetCurrentDirectory` している)。
+
+   **欄が DWORD なので、大きなファイルシステムでは数が入り切らない。**
+   これは Win32 の `GetDiskFreeSpace` も同じで (だから
+   `GetDiskFreeSpaceEx` がある)、呼ぶ側はブロック数 x ブロックの大きさで
+   バイト数を出す。**ブロックの大きさを 2 倍にして数を半分にすれば積は
+   変わらない**ので、入り切るまでそれを繰り返す。 */
+BOOL WINAPI WINFS::GetDiskFreeSpace (LPCWSTR root,
+                                     LPDWORD lpSectorsPerCluster,
+                                     LPDWORD lpBytesPerSector,
+                                     LPDWORD lpNumberOfFreeClusters,
+                                     LPDWORD lpTotalNumberOfClusters)
 {
-  return FALSE;
+  struct statvfs st;
+  if (root)
+    {
+      if (statvfs (os_path (root), &st) < 0)
+        return FALSE;
+    }
+  else if (statvfs (".", &st) < 0)
+    return FALSE;
+
+  /* f_frsize が 0 を返すものがある (その場合は f_bsize を使う)。 */
+  u_long unit = st.f_frsize ? (u_long)st.f_frsize : (u_long)st.f_bsize;
+  if (!unit)
+    unit = 512;
+
+  /* f_bavail は root 以外が使える分。`get-disk-usage` の「空き」はこちらが
+     欲しい値である (f_bfree には予約分が入っている)。 */
+  uint64_t total = (uint64_t)st.f_blocks;
+  uint64_t avail = (uint64_t)st.f_bavail;
+
+  u_long spc = 1;
+  while ((total > 0xffffffffULL || avail > 0xffffffffULL)
+         && spc <= 0x40000000UL)
+    {
+      spc *= 2;
+      total /= 2;
+      avail /= 2;
+    }
+
+  if (lpSectorsPerCluster)      *lpSectorsPerCluster      = spc;
+  if (lpBytesPerSector)         *lpBytesPerSector         = unit;
+  if (lpNumberOfFreeClusters)   *lpNumberOfFreeClusters   = (DWORD)avail;
+  if (lpTotalNumberOfClusters)  *lpTotalNumberOfClusters  = (DWORD)total;
+  return TRUE;
 }
 
 DWORD WINAPI WINFS::internal_GetFileAttributes (LPCWSTR p)

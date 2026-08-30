@@ -150,3 +150,24 @@
                   (dirops-condition-of (chdir file)))))
       (progn (chdir saved) (dirops-cleanup))))
   => (file-exists not-empty path-not-found))
+
+;;; --- ディスクの空き ------------------------------------------------------
+
+;; **`get-disk-usage` は POSIX で失敗を返していた。** `WINFS::GetDiskFreeSpace`
+;; が `return FALSE;` のスタブで、`Fget_disk_usage` はそれを見て
+;; `file_error` を投げる。**実在するディレクトリを渡して「file-not-found」が
+;; 返る**ので、使う側からは「そのディレクトリが無い」と読める。
+;; `statvfs` で埋めた (src/core/vfs-posix.cc)。
+;;
+;; **走り終わったあとに居場所が戻っていることも見る。** この関数は内部で
+;; 一時的にディレクトリを移動し、最後に `sysdep.curdir` へ戻る
+;; (`unittest/editor-tests.l` の chdir-3 がそれを測っている)。
+(deftest get-disk-usage-reports-the-filesystem ()
+  (let* ((before (cwd))
+         (v (multiple-value-list (get-disk-usage (si:system-root)))))
+    (list (length v)
+          (and (integerp (first v))  (plusp (first v)))         ; ブロックの大きさ
+          (and (integerp (second v)) (plusp (second v)))        ; 総容量
+          (and (integerp (third v))  (not (minusp (third v))))  ; 空き
+          (and (path-equal before (cwd)) t)))
+  => (7 t t t t))

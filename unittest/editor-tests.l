@@ -754,8 +754,36 @@
   => ("utf8n" "sjis" "euc-jp" "big5"))
 
 
+;;; --- chdir ---------------------------------------------------------------
+;;;
+;;; **この 7 件は `(get-windows-directory)` を「実在する入れ子のディレクトリ」
+;;; として使っていただけで、測っている性質は Windows 固有ではない。** POSIX
+;;; では `get-windows-directory` が未束縛なので 7 件まとめて落ち、**その裏で
+;;; `chdir` は一度も測られていなかった** (issue #50)。名前を付け替えて、
+;;; プラットフォームごとに実在する 2 段を選ぶ形にした。
+
+(defun chdir-test-outer-dir ()
+  "実在するディレクトリ。`chdir-test-inner-dir' の親であること。"
+  (if (featurep :unix) "/usr/" (get-windows-directory)))
+
+(defun chdir-test-inner-dir ()
+  "`chdir-test-outer-dir' の直下にある実在するディレクトリ。
+**根まで 2 段であること** (chdir-6 がそれを数える)。"
+  (if (featurep :unix) "/usr/share/" (get-system-directory)))
+
+(defun chdir-test-list-command ()
+  "何もしないで終わる外部コマンド。`call-process' の行き先を測るだけに使う。"
+  (if (featurep :unix) "ls >/dev/null" "cmd /c dir"))
+
+(deftest chdir-test-dirs-exist ()
+  "この節が前提にしている 2 段が実在すること。
+**ここが落ちたら以下の chdir-* は chdir の話ではない。**"
+  (list (and (file-directory-p (chdir-test-outer-dir)) t)
+        (and (file-directory-p (chdir-test-inner-dir)) t))
+  => (t t))
+
 (deftest chdir-0 ()
-  (chdir (get-windows-directory))
+  (chdir (chdir-test-outer-dir))
   (values
    (chdir)
    (path-equal (user-homedir-pathname) (cwd)))
@@ -763,7 +791,7 @@
   => t)
 
 (deftest chdir-1 ()
-  (chdir (get-windows-directory))
+  (chdir (chdir-test-outer-dir))
   (values
    (chdir (si:system-root))
    (path-equal (si:system-root) (cwd)))
@@ -773,56 +801,66 @@
 (deftest chdir-2 ()
   (chdir (si:system-root))
   (values
-   (chdir (get-windows-directory))
-   (path-equal (get-windows-directory) (cwd)))
+   (chdir (chdir-test-outer-dir))
+   (path-equal (chdir-test-outer-dir) (cwd)))
   => t
   => t)
 
 (deftest chdir-3 ()
   "sysdep.curdir も変更されているか確認"
-  (chdir (get-windows-directory))
+  (chdir (chdir-test-outer-dir))
   (values
-   (chdir (get-system-directory))
+   (chdir (chdir-test-inner-dir))
    (progn
      ;; get-disk-usage は一時的にディレクトリを変更し、最後に sysdep.curdir に移動する
-     (get-disk-usage (get-system-directory))
-     (path-equal (get-system-directory) (cwd))))
+     (get-disk-usage (chdir-test-inner-dir))
+     (path-equal (chdir-test-inner-dir) (cwd))))
   => t
   => t)
 
 (deftest chdir-4 ()
   "Qdefault_dir も変更されているか確認"
-  (chdir (get-windows-directory))
+  (chdir (chdir-test-outer-dir))
   (values
-   (chdir (get-system-directory))
+   (chdir (chdir-test-inner-dir))
    (progn
      ;; call-process は一時的にディレクトリを変更し、最後に Qdefault_dir に移動する
-     (call-process "cmd /c dir" :exec-directory (get-system-directory) :show :hide)
-     (path-equal (get-system-directory) (cwd))))
+     (call-process (chdir-test-list-command)
+                   :exec-directory (chdir-test-inner-dir) :show :hide)
+     (path-equal (chdir-test-inner-dir) (cwd))))
   => t
   => t)
 
 (deftest chdir-5 ()
-  (chdir (get-system-directory))
+  "相対名での chdir"
+  (chdir (chdir-test-inner-dir))
   (values
-   (chdir (get-windows-directory))
-   (chdir (file-namestring (remove-trail-slash (get-system-directory))))
-   (path-equal (get-system-directory) (cwd)))
+   (chdir (chdir-test-outer-dir))
+   (chdir (file-namestring (remove-trail-slash (chdir-test-inner-dir))))
+   (path-equal (chdir-test-inner-dir) (cwd)))
   => t
   => t
   => t)
 
 (deftest chdir-6 ()
-  (chdir (get-windows-directory))
+  "根より上へは行けないこと。
+
+以前は 4 つ目の `..' が nil を返すことだけを見ていた。**それは
+「Windows のドライブの根には親が無い」という形の言い方**で、POSIX では
+`/' の親が `/' 自身なので同じ理屈にならない。測りたいのは
+**「これ以上は上がれない」**なので、居場所が動かないことで書く。"
+  (chdir (chdir-test-outer-dir))
   (values
-   (chdir (get-system-directory))
+   (chdir (chdir-test-inner-dir))
    (chdir "..")
    (chdir "..")
-   (chdir ".."))
+   (let ((root (cwd)))
+     (chdir "..")
+     (and (path-equal root (cwd)) t)))
   => t
   => t
   => t
-  => nil)
+  => t)
 
 (deftest chdir-file-exists ()
   (with-temp-files (tmp)

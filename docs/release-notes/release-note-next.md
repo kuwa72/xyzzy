@@ -36,6 +36,46 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で `chdir` / `truename` / `get-disk-usage` が測られていなかったのを
+    直した** (issue #50、既知失敗 56 -> 45)。
+
+    **`get-windows-directory` と `get-system-directory` が POSIX で未束縛
+    だった。** 値を入れているのは `src/frontend/win32/init.cc` の
+    `init_windows_dir` だけで、POSIX にはそれに当たるものが無い。
+
+    ```lisp
+    (get-windows-directory)                 ; => #:unbound
+    (ignore-errors (get-windows-directory)) ; => #:unbound  (捕まらない)
+    ```
+
+    **未束縛の変数を読むと `#:unbound` という内部の印がそのまま Lisp へ出て
+    くる。** `unbound-variable` にならないので `ignore-errors` でも止まらず、
+    どこにも無い値が `merge-pathnames` やリストへ静かに流れていく。POSIX に
+    Windows ディレクトリは無いので nil を入れた。
+
+    **既知失敗 11 件はこれを踏んでいただけで、テストが要求していたのは
+    「実在する入れ子のディレクトリ」だった。** `chdir-0`〜`-6` は
+    `C:\Windows` と `C:\Windows\system32` を「2 段の入れ子」として、
+    `fix-truename-1`〜`-4` は `system32\drivers\etc\hosts` を「何段か下に
+    ある実在するパス」として使っていた。プラットフォームごとに選ぶ形に直した
+    (Windows 側の行き先は変えていない)。**11 件の裏で `chdir` と `truename`
+    が一度も測られていなかった。**
+
+    1 件だけ期待値の意味が違った。`chdir-6` は 4 つ目の `..` が nil を返す
+    ことを見ていて、それは「Windows のドライブの根には親が無い」という形の
+    言い方である。POSIX の `/` の親は `/` 自身なので同じ理屈にならない。
+    測りたいのは**「これ以上は上がれない」**なので、居場所が動かないことで
+    書いた (実装は両方で同じ判定をしていて、POSIX でも根では nil が返る)。
+
+    **`get-disk-usage` が POSIX で失敗を返していた**のも直した。
+    `WINFS::GetDiskFreeSpace` が `return FALSE;` のスタブで、
+    `Fget_disk_usage` はそれを見て `file_error` を投げる。**実在する
+    ディレクトリを渡して「file-not-found」が返る**ので、使う側からは
+    「そのディレクトリが無い」と読める。`statvfs` で埋めた。欄が `DWORD` なので
+    大きなファイルシステムでは数が入り切らないが (Win32 の
+    `GetDiskFreeSpace` も同じ)、呼ぶ側はブロック数 x ブロックの大きさで見る
+    ので、**入り切るまでブロックを 2 倍にして数を半分にする。**
+
   * **POSIX で tree-sitter による色付けが動くようになった** (issue #150)。
     `*ts-highlight*` は**既定で `t`** なので、Linux ビルドでは
     **有効になっているのに何も起きなかった。** `lisp/ts.l` は例外を出さずに
