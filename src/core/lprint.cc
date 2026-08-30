@@ -1539,7 +1539,7 @@ print_buffer_name (wStream &stream, const Buffer *bp)
   if (bp->b_version != 1)
     {
       char b[64];
-      sprintf (b, "<%d>", bp->b_version);
+      sprintf (b, "<%ld>", bp->b_version);
       stream.add (b);
     }
 }
@@ -1577,7 +1577,7 @@ print_marker (wStream &stream, const print_control &, lisp object)
       else
         {
           char b[64];
-          sprintf (b, ": %u", xmarker_point (object));
+          sprintf (b, ": %ld", (long)xmarker_point (object));
           stream.add (b);
         }
       stream.add ('>');

@@ -831,9 +831,9 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
             {
               char buf[32];
               if (plinenum >= 1000000)
-                sprintf (buf, "%06d", plinenum % 1000000);
+                sprintf (buf, "%06ld", plinenum % 1000000);
               else
-                sprintf (buf, "%6d", plinenum);
+                sprintf (buf, "%6ld", plinenum);
               int n = min (6, int (w_ch_max.cx));
               for (int i = 0; i < n; i++)
                 *g++ = f | ga ((u_char) buf[i]);
