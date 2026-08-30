@@ -152,9 +152,24 @@ wait-object-typep
 # 同じ条件が付く。
 #
 # `fix-truename-1` から `-4` は `(get-system-directory)` と `SystemRoot` を
-# 使うので上と同じ。`user-config-path` / `xyzzy-ini-path` はレジストリと ini
-# ファイル、`image-startup-option` と `fix-*load-pathname*-from-dump-image` は
-# ダンプイメージに依っている。
+# 使うので上と同じ。`image-startup-option` と
+# `fix-*load-pathname*-from-dump-image` はダンプイメージに依っている。
+#
+# **`user-config-path` / `xyzzy-ini-path` は 7 件のうち 5 件が外れた。** 前は
+# 「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、
+# **レジストリが要るのは別の話で、ini ファイルの方は移植できた**
+# (issue #143)。848 行あった win32/conf.cc のうち Win32 に触っていたのは
+# `Get/WritePrivateProfileStringW` の 2 つだけで、残りは書式の処理だった。
+# その 2 つを書き (src/core/ini-posix.cc)、残りを core へ移した
+# (src/core/conf-io.cc)。**Linux ビルドはそれまで設定を一切読み書きして
+# いなかった。**
+#
+# 残る 2 件 (`xyzzy-ini-path-XYZZYINIFILE` と
+# `user-config-path-XYZZYCONFIGPATH`) は**環境変数を子プロセスへ渡す方の
+# 問題で、ini とは関係が無い。** 非 Win32 の `call-process` /
+# `make-process` が `:environ` を丸ごと無視している
+# (ncurses-process.cc に Kenviron が出てこない)。**`XYZZYINIFILE` 自体は
+# 効く** — 手で環境変数を置いて起動すれば読む。
 #
 # **`directory--*` 5 件はここから外れた。** 前はこのコメントに
 # 「WIN32_FIND_DATA の属性 (FILE_ATTRIBUTE_*) をそのまま見ている」と
@@ -195,12 +210,7 @@ fix-truename-2
 fix-truename-3
 fix-truename-4
 image-startup-option
-user-config-path-startup-option
-user-config-path-startup-option-and-xyzzyconfigpath
 user-config-path-xyzzyconfigpath
-xyzzy-ini-path
-xyzzy-ini-path-startup-option
-xyzzy-ini-path-startup-option-and-xyzzyinifile
 xyzzy-ini-path-xyzzyinifile
 
 # コマンドライン引数の処理 — **この群も空になった。**

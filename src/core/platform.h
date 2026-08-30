@@ -1377,6 +1377,13 @@ inline DWORD GetFileAttributesW(LPCWSTR) { return INVALID_FILE_ATTRIBUTES; }
 inline BOOL SetFileAttributesW(LPCWSTR, DWORD) { return FALSE; }
 inline HANDLE FindFirstFileW(LPCWSTR, WIN32_FIND_DATAW*) { return INVALID_HANDLE_VALUE; }
 inline BOOL FindNextFileW(HANDLE, WIN32_FIND_DATAW*) { return FALSE; }
+
+/* INI ファイル。**スタブではなく src/core/ini-posix.cc に実装がある。**
+   設定の読み書き (src/core/conf-io.cc) はこの 2 つの上に建っていて、
+   848 行あった win32/conf.cc のうち Win32 に触っていたのはここだけだった
+   (issue #143)。 */
+DWORD WINAPI GetPrivateProfileStringW(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, DWORD, LPCWSTR);
+BOOL WINAPI WritePrivateProfileStringW(LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR);
 inline BOOL DeleteFileW(LPCWSTR) { return FALSE; }
 inline BOOL MoveFileW(LPCWSTR, LPCWSTR) { return FALSE; }
 inline BOOL CreateDirectoryW(LPCWSTR, LPSECURITY_ATTRIBUTES) { return FALSE; }

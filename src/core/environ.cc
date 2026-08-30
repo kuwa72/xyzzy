@@ -876,8 +876,12 @@ int environ::save_window_position = 1;
 int environ::restore_window_size;
 int environ::restore_window_position;
 
-int
-environ::load_geometry (int cmdshow, POINT *point, SIZE *size)
+/* **ウィンドウの位置と、位置以外の設定を分けた。** 端末フロントエンドには
+   位置 (WINDOWPLACEMENT) の意味は無いが、行番号の表示や折り返しの既定は
+   端末でも意味がある。分けていなかったので、**端末ビルドは xyzzy.ini から
+   何一つ読んでいなかった** (issue #143)。 */
+void
+environ::load_settings ()
 {
   read_conf (cfgMisc, cfgSaveWindowSize, save_window_size);
   read_conf (cfgMisc, cfgSaveWindowSnapSize, save_window_snap_size);
@@ -901,6 +905,12 @@ environ::load_geometry (int cmdshow, POINT *point, SIZE *size)
   if (Buffer::b_default_linenum_mode != Buffer::LNMODE_DISP
       && Buffer::b_default_linenum_mode != Buffer::LNMODE_LF)
     Buffer::b_default_linenum_mode = Buffer::LNMODE_DISP;
+}
+
+int
+environ::load_geometry (int cmdshow, POINT *point, SIZE *size)
+{
+  load_settings ();
 
   point->x = point->y = CW_USEDEFAULT;
   size->cx = size->cy = CW_USEDEFAULT;
@@ -997,6 +1007,18 @@ environ::save_geometry ()
           write_conf (cfgMisc, name, w);
         }
     }
+
+  save_settings ();
+}
+
+/* 位置以外の設定を書き出す。`save_geometry' の後半をそのまま切り出したもの
+   で、端末フロントエンドからも呼ぶ (上の `load_settings' の注を参照)。 */
+void
+environ::save_settings ()
+{
+  save_window_size = xsymbol_value (Vsave_window_size) != Qnil;
+  save_window_snap_size = xsymbol_value (Vsave_window_snap_size) != Qnil;
+  save_window_position = xsymbol_value (Vsave_window_position) != Qnil;
 
   write_conf (cfgMisc, cfgSaveWindowSize, save_window_size);
   write_conf (cfgMisc, cfgSaveWindowSnapSize, save_window_snap_size);

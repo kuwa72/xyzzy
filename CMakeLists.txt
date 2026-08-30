@@ -760,6 +760,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/byte-stream.cc
     ${CORE_DIR}/bytecode.cc
     ${CORE_DIR}/ces.cc
+    ${CORE_DIR}/conf-io.cc
     ${CORE_DIR}/char.cc
     ${CORE_DIR}/chname.cc
     ${CORE_DIR}/chunk.cc
@@ -843,6 +844,9 @@ if(NOT WIN32)
     # si:load-dll-module の POSIX 版 (dlopen)。呼び出しの側 (make-c-function)
     # はまだ無い -- issue #133 を参照。
     list(APPEND CORE_SOURCES ${CORE_DIR}/dll-posix.cc)
+    # INI ファイルの読み書き (Get/WritePrivateProfileStringW)。設定の
+    # 読み書き (conf-io.cc) がこの 2 つの上に建っている -- issue #143。
+    list(APPEND CORE_SOURCES ${CORE_DIR}/ini-posix.cc)
 endif()
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})
@@ -1031,7 +1035,6 @@ set(CLI_DIR ${CMAKE_SOURCE_DIR}/src/frontend/cli)
 set(CLI_SOURCES
     ${CLI_DIR}/cli-main.cc
     ${CLI_DIR}/cli-stubs.cc
-    ${CLI_DIR}/cli-conf.cc
     ${CLI_DIR}/cli-symtable-ed.cc
 )
 
@@ -1100,7 +1103,6 @@ if(NOT WIN32)
             ${NCURSES_DIR}/ncurses-kbd.cc
             ${NCURSES_DIR}/ncurses-process.cc
             ${NCURSES_DIR}/ncurses-dialog.cc
-            ${CLI_DIR}/cli-conf.cc
             ${NCURSES_DIR}/ncurses-symtable-ed.cc
         )
 

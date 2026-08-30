@@ -91,6 +91,18 @@ stash と rebase の手戻りが出る。
 既知失敗のベースラインはアーキごとに違う (MSVC x86 は 8 件、x64 と ARM64 は
 10 件)。**1 つのジョブだけ見て「既知失敗 N 件」と書かない。**
 
+### PR を積むなら base は `main` にする
+
+未マージ PR の上に次のブランチを作ってよいが、**PR の base はいつも `main`**
+にする。base を前の topic ブランチにすると、その PR を
+`gh pr merge --delete-branch` した瞬間に **GitHub が上の PR を閉じ、
+`gh pr reopen` は「Could not open」で通らない。** PR を作り直すしかなくなる
+(#142 → #144 でやった)。
+
+base が `main` でも、前の PR がマージされるまでは差分に前のコミットが混ざって
+見えるだけで、マージ後に自然に消える。**閉じた PR を戻せないことに比べれば
+安い。**
+
 ### リリースの順序
 
 `tools/release-prep.sh <version>` が bump とノートの改名をやる。順序は

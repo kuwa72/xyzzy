@@ -15,6 +15,10 @@ public:
   static int restore_window_position;
   static int load_geometry (int, POINT *, SIZE *);
   static void save_geometry ();
+  /* **位置以外の設定だけ。** 端末フロントエンドには WINDOWPLACEMENT の意味は
+     無いが、行番号の表示や折り返しの既定は端末でも意味がある (issue #143)。 */
+  static void load_settings ();
+  static void save_settings ();
 };
 
 class Registry
