@@ -840,6 +840,9 @@ set(CORE_SOURCES
 # needs the same one.
 if(NOT WIN32)
     list(APPEND CORE_SOURCES ${CORE_DIR}/vfs-posix.cc)
+    # si:load-dll-module の POSIX 版 (dlopen)。呼び出しの側 (make-c-function)
+    # はまだ無い -- issue #133 を参照。
+    list(APPEND CORE_SOURCES ${CORE_DIR}/dll-posix.cc)
 endif()
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})

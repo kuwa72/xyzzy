@@ -36,6 +36,41 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **`si:load-dll-module` を POSIX でも実装した** (issue #133 の段階 1)。
+    Linux の既知失敗が **73 件へ**。`dlopen` / `dlsym` / `dlclose` で足りるので
+    **新しいライブラリには依存しない。**
+
+    ```lisp
+    (si:load-dll-module "libc.so.6")   ;=> #<DLL-module: libc.so.6>
+    (si:load-dll-module "libnope.so")
+    ;; => 共有ライブラリを読み込めません:
+    ;;    "libnope.so: cannot open shared object file: No such file or directory"
+    ```
+
+    **`si:make-c-function` / `si:make-c-callable` はまだ無い。** 測ったところ
+    `src/frontend/win32/dll.cc` の 1506 行のうち、**難しいのは「動的読み込み」
+    ではなく「呼び出し」の方**だった: `LoadLibrary` / `GetProcAddress` は
+    3 箇所で `dlopen` / `dlsym` に 1 対 1 で対応するが、呼び出し規約は
+    手書きアセンブラ 3 ブロック + SEH で、x86_64 SysV と aarch64 AAPCS の
+    それぞれに要る。**素直な方法は libffi だが、依存が増えるので判断を
+    issue #133 に残した。**
+
+    `platform.h` の `GetProcAddress` / `FreeLibrary` は 0 を返すスタブだったが、
+    **引数がバイト列とハンドルだけなので、そのまま `dlsym` / `dlclose` に
+    できた。** `LoadLibraryW` は名前が UTF-16 で来て変換器が core の後ろでしか
+    使えないので、スタブのまま残してある。
+
+    テスト側も直した。`"msvcrt"` と決め打ちしていた所を**候補から探す**形に
+    した (`msvcrt` → `libc.so.6` → `libc.so` → `libSystem.dylib`)。読み時条件
+    (`#+ncurses`) で分けるとバイトコンパイルしたビルドに引きずられるので、
+    実行時に試す方を選んだ。
+
+    **その作業で `unittest/typespec-tests.l` に encoding マーカーが無いことに
+    引っかかった。** 日本語のコメントを足した瞬間にファイル全体が読めなくなり、
+    そのファイルの 26 件が丸ごと走らなくなる。`CLAUDE.md` にある
+    `no-lisp-file-has-non-ascii-without-an-encoding-marker` がその場で捕まえた
+    ので、マーカーを足して直した。**この検査が無ければ「テストが減ったこと」に
+    気付かないまま進んでいた。**
   * **`si:uuid-create` を POSIX でも実装した** (issue #50)。Linux の既知失敗が
     **76 件へ** (`uuid-create-*` 8 件)。
 
