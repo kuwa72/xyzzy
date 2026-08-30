@@ -175,6 +175,32 @@ else
   fail=1
 fi
 
+# 走っている Lisp を C-g で止める (issue #162)。**Lisp スイートからは測れない**:
+# 中断はキーを打つことで起き、スイートはキーを打てない。
+#
+# `quit-flag` を立てるのは Win32 の専用スレッド (RegisterHotKey) だけだったので、
+# **端末では走り出した Lisp を止める手段が無く、暴走したらプロセスを殺すしか
+# なかった。** `QUIT` から間引いて端末を覗くようにした (src/core/quit-poll.cc)。
+#
+# **止まったかどうかは画面ではなく戻り値で見る。** 中断されたら "Quit"、されな
+# ければ経過ミリ秒が出る。待ち時間の比較で測ろうとすると、待ちに埋もれて区別が
+# 付かない (実際にそれで一度分からなくなった)。
+#
+# 500000 回のループは手元で約 3.2 秒。C-g は RET の直後に送る。
+log=$build/smoke-quit.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(let ((s (get-internal-real-time))) (dotimes (i 500000) nil) (- (get-internal-real-time) s))\r' \
+  '\Cg' '\w' '\w' \
+  >"$log" 2>&1 || true
+if grep -q '^Quit' "$log"; then
+  echo 'smoke: C-g で走っている Lisp が止まる OK'
+else
+  echo "smoke: C-g による中断 FAILED, see $log" >&2
+  tail -5 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

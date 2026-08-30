@@ -1040,7 +1040,7 @@ lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)
 // ============================================================
 
-lisp Fsi_instance_number () { return make_fixnum (0); }
+
 lisp Fsi_plugin_arg () { return Qnil; }
 lisp Fsi_snarf_documentation (lisp, lisp) { return Qnil; }
 
@@ -6720,8 +6720,28 @@ Fget_recent_keys ()
   int n = ncurses_copy_recent_keys (b, numberof (b));
   return make_string (b, n);
 }
-lisp Fquit_char () { return make_char ('G' - '@'); }
-lisp Fset_quit_char (lisp) { return Qnil; }
+/* 止めるキー。**`set-quit-char` は nil を返すだけだった**ので、変えられ
+   なかった。読む所は src/frontend/ncurses/ncurses-kbd.cc の
+   `ncurses_poll_quit_char` (走っている Lisp を止める) と、コマンドループ。 */
+extern lChar ncurses_quit_char;
+
+lisp Fsi_instance_number () { return make_fixnum (0); }
+
+lisp
+Fquit_char ()
+{
+  return make_char (Char (ncurses_quit_char));
+}
+
+lisp
+Fset_quit_char (lisp c)
+{
+  if (!c || c == Qnil)
+    return Qnil;
+  check_char (c);
+  ncurses_quit_char = xchar_code (c);
+  return c;
+}
 lisp Fset_cursor (lisp) { return Qnil; }
 lisp Fdrag_region (lisp, lisp) { return Qnil; }
 lisp Fcancel_mouse_event () { return Qnil; }

@@ -314,9 +314,32 @@ boole (void *x)
 
 void handle_quit ();
 
+#ifndef _WIN32
+/* **POSIX では `quit-flag` を立てる者が居ない。**
+   Win32 は専用のスレッドが `RegisterHotKey` で C-g を受けて
+   `Vquit_flag = Qt` にする (src/frontend/win32/toplev.cc)。端末にそれに
+   当たるものが無いので、**走り出した Lisp を止める手段が無かった** —
+   暴走したらプロセスを殺すしかなかった (issue #162)。
+
+   `QUIT` はインタプリタの最も熱い所に居るので、**ここでやるのは
+   「カウンタを 1 つ減らして分岐する」だけ。** 実際に端末を覗くのは
+   `poll_quit_char` の中で、そこがさらに時計で下限を掛ける
+   (src/core/quit-poll.cc)。
+
+   **シグナルは使わない。** ハンドラの中で端末から読むと、主入力経路と
+   バイトを取り合う。ここは主スレッドの上で走るので、読んだバイトを
+   入力キューへ戻すのも安全である。 */
+extern int g_quit_poll_countdown;
+void poll_quit_char ();
+#endif
+
 inline void
 check_quit ()
 {
+#ifndef _WIN32
+  if (--g_quit_poll_countdown <= 0)
+    poll_quit_char ();
+#endif
   if (QUITP)
     handle_quit ();
 }
