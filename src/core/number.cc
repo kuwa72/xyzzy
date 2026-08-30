@@ -83,9 +83,45 @@ lisp make_integer (u_char x) { return make_fixnum (x); }
 lisp make_integer (short x) { return make_fixnum (x); }
 lisp make_integer (u_short x) { return make_fixnum (x); }
 lisp make_integer (int x) { return make_fixnum (x); }
-lisp make_integer (u_int x) { return make_fixnum (x); }
+/* **`make_fixnum` へ直に渡してはいけない。** `make_fixnum` は `long` を取る
+   ので、`long` が 32bit の Windows (LLP64) では 0xFFFFFFFF が -1 になる。
+   `u_long` 経由なら、そちらが幅ごとに正しく扱う (下の make_integer (u_long))。
+
+   `unpack-uint32` の型を `u_long` から `uint32_t` に直した瞬間にここを踏んだ:
+   LP64 では `uint32_t` が `u_int` なのでこの関数に来る。**片方のプラット
+   フォームだけ直して、もう片方を壊す形になっていた。** */
+lisp make_integer (u_int x) { return make_integer (u_long (x)); }
 lisp make_integer (long x) { return make_fixnum (x); }
-lisp make_integer (u_long x) { return make_integer (int64_t (x)); }
+
+/* 符号無しの `long` から。
+ *
+ * **`int64_t` へ落としてはいけない。** ここは
+ * `return make_integer (int64_t (x));` と書いてあった。`long` が 32bit の
+ * Windows (LLP64) では単なる符号拡張で正しいが、64bit の LP64 では
+ * `int64_t (0xFFFFFFFFFFFFFFFF)` が **-1** になる。しかも下の
+ * `make_integer (uint64_t)` は `ULONG_MAX != UINT64_MAX` の中にあり、LP64 では
+ * **そもそもコンパイルされない** (`u_long` と同じ型なので重複定義になる) ので、
+ * 逃げ道が無かった。
+ *
+ * **その結果、LP64 では LONG_MAX を超える符号無し 64bit の値を作れなかった:**
+ *
+ *   (si:unpack-uint64 <全ビット 1>)  =>  -1
+ *                                    (正: 18446744073709551615)
+ *
+ * 中身は `make_integer (uint64_t)` と同じにする。 */
+lisp
+make_integer (u_long x)
+{
+#if ULONG_MAX == UINT64_MAX
+  if (x <= u_long (LONG_MAX))
+    return make_fixnum (long (x));
+  lbignum *lb = make_bignum ();
+  lb->rep = br_copy (0, x);
+  return lb;
+#else
+  return make_integer (int64_t (x));
+#endif
+}
 
 lisp
 make_integer (bignum_rep *rep)

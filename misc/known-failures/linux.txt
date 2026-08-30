@@ -24,11 +24,29 @@
 # 通るようになったら run が赤くなるので、そのとき消す。
 
 # FFI: Windows の DLL を読み、その関数を呼ぶ。
-# 
+#
 # `load-library` / `define-dll-entry` / `make-c-function` は LoadLibrary と
 # GetProcAddress、それに Win32 の呼び出し規約 (stdcall) の上に建っている。POSIX
 # 側には対応するものがまだ無い (#50)。dlopen へ載せ替えれば大半は動くはずだが、
 # stdcall と可変長引数の扱いは別に考える必要がある。
+#
+# **`pack-unpack-*` 4 件はここから外れた。FFI とは関係が無かった。**
+# `si:pack-*` / `si:unpack-*` はチャンク (バイト列) を読み書きするだけで DLL を
+# 触らない。落ちていたのは core のバグ 2 つで、どちらも `long` の幅:
+#
+#   * `unpack-int32` が `long` で読んでいた。LP64 では 64bit なので**4 バイトの
+#     欄から 8 バイト読み**、32bit からの符号拡張も起きない
+#     (0xFFFFFFFF を pack して読むと -1 でなく 4294967295)。固定幅の
+#     `int32_t` などに直した。`char` も符号の有無が処理系任せで、**Linux の
+#     ARM では符号無し**なので `unpack-int8` が負を返せない。
+#   * `make_integer (u_long)` が `int64_t` へ落としていた。LP64 では
+#     `make_integer (uint64_t)` が `#if ULONG_MAX != UINT64_MAX` の中にあって
+#     **そもそもコンパイルされない**ので、**LONG_MAX を超える符号無し 64bit を
+#     一切作れなかった** (全ビット 1 が -1 になる)。
+#
+# **群の名前を信じて中を見ないと、こういうものが混ざったまま残る。**
+# ここに残っているのは本当に LoadLibrary / GetProcAddress / stdcall が要るもの
+# だけか、足すときに確かめること。
 
 c-callable-check-type-1
 c-callable-typep
@@ -63,10 +81,6 @@ funcall-vaargs-2
 funcall-vaargs-default-argument-promotions
 funcall-vaargs-noarg
 make-c-function-stdcall-rest
-pack-unpack-int32-overflow
-pack-unpack-uint32
-pack-unpack-uint64
-pack-unpack-uint64-offset
 
 # Win32 API を直接呼ぶもの。
 # 

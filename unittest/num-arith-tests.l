@@ -217,3 +217,37 @@
   => t
   => t
   => t)
+
+;;; 符号無し 64bit の値が作れるか。
+;;;
+;;; `make_integer (u_long)` が `int64_t` へ落としていたため、LP64 では
+;;; `LONG_MAX` を超える符号無しの値が**負になっていた**。`si:unpack-uint64` が
+;;; 全ビット 1 に対して -1 を返す形で表に出た。
+;;;
+;;; **期待値を数値で書ける。** fixnum の幅は環境で変わるが、「符号無しで
+;;; 読んだ値は必ず 0 以上」「符号付きで読んだ値と一致しない」は環境に依らない。
+(deftest chunk-unpack-unsigned-is-never-negative ()
+  (let ((k (si:make-chunk nil 16)))
+    (si:pack-uint64 k 0 #xFFFFFFFFFFFFFFFF)
+    (si:pack-uint32 k 8 #xFFFFFFFF)
+    (values
+     (plusp (si:unpack-uint64 k 0))
+     (= (si:unpack-int64 k 0) -1)
+     (plusp (si:unpack-uint32 k 8))
+     (= (si:unpack-int32 k 8) -1)))
+  => t
+  => t
+  => t
+  => t)
+
+;;; 幅の決め打ちが効いているか。**`unpack-int32` は 4 バイトしか見ない。**
+;;; `long` で読んでいたため LP64 では 8 バイト読んでいて、隣の値が結果に
+;;; 混ざっていた。
+(deftest chunk-unpack-int32-reads-four-bytes ()
+  (let ((k (si:make-chunk nil 16)))
+    ;; 前半 4 バイトに -1、後半 4 バイトに 0 を置く。8 バイト読むと
+    ;; 0x00000000FFFFFFFF = 4294967295 になってしまう。
+    (si:pack-int32 k 0 -1)
+    (si:pack-int32 k 4 0)
+    (si:unpack-int32 k 0))
+  => -1)

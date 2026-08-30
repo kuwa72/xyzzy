@@ -36,6 +36,39 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **`si:pack-*` / `si:unpack-*` が幅を素の型で書いていたのを直した**
+    (issue #50)。Linux の既知失敗が **88 件へ**。**「FFI」の群に並んでいたが、
+    FFI とは関係が無かった** — チャンク (バイト列) を読み書きするだけで
+    DLL を触らない。
+
+    ```lisp
+    ;; 0xFFFFFFFF を pack して読み直す
+    (si:unpack-int32 k 0)   ;=> 4294967295   (正: -1)
+    ;; 全ビット 1 を pack して読み直す
+    (si:unpack-uint64 k 0)  ;=> -1           (正: 18446744073709551615)
+    ```
+
+    バグは 2 つとも `long` の幅だった。ひとつ、**`unpack-int32` が `long` で
+    読んでいた。** LP64 では 64bit なので**4 バイトの欄から 8 バイト読み**、
+    32bit からの符号拡張も起きない。固定幅 (`int32_t` など) に直した。
+    `char` も同じ理由で危ない — 符号の有無が処理系任せで、**Linux の ARM では
+    符号無し**なので `unpack-int8` が負を返せなくなる (MSVC は常に符号付きな
+    ので Windows では表に出ない)。
+
+    ふたつ、**`make_integer (u_long)` が `int64_t` へ落としていた。** LP64 では
+    `make_integer (uint64_t)` が `#if ULONG_MAX != UINT64_MAX` の中にあって
+    **そもそもコンパイルされない**ので、**`LONG_MAX` を超える符号無し 64bit の
+    値を一切作れなかった。**
+
+    **直す途中で Windows を壊して、テストに捕まった。** 型を `u_long` から
+    `uint32_t` に直した瞬間、LP64 では `uint32_t` が `u_int` になるので
+    `make_integer (u_int)` に来る。そこが `make_fixnum` へ直に渡していて、
+    `long` が 32bit の Windows では 0xFFFFFFFF が -1 になる。
+    **片方を直してもう片方を壊す形**だったので、`u_long` 経由に変えた。
+    **両アーキで走らせていなければ気付かなかった。**
+
+    群の説明にも書き足した。**「群の名前を信じて中を見ないと、こういうものが
+    混ざったまま残る。」**
   * **メニューを触る Lisp 関数 5 個とヘルパ 3 個も core に一本化した**
     (#16 Phase 4)。`set-menu` / `get-menu` / `get-menu-position` /
     `current-menu` / `use-local-menu` と、`check_popup_menu` /
