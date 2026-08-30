@@ -36,6 +36,66 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で tree-sitter による色付けが動くようになった** (issue #150)。
+    `*ts-highlight*` は**既定で `t`** なので、Linux ビルドでは
+    **有効になっているのに何も起きなかった。** `lisp/ts.l` は例外を出さずに
+    諦めるので、ユーザからは「色が付かない」だけに見える。C / C++ / Perl /
+    Markdown の 4 言語で、端末に色が出るようになった。
+
+    `src/frontend/win32/ts.cc` を `src/core/ts.cc` へ移し、Win32 依存を
+    3 つ外した。
+
+    **スレッドは `platform.h` の `HANDLE` を通さず、ts.cc の中だけで
+    pthread を直に使う形にした。** 当初は「`CreateThread` /
+    `WaitForSingleObject` のエミュレーションを 1 つ書けば他の移植も進む」と
+    考えたが、それは成り立たない: **`platform.h` の `HANDLE` はファイル
+    記述子で、`CloseHandle` は中身を fd として `close()` を呼ぶ。**
+    スレッドやイベントのハンドルをヒープのポインタにすると、`CloseHandle`
+    がポインタを fd として閉じにかかる。直すにはハンドルに種類の印を付ける
+    か表を作ることになり、`HANDLE` を触る全ての場所を見直す話になる
+    (しかも間欠的に壊れる種類の変更)。他の `CreateThread` の利用者
+    (`filer.cc` `toplev.cc` `process.cc`) はいずれも Win32 GUI 側のコードで
+    移植の対象ではないので、広げる理由も無かった。要る操作は 4 つだけ
+    (起こす / 期限付きで待つ / 手放す / CPU を譲る) で、**期限付きの join は
+    `pthread_timedjoin_np` が Linux 専用なので使わず**、終了の印と条件変数を
+    持って `pthread_cond_timedwait` で待つ。
+
+    **`WideCharToMultiByte (CP_UTF8, ...)` をやめて `i2u8` に替えた。**
+    POSIX の `platform.h` のそれは符号ページを見ずに下位バイトへ切り落とす
+    ので、非 ASCII が壊れる。実際に
+    `grammars/markdown/highlights.scm` の 1 行目 (全角ダッシュ入りの
+    コメント) が該当する。**長さも NUL を含んだ値を返すので、ASCII だけの
+    問い合わせでも余分な NUL を tree-sitter に渡していた。** `i2u8` は core
+    の本物の変換器で Win32 でも同じ結果になるので、枝を分けずに 3 箇所とも
+    差し替えた。
+
+    文法の読み込みは POSIX で `dlopen` を直に呼ぶ (`platform.h` の
+    `LoadLibraryW` は、名前を UTF-16 からバイト列へ直す変換器が core の後ろで
+    定義されるため 0 を返すスタブのまま)。`si:load-dll-module` と同じ形。
+
+    **ついでに 3 つ直した。**
+
+    1. `C:/tmp/ts-outline.log` へ書くデバッグ出力が消し忘れで残っていた
+       (16 箇所)。**問い合わせ 1 回ごとに `fopen` し、捕捉 1 件ごとに 1 行
+       書く。** Windows で `C:\tmp` があると大きなファイルで実害が出る。
+    2. 背景スレッドがメモリ確保に失敗したときの後始末が、outline の仕事でも
+       highlight の印 (`bg_active`) を消していた。**`oq_active` が 1 のまま
+       残るので、そのバッファでは outline が二度と動かない。**
+    3. 文法をソースツリーへ複製する処理が `POST_BUILD` で、**文法が
+       リンクし直された時だけ**動いていた。別のアーキテクチャでビルドすると
+       `grammars/` が前のアーキのまま残り、`si:load-ts-grammar` が
+       "Bad EXE format" で落ちる。`ts-register-mode` は `ignore-errors` の
+       中なので、これも**色が付かないだけに見える**。実際に**コミットされて
+       いた `.dll` は AArch64 のもの**だった。毎回走る `ALL` の custom
+       target に変えた。
+
+    `unittest/ts-tests.l` に 10 件。**解析と問い合わせが本当に動いているかは、
+    これまでどちらのプラットフォームでも測られていなかった**
+    (`ts-highlight-tests.l` が見ているのは切り替えの Lisp だけ)。位置が
+    バイトではなく文字単位で返ることは、日本語を混ぜないと測れない
+    (ASCII だけだと 3 つの数え方が一致してしまう)。既知失敗は Linux で
+    56 件のまま、Windows 3 アーキで 10 / 10 / 8 件のまま。
+
   * **flymake が「入力が止まってから」検査できるようになった**
     (`*flymake-idle-delay*`)。#137 では「打鍵ごとには走らせない」として保存時
     だけにしていたが、**それは `start-timer` が POSIX で動かなかったから**
