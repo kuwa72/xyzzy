@@ -2798,4 +2798,105 @@ Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
 
   return Qt;
 }
+
+#else // !_WIN32
+
+/* `si:*file-operation' の POSIX 版。
+ *
+ * Win32 版は `SHFileOperation' 1 本で済む。POSIX にそれは無いが、**やっている
+ * ことはファイルの複写・移動・削除**で、どれも core の関数が既に持っている。
+ * 無いのは「進捗ダイアログ」「ごみ箱へ入れる undo」「上書きの確認」といった
+ * 見た目の部分だけなので、そこを落として中身だけを組む。
+ *
+ * これが空だったので `shell-operation-*` 15 件が Linux の既知失敗に並んで
+ * いた。**「Win32 API を直接呼ぶもの」に分類してあったが、呼んでいる API が
+ * Win32 なだけで、やることは移植できる。**
+ *
+ * キーワード引数は受け取って無視する。`:no-ui' や `:allow-undo' は
+ * SHFileOperation の見た目を決めるもので POSIX に対応するものが無く、
+ * **呼ぶ側 (lisp/filer.l など) が同じ形で書けること**の方が大事だから。
+ * ただし `:files-only' は意味があるので見る。
+ */
+static void
+file_operation_check_kind (lisp operation)
+{
+  if (operation != Kmove && operation != Kcopy
+      && operation != Kdelete && operation != Krename)
+    FEprogram_error (Einvalid_file_operation, operation);
+}
+
+/* 元 1 つに対する行き先を決める。
+ *
+ * **SHFileOperation の振り分けをそのまま真似る。** 行き先がリストなら元と
+ * 1 対 1 (FOF_MULTIDESTFILES 相当)、1 つだけなら「その中へ」入れる。
+ * 後者で行き先がディレクトリでなければ、元の名前を足さずにそのまま使う
+ * (単一の複写・改名がこれ)。 */
+static lisp
+file_operation_dest (lisp to, lisp from)
+{
+  if (Ffile_directory_p (to) != Qnil)
+    return Fmerge_pathnames (Ffile_namestring (from), to);
+  return to;
+}
+
+static void
+file_operation_one (lisp operation, lisp from, lisp to, lisp keys)
+{
+  /* **キーワード引数は Qnil を渡す。既定引数の 0 を渡してはいけない。**
+     `find_keyword' は `consp (list)' からループに入るので、0 を渡すと
+     ヌルポインタを cons として読んで落ちる。ここの `keys' は
+     SHFileOperation の見た目を決めるもので、`Fcopy_file' の `:if-exists' とは
+     別物なので、そのまま横流しもしない。
+
+     `:if-exists' を渡さないので既定の `:error' になる。**Win32 の
+     `FOF_NOCONFIRMATION' が上書きするのとは違う**が、黙って上書きするより
+     エラーで止まる方が安全側なので、こちらを既定にしておく。 */
+  if (operation == Kdelete)
+    {
+      if (Ffile_directory_p (from) != Qnil)
+        {
+          if (find_keyword_bool (Kfiles_only, keys))
+            return;
+          Fdelete_directory (from, Qnil);
+        }
+      else
+        Fdelete_file (from, Qnil);
+      return;
+    }
+
+  lisp dest = file_operation_dest (to, from);
+  if (operation == Kcopy)
+    Fcopy_file (from, dest, Qnil);
+  else
+    /* :move と :rename は POSIX では区別が無い。Win32 でも FO_RENAME は
+       「同じディレクトリの中での改名」で、FO_MOVE の特別な場合である。 */
+    Frename_file (from, dest, Qnil);
+}
+
+lisp
+Fsi_file_operation (lisp operation, lisp from_names, lisp to_names, lisp keys)
+{
+  file_operation_check_kind (operation);
+
+  /* 行き先がリストのときは元と 1 対 1。数が合わなければ、余った方は
+     Win32 でも何が起きるか決まっていないので、短い方で止める。 */
+  if (consp (from_names) && consp (to_names))
+    {
+      lisp f = from_names, t = to_names;
+      for (; consp (f) && consp (t); f = xcdr (f), t = xcdr (t))
+        file_operation_one (operation, xcar (f), xcar (t), keys);
+      return Qt;
+    }
+
+  if (consp (from_names))
+    {
+      for (lisp f = from_names; consp (f); f = xcdr (f))
+        file_operation_one (operation, xcar (f), to_names, keys);
+      return Qt;
+    }
+
+  file_operation_one (operation, from_names, to_names, keys);
+  return Qt;
+}
+
 #endif // _WIN32

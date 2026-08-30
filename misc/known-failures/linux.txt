@@ -71,11 +71,22 @@ pack-unpack-uint64-offset
 # Win32 API を直接呼ぶもの。
 # 
 # `uuid-create` は CoCreateGuid、`last-win32-error` は GetLastError、
-# `shell-operation-*` は SHFileOperation、`machine-type` は GetSystemInfo、
-# `wait-object` は WaitForMultipleObjects、`add-putenv` / `test-environ` は
-# Win32 の環境変数ブロック。`handle-access-violation` / `handle-divide-by-zero` は
-# ハードウェア例外を win32-exception として受け取るもので、SEH が要る。
+# `machine-type` は GetSystemInfo、`wait-object` は WaitForMultipleObjects、
+# `add-putenv` / `test-environ` は Win32 の環境変数ブロック。
+# `handle-access-violation` / `handle-divide-by-zero` はハードウェア例外を
+# win32-exception として受け取るもので、SEH が要る。
 # `formatter-*` は外部の整形コマンドを Win32 のプロセス起動で呼ぶ。
+#
+# **`shell-operation-*` 15 件はここから外れた。** SHFileOperation を呼んで
+# いるので「Win32 API を直接呼ぶもの」に分類してあったが、**呼んでいる API が
+# Win32 なだけで、やること (複写・移動・削除) は移植できた。** core の
+# ファイル操作で組み直した (src/core/pathname.cc の非 Win32 側)。
+# 落としたのは進捗ダイアログ・ごみ箱への undo・上書き確認という見た目だけ。
+#
+# **この群に残っているものは、名前が Win32 API だからではなく、
+# 「その API がやっていること自体が POSIX に無い」から残っている。**
+# CoCreateGuid には uuid_generate があるので `uuid-create` は移植できる余地が
+# あり、SEH とレジストリは無い。分類を書くときはそこを見分けること。
 
 add-putenv-04
 fix-start-timer
@@ -87,21 +98,6 @@ handle-divide-by-zero
 last-win32-error
 last-win32-error-getlasterror
 machine-type
-shell-operation-copy
-shell-operation-copy-multi
-shell-operation-delete
-shell-operation-delete-multi
-shell-operation-invalid-arg-1
-shell-operation-invalid-arg-2
-shell-operation-invalid-arg-3
-shell-operation-invalid-arg-4
-shell-operation-invalid-arg-5
-shell-operation-invalid-arg-6
-shell-operation-invalid-arg-7
-shell-operation-invalid-arg-8
-shell-operation-move
-shell-operation-move-multi2
-shell-operation-rename
 test-environ-1
 test-environ-2
 uuid-create-1
