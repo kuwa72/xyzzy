@@ -36,6 +36,36 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **`class Process` の共通部分を core の基底クラスに切り出し、残る
+    プロセス関数 8 個も一本化した** (issue #127、#16 Phase 4)。これで
+    プロセスを触る Lisp 関数は 19 個すべてが core にある。
+
+    `class Process` は win32 と ncurses に別々に定義されていて、core には
+    前方宣言しか無かった。**データメンバ 6 個は両方で同じ順で同じ、
+    アクセサ 7 個は 1 文字も違わない。** 違うのは実体だけ (Win32 は
+    スレッドとハンドル、POSIX は pid とパイプ) なので、共通部分を
+    `src/core/process-base.h` の `ProcessBase` にした。
+
+    `process-filter` / `set-process-filter` / `process-sentinel` /
+    `set-process-sentinel` / `process-marker` / `signal-process` /
+    `kill-process` / `process-send-string` が移り、
+    `process_output_byte_stream` と `in_process_send_string` も 1 つになった。
+
+    **`read_fd` / `term` / `poll_output` は基底に上げていない。** fd も
+    `Terminal` も Win32 には対応する概念が無く、置くと基底がプラットフォームを
+    知ることになる。呼ぶ側 (ncurses の 6 箇所) で `posix_process ()` を
+    通して降ろす形にした。
+
+    **メソッド名は `signal_proc` / `kill_proc` に揃えた。** win32 は
+    `signal ()` / `kill ()` だったが、POSIX の `kill(2)` / `signal(3)` と
+    衝突するのを避けて ncurses が `_proc` を付けており、**衝突しない方を
+    採るのが筋。**
+
+    見積もりを 1 度直している。issue には「`xprocess_data` の触点が 38 箇所」
+    と書いたが、それは**出現回数であって直すべき箇所ではなかった。**
+    分類したら win32 は 0 箇所 (代入と比較は暗黙変換で通り、
+    `dynamic_cast<ConPtyProcess *>` も**基底が polymorphic なら通る**)、
+    ncurses は 6 箇所だった。**測ってから設計した方が小さく済む。**
   * **プロセスを触る Lisp 関数 11 個を core に一本化した** (#16 Phase 4)。
     `buffer-process` / `process-buffer` / `process-command` /
     `process-status` / `process-exit-code` / `process-incode` /

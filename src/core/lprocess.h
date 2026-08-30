@@ -8,14 +8,18 @@
 # define PS_RUN 1
 # define PS_EXIT 2
 
-class Process;
+class ProcessBase;
 struct Buffer;
 enum eol_code : int;
 
 class lprocess: public lisp_object
 {
 public:
-  Process *data;
+  /* **core の基底 (src/core/process-base.h) を持つ。** 以前はフロントエンドの
+     `Process' を持っていたので、core からはメソッドを呼べなかった
+     (前方宣言しか無いので不完全型)。プロセス固有のメソッドを呼ぶ側は
+     フロントエンドで降ろす (ncurses の `posix_process ()')。 */
+  ProcessBase *data;
   int status;
   int exit_code;
   lisp buffer;
@@ -33,7 +37,7 @@ check_process (lisp x)
   check_type (x, Tprocess, Qprocess);
 }
 
-inline Process *&
+inline ProcessBase *&
 xprocess_data (lisp x)
 {
   assert (processp (x));
