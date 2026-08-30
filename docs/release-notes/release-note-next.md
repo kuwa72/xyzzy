@@ -36,6 +36,36 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **ウィンドウを触る Lisp 関数 13 個と `Window::coerce_to_window` を
+    `src/core/window-lisp.cc` に一本化した** (#16 Phase 4)。
+
+    どれも `src/frontend/win32/Window.cc` と
+    `src/frontend/ncurses/ncurses-stubs.cc` に**空白を除いて 1 文字も違わない
+    形で 2 つあった** (`split-window` / `delete-window` /
+    `delete-other-windows` / `next-window` / `previous-window` /
+    `get-buffer-window` / `set-window` / `window-buffer` /
+    `window-coordinate` / `get-window-line` / `get-window-start-line` /
+    `deleted-window-p` / `minibuffer-window-p`)。触るのは `Window` と
+    `Buffer` — どちらも core のクラスで、GUI の資源は出てこない。
+
+    **この形の複製が実際にバグを産んでいる。** 補完エンジンでは片方だけに
+    スタック破壊が残り (issue #49)、片方だけが大文字小文字を無視していた
+    (issue #111)。ミニバッファのプロンプトでは片方が nil を返すだけの
+    スタブだった (issue #114)。**全部を測ったところ同じ形の複製が 34 個
+    あったので、その最初の 13 個を潰した。** 差分は 19 行追加・269 行削除。
+
+    フロントエンドに残るのは `Window` のメソッドの実装 (`split` /
+    `delete_window` / `compute_geometry` など)。**宣言は core の `Window.h` に
+    あるので core から呼べる。** 画面の実体を持っているのはフロントエンド
+    だけなので、その境界は保っている。
+
+    **作業中に、静的ライブラリならではの落とし穴を踏んだので書いておく。**
+    `src/frontend/cli/cli-stubs.cc` に `Fget_buffer_window` が nil を返す
+    スタブとして居た。core が実装を持つようになっても、**同じ名前が直接の
+    オブジェクトにあると静的ライブラリの側は引かれないので、リンクは通るのに
+    CLI だけが nil を返し続ける。** 消したところ今度は `Window` のメソッドが
+    足りなくてリンクが落ちたので、CLI にも「無いものは無いと答える」
+    スタブを置いた。**リンクが通ることは、実装が使われていることを意味しない。**
   * **エラー番号に「どの空間の番号か」を持たせた** (issue #120)。前の項で
     直した文言の件は、そこだけ塞いでも同じ事故が別の場所で起きる形だったので、
     設計から直した。

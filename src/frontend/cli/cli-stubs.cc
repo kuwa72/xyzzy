@@ -649,13 +649,30 @@ void refresh_screen (int) {}
 void pending_refresh_screen () {}
 Window *Window::minibuffer_window () { return 0; }
 
+/* **ヘッドレスにはウィンドウが無いが、メソッドは在る必要がある。**
+   ウィンドウを触る Lisp 関数は src/core/window-lisp.cc に移った。そこから
+   `Window' のメソッドを呼ぶので、CLI もこれらを持っていないとリンクできない
+   (それまでは `Fget_buffer_window' のスタブ 1 個で足りていた)。
+
+   **スタブを置く代わりにあちらへスタブを置き直してはいけない。** 静的
+   ライブラリの解決順で core の実装が引かれなくなり、**CLI だけが nil を
+   返し続けるのにリンクは通る**ので気付けない。境界は「画面を持っているのは
+   フロントエンド」に保ったまま、無いものは無いと答える。 */
+void Window::split (int, int) {}
+int Window::delete_window () { return 0; }
+void Window::delete_other_windows () {}
+void Window::set_window () {}
+
 // ============================================================
 // Wait cursor / Process / Buffer stubs
 // ============================================================
 
 lisp Fbegin_wait_cursor () { return Qnil; }
 lisp Fend_wait_cursor () { return Qnil; }
-lisp Fget_buffer_window (lisp, lisp) { return Qnil; }
+/* Fget_buffer_window は src/core/window-lisp.cc が持つようになったので、
+   ここのスタブを消した。**残しておくと静的ライブラリの解決順で
+   core の実装が引かれず、CLI だけ nil を返し続ける** (リンクは通るので
+   気付けない)。 */
 lisp Fprocess_marker (lisp) { return Qnil; }
 void Buffer::cleanup_waitobj_list () {}
 
