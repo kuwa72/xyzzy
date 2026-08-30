@@ -4148,7 +4148,6 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 // ============================================================
 
 // Window management
-lisp Fselected_window () { return selected_window () ? selected_window ()->lwp : Qnil; }
 
 
 /* **モード行のある窓だけ 1 行引く。** w_rect はモード行の行も含むので、
@@ -4215,87 +4214,94 @@ lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
 
 
 
-lisp
-Fenlarge_window (lisp nlines, lisp side)
+/* **`Fenlarge_window' の中身をここへ移した。** 元はあの Lisp 関数の中に
+   80 行のジオメトリ計算が直に書いてあり、`Window::enlarge_window' は
+   src/core/Window.h で宣言されているのに**端末側だけ実装していなかった。**
+   結果として `Fenlarge_window' が win32 と端末で別物になり、共有できずに
+   いた (win32 はこのメソッドに委ねる 5 行)。
+
+   seam はもとから在ったので、そこへ収めるだけで Lisp 関数の側は 1 つに
+   できる (src/core/window-lisp.cc)。
+
+   戻り値は「変えられたか」。0 を返すと呼び出し側が
+   `Ecannot_change_window_size' を上げる。 */
+int
+Window::enlarge_window (int n, int side)
 {
-  int n = (!nlines || nlines == Qnil) ? 1 : fixnum_value (nlines);
-  int vert = side && side != Qnil;
-  Window *wp = selected_window ();
+  if (!n)
+    return 1;
+
   Window *mini = Window::minibuffer_window ();
 
-  if (!n)
-    return Qt;
-
-  if (!vert)
+  if (!side)
     {
-      // Horizontal resize: change height
-      // Find neighbor above or below
+      /* 高さを変える。上か下の隣を探す。 */
       Window *neighbor = 0;
       for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
-        if (w != wp && w->w_rect.top == wp->w_rect.bottom
-            && w->w_rect.left < wp->w_rect.right
-            && w->w_rect.right > wp->w_rect.left)
+        if (w != this && w->w_rect.top == w_rect.bottom
+            && w->w_rect.left < w_rect.right
+            && w->w_rect.right > w_rect.left)
           { neighbor = w; break; }
       if (!neighbor)
         for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
-          if (w != wp && w->w_rect.bottom == wp->w_rect.top
-              && w->w_rect.left < wp->w_rect.right
-              && w->w_rect.right > wp->w_rect.left)
+          if (w != this && w->w_rect.bottom == w_rect.top
+              && w->w_rect.left < w_rect.right
+              && w->w_rect.right > w_rect.left)
             { neighbor = w; break; }
       if (!neighbor)
-        FEsimple_error (Ecannot_change_window_size);
+        return 0;
 
       int nh = neighbor->w_rect.bottom - neighbor->w_rect.top - 1 - n;
       if (nh < 2)
-        FEsimple_error (Ecannot_change_window_size);
+        return 0;
 
-      if (neighbor->w_rect.top == wp->w_rect.bottom)
+      if (neighbor->w_rect.top == w_rect.bottom)
         {
-          wp->w_rect.bottom += n;
+          w_rect.bottom += n;
           neighbor->w_rect.top += n;
         }
       else
         {
-          wp->w_rect.top -= n;
+          w_rect.top -= n;
           neighbor->w_rect.bottom -= n;
         }
     }
   else
     {
-      // Vertical resize: change width
+      /* 幅を変える。左か右の隣を探す。 */
       Window *neighbor = 0;
       for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
-        if (w != wp && w->w_rect.left == wp->w_rect.right
-            && w->w_rect.top < wp->w_rect.bottom
-            && w->w_rect.bottom > wp->w_rect.top)
+        if (w != this && w->w_rect.left == w_rect.right
+            && w->w_rect.top < w_rect.bottom
+            && w->w_rect.bottom > w_rect.top)
           { neighbor = w; break; }
       if (!neighbor)
         for (Window *w = app.active_frame.windows; w && w != mini; w = w->w_next)
-          if (w != wp && w->w_rect.right == wp->w_rect.left
-              && w->w_rect.top < wp->w_rect.bottom
-              && w->w_rect.bottom > wp->w_rect.top)
+          if (w != this && w->w_rect.right == w_rect.left
+              && w->w_rect.top < w_rect.bottom
+              && w->w_rect.bottom > w_rect.top)
             { neighbor = w; break; }
       if (!neighbor)
-        FEsimple_error (Ecannot_change_window_size);
+        return 0;
 
       int nw = neighbor->w_rect.right - neighbor->w_rect.left - n;
       if (nw < 5)
-        FEsimple_error (Ecannot_change_window_size);
+        return 0;
 
-      if (neighbor->w_rect.left == wp->w_rect.right)
+      if (neighbor->w_rect.left == w_rect.right)
         {
-          wp->w_rect.right += n;
+          w_rect.right += n;
           neighbor->w_rect.left += n;
         }
       else
         {
-          wp->w_rect.left -= n;
+          w_rect.left -= n;
           neighbor->w_rect.right -= n;
         }
     }
 
   Window::compute_geometry ();
-  return Qt;
+  return 1;
 }
 
 

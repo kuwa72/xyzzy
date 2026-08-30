@@ -2017,13 +2017,6 @@ Window::delete_window ()
 
 
 
-lisp
-Fselected_window ()
-{
-  assert (xwindow_wp (selected_window ()->lwp));
-  assert (xwindow_wp (selected_window ()->lwp) == selected_window ());
-  return selected_window ()->lwp;
-}
 
 lisp
 Fminibuffer_window ()
@@ -2258,15 +2251,6 @@ Window::enlarge_window (int n, int side)
     }
 }
 
-lisp
-Fenlarge_window (lisp nlines, lisp side)
-{
-  if (!selected_window ()->enlarge_window (((!nlines || nlines == Qnil)
-                                            ? 1 : fixnum_value (nlines)),
-                                           side && side != Qnil))
-    FEsimple_error (Ecannot_change_window_size);
-  return Qt;
-}
 
 Window *
 Window::find_point_window (const POINT &point, int &vert)
