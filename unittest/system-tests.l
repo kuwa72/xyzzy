@@ -367,6 +367,17 @@ time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出�
   => 1
   => 3)
 
+;;; `:encoding` を省いたときの既定 --------------------------------------------
+;;;
+;;; **CP932 (Shift_JIS) で数える。** リファレンスは「エンコーディング変換
+;;; なし」と書いているが、それは**内部表現が CP932 のバイト列だった頃の
+;;; 言い方**で、いまは ucs4 なので「変換なし」に当たるものが無い。実装は
+;;; `w2sl` を呼んでいる (src/core/string.cc)。
+;;;
+;;; **このフォークの `*default-fileio-encoding*` は UTF-8** なので、この既定は
+;;; 他とずれている。変えるかどうかは issue に分けた (公開 API の既定を黙って
+;;; 変えられない)。**ここはずれていることも含めて今の約束を書き留める場所。**
+
 (deftest octet-length-sjis ()
   (values
    (si:octet-length "あ")
@@ -382,35 +393,71 @@ time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出�
   => 4
   => 6)
 
+;; **バイト列を渡しても「変換なし」にはならない。**
+;;
+;; `octet-length-eucjp` / `octet-length-utf8` はここで長く落ちていた
+;; (`misc/known-failures/common.txt`、全ターゲット)。**実装ではなくテストが
+;; 古かった。** 元は
+;;
+;;     (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "漢字"))
+;;
+;; が 6 になることを期待していた。内部表現が CP932 のバイト列だった頃は、
+;; 変換した結果の「文字」がそのままバイトで、それを CP932 で数え直しても
+;; 同じ数になったので成り立っていた。**ucs4 になった今は、バイト値が
+;; U+00E6 などの文字として入り、CP932 で数え直すと増える** (U+00A2 は
+;; CP932 で 2 バイト)。
+;;
+;;     UTF-8 の "漢字" = (230 188 162 229 173 151)  -> 6 文字
+;;     そのうち 162 (U+00A2) だけが CP932 で 2 バイト -> 7
+;;
+;; **`octet-length-sjis` が既定を CP932 だと言っていて通っているので、
+;; 両方を同時に満たす答えは無い。** バイト数を知りたいなら `length` を見る
+;; のが正しい (下の `convert-encoding-from-internal-byte-counts`)。
+(deftest octet-length-of-a-converted-string-counts-in-cp932 ()
+  (let ((c (convert-encoding-from-internal *encoding-utf8n* "漢字")))
+    (list (length c) (si:octet-length c)))
+  => (6 7))
+
 (deftest octet-length-eucjp ()
   (values
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "あ"))
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* "漢字"))
-   (si:octet-length (convert-encoding-from-internal *encoding-euc-jp* (map-to-half-width-string "アイウ" :katakana t)))
    (si:octet-length "あ" :encoding *encoding-euc-jp*)
    (si:octet-length "漢字" :encoding *encoding-euc-jp*)
    (si:octet-length (map-to-half-width-string "アイウ" :katakana t) :encoding *encoding-euc-jp*))
-  => 2
-  => 4
-  => 6
   => 2
   => 4
   => 6)
 
 (deftest octet-length-utf8 ()
   (values
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "あ"))
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "漢字"))
-   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "アイウ"))
    (si:octet-length "あ" :encoding *encoding-utf8n*)
    (si:octet-length "漢字" :encoding *encoding-utf8n*)
    (si:octet-length "アイウ" :encoding *encoding-utf8n*))
   => 3
   => 6
-  => 9
+  => 9)
+
+;; 上の 2 件から外した部分。**測っていたのは `octet-length` ではなく
+;; `convert-encoding-from-internal` が何バイト吐くか**なので、そう書く。
+;; こちらは元の期待値のまま通る。
+(deftest convert-encoding-from-internal-byte-counts ()
+  (flet ((n (enc s) (length (convert-encoding-from-internal enc s))))
+    (values
+     (n *encoding-utf8n* "あ")
+     (n *encoding-utf8n* "漢字")
+     (n *encoding-utf8n* "アイウ")
+     (n *encoding-euc-jp* "あ")
+     (n *encoding-euc-jp* "漢字")
+     (n *encoding-euc-jp* (map-to-half-width-string "アイウ" :katakana t))
+     (n *encoding-sjis* "あ")
+     (n *encoding-sjis* "漢字")))
   => 3
   => 6
-  => 9)
+  => 9
+  => 2
+  => 4
+  => 6
+  => 2
+  => 4)
 
 (deftest octet-length-start-end ()
   (values
