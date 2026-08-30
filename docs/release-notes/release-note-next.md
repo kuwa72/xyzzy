@@ -36,6 +36,34 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX ビルドで外部コマンドの引数が黙って落ちていたのを直した**
+    (issue #138、`lisp/process.l`)。`M-x shell-command`、`M-x format-buffer`、
+    grep、`execute-subprocess` が**全部**静かにおかしくなっていた。
+    **コマンドは起動して終了コード 0 で返るので、気づけない。**
+
+    `shell-command-line` が POSIX でコマンド行を `sh -c <cmd>` に包んでいた
+    が、**非 Win32 の `call-process` / `make-process` は受け取った cmdline を
+    自分で `execl ("/bin/sh", "sh", "-c", cmdline)` に渡している**
+    (`ncurses-process.cc`)。二重になると外側の sh が
+    `sh -c echo wrapped-ok` を「`sh` を `-c echo wrapped-ok` で起動する」と
+    読むので、内側の sh はコマンドとして `echo` だけを受け取り、
+    `wrapped-ok` は $0 に落ちる。実測で出力が "wrapped-ok" ではなく空行
+    1 つだった。
+
+    **被せる側 1 箇所を直した。** 呼び出し元 5 箇所を個別に直すより確実で、
+    「POSIX の `call-process` は既にシェル越し」という事実と一致する。
+    Win32 は事情が逆 (`call-process` が CreateProcess を直に呼ぶので呼ぶ側が
+    包まなければならない) なので、そちらの分岐はそのまま。
+
+    `unittest/shell-command-line-tests.l` に 3 件。**`echo` だけを使う**ので
+    cmd.exe と sh の両方で同じテストになる。引数が残ること、2 つ以上でも
+    残ること、そして**シェルを通っていること** — 引数を落とさない直し方と
+    して「シェルを通さない」もありえるが、それをすると `M-x shell-command`
+    が `ls | head` を受け取れなくなる。
+
+    気づいたのは #137 (flymake) で `gcc -fsyntax-only "ファイル"` が
+    `no input files` を返したため。**ファイル名の置換を疑ったが、置換は
+    正しく、落ちていたのは 1 段外側だった。**
   * **選択中のウィンドウを自動的に黄金比まで広げる `golden-ratio` を追加した**
     (`lisp/golden-ratio.l`、`M-x toggle-golden-ratio`、`Leader t g`)。
     #30「ゴールデンレシオ自動ウィンドウリサイズ」の 1 項目。

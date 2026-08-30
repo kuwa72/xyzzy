@@ -61,9 +61,17 @@
       (shell-execute path exec-dir params :verb :runas))))
 
 (defun shell-command-line (cmd dir)
+  ;; **POSIX では何も被せない。** `call-process' と `make-process' の非 Win32
+  ;; 実装は cmdline を execl("/bin/sh", "sh", "-c", cmdline) にそのまま渡す
+  ;; (src/frontend/ncurses/ncurses-process.cc)。ここで更に `sh -c ...' を
+  ;; 足すと `sh -c "sh -c echo hi"' になり、**引数が丸ごと落ちる** —
+  ;; 内側の sh は `echo' だけをコマンドとして受け取り、`hi' は $0 になる。
+  ;; 実測: 出力が "hi" ではなく空行 1 つだった。
+  ;;
+  ;; Win32 は事情が逆で、`call-process' は CreateProcess を直に呼ぶので
+  ;; 呼ぶ側がシェルを被せなければならない。だから下は残す。
   (when (featurep :unix)
-    (return-from shell-command-line
-      (values (format nil "~A ~A ~A" *shell* *shell-command-option* cmd) dir)))
+    (return-from shell-command-line (values cmd dir)))
   (when (and (not (featurep :windows-nt))
 	     (string-match "\\(^\\|[\\/]\\)command\\(\\.com\\)?$" *shell*))
     (let ((sdir (get-short-path-name (append-trail-slash dir))))
