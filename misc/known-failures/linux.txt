@@ -344,11 +344,26 @@ fix-ole-method
 lisp-mode-eval-last-sexp
 
 # mingw でも落ちるもの。**POSIX 固有ではない。**
-# 
-# `abbreviate-display-string` (表示用にパスを短くする) は、端末ビルドと
-# mingw ビルドが**同じ結果を返し**、MSVC だけが違う。両方とも短縮せずに
-# 元の文字列を返す。つまり POSIX の実装不足ではなく、幅の測り方が MSVC と
-# 違うということである。misc/known-failures/mingw.txt にも同じ名前があり、
-# 理由が分かっていないのもそちらと同じ。
+#
+# **理由を測り直した。以前ここには「端末ビルドと mingw ビルドが同じ結果を返し、
+# MSVC だけが違う。理由が分かっていない」と書いてあった。** 結果が同じだったのは
+# 端末側が**引数をそのまま返すスタブだった**からで、理由は分かった。
+#
+# `abbreviate-display-string` は**幅を測る単位がプラットフォームで違う。**
+# Win32 は GDI で可変幅フォントのピクセルを測り、上限は「平均文字幅 x 引数」
+# である。端末は文字セルの格子なので桁で測る (src/core/abbrev-columns.cc)。
+#
+#     (abbreviate-display-string "D:/src/cmigemo-1.3c-MIT/src/wordlist.h" 40 t)
+#
+# この入力は 38 文字で、**桁で数えれば 40 に収まるので縮めないのが正しい。**
+# MSVC では 40 文字ぶんの平均幅に収まらないので縮む。**どちらも正しく、
+# 期待値が片方の環境のフォントの寸法を焼き付けている。**
+#
+# mingw (Wine) でも落ちるが、**そちらは理由が違う**: 実装は同じ GDI の経路で、
+# Wine のフォントの寸法が本物の Windows と違う。
+#
+# 端末側の実装は入れた。`unittest/abbrev-tests.l` に 7 件あり、**どちらの
+# 数え方でも成り立つ性質**で書いてある (十分長いものは縮む、`...` が入る、
+# 末尾のファイル名は残る)。桁数そのものを見る 2 件だけ POSIX 限定。
 
 fix-abbreviate-display-string

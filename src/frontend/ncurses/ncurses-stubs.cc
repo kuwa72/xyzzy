@@ -1386,7 +1386,9 @@ lisp buffer_bar::buffer_list () const { return Qnil; }
 // abbrev.cc stubs (abbreviate_string uses GDI)
 // ============================================================
 
-lisp Fabbreviate_display_string (lisp string, lisp, lisp) { return string; }
+/* **`abbreviate-display-string` のスタブは消した。** 桁で数える実装が
+   src/core/abbrev-columns.cc にあり、xyzzy-ncurses のソースに入っている。
+   ここに残すと名前がこちらで解決されて、あちらが使われない。 */
 
 // ============================================================
 // binfo.cc stubs
