@@ -139,6 +139,60 @@ of SHA-384 and SHA-512)."
   => "e37b6a775dc87dbaa4dfa9f96e5e3ffddebd71f8867289865df5a32d20cdc944b6022cac3c4982b10d5eeb55c3e4de15134676fb6de0446065c97440fa8c6a58")
 
 
+;;; ブロック長の境界 --------------------------------------------------------
+;;;
+;;; **RFC 4231 のベクタはブロック長ちょうどを踏んでいない。** 鍵は 20 / 4 /
+;;; 25 / 131 バイトで、64 (SHA-224 / SHA-256) と 128 (SHA-384 / SHA-512) の
+;;; 前後が抜けている。**そこが実装の分かれ目**で、ブロック長より長い鍵は
+;;; 先にハッシュしてから使う。期待値は Python の hashlib で作った
+;;; (RFC のベクタと突き合わせて一致することを確認済み)。
+;;;
+;;; **鍵は 0xAA の並びにしてある。** 0x80 以上のバイトでないと、鍵をバイトと
+;;; して読むか CP932 として読むかの違いが出ない。test case 3 が長く落ちて
+;;; いたのがまさにそれで、**鍵がブロック長より長い case 6 / 7 は同じ 0xAA でも
+;;; 通っていた** (長い鍵は別の経路を通るため)。短い鍵だけが壊れる形だったので
+;;; 「HMAC が動いていない」とは見えなかった。
+
+(defun hmac-test-bytes (n b)
+  (make-sequence 'string n :initial-element (code-char b)))
+
+(deftest hmac-sha-224-block-size-boundary ()
+  (let ((data (hmac-test-bytes 50 #xdd)))
+    (values (si:hmac-sha-224 (hmac-test-bytes 63 #xaa) data)
+            (si:hmac-sha-224 (hmac-test-bytes 64 #xaa) data)
+            (si:hmac-sha-224 (hmac-test-bytes 65 #xaa) data)))
+  => "25d9198eeecf2a7d02070c13ca77d0236f44308a19dde27bcdb0962a"
+  => "a35cf04c0b3677e3b0a1a79be3a0336d579371c08190f73e4fc6fd29"
+  => "738bbe3ddb887d7426020ac0cb08a7f239ae30b77857adae402d6ea8")
+
+(deftest hmac-sha-256-block-size-boundary ()
+  (let ((data (hmac-test-bytes 50 #xdd)))
+    (values (si:hmac-sha-256 (hmac-test-bytes 63 #xaa) data)
+            (si:hmac-sha-256 (hmac-test-bytes 64 #xaa) data)
+            (si:hmac-sha-256 (hmac-test-bytes 65 #xaa) data)))
+  => "903157f4637a3ba86d76b508c2798afd5e8d5f3d2cdeedc62295e897b29e6482"
+  => "e3b73eef0fe1ad930dfbe27c108d925234e64a5d9a8c6cf1a87abddc9511c42b"
+  => "b66016aa1f9b6af2286ddc2b2f6347f92581eac752f595704e530b27c5003965")
+
+(deftest hmac-sha-384-block-size-boundary ()
+  (let ((data (hmac-test-bytes 50 #xdd)))
+    (values (si:hmac-sha-384 (hmac-test-bytes 127 #xaa) data)
+            (si:hmac-sha-384 (hmac-test-bytes 128 #xaa) data)
+            (si:hmac-sha-384 (hmac-test-bytes 129 #xaa) data)))
+  => "36d7ffda3a721a9eff7411c5ce71002dfbde7f6f744ea6321307ac9abba6d6360c9253ff3b82c4130f65878ec9454f56"
+  => "cf8cbd3cf71d99d70f4fedb86bead6a71636b6610536e67f3a48b8785590ac7fdcbbbe6dc8ff1b23195e956beb2e7cbd"
+  => "b776eab60f063dfc9ea88ecea15e80fcf324143cfc69ee11def4730635b171a135cdda1b034c2c41e42d6d616a9f3c65")
+
+(deftest hmac-sha-512-block-size-boundary ()
+  (let ((data (hmac-test-bytes 50 #xdd)))
+    (values (si:hmac-sha-512 (hmac-test-bytes 127 #xaa) data)
+            (si:hmac-sha-512 (hmac-test-bytes 128 #xaa) data)
+            (si:hmac-sha-512 (hmac-test-bytes 129 #xaa) data)))
+  => "7d60e32dea278e1a396754c9b1780f5c82cf779eaf6f2946d76ff35120d00d9042c2862ec11247dbd9c6b7236a7f32f1877e3333e42329cc7ac18fd14396e245"
+  => "040e7faea2ba7501e4c7f99fdd858e6ce75a1bc6d96606332c72e101d357bc21420f5a57f635283c5664e293b10d627c21f1802ec1e6e9c57c6b0b6619fb0e92"
+  => "982022c733424a0fb8bfdbc28d7c9b7d8f93041c724c274389cc568623ae0d7bc09025df48b341ff0094689fc81c2d9be7a7c787ce42b863efd4d68f717021e6")
+
+
 (defun hex-string-to-bin-string (hex-string)
   (let (r)
     (dotimes (i (/ (length hex-string) 2))

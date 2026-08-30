@@ -301,13 +301,34 @@ hash_method::hmac (lisp lkey, lisp input, lisp keys)
 {
   char *key;
   check_string (lkey);
-  int key_len = w2sl (lkey);
-  if (key_len <= block_size ())
-    {
-      key = (char *)alloca (key_len + 1);
-      w2s (key, xstring_contents (lkey), xstring_length (lkey));
-    }
-  else
+
+  /* **鍵もデータと同じ「バイトとして読む」経路で取る。**
+     ここは `w2sl` / `w2s` で CP932 に変換していた。内部表現が CP932 の
+     バイト列だった頃はそれが恒等変換だったが、**ucs4 になったあとは
+     0x80 以上のバイト値が U+00AA などの文字として入り、CP932 へ変換すると
+     別のバイトになる** (`wc2cp932` に無ければ `?`)。データの方は
+     `hash_method::update (lisp)` が `xstream_ibyte_helper` を使っていて
+     バイトとして読むので、**鍵とデータで解釈が食い違っていた。**
+
+     RFC 4231 の test case 3 (鍵 = 0xAA x 20) がこれで落ちていた。**鍵が
+     ブロック長より長いときは `update (lkey)` を通る**ので、同じ 0xAA が
+     131 個の test case 6 / 7 は通っていた — 短い鍵だけが壊れる形で、
+     「HMAC が動いていない」とは見えなかった。
+
+     読む先は 1 バイト多く取る。**ブロック長ちょうどか、それより長いかを
+     区別するため**で、溢れた時点で長いと分かる。 */
+  const int cap = block_size () + 1;
+  int key_len = 0;
+  {
+    char *b = (char *)alloca (cap);
+    xstream_ibyte_helper is (lkey);
+    int c;
+    while (key_len < cap && (c = is->get ()) != xstream::eof)
+      b[key_len++] = char (c);
+    key = b;
+  }
+
+  if (key_len > block_size ())
     {
       init ();
       update (lkey);

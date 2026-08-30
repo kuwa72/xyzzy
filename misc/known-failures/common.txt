@@ -39,14 +39,36 @@ fix-ole-for-each-2
 # `*default-fileio-encoding*` (このフォークでは UTF-8) に寄せるかどうかは
 # issue #154 に分けた。
 
-# HMAC-SHA2 test vector 3 (the long-key case).
+# **`hmac-sha2-test-case-3` はここから外れた。本物のバグだった。**
 #
-# This is the failure that had no name.  The mingw x86_64 run reported
+# ここには「HMAC-SHA2 test vector 3 (長い鍵の場合)」と書いてあった。**長い鍵の
+# 場合ではない。** RFC 4231 の case 3 の鍵は 20 バイト (0xAA x 20) で、
+# **短い鍵の方**である。長い鍵 (131 バイト) は case 6 / 7 で、そちらは通って
+# いた。
+#
+# 原因は `hash_method::hmac` (src/core/encdec.cc) が**鍵だけ `w2sl` / `w2s` で
+# CP932 に変換していた**こと。内部表現が CP932 のバイト列だった頃はそれが
+# 恒等変換だったが、ucs4 になったあとは 0x80 以上のバイト値が U+00AA などの
+# 文字として入り、CP932 へ変換すると別のバイトになる (`wc2cp932` に無ければ
+# `?`)。データの方は `update (lisp)` が `xstream_ibyte_helper` でバイトとして
+# 読むので、**鍵とデータで解釈が食い違っていた。**
+#
+# **壊れ方が「短い鍵だけ」だったので、HMAC が動いていないようには見えなかった。**
+# 鍵がブロック長より長いときは `update (lkey)` を通るため、同じ 0xAA が 131 個の
+# case 6 / 7 は通る。鍵が ASCII だけの case 1 / 2 / 4 も通る。**0x80 以上の
+# バイトを含む短い鍵だけが静かに違う値を出していた** — 相手側の実装と
+# 突き合わせるまで気付けない形である。
+#
+# 鍵もデータと同じバイトの経路で読むようにした。RFC 4231 のベクタは
+# ブロック長ちょうどを踏んでいないので、64 / 128 の前後を hashlib で作った
+# ベクタで埋めた (`hmac-sha-*-block-size-boundary` 4 件)。
+#
+# **「この失敗には名前が無かった」という話はここに残しておく価値がある。**
+# mingw x86_64 の run は
 #
 #   Total 678 tests: 668 passed, 10 failed
 #
-# while printing only nine "...Failed" lines, so the tenth could not be read out
-# of the log at all.  Gating the suite is what produced the name: the first
-# gated run called it out as the one unexpected failure.  Worth remembering the
-# next time the output and the count disagree.
-hmac-sha2-test-case-3
+# と出しながら "...Failed" の行を 9 つしか印字しておらず、10 個目がログから
+# 読めなかった。名前が付いたのはスイートを gate したからで、最初の gate 付きの
+# run が「予期しない失敗 1 件」としてこれを名指しした。**出力と数が食い違って
+# いるときに思い出すこと。**
