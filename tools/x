@@ -121,6 +121,10 @@ docker_run() {
     -e XYZZY_TEST_EXCLUDE_EXTRA \
     -e XYZZY_TEST_KNOWN_FAILURES \
     -e XYZZY_TEST_UPDATE_KNOWN_FAILURES \
+    -e XYZZY_PTY_ROWS \
+    -e XYZZY_PTY_COLS \
+    -e XYZZY_PTY_BOOT \
+    -e XYZZY_PTY_RAW \
     -w /work \
     "$IMAGE" "$@"
 }

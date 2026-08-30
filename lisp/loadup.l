@@ -88,6 +88,7 @@
 (si:*load-library "winner") (gc)
 (si:*load-library "golden-ratio") (gc)
 (si:*load-library "formatter") (gc)
+(si:*load-library "flymake") (gc)
 (si:*load-library "fuzzy-complete") (gc)
 (si:*load-library "fuzzy-mx") (gc)
 (si:*load-library "fuzzy-buffer") (gc)
