@@ -1002,10 +1002,6 @@ void init_c_callable (lisp) {}
 // These are referenced by the generated symtable.cc
 // ============================================================
 
-lisp Fsi_startup ()
-{
-  return Fsi_load_library (make_string ("startup"), Qnil);
-}
 
 /* **空実装だった。** そのため端末では `minibuffer-message' もプロンプトも
    何も出さず、`message' の出力先をエコー領域へ回した時点で (issue #97)

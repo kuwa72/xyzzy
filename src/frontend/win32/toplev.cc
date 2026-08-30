@@ -1392,7 +1392,14 @@ Fsi_minibuffer_message (lisp message, lisp prompt)
       xsymbol_value (Vminibuffer_message) = message;
       xsymbol_value (Vminibuffer_prompt) = boole (prompt && prompt != Qnil);
     }
-  Window::minibuffer_window ()->w_disp_flags |= Window::WDF_WINDOW;
+  /* **null を見る。** ここは `Window::minibuffer_window ()` の戻り値を
+     そのまま辿っていた。端末側は同じ場所で null を見ていて、そちらが
+     正しい: この関数は Lisp (`si:*minibuffer-message') から呼べるので、
+     画面がまだ無い時点で呼ばれ得る。`Fselected_window' も同じ形で
+     win32 だけが落ちる書き方になっていた (PR #126)。 */
+  Window *mini = Window::minibuffer_window ();
+  if (mini)
+    mini->w_disp_flags |= Window::WDF_WINDOW;
   if (!app.kbdq.macro_is_running ())
     refresh_screen (0);
   return Qt;

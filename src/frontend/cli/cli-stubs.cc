@@ -489,10 +489,8 @@ void init_c_callable (lisp) {}
 // These are referenced by the generated symtable.cc
 // ============================================================
 
-lisp Fsi_startup ()
-{
-  return Fsi_load_library (make_string ("startup"), Qnil);
-}
+/* Fsi_startup は src/core/window-lisp.cc へ移した。**3 つのフロントエンドが
+   同じ 1 行を持っていた** (win32 / ncurses / ここ)。 */
 
 lisp Fsi_minibuffer_message (lisp, lisp) { return Qnil; }
 lisp Fsi_show_window_foreground () { return Qnil; }

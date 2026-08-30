@@ -689,11 +689,6 @@ init_editor_objects ()
   return 1;
 }
 
-lisp
-Fsi_startup ()
-{
-  return Fsi_load_library (make_string ("startup"), Qnil);
-}
 
 static int
 register_wndclasses (HINSTANCE hinst)
