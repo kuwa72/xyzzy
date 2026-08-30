@@ -773,11 +773,8 @@ lisp Fsi_get_key_state (lisp)
   return Qnil;
 }
 
-lisp Fsi_uuid_create (lisp)
-{
-  FEsimple_error (Eremove_not_supported);
-  return Qnil;
-}
+/* Fsi_uuid_create は src/core/system.cc が POSIX でも実装するように
+   なったので、ここのスタブを消した。 */
 
 lisp Fsi_search_path (lisp, lisp, lisp)
 {

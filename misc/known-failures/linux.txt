@@ -84,7 +84,7 @@ make-c-function-stdcall-rest
 
 # Win32 API を直接呼ぶもの。
 # 
-# `uuid-create` は CoCreateGuid、`last-win32-error` は GetLastError、
+# `last-win32-error` は GetLastError、
 # `machine-type` は GetSystemInfo、`wait-object` は WaitForMultipleObjects、
 # `add-putenv` / `test-environ` は Win32 の環境変数ブロック。
 # `handle-access-violation` / `handle-divide-by-zero` はハードウェア例外を
@@ -97,10 +97,18 @@ make-c-function-stdcall-rest
 # ファイル操作で組み直した (src/core/pathname.cc の非 Win32 側)。
 # 落としたのは進捗ダイアログ・ごみ箱への undo・上書き確認という見た目だけ。
 #
+# **`uuid-create-*` 8 件もここから外れた。** 前はこのコメントに
+# 「CoCreateGuid には uuid_generate があるので移植できる余地がある」と
+# 書いてあり、そのとおりだった。**ただし libuuid には依存しなかった** —
+# RFC 4122 の中身は「乱数」(version 4) か「時刻 + 機械の識別子」
+# (version 1) で、`/dev/urandom` と `clock_gettime` で足りる。Linux ビルドの
+# 依存は ncurses と zlib だけに保ちたいので、そちらを選んだ
+# (src/core/system.cc の非 Win32 側)。
+#
 # **この群に残っているものは、名前が Win32 API だからではなく、
 # 「その API がやっていること自体が POSIX に無い」から残っている。**
-# CoCreateGuid には uuid_generate があるので `uuid-create` は移植できる余地が
-# あり、SEH とレジストリは無い。分類を書くときはそこを見分けること。
+# SEH (ハードウェア例外を Lisp のコンディションとして受け取る) と
+# レジストリは無い。分類を書くときはそこを見分けること。
 
 add-putenv-04
 fix-start-timer
@@ -114,14 +122,6 @@ last-win32-error-getlasterror
 machine-type
 test-environ-1
 test-environ-2
-uuid-create-1
-uuid-create-1-seq
-uuid-create-2
-uuid-create-2-seq
-uuid-create-3
-uuid-create-3-seq
-uuid-create-4
-uuid-create-4-seq
 wait-object-check-type-1
 wait-object-typep
 
