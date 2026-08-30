@@ -212,7 +212,23 @@ xc_callable_insn (lisp x)
   return ((lc_callable *)x)->insn;
 }
 
-ldll_module *make_dll_module ();
+/* **`make_dll_module' はここに置く。** 中身は枠を確保して 3 つ埋めるだけで
+   プラットフォームに依らないが、定義は src/frontend/win32/dll.cc にあった。
+   POSIX 側でも `si:load-dll-module' が要る (src/core/dll-posix.cc) ので、
+   両方から使えるようにインラインにした。`make_process' (src/core/lprocess.h)
+   と同じ形。
+
+   下の 2 つは「関数を呼ぶ」側で、まだ Win32 だけにある (issue #133)。 */
+inline ldll_module *
+make_dll_module ()
+{
+  ldll_module *p = ldata <ldll_module, Tdll_module>::lalloc ();
+  p->name = Qnil;
+  p->handle = 0;
+  p->loaded = 0;
+  return p;
+}
+
 ldll_function *make_dll_function ();
 lc_callable *make_c_callable ();
 lisp funcall_dll (lisp fn, lisp arglist);

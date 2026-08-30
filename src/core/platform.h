@@ -33,6 +33,8 @@
 #include <time.h>
 #include <errno.h>
 #include <limits.h>
+/* dlopen / dlsym / dlclose。下の GetProcAddress / FreeLibrary が使う。 */
+#include <dlfcn.h>
 
 // ------------------------------------------------------------
 // Calling conventions (no-op on non-Windows)
@@ -1396,13 +1398,30 @@ inline DWORD GetTempPathA(DWORD n, LPSTR buf) {
   return 0;
 }
 
-// Module/DLL stubs
+/* 動的読み込み。
+ *
+ * **`dlsym` と `dlclose` はここで本物にできる。** `HMODULE` は上で `void *` に
+ * してあり、`dlopen` の戻り値がそのまま入る。引数がバイト列 (`LPCSTR`) と
+ * ハンドルだけなので、文字コードの変換が要らない。
+ *
+ * **`LoadLibraryW` はスタブのまま残す。** 名前が UTF-16 で来るので、
+ * バイト列へ直す必要があり、その変換器 (`w2i` / `i2u8`) は core の後ろの方で
+ * 定義される。POSIX 側の `si:load-dll-module` は
+ * src/core/dll-posix.cc で自分で `dlopen` を呼ぶ (issue #133 の段階 1)。
+ *
+ * `GetModuleHandle*` もスタブのまま。「もう読み込んである物のハンドルを
+ * 名前で引く」という操作は POSIX に無い (`dlopen` は同じ物を二度開いても
+ * 同じハンドルを返して参照数を増やすので、そちらで足りる)。
+ */
 inline HMODULE GetModuleHandleA(LPCSTR) { return 0; }
 inline HMODULE GetModuleHandleW(LPCWSTR) { return 0; }
 inline HMODULE LoadLibraryA(LPCSTR) { return 0; }
 inline HMODULE LoadLibraryW(LPCWSTR) { return 0; }
-inline BOOL FreeLibrary(HMODULE) { return FALSE; }
-inline FARPROC GetProcAddress(HMODULE, LPCSTR) { return 0; }
+inline BOOL FreeLibrary(HMODULE h) { return h && dlclose (h) == 0; }
+inline FARPROC GetProcAddress(HMODULE h, LPCSTR name)
+{
+  return h ? (FARPROC)dlsym (h, name) : (FARPROC)0;
+}
 inline DWORD GetModuleFileNameA(HMODULE, LPSTR buf, DWORD n) { if (buf && n) *buf = 0; return 0; }
 
 // Window stubs

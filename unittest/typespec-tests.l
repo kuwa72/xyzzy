@@ -1,3 +1,4 @@
+;;; -*- Encoding: utf-8 -*-
 (deftest wait-object-typep ()
   (values
    (typep (si:*create-wait-object) 'wait-object)
@@ -60,9 +61,19 @@
   !! type-error)
 
 
+;;; 開けるはずの C ライブラリの名前。**環境の性質なので決め打ちしない。**
+;;; ここで見たいのは「システムのライブラリを開けるか」で、その名前は
+;;; プラットフォームごとに違う (Windows は msvcrt、glibc は libc.so.6)。
+;;; 読み時条件 (`#+ncurses') で分けると、バイトコンパイルしたビルドに
+;;; 引きずられるので、実行時に候補を順に試す。
+(defun typespec-test-c-library ()
+  (dolist (name '("msvcrt" "libc.so.6" "libc.so" "libSystem.dylib"))
+    (when (ignore-errors (si:load-dll-module name))
+      (return name))))
+
 (deftest dll-module-p ()
   (values
-   (si:*dll-module-p (si:load-dll-module "msvcrt"))
+   (si:*dll-module-p (si:load-dll-module (typespec-test-c-library)))
    (si:*dll-module-p nil)
    (si:*dll-module-p 0)
    (si:*dll-module-p ""))
@@ -73,7 +84,7 @@
 
 (deftest dll-module-typep ()
   (values
-   (typep (si:load-dll-module "msvcrt")
+   (typep (si:load-dll-module (typespec-test-c-library))
           'si:dll-module)
    (typep nil 'si:dll-module)
    (typep 0 'si:dll-module)
@@ -84,7 +95,7 @@
   => nil)
 
 (deftest dll-module-check-type-1 ()
-  (check-type (si:load-dll-module "msvcrt")
+  (check-type (si:load-dll-module (typespec-test-c-library))
               si:dll-module)
   => nil)
 
@@ -95,7 +106,7 @@
 
 (deftest c-function-typep ()
   (values
-   (typep (si:make-c-function (si:load-dll-module "msvcrt")
+   (typep (si:make-c-function (si:load-dll-module (typespec-test-c-library))
                               "atoi" '(:int32) :int32)
           'si:c-function)
    (typep nil 'si:c-function)
@@ -107,7 +118,7 @@
   => nil)
 
 (deftest c-function-check-type-1 ()
-  (check-type (si:make-c-function (si:load-dll-module "msvcrt")
+  (check-type (si:make-c-function (si:load-dll-module (typespec-test-c-library))
                                   "atoi" '(:int32) :int32)
               si:c-function)
   => nil)

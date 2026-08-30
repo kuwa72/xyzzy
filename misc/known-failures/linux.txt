@@ -63,9 +63,6 @@ define-dll-entry-uint32-arg
 define-dll-entry-uint64-arg
 defun-c-callable-cdecl
 defun-c-callable-stdcall
-dll-module-check-type-1
-dll-module-p
-dll-module-typep
 fix-for-ffi-c-function-return-doubl/float-00
 funcall-expand-vaargs
 funcall-invalid-c-args

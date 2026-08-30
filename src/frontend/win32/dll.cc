@@ -2,15 +2,8 @@
 #include "ed.h"
 #include "except.h"
 
-ldll_module *
-make_dll_module ()
-{
-  ldll_module *p = ldata <ldll_module, Tdll_module>::lalloc ();
-  p->name = Qnil;
-  p->handle = 0;
-  p->loaded = 0;
-  return p;
-}
+/* make_dll_module は src/core/dll.h のインラインへ移した (POSIX 側の
+   si:load-dll-module も使うので)。 */
 
 ldll_function *
 make_dll_function ()

@@ -1039,7 +1039,9 @@ lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
 // dll.cc stubs (sys_fns[] references)
 // ============================================================
 
-lisp Fsi_load_dll_module (lisp) { return Qnil; }
+/* Fsi_load_dll_module は src/core/dll-posix.cc が dlopen で実装する
+   ようになったので、ここのスタブを消した。呼び出しの側
+   (make-c-function / make-c-callable) はまだスタブ -- issue #133。 */
 lisp Fsi_make_c_function (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_last_win32_error () { return Qnil; }

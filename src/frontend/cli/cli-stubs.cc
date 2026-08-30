@@ -504,7 +504,17 @@ lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
 // dll.cc stubs (sys_fns[] references)
 // ============================================================
 
+/* Fsi_load_dll_module は POSIX では src/core/dll-posix.cc が dlopen で実装する
+   ので、そちらでは何も置かない (置くと静的ライブラリの解決順で core の実装が
+   引かれず、CLI だけ nil を返し続ける)。
+
+   **Win32 では話が別。** このファイルは Windows の xyzzy-cli.exe でも使われ、
+   そちらは src/frontend/win32/dll.cc をリンクしないので、スタブが無いと
+   未定義参照になる (実際に踏んだ)。呼び出しの側 (make-c-function /
+   make-c-callable) はどちらでもまだスタブ -- issue #133。 */
+#ifdef _WIN32
 lisp Fsi_load_dll_module (lisp) { return Qnil; }
+#endif
 lisp Fsi_make_c_function (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_last_win32_error () { return Qnil; }
