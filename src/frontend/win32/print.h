@@ -1,11 +1,14 @@
 #ifndef _print_h_
 #define _print_h_
 
+/* `PRLOGFONT' の定義は src/core/conf.h にある (issue #143 で移した)。
+   **print.h はそれを使うので、自分で include する。** 移したときに
+   これを忘れて、Windows のビルドだけが `unknown type name 'PRLOGFONT'` で
+   落ちた (clang が Win32 の `PLOGFONT` を提案してくるので、読むと紛らわしい)。 */
+#include "conf.h"
+
 #define MAX_HEADER_LENGTH 256
 
-/* PRLOGFONT の定義は src/core/conf.h へ移した (issue #143)。
-   `write_conf` / `read_conf` が欄を読むので、core から見える所に無いと
-   INI の読み書きを core へ移せなかった。 */
 
 class print_settings;
 
