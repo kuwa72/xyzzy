@@ -81,3 +81,245 @@ Fsi_load_dll_module (lisp lname)
   xsymbol_value (Vdll_module_list) = list;
   return dll;
 }
+
+/*
+ * FFI の呼び出し側 (issue #133 の段階 2 と 3)。
+ *
+ * **libffi は要らない。** 関数ポインタを引数の個数に合った型へキャストして
+ * 呼べば、**呼び出し規約はコンパイラが出す。** src/frontend/win32/dll.cc の
+ * x86_64 の枝が同じ形で書かれていて、そこから持ってきた。POSIX x86_64 /
+ * aarch64 には規約が 1 つしか無いので、stdcall と cdecl の区別も要らない。
+ *
+ * **float / double の引数は受け付けない。** SysV では整数と浮動小数で別の
+ * レジスタ列を使うので、int64_t を並べるキャスト 1 本では渡せない。
+ * **これは Win32 の x86_64 側と同じ制限**で、あちらも同じ理由で断っている
+ * (返り値の float / double は別の型でキャストすれば渡せるので、そちらは通る)。
+ *
+ * SEH は無いので張らない。**Win32 側はハードウェア例外を Lisp の
+ * win32-exception にして返すが、POSIX でそれに相当するのは SIGSEGV で、
+ * 拾って Lisp へ戻す仕組みが無い** (既知失敗の handle-* 3 件がそれ)。
+ * 落ちるべきものは落ちる。
+ */
+
+lc_callable *
+make_c_callable ()
+{
+  lc_callable *p = ldata <lc_callable, Tc_callable>::lalloc ();
+  p->function = Qnil;
+  p->arg_types = 0;
+  p->nargs = 0;
+  p->return_type = 0;
+  p->arg_size = 0;
+  return p;
+}
+
+lisp
+funcall_c_callable (lisp, lisp)
+{
+  /* **Lisp の関数を C から呼べるアドレスにするのは、まだできない。**
+     実行時に機械語を作る必要がある (lc_callable::insn)。ABI ごとに書くか
+     libffi の closure を使うかの判断が残っている (issue #133 の段階 4)。 */
+  FEsimple_error (Edll_not_initialized);
+  return Qnil;
+}
+
+void
+init_c_callable (lisp)
+{
+}
+
+lisp
+funcall_dll (lisp fn, lisp arglist)
+{
+  assert (dll_function_p (fn));
+
+  if (!xdll_function_proc (fn))
+    FEprogram_error (Edll_not_initialized, fn);
+
+  int nargs = xdll_function_nargs (fn);
+  int total = nargs;
+
+  int64_t a[12] = {};
+  const u_char *at = xdll_function_arg_types (fn);
+  for (int i = 0; i < nargs; i++, arglist = xcdr (arglist))
+    {
+      if (!consp (arglist))
+        FEtoo_few_arguments ();
+      lisp x = xcar (arglist);
+      switch (at[i])
+        {
+        case CTYPE_FLOAT:
+        case CTYPE_DOUBLE:
+          /* 上の注を参照。Win32 の x86_64 側と同じ理由で断る。 */
+          FEprogram_error (Edll_not_initialized, fn);
+          break;
+        default:
+          a[i] = cast_to_int64 (x);
+          break;
+        }
+    }
+
+  if (consp (arglist) && xdll_function_vaarg_p (fn))
+    {
+      lisp vaargs = xcar (arglist);
+      check_vaargs (vaargs);
+      for (; consp (vaargs); vaargs = xcdr (vaargs))
+        {
+          if (total >= 12)
+            FEprogram_error (Edll_not_initialized, fn);
+          lisp vaarg = xcar (vaargs);
+          u_char t = check_vaarg_type (xcar (vaarg));
+          lisp val = Fcadr (vaarg);
+          switch (t)
+            {
+            case CTYPE_FLOAT:
+            case CTYPE_DOUBLE:
+              {
+                /* **可変長引数の double はビット列を整数の枠で渡す。**
+                   Win32 の x86_64 側と同じ扱い。SysV では可変長の浮動小数は
+                   XMM も使うので、これで通るのは受け側が整数として読む場合に
+                   限る。**厳密に合わせるには段階 4 と同じ仕掛けが要る。** */
+                double d = coerce_to_double_float (val);
+                memcpy (&a[total], &d, sizeof d);
+              }
+              break;
+            default:
+              a[total] = cast_to_int64 (val);
+              break;
+            }
+          total++;
+        }
+      arglist = xcdr (arglist);
+    }
+
+  if (consp (arglist))
+    FEtoo_many_arguments ();
+
+  FARPROC proc = xdll_function_proc (fn);
+
+  typedef int64_t (*f0)();
+  typedef int64_t (*f1)(int64_t);
+  typedef int64_t (*f2)(int64_t, int64_t);
+  typedef int64_t (*f3)(int64_t, int64_t, int64_t);
+  typedef int64_t (*f4)(int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f7)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t);
+  typedef int64_t (*f8)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t, int64_t);
+  typedef int64_t (*f9)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                        int64_t, int64_t, int64_t);
+  typedef int64_t (*f10)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f11)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t, int64_t);
+  typedef int64_t (*f12)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t,
+                         int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
+  /* 返り値が float / double のときだけ、返り値の型を持つ関数型でキャストする
+     (整数の枠で受け取ると XMM から取れない)。引数は同じ並べ方でよい。 */
+  u_char rt = xdll_function_return_type (fn);
+  if (rt == CTYPE_FLOAT || rt == CTYPE_DOUBLE)
+    {
+      typedef double (*d0)();
+      typedef double (*d1)(int64_t);
+      typedef double (*d2)(int64_t, int64_t);
+      typedef double (*d3)(int64_t, int64_t, int64_t);
+      typedef double (*d4)(int64_t, int64_t, int64_t, int64_t);
+      typedef float (*s0)();
+      typedef float (*s1)(int64_t);
+      typedef float (*s2)(int64_t, int64_t);
+      typedef float (*s3)(int64_t, int64_t, int64_t);
+      typedef float (*s4)(int64_t, int64_t, int64_t, int64_t);
+
+      if (total > 4)
+        FEprogram_error (Edll_not_initialized, fn);
+
+      if (rt == CTYPE_DOUBLE)
+        {
+          double dr = 0;
+          switch (total)
+            {
+            case 0: dr = ((d0)proc)(); break;
+            case 1: dr = ((d1)proc)(a[0]); break;
+            case 2: dr = ((d2)proc)(a[0], a[1]); break;
+            case 3: dr = ((d3)proc)(a[0], a[1], a[2]); break;
+            case 4: dr = ((d4)proc)(a[0], a[1], a[2], a[3]); break;
+            }
+          save_last_error ();
+          return make_double_float (dr);
+        }
+
+      float sr = 0;
+      switch (total)
+        {
+        case 0: sr = ((s0)proc)(); break;
+        case 1: sr = ((s1)proc)(a[0]); break;
+        case 2: sr = ((s2)proc)(a[0], a[1]); break;
+        case 3: sr = ((s3)proc)(a[0], a[1], a[2]); break;
+        case 4: sr = ((s4)proc)(a[0], a[1], a[2], a[3]); break;
+        }
+      save_last_error ();
+      return make_single_float (sr);
+    }
+
+  int64_t r = 0;
+  switch (total)
+    {
+    case 0:  r = ((f0)proc)(); break;
+    case 1:  r = ((f1)proc)(a[0]); break;
+    case 2:  r = ((f2)proc)(a[0], a[1]); break;
+    case 3:  r = ((f3)proc)(a[0], a[1], a[2]); break;
+    case 4:  r = ((f4)proc)(a[0], a[1], a[2], a[3]); break;
+    case 5:  r = ((f5)proc)(a[0], a[1], a[2], a[3], a[4]); break;
+    case 6:  r = ((f6)proc)(a[0], a[1], a[2], a[3], a[4], a[5]); break;
+    case 7:  r = ((f7)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+    case 8:  r = ((f8)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]); break;
+    case 9:  r = ((f9)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                            a[8]); break;
+    case 10: r = ((f10)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                             a[8], a[9]); break;
+    case 11: r = ((f11)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                             a[8], a[9], a[10]); break;
+    case 12: r = ((f12)proc)(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+                             a[8], a[9], a[10], a[11]); break;
+    default:
+      FEprogram_error (Edll_not_initialized, fn);
+    }
+
+  save_last_error ();
+
+  switch (rt)
+    {
+    default:
+      assert (0);
+
+    case CTYPE_VOID:
+      return Qnil;
+
+    case CTYPE_INT8:
+      return make_fixnum ((char)r);
+
+    case CTYPE_UINT8:
+      return make_fixnum ((u_char)r);
+
+    case CTYPE_INT16:
+      return make_fixnum ((short)r);
+
+    case CTYPE_UINT16:
+      return make_fixnum ((u_short)r);
+
+    case CTYPE_INT32:
+      return make_fixnum ((int32_t)r);
+
+    case CTYPE_UINT32:
+      return make_integer ((int64_t)(uint32_t)r);
+
+    case CTYPE_INT64:
+      return make_integer ((int64_t)r);
+
+    case CTYPE_UINT64:
+      return make_integer ((uint64_t)r);
+    }
+}

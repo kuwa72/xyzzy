@@ -761,6 +761,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/bytecode.cc
     ${CORE_DIR}/ces.cc
     ${CORE_DIR}/conf-io.cc
+    ${CORE_DIR}/dll-call.cc
     ${CORE_DIR}/char.cc
     ${CORE_DIR}/chname.cc
     ${CORE_DIR}/chunk.cc

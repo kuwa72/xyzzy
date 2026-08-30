@@ -235,4 +235,23 @@ lisp funcall_dll (lisp fn, lisp arglist);
 lisp funcall_c_callable (lisp, lisp);
 void init_c_callable (lisp);
 
+/* **型の検査と大きさの計算は src/core/dll-call.cc にある。** 実際に呼ぶ所
+   (`funcall_dll') はプラットフォームごとに分かれていて (i386 はスタックを
+   自分で組む、Win32 は SEH を張る)、そこから使う (issue #133)。 */
+u_char check_c_type (lisp type);
+u_char check_calling_convention (lisp keys);
+int calc_c_size (u_char type);
+u_char check_vaarg_type (lisp type);
+void check_vaargs (lisp vaargs);
+int calc_vaarg_size (lisp fn, lisp arglist);
+int calc_argument_size (u_char *at, lisp largs);
+
+/* 直前の呼び出しのエラー番号を `si:last-win32-error' から見えるように覚える。
+   非 Win32 では `GetLastError ()' が errno を返す (src/core/platform.h)。 */
+inline void
+save_last_error ()
+{
+  xsymbol_value (Vlast_win32_error) = make_fixnum (GetLastError ());
+}
+
 #endif

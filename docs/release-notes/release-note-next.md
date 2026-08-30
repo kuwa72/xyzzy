@@ -36,6 +36,59 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で FFI が使えるようになった** (issue #133 の段階 2〜3、
+    既知失敗 59 -> 57)。**libffi は要らなかった。**
+
+    ```lisp
+    (c:define-dll-entry c:int (_abs :convention :cdecl) (c:int)
+      "libc.so.6" "abs")
+    (_abs -5)        ; => 5
+    ```
+
+    実測 (glibc): `abs(-5)` = 5、`getpid()` が `si:getpid` と一致、
+    `atoi("42")` = 42、`llabs(-8589934592)` = 8589934592、`strchr` が
+    ポインタを返す。
+
+    **判断待ちにしていた「libffi を入れるか」は、要らない判断だった。**
+    `src/frontend/win32/dll.cc` の x86_64 の枝は、アセンブリでも libffi でも
+    なく**関数ポインタのキャスト**で呼んでいる:
+
+    ```cpp
+    typedef int64_t (*f2)(int64_t, int64_t);
+    r = ((f2)proc)(a[0], a[1]);
+    ```
+
+    **呼び出し規約はコンパイラが出す。** `int64_t (*)(int64_t, int64_t)` へ
+    キャストして呼べば、Win64 なら Win64 の、SysV なら SysV の規約になる。
+    POSIX x86_64 / aarch64 には規約が 1 つしか無いので、**stdcall の区別も
+    要らない分だけ簡単。**
+
+    型の検査と `si:make-c-function` を core (`src/core/dll-call.cc`) へ移し、
+    実際に呼ぶ所を `src/core/dll-posix.cc` に書いた。win32 側に残したのは
+    i386 のスタック組みと SEH でハードウェア例外を拾う部分で、**どちらも
+    本当に Win32 の話。**
+
+    **float / double の引数は 64bit では断る。** 64bit
+    (Win64 / SysV / AAPCS) は整数と浮動小数で別のレジスタ列を使うので、
+    int64_t を並べるキャスト 1 本では渡せない。**これは Win32 の x86_64 側と
+    同じ制限**で、あちらも同じ理由で断っている。返り値の float / double は
+    返り値の型でキャストすれば渡せるので通る。
+
+    **i386 は引数を全部スタックに積むので float もそのまま渡せる**
+    (`push_arg` が扱っている)。テストを 64bit 限定にしていなかったため、
+    **「できることをできない」と書いたテストが i686 の CI で落ちた。**
+
+    **残るのは `make-c-callable` (段階 4) だけ。** Lisp の関数を C から呼べる
+    アドレスにするので、実行時に機械語を作る必要がある。**そこだけは libffi の
+    closure を使うか ABI ごとに書くかの判断が残る**が、それを必要とする
+    Lisp コードはこのリポジトリ内には見当たらない。
+
+    `unittest/ffi-portable-tests.l` に 9 件。**`unittest/foreign-test.l` は
+    `msvcrt` の `_itoa` / `_atoi64` / `_i64toa` を呼ぶので POSIX では動かず、
+    POSIX 側の FFI は 1 件も測られていなかった。** 標準 C の関数だけを使って、
+    **両方のプラットフォームで同じテストになる**ようにした (実際どちらでも
+    9 件通る)。float 引数を断ること・知らない型を断ること・無い名前を断ること
+    も見ている。
   * **`machine-type` が Windows 以外で測られていなかったのを直した**
     (既知失敗 60 -> 59)。既知失敗リストには「GetSystemInfo」と書いてあったが、
     **POSIX でも `machine-type` は値を返していた** (`"amd64"`)。落ちていたのは
@@ -100,7 +153,16 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
     `gh pr checks --watch` を呼ぶと、待たずに
     `no checks reported on the '...' branch` で 1 を返す。**待ち時間 0 で
     「落ちたものがある」と出るので、CI を見に行って初めて分かる。**
-    チェックが現れるまで待ってから `--watch` に入るようにした。
+
+    **窓は 1 回で終わらない。** force-push でやり直すと run が作り直される
+    ので、`--watch` が戻ったあとにまた空になることがある (最初は「現れるまで
+    待つ」だけを足して、そのあと同じ形で 2 度目を踏んだ)。
+    「現れるのを待つ → `--watch`」を**塊ごと繰り返す**形にした。
+
+    **衝突している PR にはチェックが 1 つも付かない**のも見るようにした。
+    GitHub は merge ref を作れないので workflow が発火せず、**上の窓と
+    見分けが付かないまま 30 分待つ**ことになる (base の PR が squash merge
+    された直後に踏んだ)。先に `mergeable` を見て、衝突なら rebase を促す。
   * **`tools/x test` がテストの前にビルドするようになった。** `run-tests.sh` は
     ビルドしないので、**ソースを直したあとの `tools/x test` が古い exe を
     測って通ってしまっていた。**
