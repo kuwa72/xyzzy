@@ -2,6 +2,99 @@
 #include "ed.h"
 #include "except.h"
 
+/* --- チャンクのバイト列の意味 --------------------------------------------
+ *
+ * チャンクは C の `char *` である。**そのバイト列が何のエンコーディングかは
+ * プラットフォームで違う**: Win32 の ANSI API (`MessageBoxA`、`atoi` など) は
+ * CP932 を読み、POSIX の C 関数は UTF-8 を読む。
+ *
+ * ここは `w2s` / `s2w` (CP932) 決め打ちだった。**内部表現が CP932 のバイト列
+ * だった頃はそれが恒等変換で、移行のときに残った。** POSIX では
+ * `(si:make-string-chunk "日本語")` が CP932 のバイトを作るので、**渡した先の
+ * C 関数が読めない。** 読み書きが対称なので Lisp の中で往復させる限りは
+ * 気付かず、C に渡したときだけ壊れる。
+ *
+ * 変換の向きは 2 つ、区切り方が 3 つ (長さ無し / 長さで区切る / 書き込み先を
+ * 長さで区切る) あるので、**プラットフォームの分岐をこの 6 つに閉じ込める。**
+ * パスと環境変数が同じ考え方で書かれている (src/core/vfs-posix.cc の
+ * `os_path`、src/core/environ.cc)。
+ */
+
+static size_t
+chunk_encode_len (const ucs4_t *s, size_t size)
+{
+#ifdef _WIN32
+  return w2sl (s, size);
+#else
+  return i2u8l (s, int (size)) - 1;   /* i2u8l は NUL の分を含む */
+#endif
+}
+
+static void
+chunk_encode (char *b, const ucs4_t *s, size_t size)
+{
+#ifdef _WIN32
+  w2s (b, s, size);
+#else
+  i2u8 (s, int (size), b);
+#endif
+}
+
+static void
+chunk_encode (char *b, char *be, const ucs4_t *s, size_t size)
+{
+#ifdef _WIN32
+  w2s (b, be, s, size);
+#else
+  /* **`w2s (b, be, s, size)` と同じ約束**にする: 末尾に NUL を置く分を残し、
+     入り切らない文字は書かない (`w2s_chunk` は NUL を置かない別物なので、
+     ここで使うと振る舞いが変わる)。 */
+  be--;
+  char *p = i2u8 (b, be, s, size);
+  *p = 0;
+#endif
+}
+
+static size_t
+chunk_decode_len (const char *s, const char *se, int zero_term)
+{
+#ifdef _WIN32
+  return s2wl (s, se, zero_term);
+#else
+  return u82il (s, se, zero_term);
+#endif
+}
+
+static void
+chunk_decode (ucs4_t *b, const char *s, const char *se, int zero_term)
+{
+#ifdef _WIN32
+  s2w (b, s, se, zero_term);
+#else
+  u82i (b, s, se, zero_term);
+#endif
+}
+
+static size_t
+chunk_decode_len (const char *s)
+{
+#ifdef _WIN32
+  return s2wl (s);
+#else
+  return u82il (s);
+#endif
+}
+
+static void
+chunk_decode (ucs4_t *b, const char *s)
+{
+#ifdef _WIN32
+  s2w (b, s);
+#else
+  u82i (s, b);
+#endif
+}
+
 lchunk *
 make_chunk ()
 {
@@ -86,14 +179,16 @@ lisp
 Fsi_make_string_chunk (lisp string)
 {
   check_string (string);
-  int l = w2sl (xstring_contents (string), xstring_length (string));
+  int l = int (chunk_encode_len (xstring_contents (string),
+                                xstring_length (string)));
   lisp chunk = make_chunk ();
   xchunk_type (chunk) = Qnil;
   xchunk_size (chunk) = l + 1;
   char *b = (char *)xmalloc (l + 1);
   xchunk_data (chunk) = b;
   xchunk_owner (chunk) = chunk;
-  w2s (b, xstring_contents (string), xstring_length (string));
+  chunk_encode (b, xstring_contents (string), xstring_length (string));
+  b[l] = 0;
   return chunk;
 }
 
@@ -348,9 +443,9 @@ unpack_string_chunk (lisp chunk, lisp loffset, lisp lsize, lisp lzero_term)
   int zero_term = !lzero_term || lzero_term != Qnil;
   try
     {
-      size_t l = s2wl (p, pe, zero_term);
+      size_t l = chunk_decode_len (p, pe, zero_term);
       lisp string = make_string (l);
-      s2w (xstring_contents (string), p, pe, zero_term);
+      chunk_decode (xstring_contents (string), p, pe, zero_term);
       return string;
     }
   catch (Win32Exception &e)
@@ -372,9 +467,9 @@ unpack_string_pointer (lisp laddress, lisp lsize, lisp lzero_term)
         FErange_error (lsize);
       try
         {
-          size_t l = s2wl (p);
+          size_t l = chunk_decode_len (p);
           lisp string = make_string (l);
-          s2w (xstring_contents (string), p);
+          chunk_decode (xstring_contents (string), p);
           return string;
         }
       catch (Win32Exception &e)
@@ -390,9 +485,9 @@ unpack_string_pointer (lisp laddress, lisp lsize, lisp lzero_term)
         FErange_error (lsize);
       try
         {
-          size_t l = s2wl (p, pe, zero_term);
+          size_t l = chunk_decode_len (p, pe, zero_term);
           lisp string = make_string (l);
-          s2w (xstring_contents (string), p, pe, zero_term);
+          chunk_decode (xstring_contents (string), p, pe, zero_term);
           return string;
         }
       catch (Win32Exception &e)
@@ -557,7 +652,7 @@ Fsi_pack_string (lisp chunk, lisp loffset, lisp value, lisp lsize)
     }
   try
     {
-      w2s (p, pe, xstring_contents (value), xstring_length (value));
+      chunk_encode (p, pe, xstring_contents (value), xstring_length (value));
     }
   catch (Win32Exception &e)
     {

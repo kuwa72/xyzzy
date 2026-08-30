@@ -817,6 +817,85 @@ u82il (const char *s)
   return n;
 }
 
+/* 長さで区切る形。**CP932 側の `s2wl` / `s2w` と同じ約束**にしてある:
+   SE まで見て、ZERO_TERM なら NUL で止まる。チャンク (C の char*) を
+   読むところが要る (src/core/chunk.cc)。 */
+size_t
+u82il (const char *s, const char *se, int zero_term)
+{
+  size_t n = 0;
+  const u_char *p = (const u_char *)s;
+  const u_char *const pe = (const u_char *)se;
+  while (p < pe && (!zero_term || *p))
+    {
+      if ((*p & 0xC0) != 0x80)
+        n++;
+      p++;
+    }
+  return n;
+}
+
+ucs4_t *
+u82i (ucs4_t *b, const char *s, const char *se, int zero_term)
+{
+  const u_char *p = (const u_char *)s;
+  const u_char *const pe = (const u_char *)se;
+  while (p < pe && (!zero_term || *p))
+    {
+      ucs4_t c = *p++;
+      int extra = c < 0xC0 ? 0 : c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
+      if (extra)
+        {
+          ucs4_t v = c & (0x3F >> extra);
+          int i;
+          for (i = 0; i < extra && p < pe && (!zero_term || *p)
+                      && (*p & 0xC0) == 0x80; i++)
+            v = (v << 6) | (*p++ & 0x3F);
+          /* 途中で切れていたら、先頭のバイトをそのまま 1 文字にする
+             (下の u82i と同じ扱い)。 */
+          c = i == extra ? v : c;
+        }
+      *b++ = c;
+    }
+  return b;
+}
+
+/* 書き込み先を長さで区切る形 (`w2s (b, be, s, size)` と同じ約束)。**入り切らない
+   文字は書かない。** 末尾に NUL は置かない: 置く場所があるかどうかは呼ぶ側の
+   話で、`w2s_chunk` もそうしている。 */
+char *
+i2u8 (char *b, char *be, const ucs4_t *s, size_t size)
+{
+  for (const ucs4_t *se = s + size; s < se; s++)
+    {
+      ucs4_t c = *s;
+      int n = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+      if (b + n > be)
+        break;
+      if (n == 1)
+        *b++ = char (c);
+      else if (n == 2)
+        {
+          *b++ = char (0xC0 | (c >> 6));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+      else if (n == 3)
+        {
+          *b++ = char (0xE0 | (c >> 12));
+          *b++ = char (0x80 | ((c >> 6) & 0x3F));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+      else
+        {
+          *b++ = char (0xF0 | (c >> 18));
+          *b++ = char (0x80 | ((c >> 12) & 0x3F));
+          *b++ = char (0x80 | ((c >> 6) & 0x3F));
+          *b++ = char (0x80 | (c & 0x3F));
+        }
+    }
+  return b;
+}
+
 /* A byte that is not valid UTF-8 is kept as its own code point rather than
    dropped, so a name that came from the filesystem can go back to it. */
 ucs4_t *
