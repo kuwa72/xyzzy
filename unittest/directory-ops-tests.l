@@ -67,3 +67,40 @@
 (deftest directory-root-not-empty ()
   (and (directory "/") t)
   => t)
+
+;; 既にあるディレクトリを作ろうとしたらエラーになるか。**戻り値だけを
+;; 見ると通ってしまう**ので、エラーになることと `:if-exists :skip' で
+;; 通ることを別々に見る。
+;;
+;; POSIX では errno を Win32 のコードと突き合わせていたため、`EEXIST' (17) が
+;; `ERROR_FILE_EXISTS' (80) にも `ERROR_ALREADY_EXISTS' (183) にも一致せず、
+;; **エラーにならず t が返っていた** (Windows では "File already exists.")。
+(deftest create-directory-existing-signals ()
+  (unwind-protect
+      (let ((root (dirops-test-root)))
+        (dirops-cleanup)
+        (create-directory root)
+        (list (handler-case (progn (create-directory root) :no-error)
+                (file-error () :file-error))
+              (create-directory root :if-exists :skip)))
+    (dirops-cleanup))
+  => (:file-error t))
+
+;; エラーの文言が、その環境で意味を持たないものになっていないか。
+;;
+;; **期待値を文言そのもので書かない** (環境で変わる)。代わりに「出てはいけない
+;; もの」を見る。POSIX では `GetLastError ()' が errno を返すのに、それを
+;; Win32 のコードとして引いていたので、ファイルのエラーが
+;;   * ソケットの表に当たって "Non-Authoritative; Host not found, or SERVERFAIL"
+;;     (WSA* 定数が POSIX では errno そのものなので、ENOENT の 2 が
+;;      WSATRY_AGAIN の 2 に当たる)
+;;   * あるいは "Undocumented win32 error: 39"
+;; になっていた。**どちらもファイル操作の説明として成立しない。**
+(deftest file-error-message-is-not-nonsense ()
+  (let ((msg (handler-case
+                 (progn (delete-file "/nonexistent-dir-for-xyzzy-test/a") nil)
+               (file-error (e) (format nil "~A" e)))))
+    (list (and msg t)
+          (not (and msg (string-match "Undocumented win32 error" msg)))
+          (not (and msg (string-match "SERVERFAIL" msg)))))
+  => (t t t))

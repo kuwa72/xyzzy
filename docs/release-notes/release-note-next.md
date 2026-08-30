@@ -36,6 +36,47 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX ビルドでファイル操作のエラーの文言が全部でたらめだったのを
+    直した** (issue #120)。
+
+    | 操作 | 出ていた文言 |
+    | --- | --- |
+    | 無いファイルを開く | `Non-Authoritative; Host not found, or SERVERFAIL` |
+    | 空でないディレクトリを消す | `Undocumented win32 error: 39` |
+    | ファイルへ `chdir` | `Undocumented win32 error: 20` |
+
+    非 Win32 の `GetLastError ()` は errno を返すが、それを Win32 のエラー
+    コードとして引いていた。**1 つ目が DNS のエラーになるのは、ソケットの
+    エラー表が先に引かれるため。** POSIX では `WSA*` 定数が errno そのものと
+    して define されているので (`WSATRY_AGAIN` が 2、`ENOENT` も 2)、ファイルの
+    エラーがソケットの表に当たる。2 つ目と 3 つ目は `FormatMessageW` が
+    非 Win32 ではスタブで、番号をそのまま印字する経路に落ちるため。
+
+    errno なら `strerror` が正しい文言を持っている。**ソケットのエラーも
+    POSIX では errno なので、この 1 本で両方が正しくなる。**
+
+    ```
+    無いファイルを開く      → No such file or directory
+    空でないディレクトリ削除 → Directory not empty
+    ファイルへ chdir        → Not a directory
+    ```
+
+    **同じ食い違いで `create-directory` が既にあるディレクトリに対して
+    エラーにならず `t` を返していた**のも直した (`EEXIST` の 17 が
+    `ERROR_FILE_EXISTS` の 80 にも `ERROR_ALREADY_EXISTS` の 183 にも一致して
+    いなかった。Windows では "File already exists." になる)。
+
+    **番号の体系そのものを揃える話は #120 に分けた。** core にある `ERROR_*`
+    との比較 38 箇所のうち 13 箇所が POSIX では絶対に一致せず、
+    `:if-access-denied` の再試行は一度も走らない。`ERROR_*` を errno の別名に
+    するのが素直だが、`switch` の `case` が重複するので機械的にはできない。
+
+    ついでに既知失敗の「ファイル名とパス」群の理由を測り直した。**「`chdir` は
+    ドライブごとのカレントディレクトリという Win32 の概念に依っている」と
+    書いてあったが、それは違った。** `chdir` 自体は POSIX でも正しく動き、
+    落ちているのはテストが `(get-windows-directory)` を行き先に使っていて、
+    POSIX ではそれが nil を返すからである (`C:\Windows` に相当するものは
+    無いので nil が正しい)。**実装の不足ではなくテストが Windows 前提。**
   * **テストが自分自身を子プロセスとして起動する経路を直した。** Linux の
     既知失敗が **132 件から 103 件へ減った** (issue #50)。コマンドライン引数を
     見る 26 件が丸ごと通るようになり、`kill-xyzzy-exit-code` も除外から

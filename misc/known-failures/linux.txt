@@ -115,12 +115,36 @@ uuid-create-4-seq
 wait-object-check-type-1
 wait-object-typep
 
-# ファイル名とパス。src/core/vfs-posix.cc の未実装ぶん。
-# 
-# `chdir` はドライブごとのカレントディレクトリという Win32 の概念に、
-# `truename` は大文字小文字と短縮名に、`user-config-path` / `xyzzy-ini-path` は
-# レジストリと ini ファイルに依っている。`directory--*` は WIN32_FIND_DATA の
-# 属性 (FILE_ATTRIBUTE_*) をそのまま見ている。
+# ファイル名とパス。
+#
+# **理由を測り直した。以前ここには「`chdir` はドライブごとのカレント
+# ディレクトリという Win32 の概念に依っている」と書いてあったが、それは
+# 違った。** `chdir` 自体は POSIX でも正しく動く:
+#
+#     (chdir "/tmp/") => t   (cwd) => "/tmp/"
+#     (chdir)         => t   (cwd) => ホーム
+#
+# `chdir-0` から `chdir-6` が落ちるのは、どれも `(get-windows-directory)` と
+# `(get-system-directory)` を行き先に使っていて、**POSIX ではこの 2 つが nil を
+# 返す**ため (`C:\Windows` に相当するものは無いので、nil が正しい)。
+# つまりテストが Windows のディレクトリを前提にしているだけで、実装の不足では
+# ない。`chdir-3` は `get-disk-usage`、`chdir-4` は `cmd /c dir` も使う。
+#
+# `chdir-path-not-found` は本物のプラットフォーム差。`chdir` が無い多段パスを
+# 指したとき、Win32 は「ディレクトリ部分が無い」を ERROR_PATH_NOT_FOUND として
+# 区別するが、**POSIX の chdir は ENOENT しか返さない**ので `file-not-found`
+# になる。区別するには自分で親を辿って確かめるしかない。
+#
+# `fix-truename-1` から `-4` は `(get-system-directory)` と `SystemRoot` を
+# 使うので上と同じ。`user-config-path` / `xyzzy-ini-path` はレジストリと ini
+# ファイル、`image-startup-option` と `fix-*load-pathname*-from-dump-image` は
+# ダンプイメージに依っている。`directory--*` は WIN32_FIND_DATA の属性
+# (FILE_ATTRIBUTE_*) をそのまま見ている。
+#
+# **エラーの番号と文言はここから外した。** POSIX では `GetLastError ()` が
+# errno を返すのに `ERROR_*` は Win32 の番号のままで、両者が同じ整数の欄に
+# 混ざっている。文言 (src/core/lprint.cc) と `create-directory` の既存判定は
+# 直したが、番号の体系そのものを揃える話は別 issue にした。
 
 chdir-0
 chdir-1

@@ -1371,6 +1371,33 @@ print_error (wStream &stream, const print_control &, lisp object)
 {
   if (xerror_type (object) == CRTL_ERROR)
     stream.add (strerror (xerror_number (object)));
+#ifndef _WIN32
+  /* **POSIX では WIN32_ERROR の番号も errno である。** 非 Win32 の
+     `GetLastError ()' は errno を返す (src/core/platform.h) ので、ファイルの
+     エラーもソケットのエラーも中身は errno になる。それを Win32 のコードとして
+     引いていたため、**出る文言が全部でたらめだった**:
+
+       (with-open-file (s "/no/such/file"))
+         -> "Non-Authoritative; Host not found, or SERVERFAIL"
+       (delete-directory "空でないディレクトリ")
+         -> "Undocumented win32 error: 39"
+       (chdir "ファイル")
+         -> "Undocumented win32 error: 20"
+
+     1 つ目は下の `sock::errmsg' が先に引かれるせい。**POSIX では WSA* 定数が
+     errno そのものとして define されている**ので (WSATRY_AGAIN が 2、ENOENT も
+     2)、ファイルのエラーがソケットの表に当たる。2 つ目と 3 つ目は
+     `FormatMessageW' が非 Win32 ではスタブで、番号をそのまま印字する経路に
+     落ちるせい。
+
+     errno なら strerror が正しい文言を持っている。**ソケットのエラーも POSIX
+     では errno なので、この 1 本で両方が正しくなる。** 例外は core が
+     Win32 の定数をそのまま渡している数箇所 (ERROR_INVALID_NAME など) で、
+     そこは "Unknown error 123" のようになる。番号の体系そのものを揃える話は
+     別に切ってある。 */
+  else
+    stream.add (strerror (xerror_number (object)));
+#else
   else
     {
       const char *s = sock::errmsg (xerror_number (object));
@@ -1398,6 +1425,7 @@ print_error (wStream &stream, const print_control &, lisp object)
             }
         }
     }
+#endif /* _WIN32 */
 }
 
 static void
