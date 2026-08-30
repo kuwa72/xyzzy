@@ -1,6 +1,28 @@
 ;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (require "foreign")
 
+;;; **C のライブラリの名前がプラットフォームで違う。** ここは "msvcrt" 決め打ち
+;;; だったので POSIX では `dlopen` が失敗し、**その関数を使うテストが全部
+;;; 「共有ライブラリを読み込めません」で落ちていた。**
+;;;
+;;; 落ちていたものの多くはプラットフォームに関係が無かった。たとえば可変長引数の
+;;; 型検査 (`funcall-invalid-vaargs-*` 7 件) は `si:make-c-function` に渡す型を
+;;; 見るだけで、**関数を呼ぶ所まで行かない。** 期待していたのは
+;;; 「不正な可変長引数です: 123」で、返っていたのは
+;;; 「共有ライブラリを読み込めません」だった (issue #50)。
+;;;
+;;; **`si:load-dll-module` を呼ぶのは define-dll-entry が展開した defun の中**
+;;; なので、ライブラリ名は式で書ける (関数の名前だけは展開時に文字列である
+;;; 必要があるので、そこは読み込み時条件で分ける)。
+
+(defun foreign-test-libc ()
+  "C の標準ライブラリ。**在るものを選ぶ**: 名前は配布によって違う。"
+  (if (featurep :unix)
+      (or (find-if #'(lambda (n) (ignore-errors (si:load-dll-module n) t))
+                   '("libc.so.6" "libc.so" "libSystem.dylib"))
+          "libc.so.6")
+    "msvcrt"))
+
 (c:define-dll-entry
   c:int
   EnumWindows ((c:void *)       ; lpEnumFunc
@@ -30,7 +52,7 @@
    c:size_t               ; num
    c:size_t               ; width
    (c:void *))            ; compare
-  "msvcrt")
+  (foreign-test-libc) "qsort")
 
 (c:defun-c-callable
   c:int
@@ -65,7 +87,7 @@
 (c:define-dll-entry
   c:int
   (_atoi :convention :cdecl) ((c:void *))
-  "msvcrt" "atoi")
+  (foreign-test-libc) "atoi")
 
 (deftest define-dll-entry-return-int32 ()
   (flet ((atoi (str)
@@ -81,10 +103,33 @@
   => #x7FFFFFFF)
 
 
+
+;;; **`_itoa` / `_ultoa` / `_i64toa` / `_ui64toa` は msvcrt にしか無い。**
+;;; POSIX では `sprintf` に書式を渡して同じことをする。テストが渡す基数は 10
+;;; だけなので、そこだけ受ける。
+;;;
+;;; **経路は同じではない。** msvcrt 側は固定引数、POSIX 側は可変長引数として
+;;; 整数が渡る。どちらも測っているのは「その幅の整数が C 側に正しく届くか」で、
+;;; **符号無しの 64 ビットで最上位ビットが立っている場合**が本番である。
+;;; 整数の可変長引数は POSIX でも通る (浮動小数は通らない — issue #133)。
+
+#+unix
+(defun foreign-test-sprintf-int (type fmt n chunk radix)
+  (unless (eql radix 10)
+    (error "基数 ~D は未対応" radix))
+  (sprintf chunk (si:make-string-chunk fmt)
+           (c:expand-c-vaargs (list (list type n))))
+  chunk)
+
+#-unix
 (c:define-dll-entry
   (c:void *)
   (_itoa :convention :cdecl) (c:int (c:void *) c:int)
   "msvcrt")
+
+#+unix
+(defun _itoa (n chunk radix)
+  (foreign-test-sprintf-int 'c:int "%d" n chunk radix))
 
 (deftest define-dll-entry-int32-arg ()
   (flet ((itoa (n)
@@ -107,7 +152,7 @@
 (c:define-dll-entry
   c:u_int
   (strtoul :convention :cdecl) ((c:void *) (c:void *) c:int)
-  "msvcrt")
+  (foreign-test-libc) "strtoul")
 
 (deftest define-dll-entry-return-uint32 ()
   (flet ((atoi (str)
@@ -124,10 +169,15 @@
   => #x7FFFFFFF
   => #xFFFFFFFF)
 
+#-unix
 (c:define-dll-entry
   (c:void *)
   (_ultoa :convention :cdecl) (c:u_int (c:void *) c:int)
   "msvcrt")
+
+#+unix
+(defun _ultoa (n chunk radix)
+  (foreign-test-sprintf-int 'c:u_int "%u" n chunk radix))
 
 (deftest define-dll-entry-uint32-arg ()
   (flet ((itoa (n)
@@ -152,7 +202,8 @@
 (c:define-dll-entry
   c:int64
   (_atoi64 :convention :cdecl) ((c:void *))
-  "msvcrt")
+  ;; msvcrt の _atoi64 に当たるのは glibc の atoll。
+  (foreign-test-libc) #+unix "atoll" #-unix "_atoi64")
 
 (deftest define-dll-entry-return-int64 ()
   (flet ((atoi (str)
@@ -172,10 +223,15 @@
   => #x7FFFFFFFFFFFFFFF)
 
 
+#-unix
 (c:define-dll-entry
   (c:void *)
   (_i64toa :convention :cdecl) (c:int64 (c:void *) c:int)
   "msvcrt")
+
+#+unix
+(defun _i64toa (n chunk radix)
+  (foreign-test-sprintf-int 'c:int64 "%lld" n chunk radix))
 
 (deftest define-dll-entry-int64-arg ()
   (flet ((itoa (n)
@@ -202,7 +258,7 @@
 (c:define-dll-entry
   c:u_int64
   (_strtoui64 :convention :cdecl) ((c:void *) (c:void *) c:int)
-  "msvcrt")
+  (foreign-test-libc) #+unix "strtoull" #-unix "_strtoui64")
 
 (deftest define-dll-entry-return-uint64 ()
   (flet ((atoi (str)
@@ -224,10 +280,15 @@
   => #xFFFFFFFFFFFFFFFF)
 
 
+#-unix
 (c:define-dll-entry
   (c:void *)
   (_ui64toa :convention :cdecl) (c:u_int64 (c:void *) c:int)
   "msvcrt")
+
+#+unix
+(defun _ui64toa (n chunk radix)
+  (foreign-test-sprintf-int 'c:u_int64 "%llu" n chunk radix))
 
 (deftest define-dll-entry-uint64-arg ()
   (flet ((itoa (n)
@@ -323,8 +384,26 @@
   c:u_int64 ; ほんとは div_t だが構造体の戻り値は未サポート
   (div :convention :cdecl)
   (c:int c:int)
-  "msvcrt")
+  (foreign-test-libc) "div")
 
+;;; --- ハードウェア例外 ----------------------------------------------------
+;;;
+;;; **POSIX では走らせない。走らせるとプロセスが死ぬ。**
+;;;
+;;; ここは 0 除算と不正アドレスへの書き込みを起こして、それが Lisp の
+;;; `win32-exception` として返ることを見るテストである。Win32 は SEH で
+;;; ハードウェア例外を拾えるが、**POSIX でそれに相当するのは SIGFPE /
+;;; SIGSEGV で、拾って Lisp へ戻す仕組みが無い。**
+;;;
+;;; 以前は `div` / `strcat` を "msvcrt" から引いていたので POSIX では
+;;; `dlopen` に失敗し、「共有ライブラリを読み込めません」で*無害に*落ちて
+;;; いた。ライブラリ名を直したら**本当に 0 除算が起きて、スイートごと
+;;; SIGFPE で死んだ** (`run-tests.sh` が「summary が無い」と言う形で出る)。
+;;;
+;;; **既知失敗に載せる話ではない。** 載せても走った時点で終わりなので、
+;;; 走らせない方に倒す。
+
+#-unix
 (deftest handle-divide-by-zero ()
   (flet ((unpack-div_t (div_t)
            (list (logand #xFFFF div_t)
@@ -344,8 +423,9 @@
   (c:char *)
   (strcat :convention :cdecl)
   ((c:char *) (c:char *))
-  "msvcrt")
+  (foreign-test-libc) "strcat")
 
+#-unix
 (deftest handle-access-violation ()
   (let ((c (si:make-chunk nil 5)))
     (si:clear-chunk c)
@@ -366,6 +446,7 @@
   GetModuleHandleA ((c:void *))
   "kernel32")
 
+#-unix
 (deftest handle-access-violation-2 ()
   (handler-case
       (GetModuleHandleA 32)
@@ -379,7 +460,7 @@
   c:int
   (sprintf :convention :cdecl)
   ((c:char *) (c:char *) &rest)
-  "msvcrt")
+  (foreign-test-libc) "sprintf")
 
 
 (deftest expand-c-vaargs ()
@@ -575,7 +656,7 @@
 
 (deftest make-c-function-stdcall-rest ()
   (handler-case
-      (si:make-c-function (si:load-dll-module "msvcrt")
+      (si:make-c-function (si:load-dll-module (foreign-test-libc))
                           "sprintf"
                           '(:int32 :int32 :int32)
                           :int32
@@ -589,7 +670,7 @@
       (c:define-dll-entry
         c:int
         sprintf_stdcall ((c:char *) (c:char *) &rest)
-        "msvcrt" "sprintf")
+        (foreign-test-libc) "sprintf")
     (error (c)
       (si:*condition-string c)))
   => "stdcall呼び出し規約の場合、可変長引数は利用できません")
@@ -599,7 +680,7 @@
   c:int
   (sprintf_no_vaarg :convention :cdecl)
   ((c:char *) (c:char *))
-  "msvcrt" "sprintf")
+  (foreign-test-libc) "sprintf")
 
 (deftest funcall-invalid-c-args ()
   (sprintf_no_vaarg 0 0 '((:int32 123)))

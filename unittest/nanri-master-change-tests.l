@@ -1289,16 +1289,22 @@
 ;; 	via http://d.hatena.ne.jp/miyamuko/20070509/p1
 ;;
 (deftest fix-for-FFI-c-function-return-doubl/float-00 ()
-  "戻り値が double, float の C 関数を呼ぶとクラッシュする"
-  (eval-in-another-xyzzy
-    `(labels ((c (name) (find-symbol name :c)))
-       (require "foreign")
-       (eval `(,(c "define-dll-entry")
-               ,(c "double")
-               strtod (,(c "char*") (,(c "char*") *))
-               "msvcrt"))
-       (strtod (si:make-string-chunk "123") 0))
-    :options "-q" :timeout 6)
+  "戻り値が double, float の C 関数を呼ぶとクラッシュする
+
+**C のライブラリの名前はプラットフォームで違う。** ここは \"msvcrt\" 決め打ち
+だったので POSIX では `dlopen` に失敗し、**測りたい「double を返す関数を呼んで
+落ちないか」まで行っていなかった** (issue #50)。名前は子プロセスの中で評価される
+フォームに埋まるので、外で決めて差し込む。"
+  (let ((libc (if (featurep :unix) "libc.so.6" "msvcrt")))
+    (eval-in-another-xyzzy
+      `(labels ((c (name) (find-symbol name :c)))
+         (require "foreign")
+         (eval `(,(c "define-dll-entry")
+                 ,(c "double")
+                 strtod (,(c "char*") (,(c "char*") *))
+                 ,,libc))
+         (strtod (si:make-string-chunk "123") 0))
+      :options "-q" :timeout 6))
   => 123.0d0
   )
 

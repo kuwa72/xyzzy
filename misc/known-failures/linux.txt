@@ -41,19 +41,55 @@
 # 返す。`unittest/ffi-portable-tests.l` に 9 件 (**両方のプラットフォームで
 # 同じテストになる**)。
 #
-# **ここに残っているのは 2 種類だけ:**
+# **20 件がここから外れた。「テストが msvcrt 固有の関数を呼んでいる」という
+# 分類は、半分しか当たっていなかった。**
 #
-#   * `c-callable-*` 2 件 — **Lisp の関数を C から呼べるアドレスにする**もの。
-#     実行時に機械語を作る必要がある (`lc_callable::insn`)。ABI ごとに書くか
-#     libffi の closure を使うかの判断が残っている (#133 の段階 4)。
-#   * それ以外 — **テストが MSVC のランタイム固有の関数を呼んでいる。**
-#     `_itoa` / `_atoi64` / `_i64toa` / `_ui64toa` は msvcrt にしかない。
-#     **実装の不足ではない** (同じことを標準 C の関数でやる
-#     ffi-portable-tests.l は POSIX でも通る)。
+# 前はここに「残っているのは c-callable の 2 件と、テストが `_itoa` /
+# `_atoi64` / `_i64toa` / `_ui64toa` を呼んでいるもの」と書いてあった。
+# **実際には、落ちていた大半が `"msvcrt"` を `dlopen` できないだけだった。**
+# `unittest/foreign-test.l` はライブラリ名を決め打ちしていたので、
 #
-# `fix-for-ffi-c-function-return-doubl/float-00` は返り値が double のもので、
-# 返り値だけなら POSIX でも通る形に書いてある。**手元の run では
-# `.lc` が無いと落ちるが CI では通る**ので、ここに載っているのは別の理由。
+#     (sprintf 0 0 123)
+#     期待: 「不正な可変長引数です: 123」
+#     実際: 「共有ライブラリを読み込めません: msvcrt: cannot open ...」
+#
+# となる。**`funcall-invalid-vaargs-*` 7 件は型を検査するだけで関数を呼ぶ所まで
+# 行かない**ので、プラットフォームとは何の関係も無かった。ライブラリ名を
+# `foreign-test-libc` で選ぶようにしたら 19 件通った。
+#
+# msvcrt にしか無いのは `_itoa` / `_ultoa` / `_i64toa` / `_ui64toa` の 4 つだけ
+# で、POSIX では `sprintf` に書式を渡して同じことをする (経路は固定引数から
+# 可変長引数に変わるが、測っているのは「その幅の整数が C 側に正しく届くか」で
+# 同じ。**符号無し 64 ビットで最上位ビットが立っている場合**が本番)。
+#
+# **副作用で 2 つ見つかった。どちらも「落ちないようにする」方の直しである。**
+#
+#   * 可変長引数に `c:double` を渡すと **SIGSEGV でエディタが死んだ。**
+#     src/core/dll-posix.cc には「ビット列を整数の枠で渡す。受け側が整数として
+#     読むなら通る」と書いて通していたが、**SysV x86_64 では `al` に
+#     「ベクタレジスタを何本使ったか」を入れる約束**があり、整数の関数型へ
+#     キャストして呼ぶと `al` が 0 になる。呼ばれた側はレジスタ保存領域の
+#     浮動小数の欄を埋めないまま読む。1 個だけなら直前の xmm に残った値で
+#     偶然合うことがあり、それが「通ることもある」の正体だった。**断るように
+#     した** (固定引数の float / double と同じ扱い)。
+#   * SEH のテスト 3 件が **SIGFPE / SIGSEGV でスイートごと落ちるようになった。**
+#     以前は `div` / `strcat` を "msvcrt" から引いていて `dlopen` に失敗して
+#     いたので、**無害に落ちていただけ**である。ライブラリ名を直したら本当に
+#     0 除算が起きた。**既知失敗に載せる話ではない** (走った時点で終わり) ので、
+#     `#-unix` で走らせないようにした。
+#
+# **ここに残っているのは 4 種類:**
+#
+#   * `c-callable-*` / `defun-c-callable-*` 4 件 — **Lisp の関数を C から
+#     呼べるアドレスにする**もの。実行時に機械語を作る必要がある
+#     (`lc_callable::insn`)。ABI ごとに書くか libffi の closure を使うかの
+#     判断が残っている (#133 の段階 4)。
+#   * `funcall-vaargs` / `-2` / `-default-argument-promotions` /
+#     `funcall-expand-vaargs` 4 件 — **可変長引数の `c:double`。** 上のとおり
+#     ABI の話で、段階 4 と同じ仕掛けが要る。今は例外になる (落ちない)。
+#   * `last-win32-error` 2 件 — `MultiByteToWideChar` と `GetLastError` を
+#     kernel32 から引く。**POSIX に相当するものが無い。**
+#   * `wait-object-*` 2 件 — 待機可能オブジェクト。同じく相当物が無い。
 #
 # **`pack-unpack-*` 4 件はここから外れた。FFI とは関係が無かった。**
 # `si:pack-*` / `si:unpack-*` はチャンク (バイト列) を読み書きするだけで DLL を
@@ -75,32 +111,12 @@
 
 c-callable-check-type-1
 c-callable-typep
-c-vaargs-invalid-vaargs-0
-define-dll-entry-int32-arg
-define-dll-entry-int64-arg
-define-dll-entry-return-int32
-define-dll-entry-return-int64
-define-dll-entry-return-uint32
-define-dll-entry-return-uint64
-define-dll-entry-uint32-arg
-define-dll-entry-uint64-arg
 defun-c-callable-cdecl
 defun-c-callable-stdcall
-fix-for-ffi-c-function-return-doubl/float-00
 funcall-expand-vaargs
-funcall-invalid-c-args
-funcall-invalid-vaargs-1
-funcall-invalid-vaargs-2
-funcall-invalid-vaargs-3
-funcall-invalid-vaargs-4
-funcall-invalid-vaargs-5
-funcall-invalid-vaargs-6
-funcall-invalid-vaargs-7
 funcall-vaargs
 funcall-vaargs-2
 funcall-vaargs-default-argument-promotions
-funcall-vaargs-noarg
-make-c-function-stdcall-rest
 
 # Win32 API を直接呼ぶもの。
 # 
@@ -184,9 +200,6 @@ make-c-function-stdcall-rest
 # CRLF なので、`sh` が `cat\r` というコマンドを探す** (エラーには \r が
 # 見えないので「cat: not found」とだけ出て、PATH の問題に見える)。
 
-handle-access-violation
-handle-access-violation-2
-handle-divide-by-zero
 last-win32-error
 last-win32-error-getlasterror
 wait-object-check-type-1
