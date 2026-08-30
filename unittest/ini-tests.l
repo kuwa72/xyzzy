@@ -87,3 +87,27 @@
                (and (> (length path) 1) (char= (char path 1) #\:)))
            t)))
   => t)
+
+;;;
+;;; 環境変数から設定の場所を決める (call-process の :environ が要る)
+;;;
+
+;; **`XYZZYINIFILE` で ini の場所を渡せること。**
+(deftest ini-path-from-environment-variable ()
+  (with-temp-files (ini)
+    (path-equal ini
+                (eval-in-another-xyzzy '(xyzzy-ini-path)
+                                       :options "-q"
+                                       :environ `(("XYZZYINIFILE" . ,ini)))))
+  => t)
+
+;; **起動オプションが環境変数に勝つこと。** 両方あるときの順序は Win32 と
+;; 同じでなければならない (init.cc は起動オプションを先に見る)。
+(deftest ini-path-startup-option-beats-environment-variable ()
+  (with-temp-files (ini1 ini2)
+    (path-equal ini1
+                (eval-in-another-xyzzy
+                 '(xyzzy-ini-path)
+                 :options (format nil "-ini \"~A\" -q" ini1)
+                 :environ `(("XYZZYINIFILE" . ,ini2)))))
+  => t)
