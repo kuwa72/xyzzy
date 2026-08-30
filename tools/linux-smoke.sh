@@ -148,6 +148,33 @@ else
   fail=1
 fi
 
+# view-lossage (C-h l): 直近の打鍵を出す。**Lisp スイートからは測れない**
+# (キーを打つ経路が無い) ので、ここで pty を叩く。
+#
+# `get-recent-keys` は ncurses-stubs.cc で nil を返すスタブだったので、
+# *Help* が空のまま出ていた。**打鍵の履歴は Win32 側では入力キューの環状
+# バッファを使い回しているが、端末側の fetch は端末から読んだ字を
+# キューを経由せずに返す**ので、そこは空になる。別に小さな環を持たせた
+# (src/frontend/ncurses/ncurses-kbd.cc)。
+#
+# **`peek` も記録すること**が要点だった。名前は peek だが字を消費するので、
+# `fetch` だけ記録していると「まとめて届いた打鍵」と「ミニバッファに打った
+# 字」が履歴から抜ける (`abc` を 1 回の書き込みで送ると `a` しか残らない)。
+log=$build/smoke-lossage.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  'SMOKE' '\w' \
+  '\e\e(map (quote list) (function char-code) (get-recent-keys))\r' '\w' \
+  >"$log" 2>&1 || true
+# S M O K E = 83 77 79 75 69。そのあとに ESC ESC ( ... が続く。
+if grep -q '(83 77 79 75 69 27 27 40' "$log"; then
+  echo 'smoke: view-lossage OK -- 打鍵の履歴が取れている'
+else
+  echo "smoke: view-lossage FAILED, see $log" >&2
+  grep -n '^(' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

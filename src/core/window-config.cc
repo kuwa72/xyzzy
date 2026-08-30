@@ -700,3 +700,44 @@ Window::compact_orders ()
       wp->w_order.bottom = order_index (ys, nys, wp->w_order.bottom);
     }
 }
+
+/* 点がウィンドウの表示範囲の外にあるか。-1 = 上、1 = 下、nil = 中。
+
+   **中身は Win32 に依っていない。** 表示の先頭 (`w_disp`) と高さ
+   (`w_ech.cy`) から行番号を比べるだけで、どちらのフロントエンドも両方を
+   埋めている (端末側は src/frontend/ncurses/ncurses-stubs.cc の
+   `compute_geometry`)。それでも src/frontend/win32/Window.cc に居たため、
+   **端末では `ncurses-stubs.cc` の「常に nil を返す」スタブだった** —
+   つまり**どこにあっても「見えている」と答えていた。**
+
+   影響を受けるのは `pos-visible-in-window-p` (公開されている述語) と、
+   それを使う `lisp/ispell.l` (見えない位置なら画面を送る) と
+   `lisp/mouse.l`。**嘘をつく述語なので、呼ぶ側は間違った方に分岐する。**
+   (#16 Phase 4、issue #50。) */
+lisp
+Fpos_not_visible_in_window_p (lisp point, lisp window)
+{
+  Window *wp = Window::coerce_to_window (window);
+  Buffer *bp = wp->w_bufp;
+  if (!bp)
+    return Qnil;
+  Point cur (wp->w_point);
+  bp->goto_char (cur, bp->coerce_to_point (point));
+  long top, linenum;
+  if (bp->b_fold_columns == Buffer::FOLD_NONE)
+    {
+      linenum = bp->point_linenum (cur);
+      top = bp->point_linenum (wp->w_disp);
+    }
+  else
+    {
+      linenum = bp->folded_point_linenum (cur);
+      top = bp->folded_point_linenum (wp->w_disp);
+    }
+  return (linenum < top
+          ? make_fixnum (-1)
+          : (linenum >= top + wp->w_ech.cy
+             ? make_fixnum (1)
+             : Qnil));
+}
+
