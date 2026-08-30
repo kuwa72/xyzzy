@@ -21,8 +21,19 @@
   (merge-pathnames "grammars/" (si:system-root))
   "Root directory for per-language subdirectories (grammars/<lang>/).")
 
-(defvar *ts-grammar-suffix* ".dll"
-  "File extension for grammar shared libraries (.dll / .so / .dylib).")
+(defvar *ts-grammar-suffix* (if (featurep :unix) ".so" ".dll")
+  "文法の共有ライブラリの拡張子。
+
+**ここが合っていないと C++ 側が動いていても色が付かない。** 探すファイルが
+見つからないだけなので `si:load-ts-grammar' まで届かず、例外も出ないまま
+諦める (issue #150)。
+
+読み込み時に決めているのは、`.lc' が同じプラットフォームの別アーキとの間で
+使い回されるため。**読み込み時条件 (`#+unix') で書くとバイトコンパイルした
+機械の側に焼き付く。**
+
+macOS は `.dylib' になるが、リポジトリに置いてある文法は `.dll' と `.so'
+だけなので、そこは自分でビルドする話になる。")
 
 ;;; --- Grammar registry ----------------------------------------------------
 

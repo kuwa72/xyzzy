@@ -1031,16 +1031,10 @@ lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
    `si:make-c-callable` (Lisp の関数を C から呼べるアドレスにするもの) は
    まだ無い — 実行時に機械語を作る必要がある (段階 4)。 */
 lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fsi_load_ts_grammar (lisp, lisp) { return Qnil; }
-lisp Fsi_ts_query_buffer (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fsi_ts_grammar_p (lisp) { return Qnil; }
-lisp Fsi_ts_free_buffer_cache (lisp) { return Qnil; }
-lisp Fsi_ts_buffer_cached_p (lisp) { return Qnil; }
-lisp Fsi_ts_parse_complete_p (lisp) { return Qt; }
-lisp Fsi_ts_query_pending_p (lisp) { return Qnil; }
-lisp Fsi_ts_apply_highlights (lisp, lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fsi_ts_node_ancestors (lisp, lisp, lisp) { return Qnil; }
-lisp Fsi_ts_query_buffer_sync (lisp, lisp, lisp) { return Qnil; }
+
+/* **tree-sitter のスタブも消した。** 本体は src/core/ts.cc にあり、
+   xyzzy-ncurses のソースに入っている (issue #150)。スタブを残すと、
+   ここで名前が解決されてしまって src/core/ts.cc が使われない。 */
 
 // ============================================================
 // Window.cc / pane.cc / doc.cc stubs (sys_fns[] references)
