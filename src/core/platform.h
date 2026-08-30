@@ -1869,7 +1869,11 @@ inline uintptr_t _beginthreadex(void*, unsigned, unsigned int (*)(void*), void*,
 #define _memicmp(a,b,n) strncasecmp((const char*)(a),(const char*)(b),(n))
 #define _environ environ
 extern char **environ;
-#define _putenv(s) putenv(s)
+/* **`_putenv' の別名は置かない。** Win32 の `_wputenv' は文字列を複写するが、
+   POSIX の `putenv' は**複写せずポインタを環境に置く。** 同じ名前で約束が
+   違うものを別名にすると、呼ぶ側がスタックの文字列を渡して黙って壊れる
+   (実際に `si:putenv` がそうなっていた)。POSIX では `setenv` / `unsetenv` を
+   直に呼ぶこと。 */
 
 // MSVC float classification
 #include <cfloat>

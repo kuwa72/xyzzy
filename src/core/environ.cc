@@ -1112,25 +1112,37 @@ Fsi_putenv (lisp var, lisp val)
   int r = _wputenv (b);
   return (r < 0 || !val) ? Qnil : val;
 #else
-  /* Build "name=value" as UTF-8 bytes for putenv. */
-  size_t l = i2u8l (xstring_contents (var), xstring_length (var)) + 1;
-  if (val && val != Qnil)
+  /* **`putenv' ではなく `setenv' / `unsetenv' を使う。**
+
+     POSIX の `putenv' は渡した文字列を**複写せず、そのポインタを環境に
+     置く。** ここは `alloca' で積んでいたので、関数から戻った時点で
+     環境の中身がスタックの使い回しを指していた。**`(si:putenv "X" "1")' は
+     "1" を返して成功を主張するのに、直後の `(si:getenv "X")' が nil を
+     返していた** (実測)。ポインタが生きていたら生きていたで、後から
+     別のものに書き換わる。
+
+     Win32 の `_wputenv' は複写するので、上の枝は正しい。**同じ名前の関数で
+     約束が違う**ので、platform.h の `#define _putenv(s) putenv(s)` に
+     載せてはいけなかった。
+
+     `setenv` は名前と値を別に取り、どちらも複写する。値が nil のときは
+     `unsetenv`。 */
+  size_t nl = i2u8l (xstring_contents (var), xstring_length (var));
+  char *name = (char *)alloca (nl);
+  i2u8 (xstring_contents (var), xstring_length (var), name);
+
+  if (!val || val == Qnil)
     {
-      check_string (val);
-      l += i2u8l (xstring_contents (val), xstring_length (val));
+      unsetenv (name);
+      return Qnil;
     }
 
-  char *v = (char *)alloca (l);
-  char *b = v;
-  v = i2u8 (xstring_contents (var), xstring_length (var), v);
-  *v++ = '=';
-  if (val && val != Qnil)
-    i2u8 (xstring_contents (val), xstring_length (val), v);
-  else
-    *v = 0;
+  check_string (val);
+  size_t vl = i2u8l (xstring_contents (val), xstring_length (val));
+  char *value = (char *)alloca (vl);
+  i2u8 (xstring_contents (val), xstring_length (val), value);
 
-  int r = _putenv (b);
-  return (r < 0 || !val) ? Qnil : val;
+  return setenv (name, value, 1) ? Qnil : val;
 #endif
 }
 
