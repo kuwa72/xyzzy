@@ -39,35 +39,48 @@ echo "ci-wait: PR #$pr のチェックを待つ (最大 ${limit}s)"
 # **push の直後は「チェックがまだ 1 つも無い」窓がある。** そこで
 # `gh pr checks --watch` を呼ぶと待たずに
 # `no checks reported on the '...' branch` で 1 を返すので、**落ちたと
-# 読めてしまう。** 実際に踏んだ (PR #145)。チェックが現れるまで待つ。
-appear_limit=${CI_WAIT_APPEAR_TIMEOUT:-180}
-waited=0
-while [ "$waited" -lt "$appear_limit" ]; do
-  if gh pr checks "$pr" >/dev/null 2>&1; then
-    break
+# 読めてしまう。** 実際に踏んだ (PR #145)。
+#
+# **窓は 1 回で終わらない。** force-push でやり直すと run が作り直されるので、
+# --watch が戻ったあとにまた「チェックが無い」状態になることがある
+# (PR #147 で踏んだ: 180 秒待ってから --watch に入り、そのあと再び空だった)。
+# なので「チェックが現れるのを待つ → --watch」を**塊ごと繰り返す。**
+no_checks_p () {
+  gh pr checks "$pr" 2>&1 | grep -q 'no checks reported'
+}
+
+deadline=$(( $(date +%s) + limit ))
+announced=0
+rc=1
+while :; do
+  now=$(date +%s)
+  [ "$now" -ge "$deadline" ] && { rc=124; break; }
+
+  if no_checks_p; then
+    if [ "$announced" -eq 0 ]; then
+      echo "ci-wait: チェックがまだ登録されていない。待つ"
+      announced=1
+    fi
+    sleep 10
+    continue
   fi
-  # 落ちているチェックがある場合も 1 を返すので、文言で見分ける。
-  if ! gh pr checks "$pr" 2>&1 | grep -q 'no checks reported'; then
-    break
+
+  # --watch は全部終わるまで戻らない。--fail-fast で最初の失敗で戻る。
+  # 0 = 全部 pass, 1 = どれか fail, 8 = pending (--watch では来ない)。
+  set +e
+  timeout "$((deadline - now))" gh pr checks "$pr" --watch --fail-fast --interval 20 \
+    >/dev/null 2>&1
+  rc=$?
+  set -e
+
+  # 戻ったあとに空になっていたら、run が作り直された (force-push など)。
+  # **「落ちた」と読まずにもう一周する。**
+  if no_checks_p; then
+    announced=0
+    continue
   fi
-  [ "$waited" -eq 0 ] && echo "ci-wait: チェックがまだ登録されていない。待つ"
-  sleep 10
-  waited=$((waited + 10))
+  break
 done
-
-# --watch は全部終わるまで戻らない。--fail-fast で最初の失敗で戻る。
-# 0 = 全部 pass, 1 = どれか fail, 8 = pending (--watch では来ない)。
-set +e
-timeout "$limit" gh pr checks "$pr" --watch --fail-fast --interval 20 >/dev/null 2>&1
-rc=$?
-set -e
-
-# 待ったのにまだ無いなら、それを言う (「落ちた」と混ぜない)。
-if gh pr checks "$pr" 2>&1 | grep -q 'no checks reported'; then
-  echo "ci-wait: ${appear_limit}s 待ってもチェックが登録されなかった。"
-  echo "ci-wait: workflow の条件か、push が届いていないかを見る。"
-  exit 2
-fi
 
 if [ "$rc" -eq 124 ]; then
   echo "ci-wait: 時間切れ ($limit s)。今の状態:"
