@@ -137,10 +137,19 @@ wait-object-typep
 # つまりテストが Windows のディレクトリを前提にしているだけで、実装の不足では
 # ない。`chdir-3` は `get-disk-usage`、`chdir-4` は `cmd /c dir` も使う。
 #
-# `chdir-path-not-found` は本物のプラットフォーム差。`chdir` が無い多段パスを
-# 指したとき、Win32 は「ディレクトリ部分が無い」を ERROR_PATH_NOT_FOUND として
-# 区別するが、**POSIX の chdir は ENOENT しか返さない**ので `file-not-found`
-# になる。区別するには自分で親を辿って確かめるしかない。
+# **`chdir-path-not-found` はここから外れた。** 前はこのコメントに
+# 「POSIX の chdir は ENOENT しか返さないので、区別するには自分で親を辿って
+# 確かめるしかない」と書いてあり、**そのとおりだったので、そうした。**
+# `file_error (int, lisp)` は**番号とパスの両方を持つ唯一の場所**なので、
+# そこで ENOENT のときだけ親を stat して分けている
+# (`refine_not_found`、src/core/pathname.cc)。「しかない」で止めずに、
+# その手が本当に取れないのかを見ること。
+#
+#     /no/such/dir/zzz  -> path-not-found  (途中が無い)
+#     /tmp/zzz-nope     -> file-not-found  (最後だけ無い)
+#
+# 1 か所で分けたので chdir だけでなく open や delete-file でも Win32 と
+# 同じ条件が付く。
 #
 # `fix-truename-1` から `-4` は `(get-system-directory)` と `SystemRoot` を
 # 使うので上と同じ。`user-config-path` / `xyzzy-ini-path` はレジストリと ini
@@ -180,7 +189,6 @@ chdir-3
 chdir-4
 chdir-5
 chdir-6
-chdir-path-not-found
 fix-*load-pathname*-from-dump-image
 fix-truename-1
 fix-truename-2

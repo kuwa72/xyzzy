@@ -151,10 +151,58 @@ file_error (message_code c)
   FEfile_error (c, Qnil);
 }
 
+#ifndef _WIN32
+/* **`ENOENT' だけは番号から条件を決められない。** Win32 は「最後の部品が
+   無い」(ERROR_FILE_NOT_FOUND) と「途中のディレクトリが無い」
+   (ERROR_PATH_NOT_FOUND) を分けるが、**POSIX の `ENOENT' は両方を指す。**
+   親を stat して分ける。
+
+   ここに置いたのは、`file_error (int, lisp)' が**番号とパスの両方を持つ
+   唯一の場所**だから。`file_error_condition' は番号しか見ないので、そこには
+   書けない。1 か所で分ければ `chdir' だけでなく `open' や `delete-file' でも
+   Win32 と同じ条件が付く。
+
+   遡るのは 1 段だけ (親が無い理由まで辿る必要は無い。Win32 も
+   ERROR_PATH_NOT_FOUND の 1 つで済ませている)。 */
+static lisp
+refine_not_found (lisp path)
+{
+  if (!stringp (path))
+    return QCfile_not_found;
+
+  char buf[PATH_MAX * 2 + 1];
+  pathname2u8 (path, buf);
+
+  /* 末尾の区切りを落としてから最後の部品を切る。ディレクトリ名は
+     `/a/b/c/' の形で来るので、落とさないと最後の部品が空になる。 */
+  char *p = buf + strlen (buf);
+  while (p > buf + 1 && p[-1] == '/')
+    p--;
+  while (p > buf && p[-1] != '/')
+    p--;
+  if (p > buf + 1)
+    p[-1] = 0;                  /* 親を切り出す ("/a/b/c" -> "/a/b") */
+  else if (p == buf)
+    strcpy (buf, ".");          /* 区切りが無い = 相対パス */
+  else
+    buf[1] = 0;                 /* ルート直下 ("/x" -> "/") */
+
+  struct stat st;
+  if (stat (buf, &st) == 0 && S_ISDIR (st.st_mode))
+    return QCfile_not_found;    /* 親はある。無いのは最後の部品だけ */
+  return QCpath_not_found;
+}
+#endif
+
 void
 file_error (int e, lisp path)
 {
-  FEwin32_file_error (xsymbol_value (file_error_condition (e)), e, path);
+  lisp condition = file_error_condition (e);
+#ifndef _WIN32
+  if (e == ENOENT)
+    condition = refine_not_found (path);
+#endif
+  FEwin32_file_error (xsymbol_value (condition), e, path);
 }
 
 void
