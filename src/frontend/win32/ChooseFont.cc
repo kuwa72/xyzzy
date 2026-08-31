@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "gdi-utils.h"
 #include "ChooseFont.h"
 
 ChooseFontP::ChooseFontP ()

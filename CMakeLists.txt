@@ -901,6 +901,7 @@ set(WIN32_SOURCES
     ${CORE_DIR}/minibuffer-message.cc
     ${WIN32_DIR}/Window.cc
     ${WIN32_DIR}/disp.cc
+    ${WIN32_DIR}/gdi-utils.cc
     ${WIN32_DIR}/colors.cc
     ${WIN32_DIR}/font.cc
     ${WIN32_DIR}/menu.cc

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "gdi-utils.h"
 #include "conf.h"
 #include "ipc.h"
 #include "wheel.h"
