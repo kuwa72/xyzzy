@@ -3,27 +3,37 @@
 # define _painter_h_
 
 /*
- Painter — platform-neutral drawing interface (issue #13).
+ Painter — platform-neutral drawing interface (issue #195).
 
- The core's drawing code is being decoupled from the Win32 `HDC` (device
+ The core's drawing code used to be written against the Win32 `HDC` (device
  context). `Painter` projects the operations the Win32 paint path
- (src/frontend/win32/disp.cc `paint_glyphs`/`paint_chars`, around 403-748)
- and `src/core/utils.cc` (`fill_rect`/`draw_hline`) actually use onto a set
- of neutral primitives. Win32, ncurses, and a future GUI frontend each
- implement this interface.
+ (`paint_glyphs`/`paint_chars` in src/frontend/win32/disp.cc) and
+ `src/core/utils.cc` (`fill_rect`/`draw_hline`) actually use onto a set of
+ neutral primitives. Win32, ncurses, and a future GUI frontend each implement
+ this interface.
 
- Phase (issue #13):
-   Step 1 (this file) — interface only, unused, zero build impact.
-   Step 2 — Win32Painter implementation, added alongside the existing
-            HDC path and verified for pixel equivalence.
-   Step 3 — core `paint_*(HDC)` switched to `paint_*(Painter&)`.
+ (This paragraph used to name a line range in disp.cc. Don't put line
+ numbers in a comment in another file — the file has been edited many times
+ since and the range no longer pointed at either function.)
+
+ Current state: steps 1-5 are done.  Core's paint_* entry points all have a
+ `Painter&` version and the `HDC` ones are thin wrappers around them (see
+ src/core/Window.h); `paint_region`/`paint_glyphs` take no HDC at all.
+ The remaining step is the wxWidgets GUI frontend — the checklist lives in
+ issue #195, the plan in docs/dev/plans/2026-06-12-wx-frontend-step6.md.
+
+ **Do not restate that checklist here.** This comment used to list
+ "Step 1 (this file) / Step 2 / Step 3" and was never updated; it still said
+ step 1 was current after step 5 had landed, and it was read as the truth
+ (the mistake is recorded in issue #185).  A step list has to be either
+ kept current or kept in one place — and one place is easier.
 
  Coordinates: x,y are pixels on a GUI/Win32 backend, character cells on
  ncurses. Callers stay in the same unit the backend reports via
  cell_width()/cell_height().
 
  Color: COLORREF (DWORD packed RGB) is reused for now; a struct RGBColor
- may replace it later (issue #13 open question).
+ may replace it later (issue #195 open question).
 */
 
 # include "cdecl.h"       // uint64_t, fixed-width int types

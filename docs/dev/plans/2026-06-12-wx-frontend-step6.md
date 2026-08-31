@@ -1,4 +1,4 @@
-# wx (wxWidgets) GUI frontend — issue #13 step6 implementation plan
+# wx (wxWidgets) GUI frontend — issue #195 step6 implementation plan
 
 Status: planned (not started). Toolkit decided = **wxWidgets** (see `poc/` and
 commit `1c6668d`). This doc is the implementation plan; delete `poc/` once
@@ -6,7 +6,7 @@ commit `1c6668d`). This doc is the implementation plan; delete `poc/` once
 
 ## Context (what's already in place)
 
-- Steps 1–5 of issue #13 are done: core drawing flows through `Painter`
+- Steps 1–5 of issue #195 are done: core drawing flows through `Painter`
   (`src/core/painter.h`); font measurement through `FontMetrics`
   (`src/core/font-metrics.h`).
 - **`NcursesPainter` (in `src/frontend/ncurses/ncurses-stubs.cc`, ~2331–2435)

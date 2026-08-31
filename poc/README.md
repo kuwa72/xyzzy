@@ -1,4 +1,4 @@
-# issue #13 step6 — GUI toolkit IME PoC (wx vs Qt)
+# issue #195 step6 — GUI toolkit IME PoC (wx vs Qt)
 
 Minimal, standalone PoCs to decide the GUI toolkit by measuring **Japanese
 inline-IME quality on a self-drawn (custom) widget** — the exact shape xyzzy

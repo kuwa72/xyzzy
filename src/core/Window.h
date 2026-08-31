@@ -597,10 +597,10 @@ struct Window
   void reframe ();
   void paint_glyphs (HDC, HDC, const glyph_t *, const glyph_t *, const glyph_t *,
                      char *, const INT *, int, int, int) const;
-  // issue #13 step 2: Painter& variant, runs alongside the HDC one above.
+  // issue #195 step 2: Painter& variant, runs alongside the HDC one above.
   void paint_glyphs (struct Painter &, const glyph_t *, const glyph_t *,
                      const glyph_t *, char *, int, int, int) const;
-  // issue #13 step 3f: paint_line/region/window take Painter&. paint_line's
+  // issue #195 step 3f: paint_line/region/window take Painter&. paint_line's
   // only caller is paint_region, so it has no HDC overload; region/window
   // keep HDC wrappers for the WndProc / refresh call sites.
   void paint_line (struct Painter &, glyph_data *, const glyph_data *,
@@ -634,12 +634,12 @@ struct Window
   void scroll_up_region (int, int, int, int) const;
   void update_window ();
   void clear_window ();
-  void paint_mode_line (struct Painter &);   // issue #13 step 3e
+  void paint_mode_line (struct Painter &);   // issue #195 step 3e
   void paint_mode_line (HDC);                // wraps the Painter& one
   void paint_mode_line ();
   void paint_background (HDC) const;
   void paint_background (HDC, int, int, int, int) const;
-  // issue #13 step 3b: Painter& variant; the HDC ones wrap it.
+  // issue #195 step 3b: Painter& variant; the HDC ones wrap it.
   void paint_background (struct Painter &, int, int, int, int) const;
   void winsize_changed (int, int);
   point_t bol_point (point_t) const;
@@ -759,7 +759,7 @@ struct Window
 
   void calc_ruler_rect (RECT &) const;
   void calc_ruler_box (const RECT &, RECT &) const;
-  // issue #13 step 3d: Painter& variants; the HDC ones wrap them.
+  // issue #195 step 3d: Painter& variants; the HDC ones wrap them.
   void paint_ruler (struct Painter &, const RECT &, int, int, int) const;
   void paint_ruler (struct Painter &) const;
   void paint_ruler_box (struct Painter &, const RECT &) const;

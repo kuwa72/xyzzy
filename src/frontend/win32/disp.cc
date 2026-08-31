@@ -437,7 +437,7 @@ paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
   SelectObject (hdc, of);
 }
 
-/* -------- Win32Painter (issue #13 step 2) ----------------------------
+/* -------- Win32Painter (issue #195 step 2) ----------------------------
    GDI implementation of the Painter interface. Reuses paint_build_wchars
    above for UTF-16 expansion. Colors are received per-call (decoded by the
    core), so the primitives set/restore GDI state locally. */
@@ -579,7 +579,7 @@ Win32Painter::cell_height () const
 
 /* -------------------------------------------------------------------- */
 
-/* issue #13 step 3: the HDC entry point is now a thin adapter that builds
+/* issue #195 step 3: the HDC entry point is now a thin adapter that builds
    a Win32Painter and delegates to the Painter& renderer above. All glyph
    drawing flows through the Painter. (Kept so paint_line's existing
    hdc/hdcmem call sites stay unchanged; folded away once paint_line itself
@@ -593,7 +593,7 @@ Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t 
   paint_glyphs (painter, gstart, g, ge, buf, x, y, yoffset);
 }
 
-/* Painter& variant of paint_glyphs (issue #13 step 2). A faithful
+/* Painter& variant of paint_glyphs (issue #195 step 2). A faithful
    transcription of the HDC version above with GDI leaf calls routed
    through the Painter: paint_chars -> draw_text, BitBlt ->
    blit_glyph_bitmap, the underline/strike thin-rect ExtTextOut ->
@@ -780,7 +780,7 @@ void
 Window::paint_line (Painter &painter, glyph_data *ogd, const glyph_data *ngd,
                     char *buf, int y) const
 {
-  /* issue #13 step 3f: glyph drawing / blank fills via Painter; the
+  /* issue #195 step 3f: glyph drawing / blank fills via Painter; the
      ScrollWindow/ValidateRect scroll-blit optimization stays on the
      w_hwnd member (window-content scroll, not a Painter drawing op). */
   const glyph_t *n = ngd->gd_cc, *ne = n + ngd->gd_len;
@@ -1253,7 +1253,7 @@ Window::paint_region (Painter &painter, int from, int to) const
       }
 }
 
-/* issue #13 step 3f: HDC entry point builds the glyph-atlas memory DC and a
+/* issue #195 step 3f: HDC entry point builds the glyph-atlas memory DC and a
    Win32Painter, then delegates. (The FONT_ASCII select / WCOLOR_BACK brush
    / padding the old HDC version set up are gone: paint_glyphs picks its own
    per-charset font, blank fills go through painter.fill_rect, and padding
@@ -1937,7 +1937,7 @@ Window::paint_mode_line (Painter &painter)
   /* Phase 2: mode line は Char * (UTF-16 code unit) で組み立てて直接
      描画する。旧実装は cp932 バイト列 → cp932_to_wcs で非 cp932 chars が
      '?' に落ちていた。
-     issue #13 step 3e: body text/border は Painter 経由
+     issue #195 step 3e: body text/border は Painter 経由
      (draw_text_chars(PFONT_MODELINE) / draw_hline / draw_vline)。point/
      percent サブペインタ (paint_point/paint_percent) は cross-frontend な
      virtual (cli/ncurses stub あり) で hdc に modeline font/colors が
@@ -2066,7 +2066,7 @@ Window::paint_mode_line (Painter &painter)
   painter.draw_hline (0, w_ml_size.cx, w_ml_size.cy - 1, sysdep.btn_shadow);
 }
 
-/* issue #13 step 3e: HDC entry point wraps the Painter& version. */
+/* issue #195 step 3e: HDC entry point wraps the Painter& version. */
 void
 Window::paint_mode_line (HDC hdc)
 {
@@ -2512,7 +2512,7 @@ flush_term_run (HDC hdc, Painter &painter, term_run &run, int cellh)
 void
 Window::paint_terminal (Painter &painter, Terminal *term, int force)
 {
-  /* issue #13 step 3g: terminal grid rendering via Painter. The terminal
+  /* issue #195 step 3g: terminal grid rendering via Painter. The terminal
      itself (Terminal, an escape-sequence parser / virtual screen in
      core/term.h) is platform-neutral and the PTY backend (ConPTY vs pty)
      lives in the process layer, so the only Win32 residual here is the
@@ -2712,7 +2712,7 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
     painter.fill_rect (0, trows * cellh, w_client.cx, w_client.cy - trows * cellh, def_bg);
 }
 
-/* issue #13 step 3g: HDC entry point wraps the Painter& version. */
+/* issue #195 step 3g: HDC entry point wraps the Painter& version. */
 void
 Window::paint_terminal (HDC hdc, Terminal *term, int force)
 {
@@ -2866,7 +2866,7 @@ Window::paint_background (Painter &painter, int x, int y, int w, int h) const
   painter.fill_rect (x, y, w, h, w_colors[WCOLOR_BACK]);
 }
 
-/* issue #13 step 3b: HDC entry point wraps the Painter& version. */
+/* issue #195 step 3b: HDC entry point wraps the Painter& version. */
 void
 Window::paint_background (HDC hdc, int x, int y, int w, int h) const
 {

@@ -6,7 +6,7 @@
 
 /*
  Win32Painter — the Win32 (GDI) implementation of the Painter interface
- (issue #13 step 2).
+ (issue #195 step 2).
 
  Wraps the target device context `p_hdc` and the glyph-atlas memory DC
  `p_hdcmem` (a CompatibleDC with FontSet::hbm() selected). Font metrics

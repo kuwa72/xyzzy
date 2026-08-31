@@ -1,4 +1,4 @@
-// issue #13 step6 PoC — bridge for wx macOS inline-IME hook.
+// issue #195 step6 PoC — bridge for wx macOS inline-IME hook.
 //
 // wx's wxNSView implements NSTextInputClient's insertText: but leaves the
 // composition methods (setMarkedText:/unmarkText/...) as stubs, so a custom
