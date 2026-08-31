@@ -686,15 +686,6 @@ Window::textprop_colors_changed ()
     wp->invalidate_glyphs ();
 }
 
-inline void
-Window::invalidate_glyphs ()
-{
-  if (w_glyphs.g_rep)
-    w_glyphs.g_rep->copy (0);
-  w_disp_flags |= WDF_WINDOW | WDF_WINSIZE_CHANGED;
-  w_cursor_line.ypixel = -1;
-}
-
 void
 Window::change_parameters (const FontSetParam &param)
 {
@@ -2506,14 +2497,14 @@ Window::frame_window_resize (HWND hwnd, LPARAM lparam, const POINT *real)
 }
 
 
-lisp
-Fget_window_flags ()
-{
-  return make_fixnum (Window::w_default_flags);
-}
+/* 表示フラグ (`set-window-flags` / `set-local-window-flags`) の Win32 側。
+   **Lisp から見える 4 つの入口は src/core/window-config.cc へ移した**
+   (フラグの意味は `Window::flags ()` の性質で、フロントエンドの性質では
+   ない)。ここに残るのは、フラグが変わったときに**画面の作りを変える**部分
+   だけである。宣言は src/core/fns.h。 */
 
-static int
-check_modified_flags (Window *wp, int df)
+int
+window_update_scroll_bars (Window *wp, int df)
 {
   int recompute = 0;
   if (df & Window::WF_VSCROLL_BAR)
@@ -2526,132 +2517,21 @@ check_modified_flags (Window *wp, int df)
       wp->update_hscroll_bar ();
       recompute = 1;
     }
-  if (df & (Window::WF_MODE_LINE | Window::WF_RULER
-            | Window::WF_LINE_NUMBER | Window::WF_FOLD_MARK))
-    recompute = 1;
   return recompute;
 }
 
-lisp
-Fset_window_flags (lisp flags)
+int
+window_default_flags_changed (int df)
 {
-  int f = fixnum_value (flags);
-  int recompute = 0;
-  int dflags = Window::w_default_flags;
-  for (Window *w = app.active_frame.windows; w; w = w->w_next)
-    {
-      Window::w_default_flags = dflags;
-      int of = w->flags ();
-      Window::w_default_flags = f;
-      int df = of ^ w->flags ();
-      if (check_modified_flags (w, df))
-        recompute = 1;
-      w->w_disp_flags |= Window::WDF_WINDOW;
-      if (df & (Window::WF_BGCOLOR_MODE | Window::WF_LINE_NUMBER))
-        w->invalidate_glyphs ();
-    }
-  Window::w_default_flags = f;
   set_bgmode ();
-  if ((f ^ dflags) & Window::WF_FUNCTION_BAR)
-    recalc_toplevel ();
-  else if (recompute)
-    Window::compute_geometry ();
-  return Qt;
-}
-
-lisp
-Fget_local_window_flags (lisp lobj)
-{
-  int flag, mask;
-  if (bufferp (lobj))
+  if (df & Window::WF_FUNCTION_BAR)
     {
-      Buffer *bp = Buffer::coerce_to_buffer (lobj);
-      flag = bp->b_wflags;
-      mask = bp->b_wflags_mask;
+      /* **ファンクションバーはウィンドウの外にある。** 作り直すのは
+         トップレベル全体で、`compute_geometry` では足りない。 */
+      recalc_toplevel ();
+      return 1;
     }
-  else
-    {
-      Window *wp = Window::coerce_to_window (lobj);
-      flag = wp->w_flags;
-      mask = wp->w_flags_mask;
-    }
-  multiple_value::count () = 2;
-  multiple_value::value (1) = make_fixnum (~mask & ~flag);
-  return make_fixnum (flag);
-}
-
-static void
-modify_wflags (int &flags, int &mask, int val, lisp lon)
-{
-  if (lon == Qt)
-    {
-      flags |= val;
-      mask &= ~val;
-    }
-  else if (lon == Qnil)
-    {
-      flags &= ~val;
-      mask &= ~val;
-    }
-  else
-    {
-      flags &= ~val;
-      mask |= val;
-    }
-}
-
-lisp
-Fset_local_window_flags (lisp lobj, lisp lflags, lisp lon)
-{
-  int flags = fixnum_value (lflags);
-  int recompute = 0;
-  if (bufferp (lobj))
-    {
-      Buffer *bp = Buffer::coerce_to_buffer (lobj);
-      int old_flags = bp->b_wflags;
-      int old_flags_mask = bp->b_wflags_mask;
-      int new_flags = old_flags;
-      int new_flags_mask = old_flags_mask;
-      modify_wflags (new_flags, new_flags_mask, flags, lon);
-      if (Window::minibuffer_window ()->w_bufp == bp)
-        {
-          new_flags &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
-          new_flags_mask &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
-        }
-      for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-        if (wp->w_bufp == bp)
-          {
-            bp->b_wflags = old_flags;
-            bp->b_wflags_mask = old_flags_mask;
-            int oflags = wp->flags ();
-            bp->b_wflags = new_flags;
-            bp->b_wflags_mask = new_flags_mask;
-            int df = oflags ^ wp->flags ();
-            wp->w_disp_flags |= Window::WDF_WINDOW;
-            if (check_modified_flags (wp, df))
-              recompute = 1;
-          }
-      bp->b_wflags = new_flags;
-      bp->b_wflags_mask = new_flags_mask;
-    }
-  else
-    {
-      Window *wp = Window::coerce_to_window (lobj);
-      int oflags = wp->flags ();
-      modify_wflags (wp->w_flags, wp->w_flags_mask, flags, lon);
-      if (wp->minibuffer_window_p ())
-        {
-          wp->w_flags &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
-          wp->w_flags_mask &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
-        }
-      wp->w_disp_flags |= Window::WDF_WINDOW;
-      int df = oflags ^ wp->flags ();
-      if (check_modified_flags (wp, df))
-        recompute = 1;
-    }
-  if (recompute)
-    Window::compute_geometry ();
-  return Qt;
+  return 0;
 }
 
 lisp

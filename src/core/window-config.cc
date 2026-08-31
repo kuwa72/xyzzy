@@ -741,3 +741,186 @@ Fpos_not_visible_in_window_p (lisp point, lisp window)
              : Qnil));
 }
 
+
+
+/* 表示フラグ (`get/set-window-flags`、`get/set-local-window-flags`)。
+
+   **`Window::flags ()` は 3 段の重ね合わせである:**
+
+     ウィンドウ局所  w_flags / w_flags_mask
+     バッファ局所    b_wflags / b_wflags_mask
+     全体の既定      Window::w_default_flags
+
+   `flags ()` が `w_flags | (w_default_flags & w_flags_mask)` を計算し、
+   さらにバッファの分を被せる。**mask は「そのビットについては上位に従う」**
+   という意味で、`modify_wflags` の 3 つ目の枝 (t でも nil でもない値を
+   渡したとき) がそこへ戻す操作である。
+
+   **ここが core に居るべき理由。** これは `Window::flags ()` の性質であって
+   フロントエンドの性質ではない。src/frontend/win32/Window.cc にあったので、
+   **端末では 4 つとも中身の無いスタブだった** (issue #50):
+
+     get-window-flags        0 を返す
+     set-window-flags        nil を返す
+     get-local-window-flags  0 を返す
+     set-local-window-flags  nil を返す
+
+   `lisp/window.l` の `toggle-window-flag` はこの 4 つしか使わないので、
+   **`toggle-line-number` / `toggle-ruler` / `toggle-newline` / `toggle-tab` /
+   `toggle-eof` / `toggle-fold-mark` / `toggle-cursor-line` など 14 個の
+   コマンドが何もしていなかった。** 描く側 (src/core/glyph.cc) は最初から
+   フラグを見ている。全体の 2 つは #166 で端末側に書いたが、**それは
+   「写す」直しだった**ので、ここでは core へ移して 1 つにしている
+   (#16 Phase 4)。
+
+   フロントエンドに残したのは 2 つだけで、宣言は src/core/fns.h にある
+   (`window_update_scroll_bars` / `window_default_flags_changed`)。 */
+
+lisp
+Fget_window_flags ()
+{
+  return make_fixnum (Window::w_default_flags);
+}
+
+/* DF のビットが変わったとき、ウィンドウの幾何を計算し直す必要があるか。
+
+   モード行・ルーラ・行番号・折り畳みの印は**どちらのフロントエンドでも**
+   テキストの領域の大きさを変えるので core で見る。スクロールバーだけが
+   フロントエンドの話。 */
+static int
+check_modified_flags (Window *wp, int df)
+{
+  int recompute = window_update_scroll_bars (wp, df);
+  if (df & (Window::WF_MODE_LINE | Window::WF_RULER
+            | Window::WF_LINE_NUMBER | Window::WF_FOLD_MARK))
+    recompute = 1;
+  return recompute;
+}
+
+lisp
+Fset_window_flags (lisp flags)
+{
+  int f = fixnum_value (flags);
+  int recompute = 0;
+  int dflags = Window::w_default_flags;
+  for (Window *w = app.active_frame.windows; w; w = w->w_next)
+    {
+      /* **既定を入れ替えて `flags ()` を 2 回聞く。** ウィンドウごとの
+         mask の掛かり方が違うので、変わったビットはウィンドウごとに違う。 */
+      Window::w_default_flags = dflags;
+      int of = w->flags ();
+      Window::w_default_flags = f;
+      int df = of ^ w->flags ();
+      if (check_modified_flags (w, df))
+        recompute = 1;
+      w->w_disp_flags |= Window::WDF_WINDOW;
+      if (df & (Window::WF_BGCOLOR_MODE | Window::WF_LINE_NUMBER))
+        w->invalidate_glyphs ();
+    }
+  Window::w_default_flags = f;
+  if (window_default_flags_changed (f ^ dflags))
+    return Qt;
+  if (recompute)
+    Window::compute_geometry ();
+  return Qt;
+}
+
+lisp
+Fget_local_window_flags (lisp lobj)
+{
+  int flag, mask;
+  if (bufferp (lobj))
+    {
+      Buffer *bp = Buffer::coerce_to_buffer (lobj);
+      flag = bp->b_wflags;
+      mask = bp->b_wflags_mask;
+    }
+  else
+    {
+      Window *wp = Window::coerce_to_window (lobj);
+      flag = wp->w_flags;
+      mask = wp->w_flags_mask;
+    }
+  /* 2 つ目の値は「明示的に切ってあるビット」。mask が立っていない
+     (= 上位に従わない) 上に flag も立っていないもの。 */
+  multiple_value::count () = 2;
+  multiple_value::value (1) = make_fixnum (~mask & ~flag);
+  return make_fixnum (flag);
+}
+
+/* LON が t なら立てる、nil なら倒す、**それ以外なら「上位に従う」に戻す。** */
+static void
+modify_wflags (int &flags, int &mask, int val, lisp lon)
+{
+  if (lon == Qt)
+    {
+      flags |= val;
+      mask &= ~val;
+    }
+  else if (lon == Qnil)
+    {
+      flags &= ~val;
+      mask &= ~val;
+    }
+  else
+    {
+      flags &= ~val;
+      mask |= val;
+    }
+}
+
+lisp
+Fset_local_window_flags (lisp lobj, lisp lflags, lisp lon)
+{
+  int flags = fixnum_value (lflags);
+  int recompute = 0;
+  if (bufferp (lobj))
+    {
+      Buffer *bp = Buffer::coerce_to_buffer (lobj);
+      int old_flags = bp->b_wflags;
+      int old_flags_mask = bp->b_wflags_mask;
+      int new_flags = old_flags;
+      int new_flags_mask = old_flags_mask;
+      modify_wflags (new_flags, new_flags_mask, flags, lon);
+      /* **ミニバッファにモード行とルーラは付けない。** 付けると
+         ミニバッファの高さが変わって、エコー領域が消える。 */
+      if (Window::minibuffer_window ()->w_bufp == bp)
+        {
+          new_flags &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
+          new_flags_mask &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
+        }
+      for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+        if (wp->w_bufp == bp)
+          {
+            bp->b_wflags = old_flags;
+            bp->b_wflags_mask = old_flags_mask;
+            int oflags = wp->flags ();
+            bp->b_wflags = new_flags;
+            bp->b_wflags_mask = new_flags_mask;
+            int df = oflags ^ wp->flags ();
+            wp->w_disp_flags |= Window::WDF_WINDOW;
+            if (check_modified_flags (wp, df))
+              recompute = 1;
+          }
+      bp->b_wflags = new_flags;
+      bp->b_wflags_mask = new_flags_mask;
+    }
+  else
+    {
+      Window *wp = Window::coerce_to_window (lobj);
+      int oflags = wp->flags ();
+      modify_wflags (wp->w_flags, wp->w_flags_mask, flags, lon);
+      if (wp->minibuffer_window_p ())
+        {
+          wp->w_flags &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
+          wp->w_flags_mask &= ~(Window::WF_MODE_LINE | Window::WF_RULER);
+        }
+      wp->w_disp_flags |= Window::WDF_WINDOW;
+      int df = oflags ^ wp->flags ();
+      if (check_modified_flags (wp, df))
+        recompute = 1;
+    }
+  if (recompute)
+    Window::compute_geometry ();
+  return Qt;
+}
