@@ -6717,8 +6717,129 @@ ncurses_mouse_dispatch (MEVENT *mev)
 }
 
 // Dialog (Fdialog_box and Fproperty_sheet are in ncurses-dialog.cc)
-lisp Ffile_name_dialog (lisp) { return Qnil; }
-lisp Fdirectory_name_dialog (lisp) { return Qnil; }
+/* ファイル選択のダイアログ。**端末にダイアログは無いが、同じ目的の道が
+   ある** — ミニバッファでファイル名を聞く経路 (`read_filename`) が
+   issue #114 で動くようになっている。
+
+   **`return Qnil` のスタブだったので、これを呼ぶコマンドが黙って何もして
+   いなかった** (issue #187):
+
+     M-x open-file-dialog          何も起きない
+     M-x save-as-dialog            何も起きない
+     M-x save-kbd-macro-to-file    何も起きない
+
+   キーワードは 13 個あるが、**端末で意味があるのは 5 つだけ。** 残り
+   (`:filter` / `:filter-index` / `:extension` / `:save` / `:explorer` /
+   `:hide-read-only` / `:overwrite` / `:read-only`) は GUI のダイアログの
+   部品なので無視する。
+
+   **戻り値は 4 つ** (Win32 側 src/frontend/win32/dialogs.cc に合わせる):
+   ファイル名 / `:filter-index` / エンコーディング / 改行コード。
+
+   3 つ目で 1 つ決める必要がある。Win32 ではダイアログのコンボボックスで
+   選んだ値が返るが、端末にその UI は無い。**渡された値をそのまま返しては
+   いけない**: `open-file-dialog` は `:char-encoding (or
+   *expected-fileio-encoding* t)` を渡して、戻り値を `(find-file files
+   encoding)` に使う。`t` を返すと `(find-file files t)` になる。
+
+   **char-encoding のオブジェクトなら返し、それ以外は nil を返す。** nil は
+   呼ぶ側で「自動判別」に落ちる。改行コードの方は数でも keyword でも呼ぶ側が
+   そのまま使うので、渡されたものを返す。 */
+static lisp
+ncurses_file_dialog (lisp keys, lisp type, const char *default_prompt)
+{
+  lisp ltitle = find_keyword (Ktitle, keys);
+  if (ltitle != Qnil)
+    check_string (ltitle);
+
+  lisp ldefault = find_keyword (Kdefault, keys);
+  if (ldefault == Qnil)
+    ldefault = find_keyword (Kinitial_directory, keys);
+  if (ldefault != Qnil)
+    ldefault = Fnamestring (ldefault);
+
+  /* プロンプトは `:title` があればそれ、無ければ既定の文字列。 */
+  ucs4_t buf[128];
+  const ucs4_t *prompt;
+  long prompt_length;
+  if (stringp (ltitle) && xstring_length (ltitle) < long (numberof (buf)) - 3)
+    {
+      const ucs4_t *p = xstring_contents (ltitle);
+      long l = xstring_length (ltitle);
+      memcpy (buf, p, l * sizeof *buf);
+      buf[l++] = ':';
+      buf[l++] = ' ';
+      prompt = buf;
+      prompt_length = l;
+    }
+  else
+    {
+      long l = 0;
+      for (const char *p = default_prompt; *p; p++)
+        buf[l++] = (u_char)*p;
+      prompt = buf;
+      prompt_length = l;
+    }
+
+  lisp r = read_filename (prompt, prompt_length, type, ltitle, ldefault, Qnil);
+  if (r == Qnil)
+    return Qnil;
+
+  /* **`:multiple t` はリストで返す約束。** Win32 側は複数選択の結果を
+     リストにして返し、`open-file-dialog` は `(dolist (f files) ...)` と
+     使うので、文字列を返すと壊れる。
+
+     `Kfile_name_list` の補完は**空白区切りで複数**を受けるので、同じ
+     区切りで分ける。**Win32 の複数選択の形 (先頭がディレクトリ、残りが
+     名前) は当てはまらない**: あれはダイアログが作る形で、ここは人が
+     打った文字列である。 */
+  if (type == Kfile_name_list && stringp (r))
+    {
+      lisp list = Qnil;
+      const ucs4_t *p = xstring_contents (r);
+      const ucs4_t *const pe = p + xstring_length (r);
+      while (p < pe)
+        {
+          while (p < pe && *p == ' ')
+            p++;
+          const ucs4_t *b = p;
+          while (p < pe && *p != ' ')
+            p++;
+          if (p > b)
+            list = xcons (make_string (b, p - b), list);
+        }
+      r = Fnreverse (list);
+      if (r == Qnil)
+        return Qnil;
+    }
+
+  lisp encoding = find_keyword (Kchar_encoding, keys);
+  multiple_value::count () = 4;
+  multiple_value::value (1) = make_fixnum (find_keyword_int (Kfilter_index, keys, 1));
+  multiple_value::value (2) = char_encoding_p (encoding) ? encoding : Qnil;
+  multiple_value::value (3) = find_keyword (Keol_code, keys);
+  return r;
+}
+
+lisp
+Ffile_name_dialog (lisp keys)
+{
+  /* `:multiple t` はリストで返す約束 (Win32 側と同じ)。`:must-exist t` は
+     存在するものだけ。 */
+  lisp type = (find_keyword_bool (Kmultiple, keys)
+               ? Kfile_name_list
+               : (find_keyword_bool (Kmust_exist, keys)
+                  ? Kexist_file_name : Kfile_name));
+  return ncurses_file_dialog (keys, type, "File: ");
+}
+
+lisp
+Fdirectory_name_dialog (lisp keys)
+{
+  return ncurses_file_dialog (keys, Kdirectory_name, "Directory: ");
+}
+
+/* **POSIX にドライブは無い**ので nil のままが正しい (「選ばなかった」)。 */
 lisp Fdrive_dialog (lisp) { return Qnil; }
 lisp Fbuffer_selector () { return Qnil; }
 lisp Fprint_dialog (lisp) { return Qnil; }
