@@ -1045,6 +1045,34 @@ lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
 // ============================================================
 
 
+/* **この環境では使えないもの。** 「黙って nil を返す」をやめる。
+
+   `src/frontend/ncurses/ncurses-stubs.cc` の「`return Qnil` だけ」の関数は
+   140 個以上あるが、**一律にエラーにしてはいけない。** Lisp ライブラリが
+   無条件に呼ぶもの (ツールバー、IME、待ちカーソル) をエラーにすると起動
+   しなくなる。分かれ目は**「ユーザが名指しで呼んだのか、飾りなのか」**である
+   (issue #185):
+
+     エラーを上げる  filer / OLE / DDE / アーカイバ / 印刷 / winhelp /
+                     ショートカットの作成 / キーボードレイアウトの選択 /
+                     xyzzy サーバ。**`M-x filer` と打った人は「何も起きない」
+                     より「この環境には無い」と言われた方がよい**
+     nil のまま      問い合わせ (`filer-modal-p` / `filer-get-directory` /
+                     `list-servers` など)。**nil が正しい答え**である
+                     (「filer は開いていない」「サーバは無い」)。第三者の
+                     Lisp が様子を見るために呼ぶことがあるので、そこで
+                     エラーにしてはいけない
+     no-op のまま    ツールバー / タブバー / IME / `do-events` /
+                     待ちカーソル。飾りなので何もしないのが正しい
+
+   メッセージに**名前を入れる**のが要点で、`*_not_supported` の 5 個は名前が
+   入っていないので何が無いのか分からない。 */
+static lisp
+unsupported (lisp name)
+{
+  return FEsimple_error (Eunsupported_on_this_platform, name);
+}
+
 lisp Fsi_plugin_arg () { return Qnil; }
 lisp Fsi_snarf_documentation (lisp, lisp) { return Qnil; }
 
@@ -6874,8 +6902,8 @@ Fbuffer_selector ()
   return complete_read (prompt, pe - prompt, def, Kexist_buffer_name,
                         Qnil, Kbuffer_name, 1, -1);
 }
-lisp Fprint_dialog (lisp) { return Qnil; }
-lisp Fprint_buffer (lisp) { return Qnil; }
+lisp Fprint_dialog (lisp) { return unsupported (Sprint_dialog); }
+lisp Fprint_buffer (lisp) { return unsupported (Sprint_buffer); }
 
 // Font
 lisp Fget_text_fontset () { return Qnil; }
@@ -6895,26 +6923,26 @@ lisp Fenable_global_ime (lisp) { return Qnil; }
 // Process: implemented in ncurses-process.cc
 
 // OLE
-lisp Fole_create_object (lisp) { return Qnil; }
-lisp Fole_get_object (lisp) { return Qnil; }
-lisp Fole_putprop (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fole_getprop (lisp, lisp, lisp) { return Qnil; }
-lisp Fole_method (lisp, lisp, lisp) { return Qnil; }
-lisp Fole_method_star (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Fole_create_event_sink (lisp, lisp, lisp) { return Qnil; }
+lisp Fole_create_object (lisp) { return unsupported (Sole_create_object); }
+lisp Fole_get_object (lisp) { return unsupported (Sole_get_object); }
+lisp Fole_putprop (lisp, lisp, lisp, lisp) { return unsupported (Sole_putprop); }
+lisp Fole_getprop (lisp, lisp, lisp) { return unsupported (Sole_getprop); }
+lisp Fole_method (lisp, lisp, lisp) { return unsupported (Sole_method); }
+lisp Fole_method_star (lisp, lisp, lisp, lisp) { return unsupported (Sole_method_star); }
+lisp Fole_create_event_sink (lisp, lisp, lisp) { return unsupported (Sole_create_event_sink); }
 lisp Fset_ole_event_handler (lisp, lisp, lisp) { return Qnil; }
-lisp Fole_enumerator_create (lisp) { return Qnil; }
-lisp Fole_enumerator_next (lisp) { return Qnil; }
-lisp Fole_enumerator_reset (lisp) { return Qnil; }
-lisp Fole_enumerator_skip (lisp, lisp) { return Qnil; }
-lisp Fole_drop_files (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fole_enumerator_create (lisp) { return unsupported (Sole_enumerator_create); }
+lisp Fole_enumerator_next (lisp) { return unsupported (Sole_enumerator_next); }
+lisp Fole_enumerator_reset (lisp) { return unsupported (Sole_enumerator_reset); }
+lisp Fole_enumerator_skip (lisp, lisp) { return unsupported (Sole_enumerator_skip); }
+lisp Fole_drop_files (lisp, lisp, lisp, lisp) { return unsupported (Sole_drop_files); }
 
 // DDE
-lisp Fdde_initiate (lisp, lisp) { return Qnil; }
-lisp Fdde_terminate (lisp) { return Qnil; }
-lisp Fdde_execute (lisp, lisp) { return Qnil; }
-lisp Fdde_poke (lisp, lisp, lisp) { return Qnil; }
-lisp Fdde_request (lisp, lisp, lisp) { return Qnil; }
+lisp Fdde_initiate (lisp, lisp) { return unsupported (Sdde_initiate); }
+lisp Fdde_terminate (lisp) { return unsupported (Sdde_terminate); }
+lisp Fdde_execute (lisp, lisp) { return unsupported (Sdde_execute); }
+lisp Fdde_poke (lisp, lisp, lisp) { return unsupported (Sdde_poke); }
+lisp Fdde_request (lisp, lisp, lisp) { return unsupported (Sdde_request); }
 
 // Tool bar
 lisp Fcreate_tool_bar (lisp, lisp, lisp) { return Qnil; }
@@ -6943,8 +6971,8 @@ lisp Ftab_bar_modify_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
    ncurses-kbd.cc の select ループ (POSIX には SetTimer が無い)。 */
 
 // Listen server
-lisp Fstart_xyzzy_server () { return Qnil; }
-lisp Fstop_xyzzy_server () { return Qnil; }
+lisp Fstart_xyzzy_server () { return unsupported (Sstart_xyzzy_server); }
+lisp Fstop_xyzzy_server () { return unsupported (Sstop_xyzzy_server); }
 
 // Function bar
 lisp Fset_function_bar_label (lisp, lisp) { return Qnil; }
@@ -6952,63 +6980,63 @@ lisp Fnumber_of_function_bar_labels () { return make_fixnum (0); }
 lisp Fset_number_of_function_bar_labels (lisp) { return Qnil; }
 
 // Filer (all stubs)
-lisp Ffiler (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Ffiler_forward_line (lisp, lisp) { return Qnil; }
-lisp Ffiler_forward_page (lisp, lisp) { return Qnil; }
-lisp Ffiler_goto_bof (lisp) { return Qnil; }
-lisp Ffiler_goto_eof (lisp) { return Qnil; }
-lisp Ffiler_goto_file (lisp, lisp, lisp, lisp) { return Qnil; }
-lisp Ffiler_mark (lisp, lisp) { return Qnil; }
-lisp Ffiler_mark_all (lisp, lisp) { return Qnil; }
-lisp Ffiler_mark_match_files (lisp, lisp) { return Qnil; }
-lisp Ffiler_toggle_mark (lisp, lisp) { return Qnil; }
-lisp Ffiler_toggle_all_marks (lisp, lisp) { return Qnil; }
-lisp Ffiler_clear_all_marks (lisp) { return Qnil; }
+lisp Ffiler (lisp, lisp, lisp, lisp, lisp) { return unsupported (Sfiler); }
+lisp Ffiler_forward_line (lisp, lisp) { return unsupported (Sfiler_forward_line); }
+lisp Ffiler_forward_page (lisp, lisp) { return unsupported (Sfiler_forward_page); }
+lisp Ffiler_goto_bof (lisp) { return unsupported (Sfiler_goto_bof); }
+lisp Ffiler_goto_eof (lisp) { return unsupported (Sfiler_goto_eof); }
+lisp Ffiler_goto_file (lisp, lisp, lisp, lisp) { return unsupported (Sfiler_goto_file); }
+lisp Ffiler_mark (lisp, lisp) { return unsupported (Sfiler_mark); }
+lisp Ffiler_mark_all (lisp, lisp) { return unsupported (Sfiler_mark_all); }
+lisp Ffiler_mark_match_files (lisp, lisp) { return unsupported (Sfiler_mark_match_files); }
+lisp Ffiler_toggle_mark (lisp, lisp) { return unsupported (Sfiler_toggle_mark); }
+lisp Ffiler_toggle_all_marks (lisp, lisp) { return unsupported (Sfiler_toggle_all_marks); }
+lisp Ffiler_clear_all_marks (lisp) { return unsupported (Sfiler_clear_all_marks); }
 lisp Ffiler_count_marks (lisp, lisp) { return Qnil; }
 lisp Ffiler_get_mark_files (lisp, lisp) { return Qnil; }
 lisp Ffiler_get_current_file (lisp) { return Qnil; }
 lisp Ffiler_current_file_directory_p (lisp) { return Qnil; }
 lisp Ffiler_current_file_dot_dot_p (lisp) { return Qnil; }
 lisp Ffiler_get_directory (lisp) { return Qnil; }
-lisp Ffiler_set_directory (lisp, lisp) { return Qnil; }
-lisp Ffiler_set_file_mask (lisp, lisp) { return Qnil; }
+lisp Ffiler_set_directory (lisp, lisp) { return unsupported (Sfiler_set_directory); }
+lisp Ffiler_set_file_mask (lisp, lisp) { return unsupported (Sfiler_set_file_mask); }
 lisp Ffiler_get_drive (lisp) { return Qnil; }
-lisp Ffiler_sort (lisp, lisp) { return Qnil; }
+lisp Ffiler_sort (lisp, lisp) { return unsupported (Sfiler_sort); }
 lisp Ffiler_get_sort_order (lisp) { return Qnil; }
-lisp Ffiler_demand_reload () { return Qnil; }
-lisp Ffiler_reload (lisp, lisp) { return Qnil; }
-lisp Ffiler_close (lisp) { return Qnil; }
+lisp Ffiler_demand_reload () { return unsupported (Sfiler_demand_reload); }
+lisp Ffiler_reload (lisp, lisp) { return unsupported (Sfiler_reload); }
+lisp Ffiler_close (lisp) { return unsupported (Sfiler_close); }
 lisp Ffiler_dual_window_p () { return Qnil; }
-lisp Ffiler_left_window () { return Qnil; }
-lisp Ffiler_right_window () { return Qnil; }
+lisp Ffiler_left_window () { return unsupported (Sfiler_left_window); }
+lisp Ffiler_right_window () { return unsupported (Sfiler_right_window); }
 lisp Ffiler_left_window_p () { return Qnil; }
-lisp Ffiler_swap_windows () { return Qnil; }
+lisp Ffiler_swap_windows () { return unsupported (Sfiler_swap_windows); }
 lisp Ffiler_modal_p () { return Qnil; }
-lisp Ffiler_isearch (lisp, lisp, lisp) { return Qnil; }
-lisp Ffiler_viewer () { return Qnil; }
-lisp Ffiler_read_char () { return Qnil; }
+lisp Ffiler_isearch (lisp, lisp, lisp) { return unsupported (Sfiler_isearch); }
+lisp Ffiler_viewer () { return unsupported (Sfiler_viewer); }
+lisp Ffiler_read_char () { return unsupported (Sfiler_read_char); }
 lisp Ffiler_get_text () { return Qnil; }
-lisp Ffiler_set_text (lisp) { return Qnil; }
-lisp Ffiler_calc_directory_size (lisp) { return Qnil; }
-lisp Ffiler_calc_directory_byte_size (lisp) { return Qnil; }
-lisp Ffiler_context_menu () { return Qnil; }
-lisp Ffiler_subscribe_to_reload (lisp, lisp) { return Qnil; }
-lisp Ffiler_scroll_left (lisp) { return Qnil; }
-lisp Ffiler_scroll_right (lisp) { return Qnil; }
-lisp Ffiler_modify_column_width (lisp, lisp, lisp) { return Qnil; }
+lisp Ffiler_set_text (lisp) { return unsupported (Sfiler_set_text); }
+lisp Ffiler_calc_directory_size (lisp) { return unsupported (Sfiler_calc_directory_size); }
+lisp Ffiler_calc_directory_byte_size (lisp) { return unsupported (Sfiler_calc_directory_byte_size); }
+lisp Ffiler_context_menu () { return unsupported (Sfiler_context_menu); }
+lisp Ffiler_subscribe_to_reload (lisp, lisp) { return unsupported (Sfiler_subscribe_to_reload); }
+lisp Ffiler_scroll_left (lisp) { return unsupported (Sfiler_scroll_left); }
+lisp Ffiler_scroll_right (lisp) { return unsupported (Sfiler_scroll_right); }
+lisp Ffiler_modify_column_width (lisp, lisp, lisp) { return unsupported (Sfiler_modify_column_width); }
 
 // Archive
-lisp Flist_archive (lisp, lisp) { return Qnil; }
-lisp Fcreate_archive (lisp, lisp, lisp) { return Qnil; }
-lisp Fextract_archive (lisp, lisp, lisp) { return Qnil; }
-lisp Fdelete_file_in_archive (lisp, lisp) { return Qnil; }
+lisp Flist_archive (lisp, lisp) { return unsupported (Slist_archive); }
+lisp Fcreate_archive (lisp, lisp, lisp) { return unsupported (Screate_archive); }
+lisp Fextract_archive (lisp, lisp, lisp) { return unsupported (Sextract_archive); }
+lisp Fdelete_file_in_archive (lisp, lisp) { return unsupported (Sdelete_file_in_archive); }
 lisp Fconvert_to_SFX (lisp, lisp) { return Qnil; }
 lisp Farchiver_dll_version (lisp) { return Qnil; }
-lisp Farchiver_dll_config_dialog (lisp, lisp) { return Qnil; }
+lisp Farchiver_dll_config_dialog (lisp, lisp) { return unsupported (Sarchiver_dll_config_dialog); }
 
 // Shell / Shortcut
 // Fshell_execute: implemented in ncurses-process.cc
-lisp Fcreate_shortcut (lisp, lisp, lisp) { return Qnil; }
+lisp Fcreate_shortcut (lisp, lisp, lisp) { return unsupported (Screate_shortcut); }
 lisp Fresolve_shortcut (lisp) { return Qnil; }
 lisp Feject_media (lisp) { return Qnil; }
 lisp Fget_special_folder_location (lisp) { return Qnil; }
@@ -7016,11 +7044,11 @@ lisp Fget_special_folder_location (lisp) { return Qnil; }
 // Misc
 lisp Fmain_loop () { command_loop (); return Qnil; }
 // Fsit_for/Fsleep_for: implemented in ncurses-process.cc
-lisp Factivate_xyzzy_window (lisp) { return Qnil; }
+lisp Factivate_xyzzy_window (lisp) { return unsupported (Sactivate_xyzzy_window); }
 lisp Fcount_xyzzy_instance () { return make_fixnum (1); }
 lisp Flist_xyzzy_windows () { return Qnil; }
-lisp Fnext_xyzzy_window () { return Qnil; }
-lisp Fprevious_xyzzy_window () { return Qnil; }
+lisp Fnext_xyzzy_window () { return unsupported (Snext_xyzzy_window); }
+lisp Fprevious_xyzzy_window () { return unsupported (Sprevious_xyzzy_window); }
 /* 直近の打鍵。環は src/frontend/ncurses/ncurses-kbd.cc が持つ
    (`fetch` が返す所で記録している)。**ここは nil を返すスタブだったので、
    `view-lossage` (C-h l) が空の *Help* を出していた。** */
@@ -7064,7 +7092,7 @@ lisp Fcreate_buffer_bar () { return Qnil; }
    src/core/kbd-macro.cc へ移した。**ここが nil を返すスタブだったので、
    端末ではキーボードマクロが記録も再生もできなかった** (issue #181)。 */
 lisp Fcurrent_kbd_layout () { return Qnil; }
-lisp Fselect_kbd_layout (lisp) { return Qnil; }
+lisp Fselect_kbd_layout (lisp) { return unsupported (Sselect_kbd_layout); }
 lisp Flist_kbd_layout () { return Qnil; }
 
 // Network/Server resources
@@ -7072,8 +7100,8 @@ lisp Flist_servers (lisp) { return Qnil; }
 lisp Flist_server_resources (lisp, lisp) { return Qnil; }
 
 // WinHelp / HTML Help / Dictionary
-lisp Frun_winhelp (lisp, lisp) { return Qnil; }
-lisp Fkill_winhelp (lisp) { return Qnil; }
+lisp Frun_winhelp (lisp, lisp) { return unsupported (Srun_winhelp); }
+lisp Fkill_winhelp (lisp) { return unsupported (Skill_winhelp); }
 lisp Ffind_winhelp_path (lisp, lisp) { return Qnil; }
-lisp Fhtml_help (lisp, lisp) { return Qnil; }
-lisp Flookup_dictionary (lisp, lisp, lisp, lisp) { return Qnil; }
+lisp Fhtml_help (lisp, lisp) { return unsupported (Shtml_help); }
+lisp Flookup_dictionary (lisp, lisp, lisp, lisp) { return unsupported (Slookup_dictionary); }
