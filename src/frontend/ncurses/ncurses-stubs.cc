@@ -120,6 +120,10 @@ int StatusWindow::text (const char *s)
     {
       if (SJISP (*p) && p[1])
         {
+          /* **ここは `i2w` の正しい使い方。** 渡しているのは CP932 の
+             2 バイト文字を組んだもので、旧内部エンコーディングの値である
+             (UTF-16 ではない)。UTF-16 を渡している所は
+             `char_to_wchar` に直した (issue #179)。 */
           Char ic = (*p << 8) | p[1];
           *sw_b++ = i2w (ic);
           p += 2;
@@ -2392,7 +2396,11 @@ draw_minibuffer (Window *mini, int row, int cols)
     {
       for (long i = 0; i < bp->b_prompt_length && x < cols; i++)
         {
-          Char c = bp->b_prompt[i];
+          /* **`b_prompt` は `ucs4_t *` (code point の配列)。** `Char` に
+             切り詰めていたので、BMP の外の文字が片割れになっていた。
+             POSIX の `wchar_t` は 32 ビットなのでそのまま渡せる
+             (`char_to_wchar` は UTF-16 の code unit 用)。 */
+          ucs4_t c = bp->b_prompt[i];
           if (c < 0x80)
             {
               mvaddch (row, x, (char)c);
@@ -2400,11 +2408,11 @@ draw_minibuffer (Window *mini, int row, int cols)
             }
           else
             {
-              ucs2_t wc = i2w (c);
+              wchar_t wc = wchar_t (c);
               if (wc != 0)
                 {
                   cchar_t cc;
-                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  wchar_t ws[2] = {wc, 0};
                   setcchar (&cc, ws, 0, 0, NULL);
                   mvadd_wch (row, x, &cc);
                   int w = wcwidth ((wchar_t)wc);
@@ -2441,11 +2449,11 @@ draw_minibuffer (Window *mini, int row, int cols)
             }
           else
             {
-              ucs2_t wc = i2w (c);
+              wchar_t wc = char_to_wchar (c);
               if (wc != 0)
                 {
                   cchar_t cc;
-                  wchar_t ws[2] = {(wchar_t)wc, 0};
+                  wchar_t ws[2] = {wc, 0};
                   setcchar (&cc, ws, 0, 0, NULL);
                   mvadd_wch (row, x, &cc);
                   int w = wcwidth ((wchar_t)wc);
@@ -2991,8 +2999,9 @@ render_terminal_window (Window *wp, Terminal *term, int total_cols)
               wchar_t wc;
               if (ch > 0x80)
                 {
-                  ucs2_t w = i2w (ch);
-                  wc = (wchar_t)(w ? w : '?');
+                  wc = char_to_wchar (ch);
+                  if (!wc)
+                    wc = '?';
                 }
               else
                 wc = (wchar_t)ch;
@@ -3273,8 +3282,7 @@ refresh_screen (int f)
                 point_x++;
               else
                 {
-                  ucs2_t wc = i2w (c);
-                  int w = (wc != 0) ? wcwidth ((wchar_t)wc) : 1;
+                  int w = wcwidth (char_to_wchar (c));
                   point_x += (w > 0) ? w : 1;
                 }
               pt.p_point++;
@@ -4607,8 +4615,8 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
             }
           else
             {
-              ucs2_t wc = i2w (c);
-              int cw = wcwidth ((wchar_t)wc);
+              wchar_t wc = char_to_wchar (c);
+              int cw = wcwidth (wc);
               if (cw <= 0) cw = 1;
               if (col + cw > inner_width - 1) break;
               wchar_t ws[2] = {(wchar_t)wc, 0};
@@ -4796,8 +4804,8 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
                   }
                 else
                   {
-                    ucs2_t wc = i2w (c);
-                    int cw = wcwidth ((wchar_t)wc);
+                    wchar_t wc = char_to_wchar (c);
+                    int cw = wcwidth (wc);
                     if (cw <= 0) cw = 1;
                     if (col + cw > inner_width) break;
                     wchar_t ws[2] = {(wchar_t)wc, 0};

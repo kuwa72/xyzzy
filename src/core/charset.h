@@ -386,11 +386,41 @@ char_width (ucs4_t cc)
   return w == 0 ? 1 : w;
 }
 
+/* **移行前の内部エンコーディング (CP932 系) から UTF-16 への表引き。**
+
+   **UTF-16 の値を渡してはいけない。** 表が恒等なのは 65536 のうち 2178 個
+   (ほぼ ASCII と Latin-1) だけで、それ以外は別の文字になる:
+
+     0x30ad -> 0x67d3   (キ -> 染)
+     0x3042 -> 0x8a00   (あ -> 言)
+     0x8868 -> 0xffff   (表 -> 未定義)
+
+   使ってよいのはコーデックの中 (src/core/ucs2.cc / encoding.cc / char.cc /
+   kanji.cc) で、そこでは「内部エンコーディング」が本当に旧内部
+   エンコーディングを指す。**`Char` の値を wchar_t にしたいだけなら
+   `char_to_wchar` を使う** (issue #179: 端末のフロントエンドがここを呼んで
+   いたので、日本語のプロンプトが全部化けていた)。 */
 static inline const ucs2_t &
 i2w (Char cc)
 {
   extern ucs2_t internal2wc_table[];
   return internal2wc_table[cc];
+}
+
+/* **UTF-16 の code unit をそのまま `wchar_t` にする。**
+
+   移行後の `Char` は UTF-16 の code unit である (src/core/cdecl.h の
+   `typedef uint16_t Char`、`Chunk::c_text` も `Char *` で surrogate pair を
+   持つ) ので、変換は恒等である。**上の `i2w (Char)` ではない。**
+
+   **surrogate pair はここで組み立てない。** 1 つの code unit しか見ないので
+   astral の文字は片割れになる。幅を数えるだけの用途 (`wcwidth`) では -1 が
+   返って 1 桁扱いになる。code point が要る所は文字列ごと扱う
+   (`u82i` / `i2w` の文字列版)。 */
+static inline wchar_t
+char_to_wchar (Char cc)
+{
+  return wchar_t (cc);
 }
 
 static inline const Char &
