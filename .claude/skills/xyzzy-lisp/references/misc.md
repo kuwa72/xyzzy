@@ -777,36 +777,44 @@ MD5ハッシュ値を得ます。
 指定したエンコーディングでエンコードした場合の文字列のバイトサイズを求めます。
 
   STRING    : バイトサイズを求める文字列
-  :encoding : エンコーディング。デフォルトは CP932 (Shift_JIS)
+  :encoding : エンコーディング。デフォルトは *default-fileio-encoding*
   :start    : 開始位置。デフォルトは 0 で非負の整数
   :end      : 終了位置。デフォルトは nil で、 nil の場合は文字列の長さを
               指定した場合と等しい動作
 
-使用例：
+使用例： (以下は *default-fileio-encoding* が既定の utf8n のとき)
   (si:octet-length "abc")
   => 3
   (si:octet-length "abcあいう")
-  => 9
-  (si:octet-length "abcアイウ" :start 1 :end 5)
-  => 6
-  (si:octet-length "abcアイウ" :encoding *encoding-utf8n*)
   => 12
+  (si:octet-length "abcアイウ" :start 1 :end 5)
+  => 8
+  (si:octet-length "abcあいう" :encoding *encoding-sjis*)
+  => 9
 
 補足：
   xyzzy 0.2.2.238 から利用可能です。
 
-  :encoding を省いたときのデフォルトは、以前ここに「エンコーディング変換
-  なし」と書いてありました。内部表現が CP932 のバイト列だった頃はそれで
-  正しかったのですが、内部表現が Unicode になったあとは「変換なし」に当たる
-  ものが無く、実際には CP932 でエンコードした長さを返します。
+  :encoding を省いたときのデフォルトは *default-fileio-encoding* です。
+  「保存したら何バイトになるか」を聞く関数なので、ファイルの既定に合わせて
+  あります。この変数を設定ファイルで変えている場合は、そちらの値で数えます。
 
-  そのため、すでにバイト列になっている文字列を渡すと、そのバイト数とは
-  一致しません。バイト数が知りたい場合は length を使ってください。
+  この既定は以前 CP932 (Shift_JIS) でした。さらにその前、ここには
+  「エンコーディング変換なし」と書いてありました。内部表現が CP932 の
+  バイト列だった頃は「変換しない」ことと「CP932 で数える」ことが同じだった
+  ので、それで正しかったのですが、内部表現が Unicode になったあとは
+  「変換なし」に当たるものが無くなり、実装だけが CP932 を数え続けていました。
+
+  なお、変数の値を動的に束縛 (let) しても、この関数の既定には反映されません。
+  グローバルな値を読みます。
+
+  すでにバイト列になっている文字列を渡すと、そのバイト数とは一致しません。
+  バイト数が知りたい場合は length を使ってください。
 
   (length (convert-encoding-from-internal *encoding-utf8n* "abcアイウ"))
   => 12
   (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "abcアイウ"))
-  => 13   ; CP932 で数え直すので一致しない
+  => 21   ; 12 個のバイトを文字として数え直すので一致しない
 ```
 
 ## `si:quoted-printable-decode`

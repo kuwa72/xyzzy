@@ -1257,13 +1257,29 @@ Fsi_octet_length (lisp string, lisp keys)
   string_start_end (string, start, end,
                     find_keyword (Kstart, keys, make_fixnum (0)),
                     find_keyword (Kend, keys, Qnil));
+  /* **`:encoding` を省いたときは `*default-fileio-encoding*` で数える**
+     (issue #154)。**ここは長く CP932 (`w2sl`) だった。** リファレンスは
+     「エンコーディング変換なし」と書いていたが、それは**内部表現が CP932 の
+     バイト列だった頃の言い方**で、そのときは「変換しない」ことと「CP932 で
+     数える」ことが同じだった。内部表現が Unicode になったあと「変換なし」に
+     当たるものは無くなり、実装だけが CP932 を数え続けていた。
+
+     **このフォークの `*default-fileio-encoding*` は UTF-8 (utf8n)** なので、
+     「保存したら何バイトか」の答えが 2 つ存在していた。既定をそちらへ寄せた
+     ので、`(si:octet-length "abcあいう")` は 9 ではなく 12 を返す。
+
+     `symbol_value_char_encoding` を通すのは、**変数に自動判別や
+     エンコーディングでない値が入っていても落ちない**ようにするため
+     (`Buffer` の初期化と同じ扱い。その場合は CP932 に落ちる)。 */
   lisp encoding = find_keyword (Kencoding, keys);
   if (encoding == Qnil)
-    return make_fixnum (w2sl (xstring_contents (string) + start, end - start));
-
-  check_char_encoding (encoding);
-  if (xchar_encoding_type (encoding) == encoding_auto_detect)
-    FEtype_error (encoding, Qchar_encoding);
+    encoding = symbol_value_char_encoding (Vdefault_fileio_encoding);
+  else
+    {
+      check_char_encoding (encoding);
+      if (xchar_encoding_type (encoding) == encoding_auto_detect)
+        FEtype_error (encoding, Qchar_encoding);
+    }
 
   if (start != 0 || end != xstring_length (string))
     string = make_string (xstring_contents (string) + start, end - start);
