@@ -81,12 +81,18 @@ public:
       disable_kbd (kbd_queue &q) : d_kbdq (q)
         {
           d_disable = q.current_mode & kbd_queue::im_disable;
-          (int &)d_kbdq.current_mode |= kbd_queue::im_disable;
+          /* **`(int &)` で書き換えてはいけない** (型の punning、issue #165)。
+             列挙型のまま計算して代入する。 */
+          d_kbdq.current_mode
+            = kbd_queue::input_mode (d_kbdq.current_mode
+                                     | kbd_queue::im_disable);
         }
       ~disable_kbd ()
         {
           if (!d_disable)
-            (int &)d_kbdq.current_mode &= ~kbd_queue::im_disable;
+            d_kbdq.current_mode
+              = kbd_queue::input_mode (d_kbdq.current_mode
+                                       & ~kbd_queue::im_disable);
         }
     };
   friend disable_kbd;

@@ -416,7 +416,7 @@ wc_restore (winconf *conf, int nwindows, const SIZE &size,
           wp->w_selection_type = conf[i].selection_type;
           if (wp->w_selection_type != Buffer::SELECTION_VOID)
             {
-              (int &)wp->w_selection_type &=
+              wp->w_selection_type &=
                 Buffer::SELECTION_TYPE_MASK | Buffer::PRE_SELECTION;
               switch (wp->w_selection_type & Buffer::SELECTION_TYPE_MASK)
                 {
@@ -448,7 +448,7 @@ wc_restore (winconf *conf, int nwindows, const SIZE &size,
           wp->w_reverse_region = conf[i].reverse_region;
 
           if (wp->w_reverse_temp != Buffer::SELECTION_VOID)
-            (int &)wp->w_reverse_temp &= Buffer::PRE_SELECTION;
+            wp->w_reverse_temp &= Buffer::PRE_SELECTION;
           if (wp->w_reverse_region.p1 == NO_MARK_SET
               || wp->w_reverse_region.p2 == NO_MARK_SET)
             {

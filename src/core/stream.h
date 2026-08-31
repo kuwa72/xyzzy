@@ -57,7 +57,20 @@ public:
   void *output;
   lChar pending;     // unread-char用バッファ
   lisp pathname;
-  wchar_t *alt_pathname;   /* also aliased as a lisp for general streams */
+  /* **同じ欄をストリームの種類で使い分けている。** ファイルなら一時ファイルの
+     名前 (`wchar_t *`)、general なら lisp オブジェクト。下の LSTREAM USAGE の
+     表に種類ごとの意味がある。
+
+     **union にしてあるのは、`(lisp &)alt_pathname` という書き方をやめるため。**
+     enum や別の型の lvalue を参照でキャストして読み書きするのは型の punning で、
+     strict aliasing に反する (gcc が `-Wstrict-aliasing` で言う)。union の
+     メンバとして読み書きするのは規格が認めている書き方で、**同じ 1 語を指す
+     ことは変わらない** ので GC の見え方も変わらない (issue #165)。 */
+  union
+    {
+      wchar_t *alt_pathname;
+      lisp alt_lisp;
+    };
   int start;
   int end;
   char open_p;        // ストリームがオープンされている?
@@ -340,7 +353,7 @@ xgeneral_input_stream_string (lisp x)
 {
   assert (streamp (x));
   assert (general_stream_p (x));
-  return (lisp &)((lstream *)x)->alt_pathname;
+  return ((lstream *)x)->alt_lisp;
 }
 
 inline int &
