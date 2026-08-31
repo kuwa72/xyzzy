@@ -3,9 +3,6 @@
 #include "lex.h"
 #include "symtable.h"
 #include <vector>
-#ifdef _WIN32
-#include "mainframe.h"
-#endif
 
 lisp Qnil;
 lisp Qunbound;
@@ -904,9 +901,9 @@ gc_mark_object ()
 
   toplev_gc_mark (gc_mark_object);
   process_gc_mark (gc_mark_object);
-#ifdef _WIN32
-  g_frame.gc_mark (gc_mark_object);
-#endif
+  /* **フロントエンドが持っている Lisp オブジェクトも見せる。** Win32 は
+     ツールバー / タブバーに置いたコマンドを持っている。 */
+  frontend_gc_mark (gc_mark_object);
   app.user_timer.gc_mark (gc_mark_object);
 
   gc_mark_in_stack ();

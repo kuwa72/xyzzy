@@ -4,7 +4,6 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "byte-stream.h"
-#include "mainframe.h"
 
 #include <unistd.h>
 #include <fcntl.h>

@@ -7,9 +7,6 @@
 #include "ed.h"
 #include "Window.h"
 #include "vfs.h"
-#ifdef _WIN32
-#include "mainframe.h"
-#endif
 
 /* 宣言は kbd.h、立てるのは stream.cc の *keyboard* 読み出しだけ。 */
 int kbd_inhibit_terminal_forward;
@@ -230,10 +227,11 @@ dispatch (lChar cc)
     {
       if (c >= MENU_ID_RANGE_MIN && c < MENU_ID_RANGE_MAX)
         command = lookup_menu_command (c);
-#ifdef _WIN32
       else if (c >= TOOL_ID_RANGE_MIN && c < TOOL_ID_RANGE_MAX)
-        command = g_frame.lookup_command (c);
-#endif
+        /* **フロントエンドに聞く。** ここに `g_frame.lookup_command` を直に
+           書いていたので core が `mainframe.h` を include していた
+           (issue #185)。端末は nil を返す。 */
+        command = frontend_lookup_tool_command (c);
       else
         return Qt;
       if (command == Qnil)

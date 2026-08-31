@@ -6,7 +6,6 @@
 #include <vector>
 #include "stdafx.h"
 #include "ed.h"
-#include "mainframe.h"
 #include "conf.h"
 #include "colors.h"
 #include "version.h"
@@ -948,27 +947,19 @@ void lwait_object::cleanup ()
 }
 
 // ============================================================
-// dock_frame / g_frame (used by GC in data.cc)
+// ツールバーのコマンド引きと GC の mark (宣言は src/core/fns.h)
 // ============================================================
 
-#ifdef _WIN32
-dock_frame::dock_frame () : f_hwnd (0), f_arrange (0) {}
-dock_frame::~dock_frame () {}
-void dock_frame::gc_mark (void (*)(lisp)) {}
-void dock_frame::cleanup () {}
+/* **端末にツールバーは無いので nil、Lisp オブジェクトも持たないので
+   何もしない。**
 
-splitter::splitter ()
-{
-  s_head = s_tail = 0;
-  s_in_resize = 0;
-  s_terminating = 0;
-  s_hwnd = 0;
-  s_hwnd_frame = 0;
-  memset (&s_rect, 0, sizeof s_rect);
-}
-
-main_frame g_frame;
-#endif
+   ここには以前 `main_frame g_frame;` と `dock_frame` / `splitter` の
+   コンストラクタが **`#ifdef _WIN32` で** 置かれていた。core の
+   `cmdloop.cc` / `data.cc` が `g_frame` を直に触っていたので、**Windows で
+   ビルドする端末版・ヘッドレス版が Win32 専用のオブジェクトを 1 つ作る**
+   必要があったのである。hook にしたので要らなくなった (issue #185)。 */
+lisp frontend_lookup_tool_command (int) { return Qnil; }
+void frontend_gc_mark (void (*)(lisp)) {}
 
 // ============================================================
 // vfs.cc (WINFS static methods used by core)
@@ -3947,14 +3938,6 @@ int FKWin::fk_default_nbuttons = 10;
 #include "gime.h"
 
 GlobalIME::GlobalIME () { gi_app = 0; gi_pump = 0; ImmGetPropertyProc = 0; }
-
-// ============================================================
-// Splitter dtor stub
-// ============================================================
-
-#ifdef _WIN32
-splitter::~splitter () {}
-#endif
 
 // ============================================================
 // Filer stubs

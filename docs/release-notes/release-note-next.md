@@ -66,6 +66,50 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **`g_frame` をフロントエンドの hook にして、GUI のヘッダ 2 つを core から
+    出した** (issue #185)。`mainframe.h` / `pane.h` で、これで core の
+    `HWND` は 178 から 150 になった。
+
+    core の側にあったのは `#ifdef _WIN32` で囲んだ 2 行である:
+
+    ```cpp
+    /* src/core/cmdloop.cc -- ツールバーのボタンからコマンドを引く */
+    command = g_frame.lookup_command (c);
+    /* src/core/data.cc -- GC の mark */
+    g_frame.gc_mark (gc_mark_object);
+    ```
+
+    **この 2 行のために、POSIX のフロントエンドが Win32 専用のオブジェクトを
+    作っていた。** `ncurses-stubs.cc` と `cli-stubs.cc` の両方に
+
+    ```cpp
+    #ifdef _WIN32
+    dock_frame::dock_frame () : f_hwnd (0), f_arrange (0) {}
+    void dock_frame::gc_mark (void (*)(lisp)) {}
+    splitter::splitter () { ... }
+    main_frame g_frame;
+    #endif
+    ```
+
+    が置かれていた。**Windows でビルドする端末版・ヘッドレス版が、core が
+    `g_frame` を直に触るために `main_frame` を 1 つ作る**必要があったので
+    ある。hook (`frontend_lookup_tool_command` / `frontend_gc_mark`) にしたら
+    両ファイルから丸ごと消えた。
+
+    **GC の mark を hook にするのは取りこぼすとオブジェクトが回収される**
+    ので、宣言のコメントに「フロントエンドを足すときはここを埋め忘れない
+    こと」と書いた。
+
+    **`splitter` のデストラクタだけが別の節に離れて置かれていて、x86_64 の
+    ビルドが落ちた。** `dock_frame` / `splitter` / `g_frame` のスタブは
+    1 か所にまとまっていると思っていたが、380 行離れた「Splitter dtor stub」
+    という節にもう 1 つあった。**linux は `#ifdef _WIN32` の中なので通って
+    しまう。**
+
+    `dockbar.h` (HWND 21) はまだ core に居る。`core/buffer-bar.h` が
+    include していて、そこを動かすには `Buffer.cc` の「バッファの並び順は
+    タブバーに従う」6 か所を seam にする必要がある。
+
   * **GUI のヘッダ 3 つを `src/core/` から `src/frontend/win32/` へ移した**
     (issue #185)。`Filer.h` / `dialogs.h` / `privctrl.h` で、**端末ビルドで
     一度も使われないのに core に居た。**

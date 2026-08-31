@@ -15,6 +15,21 @@ text_drop_target tdropt;
 #endif
 
 main_frame g_frame;
+
+/* **core から呼ばれる 2 つ** (宣言は src/core/fns.h)。core は `g_frame` を
+   知らないので、ここで受ける (issue #185)。 */
+lisp
+frontend_lookup_tool_command (int id)
+{
+  return g_frame.lookup_command (id);
+}
+
+void
+frontend_gc_mark (void (*fn)(lisp))
+{
+  g_frame.gc_mark (fn);
+}
+
 mouse_wheel g_wheel;
 
 static u_int WINAPI
