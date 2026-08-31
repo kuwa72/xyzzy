@@ -7,7 +7,6 @@
 # include "vfs.h"
 # include "wm.h"
 # include "mousemsg.h"
-# include "clipboard.h"
 
 struct Window;
 struct Buffer;
@@ -300,7 +299,6 @@ struct Buffer;
 # include "ces.h"
 # include "kbd.h"
 # include "mouse.h"
-# include "statarea.h"
 # include "timer.h"
 # include "font.h"
 # include "utimer.h"
@@ -394,7 +392,17 @@ public:
   HWND toplev;
   HWND hwnd_sw;
 
-  clipboard clipboard;
+  /* `clipboard clipboard;` と `status_area stat_area;` はここに居たが、
+     **`src/core/` の中から触っているコードが 1 つも無かった** ので
+     フロントエンドへ出した (issue #195 / #185)。Win32 側の入れ物は
+     `g_clipboard` (src/frontend/win32/clipboard.h) と `g_stat_area`
+     (src/frontend/win32/statarea.h) である。
+
+     **`Application` のメンバだったせいで、`ed.h` を include する全ての
+     翻訳単位が 2 つのクラスの定義を要求していた** (`HWND` が 13 個)。
+     Lisp から見えるクリップボードの入口は `Frontend::copy_to_clipboard` /
+     `get_clipboard_data` (src/core/frontend.h) の方で、こちらは
+     Win32 のウィンドウメッセージ (WM_DRAWCLIPBOARD ほか) を捌く道具である。 */
 
   kbd_queue kbdq;
   mouse_state mouse;
@@ -407,8 +415,6 @@ public:
   key_sequence keyseq;
   itimer gc_itimer;
   itimer as_itimer;
-
-  status_area stat_area;
 
   int default_tab_columns;
   int auto_save_count;

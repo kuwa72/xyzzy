@@ -1,6 +1,16 @@
 #ifndef _statarea_h_
 #define _statarea_h_
 
+/* Win32 のステータスバーの右側 (時刻 / 位置 / 文字コード / Unicode) 。
+   **src/core/statarea.h に居た**が、`src/core/` の中から触っているコードが
+   1 つも無かったので出した (issue #195 / #185)。
+
+   **`status_area` は `Application` (ed.h) のメンバだった。** 実体は
+   `g_stat_area` で、`src/frontend/win32/statarea.cc` が持つ。
+
+   **`app.status_window` (ed.h の `StatusWindow`) とは別物である。**
+   あちらは下のバーに出るメッセージ (`message`) で、core が使う。 */
+
 class status_area
 {
   enum {ST_TIME, ST_POS, ST_CODE, ST_UNICODE, ST_MAX};
@@ -52,5 +62,9 @@ public:
   void timer ();
   void reload_settings ();
 };
+
+/* 実体は src/frontend/win32/statarea.cc。**`Application` のメンバから
+   ここへ移した。** */
+extern status_area g_stat_area;
 
 #endif /* _statarea_h_ */

@@ -299,17 +299,14 @@ void load_misc_colors () {}
 
 // ============================================================
 // Application member class constructors/destructors
-// (kbd_queue, key_sequence, utimer, clipboard are members of Application)
+// (kbd_queue, key_sequence, utimer are members of Application)
 // ============================================================
 
-clipboard::clipboard ()
-{
-  hwnd_next_clipboard = 0;
-  last_clipboard_seqno = 0;
-  use_newapi_p = false;
-  AddClipboardFormatListenerProc = 0;
-  RemoveClipboardFormatListenerProc = 0;
-}
+/* `clipboard::clipboard ()` がここにあったが、消した (issue #195 / #185)。
+   **`clipboard` が `Application` のメンバだったので、端末とヘッドレスも
+   コンストラクタを埋めるしかなかった。** 中身は Win32 の
+   `hwnd_next_clipboard` などを 0 にするだけで、その後 1 度も読まれない。
+   クラスが core から消えたのでこれも要らなくなった。 */
 
 kbd_queue::kbd_queue ()
 {
@@ -810,15 +807,11 @@ lisp Fclipboard_empty_p ()
   return Qt;
 }
 
-int make_clipboard_text (CLIPBOARDTEXT &, lisp, int)
-{
-  return 0;
-}
-
-int make_string_from_clipboard_text (lisp, const void *, UINT, int)
-{
-  return 0;
-}
+/* `make_clipboard_text` / `make_string_from_clipboard_text` の空実装がここに
+   あったが、消した (issue #195 / #185)。**`CLIPBOARDTEXT` は
+   `src/core/clipboard.h` に居たので POSIX でも型が見えていたが、呼ぶ側は
+   `src/frontend/win32/` の中 (clipboard.cc と DnD.cc) にしか無かった。**
+   誰も参照しないシンボルを 2 つ置いていただけである。 */
 
 #endif // !_WIN32
 

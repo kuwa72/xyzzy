@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "clipboard.h"
+#include "statarea.h"
 #include "gdi-utils.h"
 #include "appid.h"
 #include "ctl3d.h"
@@ -566,7 +568,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       if (!app.hwnd_sw)
         return -1;
 
-      app.stat_area.init (app.hwnd_sw);
+      g_stat_area.init (app.hwnd_sw);
       app.status_window.set (app.hwnd_sw);
 
       try
@@ -601,7 +603,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 #ifdef DnDTEST
       RegisterDragDrop (hwnd, &tdropt);
 #endif
-      app.clipboard.add_listener (hwnd);
+      g_clipboard.add_listener (hwnd);
       SetTimer (hwnd, TID_ITIMER, itimer::interval * 1000, 0);
       return 0;
 
@@ -612,7 +614,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 #endif
       app.user_timer.cleanup ();
       environ::save_geometry ();
-      app.clipboard.remove_listener (hwnd);
+      g_clipboard.remove_listener (hwnd);
       PostQuitMessage (0);
       app.toplev = 0;
       return 0;
@@ -658,15 +660,15 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       }
 
     case WM_CHANGECBCHAIN:
-      app.clipboard.change_clipboard_chain (hwnd, msg, wparam, lparam);
+      g_clipboard.change_clipboard_chain (hwnd, msg, wparam, lparam);
       break;
 
     case WM_DRAWCLIPBOARD:
-      app.clipboard.draw_clipboard (hwnd, msg, wparam, lparam);
+      g_clipboard.draw_clipboard (hwnd, msg, wparam, lparam);
       break;
 
     case WM_CLIPBOARDUPDATE:
-      app.clipboard.clipboard_update (hwnd, msg, wparam, lparam);
+      g_clipboard.clipboard_update (hwnd, msg, wparam, lparam);
       break;
 
     case WM_SYSCOLORCHANGE:
@@ -693,7 +695,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         GetClientRect (app.hwnd_sw, &or);
         SendMessage (app.hwnd_sw, msg, wparam, lparam);
         GetClientRect (app.hwnd_sw, &nr);
-        app.stat_area.reload_settings ();
+        g_stat_area.reload_settings ();
         if (or.bottom != nr.bottom)
           {
             GetWindowRect (hwnd, &nr);
@@ -714,7 +716,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 #endif
           }
         else
-          app.stat_area.resize ();
+          g_stat_area.resize ();
       }
       if (!sysdep.Win4p ())
         {
@@ -728,7 +730,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_SIZE:
       SendMessage (app.hwnd_sw, msg, wparam, lparam);
-      app.stat_area.resize ();
+      g_stat_area.resize ();
       if (wparam != SIZE_MINIMIZED)
         resize_toplevel (LOWORD (lparam), HIWORD (lparam));
       return 0;
@@ -952,7 +954,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
           break;
 
         case TID_ITIMER:
-          app.stat_area.timer ();
+          g_stat_area.timer ();
           app.gc_itimer.inc ();
           app.as_itimer.inc ();
           refresh_blink_interval ();
@@ -991,7 +993,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                   end_wait_cursor (1);
                 }
             }
-          app.clipboard.repair_clipboard_chain_if_need (hwnd);
+          g_clipboard.repair_clipboard_chain_if_need (hwnd);
           break;
         }
       return 0;

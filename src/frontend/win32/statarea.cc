@@ -1,5 +1,8 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "statarea.h"
+
+status_area g_stat_area;
 
 const char status_area::s_nil[] = " ";
 const char status_area::s_eof[] = " EOF ";
