@@ -71,7 +71,12 @@ os_error_path_not_found (int e)
 
 /* 「その名前のものが無い」。**Win32 の 4 通りをまとめている**のは、POSIX の
    `ENOENT` がその 4 通り全部に当たるため。ファイルが無いのか途中の要素が
-   無いのかを区別したい所では `os_error_path_not_found` の方を使う。 */
+   無いのかを区別したい所では `os_error_path_not_found` の方を使う。
+
+   **Win32 側で 4 通りをまとめてよい所だけで使う。** `ERROR_FILE_NOT_FOUND`
+   だけを見ていた所をこれに置き換えると、Windows の答えが変わる
+   (`ERROR_PATH_NOT_FOUND` も一致するようになる)。そういう所は
+   `os_error_file_not_found` を使う。 */
 inline int
 os_error_not_found (int e)
 {
@@ -80,6 +85,24 @@ os_error_not_found (int e)
           || e == ERROR_BAD_NETPATH || e == ERROR_BAD_PATHNAME);
 #else
   return e == ENOENT || e == ENOTDIR;
+#endif
+}
+
+/* 「ファイルが無い」だけ。**`os_error_not_found` と違って、途中の要素が無い
+   場合を Win32 側で含めない。** `ERROR_FILE_NOT_FOUND` だけを見ていた所を
+   そのままの意味で書き直すためのもの。
+
+   POSIX 側は `ENOENT` で、**そこは区別できない** (`open` も `unlink` も、
+   最後の要素が無い場合と途中の要素が無い場合の両方を `ENOENT` で返す)。
+   区別が要る所は `refine_not_found` (src/core/pathname.cc) が親を stat して
+   分けている。 */
+inline int
+os_error_file_not_found (int e)
+{
+#ifdef _WIN32
+  return e == ERROR_FILE_NOT_FOUND;
+#else
+  return e == ENOENT;
 #endif
 }
 

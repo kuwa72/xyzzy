@@ -870,7 +870,14 @@ Fvalid_path_p (lisp file)
   int x = file_attributes (file);
   if (x != -1)
     return Qt;
-  return boole (GetLastError () == ERROR_FILE_NOT_FOUND);
+  /* **`ERROR_*` と直に比べてはいけない** (番号の空間がプラットフォームで
+     違う)。ここは `ENOENT` (2) が `ERROR_FILE_NOT_FOUND` (2) と偶然一致して
+     いたので通っていた。
+
+     `os_error_not_found` ではなく `os_error_file_not_found` を使うのは、
+     **Win32 の答えを変えないため**: 前者は `ERROR_PATH_NOT_FOUND` も
+     含むので、`C:/no-such-dir/x` が nil から t に変わってしまう。 */
+  return boole (os_error_file_not_found (GetLastError ()));
 }
 
 lisp
@@ -1398,7 +1405,7 @@ Fdelete_file (lisp name, lisp keys)
               e = GetLastError ();
               WINFS::SetFileAttributes (buf, atr);
             }
-          if (e == ERROR_FILE_NOT_FOUND && not_exist == Kskip)
+          if (os_error_file_not_found (e) && not_exist == Kskip)
             return Qnil;
           file_error (e, name);
         }
@@ -1748,10 +1755,14 @@ Frename_file (lisp from_name, lisp to_name, lisp keys)
         return Qt;
 
       int e = GetLastError ();
-      switch (e)
+      /* **ここは POSIX では一度も来ていなかった。** `WINFS::MoveFile` が
+         `rename` をそのまま呼んでいて、POSIX の `rename` は行き先があっても
+         成功して上書きするので、`:if-exists` (既定 `:error`) を見ないまま
+         行き先のファイルを消していた (issue #170)。`MoveFile` を Win32 の
+         約束に揃えたので来るようになった。番号は `ERROR_*` と直に比べては
+         いけない (`EEXIST` (17) はどちらにも一致しない)。 */
+      if (os_error_already_exists (e))
         {
-        case ERROR_ALREADY_EXISTS:
-        case ERROR_FILE_EXISTS:
           if (if_exists == Kerror)
             file_error (e, to_name);
           if (if_exists == Kskip)
@@ -1790,17 +1801,18 @@ Frename_file (lisp from_name, lisp to_name, lisp keys)
                   file_error (e, to_name);
                 }
             }
-          break;
-
-        default:
-          {
-            dyn_handle f (WINFS::CreateFile (fromf, GENERIC_READ | GENERIC_WRITE, 0, 0,
-                                             OPEN_EXISTING, 0, 0));
-            if (!f.valid ())
-              file_error (e, from_name);
-            file_error (e, to_name);
-          }
+          /* 行き先を消したので、もう一度 `MoveFile` を試す。
+             **以前は `switch` の `break` で、これと同じ意味だった。** */
+          continue;
         }
+
+      {
+        dyn_handle f (WINFS::CreateFile (fromf, GENERIC_READ | GENERIC_WRITE, 0, 0,
+                                         OPEN_EXISTING, 0, 0));
+        if (!f.valid ())
+          file_error (e, from_name);
+        file_error (e, to_name);
+      }
     }
 }
 
@@ -1890,7 +1902,7 @@ Fdelete_directory (lisp dirname, lisp keys)
           e = GetLastError ();
           WINFS::SetFileAttributes (name, atr);
         }
-      if (e == ERROR_FILE_NOT_FOUND && not_exist == Kskip)
+      if (os_error_file_not_found (e) && not_exist == Kskip)
         return Qnil;
       file_error (e, dirname);
     }

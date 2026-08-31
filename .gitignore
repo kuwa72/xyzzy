@@ -169,3 +169,7 @@ _build/
 # .dll of the same grammar.  The .dll are tracked (.githooks/pre-commit keeps
 # rebuilt ones out of a commit); these have never been, and are not shipped.
 grammars/**/*.so
+
+# xyzzy が設定を書く先。テストや手元の起動をリポジトリの中から
+# したときに、ここに空のものができる (issue #143 で ini を実装してから)。
+xyzzy.ini

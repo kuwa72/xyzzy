@@ -26,6 +26,7 @@ const int WINFS::case_insensitive_names = 0;
 
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/syscall.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -421,10 +422,62 @@ HMODULE WINAPI WINFS::LoadLibrary (LPCWSTR)
   return 0;
 }
 
+/* **行き先があれば失敗する。** Win32 の `MoveFileW` はそういう約束で、
+   **`rename` をそのまま呼ぶとその約束が破れる** (POSIX の `rename` は成功して
+   上書きする)。呼ぶ側はこの約束に乗って書かれているので、破ると黙って壊れる
+   (issue #170):
+
+     * `Frename_file` は「`MoveFile` が失敗したこと」で行き先の存在を知る。
+       上書きされると `:if-exists` (既定 `:error`) を一度も見ないまま、
+       **行き先のファイルを消す。**
+     * `make_backup_file` / `pack_backupfile` (src/core/fileio.cc) は
+       バックアップ名の候補を 1 つずつ試して、`os_error_already_exists` なら
+       次の候補へ進む。上書きされると最初の候補で必ず成功するので、
+       **既にあるバックアップを潰す。**
+
+   `renameat2 (RENAME_NOREPLACE)` があればそれを使う。無い場合 (古い kernel、
+   fuse などフラグを通さないファイルシステム、Linux 以外) は `lstat` で見てから
+   `rename` する。**後者には隙間がある**が、上書きし放題よりは狭い。 */
 BOOL WINAPI WINFS::MoveFile (LPCWSTR a, LPCWSTR b)
 {
   os_path pa (a);
   os_path pb (b);
+
+  struct stat sb;
+  if (lstat (pb, &sb) == 0)
+    {
+      /* **同じファイルを指しているなら成功にする。** `(rename-file "a" "a")`
+         は Win32 では成功する (`MoveFileW` が同じ名前を受ける) ので、
+         そこで答えが分かれないようにする。**POSIX の `rename` も、2 つの名前が
+         同じファイルへのリンクなら「成功して何もしない」と決まっている**ので、
+         ここで TRUE を返すのはその通りの動作である。 */
+      struct stat sa;
+      if (lstat (pa, &sa) == 0
+          && sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino)
+        return TRUE;
+      errno = EEXIST;
+      return FALSE;
+    }
+
+#if defined (__linux__) && defined (SYS_renameat2)
+  /* **行き先が無いことは上で見たが、見た後に作られることがある。**
+     `RENAME_NOREPLACE` があれば、その隙間も閉じられる。
+
+     値は自分で書く: `RENAME_NOREPLACE` の宣言は glibc の版によって
+     `<stdio.h>` にあったり `<linux/fs.h>` にあったりで、後者を include すると
+     他のヘッダと衝突する。**syscall の ABI に焼き付いた値**なので変わらない。 */
+# ifndef RENAME_NOREPLACE
+#  define RENAME_NOREPLACE (1 << 0)
+# endif
+  if (syscall (SYS_renameat2, AT_FDCWD, pa.c_str (), AT_FDCWD, pb.c_str (),
+               RENAME_NOREPLACE) == 0)
+    return TRUE;
+  /* ENOSYS = kernel が知らない、EINVAL = ファイルシステムがフラグを通さない。
+     **それ以外はここで答えが出ている** (EEXIST を含む)。 */
+  if (errno != ENOSYS && errno != EINVAL)
+    return FALSE;
+#endif
+
   return rename (pa, pb) == 0;
 }
 

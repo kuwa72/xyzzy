@@ -36,6 +36,60 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **POSIX で `rename-file` が `:if-exists` を無視して行き先を黙って
+    上書きしていた** (issue #170)。既定は `:if-exists :error` なので、
+    **何も指定しなければエラーになるはずのものが、相手のファイルを消していた。**
+
+    `Frename_file` は「`MoveFile` が失敗したこと」で行き先の存在を知る。
+    Win32 の `MoveFileW` は行き先があると失敗するが、**POSIX の `rename` は
+    成功して上書きする。** `WINFS::MoveFile` はその `rename` をそのまま
+    呼んでいたので、`:if-exists` を見る所へ一度も来ていなかった。
+
+    直す前に測ったもの (`from.txt` に "FROM"、`to.txt` に "TO" を入れて
+    `(rename-file from to :if-exists MODE)`):
+
+    ```
+    MODE          戻り値  エラー  from が残る  to の中身
+    :error        t       なし    いいえ       "FROM"   <- 消している
+    :skip         t       なし    いいえ       "FROM"   <- 消している
+    :overwrite    t       なし    いいえ       "FROM"
+    ```
+
+    **3 つとも同じ動作**で、`:overwrite` だけが正しかった。
+
+    直したのは `WINFS::MoveFile` の側で、Win32 の約束に揃えた
+    (`renameat2 (RENAME_NOREPLACE)` があればそれ、無ければ `lstat` で見てから
+    `rename`)。**同じ前提に乗っている呼び出しが他にもあるので、そちらも
+    一緒に直る:** `src/core/fileio.cc` のバックアップ名の候補を 1 つずつ試して
+    `os_error_already_exists` なら次へ進む loop (`make_backup_file` の `~%x`、
+    `pack_backupfile` の `%d~`) は、上書きされると最初の候補で必ず成功する
+    ので**既にあるバックアップを潰していた。**
+
+    **呼ぶ側を 1 つずつ直すのではなく seam を直した**のは、この前提が
+    「行き先があれば失敗する」という 1 つの約束だからである。呼ぶ側で
+    確かめる形にすると、同じ判定が 4 か所に散る。
+
+    **1 つだけ、揃えたことで答えが分かれた所があった。**
+    `(rename-file "a" "a")` は Win32 では成功する (`MoveFileW` が同じ名前を
+    受ける) が、「行き先があれば失敗する」を素直に書くと POSIX で
+    `file-exists` になる。同じ inode を指しているなら成功にした:
+    **POSIX の `rename` も「2 つの名前が同じファイルへのリンクなら成功して
+    何もしない」と決まっている**ので、そのとおりの動作である。
+    **両方のプラットフォームで測って気付いた**もので、片方だけ見ていたら
+    そのまま入っていた。
+
+    ついでに `src/core/pathname.cc` に残っていた裸の `ERROR_*` との比較を
+    `os_error_*` (issue #120) に直した: `valid-path-p`、`delete-file` と
+    `delete-directory` の `:if-does-not-exist :skip`。**どれも `ENOENT` (2) が
+    `ERROR_FILE_NOT_FOUND` (2) と偶然一致して通っていた。**
+
+    ここで `os_error_not_found` (Win32 の 4 通りをまとめたもの) を使うと
+    **Windows の答えが変わる** (`ERROR_PATH_NOT_FOUND` も一致するように
+    なるので、`C:/no-such-dir/x` に対する `valid-path-p` が nil から t に
+    なる)。`ERROR_FILE_NOT_FOUND` だけを見ていた所はそのままの意味で
+    書き直すために `os_error_file_not_found` を足した。**「番号を述語に
+    置き換える」のは機械的な作業に見えるが、どの述語かで意味が変わる。**
+
   * **`(open ... :if-exists :rename)` が書いた内容を捨てていた** (issue #168)。
     ファイルは作られず、代わりに一時ファイルが 1 回ごとに 1 つずつ溜まる。
     **Windows でも同じ**で、上流の import (0.2.2.235) からこの形だった。
