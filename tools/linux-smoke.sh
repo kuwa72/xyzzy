@@ -223,6 +223,35 @@ else
   fail=1
 fi
 
+# ファイル選択のダイアログ。**端末にダイアログは無いが、ミニバッファで聞く道が
+# ある** (issue #187)。`return Qnil` のスタブだったので、
+# `M-x open-file-dialog` / `save-as-dialog` / `save-kbd-macro-to-file` が
+# 黙って何もしていなかった。
+#
+# 見るのは**戻り値の形**: Win32 側は 4 つの値 (ファイル名 / filter-index /
+# エンコーディング / 改行コード) を返し、`:multiple t` のときは**リスト**で
+# 返す。`open-file-dialog` が `(dolist (f files) ...)` と使うので、文字列を
+# 返すと壊れる。
+log=$build/smoke-file-dialog.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(multiple-value-list (file-name-dialog :title "テスト" :default "/tmp/zz.txt" :filter-index 3))\r' \
+  '\w' '\r' '\w' \
+  '\e\e(multiple-value-list (file-name-dialog :multiple t :default "/tmp/a /tmp/b"))\r' \
+  '\w' '\r' '\w' \
+  >"$log" 2>&1 || true
+# 1 つ目: プロンプトに :title が出て、4 つの値が返る
+# 2 つ目: :multiple t はリスト
+if grep -q 'テスト:' "$log" \
+   && grep -q '("/tmp/zz.txt" 3 nil nil)' "$log" \
+   && grep -q '(("/tmp/a" "/tmp/b") 1 nil nil)' "$log"; then
+  echo 'smoke: ファイル選択 OK -- ミニバッファで聞いて 4 つの値を返す'
+else
+  echo "smoke: ファイル選択 FAILED, see $log" >&2
+  grep -nE 'テスト|tmp/zz|tmp/a' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # 日本語のプロンプトとメッセージ。
 #
 # **端末のフロントエンドが `i2w` の 1 文字版を UTF-16 の値に使っていたので、
