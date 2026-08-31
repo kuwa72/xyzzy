@@ -2,9 +2,6 @@
 #include "ed.h"
 #include "syntaxinfo.h"
 #include "binfo.h"
-#ifdef _WIN32
-#include "buffer-bar.h"
-#endif
 #include "version.h"
 
 fixed_heap Chunk::c_heap (sizeof (Char) * TEXT_SIZE);
@@ -389,9 +386,7 @@ Buffer::~Buffer ()
         wc->wc_data[i].bufp = 0;
 
   enum_buffer::deleted (this);
-#ifdef _WIN32
-  buffer_bar::buffer_deleted (this);
-#endif
+  frontend_buffer_deleted (this);
 
   cleanup_waitobj_list ();
 
@@ -655,11 +650,7 @@ Fget_next_buffer (lisp buffer, lisp prev, lisp tab_order, lisp linternal_p)
   if (buffer == Ktop)
     {
       if (tab_order_p)
-        {
-#ifdef _WIN32
-          bp = buffer_bar::get_top_buffer ();
-#endif
-        }
+        bp = frontend_tab_order_top_buffer ();
       if (!bp)
         {
           bp = Buffer::b_blist;
@@ -670,11 +661,7 @@ Fget_next_buffer (lisp buffer, lisp prev, lisp tab_order, lisp linternal_p)
   else if (buffer == Kbottom)
     {
       if (tab_order_p)
-        {
-#ifdef _WIN32
-          bp = buffer_bar::get_bottom_buffer ();
-#endif
-        }
+        bp = frontend_tab_order_bottom_buffer ();
       if (!bp)
         bp = Buffer::b_blist->prev_buffer (internal_p);
     }
@@ -682,12 +669,9 @@ Fget_next_buffer (lisp buffer, lisp prev, lisp tab_order, lisp linternal_p)
     {
       Buffer *obp = Buffer::coerce_to_buffer (buffer);
       bp = 0;
-#ifdef _WIN32
       if (tab_order_p)
-        bp = (!prev || prev == Qnil
-              ? buffer_bar::next_buffer (obp)
-              : buffer_bar::prev_buffer (obp));
-#endif
+        bp = frontend_tab_order_next_buffer (obp,
+                                             !prev || prev == Qnil ? 1 : -1);
       if (!bp)
         bp = (!prev || prev == Qnil
               ? obp->next_buffer (internal_p)
@@ -1135,11 +1119,9 @@ Fbuffer_list (lisp keys)
 {
   if (find_keyword_bool (Kbuffer_bar_order, keys))
     {
-#ifdef _WIN32
-      lisp r = buffer_bar::list_buffers ();
+      lisp r = frontend_tab_order_buffer_list ();
       if (r)
         return r;
-#endif
     }
 
   Buffer *bp = Buffer::b_blist;

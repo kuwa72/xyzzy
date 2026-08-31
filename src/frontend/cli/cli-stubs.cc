@@ -588,16 +588,18 @@ WindowConfiguration::~WindowConfiguration () {}
 // buffer-bar.cc stubs
 // ============================================================
 
-#ifdef _WIN32
-#include "buffer-bar.h"
+/* **タブバーが無いので「並び順を持っていない」。** 0 は nil ではなく
+   「聞く相手が居ない」で、`Fget_next_buffer` と `Fbuffer_list` はこれを見て
+   内部の順 (`Buffer::b_blist`) に落ちる。宣言は src/core/fns.h。
 
-buffer_bar *buffer_bar::b_bar = 0;
-void buffer_bar::delete_buffer (Buffer *) {}
-Buffer *buffer_bar::next_buffer (Buffer *, int) const { return 0; }
-Buffer *buffer_bar::top_buffer () const { return 0; }
-Buffer *buffer_bar::bottom_buffer () const { return 0; }
-lisp buffer_bar::buffer_list () const { return Qnil; }
-#endif
+   ここは前は `#ifdef _WIN32` で囲んだ `buffer_bar::` の空実装だった。
+   **クラスが core のヘッダに居たので、POSIX でも一度は書かれ、そして
+   `#ifdef` に切られて死んでいた。** */
+Buffer *frontend_tab_order_top_buffer () { return 0; }
+Buffer *frontend_tab_order_bottom_buffer () { return 0; }
+Buffer *frontend_tab_order_next_buffer (Buffer *, int) { return 0; }
+lisp frontend_tab_order_buffer_list () { return 0; }
+void frontend_buffer_deleted (Buffer *) {}
 
 // ============================================================
 // abbrev.cc stubs (abbreviate_string uses GDI)

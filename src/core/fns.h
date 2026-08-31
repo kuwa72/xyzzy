@@ -262,6 +262,34 @@ lisp frontend_lookup_tool_command (int id);
    置く**ことになっていた (issue #185)。 */
 void frontend_gc_mark (void (*fn)(lisp));
 
+/* **タブバーが持っているバッファの並び順。**
+
+   バッファには 2 つの並び順がある。`Buffer::b_blist` の**内部の順**
+   (最後に選んだものが先頭) と、**タブバーに並んでいる見た目の順**である。
+   `buffer-list` の `:buffer-bar-order` と `get-next-buffer` の `tab-order`
+   引数がこちらを指す。
+
+   **タブバーが無いときは「並び順を持っていない」ので 0 を返す。** nil や
+   `Buffer::b_blist` ではない。呼ぶ側が 0 を見て内部の順に落ちるので、
+   **端末では `:buffer-bar-order` を付けても内部の順が返る**という今の
+   振る舞いがそのまま残る。`frontend_tab_order_buffer_list` が `lisp` なのに
+   `Qnil` ではなく 0 を返すのも同じ理由で、**「タブバーが空」と「タブバーが
+   無い」を区別する**ためである。
+
+   これが seam なのは、**そうしないと core が `buffer-bar.h` を include する**
+   ためである。`src/core/Buffer.cc` の `#ifdef _WIN32` で囲んだ 6 行のために、
+   GUI のヘッダ 3 つ (`buffer-bar.h` / `dockbar.h` / `DnD.h`、`HWND` が 26 個)
+   が `src/core/` に居続けていた (issue #185)。 */
+Buffer *frontend_tab_order_top_buffer ();
+Buffer *frontend_tab_order_bottom_buffer ();
+Buffer *frontend_tab_order_next_buffer (Buffer *, int dir);
+lisp frontend_tab_order_buffer_list ();
+
+/* **バッファが消えたことをフロントエンドに知らせる。** Win32 はタブバーから
+   そのタブを取り除く。**ここを取りこぼすと解放済みの `Buffer` を指したタブが
+   残る。** */
+void frontend_buffer_deleted (Buffer *);
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 
