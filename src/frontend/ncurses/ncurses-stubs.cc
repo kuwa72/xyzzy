@@ -6907,9 +6907,9 @@ lisp Fdrag_region (lisp, lisp) { return Qnil; }
 lisp Fcancel_mouse_event () { return Qnil; }
 lisp Fbegin_auto_scroll () { return Qnil; }
 lisp Fcreate_buffer_bar () { return Qnil; }
-lisp Fstart_save_kbd_macro () { return Qnil; }
-lisp Fstop_save_kbd_macro () { return Qnil; }
-lisp Fkbd_macro_saving_p () { return Qnil; }
+/* `start-save-kbd-macro` / `stop-save-kbd-macro` / `kbd-macro-saving-p` は
+   src/core/kbd-macro.cc へ移した。**ここが nil を返すスタブだったので、
+   端末ではキーボードマクロが記録も再生もできなかった** (issue #181)。 */
 lisp Fcurrent_kbd_layout () { return Qnil; }
 lisp Fselect_kbd_layout (lisp) { return Qnil; }
 lisp Flist_kbd_layout () { return Qnil; }

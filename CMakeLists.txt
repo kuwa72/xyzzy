@@ -783,6 +783,7 @@ set(CORE_SOURCES
     ${CORE_DIR}/ces.cc
     ${CORE_DIR}/conf-io.cc
     ${CORE_DIR}/dll-call.cc
+    ${CORE_DIR}/kbd-macro.cc
     ${CORE_DIR}/quit-poll.cc
     ${CORE_DIR}/utimer.cc
     ${CORE_DIR}/char.cc

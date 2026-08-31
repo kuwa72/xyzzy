@@ -195,15 +195,10 @@ kbd_queue::peek (int req_mouse_move)
           head = (head + 1) % QUEUE_MAX;
           if (!req_mouse_move && char_mouse_move_p (c))
             return lChar_EOF;
-          if (save_p () && !(c & LCHAR_MENU) && !char_mouse_move_p (c))
-            {
-              if (nsaved == KBDMACRO_MAX)
-                stop_macro ();
-              else
-                saved[nsaved++] = (lchar_astral_char_p (c)
-                                   ? ucs4_t (LCHAR_PAYLOAD (c))
-                                   : ucs4_t (Char (c)));
-            }
+          /* **記録は core の `save_key` に寄せた** (src/core/kbd-macro.cc)。
+             ここに書いておくと端末側にもう 1 つ書くことになり、片方だけが
+             直っている状態になる (issue #181)。 */
+          save_key (c);
         }
     }
   return c;
@@ -392,43 +387,9 @@ kbd_queue::wait_event (HANDLE h, int enable_quit)
     }
 }
 
-void
-kbd_queue::start_macro ()
-{
-  assert (!save_p ());
-  current_mode = input_mode (disablep () | im_save);
-  Window::modify_all_mode_line ();
-  nsaved = 0;
-  last_command_key_index = 0;
-  command_key_keeped = 0;
-}
-
-lisp
-kbd_queue::end_macro ()
-{
-  assert (save_p ());
-  stop_macro ();
-  return make_string (saved, min (nsaved, last_command_key_index));
-}
-
-void
-kbd_queue::stop_macro ()
-{
-  if (save_p ())
-    Window::modify_all_mode_line ();
-  current_mode = input_mode (disablep () | im_normal);
-}
-
-lChar
-kbd_queue::macro_char ()
-{
-  assert (kbd_macro);
-  assert (kbd_macro->index < xstring_length (kbd_macro->string));
-  lChar c = xstring_contents (kbd_macro->string) [kbd_macro->index++];
-  if (kbd_macro->index >= xstring_length (kbd_macro->string))
-    kbd_macro = kbd_macro->last;
-  return c;
-}
+/* `start_macro` / `end_macro` / `stop_macro` / `macro_char` は
+   src/core/kbd-macro.cc へ移した。**Win32 の API は出てこないのに、ここに
+   あったせいで端末ではキーボードマクロが動かなかった** (issue #181)。 */
 
 int
 kbd_queue::track_popup_menu (HMENU hmenu, int button, const POINT &p)
@@ -1366,29 +1327,6 @@ Fset_next_prefix_args (lisp arg, lisp value, lisp c)
       app.kbdq.keep_next_command_key ();
     }
   return Qt;
-}
-
-lisp
-Fstart_save_kbd_macro ()
-{
-  if (app.kbdq.save_p ())
-    return Qnil;
-  app.kbdq.start_macro ();
-  return Qt;
-}
-
-lisp
-Fstop_save_kbd_macro ()
-{
-  if (!app.kbdq.save_p ())
-    return Qnil;
-  return app.kbdq.end_macro ();
-}
-
-lisp
-Fkbd_macro_saving_p ()
-{
-  return boole (app.kbdq.save_p ());
 }
 
 lisp

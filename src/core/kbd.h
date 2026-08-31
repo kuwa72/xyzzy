@@ -99,6 +99,14 @@ public:
 
   input_mode mode () const;
   int save_p () const;
+  /* **キーボードマクロの記録。** 入力経路が読んだ字をここへ渡す。
+     マクロの再生中は記録しない (Win32 側も `if (kbd_macro)` の else の枝で
+     だけ保存していた)。両フロントエンドが同じものを呼ぶ
+     (src/core/kbd-macro.cc、issue #181)。 */
+  void save_key (lChar);
+  /* マクロが走っていれば次の字、走っていなければ `lChar_EOF`。
+     `macro_char` は private なので、入力経路からはこちらを呼ぶ。 */
+  lChar macro_getc ();
   int macro_is_running () const;
   int disablep () const;
   int idlep () const;
