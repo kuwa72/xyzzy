@@ -66,6 +66,49 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **GUI のクラス 2 つを core から出した** (issue #185)。`XMessageBox`
+    (`src/core/msgbox.h`) と `FKWin` (`src/core/fnkey.h`) で、core の `HWND`
+    は 150 から 141 になった。
+
+    **どちらも「core に残す数」と「win32 へ出す GUI クラス」に割れた:**
+
+    | ヘッダ | core に残したもの | win32 へ出したもの |
+    | --- | --- | --- |
+    | `msgbox.h` | ボタンの番号 (`MSGBOX_IDBUTTON1`..) と seam (`MsgBox` / `MsgBoxEx`) | `XMessageBox` (`xmessagebox.h`) |
+    | `fnkey.h` | `MAX_Fn` / `MAX_FUNCTION_BAR_LABEL` (ラベルの数え方) | `FKWin` と `fnkey_wndproc` (`fkwin.h`) |
+
+    **残す側の基準は「Lisp から見える値かどうか」。** `message-box` の戻り値は
+    `:button1`..`:button5` なので**番号は API の一部**であり、
+    `MAX_FUNCTION_BAR_LABEL` は**端末のフロントエンドも読む**
+    (ラベルを入れるベクタの大きさ)。
+
+    **GUI のクラスが core にあると、端末側もそのメソッドを埋める必要がある。**
+    `ncurses-stubs.cc` と `cli-stubs.cc` の両方から消えた:
+
+    ```cpp
+    void XMessageBox::add_button (UINT, const Char *) {}
+    void XMessageBox::set_button (int, UINT, const Char *) {}
+    int XMessageBox::doit (HWND) { return IDOK; }
+    int FKWin::fk_default_nbuttons = 10;
+    ```
+
+    ラベルの数の設定値は `g_fnkey_default_nbuttons`
+    (`src/core/environ.h`) に出した。**ini に保存される設定値で、GUI の話では
+    ない。** ここで 1 つ判断が要った: Win32 は 0、POSIX のスタブは 10 で
+    初期化していた。**Win32 の `FKWin` のコンストラクタが `fk_divinfo` に
+    無い値を見たら 12 に落とす**ので、0 の実際の意味は 12 である。core の
+    変数は 0 (= 未設定) にした。**POSIX 側の 10 は ini に 10 と書く以外の
+    効果が無かった** (端末にファンクションバーは無いので誰も読まない)。
+
+    **これで #185 の §1 で機械的に片付く分は終わり。** 残るのは設計を伴う
+    2 件である:
+
+    * `dockbar.h` (HWND 21) — `core/buffer-bar.h` が include している。
+      動かすには `Buffer.cc` の**バッファの並び順 6 か所** を「タブバーの
+      バッファ順」という 1 つの seam にする必要がある
+    * `clipboard.h` (11) / `statarea.h` (2) — `Application` (`ed.h`) の
+      **メンバの型**なので、`Painter` (#13) と同じ形の抽象化が要る
+
   * **`g_frame` をフロントエンドの hook にして、GUI のヘッダ 2 つを core から
     出した** (issue #185)。`mainframe.h` / `pane.h` で、これで core の
     `HWND` は 178 から 150 になった。

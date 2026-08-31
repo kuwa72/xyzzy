@@ -286,9 +286,10 @@ int MsgBoxEx (HWND hw, const Char *msg, const Char *title, int type, int def, in
   UINT style = (UINT)(type & 0x0f);
   return MsgBox (hw, msg, title, style, beep);
 }
-void XMessageBox::add_button (UINT, const Char *) {}
-void XMessageBox::set_button (int, UINT, const Char *) {}
-int XMessageBox::doit (HWND) { return IDOK; }
+/* `XMessageBox` の空実装はもう要らない。**あのクラスは
+   src/core/msgbox.h に居たので、GUI のダイアログのメソッドを端末側でも
+   埋める必要があった。** src/frontend/win32/xmessagebox.h へ移した
+   (issue #185)。 */
 
 // ============================================================
 // init.cc stubs
@@ -3927,9 +3928,11 @@ void set_oledata_name (lisp) {}
 // FKWin stubs
 // ============================================================
 
-#include "fnkey.h"
-
-int FKWin::fk_default_nbuttons = 10;
+/* `FKWin::fk_default_nbuttons` の定義はもう要らない。**ラベルの数は ini に
+   保存される設定値で GUI の話ではない**ので、`g_fnkey_default_nbuttons`
+   (src/core/environ.h) に出した。ここに 10 を入れていたが、**端末に
+   ファンクションバーは無いので ini に 10 と書く以外の効果が無かった**
+   (issue #185)。 */
 
 // ============================================================
 // GlobalIME stubs

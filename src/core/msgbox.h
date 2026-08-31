@@ -1,62 +1,28 @@
 #ifndef _msgbox_h_
 # define _msgbox_h_
 
-class XMessageBox
-{
-public:
-  enum {MAX_BUTTONS = 5};
-  enum
-    {
-      IDBUTTON1 = 1000,
-      IDBUTTON2,
-      IDBUTTON3,
-      IDBUTTON4,
-      IDBUTTON5,
-    };
-protected:
-  HINSTANCE hinst;
-  const Char *msg;
-  const Char *title;
-  HFONT hfont;
-  HICON hicon;
-  HWND hwnd;
-  HWND owner;
-  enum {XOFF = 14, YOFF = 12};
-  int nbuttons;
-  struct
-    {
-      UINT id;
-      const Char *caption;
-    } btn[MAX_BUTTONS];
-  int close_id;
-  int default_btn;
-  int f_crlf;
-  int f_no_wrap;
+/* メッセージボックスの seam。**core が呼ぶのは `MsgBox` / `MsgBoxEx` の
+   2 つだけ**で、Win32 はダイアログを出し (src/frontend/win32/msgbox.cc)、
+   端末は最下行に出して打鍵を待つ (src/frontend/ncurses/ncurses-main.cc の
+   `message_box`)。
 
-  BOOL WndProc (UINT, WPARAM, LPARAM);
-  BOOL init_dialog ();
-  void end_dialog (UINT result);
-  void calc_text_rect (RECT &) const;
-  void calc_button_size (RECT br[MAX_BUTTONS]) const;
-  HWND create_ctl (const char *cls, const Char *caption, DWORD, UINT, const RECT &) const;
-  void create_btn (const Char *, UINT, const RECT &) const;
-  void create_label (const Char *, const RECT &, int) const;
-  void create_icon (const RECT &) const;
-  void create_buttons (const RECT br[MAX_BUTTONS]) const;
-  static INT_PTR CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM);
-public:
-  XMessageBox (HINSTANCE hinst_, const Char *msg_, const Char *title_,
-               int crlf, int no_wrap)
-       : hinst (hinst_), msg (msg_), title (title_), nbuttons (0),
-         close_id (-1), default_btn (0), hicon (0), owner (0),
-         f_crlf (crlf), f_no_wrap (no_wrap) {}
-  void add_button (UINT, const Char *);
-  void set_button (int, UINT, const Char *);
-  void set_default (int n) {default_btn = n;}
-  void set_close (int id) {close_id = id;}
-  void set_icon (HICON h) {hicon = h;}
-  int doit (HWND);
-};
+   **`XMessageBox` (Win32 のダイアログの実装) はここに居た。** GUI のクラスな
+   のに core に居たので、端末とヘッドレスのフロントエンドが
+   `XMessageBox::add_button` などの空実装を置く必要があった。
+   src/frontend/win32/xmessagebox.h へ移した (issue #185)。
+
+   **ボタンの番号だけは core に残す。** `message-box` の戻り値
+   (`:button1`..`:button5`) がこれで決まるので、**番号は GUI の話ではない。**
+   `src/core/lprint.cc` の `msgbox_result` が見ている。 */
+enum
+  {
+    MSGBOX_MAX_BUTTONS = 5,
+    MSGBOX_IDBUTTON1 = 1000,
+    MSGBOX_IDBUTTON2,
+    MSGBOX_IDBUTTON3,
+    MSGBOX_IDBUTTON4,
+    MSGBOX_IDBUTTON5,
+  };
 
 int MsgBox (HWND, const Char *, const Char *, UINT, int);
 int MsgBoxEx (HWND, const Char *, const Char *, int, int, int, int,

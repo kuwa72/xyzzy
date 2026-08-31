@@ -2,7 +2,6 @@
 #include "ed.h"
 #include "environ.h"
 #include "conf.h"
-#include "fnkey.h"
 #ifdef _WIN32
 #include "monitor.h"
 #endif
@@ -900,6 +899,10 @@ Fget_system_directory ()
   return xsymbol_value (Qsystem_dir);
 }
 
+/* 宣言は environ.h。**0 は「設定されていない」** (Win32 の `FKWin` が 12 に
+   落とす)。 */
+int g_fnkey_default_nbuttons;
+
 int environ::save_window_size = 1;
 int environ::save_window_snap_size = 0;
 int environ::save_window_position = 1;
@@ -924,7 +927,7 @@ environ::load_settings ()
 
   int x;
   if (read_conf (cfgMisc, cfgFnkeyLabels, x))
-    FKWin::default_nbuttons () = x;
+    g_fnkey_default_nbuttons = x;
   read_conf (cfgMisc, cfgFoldMode, Buffer::b_default_fold_mode);
   if (Buffer::b_default_fold_mode != Buffer::FOLD_NONE
       && Buffer::b_default_fold_mode != Buffer::FOLD_WINDOW
@@ -1058,7 +1061,7 @@ environ::save_settings ()
   write_conf (cfgMisc, cfgRestoreWindowPosition,
               xsymbol_value (Vrestore_window_position) != Qnil);
   write_conf (cfgMisc, cfgWindowFlags, Window::w_default_flags, 1);
-  write_conf (cfgMisc, cfgFnkeyLabels, FKWin::default_nbuttons ());
+  write_conf (cfgMisc, cfgFnkeyLabels, g_fnkey_default_nbuttons);
   write_conf (cfgMisc, cfgFoldMode, Buffer::b_default_fold_mode);
   write_conf (cfgMisc, cfgFoldLineNumMode, Buffer::b_default_linenum_mode);
   flush_conf ();
