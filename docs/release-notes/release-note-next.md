@@ -66,6 +66,39 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **タブバーのバッファ順を seam にして、GUI のヘッダ 3 つを core から出した**
+    (issue #185)。`buffer-bar.h` / `dockbar.h` / `DnD.h` で、`HWND` を 26 個
+    抱えていた。core の `HWND` は 141 から 120 になった。
+
+    core の側にあったのは `src/core/Buffer.cc` の `#ifdef _WIN32` で囲んだ
+    6 行だけである。**バッファには 2 つの並び順がある:**
+
+    | | 何の順か | 誰が持っているか |
+    | --- | --- | --- |
+    | 内部の順 | 最後に選んだものが先頭 | `Buffer::b_blist` (core) |
+    | タブの順 | タブに並んでいる見た目の順 | バッファバー (Win32 の GUI) |
+
+    `buffer-list` の `:buffer-bar-order` と `get-next-buffer` の TAB-ORDER が
+    後者を指す。**後者はフロントエンドの持ち物なので、`frontend_tab_order_*`
+    (`src/core/fns.h`) に出した。**
+
+    **seam が返す「無い」は 0 で、nil ではない。** タブバーは Win32 でも
+    `buffer-bar` コマンドを実行するまで存在せず、そのときの
+    `:buffer-bar-order` は内部の順に落ちる、というのが元の振る舞いである。
+    `frontend_tab_order_buffer_list` が `lisp` を返すのに `Qnil` ではなく 0 を
+    返すのはこのためで、**「タブバーが空」と「タブバーが無い」を区別する
+    必要がある。** ここを `Qnil` にすると `(buffer-list :buffer-bar-order t)`
+    が全バッファを落として nil を返す。
+
+    **この 2 つの Lisp の入口は 1216 件のスイートに 1 件も無かった。**
+    `unittest/buffer-order-tests.l` に 8 件置いた。**バーを作らない状態は
+    Win32 と端末で同じ**なので、`featurep` で分けていない。
+
+    POSIX 側から消えたのは、`#ifdef _WIN32` で囲まれて**死んでいた**
+    `buffer_bar::` の空実装 6 行 (両方のフロントエンド) である。GUI の
+    クラスが core のヘッダに居たので**一度は書かれ、それから `#ifdef` に
+    切られていた。**
+
   * **GUI のクラス 2 つを core から出した** (issue #185)。`XMessageBox`
     (`src/core/msgbox.h`) と `FKWin` (`src/core/fnkey.h`) で、core の `HWND`
     は 150 から 141 になった。
@@ -105,7 +138,8 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 
     * `dockbar.h` (HWND 21) — `core/buffer-bar.h` が include している。
       動かすには `Buffer.cc` の**バッファの並び順 6 か所** を「タブバーの
-      バッファ順」という 1 つの seam にする必要がある
+      バッファ順」という 1 つの seam にする必要がある (この次の項目で
+      やった)
     * `clipboard.h` (11) / `statarea.h` (2) — `Application` (`ed.h`) の
       **メンバの型**なので、`Painter` (#13) と同じ形の抽象化が要る
 

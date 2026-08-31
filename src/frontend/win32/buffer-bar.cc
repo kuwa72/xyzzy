@@ -515,3 +515,42 @@ Fcreate_buffer_bar ()
     FEsimple_error (ECannot_create_toolbar);
   return Vbuffer_bar;
 }
+
+/* ---------------------------------------------------------------
+   core から見た seam (宣言は src/core/fns.h)。
+
+   **タブバーが無い間は 0 を返す。** `create-buffer-bar` を呼ぶまで
+   `b_bar` は 0 で、そのときの `:buffer-bar-order` は内部の順に落ちる。
+   端末のフロントエンドが同じ 0 を返すのは、その「タブバーが無い」状態と
+   同じことである (issue #185)。
+   --------------------------------------------------------------- */
+
+Buffer *
+frontend_tab_order_top_buffer ()
+{
+  return buffer_bar::get_top_buffer ();
+}
+
+Buffer *
+frontend_tab_order_bottom_buffer ()
+{
+  return buffer_bar::get_bottom_buffer ();
+}
+
+Buffer *
+frontend_tab_order_next_buffer (Buffer *bp, int dir)
+{
+  return dir > 0 ? buffer_bar::next_buffer (bp) : buffer_bar::prev_buffer (bp);
+}
+
+lisp
+frontend_tab_order_buffer_list ()
+{
+  return buffer_bar::list_buffers ();
+}
+
+void
+frontend_buffer_deleted (Buffer *bp)
+{
+  buffer_bar::buffer_deleted (bp);
+}
