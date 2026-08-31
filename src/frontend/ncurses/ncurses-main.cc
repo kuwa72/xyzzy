@@ -1204,7 +1204,10 @@ public:
     else
       prompt = " [OK] ";
 
-    // Convert Char* msg to wide chars for ncurses display
+    /* **`msg` は UTF-16 である。** 組んでいるのは
+       `src/core/lprint.cc` の `Fmessage_box` で、surrogate pair まで作って
+       いる。以前ここは `i2w (*p)` = 旧内部エンコーディングの表引きを通して
+       いたので、**日本語のメッセージが全部化けていた** (issue #179)。 */
     int prompt_len = (int)strlen (prompt);
     int max_chars = cols - prompt_len - 1;
     if (max_chars < 0) max_chars = 0;
@@ -1216,7 +1219,7 @@ public:
         if (*p == '\r' || *p == '\n')
           continue;
         cchar_t cc;
-        wchar_t wc[2] = {(wchar_t)i2w (*p), 0};
+        wchar_t wc[2] = {char_to_wchar (*p), 0};
         setcchar (&cc, wc, 0, 0, NULL);
         add_wch (&cc);
         col += wcwidth (wc[0]) > 0 ? wcwidth (wc[0]) : 1;

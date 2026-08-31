@@ -290,8 +290,9 @@ draw_control (WINDOW *win, NcCtl *c, int focused, int win_row_off)
               int cw = 1;
               if (ch >= 0x80)
                 {
-                  ucs2_t wc = i2w (ch);
-                  cw = wcwidth ((wchar_t)wc);
+                  /* `ebuf` は UTF-16 (上の `i2w` の文字列版で変換済み)。
+                     **1 文字版の `i2w` を通すと化ける** (issue #179)。 */
+                  cw = wcwidth (char_to_wchar (ch));
                   if (cw <= 0) cw = 1;
                 }
               w += cw;
@@ -979,8 +980,7 @@ Fdialog_box (lisp dialog, lisp init, lisp handlers)
                                 int cw2 = 1;
                                 if (ch >= 0x80)
                                   {
-                                    ucs2_t wc = i2w (ch);
-                                    cw2 = wcwidth ((wchar_t)wc);
+                                    cw2 = wcwidth (char_to_wchar (ch));
                                     if (cw2 <= 0) cw2 = 1;
                                   }
                                 if (dcol + cw2 > click_col) break;
