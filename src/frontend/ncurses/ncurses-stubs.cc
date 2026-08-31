@@ -1038,9 +1038,9 @@ lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
    (issue #133 の段階 2〜3)。**スタブを残すと静的ライブラリの側が引かれず、
    リンクは通るのに実装が使われない。**
 
-   `si:make-c-callable` (Lisp の関数を C から呼べるアドレスにするもの) は
-   まだ無い — 実行時に機械語を作る必要がある (段階 4)。 */
-lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
+   `si:make-c-callable` も同じで、**スタブは消した。** 本体は
+   src/core/dll-call.cc、libffi の closure を作る所は src/core/dll-posix.cc
+   (段階 4)。 */
 
 /* **tree-sitter のスタブも消した。** 本体は src/core/ts.cc にあり、
    xyzzy-ncurses のソースに入っている (issue #150)。スタブを残すと、

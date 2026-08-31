@@ -141,6 +141,17 @@ xdll_function_arg_size (lisp x)
 # define INSN_SIZE 16
 #endif
 
+class lc_callable;
+
+/* オブジェクトが回収されるときに呼ぶ。**Win32 は何も要らない** (下の
+   `insn[]` はオブジェクトの中にあるので一緒に消える) ので inline の空実装。
+   POSIX は libffi の closure を解放する (src/core/dll-posix.cc)。 */
+#ifdef _WIN32
+inline void free_c_callable_stub (lc_callable *) {}
+#else
+void free_c_callable_stub (lc_callable *);
+#endif
+
 class lc_callable: public lisp_object
 {
 public:
@@ -150,9 +161,24 @@ public:
   u_char nargs;       // 引数の数
   u_char return_type; // 戻り値の型
   u_char convention;  // 呼び出し規約
+#ifdef _WIN32
   alignas(4) u_char insn[INSN_SIZE]; // stubコード
+#else
+  /* **C へ渡すアドレスの持ち方がプラットフォームで違う。**
+     Win32 は上の `insn[]` に機械語を自分で書き、**その配列そのもの**を C へ
+     渡す。POSIX は libffi の closure を使うが、あれは**自分で実行可能な
+     メモリを確保して別のアドレスを返す** — Lisp オブジェクトの中の配列には
+     入らないし、POSIX の Lisp ヒープは実行可能でないので、そこへ機械語を
+     書く手も取れない。だから 2 本のポインタを持つ。
 
-  ~lc_callable () {xfree (arg_types);}
+     `state` の中身 (`ffi_closure` と `ffi_cif`) は src/core/dll-posix.cc の
+     中だけで見える。**`ffi.h` をここから引くと core の全 TU に広がる**ので、
+     ここでは `void *` にしてある。 */
+  void *state;
+  void *code;
+#endif
+
+  ~lc_callable () {xfree (arg_types); free_c_callable_stub (this);}
 };
 
 #define c_callable_p(X) typep ((X), Tc_callable)
@@ -205,11 +231,28 @@ xc_callable_convention (lisp x)
   return ((lc_callable *)x)->convention;
 }
 
+#ifdef _WIN32
 inline u_char *
 xc_callable_insn (lisp x)
 {
   assert (c_callable_p (x));
   return ((lc_callable *)x)->insn;
+}
+#endif
+
+/* **C へ渡すアドレス。** Win32 は自分で機械語を書いた `insn[]`、POSIX は
+   libffi の closure が用意したもの (`lc_callable` のコメントを参照)。
+   `cast_to_int64` (src/core/chunk.cc) が `si:make-c-callable` の返り値を
+   C の引数に変えるときに通る**唯一の場所**なので、そこだけ見ればよい。 */
+inline void *
+xc_callable_address (lisp x)
+{
+  assert (c_callable_p (x));
+#ifdef _WIN32
+  return ((lc_callable *)x)->insn;
+#else
+  return ((lc_callable *)x)->code;
+#endif
 }
 
 /* **`make_dll_module' はここに置く。** 中身は枠を確保して 3 つ埋めるだけで
@@ -229,8 +272,30 @@ make_dll_module ()
   return p;
 }
 
+/* **`make_c_callable' も同じ理由でここ。** 前は「関数を呼ぶ側」として
+   src/frontend/win32/dll.cc と src/core/dll-posix.cc の両方に同じ物が
+   置いてあったが、`Fsi_make_c_callable' を core (src/core/dll-call.cc) へ
+   移したので、**Win32 の xyzzy-cli.exe が win32/dll.cc をリンクしないまま
+   これを参照する**ようになった。中身は枠を埋めるだけなのでインラインにする。
+   プラットフォームの違いは `lc_callable' の欄そのもの (`insn[]` か
+   ポインタ 2 本か) で、そこだけ分かれる。 */
+inline lc_callable *
+make_c_callable ()
+{
+  lc_callable *p = ldata <lc_callable, Tc_callable>::lalloc ();
+  p->function = Qnil;
+  p->arg_types = 0;
+  p->nargs = 0;
+  p->return_type = 0;
+  p->arg_size = 0;
+#ifndef _WIN32
+  p->state = 0;
+  p->code = 0;
+#endif
+  return p;
+}
+
 ldll_function *make_dll_function ();
-lc_callable *make_c_callable ();
 lisp funcall_dll (lisp fn, lisp arglist);
 lisp funcall_c_callable (lisp, lisp);
 void init_c_callable (lisp);

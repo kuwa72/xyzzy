@@ -512,9 +512,10 @@ lisp funcall_dll (lisp, lisp) { return Qnil; }
 lisp funcall_c_callable (lisp, lisp) { return Qnil; }
 #endif
 
-/* `si:make-c-callable` (Lisp の関数を C から呼べるアドレスにするもの) は
-   非 Win32 にはまだ無い — 実行時に機械語を作る必要がある (段階 4)。 */
-lisp Fsi_make_c_callable (lisp, lisp, lisp, lisp) { return Qnil; }
+/* `si:make-c-callable` **のスタブも消した。** 本体は src/core/dll-call.cc に
+   移してあり (段階 4)、そこから呼ぶ `init_c_callable` が Win32 では上の
+   スタブに、非 Win32 では src/core/dll-posix.cc の libffi の closure に
+   当たる。 */
 lisp Fsi_load_ts_grammar (lisp, lisp) { return Qnil; }
 lisp Fsi_ts_query_buffer (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fsi_ts_grammar_p (lisp) { return Qnil; }

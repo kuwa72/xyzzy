@@ -176,31 +176,164 @@ store_c_arg (c_arg_value *v, u_char t, lisp x)
     }
 }
 
-lc_callable *
-make_c_callable ()
-{
-  lc_callable *p = ldata <lc_callable, Tc_callable>::lalloc ();
-  p->function = Qnil;
-  p->arg_types = 0;
-  p->nargs = 0;
-  p->return_type = 0;
-  p->arg_size = 0;
-  return p;
-}
+/* `make_c_callable' は src/core/dll.h のインラインへ移した (Win32 側にも
+   同じ物があり、`Fsi_make_c_callable' を core へ移したので両方から要る)。 */
 
 lisp
-funcall_c_callable (lisp, lisp)
+funcall_c_callable (lisp fn, lisp arglist)
 {
-  /* **Lisp の関数を C から呼べるアドレスにするのは、まだできない。**
-     実行時に機械語を作る必要がある (lc_callable::insn)。ABI ごとに書くか
-     libffi の closure を使うかの判断が残っている (issue #133 の段階 4)。 */
-  FEsimple_error (Edll_not_initialized);
-  return Qnil;
+  /* Win32 側と同じ。**Lisp から `c-callable` オブジェクトを直に funcall した
+     ときの経路**で、C から呼ばれる経路 (下の trampoline) とは別。 */
+  QUIT;
+  return Ffuncall (xc_callable_function (fn), arglist);
+}
+
+/*
+ * `si:make-c-callable' (issue #133 の段階 4)。
+ *
+ * **置き場所が Win32 と違う。** あちらは `lc_callable::insn[64]` に機械語を
+ * 書き、**その配列そのもの**のアドレスを C へ渡す (ABI ごとに 3 通りの
+ * 機械語が src/frontend/win32/dll.cc にある)。libffi の closure は
+ * **自分で実行可能なメモリを確保して別のアドレスを返す**ので、Lisp
+ * オブジェクトの中の配列には入らない。**POSIX の Lisp ヒープは実行可能では
+ * ない**ので、そこへ機械語を書く手も取れない。
+ *
+ * なので `lc_callable` は非 Win32 では `insn[]` の代わりに 2 本のポインタを
+ * 持ち (`state` と `code`)、C へ渡すアドレスは `xc_callable_address` が
+ * 選ぶ (src/core/dll.h)。**`ffi_cif` の寿命は closure と同じでなければ
+ * ならない** (呼ばれるたびに libffi が読む) ので、`atypes` ごと下の
+ * 構造体に入れてオブジェクトと一緒に持つ。
+ */
+
+struct c_callable_state
+{
+  ffi_closure *closure;
+  ffi_cif cif;
+  ffi_type **atypes;    /* nargs 個。cif が指しているので一緒に持つ */
+};
+
+/* C から呼ばれる側。`user_data` は `lc_callable` そのもの。 */
+static void
+c_callable_trampoline (ffi_cif *, void *ret, void **args, void *user_data)
+{
+  lisp cc = (lisp)user_data;
+  int nargs = xc_callable_nargs (cc);
+  const u_char *at = xc_callable_arg_types (cc);
+
+  lisp largs = Qnil;
+  for (int i = nargs - 1; i >= 0; i--)
+    {
+      lisp v;
+      switch (at[i])
+        {
+        case CTYPE_INT8:   v = make_fixnum (*(int8_t *)args[i]); break;
+        case CTYPE_UINT8:  v = make_fixnum (*(uint8_t *)args[i]); break;
+        case CTYPE_INT16:  v = make_fixnum (*(int16_t *)args[i]); break;
+        case CTYPE_UINT16: v = make_fixnum (*(uint16_t *)args[i]); break;
+        case CTYPE_INT32:  v = make_fixnum (*(int32_t *)args[i]); break;
+        case CTYPE_UINT32: v = make_integer (int64_t (*(uint32_t *)args[i])); break;
+        case CTYPE_INT64:  v = make_integer (*(int64_t *)args[i]); break;
+        case CTYPE_UINT64: v = make_integer (*(uint64_t *)args[i]); break;
+        case CTYPE_FLOAT:  v = make_single_float (*(float *)args[i]); break;
+        case CTYPE_DOUBLE: v = make_double_float (*(double *)args[i]); break;
+        default:           v = Qnil; assert (0); break;
+        }
+      largs = xcons (v, largs);
+    }
+
+  /* 返り値の欄は libffi が確保したもので、**呼び出し元が読む。** Lisp が
+     throw して抜けた場合でも何か入っていなければならないので、先に 0 を
+     置いておく。 */
+  u_char rt = xc_callable_return_type (cc);
+  if (rt == CTYPE_FLOAT)
+    *(float *)ret = 0;
+  else if (rt == CTYPE_DOUBLE)
+    *(double *)ret = 0;
+  else if (rt != CTYPE_VOID)
+    *(ffi_arg *)ret = 0;
+
+  protect_gc gcpro (largs);
+  try
+    {
+      lisp result = Ffuncall (xc_callable_function (cc), largs);
+      switch (rt)
+        {
+        case CTYPE_VOID:
+          break;
+        case CTYPE_FLOAT:
+          *(float *)ret = coerce_to_single_float (result);
+          break;
+        case CTYPE_DOUBLE:
+          *(double *)ret = coerce_to_double_float (result);
+          break;
+        default:
+          /* 幅の狭い整数も `ffi_arg` の幅で書く約束 (libffi が呼び出し元の
+             期待する幅に切る)。 */
+          *(ffi_arg *)ret = ffi_arg (cast_to_int64 (result));
+          break;
+        }
+    }
+  catch (nonlocal_jump &)
+    {
+      /* **C の枠を Lisp の throw で飛び越えさせない。** Win32 側の
+         `c_callable_stub_*` も同じ形で止めている。 */
+    }
 }
 
 void
-init_c_callable (lisp)
+init_c_callable (lisp cc)
 {
+  /* **先に 0 を入れる。** ダンプイメージからの読み込み (src/core/data.cc の
+     `rdump_object') はスカラの欄だけを読んで枠は `make_c_callable' を通らない
+     ので、下で失敗して戻ったときに**前の中身が残っていると、デストラクタが
+     それを解放しようとする。** */
+  ((lc_callable *)cc)->state = 0;
+  ((lc_callable *)cc)->code = 0;
+
+  int nargs = xc_callable_nargs (cc);
+  const u_char *at = xc_callable_arg_types (cc);
+
+  c_callable_state *st = (c_callable_state *)xmalloc (sizeof *st);
+  st->closure = 0;
+  st->atypes = nargs ? (ffi_type **)xmalloc (nargs * sizeof *st->atypes) : 0;
+  for (int i = 0; i < nargs; i++)
+    st->atypes[i] = c_type_to_ffi_type (at[i]);
+
+  void *code = 0;
+  st->closure = (ffi_closure *)ffi_closure_alloc (sizeof (ffi_closure), &code);
+  if (!st->closure
+      || ffi_prep_cif (&st->cif, FFI_DEFAULT_ABI, nargs,
+                       c_type_to_ffi_type (xc_callable_return_type (cc)),
+                       st->atypes) != FFI_OK
+      || ffi_prep_closure_loc (st->closure, &st->cif, c_callable_trampoline,
+                               cc, code) != FFI_OK)
+    {
+      /* **ここで例外を投げてはいけない。** `init_c_callable' はダンプ
+         イメージの読み込み中 (src/core/data.cc の `rdump_object') からも
+         呼ばれ、そこは Lisp のコンディションを投げられる場所ではない。
+         アドレスを 0 のままにしておけば、C へ渡そうとした側が 0 を見る。 */
+      if (st->closure)
+        ffi_closure_free (st->closure);
+      xfree (st->atypes);
+      xfree (st);
+      return;
+    }
+
+  ((lc_callable *)cc)->state = st;
+  ((lc_callable *)cc)->code = code;
+}
+
+void
+free_c_callable_stub (lc_callable *cc)
+{
+  c_callable_state *st = (c_callable_state *)cc->state;
+  if (!st)
+    return;
+  ffi_closure_free (st->closure);
+  xfree (st->atypes);
+  xfree (st);
+  cc->state = 0;
+  cc->code = 0;
 }
 
 lisp

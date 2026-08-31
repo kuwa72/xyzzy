@@ -222,6 +222,63 @@ Fsi_make_c_function (lisp lmodule, lisp lname, lisp largs, lisp lrettype, lisp k
   return fn;
 }
 
+/* `si:make-c-callable' に渡せる「関数」の形。`Ffuncall' が受け取れる物だけ
+   通す (シンボルは関数定義に、ラムダ式はそのまま)。 */
+static lisp
+check_fn (lisp fn)
+{
+  if (!immediatep (fn))
+    switch (object_typeof (fn))
+      {
+      case Tsymbol:
+        return Fsymbol_function (fn);
+
+      case Tclosure:
+        return fn;
+
+      case Tfunction:
+        if (special_form_p (fn))
+          FEtype_error (fn, Qfunction);
+        return fn;
+
+      case Tcons:
+        if (xcar (fn) == Qlambda)
+          return fn;
+        break;
+      }
+  return FEinvalid_function (fn);
+}
+
+/* **ここは src/frontend/win32/dll.cc にあった。** 型を検査して枠を埋めて
+   `init_c_callable' を呼ぶだけで、**プラットフォームに依るのはその
+   `init_c_callable' の方だけ**だった (Win32 は `insn[]` に機械語を書き、
+   POSIX は libffi の closure を作る)。移したので、非 Win32 のスタブ
+   (`return Qnil') が要らなくなった -- issue #133 の段階 4。 */
+lisp
+Fsi_make_c_callable (lisp fn, lisp largs, lisp lrettype, lisp keys)
+{
+  fn = check_fn (fn);
+  int return_type = check_c_type (lrettype);
+  int nargs = 0;
+  for (lisp a = largs; consp (a); a = xcdr (a), nargs++)
+    if (check_c_type (xcar (a)) == CTYPE_VOID)
+      FEprogram_error (Einvalid_c_argument_type, Kvoid);
+
+  lisp cc = make_c_callable ();
+  xc_callable_function (cc) = fn;
+  xc_callable_return_type (cc) = return_type;
+  xc_callable_nargs (cc) = nargs;
+  xc_callable_convention (cc) = check_calling_convention (keys);
+  if (nargs)
+    {
+      u_char *at = (u_char *)xmalloc (nargs);
+      xc_callable_arg_types (cc) = at;
+      xc_callable_arg_size (cc) = calc_argument_size (at, largs);
+    }
+  init_c_callable (cc);
+  return cc;
+}
+
 lisp
 Fsi_last_win32_error ()
 {

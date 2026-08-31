@@ -2,21 +2,8 @@
 #include "ed.h"
 #include "except.h"
 
-/* make_dll_module は src/core/dll.h のインラインへ移した (POSIX 側の
-   si:load-dll-module も使うので)。 */
-
-
-lc_callable *
-make_c_callable ()
-{
-  lc_callable *p = ldata <lc_callable, Tc_callable>::lalloc ();
-  p->function = Qnil;
-  p->arg_types = 0;
-  p->nargs = 0;
-  p->return_type = 0;
-  p->arg_size = 0;
-  return p;
-}
+/* make_dll_module と make_c_callable は src/core/dll.h のインラインへ移した
+   (POSIX 側の si:load-dll-module / si:make-c-callable も使うので)。 */
 
 static lisp
 find_module (lisp name)
@@ -1231,52 +1218,7 @@ init_c_callable (lisp cc)
 void init_c_callable (lisp cc) { /* c-callable not supported on this architecture */ }
 #endif
 
-static lisp
-check_fn (lisp fn)
-{
-  if (!immediatep (fn))
-    switch (object_typeof (fn))
-      {
-      case Tsymbol:
-        return Fsymbol_function (fn);
-
-      case Tclosure:
-        return fn;
-
-      case Tfunction:
-        if (special_form_p (fn))
-          FEtype_error (fn, Qfunction);
-        return fn;
-
-      case Tcons:
-        if (xcar (fn) == Qlambda)
-          return fn;
-        break;
-      }
-  return FEinvalid_function (fn);
-}
-
-lisp
-Fsi_make_c_callable (lisp fn, lisp largs, lisp lrettype, lisp keys)
-{
-  fn = check_fn (fn);
-  int return_type = check_c_type (lrettype);
-  int nargs = 0;
-  for (lisp a = largs; consp (a); a = xcdr (a), nargs++)
-    if (check_c_type (xcar (a)) == CTYPE_VOID)
-      FEprogram_error (Einvalid_c_argument_type, Kvoid);
-
-  lisp cc = make_c_callable ();
-  xc_callable_function (cc) = fn;
-  xc_callable_return_type (cc) = return_type;
-  xc_callable_nargs (cc) = nargs;
-  xc_callable_convention (cc) = check_calling_convention (keys);
-  if (nargs)
-    {
-      u_char *at = (u_char *)xmalloc (nargs);
-      xc_callable_arg_types (cc) = at;
-      xc_callable_arg_size (cc) = calc_argument_size (at, largs);
-    }
-  init_c_callable (cc);
-  return cc;
-}
+/* **`Fsi_make_c_callable' は core (src/core/dll-call.cc) へ移した。**
+   中身は型を検査して枠を埋めて `init_c_callable' を呼ぶだけで、
+   プラットフォームに依るのはその `init_c_callable' の方だけだった
+   (issue #133 の段階 4)。 */

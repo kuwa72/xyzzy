@@ -26,9 +26,8 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 **もう 1 つの柱が端末版 (Linux / POSIX) である。** 前の回で「起動して編集して
 保存できる」ところまで来ていたが、この回で**日常的に使える**ところまで来た。
 Lisp テストスイートは走るようになり (走っていなかった -> 1210 件)、既知失敗は
-158 件から 13 件に減った。残る 13 件は**全部「POSIX に対応物が無い」側**
-(Lisp の関数を C から呼べるアドレスにする `make-c-callable`、待機オブジェクト、
-OLE、ダンプイメージ) である。
+158 件から 10 件に減った。残る 10 件は**全部「POSIX に対応物が無い」側**
+(user32 / kernel32 の API、待機オブジェクト、OLE、ダンプイメージ) である。
 
 **端末版で見つかった不具合は「無い」よりも「黙って違うことをする」が多かった。**
 それが最後まで残っていた理由でもある:
@@ -1483,8 +1482,50 @@ OLE、ダンプイメージ) である。
     double を測る `ffi-double-argument` を書いた (2 の冪なので誤差が出ない)。
     判定はプラットフォームで選ぶ — Win32 の x86_64 は今も断るので。
 
-    **残るのは `make-c-callable` (段階 4) だけ。** Lisp の関数を C から呼べる
-    アドレスにするもので、libffi の `ffi_closure` で書ける。
+    **残るのは `make-c-callable` (段階 4) だけ** — 下で入れた。
+  * **POSIX で `si:make-c-callable` が使えるようになった。Lisp の関数を C の
+    callback として渡せる** (issue #133 の段階 4、既知失敗 13 -> 10)。
+
+    ```lisp
+    (c:defun-c-callable c:int (int32-comparator :convention :cdecl)
+      (((c:void *) a) ((c:void *) b))
+      ...)
+    (qsort array 10 4 #'int32-comparator)   ; libc の qsort が Lisp を呼ぶ
+    ```
+
+    **違ったのは置き場所だけだった。** Win32 は `lc_callable::insn[64]` に
+    機械語を書き、**その配列そのもの**のアドレスを C へ渡す (ABI ごとに 3 通り
+    の機械語が `src/frontend/win32/dll.cc` にある)。libffi の closure は
+    **自分で実行可能なメモリを確保して別のアドレスを返す**ので、Lisp
+    オブジェクトの中の配列には入らない。**POSIX の Lisp ヒープは実行可能では
+    ない**ので、そこへ機械語を書く手も取れない。
+
+    非 Win32 では `insn[]` の代わりにポインタ 2 本 (closure の置き場と C へ
+    渡すアドレス) を持ち、**C へ渡すアドレスを選ぶ所を 1 箇所に集めた**
+    (`xc_callable_address`、`src/core/dll.h`)。`cast_to_int64` がそこを通る
+    唯一の場所なので、それ以外は今までと同じである。
+
+    `Fsi_make_c_callable` は core (`src/core/dll-call.cc`) へ移した。型を検査
+    して枠を埋めて `init_c_callable` を呼ぶだけで、**プラットフォームに依るの
+    はその `init_c_callable` だけ**だった。非 Win32 の
+    `return Qnil` のスタブが 2 つ消えた。
+
+    **`defun-c-callable-stdcall` だけは残る。callback の話ではなかった。**
+    `EnumWindows` に callback を渡すテストで、**user32 を `dlopen` する所で
+    止まる。** `:stdcall` の指定は POSIX では既定の規約 1 つに落ちるだけで
+    問題にならない。既知失敗リストの「呼び出し規約が要る」群から
+    「その API が無い」群へ移した。
+
+    **`last-win32-error` 2 件の理由も測り直した。** 「FFI で止まっているので、
+    そちらが動けば一緒に通るはず」と書いてあったが、**FFI が動いても通らな
+    かった。** 止まっているのは呼ぶ側ではなく**呼ぶ相手**で、
+    `MultiByteToWideChar` は kernel32 の中にある。
+
+    テストを 1 件足した (`c-callable-swallows-a-lisp-error`)。**callback の
+    中で投げたものが C のフレームを飛び越えないこと。** 越えると呼び出し元
+    (libc の `qsort`) が自分のスタックを片付けられず、**壊れ方がプロセスの死に
+    なる。** Win32 側は前から `catch (nonlocal_jump &)` で止めていたが、
+    **そこを測るテストは無かった。**
   * **`machine-type` が Windows 以外で測られていなかったのを直した**
     (既知失敗 60 -> 59)。既知失敗リストには「GetSystemInfo」と書いてあったが、
     **POSIX でも `machine-type` は値を返していた** (`"amd64"`)。落ちていたのは

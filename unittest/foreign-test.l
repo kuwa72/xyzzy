@@ -82,6 +82,35 @@
   => (1 2 3 4 5 6 7 8 9 10))
 
 
+;; **C の枠を Lisp の非局所脱出で飛び越えさせないこと。**
+;;
+;; callback の中で投げたものは callback の中で止まり、C から見た返り値は 0 に
+;; なって `qsort` は最後まで走る。**呼んだ側には何も知らされない** (投げた物は
+;; そこで消える)。実装は Win32 も POSIX も同じ形で止めていて、Win32 は
+;; `c_callable_stub_*` の `catch (nonlocal_jump &)`、POSIX は
+;; `c_callable_trampoline` の同じ catch (src/core/dll-posix.cc)。
+;;
+;; **ここを測らないと、壊れ方がプロセスの死になる。** C のフレームを C++ の
+;; 例外が通り抜けると、呼び出し元 (libc の qsort) が自分のスタックを片付け
+;; られない。並び順は見ない — 全部 0 を返したときに qsort が何をするかは
+;; 約束されていないので、**「落ちずに戻ってきて、データが失われていない」**
+;; だけを見る。
+
+(c:defun-c-callable
+  c:int
+  (throwing-comparator :convention :cdecl) (((c:void *) elem1)
+                                            ((c:void *) elem2))
+  (error "comparator が投げた"))
+
+(deftest c-callable-swallows-a-lisp-error ()
+  (let ((array (si:make-chunk 'int[] 8)))
+    (si:pack-int32 array 0 2)
+    (si:pack-int32 array 4 1)
+    (qsort array 2 4 #'throwing-comparator)
+    (sort (list (si:unpack-int32 array 0) (si:unpack-int32 array 4)) #'<))
+  => (1 2))
+
+
 ;; int32
 
 (c:define-dll-entry
