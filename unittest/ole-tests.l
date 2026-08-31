@@ -15,11 +15,38 @@
   => "null"
   => "undefined")
 
+;;; **以前は公開インターネットへ HTTPS GET を出していた** (issue #174):
+;;;
+;;;     (ole-method xhr 'open "GET" "https://github.com/xyzzy-022/xyzzy/" nil)
+;;;
+;;; 網の状態でも相手側の都合でも落ちるので、**測っているものと関係の無い理由で
+;;; CI が赤くなる。** 実際に手元の Wine で落ちた (同じコミットで直前の run は
+;;; 通っている)。バイト配列がどこから来るかはこのテストの関心事ではないので、
+;;; 一時ファイルを `file://` で読む形にした。
+;;;
+;;; **書き換えた例を docstring の中に置こうとして 1 度壊した。** Lisp の
+;;; 文字列の中の `"` はエスケープが要るので、URL の引用符がそのまま入ると
+;;; **docstring が途中で閉じてファイルが読めなくなる** (テストが 1 件も
+;;; 走らない)。`;;;` のコメントなら引用符をそのまま書ける。
+
 (deftest fix-ole-getmethod-immediate-array ()
-  (let ((xhr (ole-create-object "MSXML2.XMLHTTP")))
-    (ole-method xhr 'open "GET" "https://github.com/xyzzy-022/xyzzy/" nil) ;; blocking!
-    (ole-method xhr 'send nil)
-    (ole-method xhr 'responseBody))
+  "`ole-method' の戻り値が配列 (`responseBody' は VT_ARRAY|VT_UI1) のとき、
+それが即値で返ること。バイト配列がどこから来るかは関心事ではないので、
+一時ファイルを `file://` で読む (上のコメント、issue #174)。"
+  (let ((file (make-temp-file-name)))
+    (unwind-protect
+        (progn
+          ;; `make-temp-file-name' はファイルを作るので `:overwrite'。
+          (with-open-file (s file :direction :output :if-exists :overwrite)
+            (format s "immediate-array~%"))
+          (let ((xhr (ole-create-object "MSXML2.XMLHTTP")))
+            ;; `make-temp-file-name' は `C:/users/.../~xyzNNNN.tmp' のように
+            ;; スラッシュで返すので、`file:///' を足すだけで URL になる
+            ;; (`~' は URI で unreserved)。
+            (ole-method xhr 'open "GET" (concat "file:///" file) nil)
+            (ole-method xhr 'send nil)
+            (ole-method xhr 'responseBody)))
+      (ignore-errors (delete-file file))))
   => non-nil)
 
 (defmacro with-ie ((var) &body body)
