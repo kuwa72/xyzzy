@@ -423,31 +423,92 @@ time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出�
 
 ;;; `:encoding` を省いたときの既定 --------------------------------------------
 ;;;
-;;; **CP932 (Shift_JIS) で数える。** リファレンスは「エンコーディング変換
-;;; なし」と書いているが、それは**内部表現が CP932 のバイト列だった頃の
-;;; 言い方**で、いまは ucs4 なので「変換なし」に当たるものが無い。実装は
-;;; `w2sl` を呼んでいる (src/core/string.cc)。
+;;; **`*default-fileio-encoding*` で数える** (issue #154 で決めた)。
 ;;;
-;;; **このフォークの `*default-fileio-encoding*` は UTF-8** なので、この既定は
-;;; 他とずれている。変えるかどうかは issue に分けた (公開 API の既定を黙って
-;;; 変えられない)。**ここはずれていることも含めて今の約束を書き留める場所。**
+;;; **長く CP932 (Shift_JIS) だった。** リファレンスは「エンコーディング変換
+;;; なし」と書いていたが、それは**内部表現が CP932 のバイト列だった頃の
+;;; 言い方**で、そのときは「変換しない」ことと「CP932 で数える」ことが同じ
+;;; だった。内部表現が ucs4 になったあと「変換なし」に当たるものは無くなり、
+;;; 実装 (`w2sl`) だけが CP932 を数え続けていた。
+;;;
+;;; **このフォークの `*default-fileio-encoding*` は UTF-8 (utf8n)** なので、
+;;; 「保存したら何バイトか」の答えが 2 つ存在していた。既定をそちらへ寄せた。
 
-(deftest octet-length-sjis ()
+(deftest octet-length-default-follows-default-fileio-encoding ()
+  "**`:encoding` を省いたときは `*default-fileio-encoding*` で数える。**
+このフォークの既定は utf8n なので、CP932 の頃と数が違う (あ: 2 -> 3)。"
   (values
    (si:octet-length "あ")
    (si:octet-length "漢字")
    (si:octet-length "アイウ")
+   (si:octet-length "abcあいう"))
+  => 3
+  => 6
+  => 9
+  => 12)
+
+(defun octet-length-test-with-default-encoding (enc fn)
+  "`*default-fileio-encoding*` を差し替えて FN を呼び、必ず元に戻す。
+
+**`let` では効かない** (下の `octet-length-default-ignores-a-let-binding`)。
+`si:octet-length` の既定は C++ 側が `xsymbol_value` でグローバルの値を読むので、
+動的束縛が見えない。だから `setf` して `unwind-protect` で戻す。**戻さないと
+後続のテストが全部この値で数える。**"
+  (let ((saved *default-fileio-encoding*))
+    (unwind-protect
+        (progn
+          (setf *default-fileio-encoding* enc)
+          (funcall fn))
+      (setf *default-fileio-encoding* saved))))
+
+(deftest octet-length-default-changes-with-the-variable ()
+  "**既定は変数を読む。** 差し替えると答えが変わる。**ここが定数だと
+issue #154 で直した意味が無い** (CP932 が別の名前で焼き付いているだけになる)。"
+  (flet ((n (enc)
+           (octet-length-test-with-default-encoding
+             enc #'(lambda () (si:octet-length "abcあいう")))))
+    (list (n *encoding-sjis*) (n *encoding-utf8n*) (n *encoding-euc-jp*)))
+  => (9 12 9))
+
+(deftest octet-length-default-survives-a-bad-variable ()
+  "**変数に自動判別やエンコーディングでない値が入っていても落ちない。**
+`symbol_value_char_encoding` を通すので CP932 に落ちる (`Buffer` の初期化と
+同じ扱い)。**落ちる実装にすると、`*default-fileio-encoding*` を触った
+設定ファイルで `si:octet-length` が全部エラーになる。**"
+  (flet ((n (enc)
+           (octet-length-test-with-default-encoding
+             enc #'(lambda () (si:octet-length "abcあいう")))))
+    (list (n *encoding-auto*) (n nil)))
+  => (9 9))
+
+(deftest octet-length-default-ignores-a-let-binding ()
+  "**`let` で束縛しても効かない。** グローバルの utf8n で数えるので 12 になる。
+
+C++ 側が `xsymbol_value` でシンボルの値セルを直接読むためで、**`Buffer` が
+生成時に既定のエンコーディングを読む経路と同じ**である
+(`src/core/Buffer.cc` の `symbol_value_char_encoding (Vdefault_fileio_encoding)`)。
+
+**これが正しいと言い切れる話ではない。** 動的束縛を見るようにするなら
+`symbol_value (Vdefault_fileio_encoding, selected_buffer ())` を通す形になり、
+そのときはここが 9 になる。**そうなったらこのテストが赤くなるので、
+気付ける。** 期待値を直すときは `Buffer` の側も揃えること。"
+  (let ((*default-fileio-encoding* *encoding-sjis*))
+    (si:octet-length "abcあいう"))
+  => 12)
+
+(deftest octet-length-sjis ()
+  "`:encoding` を明示したときは変わらない。**上の既定のテストと同じ数が
+ここにも出るのは、既定が変数を読んでいる証拠ではない** (このフォークの既定は
+utf8n なので、CP932 の数は明示したときだけ出る)。"
+  (values
    (si:octet-length "あ" :encoding *encoding-sjis*)
    (si:octet-length "漢字" :encoding *encoding-sjis*)
    (si:octet-length "アイウ" :encoding *encoding-sjis*))
   => 2
   => 4
-  => 6
-  => 2
-  => 4
   => 6)
 
-;; **バイト列を渡しても「変換なし」にはならない。**
+;; **バイト列を渡しても「変換なし」にはならない。既定を変えても変わらない。**
 ;;
 ;; `octet-length-eucjp` / `octet-length-utf8` はここで長く落ちていた
 ;; (`misc/known-failures/common.txt`、全ターゲット)。**実装ではなくテストが
@@ -456,21 +517,21 @@ time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出�
 ;;     (si:octet-length (convert-encoding-from-internal *encoding-utf8n* "漢字"))
 ;;
 ;; が 6 になることを期待していた。内部表現が CP932 のバイト列だった頃は、
-;; 変換した結果の「文字」がそのままバイトで、それを CP932 で数え直しても
-;; 同じ数になったので成り立っていた。**ucs4 になった今は、バイト値が
-;; U+00E6 などの文字として入り、CP932 で数え直すと増える** (U+00A2 は
-;; CP932 で 2 バイト)。
+;; 変換した結果の「文字」がそのままバイトで、それを数え直しても同じ数に
+;; なったので成り立っていた。**ucs4 になった今は、バイト値が U+00E6 などの
+;; 文字として入り、数え直すと増える。**
 ;;
-;;     UTF-8 の "漢字" = (230 188 162 229 173 151)  -> 6 文字
-;;     そのうち 162 (U+00A2) だけが CP932 で 2 バイト -> 7
+;;     UTF-8 の "漢字" = (230 188 162 229 173 151) -> 6 文字
+;;     この 6 文字は全部 U+0080..U+07FF なので、UTF-8 で数え直すと 2 バイトずつ
 ;;
-;; **`octet-length-sjis` が既定を CP932 だと言っていて通っているので、
-;; 両方を同時に満たす答えは無い。** バイト数を知りたいなら `length` を見る
-;; のが正しい (下の `convert-encoding-from-internal-byte-counts`)。
-(deftest octet-length-of-a-converted-string-counts-in-cp932 ()
+;; **既定が CP932 だった頃はここが 7 だった** (U+00A2 だけが CP932 で
+;; 2 バイトで、残りの 5 文字は 1 バイト)。既定が utf8n になったので 12 になる。
+;; **数が変わっても言いたいことは同じで、「バイト数が知りたいなら `length`」
+;; である** (下の `convert-encoding-from-internal-byte-counts`)。
+(deftest octet-length-of-a-converted-string-counts-again ()
   (let ((c (convert-encoding-from-internal *encoding-utf8n* "漢字")))
     (list (length c) (si:octet-length c)))
-  => (6 7))
+  => (6 12))
 
 (deftest octet-length-eucjp ()
   (values
@@ -527,6 +588,20 @@ time_low は 100ns 単位の時刻の下位 32bit なので、2 回の呼び出�
   => 0
   => 4
   => 6)
+
+(deftest octet-length-of-a-converted-string-matches-the-reference ()
+  "**リファレンスの補足に書いてある数**をここで測る。書いた数が合っている
+ことを機械に確かめさせないと、**リファレンスだけが古くなる** (この関数は
+まさにそれで、既定の説明が 2 世代古かった)。"
+  (let ((c (convert-encoding-from-internal *encoding-utf8n* "abcアイウ")))
+    (list (length c) (si:octet-length c)))
+  => (12 21))
+
+(deftest octet-length-start-end-with-the-default ()
+  ":start / :end は既定のときも効く。**リファレンスの使用例がこれ**で、
+CP932 の頃は 6 だった (b c ア イ = 1+1+2+2)。utf8n では 8 になる。"
+  (si:octet-length "abcアイウ" :start 1 :end 5)
+  => 8)
 
 (deftest octet-length-error-1 ()
   (si:octet-length nil)
