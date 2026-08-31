@@ -95,11 +95,28 @@
 # 書き足すものは無かった。`libffi-dev` が Linux ビルドの必須の依存に増えた
 # (tools/devenv/Dockerfile と .github/workflows/linux.yml)。
 #
-# **ここに残っているのは 3 種類:**
+# **`c-callable` の 3 件もここから外れた (#133 の段階 4)。** Lisp の関数を
+# C から呼べるアドレスにするもので、libffi の `ffi_closure` で書けた。
 #
-#   * `c-callable-*` / `defun-c-callable-*` 4 件 — **Lisp の関数を C から
-#     呼べるアドレスにする**もの。実行時に機械語を作る必要がある
-#     (`lc_callable::insn`)。libffi の `ffi_closure` で書ける (#133 の段階 4)。
+# **置き場所だけが Win32 と違った。** Win32 は `lc_callable::insn[64]` に機械語
+# を書き、**その配列そのもの**のアドレスを C へ渡す (ABI ごとに 3 通りの機械語が
+# src/frontend/win32/dll.cc にある)。libffi の closure は**自分で実行可能な
+# メモリを確保して別のアドレスを返す**ので配列に入らず、**POSIX の Lisp ヒープは
+# 実行可能でない**のでそこへ機械語を書く手も取れない。非 Win32 では `insn[]` の
+# 代わりにポインタ 2 本を持ち、C へ渡すアドレスを `xc_callable_address`
+# (src/core/dll.h) が選ぶ形にした。
+#
+# `Fsi_make_c_callable` は core (src/core/dll-call.cc) へ移した。型を検査して
+# 枠を埋めて `init_c_callable` を呼ぶだけで、**プラットフォームに依るのはその
+# `init_c_callable` だけ**だった。
+#
+# **残る `defun-c-callable-stdcall` は c-callable の話ではない。** これは
+# `EnumWindows` に callback を渡すテストで、**user32 が無いので `dlopen` の所で
+# 止まる。** 呼び出し規約の `:stdcall` は POSIX では既定の 1 つに落ちるだけで、
+# 問題にならない。下の Win32 API の群に移した。
+#
+# **ここに残っているのは 2 種類:**
+#
 #   * `last-win32-error` 2 件 — `MultiByteToWideChar` と `GetLastError` を
 #     kernel32 から引く。**POSIX に相当するものが無い。**
 #   * `wait-object-*` 2 件 — 待機可能オブジェクト。同じく相当物が無い。
@@ -122,17 +139,22 @@
 # ここに残っているのは本当に LoadLibrary / GetProcAddress / stdcall が要るもの
 # だけか、足すときに確かめること。
 
-c-callable-check-type-1
-c-callable-typep
-defun-c-callable-cdecl
-defun-c-callable-stdcall
+# (この群は空になった。上の経緯を参照。)
 
 # Win32 API を直接呼ぶもの。
 # 
-# `last-win32-error` 2 件は **GetLastError ではなく FFI で止まっている。**
-# どちらも `MultiByteToWideChar` を DLL 経由で呼んでいて (foreign-test.l)、
-# 呼ぶ側が無い (#133)。上の FFI 群と同じ理由なので、そちらが動けば一緒に
-# 通るはず。`wait-object` は WaitForMultipleObjects。
+# **理由を測り直した。** 前はここに「`last-win32-error` 2 件は GetLastError
+# ではなく FFI で止まっている。上の FFI 群と同じ理由なので、そちらが動けば
+# 一緒に通るはず」と書いてあった。**FFI は動くようになったが、この 2 件は
+# 通らなかった。** 止まっているのは呼ぶ側ではなく**呼ぶ相手**で、
+# `MultiByteToWideChar` は kernel32 の中にあり、**kernel32 は POSIX に無い。**
+# `wait-object` は WaitForMultipleObjects で、同じく相当物が無い。
+#
+# **`defun-c-callable-stdcall` は上の FFI 群から移した。** callback を作る所
+# (`si:make-c-callable`) は POSIX でも動くようになったが、このテストが渡す
+# 相手が `EnumWindows` なので、**user32 を `dlopen` する所で止まる。**
+# `:stdcall` の指定は POSIX では既定の規約 1 つに落ちるだけで問題にならない
+# ので、**「呼び出し規約が要る」ではなく「その API が無い」側**である。
 #
 # **`machine-type` はここから外れた。** 「GetSystemInfo」と書いてあったが、
 # **POSIX でも `machine-type` は値を返していた** ("amd64")。落ちていたのは
@@ -209,6 +231,7 @@ defun-c-callable-stdcall
 # CRLF なので、`sh` が `cat\r` というコマンドを探す** (エラーには \r が
 # 見えないので「cat: not found」とだけ出て、PATH の問題に見える)。
 
+defun-c-callable-stdcall
 last-win32-error
 last-win32-error-getlasterror
 wait-object-check-type-1
