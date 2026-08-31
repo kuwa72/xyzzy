@@ -27,14 +27,14 @@
 #
 # **POSIX でも呼べるようになった (#133 の段階 2〜3)。** 前はここに
 # 「dlopen へ載せ替えれば大半は動くはずだが、stdcall と可変長引数の扱いは
-# 別に考える必要がある」と書いてあり、**libffi を入れるかどうかの判断待ちに
-# していたが、その判断は要らなかった。**
+# 別に考える必要がある」と書いてあった。
 #
-# `src/frontend/win32/dll.cc` の x86_64 の枝は、アセンブリでも libffi でも
-# なく**関数ポインタのキャスト**で呼んでいる (`int64_t (*)(int64_t, ...)` へ
-# キャストして呼ぶと、**呼び出し規約はコンパイラが出す**)。同じ形を
-# src/core/dll-posix.cc に置いた。POSIX x86_64 / aarch64 には規約が 1 つしか
-# 無いので、stdcall の区別も要らない。
+# 最初は libffi 無しで通した。`src/frontend/win32/dll.cc` の x86_64 の枝は、
+# アセンブリでも libffi でもなく**関数ポインタのキャスト**で呼んでいる
+# (`int64_t (*)(int64_t, ...)` へキャストして呼ぶと、**呼び出し規約は
+# コンパイラが出す**)。同じ形を src/core/dll-posix.cc に置いた。POSIX x86_64 /
+# aarch64 には規約が 1 つしか無いので、stdcall の区別も要らない。
+# **そのあと libffi に置き換えた** — 理由は下の可変長引数の節。
 #
 # 実測 (glibc): `abs(-5)` = 5、`getpid()` が `si:getpid` と一致、
 # `atoi("42")` = 42、`llabs(-8589934592)` = 8589934592、`strchr` がポインタを
@@ -78,15 +78,28 @@
 #     0 除算が起きた。**既知失敗に載せる話ではない** (走った時点で終わり) ので、
 #     `#-unix` で走らせないようにした。
 #
-# **ここに残っているのは 4 種類:**
+# **可変長引数の 4 件はここから外れた。libffi を入れたので。**
+#
+# 上の「libffi を入れるかどうかの判断は要らなかった」は**半分だけ当たって
+# いた**: 整数とポインタはキャストで足りたが、**float / double には届かない。**
+# 固定引数はレジスタ列が別なので渡る場所が違い、可変長引数は `al`
+# (使ったベクタレジスタの本数) が 0 になって呼ばれた側が浮動小数の欄を
+# 埋めないまま読む。**2 個目で SIGSEGV。**
+#
+# **Win64 に同じ問題が無いので Wine のジョブではこの 4 件が通っていた。**
+# 「Windows で通るなら実装が正しい」が成り立たない例である。
+#
+# libffi は `ffi_prep_cif_var` で可変長引数を扱える。格上げ (char/short -> int、
+# float -> double) は呼ぶ側の仕事だが、`check_vaarg_type`
+# (src/core/dll-call.cc) が既にやっていた — Win32 側も同じ関数を通るので、
+# 書き足すものは無かった。`libffi-dev` が Linux ビルドの必須の依存に増えた
+# (tools/devenv/Dockerfile と .github/workflows/linux.yml)。
+#
+# **ここに残っているのは 3 種類:**
 #
 #   * `c-callable-*` / `defun-c-callable-*` 4 件 — **Lisp の関数を C から
 #     呼べるアドレスにする**もの。実行時に機械語を作る必要がある
-#     (`lc_callable::insn`)。ABI ごとに書くか libffi の closure を使うかの
-#     判断が残っている (#133 の段階 4)。
-#   * `funcall-vaargs` / `-2` / `-default-argument-promotions` /
-#     `funcall-expand-vaargs` 4 件 — **可変長引数の `c:double`。** 上のとおり
-#     ABI の話で、段階 4 と同じ仕掛けが要る。今は例外になる (落ちない)。
+#     (`lc_callable::insn`)。libffi の `ffi_closure` で書ける (#133 の段階 4)。
 #   * `last-win32-error` 2 件 — `MultiByteToWideChar` と `GetLastError` を
 #     kernel32 から引く。**POSIX に相当するものが無い。**
 #   * `wait-object-*` 2 件 — 待機可能オブジェクト。同じく相当物が無い。
@@ -113,10 +126,6 @@ c-callable-check-type-1
 c-callable-typep
 defun-c-callable-cdecl
 defun-c-callable-stdcall
-funcall-expand-vaargs
-funcall-vaargs
-funcall-vaargs-2
-funcall-vaargs-default-argument-promotions
 
 # Win32 API を直接呼ぶもの。
 # 

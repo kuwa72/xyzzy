@@ -26,11 +26,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # git: the build fetches tree-sitter and its grammars with FetchContent.
 # xz-utils: the llvm-mingw release is a .tar.xz.
-# libncurses-dev, zlib1g-dev: for the native POSIX build (tools/x linux), which
-#   is a Linux ELF build with the host gcc rather than a cross build -- the same
-#   thing .github/workflows/linux.yml does.  libncurses-dev is the one that
-#   carries the wide character headers; without it CMakeLists skips the
-#   xyzzy-ncurses target without failing.
+# libncurses-dev, zlib1g-dev, libffi-dev: for the native POSIX build
+#   (tools/x linux), which is a Linux ELF build with the host gcc rather than a
+#   cross build -- the same thing .github/workflows/linux.yml does.
+#   libncurses-dev is the one that carries the wide character headers; without
+#   it CMakeLists skips the xyzzy-ncurses target without failing.
+#   libffi-dev is the FFI call path (si:make-c-function): the image already had
+#   the libffi8 runtime as a dependency of something else, but not ffi.h, so a
+#   build without this line fails at configure with a message naming it.
 RUN dpkg --add-architecture i386 \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -43,6 +46,7 @@ RUN dpkg --add-architecture i386 \
       git \
       gzip \
       imagemagick \
+      libffi-dev \
       libncurses-dev \
       make \
       ninja-build \

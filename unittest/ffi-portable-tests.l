@@ -86,31 +86,46 @@
           '(#\a #\z #\A #\1))
   => (#\A #\Z #\A #\1))
 
+;; **固定引数の double。渡せるかどうかがプラットフォームで違う。**
+;;
+;; POSIX は libffi で呼ぶので渡せる (src/core/dll-posix.cc)。**Win32 の
+;; x86_64 は断る**: `int64_t (*)(int64_t, ...)` へのキャストで呼んでいるので、
+;; 整数とは別のレジスタ列に置く手が無い (src/frontend/win32/dll.cc)。
+;; **i386 は引数を全部スタックに積むので、どちらでも渡せる。**
+;;
+;; ここには `ffi-float-argument-is-refused` があり、「64bit なら断ること」を
+;; **両方のプラットフォームに期待していた。** POSIX で渡せるようになったので、
+;; その期待は **POSIX でできることをできないと書いたテスト**になる。逆に
+;; 「渡せること」を両方に期待すると Win64 で落ちる。どちらか一方を書けない
+;; ので、**判定をプラットフォームで選ぶ形にした** (`=>` は定数のまま)。
+;;
+;; `ldexp (x, n)` = x * 2^n。**2 の冪なので浮動小数の誤差が出ない。**
+;; msvcrt.dll と glibc の両方が持っている (`floor` や `fabs` は glibc では
+;; libm 側で、`libc.so.6` から `dlsym` できない)。
+;;
+;; **固定引数の `float` は測っていない。** `store_c_arg` の中では double の
+;; 隣の 1 行だが、msvcrt と glibc の両方にある C 関数で `float` を取るものが
+;; 無い (どちらの数学関数も double)。可変長引数の側は `check_vaarg_type` が
+;; double へ格上げするので、そちらを通っても `float` の枠は通らない。
+
+(c:define-dll-entry c:double (ffi-ldexp :convention :cdecl) (c:double c:int)
+  (ffi-test-c-library) "ldexp")
+
+(defun ffi-double-argument-passable-p ()
+  "この環境で固定引数の double を渡せるか。上のコメントを参照。"
+  (or (featurep :unix) (not (featurep :64bit))))
+
+(deftest ffi-double-argument ()
+  (let ((r (handler-case (list (ffi-ldexp 1.5d0 2) (ffi-ldexp -0.5d0 3))
+             (error (c) :refused))))
+    (if (ffi-double-argument-passable-p)
+        (equal r '(6.0d0 -4.0d0))
+      (eq r :refused)))
+  => t)
+
 ;;;
 ;;; 断るべきもの
 ;;;
-
-;; **float / double の引数を断るのは 64bit だけ。**
-;;
-;; 64bit (Win64 / SysV / AAPCS) は整数と浮動小数で**別のレジスタ列**を使うので、
-;; `int64_t` を並べるキャスト 1 本では渡せない。**黙って違う値を渡すより
-;; 断る** (`FEprogram_error`)。
-;;
-;; **i386 は引数を全部スタックに積むので、float もそのまま渡せる**
-;; (`src/frontend/win32/dll.cc` の i386 の枝は `push_arg` で扱っている)。
-;; だからこのテストは 64bit にしか無い — 32bit で「断る」を期待すると、
-;; **できることをできないと書いたテストになる** (実際に i686 の CI で
-;; それを踏んだ)。
-#+64bit
-(deftest ffi-float-argument-is-refused ()
-  (handler-case
-      (progn
-        (funcall (si:make-c-function (si:load-dll-module (ffi-test-c-library))
-                                     "atoi" '(:double) :int32)
-                 1.0d0)
-        nil)
-    (error (c) t))
-  => t)
 
 ;; 知らない型は断ること。
 (deftest ffi-unknown-type-is-refused ()

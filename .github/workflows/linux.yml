@@ -47,11 +47,16 @@ jobs:
       # libncurses-dev carries the wide character headers (ncursesw/) that
       # CMakeLists looks for; without it the xyzzy-ncurses target is silently
       # not generated and this job would only be building xyzzy-cli.
+      #
+      # libffi-dev is the FFI call path (si:make-c-function).  Unlike ncurses it
+      # is not optional: configure fails without it, because the alternative --
+      # building it out and letting the FFI tests fail -- would put four
+      # failures in front of anyone who just forgot the package.
       - name: Install the build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build libncurses-dev zlib1g-dev
+            ninja-build libncurses-dev zlib1g-dev libffi-dev
 
       - name: Configure
         run: cmake -S . -B _build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release

@@ -282,6 +282,43 @@ if(NOT ZLIB_FOUND)
     endif()
 endif()
 
+# ============================================================
+# Find libffi (POSIX only -- the FFI call path)
+# ============================================================
+# `si:make-c-function' has to call an address whose signature is only known at
+# run time.  On Windows src/frontend/win32/dll.cc does that itself: hand written
+# assembly for the two x86 conventions, and on x86_64 a cast of the function
+# pointer to `int64_t (*)(int64_t, ...)', which works because there is one
+# convention and the compiler emits it.
+#
+# **The cast does not reach float, double or varargs on SysV.**  Integers and
+# floating point use separate register files there, and a variadic callee reads
+# `al' to learn how many vector registers the caller filled -- calling through
+# an all-int64_t signature leaves it 0 and the callee reads an unwritten save
+# area (a SIGSEGV, not a wrong number; see src/core/dll-posix.cc).  libffi is
+# the library for exactly this, so POSIX uses it rather than growing one
+# hand written stub per ABI.
+#
+# Required, not optional.  Building without it and letting the FFI tests fail
+# would hand four failures to anyone who just forgot the package.
+if(NOT WIN32)
+    # pkg-config first: on Debian ffi.h is not in /usr/include but in the
+    # architecture directory next to it (/usr/include/x86_64-linux-gnu/ffi.h),
+    # which find_path does not always look in.  The find_* calls stay so that a
+    # system without pkg-config (or with libffi somewhere else) still works.
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(PC_FFI QUIET libffi)
+    endif()
+    find_path(FFI_INCLUDE_DIR ffi.h HINTS ${PC_FFI_INCLUDE_DIRS} PATH_SUFFIXES ffi)
+    find_library(FFI_LIBRARY ffi HINTS ${PC_FFI_LIBRARY_DIRS})
+    if(NOT FFI_INCLUDE_DIR OR NOT FFI_LIBRARY)
+        message(FATAL_ERROR
+            "libffi not found (needed by src/core/dll-posix.cc for si:make-c-function). "
+            "Install with: sudo apt-get install libffi-dev")
+    endif()
+endif()
+
 # Source and generated directories
 set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(CORE_DIR ${CMAKE_SOURCE_DIR}/src/core)
@@ -866,8 +903,8 @@ set(CORE_SOURCES
 # needs the same one.
 if(NOT WIN32)
     list(APPEND CORE_SOURCES ${CORE_DIR}/vfs-posix.cc)
-    # si:load-dll-module の POSIX 版 (dlopen)。呼び出しの側 (make-c-function)
-    # はまだ無い -- issue #133 を参照。
+    # si:load-dll-module (dlopen) と、その関数を呼ぶ側 (make-c-function) の
+    # POSIX 版。呼び出しは libffi で、上の find を参照 -- issue #133。
     list(APPEND CORE_SOURCES ${CORE_DIR}/dll-posix.cc)
     # INI ファイルの読み書き (Get/WritePrivateProfileStringW)。設定の
     # 読み書き (conf-io.cc) がこの 2 つの上に建っている -- issue #143。
@@ -887,6 +924,8 @@ else()
     set_source_files_properties(${CORE_DIR}/number.cc PROPERTIES COMPILE_OPTIONS "-O1")
 endif()
 target_include_directories(xyzzy-core PRIVATE ${ZLIB_INCLUDE_DIRS})
+# FFI_INCLUDE_DIR is only set on POSIX (dll-posix.cc); empty elsewhere.
+target_include_directories(xyzzy-core PRIVATE ${FFI_INCLUDE_DIR})
 add_dependencies(xyzzy-core gen-src1-run gen-src2-run)
 
 # ============================================================
@@ -1096,6 +1135,7 @@ else()
     target_link_libraries(xyzzy-cli PRIVATE
         xyzzy-core
         ${ZLIB_LIBRARIES}
+        ${FFI_LIBRARY}   # src/core/dll-posix.cc (si:make-c-function)
         pthread
     )
 endif()
@@ -1143,6 +1183,7 @@ if(NOT WIN32)
         target_link_libraries(xyzzy-ncurses PRIVATE
             xyzzy-core
             ${ZLIB_LIBRARIES}
+            ${FFI_LIBRARY}   # src/core/dll-posix.cc (si:make-c-function)
             ${NCURSESW_LIBRARY}
             tree-sitter-core
             pthread
