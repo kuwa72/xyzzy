@@ -393,6 +393,13 @@ main_frame g_frame;
 #ifdef _WIN32
 
 wchar_t WINFS::wfs_share_cache[MAX_PATH * 2];
+/* **Windows のファイルシステムは名前の大文字小文字を区別しない。**
+   `src/frontend/win32/vfs.cc` と同じ値。ここに要るのは xyzzy-cli が
+   あちらを link しないため (このファイルが WINFS を埋める)。**core から
+   参照されるまで定義が無いことに気付かなかった** — `path_ncmp`
+   (src/core/pathname.cc) がここを聞くようになって link error で出た
+   (issue #183)。 */
+const int WINFS::case_insensitive_names = 1;
 const WINFS::GETDISKFREESPACEEX WINFS::GetDiskFreeSpaceEx =
   (WINFS::GETDISKFREESPACEEX)GetProcAddress (GetModuleHandleW (L"kernel32"), "GetDiskFreeSpaceExW");
 

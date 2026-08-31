@@ -807,6 +807,22 @@ i2u8 (const ucs4_t *p, int l, char *b)
   return b;
 }
 
+int
+ucs4_ncasecmp (const ucs4_t *a, const ucs4_t *b, size_t n)
+{
+  for (size_t i = 0; i < n; i++)
+    {
+      ucs4_t x = a[i], y = b[i];
+      if (x >= 'A' && x <= 'Z')
+        x += 'a' - 'A';
+      if (y >= 'A' && y <= 'Z')
+        y += 'a' - 'A';
+      if (x != y)
+        return x < y ? -1 : 1;
+    }
+  return 0;
+}
+
 size_t
 u82il (const char *s)
 {

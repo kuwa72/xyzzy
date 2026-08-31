@@ -231,6 +231,31 @@ skip_device_or_host (const ucs4_t *p, const ucs4_t *pe)
   return (ucs4_t *)p;
 }
 
+/* パス名の突き合わせ。**大文字小文字を区別するかどうかはファイルシステムの
+   性質**なので `WINFS::case_insensitive_names` (src/core/vfs.h) に聞く
+   (issue #183)。
+
+   `wchar_t` の版と `ucs4_t` の版を分けてあるのは、**バイト列の関数で
+   `ucs4_t` の配列を比べてはいけない**ため。`platform.h` が `memicmp` を
+   `strncasecmp` の別名にしていたので、`ucs4_t` の配列を渡すと
+   **リトルエンディアンでは先頭 1 文字の次のバイトが 0 で止まり、device 全体
+   ではなく 1 文字目だけを比べていた** (issue #184: `//a/b` と `//x/y` が
+   「同じ device」になる)。 */
+int
+path_ncmp (const ucs4_t *a, const ucs4_t *b, size_t n)
+{
+  return (WINFS::case_insensitive_names
+          ? ucs4_ncasecmp (a, b, n)
+          : memcmp (a, b, n * sizeof *a));
+}
+
+int
+path_ncmp (const wchar_t *a, const wchar_t *b, size_t n)
+{
+  return (WINFS::case_insensitive_names
+          ? _wcsnicmp (a, b, n) : wcsncmp (a, b, n));
+}
+
 static ucs4_t *
 copy_Chars (ucs4_t *b, const ucs4_t *p, const ucs4_t *pe)
 {
@@ -391,7 +416,9 @@ parse_namestring (pathbuf_t buf, const ucs4_t *name, int nl, const ucs4_t *defal
       if (!abs)
         {
           int l = path.deve - path.dev;
-          if (tem.deve - tem.dev == l && !memicmp (path.dev, tem.dev, sizeof *path.dev * l))
+          /* **`memicmp` に `ucs4_t` の配列を渡していた** (issue #184)。
+             コードポイント単位で比べる。 */
+          if (tem.deve - tem.dev == l && !path_ncmp (path.dev, tem.dev, l))
             b = copy_Chars (b, tem.trail, tem.traile);
           else
             b = get_device_dir (b, path.dev, l);
@@ -1033,7 +1060,11 @@ sub_dirp_by_name (const wchar_t *dir, const wchar_t *parent)
     pl--;
   if (dl < pl)
     return 0;
-  if (_wcsnicmp (dir, parent, pl))
+  /* **`_wcsnicmp` を直に呼ってはいけない** (issue #183)。POSIX では
+     `wcsncasecmp` に当たるので、`/tmp/Foo/bar` が `/tmp/foo` の下だと
+     答えていた。この後に両方がディレクトリであることは確かめるが、
+     **それは「別のディレクトリだ」ということの反証にならない。** */
+  if (path_ncmp (dir, parent, pl))
     return 0;
   return !dir[pl] || dir[pl] == '/';
 }

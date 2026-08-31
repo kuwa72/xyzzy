@@ -374,9 +374,12 @@ select_buffer_comparator::compare_buffer (LPARAM p1, LPARAM p2)
                ? memcmp (xstring_contents (n1), xstring_contents (n2),
                          sizeof (ucs4_t) * min (xstring_length (n1),
                                                 xstring_length (n2)))
-               : memicmp (xstring_contents (n1), xstring_contents (n2),
-                          sizeof (ucs4_t) * min (xstring_length (n1),
-                                                 xstring_length (n2))));
+               /* **`memicmp` は使えない。** バイトごとに畳むので
+                  `あ` (U+3042) と `ぢ` (U+3062) が同じ名前になる
+                  (issue #184)。 */
+               : ucs4_ncasecmp (xstring_contents (n1), xstring_contents (n2),
+                                min (xstring_length (n1),
+                                     xstring_length (n2))));
       if (!d)
         {
           d = xstring_length (n1) - xstring_length (n2);
