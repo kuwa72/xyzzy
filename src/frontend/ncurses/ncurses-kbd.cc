@@ -247,6 +247,12 @@ record_key (lChar c)
     {
       recent_keys[recent_keys_count % RECENT_KEYS_MAX] = Char (c);
       recent_keys_count++;
+      /* **キーボードマクロの記録もここで拾う。** Win32 側は入力キューから
+         字を取る所で積んでいるが、端末の `fetch` は端末から読んだ字を
+         `cc[]` を経由せずに返すのでその経路を通らない。返り口が全部ここを
+         通っているので、1 か所で足りる (issue #181)。判定 (再生中は
+         記録しない、マウスの移動は数えない) は core 側にある。 */
+      app.kbdq.save_key (c);
     }
   return c;
 }
@@ -348,6 +354,26 @@ kbd_queue::fetch (int wait, int)
       return record_key (c);
     }
 
+  /* キーボードマクロの再生。**ここは空の枝だった** (「`macro_char` が
+     private なので書けない」というコメントだけが置かれていた) ので、
+     端末では `C-x e` が何もしなかった (issue #181)。取り出す所を core の
+     `macro_getc` にして、そこから呼ぶ形にした。
+
+     **入力キューより先に見る** (Win32 側と同じ順)。再生中に打った字は
+     キューに溜まるので、キューを先に見ると再生とユーザの打鍵が混ざる。
+
+     **`record_key` を通す。** view-lossage の履歴には入れたいし、
+     `save_key` の側はマクロから来た字を自分で弾く。 */
+  if (kbd_macro)
+    {
+      lChar c = macro_getc ();
+      if (c != lChar_EOF)
+        {
+          fetchlog ("fetch: from kbd macro 0x%lx\n", (unsigned long)c);
+          return record_key (c);
+        }
+    }
+
   // Check internal queue
   if (head != tail)
     {
@@ -355,17 +381,6 @@ kbd_queue::fetch (int wait, int)
       head = (head + 1) % QUEUE_MAX;
       fetchlog ("fetch: from queue 0x%lx\n", (unsigned long)c);
       return record_key (c);
-    }
-
-  // Keyboard macro: macro_char() reads from the macro string.
-  // kbd_macro_context (in kbd.h) sets kbd_macro pointer;
-  // when running, we feed characters from the macro string.
-  if (kbd_macro)
-    {
-      // Inline macro character fetch (macro_char is private)
-      // kbd_macro_context stores: string, index
-      // We access through the public macro_is_running() interface
-      // and let command_loop handle it via lChar_EOF when exhausted
     }
 
   // Note: Win32 fetch() always blocks regardless of 'wait' param.
@@ -598,6 +613,16 @@ kbd_queue::peek (int)
       pending = lChar_EOF;
       return record_key (c);
     }
+  /* **`peek` もマクロから読む。** Win32 側の `peek` も `kbd_macro` を見て
+     いる。ここが端末を読むと、再生中に `input-pending-p` などが呼ばれた
+     瞬間にマクロが途切れる (issue #181)。 */
+  if (kbd_macro)
+    {
+      lChar c = macro_getc ();
+      if (c != lChar_EOF)
+        return record_key (c);
+    }
+
   if (head != tail)
     {
       lChar c = cc[head];

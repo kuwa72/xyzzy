@@ -36,6 +36,46 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末でキーボードマクロが記録も再生もできなかった** (issue #181)。
+
+    ```
+    C-x (        何も起きない (記録が始まらない)
+    hello
+    C-x )        「キーボードマクロは定義していません」
+    C-x e        e が挿入される
+    ```
+
+    `start-save-kbd-macro` / `stop-save-kbd-macro` / `kbd-macro-saving-p` が
+    `return Qnil` のスタブで、**`C-x (` が黙って成功したように見えて、
+    次の打鍵で初めて分かる**という出方だった。
+
+    **中身に Win32 の API は出てこない。** `start_macro` / `end_macro` /
+    `stop_macro` / `macro_char` が触っているのは `src/core/kbd.h` の欄
+    (`current_mode` / `saved[]` / `nsaved` / `last_command_key_index` /
+    `kbd_macro`) だけである。`src/core/kbd-macro.cc` へ移した。
+
+    再生の土台は最初から core にあった (`kbd_macro_context` と
+    `command-execute` の文字列の枝)。**端末側に足りなかったのは 2 つ:**
+
+    * **記録。** Win32 は入力キューから字を取る所で `saved[]` へ積むが、
+      端末の `fetch` は端末から読んだ字を `cc[]` を経由せずに返すのでその
+      経路を通らない。**判定を `kbd_queue::save_key` に 1 つにまとめて**、
+      Win32 側の枝もそこへ寄せた (2 つ書くと片方だけ直る状態になる —
+      補完エンジンとミニバッファで実際に起きた、issue #114)。呼ぶのは
+      view-lossage 用に入れた `record_key` で、返り口が全部そこを通っている。
+    * **再生。** `ncurses-kbd.cc` の `fetch` に**空の枝**があった
+      (「`macro_char` が private なので書けない」というコメントだけが
+      置かれていた)。取り出す所を `macro_getc` として公開した。
+
+    記録中はモード行に `Def` が出る (`%M` の書式) ようにもなった。これは
+    `Fkbd_macro_saving_p` を見ているだけなので、直したら勝手に付いてきた。
+
+    **`peek` にも同じ枝が要る。** 名前は peek だが xyzzy のこれは字を消費
+    するもので、Win32 側も `kbd_macro` を見ている。端末側で忘れると、
+    再生中に `input-pending-p` などが呼ばれた瞬間にマクロが途切れる。
+    **マクロを見る順番も Win32 に揃えた** (入力キューより先): 再生中に打った
+    字はキューに溜まるので、キューを先に見ると再生とユーザの打鍵が混ざる。
+
   * **端末で日本語のプロンプトとメッセージが文字化けしていた** (issue #179)。
 
     ```

@@ -201,6 +201,28 @@ else
   fail=1
 fi
 
+# キーボードマクロ。**記録も再生もできなかった** (issue #181):
+#
+#   C-x (   何も起きない (`start-save-kbd-macro` が nil を返すスタブ)
+#   C-x )   「キーボードマクロは定義していません」
+#   C-x e   e が挿入される
+#
+# **Lisp スイートからは測れない**: 打鍵を流す必要がある。記録中はモード行に
+# `Def` が出る (`%M` の書式)。
+log=$build/smoke-kbd-macro.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\Cx(' 'abc' '\w' '\Cx)' '\Cxe' '\w' \
+  >"$log" 2>&1 || true
+# 3 番目の dump が記録中 (Def が出ている)、最後が再生後 (abcabc)。
+if grep -q ':Def' "$log" && grep -q 'abcabc' "$log"; then
+  echo 'smoke: キーボードマクロ OK -- 記録中は Def が出て、C-x e で再生される'
+else
+  echo "smoke: キーボードマクロ FAILED, see $log" >&2
+  grep -nE 'Def|abc' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # 日本語のプロンプトとメッセージ。
 #
 # **端末のフロントエンドが `i2w` の 1 文字版を UTF-16 の値に使っていたので、
@@ -216,10 +238,14 @@ log=$build/smoke-japanese.txt
 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
   python3 "$root/tools/pty-drive.py" \
   '\e\e(read-string "名前を入れて: ")\r' '\w' '\Cg' '\w' \
-  '\Cx(' 'x' '\Cx)' '\w' \
+  '\Cx)' '\w' \
   >"$log" 2>&1 || true
 # 1 つ目はミニバッファのプロンプト、2 つ目はメッセージボックス
 # (`C-x )` をマクロの定義中でなく押すと「キーボードマクロは定義していません」)。
+#
+# **`C-x (` を先に押してはいけない。** 以前はマクロが動かなかったので
+# `C-x ( x C-x )` でエラーが出たが、issue #181 で動くようになったので
+# **エラーが出なくなる。** 定義していない状態で `C-x )` を押すだけでよい。
 if grep -q '名前を入れて' "$log" \
    && grep -q 'キーボードマクロは定義していません' "$log"; then
   echo 'smoke: 日本語 OK -- プロンプトとメッセージボックスが化けていない'
