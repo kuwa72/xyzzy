@@ -6,6 +6,7 @@
 #include "privctrl.h"
 #include "xdde.h"
 #include "fnkey.h"
+#include "fkwin.h"
 #include "syntaxinfo.h"
 #include "ipc.h"
 #include "kanji.h"

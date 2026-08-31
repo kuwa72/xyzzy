@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "environ.h"
 #include "fnkey.h"
+#include "fkwin.h"
 
 #define SHIFT_OFFSET MAX_Fn
 #define CTRL_OFFSET (MAX_Fn * 2)
@@ -16,7 +18,6 @@ const FKWin::divinfo FKWin::fk_divinfo[] =
   {15, 3},
 };
 
-int FKWin::fk_default_nbuttons;
 
 static inline void
 set_window (HWND hwnd, FKWin *wp)
@@ -31,7 +32,7 @@ get_window (HWND hwnd)
 }
 
 FKWin::FKWin ()
-     : fk_hwnd (0), fk_nbuttons (fk_default_nbuttons),
+     : fk_hwnd (0), fk_nbuttons (g_fnkey_default_nbuttons),
        fk_cur_btn (-1), fk_cur_on (-1), fk_vkey (0)
 {
   int i;
@@ -361,7 +362,7 @@ FKWin::set_nbuttons (int n)
     if (n == fk_divinfo[i].nbuttons)
       {
         fk_nbuttons = n;
-        fk_default_nbuttons = n;
+        g_fnkey_default_nbuttons = n;
         OnSize (fk_sz.cx, fk_sz.cy);
         InvalidateRect (fk_hwnd, 0, 1);
         return 1;

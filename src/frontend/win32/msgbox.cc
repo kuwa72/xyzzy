@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "xmessagebox.h"
 #include "msgbox.h"
 #include "monitor.h"
 
@@ -376,7 +377,7 @@ int
 XMessageBox::doit (HWND hwnd)
 {
   if (!nbuttons)
-    add_button (IDBUTTON1, cap_ok);
+    add_button (MSGBOX_IDBUTTON1, cap_ok);
   if (default_btn < 0 || default_btn >= nbuttons)
     default_btn = 0;
   if (nbuttons == 1 && close_id == -1)
@@ -442,7 +443,7 @@ MsgBoxEx (HWND hwnd, const Char *msg, const Char *title,
   ncaptions = min (ncaptions, int (XMessageBox::MAX_BUTTONS));
   for (int i = 0; i < ncaptions; i++)
     if (captions[i])
-      mb.set_button (i, XMessageBox::IDBUTTON1 + i, captions[i]);
+      mb.set_button (i, MSGBOX_IDBUTTON1 + i, captions[i]);
 
   mb.set_default (defbtn);
 

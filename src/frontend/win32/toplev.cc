@@ -4,6 +4,7 @@
 #include "ctl3d.h"
 #include "environ.h"
 #include "fnkey.h"
+#include "fkwin.h"
 #include "mainframe.h"
 #include "reconv.h"
 #include "wheel.h"

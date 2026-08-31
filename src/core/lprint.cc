@@ -3900,19 +3900,19 @@ msgbox_result (int x)
     case IDYES:
       return Kyes;
 
-    case XMessageBox::IDBUTTON1:
+    case MSGBOX_IDBUTTON1:
       return Kbutton1;
 
-    case XMessageBox::IDBUTTON2:
+    case MSGBOX_IDBUTTON2:
       return Kbutton2;
 
-    case XMessageBox::IDBUTTON3:
+    case MSGBOX_IDBUTTON3:
       return Kbutton3;
 
-    case XMessageBox::IDBUTTON4:
+    case MSGBOX_IDBUTTON4:
       return Kbutton4;
 
-    case XMessageBox::IDBUTTON5:
+    case MSGBOX_IDBUTTON5:
       return Kbutton5;
 
     default:

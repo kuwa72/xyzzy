@@ -5,6 +5,17 @@
 # undef environ
 #endif
 
+/* **ファンクションバーのラベルの数。** ini の `fnkeyLabels` に保存される
+   設定値で、**GUI の話ではないので core に置く** (issue #185)。以前は
+   `FKWin::fk_default_nbuttons` (src/core/fnkey.h) で、その 1 個のために
+   GUI のヘッダが core に居た。
+
+   **0 は「設定されていない」。** Win32 の `FKWin` のコンストラクタが
+   `fk_divinfo` に無い値を見たら 12 に落とすので、0 の実際の意味は 12 で
+   ある。端末にファンクションバーは無いので誰も読まない (以前は端末側の
+   スタブが 10 を入れていて、**ini に 10 と書く以外の効果が無かった**)。 */
+extern int g_fnkey_default_nbuttons;
+
 class environ
 {
 public:
