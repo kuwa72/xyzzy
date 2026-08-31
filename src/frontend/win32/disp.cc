@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "statarea.h"
 #include "gdi-utils.h"
 #include "binfo.h"
 #include "syntaxinfo.h"
@@ -2833,7 +2834,7 @@ refresh_screen (int f)
     if (wp->refresh (f) && wp == selected_window ())
       update_title_bar = 1;
 
-  app.stat_area.update ();
+  g_stat_area.update ();
 
   for (Buffer *bp = Buffer::b_blist; bp; bp = bp->b_next)
     {

@@ -5,6 +5,8 @@
 #include "byte-stream.h"
 #include "clipboard.h"
 
+clipboard g_clipboard;
+
 clipboard::clipboard ()
        : AddClipboardFormatListenerProc (nullptr),
          RemoveClipboardFormatListenerProc (nullptr)

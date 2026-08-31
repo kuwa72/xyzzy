@@ -66,6 +66,55 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **`clipboard` と `status_area` を `Application` から出した** (issue #195)。
+    `src/frontend/win32/clipboard.h` / `statarea.h` になり、実体は
+    `g_clipboard` / `g_stat_area` としてフロントエンドが持つ。**core の
+    `HWND` は 117 から 105 になった。**
+
+    **これで #185 §1 の「GUI のヘッダを core から出す」は終わり。**
+
+    #185 はここを **「`Application` のメンバの型なので、`Painter` (#13) と
+    同じ形の抽象化が要る」** と書いていた。**測ると抽象化は要らなかった。**
+    `src/core/` の中から `app.clipboard` も `app.stat_area` も触っていない。
+    触っているのは `toplev.cc` (11 か所) と `disp.cc` (1 か所) だけで、
+    **どちらも `src/frontend/win32/` の中**である。
+
+    **`Application` のメンバであることが唯一の理由だった。** `ed.h` を
+    include する全ての翻訳単位が 2 つのクラスの定義を要求するので、
+    ヘッダは core に残り続ける。抽象基底を作る必要はなく、**メンバをやめて
+    フロントエンドが持てば済んだ。**
+
+    ここでも**同じ構図で 5 セット目**が出た。POSIX の 2 つのフロントエンド
+    から消えたもの:
+
+    ```cpp
+    /* clipboard が Application のメンバなので、端末とヘッドレスも
+       コンストラクタを埋めるしかなかった。中身は Win32 のフィールドを
+       0 にするだけで、その後 1 度も読まれない */
+    clipboard::clipboard () { hwnd_next_clipboard = 0; ... }
+
+    /* CLIPBOARDTEXT が core のヘッダに居たので型が見えていたが、
+       呼ぶ側は win32 の中にしか無かった = 誰も参照しないシンボル */
+    int make_clipboard_text (CLIPBOARDTEXT &, lisp, int) { return 0; }
+    int make_string_from_clipboard_text (lisp, const void *, UINT, int) { return 0; }
+    ```
+
+    **`clipboard` は Lisp の `copy-to-clipboard` の経路ではない。** あちらは
+    `Frontend::copy_to_clipboard` を通る。こちらは**他のアプリがクリップ
+    ボードを書き換えたことを知る**ための仕掛け (`*clipboard-change-hook*`) で、
+    Win32 のウィンドウメッセージを捌く。**名前だけでは区別できないので、
+    両方のヘッダにその旨を書いた。** `status_area` と
+    `app.status_window` も同様に別物である (後者は下のバーのメッセージで、
+    core が使う)。
+
+    この作業で**クリップボードの Lisp 入口 3 つ (`copy-to-clipboard` /
+    `get-clipboard-data` / `clipboard-empty-p`) にテストが 1 件も無い**ことが
+    分かった。この変更は `Frontend::copy_to_clipboard` に触っていないので
+    影響は無いが、**次にこの経路を触るときに支えが無い。** 何を測るべきかを
+    issue #198 に書いた (端末は無条件に測れるが、**Win32 の round-trip を
+    CI で測ると flaky になる危険がある** — runner がセッションを持たない
+    文脈で走るため)。
+
   * **GDI で線と矩形を描く道具を core から出した** (issue #195)。
     `fill_rect` / `draw_hline` / `draw_vline` / `paint_button_*` と
     `frameDC` で、`src/frontend/win32/gdi-utils.{h,cc}` になった。
