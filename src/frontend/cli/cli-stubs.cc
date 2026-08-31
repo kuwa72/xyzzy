@@ -437,6 +437,13 @@ BOOL WINAPI WINFS::RemoveDirectory (LPCWSTR p)
 BOOL WINAPI WINFS::SetFileAttributes (LPCWSTR p, DWORD a)
 { return ::SetFileAttributesW (p, a); }
 
+BOOL WINAPI WINFS::CopyFileMode (LPCWSTR from, LPCWSTR to)
+{
+  DWORD attr = ::GetFileAttributesW (from);
+  return attr == INVALID_FILE_ATTRIBUTES
+    ? FALSE : ::SetFileAttributesW (to, attr);
+}
+
 DWORD WINAPI WINFS::internal_GetFullPathName (LPCWSTR p, DWORD n, LPWSTR b, LPWSTR *f)
 { return ::GetFullPathNameW (p, n, b, f); }
 

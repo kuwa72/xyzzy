@@ -58,6 +58,21 @@ public:
   static BOOL WINAPI RemoveDirectory (LPCWSTR lpPathName);
   static BOOL WINAPI SetCurrentDirectory (LPCWSTR lpPathName);
   static BOOL WINAPI SetFileAttributes (LPCWSTR lpFileName, DWORD dwFileAttributes);
+
+  /* **FROM のモード (Windows なら属性) を TO へ写す。**
+
+     一時ファイルへ書いてから rename で置き換える経路 (`close_file_stream`、
+     `Buffer::save_buffer` の precious な経路) が使う。**置き換えた後も元の
+     ファイルのモードが残る**ようにするためのもので、これが無いと
+     `0755` のファイルを `:supersede` で書き直すと実行ビットが落ちる。
+
+     `SetFileAttributes` で済まないのは、**POSIX のモードが Win32 の属性の
+     ビットに収まらない**ため。`GetFileAttributes` は POSIX では
+     「書けるか」を `FILE_ATTRIBUTE_READONLY` に潰すので、それを書き戻すと
+     `0755` が `0644` になる。ここがファイルシステムの seam に居るのは、
+     **モードの持ち方がファイルシステムの性質**だからである (vfs.h の
+     `case_insensitive_names` と同じ理由)。 */
+  static BOOL WINAPI CopyFileMode (LPCWSTR from, LPCWSTR to);
   static DWORD WINAPI WNetOpenEnum (DWORD dwScope, DWORD dwType, DWORD dwUsage,
                                     LPNETRESOURCEW lpNetResource, LPHANDLE lphEnum);
 

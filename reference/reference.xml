@@ -20201,10 +20201,16 @@ filerのinteractive版です。
         :overwrite      上書きします。
         :new-version    ファイルを作成します。
                         既にあれば上書きされます。
-        ---- 以下詳細不明 ----
-        :supersede      更新？
-        :rename         リネーム用にストリームを開く？
-        :rename-and-delete  リネーム用にストリームを開く？
+        :supersede      :new-version と同じ動作です。
+        :rename-and-delete  :new-version と同じ動作です。
+        :rename         既存ファイルを FILENAME + "~" に退避してから、
+                        新しいファイルを作成します。退避先に既にファイル
+                        があれば、それは上書きされます。
+
+        :new-version / :supersede / :rename-and-delete は一時ファイルに
+        書いて、close するときに本来の名前へ移します。したがって書いている
+        途中でエラーになっても既存ファイルは残ります。（xyzzy はファイルの
+        版を持たないので、この3つの動作に違いはありません）
   :if-does-not-exist : ファイルが存在しない場合の動作を指定します。
         :error          エラーを出力します。（省略時）
         :create         エラーは出力せず、入力ファイルを作成します。

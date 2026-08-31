@@ -461,6 +461,18 @@ WINFS::SetFileAttributes (LPCWSTR lpFileName, DWORD dwFileAttributes)
                SetFileAttributesW (lpFileName, dwFileAttributes));
 }
 
+/* Windows でモードに当たるのはファイルの属性 (READONLY / HIDDEN / SYSTEM)
+   で、`Buffer::save_buffer` の precious な経路が既に
+   `SetFileAttributes (tmpname, filemode)` として同じことをしている。 */
+BOOL WINAPI
+WINFS::CopyFileMode (LPCWSTR from, LPCWSTR to)
+{
+  DWORD attr = WINFS::GetFileAttributes (from);
+  if (attr == INVALID_FILE_ATTRIBUTES)
+    return FALSE;
+  return WINFS::SetFileAttributes (to, attr);
+}
+
 DWORD WINAPI
 WINFS::internal_GetFullPathName (LPCWSTR lpFileName, DWORD nBufferLength,
                                  LPWSTR lpBuffer, LPWSTR *lpFilePart)

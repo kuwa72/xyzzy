@@ -357,6 +357,22 @@ DWORD WINAPI WINFS::GetFileAttributes (LPCWSTR p)
   return posix_get_file_attrs (os_path (p));
 }
 
+/* 通常のファイルを作ったときと同じモード。`open (..., 0666)` に umask が
+   掛かった結果と同じものを返す。
+
+   umask を「読む」方法が POSIX には無い (`umask` は設定して前の値を返す
+   関数しか無い) ので、設定して戻す。**ファイルを作るスレッドが 1 本しか
+   無い前提**である: xyzzy が別スレッドを作るのは
+   src/core/ts.cc の tree-sitter の問い合わせだけで、あれはファイルを
+   作らない。 */
+static mode_t
+default_file_mode ()
+{
+  mode_t m = umask (0);
+  umask (m);
+  return 0666 & ~m;
+}
+
 UINT WINAPI WINFS::GetTempFileName (LPCWSTR dir, LPCWSTR prefix, UINT, LPWSTR buf)
 {
   char tem[PATH_MAX];
@@ -365,9 +381,28 @@ UINT WINAPI WINFS::GetTempFileName (LPCWSTR dir, LPCWSTR prefix, UINT, LPWSTR bu
   int fd = mkstemp (tem);
   if (fd < 0)
     return 0;
+  /* **`mkstemp` は 0600 で作る。** 一時ファイルの中身を他人に見せないため
+     なので、それ自体は正しい。ところがこの名前は
+     `close_file_stream` (src/core/stream.cc) が**そのまま本来の名前へ
+     rename する**ので、0600 が最終的なファイルのモードになっていた
+     (issue #169)。`:if-exists :supersede` で書いたファイルが全部 0600 で、
+     コンテナ (root) でバイトコンパイルした `lisp/*.lc` が**ホストのユーザから
+     読めなくなる**という形で出ていた。
+
+     モードを緩めるのは rename する直前ではなく**ここ**でよい: 名前は
+     `mkstemp` が付けた予測できないもので、O_EXCL で作られている。 */
+  fchmod (fd, default_file_mode ());
   close (fd);
   from_os_path (tem, buf, MAX_PATH);
   return 1;
+}
+
+BOOL WINAPI WINFS::CopyFileMode (LPCWSTR from, LPCWSTR to)
+{
+  struct stat st;
+  if (stat (os_path (from), &st) != 0)
+    return FALSE;
+  return chmod (os_path (to), st.st_mode & 07777) == 0;
 }
 
 BOOL WINAPI WINFS::GetVolumeInformation (LPCWSTR, LPWSTR vn, DWORD vs, LPDWORD sn,
