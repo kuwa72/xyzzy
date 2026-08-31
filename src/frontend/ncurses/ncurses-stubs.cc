@@ -4129,44 +4129,23 @@ Fwindow_columns (lisp window)
 
 
 lisp Fget_window_handle (lisp) { return Qnil; }
-/* ウィンドウの表示フラグ。**ここが 0 を返すスタブだったので、
-   `toggle-line-number` / `toggle-ruler` / `toggle-newline` / `toggle-tab` /
-   `toggle-eof` / `toggle-fold-mark` / `toggle-cursor-line` ほか 14 個の
-   コマンドが端末で何もしていなかった** (`lisp/window.l` の
-   `toggle-window-flag` は `get-window-flags` と `set-window-flags` しか
-   使わない)。描く側 (src/core/glyph.cc) は最初からフラグを見ている。 */
-lisp
-Fget_window_flags ()
-{
-  return make_fixnum (Window::w_default_flags);
-}
+/* 表示フラグ (`get/set-window-flags`、`get/set-local-window-flags`) の
+   端末側。**Lisp から見える 4 つの入口は src/core/window-config.cc にある。**
 
-lisp
-Fset_window_flags (lisp flags)
-{
-  int f = fixnum_value (flags);
-  int df = f ^ Window::w_default_flags;
-  Window::w_default_flags = f;
+   ここにあったのは全体の 2 つを端末向けに書き直したもの (#166) で、
+   **Win32 側の写しになっていた。** ウィンドウ単位・バッファ単位の 2 つは
+   スタブのままだった。どちらもフラグの意味 = `Window::flags ()` の性質を
+   扱うだけなので core へ移した (#16 Phase 4)。
 
-  /* 行番号・ルーラ・モード行・折り返し記号は**桁と行の数を変える**ので、
-     寸法を計算し直す。それ以外は次の描画で反映される (端末側の
-     `refresh_screen` は毎回 glyph を作り直すので、Win32 のような
-     `invalidate_glyphs` は要らない)。 */
-  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-    wp->w_disp_flags |= Window::WDF_WINDOW;
-  if (df & (Window::WF_LINE_NUMBER | Window::WF_RULER
-            | Window::WF_MODE_LINE | Window::WF_FOLD_MARK))
-    Window::compute_geometry ();
-  return Qt;
-}
+   端末に残るのはこの 2 つだけである。宣言は src/core/fns.h。 */
 
-/* **ウィンドウ単位・バッファ単位の方はまだスタブ。** 全体の切り替えとは別に
-   `w_flags` / `w_flags_mask` と `b_wflags` / `b_wflags_mask` の組み合わせを
-   扱う必要があり、Win32 側 (src/frontend/win32/Window.cc の
-   `Fset_local_window_flags`) には 80 行ある。**あれを写すのではなく core へ
-   移すのが正しい** (#16 Phase 4) ので、そこは分けた。 */
-lisp Fget_local_window_flags (lisp) { return make_fixnum (0); }
-lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
+/* **端末にスクロールバーは無い。** 幾何の計算も要らない (バーの分だけ
+   テキストの領域が狭くなる、ということが起きない)。 */
+int window_update_scroll_bars (Window *, int) { return 0; }
+
+/* 端末には反転表示の背景色の切り替え (`WF_BGCOLOR_MODE`) もファンクション
+   バーも無いので、**core の `compute_geometry` に任せる** (0 を返す)。 */
+int window_default_flags_changed (int) { return 0; }
 
 
 

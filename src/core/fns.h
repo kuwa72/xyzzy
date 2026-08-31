@@ -198,6 +198,30 @@ lisp from_lang (int);
 /* Window.cc */
 void ForceSetForegroundWindow (HWND);
 
+/* **表示フラグ (`set-window-flags` / `set-local-window-flags`) の
+   フロントエンド側。** Lisp から見える入口は core にある
+   (src/core/window-config.cc): フラグの意味は `Window::flags ()` の性質で、
+   フロントエンドの性質ではない。フロントエンドに残るのは、フラグが変わった
+   ときに**画面の作りを変える**部分だけである。
+
+   Win32 は src/frontend/win32/Window.cc、端末は
+   src/frontend/ncurses/ncurses-stubs.cc、ヘッドレスは
+   src/frontend/cli/cli-stubs.cc が埋める。 */
+
+/* `struct` で前方宣言する。**`class` で書くと MSVC が C4099 を出す**
+   (Window.h の定義が `struct`)。 */
+struct Window;
+
+/* スクロールバーの表示が DF で変わった。**端末にスクロールバーは無い**ので
+   何もしない。戻り値は「ウィンドウの幾何を計算し直す必要があるか」。 */
+int window_update_scroll_bars (Window *, int df);
+
+/* 全体のフラグが DF で変わった (`set-window-flags`)。Win32 は反転表示の
+   背景色の決め方 (`WF_BGCOLOR_MODE`) とファンクションバーがここに掛かる。
+   **戻り値が 1 なら、フロントエンドが自分で作り直したので core は
+   `compute_geometry` を呼ばない。** */
+int window_default_flags_changed (int df);
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 

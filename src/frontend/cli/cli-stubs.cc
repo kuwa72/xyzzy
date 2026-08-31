@@ -147,6 +147,9 @@ int wait_process_terminate (HANDLE) { return 0; }
 int end_wait_cursor (int) { return 0; }
 void set_ime_caret () {}
 void recalc_toplevel () {}
+// 表示フラグの seam (src/core/fns.h)。ヘッドレスなのでどちらも何もしない。
+int window_update_scroll_bars (Window *, int) { return 0; }
+int window_default_flags_changed (int) { return 0; }
 void set_caret_blink_time () {}
 void restore_caret_blink_time () {}
 

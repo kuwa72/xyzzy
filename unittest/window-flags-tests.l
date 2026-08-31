@@ -98,3 +98,106 @@
           (= 1 (length (format nil "~C" c)))
           (char-code c)))
   => (t t 124))
+
+;;; --- ウィンドウ単位・バッファ単位 ------------------------------------------
+;;;
+;;; **端末では `get-local-window-flags` が 0、`set-local-window-flags` が nil を
+;;; 返すスタブだった** (issue #50)。Win32 側 (src/frontend/win32/Window.cc) に
+;;; 80 行あり、**写すのではなく core へ移した** (src/core/window-config.cc、
+;;; #16 Phase 4)。
+;;;
+;;; フラグは 3 段の重ね合わせで、`Window::flags ()` が
+;;;
+;;;   ウィンドウ局所  w_flags / w_flags_mask
+;;;   バッファ局所    b_wflags / b_wflags_mask
+;;;   全体の既定      Window::w_default_flags
+;;;
+;;; を重ねる。mask は「そのビットについては上位に従う」という意味なので、
+;;; **`on-or-off` は 3 値である**: t = 立てる、nil = 倒す、それ以外 =
+;;; 上位に従うへ戻す。`get-local-window-flags` は 1 つ目に「局所的に立てた
+;;; ビット」、2 つ目に「局所的に倒したビット」を返す。
+
+(defun window-flags-test-call-with-saved-local-flags (obj fn)
+  "OBJ (ウィンドウかバッファ) の局所フラグを元に戻してから抜ける。"
+  (multiple-value-bind (on off)
+      (get-local-window-flags obj)
+    (unwind-protect
+        (funcall fn)
+      (progn
+        ;; **まず全ビットを「上位に従う」へ戻す。** ここを
+        ;; `(logior on off)` にすると、**初期状態が (0 0) のときに何も
+        ;; 戻らない** (テストが触ったビットはどちらの集合にも入っていない)。
+        ;; -1 で全ビットを指定するのが初期状態そのものである
+        ;; (flags = 0、mask = 全ビット)。
+        (set-local-window-flags obj -1 :default)
+        (when (/= on 0) (set-local-window-flags obj on t))
+        (when (/= off 0) (set-local-window-flags obj off nil))))))
+
+(deftest set-local-window-flags-has-three-states ()
+  "t / nil / それ以外 の 3 通りが、2 つの戻り値へどう出るか。
+
+**`:default` (t でも nil でもない値) はどちらの集合からも外れる**のが要点で、
+そこが「上位に従う」を表している。以前は 4 つとも中身が無かった。"
+  (let ((w (selected-window))
+        (f ed::*window-flag-newline*))
+    (window-flags-test-call-with-saved-local-flags w
+      #'(lambda ()
+          (labels ((probe ()
+                     (multiple-value-bind (on off)
+                         (get-local-window-flags w)
+                       (list (and (logtest on f) t)
+                             (and (logtest off f) t)))))
+            (set-local-window-flags w f t)
+            (let ((a (probe)))
+              (set-local-window-flags w f nil)
+              (let ((b (probe)))
+                (set-local-window-flags w f :default)
+                (list a b (probe))))))))
+  => ((t nil) (nil t) (nil nil)))
+
+(deftest set-local-window-flags-does-not-touch-the-default ()
+  "局所の指定が**全体の既定を書き換えないこと。** 全体は
+`get-window-flags` の側で、そこが動いたら局所ではない。"
+  (let ((w (selected-window))
+        (f ed::*window-flag-newline*))
+    (window-flags-test-call-with-saved-local-flags w
+      #'(lambda ()
+          (let ((before (get-window-flags)))
+            (set-local-window-flags w f t)
+            (set-local-window-flags w f nil)
+            (= before (get-window-flags))))))
+  => t)
+
+(deftest set-local-window-flags-accepts-a-buffer ()
+  "バッファを渡した場合。**ウィンドウとは別の欄** (b_wflags) を使う。"
+  (let ((buf (selected-buffer))
+        (f ed::*window-flag-newline*))
+    (window-flags-test-call-with-saved-local-flags buf
+      #'(lambda ()
+          (set-local-window-flags buf f t)
+          (multiple-value-bind (on off)
+              (get-local-window-flags buf)
+            (list (and (logtest on f) t)
+                  (and (logtest off f) t))))))
+  => (t nil))
+
+(deftest local-window-flags-beat-the-default ()
+  "**局所の指定が実際に効くこと。** ここまでのテストは覚えた値を読み返して
+いるだけなので、`Window::flags ()` を通って幾何に届いた結果も見る。
+
+行番号は左に桁を取るので、**選択されているウィンドウで局所的に立てると
+`window-columns` が狭くなる。** 以前は端末で何も起きなかった
+(スタブが nil を返していた)。
+
+見る対象に行番号を選んだのは、**両方のプラットフォームで幾何が動く**のが
+これだからである。モード行 (`*window-flag-mode-line*`) とルーラは端末の
+`compute_geometry` が見ていないので、あちらでは動かない (issue #173)。"
+  (let ((w (selected-window))
+        (f ed::*window-flag-line-number*))
+    (window-flags-test-call-with-saved-local-flags w
+      #'(lambda ()
+          (set-local-window-flags w f nil)
+          (let ((without (window-columns)))
+            (set-local-window-flags w f t)
+            (< (window-columns) without)))))
+  => t)

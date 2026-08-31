@@ -36,6 +36,39 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末でウィンドウ単位・バッファ単位の表示フラグが効くようになった**
+    (`set-local-window-flags` / `get-local-window-flags`、issue #50、#16 Phase 4)。
+
+    `get-local-window-flags` が 0、`set-local-window-flags` が nil を返す
+    スタブだった。**「このバッファでは行番号を出さない」のような指定が
+    端末で一切効かなかった。**
+
+    Win32 側 (`src/frontend/win32/Window.cc`) に 80 行あったが、**写すのでは
+    なく core へ移した** (`src/core/window-config.cc`)。全体の 2 つ
+    (`get/set-window-flags`) も #166 で端末側に書いたものが Win32 の写しに
+    なっていたので、そちらも一緒に 1 つにした。
+
+    **フラグの意味は `Window::flags ()` の性質で、フロントエンドの性質では
+    ない。** 3 段 (ウィンドウ局所 / バッファ局所 / 全体の既定) の重ね合わせと
+    mask の扱いが core にある。フロントエンドに残したのは 2 つだけ:
+
+    ```
+    window_update_scroll_bars   スクロールバーの表示が変わった
+                                (端末にスクロールバーは無いので何もしない)
+    window_default_flags_changed 全体のフラグが変わった
+                                (Win32 は反転表示の背景色とファンクションバー)
+    ```
+
+    `Window::invalidate_glyphs` も `src/core/Window.h` へ出した。触っている
+    のは全部 core の欄なのに、**win32/Window.cc の中に `inline` で書かれて
+    いたので他の翻訳単位から呼べなかった**だけである。
+
+    **測っている途中で、端末ではフラグが画面の作りに届いていない所が
+    2 つ見つかった** (issue #173): 端末の既定フラグがほぼ空で行番号も
+    改行の印も出ない、`compute_geometry` が `WF_MODE_LINE` と `WF_RULER` を
+    見ていない。局所フラグが実際に効くことを測るテストが**モード行ではなく
+    行番号を見ている**のはそのためである (幾何に届いているのが行番号だけ)。
+
   * **POSIX で `rename-file` が `:if-exists` を無視して行き先を黙って
     上書きしていた** (issue #170)。既定は `:if-exists :error` なので、
     **何も指定しなければエラーになるはずのものが、相手のファイルを消していた。**

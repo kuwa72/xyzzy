@@ -736,7 +736,20 @@ struct Window
                                  const XCOLORREF *, const XCOLORREF *,
                                  const XCOLORREF *, const XCOLORREF *,
                                  bool change_color_p = true);
-  void invalidate_glyphs ();
+  /* **glyph の作り置きを捨てて、次の描画で作り直させる。**
+
+     元は src/frontend/win32/Window.cc の中に `inline` で書かれていた。
+     触っているのはどれも core の欄 (`w_glyphs.g_rep` / `w_disp_flags` /
+     `w_cursor_line`) なので、**あの .cc の中にあると他の翻訳単位から
+     呼べない**だけだった。src/core/window-config.cc の
+     `set-window-flags` が呼ぶのでここへ出した。 */
+  void invalidate_glyphs ()
+    {
+      if (w_glyphs.g_rep)
+        w_glyphs.g_rep->copy (0);
+      w_disp_flags |= WDF_WINDOW | WDF_WINSIZE_CHANGED;
+      w_cursor_line.ypixel = -1;
+    }
 
   void discard_invalid_region (const PAINTSTRUCT &, RECT &);
 
