@@ -217,18 +217,48 @@ XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
   python3 "$root/tools/pty-drive.py" \
   "\\e\\e(progn (find-file \"$sample\") (set-tab-columns 4) (refresh-screen t))\\r" '\w' \
   >"$log" 2>&1 || true
-# 期待する見え方:
-#   def foo():
-#   |   if x:
-#   |   |   bar()
-#   |   |   |   deep()
-#   qux
-if grep -q '^ |   |   bar()' "$log" && grep -q '^ |   |   |   deep()' "$log" \
-   && grep -q '^ def foo():' "$log"; then
+# 期待する見え方 (issue #173 で**既定の表示が Windows と揃った**ので、行番号と
+# 区切りと改行の印が付く):
+#
+#       1|def foo():.
+#       2||   if x:.
+#       3||   |   bar().
+#       4||   |   |   deep().
+#       5|qux.
+#
+# **`|` と `.` の所は端末の代替文字集合 (ACS) の文字が出る。** pty-drive.py は
+# ACS を訳さないので、区切りの縦線は `x` (ACS_VLINE)、改行の印は `j`
+# (ACS_LRCORNER) という 1 文字として dump に現れる。数字の直後という位置で
+# 見分けているので、`x` や `j` という字そのものとは混ざらない。
+#
+# **行番号の桁数を焼き付けない** (`^ +[0-9]+` で数える) のは、桁数が
+# `LINENUM_COLUMNS` の話でここで測りたいことではないため。
+if grep -qE '^ +[0-9]+x\|   \|   bar\(\)' "$log" \
+   && grep -qE '^ +[0-9]+x\|   \|   \|   deep\(\)' "$log" \
+   && grep -qE '^ +[0-9]+xdef foo\(\):' "$log"; then
   echo 'smoke: インデントガイド OK -- 行頭の空白が縦線になっている'
 else
   echo "smoke: インデントガイド FAILED, see $log" >&2
   grep -n 'foo\|bar\|deep' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
+# 既定で出るもの。**上のガイドと同じ dump を使い回す。**
+#
+# 描く側は最初から全部あったのに、端末の `Window::w_default_flags` が
+# `WF_INDENT_GUIDE` だけだったので**行番号も改行の印も既定で出ていなかった**
+# (issue #173)。ここが無いと、既定を戻してしまっても誰も気付かない。
+#
+#   行番号      数字が行頭に出る
+#   区切り      その右が ACS_VLINE (`x`) -- 以前は ACS_HLINE (`q`) で横線だった
+#   改行の印    行末が ACS_LRCORNER (`j`)
+#   EOF の印    最後に `[EOF]`
+if grep -qE '^ +[0-9]+xqux' "$log" && grep -qE 'qux.*j' "$log" \
+   && grep -q '\[EOF\]' "$log"; then
+  echo 'smoke: 既定の表示 OK -- 行番号・縦の区切り・改行の印・EOF の印が出ている'
+else
+  echo "smoke: 既定の表示 FAILED, see $log" >&2
+  grep -n 'qux\|EOF' "$log" >&2 || tail -20 "$log" >&2
   fail=1
 fi
 

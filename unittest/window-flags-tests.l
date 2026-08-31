@@ -190,8 +190,7 @@
 (スタブが nil を返していた)。
 
 見る対象に行番号を選んだのは、**両方のプラットフォームで幾何が動く**のが
-これだからである。モード行 (`*window-flag-mode-line*`) とルーラは端末の
-`compute_geometry` が見ていないので、あちらでは動かない (issue #173)。"
+これだからである (ルーラは端末では描いていないので動かない)。"
   (let ((w (selected-window))
         (f ed::*window-flag-line-number*))
     (window-flags-test-call-with-saved-local-flags w
@@ -201,3 +200,21 @@
             (set-local-window-flags w f t)
             (< (window-columns) without)))))
   => t)
+
+(deftest mode-line-flag-changes-the-number-of-text-lines ()
+  "**モード行の分が行数から引かれること。** モード行は 1 行占めるので、
+局所的に消すと `window-lines` が 1 増える。
+
+端末側は `compute_geometry` と `window-lines` のどちらも **`- 1` の決め打ち**
+だった (「ミニバッファでなければ 1 行引く」) ので、`toggle-mode-line` で
+消しても値が動かなかった (issue #173)。Win32 側は最初から
+`wp->flags () & WF_MODE_LINE` を見ている。"
+  (let ((w (selected-window))
+        (f ed::*window-flag-mode-line*))
+    (window-flags-test-call-with-saved-local-flags w
+      #'(lambda ()
+          (set-local-window-flags w f t)
+          (let ((with-it (window-lines)))
+            (set-local-window-flags w f nil)
+            (- (window-lines) with-it)))))
+  => 1)
