@@ -6841,7 +6841,39 @@ Fdirectory_name_dialog (lisp keys)
 
 /* **POSIX にドライブは無い**ので nil のままが正しい (「選ばなかった」)。 */
 lisp Fdrive_dialog (lisp) { return Qnil; }
-lisp Fbuffer_selector () { return Qnil; }
+
+/* バッファを選ぶダイアログ。**ここも端末には同じ目的の道がある** —
+   バッファ名の補完付きで聞けば、Win32 のダイアログと同じ「バッファを
+   1 つ選ぶ」ができる (issue #187 のファイル選択と同じ形)。
+
+   **`return Qnil` のスタブだったので `M-x select-buffer` が黙って何も
+   していなかった** (`lisp/buffer.l` は `(and buffer (switch-to-buffer
+   buffer))` と書いているので、nil で静かに終わる)。
+
+   `Kexist_buffer_name` を渡すと `complete_read` が
+   `Ffind_buffer` を通してバッファのオブジェクトを返す。**Win32 側もバッファ
+   を返す**ので、呼ぶ側から見た形は同じである。
+
+   既定は「他のバッファ」。`read-buffer-name` (src/core/minibuffer-read.cc)
+   が同じものを使っていて、**バッファを切り替えるときに一番役に立つ既定**で
+   ある (今いるバッファを既定にしても何も起きない)。
+
+   中止したときは `C-g` でコマンドごと中止になる。Win32 側もダイアログを
+   キャンセルすると `QUIT` するので同じ。 */
+lisp
+Fbuffer_selector ()
+{
+  lisp def = Fother_buffer (0);
+  if (bufferp (def))
+    def = Fbuffer_name (def);
+
+  /* プロンプトは UTF-8 のリテラルから作る (このファイルは UTF-8)。 */
+  ucs4_t prompt[64];
+  ucs4_t *pe = u82i ("バッファの選択: ", prompt);
+
+  return complete_read (prompt, pe - prompt, def, Kexist_buffer_name,
+                        Qnil, Kbuffer_name, 1, -1);
+}
 lisp Fprint_dialog (lisp) { return Qnil; }
 lisp Fprint_buffer (lisp) { return Qnil; }
 

@@ -252,6 +252,27 @@ else
   fail=1
 fi
 
+# バッファを選ぶダイアログ。**ここも端末には同じ目的の道がある** — バッファ名の
+# 補完付きで聞けばよい (issue #187 のファイル選択と同じ形)。`return Qnil` の
+# スタブだったので `M-x select-buffer` が黙って何もしていなかった。
+#
+# 既定は「他のバッファ」。**今いるバッファを既定にしても何も起きない**ので、
+# そこが既定になっていることも一緒に見る (RET だけで切り替わる)。
+log=$build/smoke-buffer-selector.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(progn (create-new-buffer "zzz") nil)\r' '\w' \
+  '\e\e(ed::select-buffer)\r' '\w' '\r' '\w' \
+  '\e\e(buffer-name (selected-buffer))\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'バッファの選択:' "$log" && grep -q '"zzz"' "$log"; then
+  echo 'smoke: バッファ選択 OK -- 補完付きで聞いて、既定が他のバッファ'
+else
+  echo "smoke: バッファ選択 FAILED, see $log" >&2
+  grep -nE 'バッファの選択|zzz' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # 日本語のプロンプトとメッセージ。
 #
 # **端末のフロントエンドが `i2w` の 1 文字版を UTF-16 の値に使っていたので、
