@@ -59,7 +59,24 @@ failed_checks () {
 # 作れないので workflow が発火せず、上の窓と**見分けが付かないまま 30 分待つ**
 # ことになる。実際に踏んだ (PR #148: base の PR が squash merge された直後で、
 # 待っても何も来なかった)。先に見る。
-if [ "$(gh pr view "$pr" --json mergeable -q .mergeable 2>/dev/null)" = CONFLICTING ]; then
+#
+# **一度見ただけで決めない。** GitHub は mergeable を非同期に計算するので、
+# push した直後は**前の状態のまま**返ってくる。rebase して force-push した
+# 直後にここへ来ると「衝突している」と言われる (実際に踏んだ: PR #182 は
+# rebase 済みなのに CONFLICTING と出た。少し待つと MERGEABLE になる)。
+# UNKNOWN も計算中の印なので同じ扱い。
+mergeable=
+i=0
+while [ "$i" -lt 6 ]; do
+  mergeable=$(gh pr view "$pr" --json mergeable -q .mergeable 2>/dev/null)
+  case $mergeable in
+    MERGEABLE) break ;;
+    CONFLICTING|UNKNOWN|"") sleep 5 ;;
+    *) break ;;
+  esac
+  i=$((i + 1))
+done
+if [ "$mergeable" = CONFLICTING ]; then
   echo "ci-wait: PR #$pr は衝突している。**チェックは付かない** (GitHub が"
   echo "ci-wait: merge ref を作れないので workflow が発火しない)。"
   echo "ci-wait: main へ rebase してから出し直す。"
