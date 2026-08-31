@@ -4,7 +4,6 @@
 
 #include "stdafx.h"
 #include "ed.h"
-#include "mainframe.h"
 #include "conf.h"
 #include "colors.h"
 #include "version.h"
@@ -356,28 +355,15 @@ void lwait_object::cleanup ()
 }
 
 // ============================================================
-// dock_frame / g_frame (used by GC in data.cc)
+// ツールバーのコマンド引きと GC の mark (宣言は src/core/fns.h)
 // ============================================================
 
-#ifdef _WIN32
-dock_frame::dock_frame () : f_hwnd (0), f_arrange (0) {}
-dock_frame::~dock_frame () {}
-void dock_frame::gc_mark (void (*)(lisp)) {}
-void dock_frame::cleanup () {}
-lisp dock_frame::lookup_command (int) const { return Qnil; }
-
-splitter::splitter ()
-{
-  s_head = s_tail = 0;
-  s_in_resize = 0;
-  s_terminating = 0;
-  s_hwnd = 0;
-  s_hwnd_frame = 0;
-  memset (&s_rect, 0, sizeof s_rect);
-}
-
-main_frame g_frame;
-#endif
+/* ヘッドレスなのでツールバーは無く、Lisp オブジェクトも持たない。
+   **以前は `main_frame g_frame;` と `dock_frame` / `splitter` の
+   コンストラクタを `#ifdef _WIN32` で置いていた** — core が `g_frame` を
+   直に触っていたためである (issue #185)。 */
+lisp frontend_lookup_tool_command (int) { return Qnil; }
+void frontend_gc_mark (void (*)(lisp)) {}
 
 // ============================================================
 // vfs.cc stubs (WINFS static methods used by core)
@@ -747,14 +733,6 @@ int FKWin::fk_default_nbuttons = 10;
 #include "gime.h"
 
 GlobalIME::GlobalIME () { gi_app = 0; gi_pump = 0; ImmGetPropertyProc = 0; }
-
-// ============================================================
-// Splitter dtor stub
-// ============================================================
-
-#ifdef _WIN32
-splitter::~splitter () {}
-#endif
 
 // ============================================================
 // Filer stubs

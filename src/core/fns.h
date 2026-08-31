@@ -244,6 +244,24 @@ int window_default_flags_changed (int df);
    なっていた (issue #185)。 */
 void frontend_before_kill_xyzzy ();
 
+/* **ツールバーのボタンから割り当てられたコマンドを引く。** ID が
+   `TOOL_ID_RANGE_MIN`..`MAX` の範囲のときだけ呼ばれる。端末にツールバーは
+   無いので nil。 */
+lisp frontend_lookup_tool_command (int id);
+
+/* **フロントエンドが持っている Lisp オブジェクトを GC に見せる。** Win32 は
+   ツールバー / タブバーに置いたコマンドやラベルを持っている。
+
+   **取りこぼすと回収される**ので、フロントエンドを足すときはここを埋め忘れ
+   ないこと。端末は Lisp オブジェクトを持たないので何もしない。
+
+   この 2 つが seam なのは、**そうしないと core が `mainframe.h` を include
+   する**ためである。`cmdloop.cc` と `data.cc` の `#ifdef _WIN32` で囲んだ
+   2 行のために、GUI のヘッダ (`mainframe.h` / `pane.h`) が `src/core/` に
+   居続け、**POSIX のフロントエンドが Win32 専用の `g_frame` のスタブを
+   置く**ことになっていた (issue #185)。 */
+void frontend_gc_mark (void (*fn)(lisp));
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 
