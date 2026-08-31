@@ -2361,6 +2361,14 @@ Filer::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
     }
 }
 
+/* **xyzzy を終わらせる直前の後始末** (宣言は src/core/fns.h)。core は
+   `Filer` を知らないので、ここで受ける (issue #185)。 */
+void
+frontend_before_kill_xyzzy ()
+{
+  Filer::close_mlfiler ();
+}
+
 void
 Filer::close_mlfiler ()
 {

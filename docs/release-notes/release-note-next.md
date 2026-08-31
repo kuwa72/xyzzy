@@ -66,6 +66,43 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **GUI のヘッダ 3 つを `src/core/` から `src/frontend/win32/` へ移した**
+    (issue #185)。`Filer.h` / `dialogs.h` / `privctrl.h` で、**端末ビルドで
+    一度も使われないのに core に居た。**
+
+    core の側にあったのは `src/core/Buffer.cc` の 1 行だけである:
+
+    ```cpp
+    #ifdef _WIN32
+      Filer::close_mlfiler ();   /* xyzzy を終わらせる直前 */
+    #endif
+    ```
+
+    **この 1 行のために、ヘッダ 3 つが core に居続けていた。** フロントエンドの
+    hook (`frontend_before_kill_xyzzy`) にして、core から `Filer` への参照を
+    無くした。両フロントエンドの `Filer::close_mlfiler` のスタブ定義も要らなく
+    なった。
+
+    **hook を `#ifdef _WIN32` の中に置いてはいけない**ことに 1 度引っかかった。
+    以前は core の呼び出しも定義も `#ifdef` で囲まれていて釣り合っていたが、
+    hook は core が**無条件に**呼ぶので、POSIX でも定義が要る。
+
+    **残りは「機械的に動かせる」わけではないことが分かった。** #185 は 10 個の
+    ヘッダを挙げているが、実際に測ると core が中身を使っている:
+
+    | ヘッダ | core が何に使っているか |
+    | --- | --- |
+    | `clipboard.h` / `statarea.h` | `Application` (ed.h) のメンバの型 |
+    | `msgbox.h` | `lprint.cc` が `XMessageBox::IDBUTTON*` を見る |
+    | `buffer-bar.h` | `Buffer.cc` がバッファの並び順に使う (`buffer_bar::next_buffer` ほか) |
+    | `mainframe.h` / `dockbar.h` / `pane.h` | `cmdloop.cc` と `data.cc` が `g_frame` を使う (ツールバーの ID からコマンドを引く / GC の mark) |
+    | `fnkey.h` | `environ.cc` が `FKWin::default_nbuttons ()` を ini から読む |
+
+    **試しに `mainframe.h` の include を core から外したら、Windows ビルドが
+    `g_frame` で落ちた。** 使っている 2 か所はどちらも `#ifdef _WIN32` の中だが、
+    **Windows ではその中が本当にコンパイルされる。** ここを動かすには hook が
+    2 つ (ツールバーのコマンド引きと GC の mark) 要るので、別の作業になる。
+
   * **実時間を待つテストが 1 件、固定の `sleep-for` で書かれていて flaky
     だった。** `flymake-idle-check-runs-after-a-pause` が
 

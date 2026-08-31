@@ -232,6 +232,18 @@ int window_update_scroll_bars (Window *, int df);
    `compute_geometry` を呼ばない。** */
 int window_default_flags_changed (int df);
 
+/* **xyzzy を終わらせる直前にフロントエンドがやること。**
+
+   Win32 はモードレスの filer を閉じる (`Filer::close_mlfiler`)。端末には
+   filer が無いので何もしない。
+
+   これが seam なのは、**そうしないと core が `Filer.h` を include する**
+   ためである。`src/core/Buffer.cc` に `#ifdef _WIN32` で囲んだ
+   `Filer::close_mlfiler ()` が 1 行あるだけで、GUI のヘッダ 3 つ
+   (`Filer.h` / `dialogs.h` / `privctrl.h`) が `src/core/` に居続けることに
+   なっていた (issue #185)。 */
+void frontend_before_kill_xyzzy ();
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 
