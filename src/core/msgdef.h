@@ -652,6 +652,16 @@ MSG (Erename_failed,
      "すまんす。\n\n%s\nを\n%s\nにリネームできません。自力で何とかしてください。"),
 MSG (ESHFileOperation_not_supported,
      "SHFileOperationはサポートされていません"),
+/* **この環境では使えない機能。** datum に**その関数のシンボル**を入れる
+   (「この環境では使えません: filer」のように出る)。文字列を渡すと
+   引用符が付いて `"filer"` と出るので、シンボルを渡す (`Sfiler` などは
+   symtable が持っている)。
+
+   上の `*_not_supported` の 5 個は**名前が入っていないので何が無いのか
+   分からない。** 端末で使えないものは 60 個以上あるので、1 つずつ
+   メッセージを足すのではなく名前を持たせる形にした (issue #185)。 */
+MSG (Eunsupported_on_this_platform,
+     "この環境では使えません"),
 MSG (Edelete_failed,
      "削除できません"),
 MSG (Enot_in_gzip_format,
