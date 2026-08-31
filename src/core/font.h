@@ -4,7 +4,7 @@
 #define FONT_SIZE_MIN_PIXEL 8
 #define FONT_SIZE_MAX_PIXEL 48
 
-struct FontMetricsResult;  // font-metrics.h (issue #13 step5)
+struct FontMetricsResult;  // font-metrics.h (issue #195 step5)
 
 class FontObject
 {
@@ -26,14 +26,14 @@ public:
   void require_pad () {fo_need_pad = 1;}
   void get_metrics ();
   void get_metrics (HDC, SIZE &, SIZE &);
-  void set_metrics (const FontMetricsResult &);  // issue #13 step5d
+  void set_metrics (const FontMetricsResult &);  // issue #195 step5d
   void calc_offset (const SIZE &);
   const SIZE &size () const {return fo_size;}
   const POINT &offset () const {return fo_offset;}
   int ascent () const {return fo_ascent;}
   const LOGFONTW &logfont () const {return fo_logfont;}
   static const bool update (LOGFONTW &lf, const lisp keys, const bool recommend_size_p);
-  // issue #13 step5e: defined in the frontend (font.cc), routed through the
+  // issue #195 step5e: defined in the frontend (font.cc), routed through the
   // FontMetrics interface, so this core header no longer embeds GDI calls
   // (GetDC / GetDeviceCaps / MulDiv).
   static int dpi ();

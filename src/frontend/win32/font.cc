@@ -112,7 +112,7 @@ FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
   SelectObject (hdc, of);
 }
 
-// issue #13 step5c: Win32FontMetrics — the GDI implementation of the neutral
+// issue #195 step5c: Win32FontMetrics — the GDI implementation of the neutral
 // FontMetrics interface. It mirrors FontObject::get_metrics(HDC,...) exactly
 // (same screen DC, same GetTextMetricsW / GetTextExtentPoint32W probes) so the
 // measurement is pixel-equivalent; the only difference is that it owns the
@@ -154,7 +154,7 @@ struct Win32FontMetrics : public FontMetrics
   }
 };
 
-// issue #13 step5d: store metrics measured through FontMetrics, replicating
+// issue #195 step5d: store metrics measured through FontMetrics, replicating
 // exactly the side effect get_metrics(HDC,...) had on the FontObject.
 void
 FontObject::set_metrics (const FontMetricsResult &r)
@@ -164,7 +164,7 @@ FontObject::set_metrics (const FontMetricsResult &r)
   fo_ascent = r.ascent;
 }
 
-// issue #13 step5e: dpi and the point<->pixel conversions live in the frontend
+// issue #195 step5e: dpi and the point<->pixel conversions live in the frontend
 // now (moved out of font.h, a core header reachable via ed.h). dpi() goes
 // through the neutral FontMetrics interface; MulDiv stays here in the Win32
 // source rather than leaking into core.
@@ -423,7 +423,7 @@ FontSet::create_bitmap ()
   DeleteDC (hdcmem);
 }
 
-// issue #13 step5d: create font `fo` from `lf` and measure it through the
+// issue #195 step5d: create font `fo` from `lf` and measure it through the
 // neutral FontMetrics interface, storing the result on the FontObject and
 // recording the ascii/fullwidth advance widths in `ex` (cx only is read by
 // create() below). Replaces the old create()+get_metrics(HDC) pair.

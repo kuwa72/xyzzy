@@ -3,7 +3,7 @@
 # define _font_metrics_h_
 
 /*
- FontMetrics — platform-neutral font measurement interface (issue #13 step5).
+ FontMetrics — platform-neutral font measurement interface (issue #195 step5).
 
  The core's font path leaks Win32 GDI: `FontObject::get_metrics(HDC)` and
  `FontObject::dpi()` call `GetDC`/`GetDeviceCaps`/`GetTextMetricsW`/
@@ -12,13 +12,13 @@
  use onto a neutral interface so the frontend supplies the implementation:
  Win32FontMetrics wraps GDI, NcursesFontMetrics returns cell=1 dummy values.
 
- Phase (issue #13 step5):
-   5a (this file) — interface only, unused, zero build impact.
-   5b — NcursesFontMetrics (cell=1 dummy) added in the ncurses frontend.
-   5c — Win32FontMetrics implementation (ports the font.cc GDI logic),
-        alongside the existing get_metrics(HDC) path.
-   5d — FontSet::create measures through FontMetrics instead of GDI directly.
-   5e — strip the inline GDI (GetDC/GetDeviceCaps/MulDiv) from font.h.
+ Current state: step 5 is done in full (5a-5e).  FontSet::create measures
+ through FontMetrics, and the inline GDI (GetDC/GetDeviceCaps/MulDiv) is gone
+ from font.h.  Implementations: Win32FontMetrics in src/frontend/win32/font.cc,
+ NcursesFontMetrics (cell=1) in the ncurses frontend.
+
+ **Do not keep a step list here** — see the note in painter.h.  The tracking
+ issue is #195.
 
  Note: LOGFONTW stays as the measurement *input* — it is the logical font
  description, not a device handle, so it does not couple core to a device

@@ -1133,8 +1133,8 @@ int assert_failed (const char *file, int line)
 
 #include "Window.h"
 #include "charset.h"
-#include "painter.h"        // issue #13 step4: NcursesPainter
-#include "font-metrics.h"   // issue #13 step5: NcursesFontMetrics
+#include "painter.h"        // issue #195 step4: NcursesPainter
+#include "font-metrics.h"   // issue #195 step5: NcursesFontMetrics
 #include <ncurses.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -1490,7 +1490,7 @@ void frontend_buffer_deleted (Buffer *) {}
 
 #include "binfo.h"
 
-/* Phase 2 (issue #13 / UTF-16): mode line は Char * (UTF-16 code unit 列) で
+/* Phase 2 (issue #195 / UTF-16): mode line は Char * (UTF-16 code unit 列) で
    組み立てる。core の binfo.h が char* → Char* に切り替わったため、win32 の
    src/frontend/win32/binfo.cc と同じ Char* 実装に揃える。ime_mode のみ
    ncurses 固有 (端末任せで常に "--")。 */
@@ -1975,7 +1975,7 @@ xyzzy_color_bright (int idx)
 #define TEXTPROP_PAIR_BASE 16
 #define TEXTPROP_PAIR(fg, bg) (TEXTPROP_PAIR_BASE + (fg) * 16 + (bg))
 
-// Substitute character for a bitmap-glyph FontSet slot (issue #13 step4e).
+// Substitute character for a bitmap-glyph FontSet slot (issue #195 step4e).
 // A terminal has no glyph atlas, so xyzzy's bitmap markers (newline, tab,
 // fold separators) map to stand-in characters; padding/blank slots stay blank.
 // Shared by output_glyph and NcursesPainter::blit_glyph_bitmap.
@@ -2032,7 +2032,7 @@ output_glyph (int row, int col, glyph_t g)
   if (g & GLYPH_BITMAP_BIT)
     {
       // Bitmap markers (newline / tab / fold separators): no glyph atlas on a
-      // terminal, so substitute a per-slot stand-in character (issue #13
+      // terminal, so substitute a per-slot stand-in character (issue #195
       // step4e). slot = the FontSet enum in the low byte (below GLYPH_BITMAP_BIT).
       attr_t a = attrs | (selected ? COLOR_PAIR (SELECTION_PAIR) : 0);
       mvaddch (row, col, bitmap_slot_char ((int)(g & 0xff)) | a);
@@ -2124,7 +2124,7 @@ output_glyph (int row, int col, glyph_t g)
 #endif
 
 // ============================================================
-// NcursesPainter — issue #13 step4 (skeleton: step4a; wired in step4c)
+// NcursesPainter — issue #195 step4 (skeleton: step4a; wired in step4c)
 //
 // A Painter (src/core/painter.h) backed by ncurses. The long-term goal is to
 // retire the bypass path (render_window/output_glyph drawing directly) and let
@@ -2181,7 +2181,7 @@ struct NcursesPainter : public Painter
   }
 
   // Symbol-glyph blit: no atlas on a terminal, so substitute a character per
-  // FontSet slot (issue #13 step4e), via the shared bitmap_slot_char table.
+  // FontSet slot (issue #195 step4e), via the shared bitmap_slot_char table.
   // Markers (newline, tab, fold separators) become visible stand-ins; padding
   // slots stay blank.
   void blit_glyph_bitmap (int x, int y, int w, int /*h*/, int slot,
@@ -2243,7 +2243,7 @@ struct NcursesPainter : public Painter
   int cell_height () const override { return 1; }
 };
 
-// NcursesFontMetrics — issue #13 step5b (dummy).
+// NcursesFontMetrics — issue #195 step5b (dummy).
 //
 // A terminal has no scalable fonts: every cell is 1x1, ASCII is one column,
 // fullwidth is two. ncurses never actually measures a font (FontSet::create
@@ -2274,7 +2274,7 @@ struct NcursesFontMetrics : public FontMetrics
 static void
 render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
 {
-  // issue #13 step4d: clear the row background through the Painter.
+  // issue #195 step4d: clear the row background through the Painter.
   NcursesPainter painter;
   painter.fill_rect (col_offset, row, cols, 1, CLR_INVALID);
 
@@ -2284,7 +2284,7 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
   const glyph_t *g = gd->gd_cc;
   int len = gd->gd_len;
 
-  // issue #13 step4c: route the glyph row through NcursesPainter::draw_text
+  // issue #195 step4c: route the glyph row through NcursesPainter::draw_text
   // instead of calling output_glyph directly. draw_text walks [g, gend) the
   // same way (skip JUNK, advance by glyph width) and reuses output_glyph
   // internally, so the rendering is identical — only the call path changes.
@@ -2332,7 +2332,7 @@ draw_modeline (Window *wp, int row, int col_offset, int cols)
   int maxw = (cols < 1024) ? cols : 1024;
 
   // Build the padded mode-line content as a Char run, then draw it through
-  // the Painter (issue #13 step4f). draw_text_chars applies A_REVERSE for the
+  // the Painter (issue #195 step4f). draw_text_chars applies A_REVERSE for the
   // PFONT_MODELINE role, matching the previous direct mvaddnwstr+A_REVERSE.
   Char line[1025];
   int n = 0;
@@ -2914,7 +2914,7 @@ get_term_color_pair (uint8_t fg, uint8_t bg)
 }
 
 // ============================================================
-// COLORREF -> ncurses color pair  (issue #13 step4b)
+// COLORREF -> ncurses color pair  (issue #195 step4b)
 //
 // Core's paint_*(Painter&) resolves each glyph to a COLORREF (packed RGB)
 // before calling Painter::draw_text — the syntax/textprop category is already
@@ -3178,7 +3178,7 @@ render_window (Window *wp, int total_cols)
       for (int y = 0; y < text_rows && y < wp->w_ch_max.cy; y++)
         render_glyph_row (win_top + y, col_offset, text_cols, ng[y]);
 
-      // issue #13 step4d: clear empty rows past the buffer end through the
+      // issue #195 step4d: clear empty rows past the buffer end through the
       // Painter, then mark each with the '~' beyond-EOF indicator.
       NcursesPainter painter;
       for (int y = wp->w_ch_max.cy; y < text_rows; y++)
@@ -3197,7 +3197,7 @@ render_window (Window *wp, int total_cols)
     draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
 
   // Draw vertical separator if this window is not at right edge.
-  // issue #13 step4e: route through NcursesPainter::draw_vline.
+  // issue #195 step4e: route through NcursesPainter::draw_vline.
   if (has_separator)
     {
       int sep_col = wp->w_rect.right - 1;
