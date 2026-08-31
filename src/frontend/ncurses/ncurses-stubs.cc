@@ -1149,7 +1149,41 @@ COLORREF Window::default_colors[WCOLOR_MAX];
 /* **インデントガイドは既定で有効。** 他のフラグを 0 のままにしているのは、
    端末の見た目を今のリリースで変えないため (行番号などはユーザが
    `toggle-line-number` で入れる。それが動くようになったのはこの版から)。 */
-int Window::w_default_flags = Window::WF_INDENT_GUIDE;
+/* **既定で出すもの。** Win32 側 (src/frontend/win32/Window.cc) は
+   `WF_LINE_NUMBER | WF_RULER | WF_NEWLINE | WF_MODE_LINE | WF_VSCROLL_BAR |
+   WF_EOF | WF_FOLD_MARK | WF_INDENT_GUIDE` を立てている。**ここは
+   `WF_INDENT_GUIDE` だけだったので、行番号も改行の印も EOF の印も既定で
+   出ていなかった** (描く側は最初から実装済みで、`toggle-*` では出せた)。
+   issue #173。
+
+   Win32 から落としてあるのは 2 つだけ:
+
+     WF_VSCROLL_BAR  端末にスクロールバーが無い
+     WF_RULER        まだ描いていない (幾何にも入っていない)
+
+   **立てるビットは「描けるもの」に限る。** 描けないものを立てると
+   `toggle-ruler` が「切り替わったのに何も起きない」に見える。 */
+int Window::w_default_flags = (Window::WF_LINE_NUMBER | Window::WF_NEWLINE
+                               | Window::WF_MODE_LINE | Window::WF_EOF
+                               | Window::WF_FOLD_MARK
+                               | Window::WF_INDENT_GUIDE);
+
+/* モード行が占める行数。**フラグを見る。**
+
+   ここが `1` の決め打ちだったので、`toggle-mode-line` で消しても 1 行
+   取られたままだった (`window-lines` が動かない)。Win32 側は
+   `wp->flags () & WF_MODE_LINE` を見て高さを決めている
+   (src/frontend/win32/Window.cc の `compute_geometry`)。 */
+static int
+ncurses_mode_line_rows (const Window *wp)
+{
+  /* **ミニバッファは構造としてモード行を持たない。** 既定のフラグには
+     `WF_MODE_LINE` が入っているので、フラグだけ見ると持っていることに
+     なってしまう (Win32 側も `minibuffer_window_p ()` を別に見ている)。 */
+  if (wp->minibuffer_window_p ())
+    return 0;
+  return wp->flags () & Window::WF_MODE_LINE ? 1 : 0;
+}
 int Window::w_hjump_columns = 4;
 
 Window::Window (int minibufp, int temporary)
@@ -1897,11 +1931,22 @@ bitmap_slot_char (int slot)
     case FontSet::htab:           return ACS_RARROW;    // tab mark
     case FontSet::backsl:
     case FontSet::bold_backsl:    return '\\';
+    /* **どれも縦線である。** 以前は `sep` と `fold_sep*` が `ACS_HLINE`
+       (横線)、`fold_mark_sep*` が `ACS_PLUS` になっていた。Win32 側
+       (src/frontend/win32/font.cc) が実際に描いているものは:
+
+         sep             `MoveToEx (x, 0)` → `LineTo (x, cell.cy)` = 縦の実線
+         fold_sep0/1     `SetPixel` を 1 桁分だけ縦に 2 px 置きに = 縦の点線
+         fold_mark_sep*  同じ点線 + `<` の字
+
+       **行番号の右の区切りが横線になっていた**のは、既定で行番号を出して
+       いなかったので誰も見ていなかっただけである (issue #173)。
+       点線に当たるものは端末に無いので実線で代える。 */
     case FontSet::sep:
     case FontSet::fold_sep0:
-    case FontSet::fold_sep1:      return ACS_HLINE;
+    case FontSet::fold_sep1:      return ACS_VLINE;
     case FontSet::fold_mark_sep0:
-    case FontSet::fold_mark_sep1: return ACS_PLUS;
+    case FontSet::fold_mark_sep1: return '<';
     default:                      return ' ';           // blanks / spaces
     }
 }
@@ -2925,7 +2970,8 @@ render_window (Window *wp, int total_cols)
   if (text_cols < 1) text_cols = 1;
 
   int win_top = wp->w_rect.top;
-  int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;  // -1 for modeline
+  int mode_line = ncurses_mode_line_rows (wp);
+  int text_rows = wp->w_rect.bottom - wp->w_rect.top - mode_line;
   if (text_rows < 1)
     text_rows = 1;
 
@@ -3015,7 +3061,8 @@ render_window (Window *wp, int total_cols)
     }
 
   // Draw modeline at bottom of this window's area
-  draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
+  if (mode_line)
+    draw_modeline (wp, wp->w_rect.bottom - 1, col_offset, win_cols);
 
   // Draw vertical separator if this window is not at right edge.
   // issue #13 step4e: route through NcursesPainter::draw_vline.
@@ -3414,7 +3461,8 @@ Window::compute_geometry (const SIZE &, int)
       int win_cols = wp->w_rect.right - wp->w_rect.left;
       if (wp->w_rect.right < cols)
         win_cols--;  // vertical separator
-      int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;
+      int text_rows = (wp->w_rect.bottom - wp->w_rect.top
+                       - ncurses_mode_line_rows (wp));
       if (text_rows < 1) text_rows = 1;
       if (win_cols < 1) win_cols = 1;
       ncurses_calc_client_size (wp, win_cols, text_rows);
@@ -4090,10 +4138,13 @@ int make_string_from_clipboard_text (lisp, const void *, UINT, int)
 static int
 window_text_lines (const Window *wp)
 {
-  int h = wp->w_rect.bottom - wp->w_rect.top;
-  if (!wp->minibuffer_window_p ())
-    h--;
-  return max (h, 1);
+  /* **引くのはモード行の分。** 以前は「ミニバッファでなければ 1 行引く」と
+     書いてあり、`WF_MODE_LINE` を見ていなかったので `toggle-mode-line` で
+     消しても値が動かなかった (issue #173)。ミニバッファの扱いは
+     `ncurses_mode_line_rows` の中にある。 */
+  return max (int (wp->w_rect.bottom - wp->w_rect.top
+                   - ncurses_mode_line_rows (wp)),
+              1);
 }
 
 lisp

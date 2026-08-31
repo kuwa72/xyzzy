@@ -36,6 +36,43 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **端末の既定の表示が Windows と揃った** (issue #173)。行番号・改行の印・
+    EOF の印・折り畳みの印が**既定で出るようになった。**
+
+    ```
+          1|abc.
+          2|def.
+          3|ghi[EOF]
+    ```
+
+    描く側 (`src/core/glyph.cc`) は最初から全部実装済みで、`toggle-*` では
+    出せた (#166)。**端末の `Window::w_default_flags` が `WF_INDENT_GUIDE`
+    だけだったので「無い」ように見えていた**だけである。Win32 は 8 つ立てて
+    いる。落としたのは 2 つ:
+
+    ```
+    WF_VSCROLL_BAR  端末にスクロールバーが無い
+    WF_RULER        まだ描いていない (幾何にも入っていない)
+    ```
+
+    **立てるビットは「描けるもの」に限る。** 描けないものを立てると
+    `toggle-ruler` が「切り替わったのに何も起きない」に見える。
+
+    一緒に 2 つ直した:
+
+    * **`compute_geometry` が `WF_MODE_LINE` を見ていなかった。** テキストの
+      高さを `- 1` の決め打ちで出していたので、`toggle-mode-line` で消しても
+      1 行取られたままだった (`window-lines` が動かない)。`window-lines`
+      自身も「ミニバッファでなければ 1 行引く」と書かれていて、同じ形で
+      フラグを見ていなかった。
+    * **行番号の右の区切りが横線になっていた。** 端末は bitmap の glyph を
+      文字で代えるが (`bitmap_slot_char`)、`FontSet::sep` と `fold_sep*` が
+      `ACS_HLINE` に、`fold_mark_sep*` が `ACS_PLUS` に割り当てられていた。
+      Win32 側 (`src/frontend/win32/font.cc`) が描いているのは**どれも縦線**
+      である (`sep` は実線、`fold_sep*` は 2 px 置きの点線、
+      `fold_mark_sep*` はその点線 + `<`)。**既定で行番号を出していなかった
+      ので誰も見ていなかった。**
+
   * **端末でウィンドウ単位・バッファ単位の表示フラグが効くようになった**
     (`set-local-window-flags` / `get-local-window-flags`、issue #50、#16 Phase 4)。
 
