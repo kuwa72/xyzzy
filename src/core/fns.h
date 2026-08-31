@@ -161,6 +161,16 @@ void save_list_column_width (HWND, int, const char *, const char *);
 int lv_find_selected_item (HWND);
 int lv_find_focused_item (HWND);
 
+/* **パス名の突き合わせ。** 大文字小文字を区別するかどうかは
+   `WINFS::case_insensitive_names` (src/core/vfs.h) に従う。
+
+   **`_wcsnicmp` を直に呼ってはいけない。** POSIX では
+   `wcsncasecmp` に当たるので、`/tmp/a` と `/tmp/A` が「同じパス」になる。
+   `same-file-p` が別のファイルを同じと答え、`sub-directory-p` が
+   別のディレクトリを親子と答えていた (issue #183)。定義は pathname.cc。 */
+int path_ncmp (const wchar_t *, const wchar_t *, size_t);
+int path_ncmp (const ucs4_t *, const ucs4_t *, size_t);
+
 /* fileio.cc */
 int same_file_p (const wchar_t *, const wchar_t *);
 int make_temp_file_name (wchar_t *, const wchar_t * = 0, const wchar_t * = 0, HANDLE = 0, int = 0);

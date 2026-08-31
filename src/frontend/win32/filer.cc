@@ -298,10 +298,11 @@ FilerView::add_list_view (const wchar_t *last)
   if (!last && stringp (fv_llastdir))
     {
       int l = xstring_length (fv_ldir);
+      /* **`memicmp` は使えない。** バイトごとに畳むので `あ` (U+3042) と
+         `ぢ` (U+3062) が同じ文字列になる (issue #184)。 */
       if (xstring_length (fv_llastdir) >= l
-          && !memicmp (xstring_contents (fv_llastdir),
-                       xstring_contents (fv_ldir),
-                       l * sizeof (ucs4_t)))
+          && !ucs4_ncasecmp (xstring_contents (fv_llastdir),
+                             xstring_contents (fv_ldir), l))
         {
           if (l && xstring_contents (fv_llastdir) [l - 1] == '/')
             ;

@@ -1887,8 +1887,16 @@ inline uintptr_t _beginthreadex(void*, unsigned, unsigned int (*)(void*), void*,
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
 #define _wcsnicmp(a,b,n) wcsncasecmp((a),(b),(n))
-#define memicmp(a,b,n) strncasecmp((const char*)(a),(const char*)(b),(n))
-#define _memicmp(a,b,n) strncasecmp((const char*)(a),(const char*)(b),(n))
+/* **`memicmp` / `_memicmp` の別名は置かない** (issue #184)。`memicmp` は
+   指定バイト数を必ず比べるが、`strncasecmp` は **NUL で止まる。** 呼んで
+   いたのは `ucs4_t` の配列を比べる所で、リトルエンディアンでは**先頭 1 文字の
+   次のバイトが 0 なのでそこで止まり**、device 全体ではなく 1 文字目だけを
+   比べていた (`//a/b` と `//x/y` が「同じ device」になる)。
+
+   下の `_putenv` と同じ形の誤りである。**同じ名前で約束が違うものを別名に
+   してはいけない。** コードポイント単位で畳む比較が要るなら
+   `ucs4_ncasecmp` (src/core/lstring.h)、パス名なら `path_ncmp`
+   (src/core/fns.h) を使うこと。 */
 #define _environ environ
 extern char **environ;
 /* **`_putenv' の別名は置かない。** Win32 の `_wputenv' は文字列を複写するが、

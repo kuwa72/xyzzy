@@ -66,6 +66,69 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **POSIX で `path-equal` と `sub-directory-p` が大文字小文字を無視して
+    いた** (issue #183)。**別々に存在する 2 つのファイルを「同じファイル」と
+    答える。**
+
+    ```
+                                          直す前   直した後
+    (path-equal ".../a" ".../A")            t        nil
+    (sub-directory-p ".../Foo/bar" ".../foo")  t     nil
+    ```
+
+    判定そのものは正しく移植されていた (`same_file_p` の後段は device +
+    inode の比較で、`WINFS::GetFileInformationByHandle` が `fstat` の
+    `st_dev` / `st_ino` を入れている)。**その手前の速い経路**
+    (`pathname_equal`) が `_wcsnicmp` を直に呼んでいて、POSIX では
+    `platform.h` がそれを `wcsncasecmp` に当てている。**`path1` が存在し
+    さえすれば inode を見ずに t を返して終わる**ので、`path2` が別の
+    ファイルでも同じと答えていた。
+
+    **区別するかどうかを聞く seam は最初からあった** —
+    `WINFS::case_insensitive_names` (`src/core/vfs.h`) で、ヘッダのコメントが
+    「区別するかどうかはファイルシステムの性質であってフロントエンドの性質
+    ではない」とまさにこの用途で置かれたことを書いている。**使っていたのは
+    ファイル名補完の 1 箇所だけ**だった。パス名の突き合わせを `path_ncmp`
+    にまとめて、そこから聞くようにした。
+
+  * **`platform.h` が `memicmp` を `strncasecmp` の別名にしていた**
+    (issue #184)。**この 2 つは約束が違う: `memicmp` は指定バイト数を必ず
+    比べ、`strncasecmp` は NUL で止まる。**
+
+    渡していたのは `ucs4_t` の配列 (`parse_namestring` が defaults の
+    device と突き合わせる所) で、リトルエンディアンでは**先頭 1 文字の次の
+    バイトが 0 なのでそこで止まり、device 全体ではなく 1 文字目だけを
+    比べていた:**
+
+    ```
+                                    直す前        直した後
+    (merge-pathnames "//x/y" "//a/b/dir/")
+                                  "//x/y/dir"     "//x/y/"
+    ```
+
+    `//x/y` と `//a/b` を「同じ device」と見て、**別のホストのパスに
+    defaults の trail を被せていた。** `c:` と `d:` は先頭が違うので偶然
+    合っていた。
+
+    **19 行下に、同じ罠についての警告が自分で書いてあった** (`_putenv` の
+    別名を置かない理由)。別名を消して、`ucs4_ncasecmp` (コードポイント単位)
+    と `path_ncmp` (ファイルシステムに従う) に分けた。
+
+    **Win32 側にも同じ誤用が 2 つあった。** `src/frontend/win32/filer.cc` と
+    `dialogs.cc` が `ucs4_t` の配列を `_memicmp` に渡している。あちらは
+    バイト数どおり比べるので device の件は起きないが、**バイトごとに畳むので
+    `あ` (U+3042) と `ぢ` (U+3062) が同じ文字列になる** — 下位バイトの
+    0x42 (`B`) が 0x62 (`b`) に畳まれるため。filer の「前にいたディレクトリ」
+    の突き合わせとバッファ一覧の並べ替えが誤答する。こちらも
+    `ucs4_ncasecmp` に直した。
+
+    **`WINFS::case_insensitive_names` の定義が 1 つ足りなかったことも
+    分かった。** core から参照するようにしたら **Windows の
+    `xyzzy-cli.exe` だけが link error** になった: あれは
+    `src/frontend/win32/vfs.cc` を link せず
+    `src/frontend/cli/cli-stubs.cc` が WINFS を埋めているのに、そこに定義が
+    無かった。**core が参照するまで誰も気付かない**形だった。
+
   * **端末でキーボードマクロが記録も再生もできなかった** (issue #181)。
 
     ```

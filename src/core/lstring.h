@@ -125,6 +125,20 @@ ucs4_t *u82i (const char *, ucs4_t *);
 size_t u82il (const char *, const char *, int);
 ucs4_t *u82i (ucs4_t *, const char *, const char *, int);
 char *i2u8 (char *, char *, const ucs4_t *, size_t);
+
+/* **コードポイント単位の大文字小文字を無視した比較。** 畳むのは ASCII の
+   `A`-`Z` だけ。
+
+   **バイト列の関数 (`memicmp` / `_memicmp`) で `ucs4_t` の配列を比べては
+   いけない** (issue #184)。あちらはバイトごとに畳むので、
+   `あ` (U+3042) と `ぢ` (U+3062) が**同じ文字列になる** — 下位バイトの
+   0x42 (`B`) が 0x62 (`b`) に畳まれるため。Win32 では
+   `src/frontend/win32/filer.cc` と `dialogs.cc` が実際にそうなっていた。
+
+   ASCII だけ畳むのは、`_memicmp` が実際に畳んでいた範囲に合わせたため
+   (locale に依る畳み方を入れると、上の誤りと同じ形で「どの文字が同じか」が
+   環境で変わる)。 */
+int ucs4_ncasecmp (const ucs4_t *, const ucs4_t *, size_t);
 lisp make_string_from_utf8 (const char *);
 inline int w2il (const wchar_t *p) { return w2il (p, int (wcslen (p))); }
 Char *s2w_u16 (Char *, const char *);  /* SJIS → UTF-16 for Win32 API use */

@@ -436,17 +436,25 @@ Fverify_visited_file_modtime (lisp buffer)
   return boole (Buffer::coerce_to_buffer (buffer)->verify_modtime ());
 }
 
+/* 名前だけで「同じパス」と言えるか。**`same_file_p` の速い経路**で、これが
+   真なら inode を見ずに答えを返す。
+
+   **`_wcsnicmp` を直に呼っていた** (issue #183)。POSIX では
+   `wcsncasecmp` に当たるので、`(same-file-p "/tmp/a" "/tmp/A")` が
+   **`path1` が存在しさえすれば t** になっていた (`path2` が別のファイルでも、
+   そもそも存在しなくても)。後段の device + inode の比較は正しく移植されて
+   いるのに、その手前で誤答していた。 */
 static int
 pathname_equal (const wchar_t *path1, const wchar_t *path2)
 {
   int l1 = int (wcslen (path1));
   int l2 = int (wcslen (path2));
   if (l1 == l2)
-    return !_wcsnicmp (path1, path2, l1);
+    return !path_ncmp (path1, path2, l1);
   if (l1 == l2 + 1)
-    return path1[l2] == '/' && !_wcsnicmp (path1, path2, l2);
+    return path1[l2] == '/' && !path_ncmp (path1, path2, l2);
   if (l2 == l1 + 1)
-    return path2[l1] == '/' && !_wcsnicmp (path1, path2, l1);
+    return path2[l1] == '/' && !path_ncmp (path1, path2, l1);
   return 0;
 }
 
