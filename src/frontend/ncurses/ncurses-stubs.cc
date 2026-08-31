@@ -1013,6 +1013,23 @@ Fsi_minibuffer_message (lisp message, lisp prompt)
   return Qt;
 }
 
+/* ウィンドウを前に出す・トップレベルを起こす・タスクバーの ID。
+   **端末にウィンドウマネージャの概念が無いので no-op が正しい**
+   (#185 の分類で B)。端末を前に出せるかどうかは端末エミュレータと
+   ウィンドウマネージャの領分で、エディタから触れない。
+
+   `si:*activate-toplevel` は `lisp/filer.l` が呼ぶが、**あの経路は filer
+   ごとエラーになる**ので届かない。`si:*show-window-foreground` を起動時に
+   呼ぶ枝は `#-ncurses` なので端末では通らない。**つまり今は誰も呼ばないが、
+   呼ばれたときに「何もしない」のが正しい答え**である (「前に出した」と
+   嘘をつくのでも、エラーにするのでもない)。
+
+   待機オブジェクト (`si:*create-wait-object` ほか) は
+   `WaitForMultipleObjects` に当たるもので、**POSIX に対応物が無い**
+   (`misc/known-failures/linux.txt` の `wait-object-*` 2 件)。ここは
+   「まだ書いていない」ではなく「無い」側だが、**呼ぶ側が
+   `Buffer::cleanup_waitobj_list` から無条件に触るので no-op のままに
+   してある。** */
 lisp Fsi_show_window_foreground () { return Qnil; }
 lisp Fsi_activate_toplevel () { return Qnil; }
 lisp Fsi_app_user_model_id () { return Qnil; }
@@ -1073,6 +1090,9 @@ unsupported (lisp name)
   return FEsimple_error (Eunsupported_on_this_platform, name);
 }
 
+/* プラグイン DLL が渡してきた引数。**端末はプラグイン DLL を読まないので
+   nil が正しい答え**である (「プラグインから呼ばれていない」)。
+   #185 の分類で B。 */
 lisp Fsi_plugin_arg () { return Qnil; }
 lisp Fsi_snarf_documentation (lisp, lisp) { return Qnil; }
 
@@ -3866,6 +3886,9 @@ Window::delete_window ()
 // Wait cursor / Process / Buffer stubs
 // ============================================================
 
+/* 砂時計カーソル。**端末にマウスカーソルの形が無いので no-op が正しい**
+   (#185 の分類で B)。`lisp/filer.l` の `long-operation` などが**時間の
+   かかる処理を挟むたびに無条件に呼ぶ**ので、エラーにすると使えなくなる。 */
 lisp Fbegin_wait_cursor () { return Qnil; }
 lisp Fend_wait_cursor () { return Qnil; }
 
@@ -3947,6 +3970,12 @@ void Filer::close_mlfiler () {}
 // sock.cc blocking_hook needs Fdo_events
 // ============================================================
 
+/* **溜まっているメッセージを処理する。端末に「メッセージキュー」が無いので
+   no-op が正しい** (#185 の分類で B)。Win32 では長い処理の途中で画面を
+   更新させたり中断を受け付けたりするために呼ぶ。端末で同じことをするのは
+   `refresh_screen` と `check_quit` (src/core/quit-poll.cc、issue #162) で、
+   **そちらは別の経路で動いている。** ソケットの blocking hook から無条件に
+   呼ばれるので、エラーにしてはいけない。 */
 lisp Fdo_events () { return Qnil; }
 
 // ============================================================
@@ -4298,6 +4327,10 @@ Fwindow_columns (lisp window)
 
 
 
+/* ウィンドウの `HWND`。**端末にウィンドウハンドルは無いので nil が正しい答え**
+   である (#185 の分類で B)。これを受け取った Lisp は Win32 API を呼ぶために
+   使うので、nil を返して「無い」と言うのが正しい (エラーにすると、
+   ハンドルがあるかどうかを確かめることができなくなる)。 */
 lisp Fget_window_handle (lisp) { return Qnil; }
 /* 表示フラグ (`get/set-window-flags`、`get/set-local-window-flags`) の
    端末側。**Lisp から見える 4 つの入口は src/core/window-config.cc にある。**
@@ -6905,13 +6938,20 @@ Fbuffer_selector ()
 lisp Fprint_dialog (lisp) { return unsupported (Sprint_dialog); }
 lisp Fprint_buffer (lisp) { return unsupported (Sprint_buffer); }
 
-// Font
+/* --- フォント。**端末にフォントの概念が無いので no-op が正しい。** ---
+   文字の大きさも書体も端末エミュレータが決めるので、エディタから触れない。
+   `get-*` が nil を返すのは「設定されていない」という正しい答えである。
+   (#185 の分類で B: 飾りなので何もしないのが正しい。) */
 lisp Fget_text_fontset () { return Qnil; }
 lisp Fset_text_fontset (lisp) { return Qnil; }
 lisp Fget_filer_font () { return Qnil; }
 lisp Fset_filer_font (lisp) { return Qnil; }
 
-// IME
+/* --- IME。**端末に IME は無いので no-op が正しい。** ---
+   日本語の入力は端末エミュレータの側 (あるいは OS の入力メソッド) が
+   済ませてから、確定した文字がバイト列として届く。エディタから変換の
+   状態を触る道が無い。`get-ime-mode` が nil を返すのは「IME は無い」と
+   いう正しい答え。 */
 lisp Fget_ime_mode () { return Qnil; }
 lisp Ftoggle_ime (lisp) { return Qnil; }
 lisp Fset_ime_read_string (lisp) { return Qnil; }
@@ -6944,7 +6984,10 @@ lisp Fdde_execute (lisp, lisp) { return unsupported (Sdde_execute); }
 lisp Fdde_poke (lisp, lisp, lisp) { return unsupported (Sdde_poke); }
 lisp Fdde_request (lisp, lisp, lisp) { return unsupported (Sdde_request); }
 
-// Tool bar
+/* --- ツールバー。**端末に無いので no-op が正しい。** ---
+   **ここをエラーにしてはいけない。** `lisp/tool-bar.l` などが起動時に
+   無条件に作ろうとするので、エラーにすると起動しなくなる (#185 の分類で
+   B)。`tool-bar-exist-p` が nil を返すのは「無い」という正しい答え。 */
 lisp Fcreate_tool_bar (lisp, lisp, lisp) { return Qnil; }
 lisp Fshow_tool_bar (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Fhide_tool_bar (lisp) { return Qnil; }
@@ -6955,7 +6998,7 @@ lisp Flist_tool_bars () { return Qnil; }
 lisp Ffocus_tool_bar () { return Qnil; }
 lisp Frefresh_tool_bars () { return Qnil; }
 
-// Tab bar
+/* --- タブバー。ツールバーと同じ理由で no-op。 --- */
 lisp Fcreate_tab_bar (lisp, lisp) { return Qnil; }
 lisp Ftab_bar_add_item (lisp, lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 lisp Ftab_bar_delete_item (lisp, lisp) { return Qnil; }
@@ -6970,16 +7013,30 @@ lisp Ftab_bar_modify_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
    残すと静的ライブラリの側が引かれない。** 期限が来たかどうかを見るのは
    ncurses-kbd.cc の select ループ (POSIX には SetTimer が無い)。 */
 
-// Listen server
+/* --- xyzzy サーバ (他のプロセスから開かせる)。**ユーザが名指しで呼ぶので
+   エラーを上げる** (#185 の分類で A)。問い合わせ (`list-servers` /
+   `list-server-resources`) は nil のまま — 「サーバは無い」が正しい答え。 */
 lisp Fstart_xyzzy_server () { return unsupported (Sstart_xyzzy_server); }
 lisp Fstop_xyzzy_server () { return unsupported (Sstop_xyzzy_server); }
 
-// Function bar
+/* --- ファンクションバー。**端末に無いので no-op が正しい。** ---
+   `number-of-function-bar-labels` が 0 を返すのは「ラベルは 0 個」という
+   正しい答えで、`set-*` を呼んでも何も起きないのが正しい。 */
 lisp Fset_function_bar_label (lisp, lisp) { return Qnil; }
 lisp Fnumber_of_function_bar_labels () { return make_fixnum (0); }
 lisp Fset_number_of_function_bar_labels (lisp) { return Qnil; }
 
-// Filer (all stubs)
+/* --- filer (組み込みファイラ)。**#185 の分類で 2 つに分かれる。** ---
+
+   `filer` を開く・動かす・印を付けるものは**エラーを上げる**
+   (`unsupported`)。`M-x filer` と打った人は「何も起きない」より「この環境
+   には無い」と言われた方がよい。
+
+   **問い合わせは nil のまま。** `filer-modal-p` / `filer-dual-window-p` /
+   `filer-get-directory` / `filer-get-mark-files` などは**nil が正しい答え**
+   である (「filer は開いていない」)。第三者の Lisp が様子を見るために
+   呼ぶことがあり、そこでエラーにすると**「無い」ことを確かめる手段が
+   無くなる。** */
 lisp Ffiler (lisp, lisp, lisp, lisp, lisp) { return unsupported (Sfiler); }
 lisp Ffiler_forward_line (lisp, lisp) { return unsupported (Sfiler_forward_line); }
 lisp Ffiler_forward_page (lisp, lisp) { return unsupported (Sfiler_forward_page); }
@@ -7025,7 +7082,9 @@ lisp Ffiler_scroll_left (lisp) { return unsupported (Sfiler_scroll_left); }
 lisp Ffiler_scroll_right (lisp) { return unsupported (Sfiler_scroll_right); }
 lisp Ffiler_modify_column_width (lisp, lisp, lisp) { return unsupported (Sfiler_modify_column_width); }
 
-// Archive
+/* --- アーカイバ DLL (Unlha32.dll など)。**扱うものはエラー、版の問い合わせは
+   nil。** POSIX にあの DLL は無い。`convert-to-SFX` は自己解凍書庫を作る
+   もので、これも DLL に依る。 --- */
 lisp Flist_archive (lisp, lisp) { return unsupported (Slist_archive); }
 lisp Fcreate_archive (lisp, lisp, lisp) { return unsupported (Screate_archive); }
 lisp Fextract_archive (lisp, lisp, lisp) { return unsupported (Sextract_archive); }
@@ -7034,7 +7093,16 @@ lisp Fconvert_to_SFX (lisp, lisp) { return Qnil; }
 lisp Farchiver_dll_version (lisp) { return Qnil; }
 lisp Farchiver_dll_config_dialog (lisp, lisp) { return unsupported (Sarchiver_dll_config_dialog); }
 
-// Shell / Shortcut
+/* --- ショートカット (.lnk) と特別なフォルダ。 ---
+   **作るのはエラー、解決と問い合わせは nil。** `resolve-shortcut` の nil は
+   「ショートカットではない」という正しい答えで、POSIX には .lnk が無いので
+   常にそうなる。`get-special-folder-location` の nil も「そんなフォルダは
+   無い」で正しい。
+
+   `eject-media` (メディアの取り出し) は**端末でも意味があるが、POSIX の
+   やり方が違う** (`eject` コマンド / `CDROMEJECT` の ioctl)。実装していない
+   ので no-op のままだが、**これは「無いから no-op」ではなく「まだ書いて
+   いない」**方である。 */
 // Fshell_execute: implemented in ncurses-process.cc
 lisp Fcreate_shortcut (lisp, lisp, lisp) { return unsupported (Screate_shortcut); }
 lisp Fresolve_shortcut (lisp) { return Qnil; }
@@ -7044,6 +7112,11 @@ lisp Fget_special_folder_location (lisp) { return Qnil; }
 // Misc
 lisp Fmain_loop () { command_loop (); return Qnil; }
 // Fsit_for/Fsleep_for: implemented in ncurses-process.cc
+
+/* xyzzy のウィンドウ間の行き来。**動かすものはエラー、数と一覧は答える。**
+   `count-xyzzy-instance` が 1 を返し `list-xyzzy-windows` が nil を返すのは
+   「自分だけ居る」という正しい答えである (端末版はウィンドウを 1 つしか
+   持たない)。 */
 lisp Factivate_xyzzy_window (lisp) { return unsupported (Sactivate_xyzzy_window); }
 lisp Fcount_xyzzy_instance () { return make_fixnum (1); }
 lisp Flist_xyzzy_windows () { return Qnil; }
@@ -7083,6 +7156,10 @@ Fset_quit_char (lisp c)
   ncurses_quit_char = xchar_code (c);
   return c;
 }
+/* マウスカーソルの形、ドラッグ、自動スクロール、バッファバー。
+   **端末に無いので no-op が正しい** (#185 の分類で B)。マウスの**押した/
+   離した**は端末も受け取れる (ncurses-kbd.cc の `handle_mouse_event`) が、
+   カーソルの形やドラッグ中の見た目は端末エミュレータの領分である。 */
 lisp Fset_cursor (lisp) { return Qnil; }
 lisp Fdrag_region (lisp, lisp) { return Qnil; }
 lisp Fcancel_mouse_event () { return Qnil; }
@@ -7091,15 +7168,21 @@ lisp Fcreate_buffer_bar () { return Qnil; }
 /* `start-save-kbd-macro` / `stop-save-kbd-macro` / `kbd-macro-saving-p` は
    src/core/kbd-macro.cc へ移した。**ここが nil を返すスタブだったので、
    端末ではキーボードマクロが記録も再生もできなかった** (issue #181)。 */
+/* キーボードレイアウト。**切り替えはエラー、問い合わせは nil。**
+   端末はレイアウトの切り替えを見せないので、`current-kbd-layout` が nil を
+   返すのは「分からない」という正しい答えである (#185 の分類で A と B の
+   境目)。 */
 lisp Fcurrent_kbd_layout () { return Qnil; }
 lisp Fselect_kbd_layout (lisp) { return unsupported (Sselect_kbd_layout); }
 lisp Flist_kbd_layout () { return Qnil; }
 
-// Network/Server resources
+/* --- ネットワークの共有の一覧 (WNet)。**問い合わせなので nil が正しい答え**
+   ("共有は無い")。POSIX に WNet に当たるものは無い。 --- */
 lisp Flist_servers (lisp) { return Qnil; }
 lisp Flist_server_resources (lisp, lisp) { return Qnil; }
 
-// WinHelp / HTML Help / Dictionary
+/* --- ヘルプと辞書引き。**開くものはエラー、パスの問い合わせは nil。** ---
+   `find-winhelp-path` が nil を返すのは「見つからない」という正しい答え。 */
 lisp Frun_winhelp (lisp, lisp) { return unsupported (Srun_winhelp); }
 lisp Fkill_winhelp (lisp) { return unsupported (Skill_winhelp); }
 lisp Ffind_winhelp_path (lisp, lisp) { return Qnil; }

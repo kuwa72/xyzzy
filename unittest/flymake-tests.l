@@ -29,6 +29,20 @@
 ;;;
 
 ;; gcc の形。桁があってもなくても読めること。
+(defun flymake-test-wait (predicate limit)
+  "PREDICATE が真になるまで待つ。LIMIT 秒で諦める。真になったら t。
+
+**実時間を待つテストは固定の `sleep-for` で書かない。** タイマと子プロセスの
+往復を 1 つの枠に押し込むことになるので、機械が混んでいると落ちる。
+`unittest/timer-tests.l` の `timer-test-wait` と同じ形。"
+  (let ((start (get-internal-real-time)))
+    (loop
+      (when (funcall predicate)
+        (return t))
+      (when (> (- (get-internal-real-time) start) (* limit 1000))
+        (return nil))
+      (sleep-for 0.02))))
+
 (deftest flymake-parses-gcc-output ()
   (ed::flymake-parse-output
    "t.c:3:5: error: 'x' undeclared here
@@ -307,7 +321,17 @@ foo.pl had compilation errors."
                            :command "echo x.c:2:1: error: idle-diagnostic"))))
           (ed::flymake-schedule)
           ;; タイマが動くのは待っている間 (sleep-for が期限を見る)。
-          (sleep-for 0.5)
+          ;;
+          ;; **固定の `sleep-for` で待たない。** タイマが起きて、さらに
+          ;; 子プロセス (`echo`) が走って回収されるまでを 1 つの枠に押し込む
+          ;; ことになるので、機械が混んでいると落ちる。**実際に 0.5 秒で
+          ;; 落ちた** (手元で 1 回。コメントだけの変更を挟んだ前後で落ちたり
+          ;; 通ったりしたので、コードのせいではないと分かった)。
+          ;;
+          ;; `unittest/timer-tests.l` の `timer-test-wait` と同じ形にする:
+          ;; **条件が真になるまで刻んで待ち、諦める期限を長く取る。** 通る
+          ;; ときは 0.1 秒ほどで抜けるので、スイート全体は遅くならない。
+          (flymake-test-wait #'(lambda () ed::*flymake-diagnostics*) 10)
           (list (and ed::*flymake-diagnostics* t)
                 (fourth (first ed::*flymake-diagnostics*))
                 (buffer-modified-p)))
