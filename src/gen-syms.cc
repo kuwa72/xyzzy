@@ -2451,6 +2451,7 @@ static symbols ed[] =
   MAKE_SYMBOL2 (display-newline-char),
   MAKE_SYMBOL2 (display-first-tab-char),
   MAKE_SYMBOL2 (display-rest-tab-char),
+  MAKE_SYMBOL2 (display-indent-guide-char),
   MAKE_SYMBOL2 (inverse-cursor-line),
 
   /* char.cc */

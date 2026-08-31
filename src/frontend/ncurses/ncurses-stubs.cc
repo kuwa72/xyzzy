@@ -1146,7 +1146,10 @@ check_popup_timeout ()
 
 XCOLORREF Window::default_xcolors[USER_DEFINABLE_COLORS];
 COLORREF Window::default_colors[WCOLOR_MAX];
-int Window::w_default_flags = 0;
+/* **インデントガイドは既定で有効。** 他のフラグを 0 のままにしているのは、
+   端末の見た目を今のリリースで変えないため (行番号などはユーザが
+   `toggle-line-number` で入れる。それが動くようになったのはこの版から)。 */
+int Window::w_default_flags = Window::WF_INDENT_GUIDE;
 int Window::w_hjump_columns = 4;
 
 Window::Window (int minibufp, int temporary)
@@ -4124,8 +4127,42 @@ Fwindow_columns (lisp window)
 
 
 lisp Fget_window_handle (lisp) { return Qnil; }
-lisp Fget_window_flags () { return make_fixnum (0); }
-lisp Fset_window_flags (lisp) { return Qnil; }
+/* ウィンドウの表示フラグ。**ここが 0 を返すスタブだったので、
+   `toggle-line-number` / `toggle-ruler` / `toggle-newline` / `toggle-tab` /
+   `toggle-eof` / `toggle-fold-mark` / `toggle-cursor-line` ほか 14 個の
+   コマンドが端末で何もしていなかった** (`lisp/window.l` の
+   `toggle-window-flag` は `get-window-flags` と `set-window-flags` しか
+   使わない)。描く側 (src/core/glyph.cc) は最初からフラグを見ている。 */
+lisp
+Fget_window_flags ()
+{
+  return make_fixnum (Window::w_default_flags);
+}
+
+lisp
+Fset_window_flags (lisp flags)
+{
+  int f = fixnum_value (flags);
+  int df = f ^ Window::w_default_flags;
+  Window::w_default_flags = f;
+
+  /* 行番号・ルーラ・モード行・折り返し記号は**桁と行の数を変える**ので、
+     寸法を計算し直す。それ以外は次の描画で反映される (端末側の
+     `refresh_screen` は毎回 glyph を作り直すので、Win32 のような
+     `invalidate_glyphs` は要らない)。 */
+  for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
+    wp->w_disp_flags |= Window::WDF_WINDOW;
+  if (df & (Window::WF_LINE_NUMBER | Window::WF_RULER
+            | Window::WF_MODE_LINE | Window::WF_FOLD_MARK))
+    Window::compute_geometry ();
+  return Qt;
+}
+
+/* **ウィンドウ単位・バッファ単位の方はまだスタブ。** 全体の切り替えとは別に
+   `w_flags` / `w_flags_mask` と `b_wflags` / `b_wflags_mask` の組み合わせを
+   扱う必要があり、Win32 側 (src/frontend/win32/Window.cc の
+   `Fset_local_window_flags`) には 80 行ある。**あれを写すのではなく core へ
+   移すのが正しい** (#16 Phase 4) ので、そこは分けた。 */
 lisp Fget_local_window_flags (lisp) { return make_fixnum (0); }
 lisp Fset_local_window_flags (lisp, lisp, lisp) { return Qnil; }
 

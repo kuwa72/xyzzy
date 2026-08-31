@@ -475,6 +475,7 @@ struct Window
       WF_SCROLLING = 1 << 14,
       WF_BGCOLOR_MODE = 1 << 15,
       WF_FOLD_LINE = 1 << 16,
+      WF_INDENT_GUIDE = 1 << 17,
     };
   static int w_default_flags;
   int w_flags_mask;
