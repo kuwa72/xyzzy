@@ -202,19 +202,26 @@
   => t)
 
 (deftest mode-line-flag-changes-the-number-of-text-lines ()
-  "**モード行の分が行数から引かれること。** モード行は 1 行占めるので、
-局所的に消すと `window-lines` が 1 増える。
+  "**モード行の分が行数から引かれること。** 局所的に消すと `window-lines` が
+1 増える。
 
 端末側は `compute_geometry` と `window-lines` のどちらも **`- 1` の決め打ち**
 だった (「ミニバッファでなければ 1 行引く」) ので、`toggle-mode-line` で
-消しても値が動かなかった (issue #173)。Win32 側は最初から
-`wp->flags () & WF_MODE_LINE` を見ている。"
-  (let ((w (selected-window))
-        (f ed::*window-flag-mode-line*))
-    (window-flags-test-call-with-saved-local-flags w
-      #'(lambda ()
-          (set-local-window-flags w f t)
-          (let ((with-it (window-lines)))
-            (set-local-window-flags w f nil)
-            (- (window-lines) with-it)))))
+消しても値が動かなかった (issue #173)。
+
+**`1` という数を見られるのは桁で数える側だけ。** Win32 の `window-lines` は
+`w_clsize.cy / text_font.cell ().cy` = **ピクセルの割り算**で、モード行を
+消して空くのは `modeline_param.m_height + 4` ピクセルなので、テキスト 1 行
+ちょうどとは限らない (0 行にも 2 行にもなりうる)。
+`abbreviate-display-string` と同じ形の食い違いである。"
+  (if (featurep :unix)
+      (let ((w (selected-window))
+            (f ed::*window-flag-mode-line*))
+        (window-flags-test-call-with-saved-local-flags w
+          #'(lambda ()
+              (set-local-window-flags w f t)
+              (let ((with-it (window-lines)))
+                (set-local-window-flags w f nil)
+                (- (window-lines) with-it)))))
+    1)
   => 1)
