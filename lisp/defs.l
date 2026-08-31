@@ -170,6 +170,20 @@
 (setq-default display-first-tab-char t)
 (setq-default display-rest-tab-char t)
 
+;; インデントガイドの縦線。**1 桁の文字であること** (2 桁だと桁が合わない)。
+;; nil にすると空白のまま = ガイドが出ない。
+;; インデントガイドの縦線。**1 桁の文字であること。**
+;;
+;; 既定を `|` (ASCII) にしているのは、**端末と xyzzy の幅の解釈が一致するのが
+;; ASCII だけ**だからである。`│` (U+2502) の方が見た目は良いが、xyzzy は
+;; Box Drawing を East Asian Ambiguous として 2 桁に数えるので (eaw.cc の
+;; `is_ambiguous`)、そのままでは桁がずれる — 実際、最初これを既定にして
+;; 「何も出ない」状態になった (2 桁の字は断るようにしてある)。
+;;
+;; Ambiguous を 1 桁と解釈する端末なら次のように置ける:
+;;   (setq-default display-indent-guide-char (code-char #x2502))
+(setq-default display-indent-guide-char #\|)
+
 (setq-default inverse-cursor-line nil)
 
 (export '(*archiver-dll-list* archiver-dll-file-name))

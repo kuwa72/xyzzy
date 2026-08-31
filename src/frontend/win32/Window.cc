@@ -11,7 +11,8 @@
 
 int Window::w_hjump_columns = 8;
 int Window::w_default_flags = (WF_LINE_NUMBER | WF_RULER | WF_NEWLINE | WF_MODE_LINE
-                               | WF_VSCROLL_BAR | WF_EOF | WF_FOLD_MARK);
+                               | WF_VSCROLL_BAR | WF_EOF | WF_FOLD_MARK
+                               | WF_INDENT_GUIDE);
 
 #define TXF WCOLOR_TEXT
 #define TXB WCOLOR_BACK

@@ -39,13 +39,14 @@
 	  *window-flag-fold-mark*
 	  *window-flag-half-width-space* *window-flag-full-width-space*
 	  *window-flag-just-inverse* *window-flag-alternate-vscroll-bar*
-	  *window-flag-scrolling*
+	  *window-flag-scrolling* *window-flag-indent-guide*
 	  toggle-line-number toggle-ruler toggle-newline toggle-tab
 	  toggle-zenkaku-space toggle-full-width-space
 	  toggle-vscroll-bar toggle-hscroll-bar
 	  toggle-eof toggle-mode-line toggle-function-bar
 	  toggle-fold-mark toggle-fold-line toggle-cursor-line
 	  toggle-half-width-space toggle-truncate-lines
+	  toggle-indent-guide
 	  buffer-fold-width
 	  split-window-menu-update
 	  close-window-menu-update
@@ -205,6 +206,7 @@
 (defconstant *window-flag-scrolling* #x4000)
 (defconstant *window-flag-just-inverse* #x8000)
 (defconstant *window-flag-fold-line* #x10000)
+(defconstant *window-flag-indent-guide* #x20000)
 
 (defun toggle-window-flag (f arg sv)
   (cond ((null sv)
@@ -231,6 +233,16 @@
 (defun toggle-tab (&optional (arg nil sv))
   (interactive "p")
   (toggle-window-flag *window-flag-tab* arg sv))
+
+(defun toggle-indent-guide (&optional (arg nil sv))
+  "インデントの空白を縦線で見せるかどうかを切り替える。
+
+**行頭の空白を置き換えるだけ**なので、空行やインデントより浅い行には出ない
+(そこには置き換える文字が無い)。縦線の間隔はタブ幅 (`set-tab-columns') に
+従うので、**字の並びと必ず一致する。** 線の字は
+`*display-indent-guide-char*' で変えられる。"
+  (interactive "p")
+  (toggle-window-flag *window-flag-indent-guide* arg sv))
 
 (defun toggle-zenkaku-space (&optional (arg nil sv))
   (interactive "p")

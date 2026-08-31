@@ -201,6 +201,37 @@ else
   fail=1
 fi
 
+# インデントガイド。**Lisp スイートからは測れない**: glyph の中身を Lisp から
+# 読む道が無いので、端末に何が出たかを見るしかない。
+#
+# 縦線は**行頭の空白を置き換える**だけなので、空行やインデントより浅い行には
+# 出ない (置き換える文字が無い)。間隔はタブ幅に従う。
+#
+# 既定の字が `|` (ASCII) なのは、**端末と xyzzy の幅の解釈が一致するのが ASCII
+# だけ**だから。`│` (U+2502) は xyzzy が East Asian Ambiguous として 2 桁に
+# 数えるので (src/core/eaw.cc)、そのままでは桁がずれる。
+log=$build/smoke-indent-guide.txt
+sample=$build/indent-guide-sample.py
+printf 'def foo():\n    if x:\n        bar()\n            deep()\nqux\n' > "$sample"
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  "\\e\\e(progn (find-file \"$sample\") (set-tab-columns 4) (refresh-screen t))\\r" '\w' \
+  >"$log" 2>&1 || true
+# 期待する見え方:
+#   def foo():
+#   |   if x:
+#   |   |   bar()
+#   |   |   |   deep()
+#   qux
+if grep -q '^ |   |   bar()' "$log" && grep -q '^ |   |   |   deep()' "$log" \
+   && grep -q '^ def foo():' "$log"; then
+  echo 'smoke: インデントガイド OK -- 行頭の空白が縦線になっている'
+else
+  echo "smoke: インデントガイド FAILED, see $log" >&2
+  grep -n 'foo\|bar\|deep' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

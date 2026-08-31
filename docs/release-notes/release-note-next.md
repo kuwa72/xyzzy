@@ -36,6 +36,58 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **インデントガイドを追加した** (#30 の最後の項目)。行頭の空白を縦線にする。
+    **既定で有効** (`M-x toggle-indent-guide` / フラグは
+    `*window-flag-indent-guide*`)。
+
+    ```
+    def foo():
+    |   if x:
+    |   |   bar()
+    |   |   |   deep()
+    qux
+    ```
+
+    **#30 に書いてあった「本当に手段が無い。文字の無い場所に縦線を出す必要が
+    ある」は Lisp から見た話だった。** core (`src/core/glyph.cc`) から見ると
+    **インデントの中には実際に文字がある** — 空白そのもの、あるいはタブが
+    広がった詰め物のセルである。しかも「空白の代わりに別の字を出す」機構は
+    タブ可視化として既にあった。flymake のときと同じ間違いで、**「表示層が
+    無い」を理由に見送る前に、どの層から見て無いのかを確かめる。**
+
+    空行とインデントより浅い行には出ない (置き換える文字が無いので、そこは
+    本当に表示専用のセルが要る)。間隔はタブ幅 (`set-tab-columns`) に従うので
+    **字の並びと必ず一致する。** 折り返しの継続行では出さない (表示行の先頭が
+    論理行の途中なので、行頭からの空白を数えられない)。
+
+    **縦線の字の既定は `|` (ASCII)。** `│` (U+2502) の方が見た目は良いが、
+    xyzzy は Box Drawing を East Asian Ambiguous として **2 桁**に数えるので
+    (`src/core/eaw.cc`)、そのままでは桁がずれる。実際それを既定にして
+    「何も出ない」状態を作った (2 桁の字は断るようにしてある)。**端末と
+    xyzzy の幅の解釈が一致するのは ASCII だけ**である。Ambiguous を 1 桁と
+    する端末なら `(setq-default display-indent-guide-char (code-char #x2502))`
+    で置ける。
+
+  * **端末で `toggle-line-number` などウィンドウ表示の切り替え 14 個が何も
+    していなかったのを直した** (issue #50)。
+
+    `get-window-flags` が 0 を返し、`set-window-flags` が nil を返すスタブ
+    だった (`src/frontend/ncurses/ncurses-stubs.cc`)。`lisp/window.l` の
+    `toggle-window-flag` はこの 2 つしか使わないので、**`toggle-line-number` /
+    `toggle-ruler` / `toggle-newline` / `toggle-tab` / `toggle-eof` /
+    `toggle-fold-mark` / `toggle-cursor-line` ほかが揃って無効だった** —
+    端末では行番号を出すことすらできなかった。描く側は最初からフラグを見て
+    いる。
+
+    **ウィンドウ単位・バッファ単位の方 (`set-local-window-flags`) はまだ
+    スタブ。** Win32 側に 80 行あり、写すのではなく core へ移すのが正しいので
+    分けた (#16 Phase 4)。
+
+    `unittest/window-flags-tests.l` に 5 件。**「既定で有効」はここでは測れ
+    ない**: `xyzzy.ini` に保存されたフラグが C 側の既定を上書きするので、
+    走る環境で答えが変わる (Wine の環境で実際に落ちた)。新しい環境で本当に
+    出ることは `tools/linux-smoke.sh` が画面を見て確かめている。
+
   * **`write-registry` / `read-registry` がセクションとキーを取り違える可能性が
     あったのを直した** (Windows 側の話)。
 

@@ -431,6 +431,21 @@ glyph_sbchar (glyph_t *g, uint32_t cp, int f, int flags)
   return g;
 }
 
+/* インデントガイドのセル 1 つ。字は呼ぶ側が決める。
+
+   **タブ可視化のような bitmap の枠は使わない。** あちらは GUI 用に矢印などを
+   自分で描いているが、縦線の bitmap は無い。文字 (既定は U+2502) で出す。
+
+   **字を引数で受けるのは、変数の読み方を間違えないためでもある。**
+   `glyph_bmchar` は `xsymbol_value` で読むが、`setq-default` で入れた値は
+   そこには無い (バッファ毎の既定値なので `symbol_value (V, buffer)` で
+   引く)。呼ぶ側は `w_bufp` を持っているので、そこで 1 度だけ引く。 */
+static glyph_t *
+glyph_indent_guide (glyph_t *g, int f, uint32_t ch)
+{
+  return glyph_sbchar (g, ch, f, 0);
+}
+
 glyph_t *
 glyph_bmchar (glyph_t *g, Char bm, lisp ch, int f, int n)
 {
@@ -796,6 +811,56 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
       break;
 
   int wflags = flags ();
+
+  /* インデントガイド。**行頭の空白を縦線に置き換える。** 文字の無い所へ線を
+     出すのではないので、今の glyph の仕組みで書ける (issue #30)。
+
+     測るのは**論理行の先頭からのインデントの桁数**である。表示行の先頭から
+     数えてはいけない: 折り返しが有効だと表示行の先頭は論理行の途中になる。
+     その場合はガイドを出さない (継続行の先頭は空白でないことが多く、出しても
+     桁が合わない)。横スクロールのときは、この時点の `point` がまだ論理行の
+     先頭なので測れる (`forward_column` は下で呼ばれる)。 */
+  int guide_columns = 0;
+  uint32_t guide_char = 0;
+  if (wflags & WF_INDENT_GUIDE && w_bufp->b_tab_columns > 0)
+    {
+      /* **1 桁の文字でなければガイドを出さない。**
+
+         これで実際に引っかかった: `│` (U+2502) を既定にしたら何も出な
+         かった。xyzzy は Box Drawing (U+2500-U+259F) を East Asian
+         Ambiguous として**2 桁**に数える (src/core/eaw.cc の
+         `is_ambiguous`)。2 桁の字を 1 桁の枠に置くと桁がずれるので断る。
+
+         **端末と xyzzy の幅の解釈が一致するのは ASCII だけ**なので、既定は
+         `|` にしてある。Ambiguous を 1 桁と解釈する端末なら `│` も置ける。 */
+      lisp ch = symbol_value (Vdisplay_indent_guide_char, w_bufp);
+      if (!charp (ch) || unicode_width (xchar_code (ch)) != 1)
+        goto no_guide;
+      guide_char = (uint32_t) xchar_code (ch);
+
+      Point ip (point);
+      w_bufp->goto_bol (ip);
+      if (ip.p_point == point.p_point)
+        {
+          int col = 0;
+          while (ip.p_point < w_bufp->b_nchars)
+            {
+              Char c = ip.ch ();
+              if (c == ' ')
+                col++;
+              else if (c == CC_TAB)
+                col = ((col + w_bufp->b_tab_columns) / w_bufp->b_tab_columns
+                       * w_bufp->b_tab_columns);
+              else
+                break;
+              if (!w_bufp->forward_char (ip, 1))
+                break;
+            }
+          guide_columns = col;
+        }
+    }
+no_guide:
+
   if (wflags & WF_LINE_NUMBER)
     {
       glyph_t f = (vlinenum == w_last_mark_linenum
@@ -1258,7 +1323,16 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                     {
                       glyph_t cell = (glyph_t) (uint32_t) f | ga (' ');
                       while (n-- > 0)
-                        *g++ = cell;
+                        {
+                          int c = w_top_column + int (g - g0);
+                          if (guide_columns && c >= 0 && c < guide_columns
+                              && c % w_bufp->b_tab_columns == 0)
+                            g = glyph_indent_guide (g, ((f & ~GLYPH_TEXT_MASK)
+                                                        | GLYPH_CTRL),
+                                                    guide_char);
+                          else
+                            *g++ = cell;
+                        }
                     }
                 }
               else
@@ -1304,6 +1378,13 @@ Window::redraw_line (glyph_data *gd, Point &point, long vlinenum, long plinenum,
                     }
                   g = glyph_dbchar (g, cp, f, wflags);
                 }
+              else if (cp == ' ' && guide_columns
+                       && w_top_column + int (g - g0) >= 0
+                       && w_top_column + int (g - g0) < guide_columns
+                       && ((w_top_column + int (g - g0))
+                           % w_bufp->b_tab_columns) == 0)
+                g = glyph_indent_guide (g, (f & ~GLYPH_TEXT_MASK) | GLYPH_CTRL,
+                                        guide_char);
               else
                 g = glyph_sbchar (g, cp, f, wflags);
             }
