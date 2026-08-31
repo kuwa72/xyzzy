@@ -760,11 +760,9 @@ splitter::~splitter () {}
 // Filer stubs
 // ============================================================
 
-#ifdef _WIN32
-#include "Filer.h"
-
-void Filer::close_mlfiler () {}
-#endif
+/* xyzzy を終わらせる直前の後始末 (宣言は src/core/fns.h)。ヘッドレスなので
+   何もしない。**`#ifdef _WIN32` の外に置く**: core が無条件に呼ぶ。 */
+void frontend_before_kill_xyzzy () {}
 
 // ============================================================
 // sock.cc blocking_hook needs Fdo_events

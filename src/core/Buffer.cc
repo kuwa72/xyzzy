@@ -1,9 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "syntaxinfo.h"
-#ifdef _WIN32
-#include "Filer.h"
-#endif
 #include "binfo.h"
 #ifdef _WIN32
 #include "buffer-bar.h"
@@ -1284,9 +1281,10 @@ Buffer::kill_xyzzy (int query)
 {
   if (query && !query_kill_xyzzy ())
     return 0;
-#ifdef _WIN32
-  Filer::close_mlfiler ();
-#endif
+  /* **フロントエンドに任せる。** Win32 はモードレスの filer を閉じる。
+     ここに `Filer::close_mlfiler ()` を直に書いていたので、core が
+     `Filer.h` を include していた (issue #185)。 */
+  frontend_before_kill_xyzzy ();
   Buffer *bp = selected_buffer ();
   if (bp)
     bp->safe_run_hook (Vkill_xyzzy_hook, 1);

@@ -3960,11 +3960,14 @@ splitter::~splitter () {}
 // Filer stubs
 // ============================================================
 
-#ifdef _WIN32
-#include "Filer.h"
+/* **xyzzy を終わらせる直前の後始末** (宣言は src/core/fns.h)。端末に filer は
+   無いので何もしない。
 
-void Filer::close_mlfiler () {}
-#endif
+   **`#ifdef _WIN32` の中に居てはいけない。** 以前ここは
+   `Filer::close_mlfiler` を定義していて、core の呼び出しも `#ifdef` で
+   囲まれていたので釣り合っていた。hook にした今は core が**無条件に**呼ぶ
+   ので、POSIX でも定義が要る (issue #185)。 */
+void frontend_before_kill_xyzzy () {}
 
 // ============================================================
 // sock.cc blocking_hook needs Fdo_events
