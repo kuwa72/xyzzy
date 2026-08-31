@@ -262,6 +262,25 @@ else
   fail=1
 fi
 
+# ルーラ。テキスト領域の 1 行上に桁の目安を出す (issue #173)。
+#
+#         0----+----10---+----20---
+#       1|def foo():.
+#
+# **テキストの 1 桁目と揃っていること**が要点で、それを見るために
+# 「ルーラの `0` と 1 行目の `d` が同じ桁に来る」ことを測る。ずれる原因は
+# 2 つあって、どちらも実際に踏んだ: 行番号の桁を飛ばし忘れる、
+# `redraw_line` が glyph 列の先頭に置く空白 1 桁を数え忘れる。
+ruler_col=$(awk '/^ *0----\+----10/ {print index($0, "0"); exit}' "$log")
+text_col=$(awk '/^ *[0-9]+.def foo\(\):/ {print index($0, "def"); exit}' "$log")
+if [ -n "$ruler_col" ] && [ "$ruler_col" = "$text_col" ]; then
+  echo "smoke: ルーラ OK -- 0 桁目がテキストの 1 桁目と揃っている (桁 $ruler_col)"
+else
+  echo "smoke: ルーラ FAILED (ruler=$ruler_col text=$text_col), see $log" >&2
+  grep -nE '^ *0----|def foo' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

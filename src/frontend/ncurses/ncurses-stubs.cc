@@ -1159,13 +1159,12 @@ COLORREF Window::default_colors[WCOLOR_MAX];
    Win32 から落としてあるのは 2 つだけ:
 
      WF_VSCROLL_BAR  端末にスクロールバーが無い
-     WF_RULER        まだ描いていない (幾何にも入っていない)
 
    **立てるビットは「描けるもの」に限る。** 描けないものを立てると
    `toggle-ruler` が「切り替わったのに何も起きない」に見える。 */
 int Window::w_default_flags = (Window::WF_LINE_NUMBER | Window::WF_NEWLINE
                                | Window::WF_MODE_LINE | Window::WF_EOF
-                               | Window::WF_FOLD_MARK
+                               | Window::WF_FOLD_MARK | Window::WF_RULER
                                | Window::WF_INDENT_GUIDE);
 
 /* モード行が占める行数。**フラグを見る。**
@@ -1184,6 +1183,18 @@ ncurses_mode_line_rows (const Window *wp)
     return 0;
   return wp->flags () & Window::WF_MODE_LINE ? 1 : 0;
 }
+
+/* ルーラが占める行数。**モード行と同じく、ミニバッファには付けない**
+   (Win32 側も `!minibuffer_window_p () && flags () & WF_RULER` と書いている)。
+   Win32 では専用の高さ (`RULER_HEIGHT` = 13 px) を取るが、端末では 1 行。 */
+static int
+ncurses_ruler_rows (const Window *wp)
+{
+  if (wp->minibuffer_window_p ())
+    return 0;
+  return wp->flags () & Window::WF_RULER ? 1 : 0;
+}
+
 int Window::w_hjump_columns = 4;
 
 Window::Window (int minibufp, int temporary)
@@ -2290,6 +2301,72 @@ draw_modeline (Window *wp, int row, int col_offset, int cols)
                            NULL, true);
 }
 
+/* ルーラを 1 行描く。テキスト領域の 1 行上。
+
+   **Win32 と同じ情報を、桁の格子に置き換えたもの** (Win32 は
+   `src/frontend/win32/Window.cc` の `paint_ruler`):
+
+     10 の倍数   その桁の番号を書く (Win32 は数字を中央に置く)
+     5 の倍数    長い目印       -> `+`
+     それ以外    短い目印       -> `-`
+     カーソルの桁 箱で囲む      -> 反転
+
+   **行番号の桁は飛ばす。** Win32 の `calc_ruler_rect` が
+   `(LINENUM_COLUMNS + 1) * cell.cx` を足しているのと同じで、ルーラの 0 桁目が
+   テキストの 0 桁目と揃っていないと意味が無い。
+
+   横スクロール (`w_top_column`) にも従う。 */
+static void
+draw_ruler (Window *wp, int row, int col_offset, int cols)
+{
+  if (cols <= 0)
+    return;
+
+  /* **テキストの 1 桁目は左から 1 つ内側にある。** `redraw_line`
+     (src/core/glyph.cc) が glyph 列の先頭に空白を 1 つ置く (Win32 では
+     `cell.cx / 2` の左余白で、桁の格子では 1 桁になる)。ここを 0 にすると
+     ルーラ全体が 1 桁ずれる。 */
+  int skip = 1 + (wp->flags () & Window::WF_LINE_NUMBER
+                  ? Window::LINENUM_COLUMNS + 1 : 0);
+  if (skip >= cols)
+    skip = 0;
+
+  /* 行番号の桁の下は空けておく。**そこに目印を出すと桁がずれて見える。** */
+  for (int i = 0; i < skip; i++)
+    mvaddch (row, col_offset + i, ' ');
+
+  const long top = max (0L, wp->w_top_column);
+  const int width = cols - skip;
+  char *const buf = (char *)alloca (width + 16);
+  for (int i = 0; i < width; i++)
+    buf[i] = (top + i) % 5 ? '-' : '+';
+  /* 10 の倍数は番号で上書きする。**後ろの目印を潰す**ので、目印を全部
+     置いた後にやる。 */
+  for (int i = 0; i < width; i++)
+    {
+      long c = top + i;
+      if (c % 10)
+        continue;
+      char num[24];
+      int l = snprintf (num, sizeof num, "%ld", c);
+      for (int j = 0; j < l && i + j < width; j++)
+        buf[i + j] = num[j];
+    }
+
+  for (int i = 0; i < width; i++)
+    mvaddch (row, col_offset + skip + i, (chtype)(u_char)buf[i]);
+
+  /* カーソルの桁。Win32 は箱を描くが、端末には 1 桁しか無いので反転する。 */
+  long cur = wp->w_column - top;
+  if (cur >= 0 && cur < width)
+    {
+      attron (A_REVERSE);
+      mvaddch (row, col_offset + skip + int (cur),
+               (chtype)(u_char)buf[cur]);
+      attroff (A_REVERSE);
+    }
+}
+
 // Render minibuffer prompt and content on a given screen row
 static void
 draw_minibuffer (Window *mini, int row, int cols)
@@ -2969,11 +3046,15 @@ render_window (Window *wp, int total_cols)
   int text_cols = win_cols - has_separator;
   if (text_cols < 1) text_cols = 1;
 
-  int win_top = wp->w_rect.top;
+  int ruler = ncurses_ruler_rows (wp);
+  int win_top = wp->w_rect.top + ruler;
   int mode_line = ncurses_mode_line_rows (wp);
-  int text_rows = wp->w_rect.bottom - wp->w_rect.top - mode_line;
+  int text_rows = wp->w_rect.bottom - wp->w_rect.top - mode_line - ruler;
   if (text_rows < 1)
     text_rows = 1;
+
+  if (ruler)
+    draw_ruler (wp, wp->w_rect.top, col_offset, text_cols);
 
   ncurses_calc_client_size (wp, text_cols, text_rows);
   bp->window_size_changed ();
@@ -3462,7 +3543,8 @@ Window::compute_geometry (const SIZE &, int)
       if (wp->w_rect.right < cols)
         win_cols--;  // vertical separator
       int text_rows = (wp->w_rect.bottom - wp->w_rect.top
-                       - ncurses_mode_line_rows (wp));
+                       - ncurses_mode_line_rows (wp)
+                       - ncurses_ruler_rows (wp));
       if (text_rows < 1) text_rows = 1;
       if (win_cols < 1) win_cols = 1;
       ncurses_calc_client_size (wp, win_cols, text_rows);
@@ -4143,7 +4225,8 @@ window_text_lines (const Window *wp)
      消しても値が動かなかった (issue #173)。ミニバッファの扱いは
      `ncurses_mode_line_rows` の中にある。 */
   return max (int (wp->w_rect.bottom - wp->w_rect.top
-                   - ncurses_mode_line_rows (wp)),
+                   - ncurses_mode_line_rows (wp)
+                   - ncurses_ruler_rows (wp)),
               1);
 }
 
