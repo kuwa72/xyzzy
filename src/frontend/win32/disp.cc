@@ -1391,7 +1391,7 @@ Window::reframe ()
       w_selection_point = NO_MARK_SET;
       w_selection_marker = NO_MARK_SET;
     }
-  (int &)w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
+  w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   if (w_reverse_region.p1 != NO_MARK_SET)
     {
@@ -1404,7 +1404,7 @@ Window::reframe ()
           w_reverse_temp = Buffer::SELECTION_VOID;
         }
     }
-  (int &)w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
+  w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   if (w_selection_type != Buffer::SELECTION_VOID)
     {
@@ -2226,8 +2226,8 @@ Window::refresh (int f)
       Buffer::selection_type ort = w_reverse_temp;
       if (!f)
         {
-          (int &)w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
-          (int &)w_reverse_temp |= Buffer::CONTINUE_PRE_SELECTION;
+          w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+          w_reverse_temp |= Buffer::CONTINUE_PRE_SELECTION;
         }
 
       if (w_bufp->b_last_narrow_depth != w_bufp->b_narrow_depth)
@@ -2278,7 +2278,7 @@ Window::pending_refresh ()
       w_selection_point = NO_MARK_SET;
       w_selection_marker = NO_MARK_SET;
     }
-  (int &)w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
+  w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   if (w_reverse_region.p1 != NO_MARK_SET
       && (w_reverse_temp & (Buffer::CONTINUE_PRE_SELECTION
@@ -2289,7 +2289,7 @@ Window::pending_refresh ()
       w_reverse_region.p2 = NO_MARK_SET;
       w_reverse_temp = Buffer::SELECTION_VOID;
     }
-  (int &)w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
+  w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   w_disp_flags |= WDF_REFRAME_SCROLL | WDF_PENDING;
 

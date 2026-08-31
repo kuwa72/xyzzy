@@ -400,6 +400,11 @@ else()
         -fms-extensions
         -fno-operator-names
         -Wformat
+        # **`-Wstrict-aliasing` も明示的に有効にする。** 型の punning は
+        # 実際に誤コンパイルを起こしていた (enum の lvalue を `int &` として
+        # 書き換えていた 16 箇所、issue #165)。直したので通しておく。
+        # gcc は `-Wall` に入れているので、`-Wno-` を外すだけでは効かない。
+        -Wstrict-aliasing
         # **`-Wformat-truncation` は塞ぐ。** 出るのは `snprintf` を境界付きで
         # 正しく使っている 6 箇所で、「入り切らないかもしれない」という指摘で
         # ある (溢れはしない)。長いパスが切れる話は本当だが、それは

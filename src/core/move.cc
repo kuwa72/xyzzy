@@ -2172,7 +2172,7 @@ Fcontinue_pre_selection ()
   if (wp->w_selection_type == Buffer::SELECTION_VOID
       || !(wp->w_selection_type & Buffer::PRE_SELECTION))
     return Qnil;
-  (int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+  wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
   return Qt;
 }
 
@@ -2206,7 +2206,7 @@ Fset_selection_type (lisp type, lisp temp)
         {
           wp->w_selection_type = Buffer::selection_type (ntype);
           if (temp && temp != Qnil)
-            (int &)wp->w_selection_type |= Buffer::PRE_SELECTION | Buffer::CONTINUE_PRE_SELECTION;
+            wp->w_selection_type |= Buffer::PRE_SELECTION | Buffer::CONTINUE_PRE_SELECTION;
         }
       break;
 

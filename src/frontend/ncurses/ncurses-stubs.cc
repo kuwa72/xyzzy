@@ -2937,15 +2937,17 @@ render_window (Window *wp, int total_cols)
   if ((wp->w_selection_type & (Buffer::CONTINUE_PRE_SELECTION
                                | Buffer::PRE_SELECTION)) == Buffer::PRE_SELECTION)
     {
-      // Use (int &) cast to match the (int &) &= ~CONTINUE_PRE_SELECTION below;
-      // without this, strict aliasing lets the compiler cache the enum value
-      // across the (int &) write, so the VOID assignment silently disappears.
-      (int &)wp->w_selection_type = (int)Buffer::SELECTION_VOID;
+      /* ここには「下の `(int &) &= ~CONTINUE_PRE_SELECTION` と揃えるために
+         キャストする。揃えないと strict aliasing でコンパイラが enum の値を
+         保持してしまい、VOID の代入が黙って消える」と書いてあった。
+         **揃えるのではなく punning をやめた** (src/core/Buffer.h の
+         `operator |=` / `operator &=`、issue #165)。 */
+      wp->w_selection_type = Buffer::SELECTION_VOID;
       wp->w_selection_point = NO_MARK_SET;
       wp->w_selection_marker = NO_MARK_SET;
       wp->w_selection_region.p1 = -1;
     }
-  (int &)wp->w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
+  wp->w_selection_type &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   if (wp->w_reverse_region.p1 != NO_MARK_SET)
     {
@@ -2954,10 +2956,10 @@ render_window (Window *wp, int total_cols)
         {
           wp->w_reverse_region.p1 = NO_MARK_SET;
           wp->w_reverse_region.p2 = NO_MARK_SET;
-          (int &)wp->w_reverse_temp = (int)Buffer::SELECTION_VOID;
+          wp->w_reverse_temp = Buffer::SELECTION_VOID;
         }
     }
-  (int &)wp->w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
+  wp->w_reverse_temp &= ~Buffer::CONTINUE_PRE_SELECTION;
 
   if (wp->w_selection_type != Buffer::SELECTION_VOID)
     {
@@ -5927,7 +5929,7 @@ run_menu_modal (lisp menu_root, int initial_bar_sel = -1)
           // dispatch() will clear it after the command runs.
           Window *wp = selected_window ();
           if (wp && (wp->w_selection_type & Buffer::PRE_SELECTION))
-            (int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+            wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
           app.kbdq.putc (LCHAR_MENU | id);
         }
     }
@@ -6185,7 +6187,7 @@ run_popup_modal (lisp lmenu)
         {
           Window *wp = selected_window ();
           if (wp && (wp->w_selection_type & Buffer::PRE_SELECTION))
-            (int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
+            wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;
           app.kbdq.putc (LCHAR_MENU | id);
         }
     }

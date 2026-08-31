@@ -1996,7 +1996,7 @@ rdump_object (FILE *fp, lstream *d, int n,
             d->input = (void *)readl (fp);
             d->output = (void *)readl (fp);
             d->pathname = readl (fp);
-            d->alt_pathname = (wchar_t *)Qnil;
+            d->alt_lisp = Qnil;
             d->start = 0;
             break;
 

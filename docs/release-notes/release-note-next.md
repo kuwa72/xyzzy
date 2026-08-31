@@ -36,6 +36,33 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **型の punning を 17 箇所やめた** (issue #165)。**実際に誤コンパイルを
+    起こしていた。**
+
+    `(int &)wp->w_selection_type |= Buffer::CONTINUE_PRE_SELECTION;` のように、
+    enum の lvalue を `int &` にキャストして書き換えている箇所が 16 あった。
+    strict aliasing に反する書き方で、`src/frontend/ncurses/ncurses-stubs.cc`
+    には**その被害の跡がコメントで残っていた**:
+
+    ```
+    // Use (int &) cast to match the (int &) &= ~CONTINUE_PRE_SELECTION below;
+    // without this, strict aliasing lets the compiler cache the enum value
+    // across the (int &) write, so the VOID assignment silently disappears.
+    ```
+
+    **キャストを揃えるのではなく、punning をやめるのが正しい。** `selection_type`
+    に `operator |=` / `operator &=` を定義して、列挙型のまま計算して代入する
+    ようにした。`kbd_queue::input_mode` の 2 箇所も同じ形に直した。
+
+    17 箇所目は `lstream::alt_pathname` で、**ストリームの種類によって
+    `wchar_t *` と `lisp` を使い分けている欄**である。こちらは union にした:
+    **union のメンバとして読み書きするのは規格が認めている書き方**で、同じ 1 語
+    を指すことは変わらないので GC の見え方も変わらない。
+
+    直したので `-Wstrict-aliasing` を LP64 (gcc) で有効にした。**`-Wno-` を
+    外すだけでは効かない** (gcc は `-Wall` に入れている) ので、明示的に付けて
+    ある。`_build/linux` を作り直して**警告はリンカの注意 1 件だけ**。
+
   * **インデントガイドを追加した** (#30 の最後の項目)。行頭の空白を縦線にする。
     **既定で有効** (`M-x toggle-indent-guide` / フラグは
     `*window-flag-indent-guide*`)。

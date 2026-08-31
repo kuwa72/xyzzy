@@ -988,6 +988,34 @@ struct Buffer
 #endif
 };
 
+/* `selection_type` にビットを立てる・落とすための演算子。
+
+   **`(int &)x |= v` と書いてはいけない。** enum の lvalue を `int &` として
+   書き換えるのは型の punning で、strict aliasing に反する。**実際に誤コン
+   パイルを起こしていて**、その回避として「もう片方もキャストにする」という
+   コメントが src/frontend/ncurses/ncurses-stubs.cc に残っていた:
+
+     // Use (int &) cast to match the (int &) &= ~CONTINUE_PRE_SELECTION below;
+     // without this, strict aliasing lets the compiler cache the enum value
+     // across the (int &) write, so the VOID assignment silently disappears.
+
+   キャストを揃えるのではなく、**punning をやめる**のが正しい。列挙型のまま
+   計算して代入すれば、コンパイラが値を保持していても問題にならない
+   (issue #165)。 */
+inline Buffer::selection_type &
+operator |= (Buffer::selection_type &a, int b)
+{
+  a = Buffer::selection_type (int (a) | b);
+  return a;
+}
+
+inline Buffer::selection_type &
+operator &= (Buffer::selection_type &a, int b)
+{
+  a = Buffer::selection_type (int (a) & b);
+  return a;
+}
+
 inline long
 Buffer::point_linenum (const Point &point) const
 {
