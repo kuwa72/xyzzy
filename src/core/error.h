@@ -69,6 +69,20 @@ os_error_path_not_found (int e)
 #endif
 }
 
+/* 「その名前のものが無い」。**Win32 の 4 通りをまとめている**のは、POSIX の
+   `ENOENT` がその 4 通り全部に当たるため。ファイルが無いのか途中の要素が
+   無いのかを区別したい所では `os_error_path_not_found` の方を使う。 */
+inline int
+os_error_not_found (int e)
+{
+#ifdef _WIN32
+  return (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND
+          || e == ERROR_BAD_NETPATH || e == ERROR_BAD_PATHNAME);
+#else
+  return e == ENOENT || e == ENOTDIR;
+#endif
+}
+
 inline int
 os_error_sharing_violation (int e)
 {

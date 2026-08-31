@@ -36,6 +36,107 @@ Crafted) が当たり前に持っている操作をひとつずつ入れた。`M
 変更
 ----
 
+  * **`(open ... :if-exists :rename)` が書いた内容を捨てていた** (issue #168)。
+    ファイルは作られず、代わりに一時ファイルが 1 回ごとに 1 つずつ溜まる。
+    **Windows でも同じ**で、上流の import (0.2.2.235) からこの形だった。
+
+    `src/core/stream.cc` の `create_file_stream` は `:new-version` /
+    `:supersede` / `:rename-and-delete` / `:rename` のために一時ファイルを
+    作ってそちらへハンドルを開き、閉じるときに本来の名前へ被せる。ところが
+    `:rename` だけは開いた直後に
+
+    ```cpp
+    if (if_exists == Krename && xfile_stream_alt_pathname (stream))
+      { xfree (...); xfile_stream_alt_pathname (stream) = 0; }
+    ```
+
+    で**一時ファイルの名前を忘れていた。** 名前が消えると
+    `close_file_stream` は先頭の `if (!alt_pathname) return;` で戻るので、
+    書いた内容は一時ファイルの中に取り残され、本来のパスは作られないまま
+    終わる。
+
+    **一時ファイルを経由する必要が無かった。** CL の `:rename` は「既存の
+    ファイルを別の名前にしてから、新しいファイルを作る」で、退避するのは
+    **古い方**である。開くときに既存のファイルを `<path>~` へ動かして、
+    本来のパスをそのまま作るようにした。退避先をエディタ自身のバックアップの
+    慣習 (`~`) に合わせたのは、`xyz4b8b.tmp` のような名前で残ると
+    **それが退避されたものだと分からない**ため。
+
+    この tree の `lisp/` には取り残された一時ファイルが **132 個**あった
+    (8/24〜8/28、全部 `startup.lc` と同じ内容)。`.gitignore` に `*.tmp` が
+    あるので **`git status` には出ない。** 一時ファイルの置き場所が「書き先と
+    同じディレクトリ」なのは rename を同じファイルシステム内で済ませるためで
+    そこは正しく、**閉じられないまま終わると溜まる**という形だった。
+
+  * **POSIX で `:supersede` などで書いたファイルが 0600 になっていた**
+    (issue #169)。umask も、置き換える前のファイルのモードも効かない。
+
+    一時ファイルを作るのは `WINFS::GetTempFileName` (`src/core/vfs-posix.cc`)
+    で、`mkstemp` を使っている。**`mkstemp` は 0600 で作る**のが正しい
+    (一時ファイルの中身を他人に見せないため) が、この名前は
+    `close_file_stream` が**そのまま本来の名前へ rename する**ので、0600 が
+    最終的なファイルのモードになっていた。
+
+    ```
+    -rw-r--r-- 1 kuwa72 kuwa72 13105 Aug 31 09:48 lisp/defs.l
+    -rw------- 1 root   root   16373 Aug 31 10:00 lisp/defs.lc
+    ```
+
+    `lisp/compile.l` はバイトコンパイルの出力を `:if-exists :supersede` で
+    書くので、**コンテナ (root) でバイトコンパイルすると `.lc` がホストの
+    ユーザから読めなくなる** (`xyzzy --batch` が
+    `lisp/defs.lc: Permission denied` で起動できない)。他に
+    `lisp/history.l` / `lisp/session.l` / `lisp/kbdmacro.l` /
+    `lisp/encdec.l` が同じ経路で書いている。
+
+    一時ファイルに**通常のファイルと同じモード** (`0666 & ~umask`) を与える
+    ようにした。ついでに**置き換える相手のモードを引き継ぐ**ようにもした
+    (`0755` のファイルを `:supersede` で書き直すと実行ビットが落ちていた)。
+    `Buffer::save_buffer` の precious な経路は
+    `SetFileAttributes (tmpname, filemode)` として最初から同じことを
+    しているので、**ストリームの経路だけが抜けていた**という形である。
+
+    モードを写す所を `WINFS::CopyFileMode` としてファイルシステムの seam
+    (`src/core/vfs.h`) に置いた。既にある `SetFileAttributes` で済まないのは、
+    **POSIX のモードが Win32 の属性のビットに収まらない**ため:
+    `GetFileAttributes` は POSIX では「書けるか」を
+    `FILE_ATTRIBUTE_READONLY` に潰すので、それを書き戻すと `0755` が
+    `0644` になる。
+
+  * **`open` が POSIX で「エラーを出さずに nil を返す」約束を守っていなかった。**
+    `:if-exists nil` が nil ではなく `file-exists` をシグナルし、
+    `:if-does-not-exist nil` も途中のディレクトリが無い場合はシグナルしていた。
+
+    `create_file_stream` が `GetLastError ()` の戻り値を `ERROR_*` と直に
+    比べていた。**番号の空間がプラットフォームで違う** (Win32 は Win32 の
+    コード、POSIX は errno) ので、POSIX ではどの `case` にも当たらず
+    `default` の `file_error` に落ちる。意味を聞く述語は issue #120 で
+    `src/core/error.h` に入れてあり、**ここが漏れていた。**
+
+    直す前に測ったもの (linux ネイティブビルド):
+
+    ```
+    :if-exists :skip         -> simple-program-error 「不正な`:if-exists'…」
+    :if-exists nil           -> file-exists          (nil を返すべき)
+    存在しないファイル       -> nil                  (ENOENT (2) が
+                                ERROR_FILE_NOT_FOUND (2) に偶然一致する)
+    途中のディレクトリが無い -> path-not-found       (ENOTDIR (20) は
+                                どの ERROR_* にも当たらない)
+    ```
+
+    **1 つだけ偶然通っていたのが厄介**で、「ファイルが無いとき」を試すと
+    正しく動いているように見える。
+
+    ついでに **`:if-exists :skip` を受けるようにした。** reference には
+    「エラーは出力せず、nil を返します」と書いてあるのに `不正な
+    :if-exists オプションです` になっていた。`create-directory` や
+    `delete-file` は最初から `:skip` を受けるので、名前の方を揃えた。
+
+  * **`open` の `:if-exists` の説明を reference に書いた。** `:supersede` /
+    `:rename` / `:rename-and-delete` の 3 つは
+    `---- 以下詳細不明 ----` の下に「更新？」「リネーム用にストリームを
+    開く？」と書かれていた。上の 2 件で実際に測ったので、書ける。
+
   * **型の punning を 17 箇所やめた** (issue #165)。**実際に誤コンパイルを
     起こしていた。**
 

@@ -18,6 +18,13 @@ close_file_stream (lisp stream, int abort)
     {
       wchar_t path[PATH_MAX + 1];
       pathname2wstr (xfile_stream_pathname (stream), path);
+      /* **置き換える相手のモードを引き継ぐ。** 一時ファイルを rename で
+         被せるので、何もしないと元のファイルのモードが消える
+         (`0755` のファイルを `:supersede` で書き直すと実行ビットが落ちる)。
+         `Buffer::save_buffer` の precious な経路が
+         `SetFileAttributes (tmpname, filemode)` として既に同じことを
+         している (issue #169)。 */
+      WINFS::CopyFileMode (path, xfile_stream_alt_pathname (stream));
       WINFS::DeleteFile (path);
       if (!WINFS::MoveFile (xfile_stream_alt_pathname (stream), path))
         file_error (GetLastError (), xfile_stream_pathname (stream));
@@ -297,6 +304,7 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
   int encoding = stream_encoding (lencoding);
   int dont_create = if_does_not_exist != Kcreate;
   int need_alt = 0;
+  int rename_existing = 0;
   int create, access;
 
   if (direction == Kinput || direction == Kprobe)
@@ -308,6 +316,12 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
   else
     {
       access = direction == Kio ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_WRITE;
+      /* **`:skip` は reference に載っているが受け付けていなかった**
+         (「エラーは出力せず、nil を返します」と書いてあるのに
+         「不正な `:if-exists` オプションです」になる)。`create-directory`
+         や `delete-file` は `:skip` を受けるので、名前の方を揃える。 */
+      if (if_exists == Kskip)
+        if_exists = Qnil;
       if (if_exists == Kerror || if_exists == Qnil)
         {
           if (dont_create)
@@ -332,8 +346,21 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
         }
       else if (if_exists == Kappend)
         create = dont_create ? OPEN_EXISTING : OPEN_ALWAYS;
-      else if (if_exists == Krename
-               || if_exists == Krename_and_delete
+      else if (if_exists == Krename)
+        {
+          /* **CL の `:rename` は「既存のファイルを別の名前にしてから、
+             新しいファイルを作る」。** 一時ファイルへ書いてから被せる
+             (`need_alt`) のとは向きが逆で、退避するのは**古い方**である。
+
+             ここは以前 `need_alt = 1` の組に入っていて、**一時ファイルへ
+             ハンドルを開いた直後にその名前を捨てていた** (issue #168):
+             書いた内容は一時ファイルの中に取り残され、本来のパスは作られず、
+             一時ファイルだけが 1 回ごとに溜まっていた。上流の import から
+             ずっとこの形だった。 */
+          rename_existing = 1;
+          create = CREATE_ALWAYS;
+        }
+      else if (if_exists == Krename_and_delete
                || if_exists == Ksupersede)
         {
           need_alt = 1;
@@ -357,7 +384,7 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
   else
     FEprogram_error (Einvalid_share_option, lshare);
 
-  if (need_alt && (if_exists == Kerror || dont_create))
+  if ((need_alt || rename_existing) && (if_exists == Kerror || dont_create))
     {
       HANDLE h = WINFS::CreateFile (path, 0, 0, 0, OPEN_EXISTING, 0, 0);
       if (h != INVALID_HANDLE_VALUE)
@@ -385,6 +412,33 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
   xfile_stream_pathname (stream) = make_string (path);
   xfile_stream_encoding (stream) = encoding;
 
+  DWORD rename_attr = (rename_existing
+                       ? WINFS::GetFileAttributes (path)
+                       : DWORD (INVALID_FILE_ATTRIBUTES));
+  if (rename_attr != INVALID_FILE_ATTRIBUTES
+      && !(rename_attr & FILE_ATTRIBUTE_DIRECTORY))
+    {
+      /* 退避先はエディタ自身のバックアップの慣習に合わせて `<path>~`。
+         **既にある `~` は上書きする** (Emacs の単一バックアップと同じ)。
+         `Buffer::make_backup_file_name` はバッファ局所の変数
+         (`version-control` / `make-backup-filename-hook`) を見るので、
+         バッファを持たないストリームからは呼べない。
+
+         **退避はファイルを開く前にする** (CL の `:rename` は「開くときに
+         別の名前にする」)。この後の `CreateFile` が失敗した場合、元の内容は
+         `<path>~` に残っているので取り戻せる。 */
+      size_t l = wcslen (path);
+      if (l + 1 > PATH_MAX)
+        file_error (Epath_name_too_long, filename);
+      wchar_t backup[PATH_MAX + 2];
+      wmemcpy (backup, path, l);
+      backup[l] = '~';
+      backup[l + 1] = 0;
+      WINFS::DeleteFile (backup);
+      if (!WINFS::MoveFile (path, backup))
+        file_error (GetLastError (), filename);
+    }
+
   if (need_alt)
     {
       wchar_t *sl = find_last_slash_w (path);
@@ -404,32 +458,32 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
                                 FILE_ATTRIBUTE_ARCHIVE, 0);
   if (h == INVALID_HANDLE_VALUE)
     {
+      /* **`ERROR_*` と直に比べてはいけない。** 番号の空間がプラットフォームで
+         違う (Win32 は Win32 のコード、POSIX は errno) ので、POSIX では
+         どの `case` にも当たらず `default` の `file_error` に落ちていた。
+         その結果 **`:if-exists nil` が nil を返さずに `file-exists` を
+         シグナルしていた**: 既存のファイルに `CREATE_NEW` で当たると POSIX は
+         `EEXIST` (17) を返し、`ERROR_ALREADY_EXISTS` (183) にも
+         `ERROR_FILE_EXISTS` (80) にも一致しない。`:if-does-not-exist nil` も
+         同じ形で壊れていた (`ENOENT` (2) 対 `ERROR_FILE_NOT_FOUND` (2) は
+         偶然一致するが、`ENOTDIR` は一致しない)。
+
+         意味を聞く述語は src/core/error.h にある (issue #120 で入れたもので、
+         ここが漏れていた)。 */
       int e = GetLastError ();
-      switch (e)
+      if (os_error_already_exists (e))
         {
-        case ERROR_ALREADY_EXISTS:
-        case ERROR_FILE_EXISTS:
           if (if_exists == Kerror)
             file_error (e, filename);
           return Qnil;
-
-        case ERROR_FILE_NOT_FOUND:
-        case ERROR_PATH_NOT_FOUND:
-        case ERROR_BAD_NETPATH:
-        case ERROR_BAD_PATHNAME:
+        }
+      if (os_error_not_found (e))
+        {
           if (if_does_not_exist == Kerror)
             file_error (e, filename);
           return Qnil;
-
-        default:
-          file_error (e, filename);
         }
-    }
-
-  if (if_exists == Krename && xfile_stream_alt_pathname (stream))
-    {
-      xfree (xfile_stream_alt_pathname (stream));
-      xfile_stream_alt_pathname (stream) = 0;
+      file_error (e, filename);
     }
 
   int fd = _open_osfhandle (long (h), access == GENERIC_READ ? _O_RDONLY : 0);
