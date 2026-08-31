@@ -66,6 +66,28 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
 変更
 ----
 
+  * **GDI で線と矩形を描く道具を core から出した** (issue #195)。
+    `fill_rect` / `draw_hline` / `draw_vline` / `paint_button_*` と
+    `frameDC` で、`src/frontend/win32/gdi-utils.{h,cc}` になった。
+    **core の `HDC` は 72 から 58 になった。**
+
+    **issue #185 はここを「`Painter` に同じ primitive があるので寄せられる」
+    と書いていたが、測ると寄せる先が要らなかった。** `src/core/` の中から
+    これを呼んでいるコードが**1 つも無い**。呼んでいるのは
+    `disp.cc` / `Window.cc` / `dockbar.cc` / `toplev.cc` / `fnkey.cc` /
+    `ColorDialog.cc` / `ChooseFont.cc` / `print.cc` / `pane.cc` の 9 つで、
+    全部 `src/frontend/win32/` の中である。**core が `HDC` を 15 個抱えて
+    いた理由は「core が使っているから」ではなく、置き場所だけだった。**
+
+    `find_handle` / `wnet_enum_handle` は `utils.h` に残した。**`HANDLE` は
+    `HDC` と違ってデバイスの話ではなく**、`pathname.cc` / `glob.cc` /
+    `completion.cc` が実際に使っている。
+
+    移すときに `paint_button_*` の `#if 0` (ペンと `SetPixel` で Windows 95 風
+    の 3D の縁を描く版) を見つけたが、**消さずに移した。消す判断は「見た目を
+    どうするか」であって置き場所の話ではない**ので、無効であることを
+    コメントに書いて残した。
+
   * **描画の抽象化 (`Painter` / `FontMetrics`) の追跡先を作り直した**
     (issue #195)。**コード中の 47 箇所が「issue #13」を追跡先として書いていた
     が、この番号は issue ではなくマージ済みの PR に取られていて**、追っても

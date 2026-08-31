@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "gdi-utils.h"
 #include "binfo.h"
 #include "syntaxinfo.h"
 #include "fontmap.h"

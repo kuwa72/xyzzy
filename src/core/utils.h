@@ -147,12 +147,14 @@ dir_separator_p (int c)
   return c == '/' || c == '\\';
 }
 
-void paint_button_off (HDC, const RECT &);
-void paint_button_on (HDC, const RECT &);
-void fill_rect (HDC, int, int, int, int, COLORREF);
-void fill_rect (HDC, const RECT &, COLORREF);
-void draw_hline (HDC, int, int, int, COLORREF);
-void draw_vline (HDC, int, int, int, COLORREF);
+/* GDI で線と矩形を描く 6 つ (`fill_rect` / `draw_hline` / `draw_vline` /
+   `paint_button_*`) と `frameDC` は `src/frontend/win32/gdi-utils.h` へ移した
+   (issue #195 / #185)。**`src/core/` の中から呼んでいるコードが 1 つも
+   無かった。**
+
+   下の `find_handle` / `wnet_enum_handle` はここに残る。**`HANDLE` は
+   `HDC` と違ってデバイスの話ではなく**、`pathname.cc` / `glob.cc` /
+   `completion.cc` が実際に使っている。 */
 
 class find_handle
 {
@@ -170,19 +172,5 @@ public:
   ~wnet_enum_handle () {WNetCloseEnum (h);}
 };
 
-class frameDC
-{
-  HWND f_hwnd;
-  HDC f_hdc;
-  HGDIOBJ f_obr;
-  enum {WIDTH = 2};
-public:
-  frameDC (HWND, int = 0);
-  ~frameDC ();
-  void frame_rect (const RECT &, int = WIDTH) const;
-  void paint (const RECT &r) const
-    {PatBlt (f_hdc, r.left, r.top,
-             r.right - r.left, r.bottom - r.top, PATINVERT);}
-};
 
 #endif

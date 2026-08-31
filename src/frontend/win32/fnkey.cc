@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "gdi-utils.h"
 #include "environ.h"
 #include "fnkey.h"
 #include "fkwin.h"
