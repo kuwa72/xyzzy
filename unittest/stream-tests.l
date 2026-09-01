@@ -216,3 +216,20 @@
               (not (string-match "not permitted" msg))
               (not (string-match "Unknown error" msg))))))
   => (:error t t t))
+
+(deftest socket-ssl-is-refused-not-silently-plaintext ()
+  ;; **SSL を頼んだのに平文で送るのはエラーより悪い。** POSIX には SChannel の
+  ;; 実体が無い (`src/core/sockssl.cc` は全体が `#ifdef _WIN32`) ので、はっきり
+  ;; 断ることを測る。
+  ;;
+  ;; 文言も見る -- ここは `Eremove_not_supported` を流用していて
+  ;; 「**削除はサポートしていません**」と出ていた (issue #229)。SSL を頼んだ人に
+  ;; 削除の話をしていた。
+  (if (featurep :unix)
+      (handler-case (progn (connect "127.0.0.1" 443 :ssl t) :connected)
+        (error (e)
+          (let ((msg (format nil "~A" e)))
+            (list (and (string-match "SSL" msg) t)
+                  (not (and (string-match "削除" msg) t))))))
+    '(t t))
+  => (t t))

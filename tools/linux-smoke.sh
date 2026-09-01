@@ -627,5 +627,30 @@ else
   fail=1
 fi
 rm -rf "$dhome"
+# **--batch の標準出力が UTF-8 で行末が LF か。** 既定は CP932 + CRLF で、
+# Win32 の日本語コンソールでは正しいが POSIX では化ける (issue #229)。
+#
+# **対話の端末フロントエンドはこの経路を通らない**ので、上の「日本語 OK」は
+# 通ったまま `--batch` だけ壊れていた。ここでしか測れない。
+#
+# 内部表現は壊れていなかった (char-code は正しい) ので、**バイト列で見る。**
+log=$build/smoke-batch-utf8.txt
+"$build/xyzzy" --batch -q \
+  -e '(format t "X=~A~%" (map (quote string) (function code-char) (list 19981 27491)))' \
+  >"$log" 2>&1 || true
+# 不正 = U+4E0D U+6B63 -> UTF-8 で e4 b8 8d e6 ad a3
+if grep -a '^X=' "$log" | od -An -tx1 | tr -d ' \n' | grep -q 'e4b88de6ada3'; then
+  if grep -a '^X=' "$log" | od -An -c | tr -s ' ' | grep -q '\\r'; then
+    echo "smoke: batch の UTF-8 FAILED -- 文字は合っているが CR が付いている, see $log" >&2
+    fail=1
+  else
+    echo 'smoke: batch の標準出力 OK -- UTF-8 で行末が LF'
+  fi
+else
+  echo "smoke: batch の UTF-8 FAILED, see $log" >&2
+  echo '-- 期待するのは e4 b8 8d e6 ad a3 (不正)。出ていたのは:' >&2
+  grep -a '^X=' "$log" | od -An -tx1 | head -2 >&2 || true
+  fail=1
+fi
 
 exit $fail
