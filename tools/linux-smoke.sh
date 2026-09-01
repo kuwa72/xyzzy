@@ -584,5 +584,48 @@ else
   fail=1
 fi
 rm -f "$image"
+# **既定でイメージを使う。** `-image` を渡さなくても設定ディレクトリの下の
+# `xyzzy.wxp` を使い、無ければ作る (issue #219)。対話起動が 832ms -> 178ms。
+#
+# `HOME` を差し替える -- この端末がほんとうに使っている `~/xyzzy.wxp` は
+# 触らない。3 つ見る: 1 回目は作る / 2 回目はそれから起きる /
+# `-no-image` なら作らない。
+log=$build/smoke-dump-default.txt
+dhome=$build/smoke-dump-home
+rm -rf "$dhome"
+mkdir -p "$dhome"
+{
+  echo "--- 1) 1 回目: 作る ---"
+  HOME=$dhome XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+    python3 "$root/tools/pty-drive.py" \
+    '\w' '\e\e(list :first (xyzzy-dumped-p) (and (si:dump-image-path) t))\r' '\w'
+  echo "--- image があるか ---"
+  test -f "$dhome/xyzzy.wxp" && echo "IMAGE-CREATED" || echo "IMAGE-MISSING"
+  echo "--- 2) 2 回目: それから起きる ---"
+  HOME=$dhome XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+    python3 "$root/tools/pty-drive.py" \
+    '\w' '\e\e(list :second (xyzzy-dumped-p))\r' '\w'
+  echo "--- 3) -no-image なら使わない ---"
+  rm -f "$dhome/xyzzy.wxp"
+  HOME=$dhome XYZZY_EXE=$build/xyzzy XYZZYHOME=$root XYZZY_PTY_ARGS=-no-image \
+    python3 "$root/tools/pty-drive.py" \
+    '\w' '\e\e(list :noimage (xyzzy-dumped-p) (si:dump-image-path))\r' '\w'
+  test -f "$dhome/xyzzy.wxp" && echo "NOIMAGE-CREATED-BUG" || echo "NOIMAGE-CLEAN"
+} >"$log" 2>&1 || true
+# **3 つ全部見る。** 「作る」だけなら既定オフでも通る余地があり、「使う」だけ
+# なら作る側が壊れても気付かない。`-no-image` は逃げ道が本当に効くかを見る。
+if grep -q '(:first nil t)' "$log" \
+   && grep -q 'IMAGE-CREATED' "$log" \
+   && grep -q '(:second t)' "$log" \
+   && grep -q '(:noimage nil nil)' "$log" \
+   && grep -q 'NOIMAGE-CLEAN' "$log"; then
+  echo 'smoke: ダンプイメージの既定 OK -- 1 回目で作り、2 回目から使い、-no-image で切れる'
+else
+  echo "smoke: ダンプイメージの既定 FAILED, see $log" >&2
+  grep -o '(:.*)' "$log" >&2 || true
+  grep -o 'IMAGE-[A-Z]*\|NOIMAGE-[A-Z-]*' "$log" >&2 || true
+  fail=1
+fi
+rm -rf "$dhome"
 
 exit $fail
