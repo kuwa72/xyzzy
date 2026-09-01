@@ -236,6 +236,10 @@ static const char *startup_config_path;
 static const char *startup_ini_file;
 // `-image' の値。init_lisp_engine が app.dump_image に入れる (issue #219)。
 static const char *startup_dump_image;
+/* `-no-image' が来たか。**既定でイメージを使うようにしたので、切る手段が
+   要る** (issue #219)。3.7 MB のファイルを置きたくない、あるいは
+   `lisp/` を触りながら試している場合。 */
+static int startup_no_image;
 // Lisp に渡す引数はここから。`-config' / `-ini' は Lisp が知らない
 // (estartup.l の process-command-line-1 に case が無く、ファイル名として
 // find-file されてしまう) ので、**取り除いて渡す。**
@@ -261,6 +265,14 @@ scan_config_options (int argc, char **argv)
          `<xyzzy> --batch -ini "path" -q -e "..."' の形で組む)。 */
       if (!strcmp (argv[i], "--batch"))
         {
+          i++;
+          continue;
+        }
+      /* **値を取らないので、ペアの走査を止めずに跨ぐ。** `--batch` と同じ扱い。
+         Lisp 側に case が無いので、渡すとファイル名として `find-file` される。 */
+      if (!strcmp (argv[i], "-no-image"))
+        {
+          startup_no_image = 1;
           i++;
           continue;
         }
@@ -1007,8 +1019,20 @@ init_exe_path (const char *argv0)
   *i2w (cp, l, app.exe_path) = 0;
 }
 
+/* `want_default_image`: `-image` が無いときに設定ディレクトリの下の
+   `xyzzy.wxp` を既定として使うか。
+
+   **対話版だけ真にする。** `--batch` を既定オンにすると、テストスイートと
+   `tools/bytecompile.sh` がイメージ越しに走ることになる。**イメージは Lisp
+   ライブラリ全体を含むので、`.lc` を作り直してもバイナリが同じなら
+   同一性判定 (`dump_exe_ident`、issue #219) では弾けない** = 古い
+   ライブラリのまま測ってしまう。
+
+   速さが要るのは人が待つ対話起動 (762ms -> 206ms) で、`--batch` は
+   スイート 1 回につき 1 プロセスしか起きないので効きが小さい。**危ない側を
+   既定にしない。** `--batch` でも `-image` を明示すれば使える。 */
 static void
-init_lisp_engine (const char *argv0)
+init_lisp_engine (const char *argv0, int want_default_image)
 {
   init_ucs2_table ();
   init_exe_path (argv0);
@@ -1022,7 +1046,9 @@ init_lisp_engine (const char *argv0)
      **読めなくても黙って続ける。** 初回は必ず無いし、バイナリを作り直した
      あとの古いイメージも読めない。そこで止めると `-image` を渡した端末が
      起動しなくなる。 */
-  init_posix_dump_image (startup_dump_image);
+  init_posix_dump_image (startup_no_image ? 0 : startup_dump_image,
+                         startup_config_path,
+                         startup_no_image ? 0 : want_default_image);
   startup_from_dump = *app.dump_image && rdump_xyzzy ();
   if (startup_from_dump)
     {
@@ -1206,7 +1232,8 @@ public:
     sa.sa_flags = 0;
     sigaction (SIGWINCH, &sa, NULL);
 
-    init_lisp_engine (argv[0]);
+    /* 既定でイメージを使う (対話起動の速さが効くのはここ)。 */
+    init_lisp_engine (argv[0], 1);
     init_TitleBarStringC ();
 
     // ncurses init
@@ -1396,7 +1423,9 @@ class BatchFrontend : public Frontend
 public:
   int init (int argc, char **argv) override
   {
-    init_lisp_engine (argv[0]);
+    /* **batch は `-image` を明示したときだけ。** 上の init_lisp_engine の
+       コメントを参照 (古いライブラリのイメージで測ってしまう)。 */
+    init_lisp_engine (argv[0], 0);
     init_TitleBarStringC ();
 
     // Create minimal window/buffer infrastructure

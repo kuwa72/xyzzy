@@ -278,22 +278,73 @@ find_section (const ini_file &ini, const std::string &section,
    ウィンドウの位置を書くので結果としていつも存在する。端末ビルドには終了時に
    書くものが無いので、**作らないと「設定ファイルの場所」が指す先が存在しない
    まま**になる。 */
-/* `-image <path>' -> `app.dump_image'。**Win32 の init.cc:628 の移植。**
-   あちらは `CommandLineToArgvW' が UTF-16 の argv を作るので、そのまま
-   `WINFS::GetFullPathName' に通せる。POSIX の argv は UTF-8 なので
-   `widen' を挟むだけで、あとは同じ。
+/* 設定ディレクトリを決める。**Lisp を使わない。**
 
-   **ファイルの存在は見ない。** `-image' は「これを使う、無ければ作る」の
-   指定で、初回は必ず存在しない (`lisp/startup.l` が `dump-xyzzy` で作る)。 */
+   `init_posix_config_paths' はここと同じ決め方をするが、あちらは Lisp の
+   シンボル (`Quser_config_path') に入れるので Lisp が起きた後でしか呼べない。
+   **ダンプイメージの場所はそれより前に決まっていなければならない**
+   (`rdump_xyzzy' がシンボルを作る代わりに走るので、issue #219)。だから
+   決め方だけをここに切り出して、両方から呼ぶ。
+
+   優先順は `-config' -> `XYZZYCONFIGPATH' -> `$HOME'。使えるディレクトリに
+   ならなければ 0 を返す。返す文字列は末尾に `/' が付く。 */
+static int
+posix_config_dir (const char *config_path, std::string &out)
+{
+  if (!config_path || !*config_path)
+    config_path = getenv ("XYZZYCONFIGPATH");
+
+  const char *cand[2];
+  cand[0] = (config_path && *config_path) ? config_path : 0;
+  cand[1] = getenv ("HOME");
+
+  for (int i = 0; i < 2; i++)
+    {
+      if (!cand[i] || !*cand[i])
+        continue;
+      std::string dir (cand[i]);
+      /* `-config' は無ければ作る (`init_posix_config_paths' と同じ)。
+         `$HOME' は既にあるはずで、無ければ次で弾かれる。 */
+      mkdir (dir.c_str (), 0700);
+      struct stat st;
+      if (stat (dir.c_str (), &st) != 0 || !S_ISDIR (st.st_mode))
+        continue;
+      if (dir[dir.size () - 1] != '/')
+        dir += '/';
+      out = dir;
+      return 1;
+    }
+  return 0;
+}
+
+/* `app.dump_image' を決める。宣言のコメント (src/core/conf.h) を参照。 */
 void
-init_posix_dump_image (const char *path)
+init_posix_dump_image (const char *image, const char *config_path,
+                       int want_default)
 {
   *app.dump_image = 0;
-  if (!path || !*path)
+
+  std::string path;
+  if (image && *image)
+    path = image;
+  else if (want_default)
+    {
+      std::string dir;
+      if (!posix_config_dir (config_path, dir))
+        return;
+      path = dir + "xyzzy.wxp";
+    }
+  else
     return;
 
+  /* **Win32 の init.cc:628 と同じ形。** あちらは `CommandLineToArgvW' が
+     UTF-16 の argv を作るのでそのまま `WINFS::GetFullPathName' に通せる。
+     POSIX の argv は UTF-8 なので `widen' を挟むだけ。
+
+     **ファイルの存在は見ない。** 「これを使う、無ければ作る」の指定で、
+     初回は必ず存在しない (`lisp/startup.l' が `dump-xyzzy' で作る)。 */
   wchar_t w[PATH_MAX + 1], *tail;
-  widen (std::string (path), w, numberof (w));
+  widen (path, w, numberof (w));
   DWORD l = WINFS::GetFullPathName (w, numberof (app.dump_image),
                                     app.dump_image, &tail);
   if (!l || l >= numberof (app.dump_image))

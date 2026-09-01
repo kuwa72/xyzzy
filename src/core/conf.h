@@ -147,13 +147,25 @@ void reg_delete_tree ();
    `-config' と `-ini' の値を渡す (無ければ 0 — 環境変数を見る)。 */
 void init_posix_config_paths (const char *config_path, const char *ini_file);
 
-/* `-image <path>' を `app.dump_image' に入れる (src/core/ini-posix.cc)。
-   Win32 の init.cc:628 と同じことを、あちらの `CommandLineToArgvW' +
-   `WINFS::GetFullPathName' の代わりに UTF-8 の argv からやる。
-   **相対指定は絶対パスにする** — 途中で `chdir' すると同じ相対パスが別の
-   ファイルを指すので (`-ini' と同じ理由、issue #219)。
-   使える名前にならなければ `app.dump_image' を空のままにする。 */
-void init_posix_dump_image (const char *path);
+/* ダンプイメージの場所を `app.dump_image' に入れる (src/core/ini-posix.cc)。
+
+   `image' があればそれ (`-image <path>')。**相対指定は絶対パスにする** —
+   途中で `chdir' すると同じ相対パスが別のファイルを指すので (`-ini' と
+   同じ理由、issue #219)。
+
+   `image' が無く `want_default' が真なら、**設定ディレクトリの下の
+   `xyzzy.wxp'**。Win32 は exe の隣に置くが (`init_dump_path')、POSIX で
+   それをすると `/usr/bin' に書こうとして毎回失敗する。設定と同じ場所に
+   置くのが POSIX の作法である。
+
+   `config_path' は `-config' の値 (無ければ 0 — 環境変数を見る)。
+   **`init_posix_config_paths' と同じ決め方を通る**ので、`(user-config-path)'
+   と食い違わない。
+
+   使える名前にならなければ `app.dump_image' を空のままにする (= イメージを
+   使わない)。 */
+void init_posix_dump_image (const char *image, const char *config_path,
+                            int want_default);
 #endif
 
 #endif /* _conf_h_ */
