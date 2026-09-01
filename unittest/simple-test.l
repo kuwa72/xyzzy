@@ -931,6 +931,30 @@ Returns list of failures."
 (setf (get 'with-temp-files 'ed:lisp-indent-hook) 1)
 
 
+;;;; ダンプイメージ
+
+;;; **イメージを使う性質は 2 回起動しないと測れない。** 1 回の起動では
+;;; 「作った」までしか行かない -- 作るのは `lisp/startup.l` の最後で、その run
+;;; 自身はイメージから起きていない。だから
+;;;
+;;;   1 回目: `-image <path>` を渡す。読めないので作って、普通に起動する
+;;;   2 回目: 同じ `-image <path>` で、今度はイメージから起きる
+;;;
+;;; **`-q` を付けるのはオプションの並びのため。** `-image <path>` は先頭の
+;;; ペアとして読まれる (`scan_config_options` / `win32/init.cc` の
+;;; `for (ac = 1; ac < wargc - 1; ac += 2)`) ので、後ろに Lisp が知らない
+;;; ものが来ると打ち切られる。
+(defun dump-image-options (image)
+  (format nil "-image \"~A\" -q" image))
+
+(defmacro with-dump-image ((image) &body body)
+  "ダンプイメージを 1 つ作って、そのパスを IMAGE に束縛して BODY を評価する。"
+  `(with-temp-files (,image)
+     (eval-in-another-xyzzy '(xyzzy-dumped-p) :options (dump-image-options ,image))
+     ,@body))
+(setf (get 'with-dump-image 'ed:lisp-indent-hook) 1)
+
+
 (defvar *test-uid-counter* 0)
 (defun test-uid ()
   (incf *test-uid-counter*))

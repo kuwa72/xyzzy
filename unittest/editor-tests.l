@@ -1162,21 +1162,19 @@
 
 (deftest dump-image-actually-loads ()
   ;; **`image-startup-option` は「オプションが変数に入ったか」しか見ていない。**
-  ;; `fix-*load-pathname*-from-dump-image` の方は自分のコメントで
-  ;; `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と認めている。
-  ;; **どちらもイメージが本当に読めるかを測っていない** ので、ここで測る:
-  ;; 1 回目の子プロセスがイメージを作り、2 回目がそれから起きる。
+  ;; ここはイメージが本当に使われたかを測る (issue #219)。
   ;;
-  ;; 2 回目が `(xyzzy-dumped-p)` = t なら読めていて、そのとき
-  ;; `*load-pathname*` は nil になる (ライブラリを読んでいる最中ではない)。
-  ;; **この 2 つを一緒に見るのが要点** で、片方だけならイメージが無くても
-  ;; 偶然通る (issue #219)。
-  (with-temp-files (image)
-    (let ((options (format nil "-image \"~A\" -q" image)))
-      (eval-in-another-xyzzy '(xyzzy-dumped-p) :options options)
-      (eval-in-another-xyzzy '(list (xyzzy-dumped-p) *load-pathname*)
-                             :options options)))
-  => (t nil))
+  ;; **`(xyzzy-dumped-p)` だけでは足りない。** シンボルが戻っても builtin の
+  ;; 関数ポインタが貼り直されていなければ (`combine_syms`) 何もできないので、
+  ;; ライブラリの関数が生きていることを一緒に見る。
+  ;;
+  ;; `*load-pathname*` の方は `fix-*load-pathname*-from-dump-image`
+  ;; (unittest/nanri-master-change-tests.l) が見ている。
+  (with-dump-image (image)
+    (eval-in-another-xyzzy '(list (xyzzy-dumped-p)
+                                  (and (fboundp 'ed::find-file) t))
+                           :options (dump-image-options image)))
+  => (t t))
 
 
 ;;;;; 起動時に何が走るか
