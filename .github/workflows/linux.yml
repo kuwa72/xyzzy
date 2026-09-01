@@ -39,7 +39,8 @@ jobs:
   native:
     name: linux native (gcc)
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    # build 30 + smoke 20 + lisp suite 20 = 70。残りは checkout と apt の分。
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v7
@@ -73,8 +74,16 @@ jobs:
 
       # The runtime gate for things the lisp suite cannot see: what the terminal
       # actually draws.  See tools/linux-smoke.sh.
+      #
+      # The budget grows with the number of checks: each pty check starts the
+      # editor and waits for the first paint (about 12 seconds on a cold
+      # runner), and several batch checks start it two or three times.  The
+      # suite went from 22 checks to 32 in one day and stopped fitting in ten
+      # minutes -- the step timed out with only the last check left to print,
+      # which reads as a test failure and is not one.  Raise this together with
+      # the job timeout above when checks are added; do not drop a check to fit.
       - name: Smoke test
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: tools/linux-smoke.sh
 
       # The lisp suite, gated on misc/known-failures/{common,linux}.txt.
