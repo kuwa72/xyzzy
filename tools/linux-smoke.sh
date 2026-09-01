@@ -838,4 +838,35 @@ else
   fail=1
 fi
 
+# `--batch` でエラーが見えること (issue #236)。**エラーの行き先がどちらも
+# 描かれないので、1 文字も出ず exit 0 になっていた** --
+# `app.status_window` は画面を描く側が読むバッファで `--batch` では誰も読まず、
+# 重要な側の `MsgBox` は `g_batch_mode` のとき既定のボタンを返すだけ。
+# **スクリプトから見て、壊れているのに成功に見える形だった。**
+#
+# 2 つ見る。**片方だけでは足りない:**
+#
+#   1. stderr にエラーが出ること
+#   2. **stdout には出ないこと。** `tools/bytecompile.sh` と
+#      `misc/run-tests-batch.l` は stdout を読んでいるので、そこへ混ぜると
+#      別のものが壊れる。「出るようにする」だけを測ると、stdout へ出す形に
+#      してしまっても通る
+out=$build/smoke-batch-err-out.txt
+err=$build/smoke-batch-err-err.txt
+"$build/xyzzy" --batch -q -e '(progn (format t "SMOKE-OUT~%") (car 1))' \
+  >"$out" 2>"$err" || true
+if grep -aq '不正なデータ型です' "$err" \
+   && grep -aq '^SMOKE-OUT$' "$out" \
+   && ! grep -aq '不正なデータ型です' "$out"; then
+  echo 'smoke: batch のエラー OK -- stderr に出て、stdout には混ざらない'
+else
+  echo "smoke: batch のエラー FAILED, see $err / $out" >&2
+  echo '-- stderr にエラーがあるか:' >&2
+  grep -ac '不正なデータ型です' "$err" >&2 || true
+  echo '-- stdout に SMOKE-OUT があるか / エラーが混ざっていないか:' >&2
+  grep -ac '^SMOKE-OUT$' "$out" >&2 || true
+  grep -ac '不正なデータ型です' "$out" >&2 || true
+  fail=1
+fi
+
 exit $fail

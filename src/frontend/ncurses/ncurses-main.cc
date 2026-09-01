@@ -52,6 +52,7 @@ void command_loop ();
 void create_default_buffers ();
 lisp Fcommand_execute (lisp command, lisp hook);
 lisp Fkeymapp (lisp);
+extern bool g_batch_mode;       // src/core/Buffer.cc
 
 static void
 ncurses_cleanup ()
@@ -1531,6 +1532,13 @@ int main (int argc, char **argv)
   for (int i = 1; i < argc; i++)
     if (strcmp (argv[i], "--batch") == 0)
       batch_mode = 1;
+
+  /* **core の `g_batch_mode` にも入れる。** これを見ているのは Win32 では
+     `batch-main.cc` が立てていたが、端末版はここのローカル変数だけで済ませて
+     いたので、**core から見ると常に対話**だった。`print_condition`
+     (src/core/lprint.cc) が「描かれない所へ書いて捨てる」のを避けるのに
+     必要である (issue #236)。`Fkill_xyzzy` も同じ値を見る。 */
+  g_batch_mode = batch_mode != 0;
 
   if (batch_mode)
     g_frontend = new BatchFrontend ();
