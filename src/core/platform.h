@@ -1576,9 +1576,52 @@ inline SECURITY_STATUS FreeContextBuffer(void*) { return 0; }
 inline void OutputDebugStringA(LPCSTR) {}
 
 // Time zone
+//
+/* **前はここが `memset` して `TIME_ZONE_ID_UNKNOWN` を返すだけだった。**
+   `Bias` が 0 のままなので**常に UTC**になり、`(get-decoded-time)` の
+   タイムゾーンの欄が常に 0、`encode-universal-time` /
+   `decode-universal-time` をタイムゾーン無しで呼ぶと**地方時の offset の分
+   だけ間違った値**を返していた (issue #204)。エラーは出ない。
+   **devenv のコンテナと CI の runner が両方 TZ=UTC なので、間違った値と
+   正しい値が一致して見えなかった。**
+
+   `Bias` は **「標準時の (UTC - 地方時)」を分で**表したもので、POSIX の
+   `tm_gmtoff` (地方時 - UTC、秒、夏時間を含む) とは符号も単位も基準も違う。
+   呼び出し側 (src/core/environ.cc の `get_timezone`) は
+   `TIME_ZONE_ID_DAYLIGHT` のときに 3600 秒を引くので、そこと噛み合わせる:
+
+       isdst > 0 : Bias = (-tm_gmtoff + 3600) / 60
+       isdst = 0 : Bias = -tm_gmtoff / 60
+
+   検算 (US Eastern の夏、`tm_gmtoff` = -14400): Bias = 300 (= EST の UTC-5)。
+   呼び出し側は `Bias*60 - 3600` = 14400 = UTC - 地方時。合う。
+   東京 (`tm_gmtoff` = 32400、夏時間無し): Bias = -540、`/60` = -9。合う。
+
+   **夏時間の差が 1 時間でない地域は合わない。** 呼び出し側が `-3600` を
+   決め打ちしているためで、この関数だけでは直せない (Win32 は
+   `DaylightBias` を別に持っている)。
+
+   **`tzset` は呼ばない。** glibc の `localtime_r` は呼ばないので、上の
+   `GetLocalTime` は TZ の途中の変更を拾わない。**ここだけ拾うと
+   `(get-decoded-time)` の時刻の欄とタイムゾーンの欄が食い違う。**
+   プロセス開始時の TZ は最初の `localtime_r` が読むので、そちらは効く。
+
+   **`StandardName` / `DaylightName` / `*Date` / `DaylightBias` は 0 のまま。**
+   このツリーに読んでいる所が無い (読む所を書くときに埋めること)。 */
 inline DWORD GetTimeZoneInformation(TIME_ZONE_INFORMATION *tzi) {
   memset(tzi, 0, sizeof(*tzi));
-  return TIME_ZONE_ID_UNKNOWN;
+  time_t now = time(0);
+  struct tm tmbuf;
+  struct tm *tm = localtime_r(&now, &tmbuf);
+  if (!tm)
+    return TIME_ZONE_ID_UNKNOWN;
+  if (tm->tm_isdst > 0)
+    {
+      tzi->Bias = (LONG)((-tm->tm_gmtoff + 3600) / 60);
+      return TIME_ZONE_ID_DAYLIGHT;
+    }
+  tzi->Bias = (LONG)(-tm->tm_gmtoff / 60);
+  return TIME_ZONE_ID_STANDARD;
 }
 /* ミリ秒を埋める (GetSystemTime の注を参照)。 */
 inline void GetLocalTime(SYSTEMTIME *st) {

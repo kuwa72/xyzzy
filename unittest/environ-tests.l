@@ -86,3 +86,68 @@
   (list (let ((d (get-windows-directory))) (if (featurep :unix) (null d) (stringp d)))
         (let ((d (get-system-directory)))  (if (featurep :unix) (null d) (stringp d))))
   => (t t))
+
+;;; --- タイムゾーン --------------------------------------------------------
+;;;
+;;; **POSIX では `GetTimeZoneInformation' が `Bias' を 0 のままにしていたので、
+;;; 常に UTC だった** (issue #204)。`(get-decoded-time)' のタイムゾーンの欄が
+;;; 常に 0、`encode-universal-time' / `decode-universal-time' をタイムゾーン
+;;; 無しで呼ぶと**地方時の offset の分だけ間違った値**を返していた。
+;;; エラーは出ない。
+;;;
+;;; **devenv のコンテナと CI の runner が両方 TZ=UTC なので、間違った値と
+;;; 正しい値が一致して見えなかった。** 同じ理由で見逃していたバグが既に 1 件
+;;; ある (`SystemTimeToFileTime' が `mktime' を使っていた件)。
+;;; **だから TZ を変えた子プロセスで測る。**
+
+;; **両方のプラットフォームで成り立つ性質。** 地方時の欄とタイムゾーンの欄が
+;; 同じ時刻を指していること。
+;;
+;; `(get-decoded-time)' が返すタイムゾーンは**標準時の**offset で、夏時間は
+;; 別の値 (8 番目) で来る。`encode-universal-time' にタイムゾーンを明示すると
+;; 夏時間を足さないので、夏時間の最中はそのぶん引く。
+;;
+;; **UTC の環境ではこのテストは壊れた実装でも通る** (offset が 0 なので
+;; 間違いが見えない)。TZ の効きを見るのは下の 2 件で、こちらは
+;; 「関係が崩れていないこと」を両方のプラットフォームで押さえるためにある。
+(deftest get-decoded-time-agrees-with-get-universal-time ()
+  (multiple-value-bind (sec min hour day month year dow daylight zone)
+      (get-decoded-time)
+    (let ((u (encode-universal-time sec min hour day month year zone)))
+      (when daylight
+        (setq u (- u 3600)))
+      ;; 2 回の呼び出しの間に時計が進むので少しだけ緩める。
+      (< (abs (- u (get-universal-time))) 3)))
+  => t)
+
+;; **TZ を変えた子プロセスで測る。** POSIX 限定 — Win32 は TZ 環境変数では
+;; タイムゾーンが変わらない (レジストリを見る) ので、同じテストにならない。
+;;
+;; `JST-9` は POSIX 形式の TZ (名前 + UTC からの offset を東を負で書く) で、
+;; **`Asia/Tokyo` と違って tzdata のファイルが要らない。** テストが
+;; `/usr/share/zoneinfo` の中身に依らないようにこちらを使う。
+;;
+;; **夏時間は測っていない。** POSIX 形式で夏時間を書くと「今が夏時間の期間か」
+;; に答えが依ってしまい、走らせる日で結果が変わる。
+(deftest get-decoded-time-timezone-follows-tz ()
+  (if (featurep :unix)
+      (list (eval-in-another-xyzzy '(nth 8 (multiple-value-list (get-decoded-time)))
+                                   :environ '(("TZ" . "JST-9")))
+            (eval-in-another-xyzzy '(nth 8 (multiple-value-list (get-decoded-time)))
+                                   :environ '(("TZ" . "UTC0"))))
+    '(-9 0))
+  => (-9 0))
+
+;; **`encode-universal-time' がタイムゾーンを省略したときに地方時として
+;; 解釈すること。** 上のテストは `(get-decoded-time)' の欄を見るだけなので、
+;; `get_timezone' (src/core/environ.cc) を通る経路はこちらで測る。
+;;
+;; JST の 2000-01-01 00:00 は UTC の 1999-12-31 15:00 なので、タイムゾーンを
+;; 0 と明示したときより 32400 秒だけ小さい universal time になる。
+(deftest encode-universal-time-uses-the-local-timezone ()
+  (if (featurep :unix)
+      (eval-in-another-xyzzy '(- (encode-universal-time 0 0 0 1 1 2000)
+                                 (encode-universal-time 0 0 0 1 1 2000 0))
+                             :environ '(("TZ" . "JST-9")))
+    -32400)
+  => -32400)
