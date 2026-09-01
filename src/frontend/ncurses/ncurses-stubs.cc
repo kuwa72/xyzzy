@@ -3425,6 +3425,17 @@ refresh_screen (int f)
   draw_persistent_menu_bar ();
   move (save_y, save_x);
 
+  /* タイトルを出す。**出す先を直しても、呼ばれなければ何も変わらない**
+     (issue #211): Win32 は `src/frontend/win32/disp.cc` の再描画から
+     `set_frame_title` を呼んでいるが、端末側にはその経路が無かった。
+
+     引数の 0 は「変わっていなければ出さない」の意味で、判断は
+     `Buffer::set_frame_title` が持っている (`b_last_title_bar_buffer` と
+     `b_buffer_name_modified`)。**refresh_screen は 1 打鍵ごとに来るので、
+     ここで毎回 OSC を投げるわけではない。** */
+  if (Buffer *bp = selected_buffer ())
+    bp->set_frame_title (0);
+
   // Flush to terminal
   ::refresh ();
 
@@ -4189,6 +4200,43 @@ osc52_copy (const std::string &utf8)
   // Use BEL (\a) terminator — more compatible than ST (\e\\)
   std::string seq = "\033]52;c;" + b64 + "\a";
   // Write directly to terminal, bypassing ncurses
+  ssize_t r = write (STDOUT_FILENO, seq.data (), seq.size ());
+  (void)r;
+}
+
+/* ウィンドウ (タブ) のタイトルを OSC 0 で出す。core が組み立てた UTF-16 を
+   受ける (`frontend_set_frame_title`、src/core/fns.h)。
+
+   **制御文字を落とすのは飾りではない。** POSIX のファイル名には ESC も改行も
+   入れられるので、そのまま流すと**タイトルの中から端末へ好きなエスケープ
+   シーケンスを送り込める。** C0 と DEL、C1 の範囲を落とす。
+
+   終端は BEL ではなく ST (`ESC \`) を使う。BEL だと `tools/linux-smoke.sh`
+   のベルの check (生のバイト列から `\x07` を探す) と混ざって、鳴っていない
+   のに通るようになる (issue #203 で分けた理由がこれ)。
+
+   `stdscr` が 0 のとき (`--batch`) は何もしない。**そこへ書くと stdout を
+   読んでいるテストのログにエスケープが混ざる。** */
+void
+frontend_set_frame_title (const Char *title)
+{
+  if (!stdscr || !title || !isatty (STDOUT_FILENO))
+    return;
+
+  int n = 0;
+  while (title[n] && n < 512)
+    n++;
+
+  ucs4_t cp[512 + 1];
+  ucs4_t *end = w2i ((const ucs2_t *)title, n, cp);
+
+  ucs4_t clean[512 + 1];
+  int m = 0;
+  for (ucs4_t *p = cp; p < end; p++)
+    if (*p >= 0x20 && *p != 0x7f && !(*p >= 0x80 && *p <= 0x9f))
+      clean[m++] = *p;
+
+  std::string seq = "\033]0;" + utf16_to_utf8 (clean, m) + "\033\\";
   ssize_t r = write (STDOUT_FILENO, seq.data (), seq.size ());
   (void)r;
 }

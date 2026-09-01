@@ -451,4 +451,29 @@ else
   fail=1
 fi
 
+# ウィンドウ (タブ) のタイトル。**Lisp スイートからは測れない**: OSC は返り値を
+# 持たず、--batch では出さない (stdout をテストが読んでいる)。生のバイト列で見る。
+log=$build/smoke-title.txt
+XYZZY_PTY_RAW=1 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(find-file "/work/README.md")\r' '\w' \
+  >"$log" 2>&1 || true
+# **塊ごとに分けて見る。** 起動時の塊にはまだ *scratch* のタイトルしか無く、
+# find-file の後の塊に初めてファイル名が出る -- 全体を grep すると
+# 「バッファを切り替えてもタイトルが変わらない」を見逃す。
+if raw_block "$log" 1 | grep -q 'x1b\]0;.*scratch' \
+   && raw_block "$log" 2 | grep -q 'x1b\]0;.*README\.md.*x1b' \
+   && grep -q 'x1b\[22;0t' "$log"; then
+  echo 'smoke: タイトル OK -- OSC 0 が出て、バッファを切り替えると中身が変わる'
+else
+  echo "smoke: タイトル FAILED, see $log" >&2
+  echo "-- 起動時の塊に *scratch* のタイトルがあるか:" >&2
+  raw_block "$log" 1 | grep -c 'x1b\]0;.*scratch' >&2 || true
+  echo "-- find-file の後の塊に README.md のタイトルがあるか:" >&2
+  raw_block "$log" 2 | grep -c 'x1b\]0;.*README\.md' >&2 || true
+  echo "-- 起動時に CSI 22;0t (タイトルを積む) があるか:" >&2
+  grep -c 'x1b\[22;0t' "$log" >&2 || true
+  fail=1
+fi
+
 exit $fail

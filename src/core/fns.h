@@ -315,6 +315,24 @@ void frontend_buffer_deleted (Buffer *);
 void frontend_beep (int type);
 void frontend_flash ();
 
+/* **ウィンドウ (端末ならタブ) のタイトルを出す。**
+ *
+ * **文字列を組み立てるのは core** (`Buffer::refresh_title_bar`、
+ * src/core/Buffer.cc)。`title-bar-format` の展開、ファイル名とアプリ名の
+ * 並び順 (`*title-bar-text-order*`)、管理者権限の印はどの環境でも同じ答えを
+ * 出すべきものなので、フロントエンドが持つのは「どこへ出すか」だけである。
+ *
+ * 引数は UTF-16 (`Char`) の NUL 終端。**ここを `wchar_t` にしないのは、
+ * core が組み立てているのが UTF-16 だから**で、POSIX の `wchar_t` は 4 バイト
+ * なので変換が要る (ncurses 側でやる)。
+ *
+ * これが seam なのは、**そうしないと core が user32 を呼ぶ**ためである。
+ * 元は `SetWindowTextW (app.toplev, ...)` を直に 2 箇所で呼んでいて、POSIX で
+ * は `SetWindowTextW` が `FALSE` を返すだけのスタブだったので**組み立てた
+ * 文字列を捨てていた** (issue #211)。端末には OSC 0 があるので、無いのは
+ * 相当物ではなく出口だけだった。 */
+void frontend_set_frame_title (const Char *title);
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 
