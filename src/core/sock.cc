@@ -13,18 +13,34 @@
 
 resolver sock::s_resolver;
 
-#define WSOCKDEF(TYPE, NAME, ARGS, RESULT) TYPE (WINAPI *WINSOCK::NAME) ARGS;
-  WINSOCK_FUNCTIONS
-#undef WSOCKDEF
-
 #define __CONCAT(X, Y) X ## Y
 #define _CONCAT(X, Y) __CONCAT (X, Y)
 #define CONCAT(X, Y) _CONCAT (X, Y)
 #define _TOSTR(X) #X
 #define TOSTR(X) _TOSTR (X)
 
+/* 何もせず失敗を返す実装。`WSOCKDEF` の第 4 引数がその失敗値である
+   (`INVALID_SOCKET` / `SOCKET_ERROR` / `WSASYSNOTREADY`)。 */
 #define WSOCKDEF(TYPE, NAME, ARGS, RESULT) \
   static TYPE WINAPI CONCAT (dummy_, NAME) ARGS {return RESULT;}
+  WINSOCK_FUNCTIONS
+#undef WSOCKDEF
+
+/* **表は最初から埋めておく。null にしない** (issue #223)。
+
+   `WS_CALL (FN)` は `(*WINSOCK::FN)(...)` で、**null なら関数ポインタの
+   null 呼び出し = SIGSEGV になる。** 実際に POSIX がその状態だった:
+   表を埋める `init_winsock_functions` を呼ぶのは `sock::init_winsock` の
+   `#ifdef _WIN32` 側だけで、しかも `sock::init_winsock` 自体を呼ぶのは
+   `src/frontend/win32/init.cc` の 1 か所だけだったので、**POSIX では
+   一度も埋まらないまま `(connect ...)` が呼べた。** `handler-case` でも
+   捕まらないので、対話中に呼べば未保存のバッファごとプロセスが消えた。
+
+   ここで dummy を入れておけば、**呼ばれる順序に関係なく最悪でも「正直な
+   失敗」**になる。Win32 では `init_winsock_functions` が本物で上書きする。
+   その関数を呼び忘れても落ちなくなるので、Win32 側にとっても安全側である。 */
+#define WSOCKDEF(TYPE, NAME, ARGS, RESULT) \
+  TYPE (WINAPI *WINSOCK::NAME) ARGS = CONCAT (dummy_, NAME);
   WINSOCK_FUNCTIONS
 #undef WSOCKDEF
 

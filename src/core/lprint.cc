@@ -1405,7 +1405,33 @@ print_error (wStream &stream, const print_control &, lisp object)
           }
       }
 #else
-      /* POSIX では WSA* は errno そのもの。strerror が正しい。 */
+      /* POSIX では WSA* の**ほとんどは** errno の別名なので strerror が正しい。
+
+         **例外がある。** ソケットの一生に関わる 4 つは errno に対応物が無く、
+         `platform.h` でも Win32 の番号のまま置いてある (10091..10101)。
+         そのまま `strerror` に渡すと「Unknown error 10091」になる。
+         `dummy_WSAGetLastError` が `WSASYSNOTREADY` を返すので、**POSIX で
+         ソケットを触ると最初に出るのがこれである** (issue #223)。
+
+         `WSAHOST_NOT_FOUND` (1) 以下の名前解決の 4 つは**ここでは扱えない。**
+         POSIX では 1..4 が `EPERM`..`EINTR` と完全に重なっていて、番号だけでは
+         見分けられない。名前解決を POSIX で実装する (issue #223 の段取り 3)
+         ときに、`getaddrinfo` の戻り値を別の category で持つ形で直す。 */
+      switch (e)
+        {
+        case WSASYSNOTREADY:
+          stream.add ("Socket subsystem is not available");
+          return;
+        case WSAVERNOTSUPPORTED:
+          stream.add ("Socket implementation version not supported");
+          return;
+        case WSANOTINITIALISED:
+          stream.add ("Socket subsystem has not been initialized");
+          return;
+        case WSAEDISCON:
+          stream.add ("Remote party has initiated a graceful shutdown");
+          return;
+        }
       stream.add (strerror (e));
       return;
 #endif
