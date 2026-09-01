@@ -620,6 +620,11 @@ MSG (Etimezone_is_integral_multiple_of_1_3600,
      "タイムゾーンは1/3600の整数倍です"),
 MSG (Eremove_not_supported,
      "削除はサポートしていません"),
+/* **`:ssl t` を渡されたときに使う。** ここが無かったので
+   `Eremove_not_supported` を流用していて、POSIX で SSL を頼むと
+   「削除はサポートしていません」と出ていた (issue #229)。 */
+MSG (Essl_not_supported,
+     "SSLはこのビルドではサポートしていません"),
 MSG (Eremove_error,
      "削除中にエラーが発生しました"),
 MSG (Ecannot_open_bmp_file,

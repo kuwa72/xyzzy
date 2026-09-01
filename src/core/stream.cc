@@ -868,7 +868,12 @@ Fconnect (lisp lhost, lisp lport, lisp keys)
           lisp lverify_mode = find_keyword (Kssl_verify_mode, keys);
           xsocket_stream_sock (stream) = new sockssl (lhost, lverify_mode);
 #else
-          FEsimple_error (Eremove_not_supported);
+          /* **SSL は SChannel で書かれていて (src/core/sockssl.cc、全体が
+             `#ifdef _WIN32`)、POSIX には実体が無い。** 黙って平文で通信
+             するのではなく、はっきり断る -- SSL を頼んだのに平文で送るのは
+             エラーより悪い。文言は issue #229 で `Eremove_not_supported`
+             (「削除はサポートしていません」) から直した。 */
+          FEsimple_error (Essl_not_supported);
 #endif
         }
       else
@@ -946,7 +951,8 @@ Fssl_do_handshake (lisp stream, lisp lserver_name, lisp keys)
       xsocket_stream_sock (stream) = ssl;
       ssl->handshake ();
 #else
-      FEsimple_error (Eremove_not_supported);
+      /* 上の `Fconnect` と同じ (issue #229)。 */
+      FEsimple_error (Essl_not_supported);
 #endif
     }
   catch (sock_error &e)
@@ -2395,6 +2401,25 @@ create_std_stream (stream_type type, FILE *fi, FILE *fo)
   lisp stream = make_file_stream (type);
   xfile_stream_input (stream) = fi;
   xfile_stream_output (stream) = fo;
+#ifndef _WIN32
+  /* **POSIX の標準入出力は UTF-8 で、行末は LF。**
+
+     既定は `make_stream` の `ENCODE_CANON` で、これは **CP932 + CRLF** で
+     ある。Win32 の日本語コンソールではそれが正しいが、POSIX では
+
+       * 日本語が全部化ける。`xyzzy --batch -q -e '(car 1)'` のエラーが
+         `\x95\x73\x90\xb3...` (CP932 の「不正なデータ型です」) で出ていた。
+         **メッセージ表は壊れていない** -- `char-code` で見ると内部表現は
+         正しく、出口で CP932 に落としていた
+       * 行末に `\r` が付く。他のコマンドへ繋ぐと CR が混ざる
+
+     `ENCODE_RAW_UTF8` は「UTF-8 で行末変換しない」(src/core/stream.h)。
+
+     **対話の端末フロントエンドはここを通らない** ので化けていなかった
+     (`*standard-output*` は status stream)。だから smoke の日本語の確認は
+     通っていて、`--batch` の側だけ壊れていた。 */
+  xfile_stream_encoding (stream) = lstream::ENCODE_RAW_UTF8;
+#endif
   return stream;
 }
 
