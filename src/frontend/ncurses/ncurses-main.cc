@@ -234,6 +234,8 @@ init_home_dir ()
 // 始める前に決まっていなければならない)。
 static const char *startup_config_path;
 static const char *startup_ini_file;
+// `-image' の値。init_lisp_engine が app.dump_image に入れる (issue #219)。
+static const char *startup_dump_image;
 // Lisp に渡す引数はここから。`-config' / `-ini' は Lisp が知らない
 // (estartup.l の process-command-line-1 に case が無く、ファイル名として
 // find-file されてしまう) ので、**取り除いて渡す。**
@@ -268,6 +270,8 @@ scan_config_options (int argc, char **argv)
         startup_config_path = argv[i + 1];
       else if (!strcmp (argv[i], "-ini"))
         startup_ini_file = argv[i + 1];
+      else if (!strcmp (argv[i], "-image"))
+        startup_dump_image = argv[i + 1];
       else
         break;
       i += 2;
@@ -635,7 +639,12 @@ init_env_symbols (const char *argv0)
   xsymbol_value (Vfeatures) = xcons (Kncurses,
                                 xcons (Kxyzzy,
                                   xcons (Kieee_floating_point, Qnil)));
-  xsymbol_value (Qdump_image_path) = Qnil;
+  /* `-image' が無ければ nil のまま。**Win32 は exe 名から必ず導くので
+     いつも非 nil** だが、端末版でそれを真似すると起動のたびに 4 MB の
+     イメージを書こうとすることになるので、指定されたときだけ使う
+     (issue #219)。 */
+  xsymbol_value (Qdump_image_path) =
+    *app.dump_image ? make_path (app.dump_image, 0) : Qnil;
   xsymbol_value (Qsystem_path) = make_string (argv0);
   init_module_dir ();
   init_current_dir ();
@@ -955,13 +964,37 @@ self_test_minibuffer ()
 lisp read_minibuffer (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int, int, lisp, int);
 
 // Common Lisp engine initialization (shared by all frontends)
+/* ダンプイメージから起きたか。`load_startup` がこれを見て、Lisp の
+   `si:*startup` を直に呼ぶか startup.l を読むかを決める。 */
+static int startup_from_dump;
+
 static void
 init_lisp_engine (const char *argv0)
 {
   init_ucs2_table ();
-  init_syms ();
-  init_symbol_value_once ();
-  init_condition ();
+
+  /* **`-image` が指すイメージがあれば、シンボルを作る代わりに読む。**
+     Win32 の `init_lisp_objects` (src/frontend/win32/init.cc) と同じ形で、
+     読めたら `combine_syms` が builtin の関数ポインタを名前で貼り直す
+     (イメージに関数ポインタは入っていない、src/core/data.cc の
+     `rdump_object (FILE *, lfunction *, ...)` 参照)。
+
+     **読めなくても黙って続ける。** 初回は必ず無いし、バイナリを作り直した
+     あとの古いイメージも読めない。そこで止めると `-image` を渡した端末が
+     起動しなくなる。 */
+  init_posix_dump_image (startup_dump_image);
+  startup_from_dump = *app.dump_image && rdump_xyzzy ();
+  if (startup_from_dump)
+    {
+      combine_syms ();
+      rehash_all_hash_tables ();
+    }
+  else
+    {
+      init_syms ();
+      init_symbol_value_once ();
+      init_condition ();
+    }
   init_syntax_spec ();
   syntax_state::init_color_table ();
   init_env_symbols (argv0);
@@ -978,6 +1011,25 @@ load_startup (void (*slog)(const char *))
 {
   try
     {
+      /* **イメージから起きたときは startup.l を読まない。** イメージには
+         startup.l が定義した Lisp の `si:*startup` (= `(ed::startup)`) が
+         入っているので、それを呼べば済む。ここで startup.l を読み直すと
+         ライブラリを全部読み直すことになり、イメージを使う意味が無くなる。
+         Win32 が `Ffuncall (Ssi_startup, Qnil)` 一本で済ませているのはこの
+         ためで、非ダンプ時の `si:*startup` は「startup ライブラリを読む」
+         builtin (`src/core/window-lisp.cc` の `Fsi_startup`) である。
+
+         端末版はここで自前に探している (`lisp/startup.l` を**ソースで**
+         読む必要がある -- `.lc` は `:ncurses` 無しで作られている) ので、
+         ダンプ経路だけを分ける。 */
+      if (startup_from_dump)
+        {
+          if (slog) slog ("starting from the dump image");
+          Ffuncall (Ssi_startup, Qnil);
+          if (slog) slog ("dump image startup OK");
+          return 1;
+        }
+
       lisp startup_path = Qnil;
       lisp mod = xsymbol_value (Qmodule_dir);
       if (mod != Qnil && stringp (mod))

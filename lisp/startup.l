@@ -85,5 +85,21 @@
   (lisp::snarf-documentation)
   (dump-xyzzy))
 
+;;; **端末版は `-image' を渡されたときだけイメージを作る** (issue #219)。
+;;; Win32 は exe の名前からイメージのパスを必ず導くので `(si:dump-image-path)'
+;;; が常に非 nil で、初回起動で黙って作る。端末版で同じことをすると、
+;;; `xyzzy' と打つだけで 4 MB のファイルが増えることになる。**指定した人だけ
+;;; 使う形にした。**
+;;;
+;;; ここに来るのは「イメージから起きなかった」場合だけである
+;;; (`load_startup` がイメージから起きたときは startup.l を読まない)。
+;;; つまり `-image` が指す先が無いか、バイナリを作り直して読めなくなった
+;;; ときで、**どちらも作り直すのが正しい。**
+#+ncurses
+(unless (or (xyzzy-dumped-p) (null (si:dump-image-path)))
+  (ed::init-misc-objects)
+  (lisp::snarf-documentation)
+  (dump-xyzzy))
+
 (si:*startup)
 

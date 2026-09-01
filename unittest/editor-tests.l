@@ -1160,6 +1160,24 @@
                  :options (format nil "-image \"~A\" -q" image-path))))
   => t)
 
+(deftest dump-image-actually-loads ()
+  ;; **`image-startup-option` は「オプションが変数に入ったか」しか見ていない。**
+  ;; `fix-*load-pathname*-from-dump-image` の方は自分のコメントで
+  ;; `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と認めている。
+  ;; **どちらもイメージが本当に読めるかを測っていない** ので、ここで測る:
+  ;; 1 回目の子プロセスがイメージを作り、2 回目がそれから起きる。
+  ;;
+  ;; 2 回目が `(xyzzy-dumped-p)` = t なら読めていて、そのとき
+  ;; `*load-pathname*` は nil になる (ライブラリを読んでいる最中ではない)。
+  ;; **この 2 つを一緒に見るのが要点** で、片方だけならイメージが無くても
+  ;; 偶然通る (issue #219)。
+  (with-temp-files (image)
+    (let ((options (format nil "-image \"~A\" -q" image)))
+      (eval-in-another-xyzzy '(xyzzy-dumped-p) :options options)
+      (eval-in-another-xyzzy '(list (xyzzy-dumped-p) *load-pathname*)
+                             :options options)))
+  => (t nil))
+
 
 ;;;;; 起動時に何が走るか
 ;;;

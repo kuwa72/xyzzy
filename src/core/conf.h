@@ -146,6 +146,14 @@ void reg_delete_tree ();
    `init_user_config_path' / `init_user_inifile_path' に相当する。
    `-config' と `-ini' の値を渡す (無ければ 0 — 環境変数を見る)。 */
 void init_posix_config_paths (const char *config_path, const char *ini_file);
+
+/* `-image <path>' を `app.dump_image' に入れる (src/core/ini-posix.cc)。
+   Win32 の init.cc:628 と同じことを、あちらの `CommandLineToArgvW' +
+   `WINFS::GetFullPathName' の代わりに UTF-8 の argv からやる。
+   **相対指定は絶対パスにする** — 途中で `chdir' すると同じ相対パスが別の
+   ファイルを指すので (`-ini' と同じ理由、issue #219)。
+   使える名前にならなければ `app.dump_image' を空のままにする。 */
+void init_posix_dump_image (const char *path);
 #endif
 
 #endif /* _conf_h_ */
