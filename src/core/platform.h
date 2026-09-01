@@ -1759,16 +1759,39 @@ inline DWORD ExpandEnvironmentStringsW(LPCWSTR src, LPWSTR dst, DWORD n) {
   return (DWORD)(l + 1);
 }
 inline int GetSystemMetrics(int) { return 0; }
-inline LONG RegOpenKeyExW(HKEY, LPCWSTR, DWORD, DWORD, HKEY*) { return 1; }
-inline LONG RegQueryValueExW(HKEY, LPCWSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
+// Registry
+//
+// **失敗を 1 で返してはいけない。** Reg* は他の Win32 API と違って、
+// エラーコードを GetLastError () ではなく戻り値で返す。呼び出し側
+// (src/core/environ.cc の Registry 系) はそれを
+//
+//     if (e != ERROR_SUCCESS) { hkey = 0; SetLastError (e); }
+//
+// と持ち回し、POSIX の SetLastError は errno への代入なので (上の
+// GetLastError () / SetLastError を参照)、**Win32 の作法の 1 がそのまま
+// errno の 1 = EPERM になり、(write-registry ...) が「Operation not
+// permitted」で失敗していた** (issue #212)。レジストリが無いことと権限が
+// 足りないことは別の話で、あの文言は chmod や sudo を探させる。
+//
+// ENOSYS ならその経路を通っても意味が変わらない: 「このプラットフォームに
+// その機能が無い」。**それがここで起きていることそのものである。**
+// ERROR_SUCCESS (0) 以外なので失敗の判定は変わらず、特別扱いされている
+// ERROR_FILE_NOT_FOUND (2, WriteRegistry::remove) と
+// ERROR_NO_MORE_ITEMS (259, 列挙の終端) のどちらとも衝突しない。
+//
+// 番号の空間を跨いで裸の整数を持ち回ると誤って当たる、という同じ話は
+// src/core/error.h の category に書いてある (issue #120)。
+#define REG_ERROR_NOT_IMPLEMENTED ENOSYS
+inline LONG RegOpenKeyExW(HKEY, LPCWSTR, DWORD, DWORD, HKEY*) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegQueryValueExW(HKEY, LPCWSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return REG_ERROR_NOT_IMPLEMENTED; }
 inline LONG RegCloseKey(HKEY) { return 0; }
-inline LONG RegCreateKeyExW(HKEY, LPCWSTR, DWORD, LPWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, HKEY*, DWORD*) { return 1; }
-inline LONG RegSetValueExW(HKEY, LPCWSTR, DWORD, DWORD, const BYTE*, DWORD) { return 1; }
-inline LONG RegDeleteValueW(HKEY, LPCWSTR) { return 1; }
-inline LONG RegDeleteKeyW(HKEY, LPCWSTR) { return 1; }
-inline LONG RegEnumKeyExW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, LPWSTR, DWORD*, FILETIME*) { return 1; }
-inline LONG RegEnumValueW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
-inline LONG RegQueryInfoKeyW(HKEY, LPWSTR, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, FILETIME*) { return 1; }
+inline LONG RegCreateKeyExW(HKEY, LPCWSTR, DWORD, LPWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, HKEY*, DWORD*) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegSetValueExW(HKEY, LPCWSTR, DWORD, DWORD, const BYTE*, DWORD) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegDeleteValueW(HKEY, LPCWSTR) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegDeleteKeyW(HKEY, LPCWSTR) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegEnumKeyExW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, LPWSTR, DWORD*, FILETIME*) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegEnumValueW(HKEY, DWORD, LPWSTR, DWORD*, DWORD*, DWORD*, BYTE*, DWORD*) { return REG_ERROR_NOT_IMPLEMENTED; }
+inline LONG RegQueryInfoKeyW(HKEY, LPWSTR, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, DWORD*, FILETIME*) { return REG_ERROR_NOT_IMPLEMENTED; }
 
 // GDI stubs
 inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return 0; }
