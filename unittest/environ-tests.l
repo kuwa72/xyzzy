@@ -151,3 +151,48 @@
                              :environ '(("TZ" . "JST-9")))
     -32400)
   => -32400)
+
+
+;;;;; レジストリ
+
+;; POSIX にレジストリは無い。**読み側が nil を返すのは嘘ではない** (値が無い
+;; のだから)。問題は書き側の文言だった:
+;;
+;;   (write-registry "Settings" "Foo" "bar")
+;;     => error: Operation not permitted: "Settings"
+;;
+;; `Reg*` は他の Win32 API と違ってエラーコードを戻り値で返し、
+;; `src/core/environ.cc` の Registry 系がそれを `SetLastError (e)` に渡す。
+;; POSIX の `SetLastError` は errno への代入なので、**スタブの「失敗 = 1」が
+;; errno の 1 = `EPERM` になっていた。** レジストリが無いことと権限が足りない
+;; ことは別の話で、あの文言は chmod や sudo を探させる (issue #212)。
+;;
+;; **Windows では書き込みが本当に成功する**ので、この節は POSIX だけで測る。
+;; テストが HKCU\Software\... に本物の値を書き残さないようにするためで、
+;; 「Windows は測らなくてよい」という意味ではない。
+
+(deftest write-registry-error-is-not-nonsense ()
+  "書けないときの文言が、その環境で意味を持たないものになっていないか。
+
+**期待値を文言そのもので書かない** (`strerror` は locale で変わる。コンテナは
+`C.UTF-8`)。代わりに「出てはいけないもの」を見る -- `create-directory` で
+同じことをしている (`unittest/directory-ops-tests.l` の
+`file-error-message-is-not-nonsense`、issue #121)。"
+  (if (featurep :unix)
+      (let ((msg (handler-case
+                     (progn (write-registry "Settings" "xyzzy-test-key" "x") nil)
+                   (error (e) (format nil "~A" e)))))
+        (list (and msg t)
+              (not (and msg (string-match "not permitted" msg)))
+              (not (and msg (string-match "Undocumented win32 error" msg)))))
+    '(t t t))
+  => (t t t))
+
+(deftest read-registry-is-quiet ()
+  "読み側は黙って nil。**書き側と揃えてエラーにはしない** -- 値が無いことは
+その環境で意味のある答えである。"
+  (if (featurep :unix)
+      (list (read-registry "Settings" "xyzzy-test-key")
+            (list-registry-key "Settings"))
+    '(nil nil))
+  => (nil nil))

@@ -1447,6 +1447,47 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
     見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
     ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
+  * **POSIX で `write-registry` のエラーが「Operation not permitted」に
+    なっていたのを直した** (issue #212)。**あの文言は嘘である** -- レジストリが
+    無いことと権限が足りないことは別の話で、ユーザに `chmod` や `sudo` を
+    探させる。
+
+    `Reg*` は他の Win32 API と違って**エラーコードを `GetLastError ()` では
+    なく戻り値で返す。** `src/core/environ.cc` の Registry 系はそれを
+
+    ```cpp
+    if (e != ERROR_SUCCESS) { hkey = 0; SetLastError (e); }
+    ```
+
+    と持ち回し、POSIX の `SetLastError` は errno への代入 (`platform.h`) なので、
+    **スタブの「失敗 = 1」がそのまま errno の 1 = `EPERM` になっていた。**
+    番号の空間を跨いで裸の整数を持ち回ると誤って当たる、という #120 と同じ
+    話がここにも残っていた。
+
+    スタブが `ENOSYS` を返すようにした。その経路を通っても意味が変わらない:
+    **「このプラットフォームにその機能が無い」がここで起きていることそのもの**
+    である。`ERROR_SUCCESS` 以外なので失敗の判定は変わらず、特別扱いされて
+    いる `ERROR_FILE_NOT_FOUND` (2) と `ERROR_NO_MORE_ITEMS` (259) の
+    どちらとも衝突しない。**core は 1 行も触っていない。**
+
+    ```
+    変更前: Operation not permitted: "Settings"
+    変更後: Function not implemented: "Settings"
+    ```
+
+    **読み側は nil のままにした。** `read-registry` / `list-registry-key` が
+    黙って nil を返すのは嘘ではない (値が無いのだから)。書き側と揃えて
+    エラーにする理由が無い。
+
+    起動には影響しない (測った)。`lisp/history.l` の compat 経路は
+    `*convert-registry-to-file-p*` で門が閉まっていて、**この変数は
+    `src/frontend/win32/init.cc` でしか設定されない**ので端末版では nil の
+    ままである。
+
+    テストは**期待値を文言そのもので書かず、「出てはいけないもの」を見る**形に
+    した (`strerror` は locale で変わる)。`create-directory` で同じことを
+    している (issue #121)。負の確認で、`ENOSYS` を 1 に戻すと
+    `write-registry-error-is-not-nonsense` **だけ**が落ちることを確かめた。
   * **端末版でウィンドウ (タブ) のタイトルが出るようにした** (issue #211)。
     `Buffer::refresh_title_bar` (`src/core/Buffer.cc`) は組み立てたタイトルを
     `SetWindowTextW (app.toplev, ...)` へ渡していて、POSIX ではそれが
