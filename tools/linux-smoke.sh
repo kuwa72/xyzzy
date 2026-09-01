@@ -898,4 +898,32 @@ else
   fail=1
 fi
 
+# `--batch` の終了コード (issue #236 の段取り 2)。**エラーが見えるように
+# なっても、exit 0 のままではスクリプトは気付けない。**
+#
+# 3 つ見る。**「エラーで 1 になる」だけを測ると、常に 1 を返す形にしても
+# 通る。**
+#
+#   1. 報告まで来たエラー -> 1 (誰も処理しなかったエラーなので run は失敗)
+#   2. **正常な出力と警告 -> 0。** 警告は報告するが失敗ではない。
+#      **1 つの run にまとめてある** -- 起動が cold な runner で 15 秒ほど
+#      かかるので、分けると smoke の予算を食う (実際に 10 分の step timeout に
+#      当たった)。どちらかが 1 を返せばこの run が 1 になるので、まとめても
+#      落ちる側は変わらない
+#   3. **後から走る `kill-xyzzy` が勝つ。** `misc/run-tests-batch.l` が自分で
+#      pass/fail を返すので、ここを取り違えるとテストの結果が上書きされる
+ec () {   # ec <lisp> : 終了コードだけを出す
+  "$build/xyzzy" --batch -q -e "$1" >/dev/null 2>/dev/null && echo 0 || echo $?
+}
+e_err=$(ec '(car 1)')
+e_ok=$(ec '(progn (warn "w") (format t "x~%"))')
+e_kill=$(ec '(progn (setq ed::*post-startup-hook* (list (function (lambda () (kill-xyzzy t))))) (car 1))')
+if [ "$e_err" = 1 ] && [ "$e_ok" = 0 ] && [ "$e_kill" = 0 ]; then
+  echo 'smoke: batch の終了コード OK -- エラーで 1、正常と警告は 0、kill-xyzzy が勝つ'
+else
+  echo "smoke: batch の終了コード FAILED" >&2
+  echo "-- エラー: $e_err (1 のはず) / 正常と警告: $e_ok (0) / kill-xyzzy: $e_kill (0)" >&2
+  fail=1
+fi
+
 exit $fail

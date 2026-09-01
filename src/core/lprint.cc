@@ -4234,18 +4234,54 @@ print_condition (lisp cc)
      `tools/bytecompile.sh` と `misc/run-tests-batch.l` が stdout を読んで
      いるため。encoding は `create_std_stream` が決めたものに従う
      (POSIX は UTF-8、Win32 のコンソールは CP932 -- issue #229)。
-     **終了コードは変えていない。** 呼び元を全部見てから決める話なので
-     分けてある (#236 の段取り 2)。 */
+
+     **終了コードもここで立てる** (#236 の段取り 2)。報告まで来たエラーは
+     「誰も処理しなかったエラー」なので、`--batch` の run はそれで失敗で
+     ある。`handler-case` で捕まえたものはここへ来ない。
+
+     **警告では立てない。** 警告は報告するが失敗ではない。判定は下の
+     `putmsg` の beep の選び分けと同じ `:warning` の subtypep を使う。
+
+     **後から走る `kill-xyzzy` が上書きする。** `Fkill_xyzzy` は
+     `app.exit_code` を引数から入れ直すので、**明示的に終了コードを
+     決めているものはそのまま勝つ** (`misc/run-tests-batch.l` が自分で
+     pass/fail を返すのがこれ)。測った通り:
+
+       -e '(car 1)' + *post-startup-hook* で (kill-xyzzy t)  -> 0
+       -e '(car 1)' -e '(kill-xyzzy t)'                      -> 1
+       *post-startup-hook* で (kill-xyzzy 5)                 -> 5
+
+     2 つめが 1 なのは上書きされないからではなく、**エラーがコマンドラインの
+     残りを打ち切るから**である (`trap-errors` が `process-command-line`
+     全体を包んでいるので、`-e` が 1 つ落ちると後ろの `-e` は走らない)。
+     `*post-startup-hook*` は別の `trap-errors` の中なので走る。
+
+     呼び元を見た結果 (#236 の段取り 2 の前提):
+
+       * `tools/bytecompile.sh` -- **既に非 0 を許している**
+         (「xyzzy exiting non-zero after writing the whole library is not a
+         reason to stop」と書いてあり、`.lc` の数と鮮度で判定する)
+       * `misc/run-tests-batch.l` -- 最後に `(kill-xyzzy <code>)` で上書き
+       * `unittest/simple-test.l` の `eval-in-another-xyzzy` --
+         **終了コードを見ていない** (`process-status` が `:run` でなくなる
+         のを待って結果ファイルを読む)
+       * `tools/linux-smoke.sh` のエラーを出す check -- `|| true` 付き
+       * `.github/workflows/build.yml` -- 走らせるのは run-tests-batch.l */
   if (g_batch_mode && streamp (xsymbol_value (Verror_output)))
-    try
-      {
-        wStreamsStream stream (xsymbol_value (Verror_output));
-        print_condition (stream, cc);
-        stream.add ('\n');
-      }
-    catch (nonlocal_jump &)
-      {
-      }
+    {
+      try
+        {
+          wStreamsStream stream (xsymbol_value (Verror_output));
+          print_condition (stream, cc);
+          stream.add ('\n');
+        }
+      catch (nonlocal_jump &)
+        {
+        }
+      if (Fsi_structure_subtypep (xstrdata_def (cc),
+                                  xsymbol_value (QCwarning)) == Qnil)
+        app.exit_code = EXIT_FAILURE;
+    }
 
   try
     {
