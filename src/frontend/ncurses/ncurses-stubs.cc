@@ -7240,11 +7240,16 @@ Fquit_char ()
   return make_char (Char (ncurses_quit_char));
 }
 
+/* **`nil` を黙って受けてはいけない。** ここには
+   `if (!c || c == Qnil) return Qnil;` が入っていて、Win32 側
+   (`src/frontend/win32/toplev.cc` の `Fset_quit_char`) は `check_char` を
+   先に通すので、**同じ `(set-quit-char nil)` が端末では nil、Win32 では
+   型エラー**になっていた。引数は 1 つ必須 (`lisp/builtin.l` の宣言も
+   `(char)`) なので、nil は呼ぶ側の間違いである。**受け側で黙って飲むと
+   「効かない」形で残る。** Win32 に揃えた (#234 のテストを書いていて出た)。 */
 lisp
 Fset_quit_char (lisp c)
 {
-  if (!c || c == Qnil)
-    return Qnil;
   check_char (c);
   ncurses_quit_char = xchar_code (c);
   return c;

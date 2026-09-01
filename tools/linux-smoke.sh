@@ -869,4 +869,33 @@ else
   fail=1
 fi
 
+# `buffer-selector` (#234)。**`--batch` からは測れない** -- ミニバッファで
+# 聞くので、答える相手が要る。`unittest/frontend-entry-tests.l` に置けなかった
+# 分がこれである。
+#
+# 2 つ見る:
+#
+#   1. プロンプトが出ること (「バッファの選択: 」)
+#   2. **既定が `other-buffer` になっていて、RET でそれが返ること。**
+#      返るのは名前の文字列ではなく**バッファそのもの** (`complete_read` に
+#      `:buffer-name` を渡しているので変換される)。ここを名前で期待すると、
+#      変換が落ちたときに通ってしまう
+log=$build/smoke-buffer-selector.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(progn (get-buffer-create "ZZZTEST") nil)\r' '\w' \
+  '\e\e(format nil "BS=[~A]" (buffer-selector))\r' '\w' '\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'バッファの選択: ' "$log" \
+   && grep -q 'BS=\[#<buffer: ZZZTEST>\]' "$log"; then
+  echo 'smoke: buffer-selector OK -- プロンプトが出て、既定の他バッファが返る'
+else
+  echo "smoke: buffer-selector FAILED, see $log" >&2
+  echo '-- プロンプトが出ているか:' >&2
+  grep -c 'バッファの選択: ' "$log" >&2 || true
+  echo '-- 返り値 (BS=[...]):' >&2
+  grep -o 'BS=\[[^]]*\]' "$log" | head -2 >&2 || true
+  fail=1
+fi
+
 exit $fail

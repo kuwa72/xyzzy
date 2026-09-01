@@ -1510,6 +1510,45 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
       * `wcwidth` を 1 に潰す -> `popup-list` と `popup-string` の両方が落ちる
       * コールバックの `funcall_1` を消す -> `popup-list` だけが落ちる
 
+  * **`(set-quit-char nil)` が端末では nil、Win32 では型エラーだったのを
+    揃えた** (#234 のテストを書いていて出た)。
+
+    端末側に `if (!c || c == Qnil) return Qnil;` が入っていて、Win32 側
+    (`src/frontend/win32/toplev.cc`) は `check_char` を先に通す。**同じ
+    呼びが片方だけ通っていた。** 引数は 1 つ必須 (`lisp/builtin.l` の宣言も
+    `(char)`) なので nil は呼ぶ側の間違いで、**受け側で黙って飲むと
+    「中断文字が変わらない」形で残る。** Win32 に揃えた。
+
+    端末では `C-g` を入力から直に見ている (`ncurses-kbd.cc` の
+    `ncurses_quit_char`) ので、ここが効かないと**走っている Lisp を
+    止められなくなる** (issue #162 で入れた経路)。
+
+  * **フロントエンドの Lisp 入口にテストを 22 件 + 確認 1 件足した** (#234)。
+    実装があるのに測られていなかった 24 個のうち、**`--batch` から測れる
+    ものを片付けた。**
+
+    | | 何を見るか |
+    | --- | --- |
+    | `screen-width` / `screen-height` / `window-width` | **数ではなく関係。** 実測で linux は 80x24、Wine は 119x45 で、端末の大きさと GUI のフォントで決まる。分割して足したら画面に収まること (境界の桁を二重に数えていないこと) |
+    | `quit-char` / `set-quit-char` | 書いた文字が読めること。**書く方だけ測ると、返り値を返して何も設定していない形が通る** |
+    | `si:*minibuffer-message` | 3 行のメッセージで 3 行になり、nil で 1 行に戻ること。**戻る方が大事** (伸びたまま戻ると編集領域がじわじわ減る) |
+    | `si:get-documentation-string` | 全文 / apropos は 1 行目だけ / 無ければ nil |
+    | `reset-prefix-args` / `set-next-prefix-args` | 受け付ける形と第 3 引数の型検査 |
+    | `continue-popup` | 呼べること |
+    | `buffer-selector` | **pty で。** プロンプトが出て、既定の他バッファが返る |
+
+    **測れないものは測れないと書いた。** `*next-prefix-args*` /
+    `*minibuffer-message*` / `*minibuffer-prompt*` は **uninterned なので
+    Lisp から見えない** (`src/gen-syms.cc` の `unint[]`)。前置引数は次の
+    コマンドが受け取る形なので、**コマンドループを 1 周回さないと観測
+    できない。** そこは受け付ける形だけを見て、理由をテストに書いた。
+
+    **`get-documentation-string` の 1 件だけ分けた。** property が文字列で
+    ないとき、端末は nil を返し (POSIX では `si:*snarf-documentation` が
+    空実装なので property が DOC ファイルの位置を表す整数にならない)、
+    Win32 はその整数を位置として DOC ファイルを開こうとして **pathname の
+    型エラーになる。** Win32 側は DOC ファイルの扱いの話なので測っていない。
+
   * **`--batch` でエラーが 1 文字も出なかったのを、stderr へ出すようにした**
     (issue #236)。
 
