@@ -100,3 +100,81 @@
                         t))))
     '(t t))
   => (t t))
+
+;;; **ここから下は「ソケットが使えること」を測る** (issue #223 の段取り 2)。
+;;; 上のテストは「落ちないこと」しか見ていない。
+;;;
+;;; **同じプロセスの中で往復させる。** 外のサーバに繋ぐと CI の環境に依るし、
+;;; 子プロセスを立てると片方が落ちたときにどちらが悪いか分からない。
+;;; `listen` -> `connect` -> `accept` は 1 プロセスでも成立する (`connect` は
+;;; カーネルの待ち行列に入るだけなので `accept` より前に返る)。
+;;;
+;;; **ポートは 0 で開いて実際の番号を聞く。** 決め打ちにすると CI で
+;;; 他のジョブと衝突する。
+
+(deftest socket-round-trip ()
+  (handler-case
+      (let* ((srv (make-listen-socket "127.0.0.1" 0 :reuseaddr t))
+             (port (socket-stream-local-port srv))
+             (cli (connect "127.0.0.1" port))
+             (acc (accept-connection srv)))
+        (unwind-protect
+            (progn
+              (format cli "ping~%")
+              (finish-output cli)
+              (let ((got (read-line acc nil :eof)))
+                (format acc "pong~%")
+                (finish-output acc)
+                (list (and (integerp port) (> port 0) t)
+                      got
+                      (read-line cli nil :eof))))
+          (ignore-errors (close acc))
+          (ignore-errors (close cli))
+          (ignore-errors (close srv))))
+    (error (e) (list :error (format nil "~A" e))))
+  => (t "ping" "pong"))
+
+(deftest socket-connect-refused-is-an-error ()
+  ;; **繋がらないことを正しく報告するか。** ポート 0 で開いてすぐ閉じると、
+  ;; その番号は (ふつう) 誰も待っていない。
+  ;;
+  ;; `Connection refused` という文言そのものは見ない (locale で変わる)。
+  ;; 見るのは「エラーになること」と「番号が裸で出ていないこと」。
+  (let ((port (let ((s (make-listen-socket "127.0.0.1" 0 :reuseaddr t)))
+                (prog1 (socket-stream-local-port s)
+                  (close s)))))
+    (handler-case (progn (connect "127.0.0.1" port) :connected)
+      (error (e)
+        (let ((msg (format nil "~A" e)))
+          (list :error (not (string-match "Unknown error" msg)))))))
+  => (:error t))
+
+(deftest socket-round-trip-with-a-timeout ()
+  ;; **タイムアウトを設定した経路を通す。** `sock::readablep` /
+  ;; `writablep` の門は `s_rtimeo.tv_sec >= 0` でしか通らないので、
+  ;; 既定 (-1) のままだと `select` を一度も呼ばない。**上の
+  ;; `socket-round-trip` は select を測っていない。**
+  ;;
+  ;; POSIX ではここに罠がある: core は `select (1, ...)` と第 1 引数を 1 で
+  ;; 呼ぶ (Winsock はそこを無視するので Win32 では正しい)。**POSIX の
+  ;; `select` は「最大の fd + 1」を要求するので、1 のままだと fd 1 以外を
+  ;; 一切見ず、データがあっても常にタイムアウトになる。** issue #223。
+  (handler-case
+      (let* ((srv (make-listen-socket "127.0.0.1" 0 :reuseaddr t))
+             (port (socket-stream-local-port srv))
+             (cli (connect "127.0.0.1" port))
+             (acc (accept-connection srv)))
+        (unwind-protect
+            (progn
+              (socket-stream-set-timeout acc 5)
+              (socket-stream-set-timeout cli 5)
+              (format cli "timed~%")
+              (finish-output cli)
+              (read-line acc nil :eof))
+          (ignore-errors (close acc))
+          (ignore-errors (close cli))
+          (ignore-errors (close srv))))
+    (error (e) (list :error (format nil "~A" e))))
+  ;; `read-line' は 2 値を返す (行と「改行が無かったか」)。
+  => "timed"
+  => nil)

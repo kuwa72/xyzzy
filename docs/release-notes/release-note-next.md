@@ -1480,6 +1480,51 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     `CLAUDE.md` の「古いダンプイメージは絶対アドレスを持っている」も直した --
     **これは誤りで**、イメージは `lmap`/`rlmap` の添字で書いてあり関数ポインタも
     入っていない。**だから POSIX へ移植できた。**
+  * **POSIX でソケットが使えるようになった** (issue #223 の段取り 2)。
+    落ちなくしただけだったところに BSD ソケットの実体を入れた。
+
+    ```lisp
+    (let* ((srv  (make-listen-socket "127.0.0.1" 0 :reuseaddr t))
+           (port (socket-stream-local-port srv))
+           (cli  (connect "127.0.0.1" port))
+           (acc  (accept-connection srv)))
+      (format cli "ping~%") (finish-output cli)
+      (read-line acc))                        ; => "ping"
+    ```
+
+    `WSOCKDEF` の並びは BSD とほぼ 1:1 だが**型がずれる**ので、そのまま
+    アドレスを取って代入できない。長さの引数が `int *` と `socklen_t *`、
+    バッファが `char *` と `void *`、`send` / `recv` の戻りが `int` と
+    `ssize_t`。`htons` などは Linux では**マクロ**なのでアドレスが取れない。
+    薄いアダプタを並べた。
+
+    **`select` の第 1 引数に罠があった。** core は `select (1, ...)` と
+    呼んでいる -- **Winsock はそこを無視するので Win32 では正しい。** POSIX の
+    `select` は「最大の fd + 1」を要求するので、**1 のままだとデータが
+    あっても常にタイムアウトになる。** 呼び出し側を直すのではなくアダプタで
+    数える (表の裏に隠す差は表の裏で閉じる)。
+
+    **ブロッキングでエディタが固まらないようにした。** Win32 は
+    `WSASetBlockingHook` で、ブロッキング中に Winsock 側から呼び返して
+    もらって `Fdo_events` を回す。POSIX にその仕組みは無いので、
+    `connect` / `accept` / `recv` / `send` の前に `select` で刻みながら待ち、
+    その隙間で `Fdo_events` を回して `C-g` も見る。**既定のタイムアウトは
+    -1 (無限) で、core 側の `readablep` / `writablep` の門は
+    `s_rtimeo.tv_sec >= 0` でしか通らないので、既定では core に一切の待ちが
+    無かった。**
+
+    **使われていないものは dummy のままにした。** `sock::ioctl` には
+    呼び出し元が 1 つも無く、`gethostname` は `WS_CALL` がどこにも無い。
+    **到達しないものにアダプタを書くと、動くと主張したことになる。**
+
+    テストは 4 件。**同じプロセスの中で往復させる** -- 外のサーバに繋ぐと CI の
+    環境に依るし、子プロセスを立てると片方が落ちたときにどちらが悪いか
+    分からない。ポートは 0 で開いて実際の番号を聞く (決め打ちは CI で衝突する)。
+    **Windows でも 4 件通る** ので、移植性のあるテストになった。
+
+    **まだ名前解決が無い** (`s_resolver` は Win32 の非同期ウィンドウ
+    メッセージで作られている) ので、**ホスト名では繋がらない。** IP アドレス
+    だけである。issue #223 の段取り 3。
   * **POSIX で `(connect ...)` / `(make-listen-socket ...)` がエディタごと
     SIGSEGV していたのを直した** (issue #223)。`handler-case` でも捕まらない
     ので、**対話中に呼べば未保存のバッファごとプロセスが消えていた。**
