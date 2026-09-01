@@ -4074,14 +4074,22 @@ base64_encode (const std::string &in)
   int i = 0, len = (int)in.size ();
   while (i < len)
     {
-      int b0 = (u_char)in[i++];
-      int b1 = (i < len) ? (u_char)in[i++] : 0;
-      int b2 = (i < len) ? (u_char)in[i++] : 0;
+      /* **塊に何バイト入っているかを先に数える。** 以前は `i` を進めながら
+         `(i - 1 > len)` / `(i > len)` で padding を決めていたが、**足りない
+         バイトの分は `i` を進めない**ので、その条件は最後の塊でも成立しない。
+         結果、`=` が 1 つも出ず、**0 で埋めた分が `A` として base64 に載って
+         いた** ("不正 あいう" が 16 バイトなので `...hg==` ではなく
+         `...hgAA`)。受け側は末尾に NUL 2 個の付いた文字列を貼ることになる。 */
+      int have = len - i;
+      int b0 = (u_char)in[i];
+      int b1 = have > 1 ? (u_char)in[i + 1] : 0;
+      int b2 = have > 2 ? (u_char)in[i + 2] : 0;
+      i += have < 3 ? have : 3;
       int n = (b0 << 16) | (b1 << 8) | b2;
       out += b64_table[(n >> 18) & 0x3f];
       out += b64_table[(n >> 12) & 0x3f];
-      out += (i - 1 > len) ? '=' : b64_table[(n >> 6) & 0x3f];
-      out += (i > len) ? '=' : b64_table[n & 0x3f];
+      out += have > 1 ? b64_table[(n >> 6) & 0x3f] : '=';
+      out += have > 2 ? b64_table[n & 0x3f] : '=';
     }
   return out;
 }
@@ -4192,10 +4200,21 @@ utf8_to_internal_string (const std::string &utf8)
   return make_string (chars.data (), (int)chars.size ());
 }
 
-// Write OSC 52 to set clipboard
+/* OSC 52 でクリップボードを端末へ送る。
+
+   **`stdscr` が 0 のとき (`--batch`) と stdout が端末でないときは何もしない。**
+   ここは ncurses を通さず fd へ直に書くので、書けば**リダイレクトされた
+   stdout にエスケープが混ざる。** `frontend_set_frame_title` (下) が同じ理由で
+   同じ条件を持っている。**この guard が無かった。** テストスイートは全部
+   `--batch` で stdout を読んでいるので、`copy-to-clipboard` を 1 件でも
+   測ろうとするとログに `ESC]52;c;...BEL` が入る。バッファ
+   (`g_clipboard_buf`) は先に更新済みなので、送らなくても
+   `get-clipboard-data` は往復する。 */
 static void
 osc52_copy (const std::string &utf8)
 {
+  if (!stdscr || !isatty (STDOUT_FILENO))
+    return;
   std::string b64 = base64_encode (utf8);
   // Use BEL (\a) terminator — more compatible than ST (\e\\)
   std::string seq = "\033]52;c;" + b64 + "\a";
