@@ -172,10 +172,325 @@ sock::term_winsock ()
 {
   WS_CALL (WSACleanup)();
 }
-#else
+#else /* !_WIN32 */
+
+/* **BSD ソケットを表に入れる** (issue #223 の段取り 2)。
+
+   `WSOCKDEF` の並びは Winsock で、BSD とほぼ 1:1 だが**型がずれる**ので
+   そのままアドレスを取って代入できない。ずれるのは主に 3 つ:
+
+     * 長さの引数が `int *` (Winsock) と `socklen_t *` (BSD)
+     * バッファが `char *` (Winsock) と `void *` (BSD)
+     * `send` / `recv` の戻りが `int` (Winsock) と `ssize_t` (BSD)
+
+   さらに `htons` などは Linux では**マクロ**なのでアドレスが取れない。
+   なので薄いアダプタを並べる。**使われていないものは dummy のままにする** —
+   埋めた分だけが「動く」と主張していることになる。
+
+   `SOCKET` は `int`、`INVALID_SOCKET` と `SOCKET_ERROR` は -1 で BSD と同じ
+   (src/core/platform.h)。 */
+
+/* `select` の第 1 引数。**Winsock はここを無視するので core は `1` を渡して
+   いる** (`sock::readablep` / `writablep`)。POSIX では「最大の fd + 1」で
+   なければならず、**`1` を渡すと fd 1 以外を一切見ない** = 常に 0 が返る。
+   呼び出し側を直すのではなくここで数える: 表の裏に隠す差は表の裏で閉じる。 */
+static int
+posix_select_nfds (fd_set *a, fd_set *b, fd_set *c)
+{
+  fd_set *sets[3];
+  sets[0] = a; sets[1] = b; sets[2] = c;
+  int n = 0;
+  for (int i = 0; i < 3; i++)
+    if (sets[i])
+      for (int fd = 0; fd < FD_SETSIZE; fd++)
+        if (FD_ISSET (fd, sets[i]) && fd + 1 > n)
+          n = fd + 1;
+  return n;
+}
+
+static int WINAPI
+posix_select (int, fd_set *r, fd_set *w, fd_set *e, const struct timeval *tv)
+{
+  struct timeval t;
+  if (tv)
+    t = *tv;
+  return ::select (posix_select_nfds (r, w, e), r, w, e, tv ? &t : 0);
+}
+
+/* **ブロッキングするたびに `do-events` を回す。**
+
+   Win32 は `WSASetBlockingHook` で、ブロッキング中に Winsock 側から
+   `blocking_hook` を呼び返してもらって `Fdo_events` を回す。POSIX にその
+   仕組みは無いので、**そのまま `::accept` / `::recv` / `::send` を呼ぶと
+   エディタが固まって C-g も効かない。**
+
+   既定のタイムアウトは -1 (無限) で、`sock::send` / `recv` の
+   `writablep` / `readablep` の門は `s_wtimeo.tv_sec >= 0` でしか通らない
+   から、**既定では core 側に一切の待ちが無い。** ここで受ける。
+
+   0 = 使える / -1 = 中断かエラー (errno を立てる)。 */
+static int
+posix_wait_ready (SOCKET s, int for_write)
+{
+  for (;;)
+    {
+      fd_set fds;
+      FD_ZERO (&fds);
+      FD_SET (s, &fds);
+      struct timeval tv;
+      tv.tv_sec = 0;
+      tv.tv_usec = 100000;
+      int n = ::select (s + 1, for_write ? 0 : &fds, for_write ? &fds : 0,
+                        0, &tv);
+      if (n > 0)
+        return 0;
+      if (n < 0 && errno != EINTR)
+        return -1;
+#ifdef __XYZZY__
+      Fdo_events ();
+      if (QUITP)
+        {
+          errno = EINTR;
+          return -1;
+        }
+#endif
+    }
+}
+
+static SOCKET WINAPI
+posix_socket (int domain, int type, int proto)
+{
+  return ::socket (domain, type, proto);
+}
+
+static int WINAPI
+posix_closesocket (SOCKET s)
+{
+  return ::close (s);
+}
+
+static int WINAPI
+posix_bind (SOCKET s, const struct sockaddr *a, int l)
+{
+  return ::bind (s, a, socklen_t (l));
+}
+
+static int WINAPI
+posix_listen (SOCKET s, int backlog)
+{
+  return ::listen (s, backlog);
+}
+
+static SOCKET WINAPI
+posix_accept (SOCKET s, struct sockaddr *a, int *l)
+{
+  if (posix_wait_ready (s, 0) < 0)
+    return INVALID_SOCKET;
+  socklen_t n = l ? socklen_t (*l) : 0;
+  SOCKET r = ::accept (s, a, l ? &n : 0);
+  if (l)
+    *l = int (n);
+  return r;
+}
+
+static int WINAPI
+posix_shutdown (SOCKET s, int how)
+{
+  return ::shutdown (s, how);
+}
+
+static int WINAPI
+posix_getpeername (SOCKET s, struct sockaddr *a, int *l)
+{
+  socklen_t n = l ? socklen_t (*l) : 0;
+  int r = ::getpeername (s, a, l ? &n : 0);
+  if (l)
+    *l = int (n);
+  return r;
+}
+
+static int WINAPI
+posix_getsockname (SOCKET s, struct sockaddr *a, int *l)
+{
+  socklen_t n = l ? socklen_t (*l) : 0;
+  int r = ::getsockname (s, a, l ? &n : 0);
+  if (l)
+    *l = int (n);
+  return r;
+}
+
+static int WINAPI
+posix_getsockopt (SOCKET s, int level, int name, char *val, int *l)
+{
+  socklen_t n = l ? socklen_t (*l) : 0;
+  int r = ::getsockopt (s, level, name, val, l ? &n : 0);
+  if (l)
+    *l = int (n);
+  return r;
+}
+
+static int WINAPI
+posix_setsockopt (SOCKET s, int level, int name, const char *val, int l)
+{
+  return ::setsockopt (s, level, name, val, socklen_t (l));
+}
+
+static int WINAPI
+posix_send (SOCKET s, const char *b, int l, int flags)
+{
+  if (posix_wait_ready (s, 1) < 0)
+    return SOCKET_ERROR;
+  return int (::send (s, b, size_t (l), flags));
+}
+
+static int WINAPI
+posix_recv (SOCKET s, char *b, int l, int flags)
+{
+  if (posix_wait_ready (s, 0) < 0)
+    return SOCKET_ERROR;
+  return int (::recv (s, b, size_t (l), flags));
+}
+
+static int WINAPI
+posix_sendto (SOCKET s, const char *b, int l, int flags,
+              const struct sockaddr *to, int tolen)
+{
+  if (posix_wait_ready (s, 1) < 0)
+    return SOCKET_ERROR;
+  return int (::sendto (s, b, size_t (l), flags, to, socklen_t (tolen)));
+}
+
+static int WINAPI
+posix_recvfrom (SOCKET s, char *b, int l, int flags,
+                struct sockaddr *from, int *fromlen)
+{
+  if (posix_wait_ready (s, 0) < 0)
+    return SOCKET_ERROR;
+  socklen_t n = fromlen ? socklen_t (*fromlen) : 0;
+  int r = int (::recvfrom (s, b, size_t (l), flags, from,
+                           fromlen ? &n : 0));
+  if (fromlen)
+    *fromlen = int (n);
+  return r;
+}
+
+/* **`ioctlsocket` と `gethostname` は dummy のままにする。**
+   `sock::ioctl` には呼び出し元が 1 つも無く (`WS_CALL (ioctlsocket)` は
+   `sock::ioctl` の中だけ)、`gethostname` は `WS_CALL` がどこにも無い。
+   **到達しないものにアダプタを書くと、動くと主張したことになる** ので
+   書かない。使うようになったときに書く。 */
+
+/* `htons` などは Linux ではマクロなのでアドレスが取れない。包む。 */
+static u_long WINAPI posix_htonl (u_long x) {return htonl (x);}
+static u_short WINAPI posix_htons (u_short x) {return htons (x);}
+static u_long WINAPI posix_ntohl (u_long x) {return ntohl (x);}
+static u_short WINAPI posix_ntohs (u_short x) {return ntohs (x);}
+
+static unsigned long WINAPI posix_inet_addr (const char *s) {return ::inet_addr (s);}
+static char * WINAPI posix_inet_ntoa (struct in_addr a) {return ::inet_ntoa (a);}
+
+/* **エラー番号は errno そのもの。** `platform.h` が `WSAE*` を errno の
+   別名として define しているので、番号の空間が一致する。 */
+static int WINAPI posix_WSAGetLastError () {return errno;}
+static void WINAPI posix_WSASetLastError (int e) {errno = e;}
+
+/* Winsock の初期化・終了に相当するものは無い。**成功を返して良い** --
+   実際に何もする必要がないので嘘ではない。 */
+static int WINAPI
+posix_WSAStartup (WORD, LPWSADATA data)
+{
+  if (data)
+    memset (data, 0, sizeof *data);
+  return 0;
+}
+
+static int WINAPI posix_WSACleanup () {return 0;}
+
+/* **`connect` は非ブロッキングにして待つ。**
+
+   Win32 は `WSASetBlockingHook` で、ブロッキング中に Winsock 側から
+   `blocking_hook` を呼び返してもらい `Fdo_events` を回す。POSIX にその
+   仕組みは無いので、**そのまま `::connect` を呼ぶと届かない相手に対して
+   エディタが 2 分ほど固まって C-g も効かない。** 非ブロッキングにして
+   `select` で刻みながら待ち、その隙間で同じことをする。
+
+   終わったら元のフラグに戻す。`sock` は後で `ioctlsocket (FIONBIO)` を
+   自分で使うので、ここが勝手に非ブロッキングを残してはいけない。 */
+static int WINAPI
+posix_connect (SOCKET s, const struct sockaddr *a, int l)
+{
+  int fl = ::fcntl (s, F_GETFL);
+  if (fl < 0)
+    return ::connect (s, a, socklen_t (l));
+
+  ::fcntl (s, F_SETFL, fl | O_NONBLOCK);
+  int r = ::connect (s, a, socklen_t (l));
+  if (r == 0 || errno != EINPROGRESS)
+    {
+      int e = errno;
+      ::fcntl (s, F_SETFL, fl);
+      errno = e;
+      return r;
+    }
+
+  if (posix_wait_ready (s, 1) < 0)
+    {
+      int e = errno;
+      ::fcntl (s, F_SETFL, fl);
+      errno = e;
+      return -1;
+    }
+
+  int err = 0;
+  socklen_t el = sizeof err;
+  if (::getsockopt (s, SOL_SOCKET, SO_ERROR, &err, &el) < 0)
+    err = errno;
+  ::fcntl (s, F_SETFL, fl);
+  if (err)
+    {
+      errno = err;
+      return -1;
+    }
+  return 0;
+}
+
+/* 表に実体を入れる。**埋めた分だけが「動く」と主張していることになる** ので、
+   使われていないもの (`WSAAsyncGet*` の名前解決、`WSASetBlockingHook` などの
+   Win16 の遺物) は dummy のままにしてある。名前解決は issue #223 の段取り 3。 */
+static void
+init_posix_socket_functions ()
+{
+#define SET(NAME) WINSOCK::NAME = posix_##NAME
+  SET (socket); SET (closesocket); SET (bind); SET (listen); SET (accept);
+  SET (connect); SET (shutdown); SET (select);
+  SET (getpeername); SET (getsockname); SET (getsockopt); SET (setsockopt);
+  SET (send); SET (recv); SET (sendto); SET (recvfrom);
+  SET (htonl); SET (htons); SET (ntohl); SET (ntohs);
+  SET (inet_addr); SET (inet_ntoa);
+  SET (WSAGetLastError); SET (WSASetLastError);
+  SET (WSAStartup); SET (WSACleanup);
+#undef SET
+}
+
+/* **フロントエンドの呼び出しを待たない。**
+
+   `sock::init_winsock` を呼ぶのは Win32 のフロントエンドだけで、POSIX 側は
+   呼んでいなかった。それが段取り 1 のバグ (表が null のまま = SIGSEGV) の
+   原因である。**「どこかから呼ばれる」に頼る形をもう一度作らない。**
+
+   ここは同じ翻訳単位のファイルスコープ初期化で、表そのものは関数の
+   アドレス (定数式) で初期化されているので**動的初期化より前に確定して
+   いる**。つまり順序の心配が無い。
+
+   `sock::init_winsock` からも呼ぶ (下)。何度呼んでも同じなので、Win32 と
+   読み比べたときに経路が消えていない方が分かりやすい。 */
+static const int posix_socket_table_installed
+  = (init_posix_socket_functions (), 1);
+
 int
 sock::init_winsock (HINSTANCE)
 {
+  init_posix_socket_functions ();
   return 1;
 }
 
