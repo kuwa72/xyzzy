@@ -926,4 +926,44 @@ else
   fail=1
 fi
 
+# `IsBadWritePtr` の記帳 (issue #240)。**保守的 GC がマップされていないページを
+# 読まないための guard で、POSIX では `return FALSE;` のスタブだったので
+# 一度も効いていなかった。**
+#
+# **Lisp からは測れない。** 述語が Lisp から呼べず、症状 (GC が `PROT_NONE` の
+# ページを読んで落ちる) はスタックのゴミがちょうどそこを指す必要があるので、
+# Lisp からは作れない。**述語そのものを C++ 側で測る** -- このリポジトリで
+# 唯一の C++ のテストである (`src/core/mem-posix-test.cc`)。
+if [ -x "$build/mem-posix-test" ]; then
+  if out=$("$build/mem-posix-test" 2>&1); then
+    echo "smoke: IsBadWritePtr の記帳 OK -- $out"
+  else
+    echo "smoke: IsBadWritePtr の記帳 FAILED" >&2
+    echo "$out" >&2
+    fail=1
+  fi
+else
+  echo "smoke: IsBadWritePtr の記帳 FAILED -- $build/mem-posix-test が無い" >&2
+  fail=1
+fi
+
+# guard が空回りしていないこと。**予約したまま commit していないページが
+# 実在するから guard に意味がある**ので、そこが無くなったら (例えば予約と
+# 同時に全部 commit する形に変えたら) この check は「もう要らない」と言って
+# いることになる。`---p` は `PROT_NONE` の mapping で、`alloc_page` が
+# 64KB 予約して unit ごとに commit する形の副産物である。
+log=$build/smoke-prot-none.txt
+"$build/xyzzy" --batch -q -e '(progn
+  (dotimes (i 200000) (list i i i))
+  (with-open-file (s "/proc/self/maps")
+    (let (l) (while (setq l (read-line s nil)) (format t "~A~%" l)))))' \
+  >"$log" 2>&1 || true
+n=$(grep -ac -- '---p' "$log" || true)
+if [ "${n:-0}" -gt 0 ]; then
+  echo "smoke: PROT_NONE のページが実在する OK -- $n 個 (guard が空回りしていない)"
+else
+  echo "smoke: PROT_NONE のページ FAILED -- 1 つも無い。guard が意味を失っている, see $log" >&2
+  fail=1
+fi
+
 exit $fail
