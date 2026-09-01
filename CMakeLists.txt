@@ -1123,6 +1123,15 @@ if(NOT WIN32)
         ${CORE_DIR}/mem-posix.cc)
     target_compile_definitions(mem-posix-test PRIVATE UNICODE _UNICODE)
     target_compile_options(mem-posix-test PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+
+    # src/core/worker-thread.h の単体確認 (issue #223)。**これが無いと
+    # tree-sitter から shim を抽出したことを verify できない** -- ts の
+    # テストは 14 件で、非同期の経路を名指しで測っているものが 1 つも無い。
+    add_executable(worker-thread-test ${CORE_DIR}/worker-thread-test.cc)
+    target_compile_definitions(worker-thread-test PRIVATE UNICODE _UNICODE)
+    target_compile_options(worker-thread-test PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+    find_package(Threads REQUIRED)
+    target_link_libraries(worker-thread-test PRIVATE Threads::Threads)
 endif()
 
 add_executable(xyzzy-cli ${CLI_SOURCES})

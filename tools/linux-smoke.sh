@@ -934,6 +934,24 @@ fi
 # ページを読んで落ちる) はスタックのゴミがちょうどそこを指す必要があるので、
 # Lisp からは作れない。**述語そのものを C++ 側で測る** -- このリポジトリで
 # 唯一の C++ のテストである (`src/core/mem-posix-test.cc`)。
+# worker スレッドの shim (issue #223)。**tree-sitter の中から出したので、
+# 出したことを verify する場所が要る** -- ts のテストは 14 件で、非同期の
+# 経路を名指しで測っているものが 1 つも無い。**「ts が通ったから抽出は安全」
+# とは言えない。** 4 操作 (起こす / 期限付きで待つ / 手放す / 譲る) と、
+# **走っている最中に手放したとき本体が自分で片付ける (orphan)** を見る。
+if [ -x "$build/worker-thread-test" ]; then
+  if out=$("$build/worker-thread-test" 2>&1); then
+    echo "smoke: worker スレッドの shim OK -- $out"
+  else
+    echo "smoke: worker スレッドの shim FAILED" >&2
+    echo "$out" >&2
+    fail=1
+  fi
+else
+  echo "smoke: worker スレッドの shim FAILED -- $build/worker-thread-test が無い" >&2
+  fail=1
+fi
+
 if [ -x "$build/mem-posix-test" ]; then
   if out=$("$build/mem-posix-test" 2>&1); then
     echo "smoke: IsBadWritePtr の記帳 OK -- $out"
