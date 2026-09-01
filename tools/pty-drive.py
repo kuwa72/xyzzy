@@ -51,6 +51,21 @@ Environment:
 The VT parser here understands only what this frontend emits (cursor moves,
 erase, insert/delete line, and the private modes it ignores).  It is a way to
 read the screen, not a terminal emulator.
+
+Two things about the model that have each caused a wrong conclusion:
+
+    It has no idea about double width.  `put` advances the column by one for
+    every character, so a full width character occupies one cell here and two
+    on a real terminal.  A row of CJK text therefore ends at a different
+    *character* offset in the dump than the column the frontend addressed with
+    CUP, and two rows of the same real width can come out with different
+    lengths here.  Assert on ASCII (a box border is all `q`) or on the presence
+    of the text, never on how many characters precede something in a row that
+    contains CJK.
+
+    With XYZZY_PTY_RAW each step prints two blocks, "=== after" and
+    "=== raw after".  Counting occurrences of "=== after" to pick out step N
+    then lands one step early, which reads as "the popup never appeared".
 """
 import os, pty, re, select, sys, time, fcntl, termios, struct
 

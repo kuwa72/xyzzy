@@ -713,12 +713,22 @@ fi
 #
 # 3 つ見る:
 #
-#   1. 枠が出ること
-#   2. **枠の上下の長さが揃っていること。** 幅を「文字数」で数えると
-#      日本語の項目で崩れる (全角は 2 桁)。上下の罫線は ASCII なので
-#      桁数をそのまま比べられる
+#   1. 枠が出ること (上下の罫線があり、長さが揃っている)
+#   2. **20 桁の日本語の項目が切れずに枠に収まること。** 幅を「文字数」で
+#      数えると全角が半分に見積もられ、**枠が狭いまま項目が切れる。**
+#      項目を 20 桁にしてあるのは `inner_width` に 13 桁の下限があるためで、
+#      10 桁 (5 文字) では文字数で数えても下限に吸われて差が出ない。
+#
+#      **上下の長さの比較だけでは足りない。** 幅を間違えると上下は
+#      「揃ったまま一緒に縮む」ので、そこは枠が壊れていないことの確認に
+#      過ぎない。**切れた項目の行を見るのが幅の確認である。**
 #   3. **選んだ文字列がコールバックへ渡ること。** 描くだけ描けて選択が
 #      効かない形があるので、画面だけ見ていても足りない
+#
+# **`tools/pty-drive.py` の画面モデルは全角を 1 桁として持つ** (`put` が
+# `self.c += 1` を無条件でやる) ので、**日本語を含む行の「桁」を dump の
+# 文字数から数えてはいけない。** ここが罫線 (ASCII) の長さと項目の行の
+# grep だけを見ているのはそのため。
 log=$build/smoke-popup-list.txt
 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
   python3 "$root/tools/pty-drive.py" \
@@ -733,7 +743,7 @@ bot=$(grep -o 'mq*j' "$log" | head -1)
 if [ -n "$top" ] && [ "${#top}" = "${#bot}" ] \
    && grep -q 'xあいうえおかきくけこ *x' "$log" \
    && grep -q 'PG=\[あいうえおかきくけこ\]' "$log"; then
-  echo 'smoke: popup-list OK -- 枠が出て、上下の桁が揃い、選んだ文字列がコールバックへ渡る'
+  echo 'smoke: popup-list OK -- 枠が出て、20 桁の日本語が切れず、選んだ文字列がコールバックへ渡る'
 else
   echo "smoke: popup-list FAILED, see $log" >&2
   echo "-- 枠の上 '$top' (${#top} 桁) と下 '$bot' (${#bot} 桁):" >&2
@@ -762,6 +772,69 @@ else
   echo "-- 枠の上 '$top' (${#top} 桁) と下 '$bot' (${#bot} 桁):" >&2
   echo '-- 中身の行があるか:' >&2
   grep -c 'x 不正 abc x' "$log" >&2 || true
+  fail=1
+fi
+
+# メニュー (`call-menu` / `create-menu` / `add-menu-item` ほか 11 個)。
+# **端末で実装があるのに測られていなかった** (#234)。メニューバーは常に描いて
+# あるが、**開けるかどうかは別の話**で、そこを見るものが無かった。
+#
+# **`call-menu` は入った時点ではドロップダウンを開かない。**
+# `run_menu_modal (lmenu)` の `initial_bar_sel` が -1 なので `drop_open = 0` で
+# 始まり、RET / 下矢印 / C-n で開く。**ここを知らずに「F10 で何も出ない」と
+# 読み違えた。**
+#
+# **開く前の状態は画面の dump では見えない。** メニューバーの選択は反転表示
+# だけで、`tools/pty-drive.py` の画面モデルは属性を落とす (docstring にある)。
+# だから「開いた後」を見る。
+#
+# 3 つ見る:
+#
+#   1. ドロップダウンの項目が出ること
+#   2. **右寄せの割り当て表示が出ること** (`C-x 6 S`)。項目名だけ描けて
+#      右の列が落ちる形がある
+#   3. **C-f で隣のメニューへ移ること。** バーの移動が効かないと、
+#      最初のメニュー以外へ到達できない
+log=$build/smoke-menu.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(call-menu 0)\r' '\w' '\r' '\w' '\Cf' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'x 新規作成(N)' "$log" \
+   && grep -q 'セッションの保存(W)\.\.\. *C-x 6 S' "$log" \
+   && grep -q 'x 元に戻す(U)' "$log"; then
+  echo 'smoke: メニュー OK -- ドロップダウンが開き、割り当てが右に出て、C-f で隣へ移る'
+else
+  echo "smoke: メニュー FAILED, see $log" >&2
+  echo '-- ファイルメニューの項目があるか:' >&2
+  grep -c 'x 新規作成(N)' "$log" >&2 || true
+  echo '-- 右寄せの割り当て (C-x 6 S) があるか:' >&2
+  grep -c 'セッションの保存(W)\.\.\. *C-x 6 S' "$log" >&2 || true
+  echo '-- C-f の後に編集メニューの項目があるか:' >&2
+  grep -c 'x 元に戻す(U)' "$log" >&2 || true
+  fail=1
+fi
+
+# メニューから選んだものが**実際に走ること。** 描画とは別の経路である:
+# `run_menu_modal` は選択を kbdq へ `LCHAR_MENU` として積んで戻り、
+# コマンドループが `lookup_menu_command` で引き直して実行する。
+# **開いて選べても、その積み直しが落ちていれば何も起きない。**
+#
+# 「新規作成(N)」を選ぶと `new-file` がファイル名を聞くので、ミニバッファに
+# `File: ` が出る。**副作用がミニバッファのプロンプトだけ**なので後片付けが
+# 要らない (最後に C-g で閉じる)。
+log=$build/smoke-menu-invoke.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(call-menu 0)\r' '\w' '\r' '\w' '\Cn' '\w' '\r' '\w' '\Cg' '\w' \
+  >"$log" 2>&1 || true
+if grep -q '^File: ' "$log"; then
+  echo 'smoke: メニューの実行 OK -- 選んだ項目のコマンドがコマンドループで走る'
+else
+  echo "smoke: メニューの実行 FAILED, see $log" >&2
+  echo '-- new-file のプロンプト (File: ) が出ているか:' >&2
+  grep -c '^File: ' "$log" >&2 || true
+  tail -5 "$log" >&2
   fail=1
 fi
 
