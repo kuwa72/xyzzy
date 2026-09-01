@@ -527,6 +527,47 @@ else
   fail=1
 fi
 
+# **再ビルドした後の古いイメージが弾かれるか。** ヘッダの `dump_version` は
+# `gen-syms` を走らせた時刻を焼いた定数で、CMake の依存は `gen-syms.cc` だけ
+# なので**普通の再ビルドでは変わらない**。実行ファイルの大きさと更新時刻を
+# ヘッダに入れて判定する (issue #219 の続き)。
+#
+# ここは exe をコピーして `touch` で測る -- **Lisp からは測れない**
+# (走っている exe の更新時刻は変えられない)。
+# **`$image` には触らない。** 下の対話のチェックがそれを使うので、ここで
+# 消すと「イメージから起きたか」が nil になって落ちる (実際に踏んだ)。
+log=$build/smoke-dump-ident.txt
+ident=$build/smoke-dump-ident.wxp
+copy=$build/smoke-xyzzy-copy
+rm -f "$ident" "$copy"
+{
+  echo "--- 1) 本体でイメージを作る ---"
+  "$build/xyzzy" --batch -image "$ident" -q -e '(princ :made)'
+  echo
+  echo "--- 2) 本体で読む (通るべき) ---"
+  "$build/xyzzy" --batch -image "$ident" -q -e '(format t "A dumped=~S~%" (xyzzy-dumped-p))'
+  echo "--- 3) 更新時刻を変えた別バイナリで読む (弾かれるべき) ---"
+  cp -p "$build/xyzzy" "$copy"
+  touch -d '2020-01-01 00:00:00' "$copy"
+  "$copy" --batch -image "$ident" -q -e '(format t "B dumped=~S~%" (xyzzy-dumped-p))'
+  echo "--- 4) 3 で作り直されたので、同じコピーなら通るべき ---"
+  "$copy" --batch -image "$ident" -q -e '(format t "C dumped=~S~%" (xyzzy-dumped-p))'
+  echo "--- 5) 本体で読む (今度は弾かれるべき) ---"
+  "$build/xyzzy" --batch -image "$ident" -q -e '(format t "D dumped=~S~%" (xyzzy-dumped-p))'
+} >"$log" 2>&1 || true
+# **4 つ全部見る。** 「弾く」だけなら判定を常に false にしても通ってしまうし、
+# 「通す」だけなら判定を消しても通る。両方向を見て初めて判定が効いている。
+if grep -qi 'A dumped=t' "$log" && grep -qi 'B dumped=nil' "$log" \
+   && grep -qi 'C dumped=t' "$log" && grep -qi 'D dumped=nil' "$log"; then
+  echo 'smoke: イメージの同一性判定 OK -- 別バイナリのイメージは弾いて作り直す'
+else
+  echo "smoke: イメージの同一性判定 FAILED, see $log" >&2
+  echo '-- 期待するのは A=t B=nil C=t D=nil。出ていたのは:' >&2
+  grep -i 'dumped=' "$log" >&2 || true
+  fail=1
+fi
+rm -f "$copy" "$ident"
+
 # 対話でもイメージから起きて、引数のファイルを開けるか。**batch だけ通って
 # 対話が通らない形が実際にあった** (issue #217 の si:*command-line-args*)。
 log=$build/smoke-dump-pty.txt

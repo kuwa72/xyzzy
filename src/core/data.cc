@@ -1261,6 +1261,29 @@ combine_syms ()
 #include "dataP.h"
 static const int nobject_type = ldata_end - ldata_begin - 1;
 
+/* **ダンプイメージが「このバイナリのもの」かを判定する。**
+   `version` (= `dump_version`) は `gen-syms` を走らせた時刻を焼いた定数で、
+   CMake の依存は `gen-syms.cc` だけなので**普通の再ビルドでは変わらない**。
+   つまり構造体のレイアウトを変えて作り直しても古いイメージが「有効」と
+   判定され、エラーもクラッシュもなく壊れた状態で動き出す (CLAUDE.md の
+   「出力ゼロで 100% CPU なら .wxp を疑う」がこれ)。
+
+   そこで**実行ファイルの大きさと更新時刻**を入れる。再ビルドすれば必ず
+   どちらかが変わるので、古いイメージはヘッダの段で弾かれて通常起動に
+   落ちる。1 回 stat するだけで、起動の速さには影響しない。
+
+   **これで十分ではない。** 更新時刻を保つ形で入れ替えられ、かつ大きさが
+   同じバイナリは見分けられない。中身のハッシュを取れば確実だが、起動の
+   たびに数 MB 読むことになる。**踏む形 (再ビルド) を全部止められれば
+   実用上足りる**と判断した。 */
+struct dump_exe_ident
+{
+  DWORD size_low;
+  DWORD size_high;
+  DWORD mtime_low;
+  DWORD mtime_high;
+};
+
 struct dump_header
 {
   long magic;
@@ -1269,8 +1292,27 @@ struct dump_header
   long file_size_not;
   int nobject_type;
   int nreps;
+  dump_exe_ident exe;
   lisp nil;
 };
+
+/* `app.exe_path` を stat する。取れなければ全部 0 を返す --
+   **0 同士は一致するので、両方が取れなかった場合だけ通る。** 片方しか
+   取れなければ弾かれる (安全側)。 */
+static void
+dump_get_exe_ident (dump_exe_ident *id)
+{
+  memset (id, 0, sizeof *id);
+  if (!*app.exe_path)
+    return;
+  WIN32_FIND_DATAW fd;
+  if (!WINFS::get_file_data (app.exe_path, fd))
+    return;
+  id->size_low = fd.nFileSizeLow;
+  id->size_high = fd.nFileSizeHigh;
+  id->mtime_low = fd.ftLastWriteTime.dwLowDateTime;
+  id->mtime_high = fd.ftLastWriteTime.dwHighDateTime;
+}
 
 struct addr_order
 {
@@ -2817,6 +2859,7 @@ Fdump_xyzzy (lisp filename)
   head.file_size_not = 0;
   head.nobject_type = nobject_type;
   head.nreps = nreps;
+  dump_get_exe_ident (&head.exe);
   head.nil = lmap (Qnil);
   writef (fp, &head, sizeof head);
   writef (fp, counts, sizeof counts);
@@ -2854,6 +2897,13 @@ rdump_xyzzy (FILE *fp)
       || head.file_size != _filelength (_fileno (fp))
       || head.file_size_not != ~head.file_size
       || head.nobject_type != nobject_type)
+    return 0;
+
+  /* **書いたバイナリと今のバイナリが同じか。** 違えば黙って通常起動に
+     落ちる (呼び元の `rdump_xyzzy ()` が 0 を見てライブラリを読む)。 */
+  dump_exe_ident exe;
+  dump_get_exe_ident (&exe);
+  if (memcmp (&exe, &head.exe, sizeof exe))
     return 0;
 
   int counts[nobject_type];

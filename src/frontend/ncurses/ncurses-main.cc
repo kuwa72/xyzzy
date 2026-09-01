@@ -968,10 +968,50 @@ lisp read_minibuffer (const ucs4_t *, long, lisp, lisp, lisp, lisp, int, int, in
    `si:*startup` を直に呼ぶか startup.l を読むかを決める。 */
 static int startup_from_dump;
 
+/* **`app.exe_path` を埋める。** ダンプイメージが「このバイナリのもの」かを
+   判定するのに使う (src/core/data.cc の `dump_get_exe_ident`)。
+
+   `/proc/self/exe` を先に見る。**`argv[0]` は当てにならない**: 相対パスで
+   来ることがあり (`./_build/linux/xyzzy`)、`exec` した側が何を渡すかは
+   自由で、`PATH` から起こされた場合は名前だけのこともある。取れなければ
+   `argv[0]` に落ちる -- 判定が緩くなるだけで、壊れはしない。 */
+static void
+init_exe_path (const char *argv0)
+{
+  *app.exe_path = 0;
+  char path[PATH_MAX + 1];
+  ssize_t n = readlink ("/proc/self/exe", path, sizeof path - 1);
+  if (n > 0)
+    path[n] = 0;
+  else if (argv0 && *argv0)
+    {
+      strncpy (path, argv0, sizeof path - 1);
+      path[sizeof path - 1] = 0;
+    }
+  else
+    return;
+
+  /* **UTF-8 -> wchar_t をきちんと通す。** バイトをそのまま widen すると
+     0x80 以上を含むパス (日本語のホームディレクトリなど) で別の名前になり、
+     stat が失敗して**判定が常に不一致になる** = イメージが一度も使われない。
+     `WINFS::get_file_data` は受けた wchar_t を `os_path` で UTF-8 に戻すので、
+     入れる側も同じ経路で作る。 */
+  size_t len = u82il (path);
+  if (len > PATH_MAX)
+    len = PATH_MAX;
+  ucs4_t *cp = (ucs4_t *)alloca ((len + 1) * sizeof (ucs4_t));
+  ucs4_t *e = u82i (path, cp);
+  int l = int (e - cp);
+  if (l > PATH_MAX)
+    l = PATH_MAX;
+  *i2w (cp, l, app.exe_path) = 0;
+}
+
 static void
 init_lisp_engine (const char *argv0)
 {
   init_ucs2_table ();
+  init_exe_path (argv0);
 
   /* **`-image` が指すイメージがあれば、シンボルを作る代わりに読む。**
      Win32 の `init_lisp_objects` (src/frontend/win32/init.cc) と同じ形で、

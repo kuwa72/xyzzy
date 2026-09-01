@@ -444,6 +444,10 @@ public:
   int last_blink_caret;
 
   wchar_t dump_image[PATH_MAX + 8];
+  /* 自分自身の実行ファイル。**ダンプイメージが「このバイナリのものか」を
+     判定するために要る** (issue #219 の続き)。フロントエンドが Lisp を
+     起こす前に入れる -- `rdump_xyzzy` はそれより前に走る。 */
+  wchar_t exe_path[PATH_MAX + 1];
   wchar_t *ini_file_path;
 
   lisp lquit_char;
