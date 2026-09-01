@@ -7,191 +7,13 @@
 
 /* --- スレッド ------------------------------------------------------------
  *
- * **`platform.h` の `HANDLE` には手を出さない。** あちらの `HANDLE` は
- * ファイル記述子で、`CloseHandle` は中身を fd として `close()` を呼ぶ。
- * スレッドのハンドルをそこへ通すと fd を閉じにかかるので、**このファイルの
- * 中だけで完結する型**を用意して pthread を直に使う (issue #150)。
+ * **`src/core/worker-thread.h` へ出した。** 名前解決 (issue #223) が
+ * 2 つめの使い手になったので、3 つめの写しを作らないため。orphan の
+ * 扱いが繊細なところなので、写すと必ずずれる。
  *
- * 要る操作は 4 つだけ: 起こす / 終わるのを期限付きで待つ / 手放す /
- * CPU を譲る。
- *
- * **期限付きの join に `pthread_timedjoin_np` は使わない** (Linux 専用で
- * macOS に無い)。終了の印と条件変数を自分で持って `pthread_cond_timedwait`
- * で待つ。
- *
- * **手放すときに終わっていなければ detach する。** Win32 側も
- * `CloseHandle` は走っているスレッドを止めない (取り消しは cancel の印で
- * 協調的にやる) ので、同じ振る舞いになる。
+ * 呼び名は `ts_*` から `worker_*` へ変えただけで、中身は同じ。
  */
-
-#ifdef _WIN32
-
-# define TS_THREAD_RET   DWORD
-# define TS_THREAD_CALL  WINAPI
-# define TS_THREAD_DONE  0
-
-typedef TS_THREAD_RET (TS_THREAD_CALL *ts_thread_fn) (void *);
-typedef HANDLE ts_thread;
-
-static inline ts_thread
-ts_thread_start (ts_thread_fn fn, void *arg)
-{
-  return CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE)fn, arg, 0, NULL);
-}
-
-static inline void
-ts_thread_join (ts_thread h, int timeout_ms)
-{
-  if (h)
-    WaitForSingleObject (h, timeout_ms);
-}
-
-static inline void
-ts_thread_release (ts_thread h)
-{
-  if (h)
-    CloseHandle (h);
-}
-
-static inline void
-ts_yield ()
-{
-  SwitchToThread ();
-}
-
-static inline void
-ts_atomic_set (volatile LONG *p, LONG v)
-{
-  InterlockedExchange (p, v);
-}
-
-#else /* !_WIN32 */
-
-# include <pthread.h>
-# include <sched.h>
-
-# define TS_THREAD_RET   void *
-# define TS_THREAD_CALL
-# define TS_THREAD_DONE  nullptr
-
-typedef TS_THREAD_RET (TS_THREAD_CALL *ts_thread_fn) (void *);
-
-struct ts_thread_rec
-{
-  pthread_t       tid;
-  pthread_mutex_t mtx;
-  pthread_cond_t  cv;
-  int             done;    /* 本体が返った */
-  int             orphan;  /* 持ち主が先に手放した: 本体が自分で片付ける */
-  ts_thread_fn    fn;
-  void           *arg;
-};
-
-typedef ts_thread_rec *ts_thread;
-
-static void
-ts_thread_rec_free (ts_thread_rec *r)
-{
-  pthread_cond_destroy (&r->cv);
-  pthread_mutex_destroy (&r->mtx);
-  delete r;
-}
-
-static void *
-ts_thread_trampoline (void *arg)
-{
-  ts_thread_rec *r = (ts_thread_rec *) arg;
-  r->fn (r->arg);
-  pthread_mutex_lock (&r->mtx);
-  r->done = 1;
-  int orphan = r->orphan;
-  pthread_cond_broadcast (&r->cv);
-  pthread_mutex_unlock (&r->mtx);
-  if (orphan)
-    {
-      /* 誰も join しに来ないので、自分で切り離してから片付ける。
-         orphan を見た時点で r を触るのは自分だけなので、解放して安全。 */
-      pthread_detach (pthread_self ());
-      ts_thread_rec_free (r);
-    }
-  return nullptr;
-}
-
-static ts_thread
-ts_thread_start (ts_thread_fn fn, void *arg)
-{
-  ts_thread_rec *r = new ts_thread_rec;
-  r->done   = 0;
-  r->orphan = 0;
-  r->fn     = fn;
-  r->arg    = arg;
-  pthread_mutex_init (&r->mtx, 0);
-  pthread_cond_init (&r->cv, 0);
-  if (pthread_create (&r->tid, 0, ts_thread_trampoline, r) != 0)
-    {
-      ts_thread_rec_free (r);
-      return nullptr;
-    }
-  return r;
-}
-
-static void
-ts_thread_join (ts_thread h, int timeout_ms)
-{
-  if (!h)
-    return;
-  /* `pthread_cond_timedwait` の期限は既定で CLOCK_REALTIME。 */
-  struct timespec ts;
-  clock_gettime (CLOCK_REALTIME, &ts);
-  ts.tv_sec  += timeout_ms / 1000;
-  ts.tv_nsec += (long)(timeout_ms % 1000) * 1000000L;
-  if (ts.tv_nsec >= 1000000000L)
-    {
-      ts.tv_sec++;
-      ts.tv_nsec -= 1000000000L;
-    }
-  pthread_mutex_lock (&h->mtx);
-  int rc = 0;
-  while (!h->done && rc == 0)
-    rc = pthread_cond_timedwait (&h->cv, &h->mtx, &ts);
-  pthread_mutex_unlock (&h->mtx);
-}
-
-static void
-ts_thread_release (ts_thread h)
-{
-  if (!h)
-    return;
-  pthread_mutex_lock (&h->mtx);
-  if (h->done)
-    {
-      /* **本体は orphan を見ていないので r を解放しない。** それでも tid は
-         外す前に控えておく (読む順序を人が追える形にしておく)。 */
-      pthread_t tid = h->tid;
-      pthread_mutex_unlock (&h->mtx);
-      pthread_join (tid, 0);
-      ts_thread_rec_free (h);
-      return;
-    }
-  h->orphan = 1;
-  pthread_mutex_unlock (&h->mtx);
-}
-
-static inline void
-ts_yield ()
-{
-  sched_yield ();
-}
-
-/* 読む側は volatile のままにしてある (Win32 側と同じ)。**印は 32 ビットで
-   境界も合っているので、読みが途中の値を見ることはない。** */
-static inline void
-ts_atomic_set (volatile LONG *p, LONG v)
-{
-  __atomic_store_n (p, v, __ATOMIC_SEQ_CST);
-}
-
-#endif /* !_WIN32 */
+#include "worker-thread.h"
 
 /* Lisp の文字列 (ucs4) を tree-sitter が読む UTF-8 のバイト列にする。
    xmalloc したものを返し、*LENP に NUL を含まない長さを入れる。
@@ -234,7 +56,7 @@ struct lts_buf_cache
   /* Background parse state ------------------------------------------------- */
   volatile LONG     parse_bg_active;  /* 1 while bg parse thread is running */
   volatile LONG     parse_bg_cancel;  /* 1 to ask bg parse thread to abort */
-  ts_thread         parse_hthread;    /* bg parse thread handle */
+  worker_thread         parse_hthread;    /* bg parse thread handle */
   TSTree           *parse_result;     /* completed parse awaiting installation */
   long              parse_result_rev; /* revision parse_result corresponds to */
   long              parse_bg_rev;     /* revision currently being parsed */
@@ -242,7 +64,7 @@ struct lts_buf_cache
   /* Background highlight-query state --------------------------------------- */
   volatile LONG     bg_active;     /* 1 while bg query thread is running */
   volatile LONG     bg_cancel;     /* set to 1 to ask bg thread to stop early */
-  ts_thread         hthread;       /* bg query thread handle */
+  worker_thread         hthread;       /* bg query thread handle */
   ts_span_raw      *bg_spans;      /* results from last completed bg query */
   uint32_t          bg_span_count;
   long              bg_span_rev;   /* b_modified_count when bg_spans were produced */
@@ -254,7 +76,7 @@ struct lts_buf_cache
   char             *oq_src;        /* UTF-8 source for cache check */
   volatile LONG     oq_active;
   volatile LONG     oq_cancel;
-  ts_thread         oq_hthread;
+  worker_thread         oq_hthread;
   ts_span_raw      *oq_spans;
   uint32_t          oq_span_count;
   long              oq_span_rev;
@@ -276,24 +98,24 @@ get_buf_cache (Buffer *bp, const TSLanguage *lang)
           /* Grammar changed: stop all bg threads before touching shared state. */
           if (c->hthread)
             {
-              ts_atomic_set (&c->bg_cancel, 1);
-              ts_thread_join (c->hthread, 5000);
-              ts_thread_release (c->hthread); c->hthread = NULL;
-              ts_atomic_set (&c->bg_active, 0);
+              worker_atomic_set (&c->bg_cancel, 1);
+              worker_thread_join (c->hthread, 5000);
+              worker_thread_release (c->hthread); c->hthread = NULL;
+              worker_atomic_set (&c->bg_active, 0);
             }
           if (c->parse_hthread)
             {
-              ts_atomic_set (&c->parse_bg_cancel, 1);
-              ts_thread_join (c->parse_hthread, 5000);
-              ts_thread_release (c->parse_hthread); c->parse_hthread = NULL;
-              ts_atomic_set (&c->parse_bg_active, 0);
+              worker_atomic_set (&c->parse_bg_cancel, 1);
+              worker_thread_join (c->parse_hthread, 5000);
+              worker_thread_release (c->parse_hthread); c->parse_hthread = NULL;
+              worker_atomic_set (&c->parse_bg_active, 0);
             }
           if (c->oq_hthread)
             {
-              ts_atomic_set (&c->oq_cancel, 1);
-              ts_thread_join (c->oq_hthread, 5000);
-              ts_thread_release (c->oq_hthread); c->oq_hthread = NULL;
-              ts_atomic_set (&c->oq_active, 0);
+              worker_atomic_set (&c->oq_cancel, 1);
+              worker_thread_join (c->oq_hthread, 5000);
+              worker_thread_release (c->oq_hthread); c->oq_hthread = NULL;
+              worker_atomic_set (&c->oq_active, 0);
             }
           if (c->parse_result) { ts_tree_delete (c->parse_result); c->parse_result = nullptr; }
           if (c->tree)      { ts_tree_delete (c->tree); c->tree = nullptr; }
@@ -482,7 +304,7 @@ ts_parse_cancel_cb (TSParseState *state)
   return job->cache->parse_bg_cancel != 0;
 }
 
-static TS_THREAD_RET TS_THREAD_CALL
+static WORKER_THREAD_RET WORKER_THREAD_CALL
 ts_parse_thread (void *arg)
 {
   ts_parse_job *job = (ts_parse_job *) arg;
@@ -515,9 +337,9 @@ ts_parse_thread (void *arg)
   else if (new_tree)
     ts_tree_delete (new_tree);
 
-  ts_atomic_set (&c->parse_bg_active, 0);
+  worker_atomic_set (&c->parse_bg_active, 0);
   delete job;
-  return TS_THREAD_DONE;
+  return WORKER_THREAD_DONE;
 }
 
 /* Convert a code-unit offset to code-point offset.
@@ -650,7 +472,7 @@ struct ts_bg_job
   bool           is_outline; /* true = store results in oq_* fields */
 };
 
-static TS_THREAD_RET TS_THREAD_CALL
+static WORKER_THREAD_RET WORKER_THREAD_CALL
 ts_query_thread (void *arg)
 {
   ts_bg_job *job = (ts_bg_job *) arg;
@@ -673,9 +495,9 @@ ts_query_thread (void *arg)
       ts_tree_delete (job->tree);
       /* **消す印は自分の仕事のもの。** outline の仕事で bg_active を消すと、
          oq_active が 1 のまま残って outline が二度と動かなくなる。 */
-      ts_atomic_set (job->is_outline ? &c->oq_active : &c->bg_active, 0);
+      worker_atomic_set (job->is_outline ? &c->oq_active : &c->bg_active, 0);
       delete job;
-      return TS_THREAD_DONE;
+      return WORKER_THREAD_DONE;
     }
 
   TSQueryMatch match;
@@ -714,7 +536,7 @@ ts_query_thread (void *arg)
         { free (c->oq_spans); c->oq_spans = spans; c->oq_span_count = count; }
       else
         free (spans);
-      ts_atomic_set (&c->oq_active, 0);
+      worker_atomic_set (&c->oq_active, 0);
     }
   else
     {
@@ -722,10 +544,10 @@ ts_query_thread (void *arg)
         { free (c->bg_spans); c->bg_spans = spans; c->bg_span_count = count; }
       else
         free (spans);
-      ts_atomic_set (&c->bg_active, 0);
+      worker_atomic_set (&c->bg_active, 0);
     }
   delete job;
-  return TS_THREAD_DONE;
+  return WORKER_THREAD_DONE;
 }
 
 /* (si:ts-query-buffer GRAMMAR QUERY-SOURCE &optional BUFFER START-ROW END-ROW)
@@ -755,7 +577,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
          visible here.  The query thread already holds ts_tree_copy(), so it
          is safe to replace c->tree even while bg_active is set. */
       if (c->parse_hthread)
-        { ts_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
+        { worker_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
       if (c->parse_result_rev == bp->b_modified_count)
         {
           if (c->tree) ts_tree_delete (c->tree);
@@ -774,17 +596,17 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       /* Cancel any running bg query — can't launch a new parse while it
          holds a reference to the (stale) tree. */
       if (c->bg_active)
-        { ts_atomic_set (&c->bg_cancel, 1); return Qnil; }
+        { worker_atomic_set (&c->bg_cancel, 1); return Qnil; }
 
       /* Bg parse already running for the current revision: wait.
-         ts_yield() gives up the remaining time slice so the parse thread
+         worker_yield() gives up the remaining time slice so the parse thread
          gets CPU without a full scheduler-quantum delay. */
       if (c->parse_bg_active && c->parse_bg_rev == bp->b_modified_count)
-        { ts_yield (); return Qnil; }
+        { worker_yield (); return Qnil; }
 
       /* Bg parse running for a stale revision: signal cancel, come back. */
       if (c->parse_bg_active)
-        { ts_atomic_set (&c->parse_bg_cancel, 1); return Qnil; }
+        { worker_atomic_set (&c->parse_bg_cancel, 1); return Qnil; }
 
       /* No threads running; take a snapshot and launch a bg parse. */
       long cur_rev = bp->b_modified_count;
@@ -811,15 +633,15 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       job->revision  = cur_rev;
       job->old_tree  = c->tree ? ts_tree_copy (c->tree) : nullptr;
 
-      if (c->parse_hthread) { ts_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
-      ts_atomic_set (&c->parse_bg_cancel, 0);
-      ts_atomic_set (&c->parse_bg_active, 1);
+      if (c->parse_hthread) { worker_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
+      worker_atomic_set (&c->parse_bg_cancel, 0);
+      worker_atomic_set (&c->parse_bg_active, 1);
       c->parse_bg_rev = cur_rev;
 
-      c->parse_hthread = ts_thread_start (ts_parse_thread, job);
+      c->parse_hthread = worker_thread_start (ts_parse_thread, job);
       if (!c->parse_hthread)
         {
-          ts_atomic_set (&c->parse_bg_active, 0);
+          worker_atomic_set (&c->parse_bg_active, 0);
           free (snapshot);
           delete job;
         }
@@ -836,7 +658,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
       {
         /* Must not delete c->query while bg query thread is reading it. */
         if (c->bg_active)
-          { xfree (qbuf); ts_atomic_set (&c->bg_cancel, 1); return Qnil; }
+          { xfree (qbuf); worker_atomic_set (&c->bg_cancel, 1); return Qnil; }
 
         if (c->query) ts_query_delete (c->query);
         xfree (c->query_src);
@@ -867,7 +689,7 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
                          : TSPoint{ 0, 0 };
 
   if (c->bg_active)
-    { ts_yield (); return Qnil; }
+    { worker_yield (); return Qnil; }
 
   /* Return cached spans if they match the current revision and range. */
   if (c->bg_spans
@@ -972,16 +794,16 @@ Fsi_ts_query_buffer (lisp lgrammar, lisp lquery, lisp lbuffer,
   c->bg_sp        = sp;
   c->bg_ep        = ep;
   c->bg_has_range = has_range;
-  ts_atomic_set (&c->bg_cancel, 0);
-  ts_atomic_set (&c->bg_active, 1);
+  worker_atomic_set (&c->bg_cancel, 0);
+  worker_atomic_set (&c->bg_active, 1);
 
   if (c->hthread)
-    { ts_thread_release (c->hthread); c->hthread = NULL; }
+    { worker_thread_release (c->hthread); c->hthread = NULL; }
 
-  c->hthread = ts_thread_start (ts_query_thread, job);
+  c->hthread = worker_thread_start (ts_query_thread, job);
   if (!c->hthread)
     {
-      ts_atomic_set (&c->bg_active, 0);
+      worker_atomic_set (&c->bg_active, 0);
       ts_tree_delete (job->tree);
       delete job;
     }
@@ -1100,7 +922,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
   /* Install completed bg parse result. */
   if (!c->parse_bg_active && c->parse_result)
     {
-      if (c->parse_hthread) { ts_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
+      if (c->parse_hthread) { worker_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
       if (c->parse_result_rev == bp->b_modified_count)
         { if (c->tree) ts_tree_delete (c->tree); c->tree = c->parse_result; c->revision = c->parse_result_rev; }
       else
@@ -1111,9 +933,9 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
   /* Ensure tree is up-to-date. */
   if (!c->tree || c->revision != bp->b_modified_count)
     {
-      if (c->bg_active) { ts_atomic_set (&c->bg_cancel, 1); return Qnil; }
-      if (c->parse_bg_active && c->parse_bg_rev == bp->b_modified_count) { ts_yield (); return Qnil; }
-      if (c->parse_bg_active) { ts_atomic_set (&c->parse_bg_cancel, 1); return Qnil; }
+      if (c->bg_active) { worker_atomic_set (&c->bg_cancel, 1); return Qnil; }
+      if (c->parse_bg_active && c->parse_bg_rev == bp->b_modified_count) { worker_yield (); return Qnil; }
+      if (c->parse_bg_active) { worker_atomic_set (&c->parse_bg_cancel, 1); return Qnil; }
 
       long cur_rev = bp->b_modified_count;
       uint32_t total_bytes = 0;
@@ -1127,12 +949,12 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
       ts_parse_job *job = new ts_parse_job;
       job->cache = c; job->snapshot = snapshot; job->snap_size = total_bytes; job->revision = cur_rev;
       job->old_tree = c->tree ? ts_tree_copy (c->tree) : nullptr;
-      if (c->parse_hthread) { ts_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
-      ts_atomic_set (&c->parse_bg_cancel, 0);
-      ts_atomic_set (&c->parse_bg_active, 1);
+      if (c->parse_hthread) { worker_thread_release (c->parse_hthread); c->parse_hthread = NULL; }
+      worker_atomic_set (&c->parse_bg_cancel, 0);
+      worker_atomic_set (&c->parse_bg_active, 1);
       c->parse_bg_rev = cur_rev;
-      c->parse_hthread = ts_thread_start (ts_parse_thread, job);
-      if (!c->parse_hthread) { ts_atomic_set (&c->parse_bg_active, 0); free (snapshot); delete job; }
+      c->parse_hthread = worker_thread_start (ts_parse_thread, job);
+      if (!c->parse_hthread) { worker_atomic_set (&c->parse_bg_active, 0); free (snapshot); delete job; }
       return Qnil;
     }
 
@@ -1142,7 +964,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
     char *qbuf = ts_string_to_utf8 (lquery, &qlen8);
     if (!c->query || !c->query_src || strcmp (qbuf, c->query_src) != 0)
       {
-        if (c->bg_active) { xfree (qbuf); ts_atomic_set (&c->bg_cancel, 1); return Qnil; }
+        if (c->bg_active) { xfree (qbuf); worker_atomic_set (&c->bg_cancel, 1); return Qnil; }
         if (c->query) ts_query_delete (c->query);
         xfree (c->query_src);
         c->query = nullptr; c->query_src = nullptr;
@@ -1161,7 +983,7 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
   TSPoint sp = has_range ? TSPoint{ (uint32_t) fixnum_value (lstart_row), 0 } : TSPoint{ 0, 0 };
   TSPoint ep = has_range ? TSPoint{ (uint32_t) fixnum_value (lend_row), UINT32_MAX } : TSPoint{ 0, 0 };
 
-  if (c->bg_active) { ts_yield (); return Qnil; }
+  if (c->bg_active) { worker_yield (); return Qnil; }
 
   /* Cache hit: bg_active is 0 here so bg_spans is stable.
      Strategy depends on whether the new range overlaps the cached range:
@@ -1210,11 +1032,11 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
               ts_bg_job *job = new ts_bg_job{};
               job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
               job->sp = sp; job->ep = ep; job->has_range = has_range;
-              ts_atomic_set (&c->bg_cancel, 0);
-              ts_atomic_set (&c->bg_active, 1);
-              if (c->hthread) { ts_thread_release (c->hthread); c->hthread = NULL; }
-              c->hthread = ts_thread_start (ts_query_thread, job);
-              if (!c->hthread) { ts_atomic_set (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+              worker_atomic_set (&c->bg_cancel, 0);
+              worker_atomic_set (&c->bg_active, 1);
+              if (c->hthread) { worker_thread_release (c->hthread); c->hthread = NULL; }
+              c->hthread = worker_thread_start (ts_query_thread, job);
+              if (!c->hthread) { worker_atomic_set (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
             }
 
           bp->refresh_buffer ();
@@ -1226,11 +1048,11 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
       ts_bg_job *job2 = new ts_bg_job{};
       job2->cache = c; job2->tree = ts_tree_copy (c->tree); job2->query = c->query;
       job2->sp = sp; job2->ep = ep; job2->has_range = has_range;
-      ts_atomic_set (&c->bg_cancel, 0);
-      ts_atomic_set (&c->bg_active, 1);
-      if (c->hthread) { ts_thread_release (c->hthread); c->hthread = NULL; }
-      c->hthread = ts_thread_start (ts_query_thread, job2);
-      if (!c->hthread) { ts_atomic_set (&c->bg_active, 0); ts_tree_delete (job2->tree); delete job2; }
+      worker_atomic_set (&c->bg_cancel, 0);
+      worker_atomic_set (&c->bg_active, 1);
+      if (c->hthread) { worker_thread_release (c->hthread); c->hthread = NULL; }
+      c->hthread = worker_thread_start (ts_query_thread, job2);
+      if (!c->hthread) { worker_atomic_set (&c->bg_active, 0); ts_tree_delete (job2->tree); delete job2; }
       return Qnil;
     }
 
@@ -1239,11 +1061,11 @@ Fsi_ts_apply_highlights (lisp lgrammar, lisp lquery, lisp lbuffer,
   job->cache = c; job->tree = ts_tree_copy (c->tree); job->query = c->query;
   job->sp = sp; job->ep = ep; job->has_range = has_range;
   c->bg_span_rev = bp->b_modified_count; c->bg_sp = sp; c->bg_ep = ep; c->bg_has_range = has_range;
-  ts_atomic_set (&c->bg_cancel, 0);
-  ts_atomic_set (&c->bg_active, 1);
-  if (c->hthread) { ts_thread_release (c->hthread); c->hthread = NULL; }
-  c->hthread = ts_thread_start (ts_query_thread, job);
-  if (!c->hthread) { ts_atomic_set (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
+  worker_atomic_set (&c->bg_cancel, 0);
+  worker_atomic_set (&c->bg_active, 1);
+  if (c->hthread) { worker_thread_release (c->hthread); c->hthread = NULL; }
+  c->hthread = worker_thread_start (ts_query_thread, job);
+  if (!c->hthread) { worker_atomic_set (&c->bg_active, 0); ts_tree_delete (job->tree); delete job; }
   return Qnil;
 }
 
@@ -1259,24 +1081,24 @@ Fsi_ts_free_buffer_cache (lisp lbuffer)
 
       if (c->hthread)
         {
-          ts_atomic_set (&c->bg_cancel, 1);
-          ts_thread_join (c->hthread, 5000);
-          ts_thread_release (c->hthread);
+          worker_atomic_set (&c->bg_cancel, 1);
+          worker_thread_join (c->hthread, 5000);
+          worker_thread_release (c->hthread);
           c->hthread = NULL;
         }
       if (c->parse_hthread)
         {
-          ts_atomic_set (&c->parse_bg_cancel, 1);
-          ts_thread_join (c->parse_hthread, 5000);
-          ts_thread_release (c->parse_hthread);
+          worker_atomic_set (&c->parse_bg_cancel, 1);
+          worker_thread_join (c->parse_hthread, 5000);
+          worker_thread_release (c->parse_hthread);
           c->parse_hthread = NULL;
         }
 
       if (c->oq_hthread)
         {
-          ts_atomic_set (&c->oq_cancel, 1);
-          ts_thread_join (c->oq_hthread, 5000);
-          ts_thread_release (c->oq_hthread);
+          worker_atomic_set (&c->oq_cancel, 1);
+          worker_thread_join (c->oq_hthread, 5000);
+          worker_thread_release (c->oq_hthread);
           c->oq_hthread = NULL;
         }
 
@@ -1444,7 +1266,7 @@ Fsi_ts_query_buffer_sync (lisp lgrammar, lisp lquery, lisp lbuffer)
       xfree (qbuf);
   }
 
-  if (c->oq_active) { ts_yield (); return Qnil; }
+  if (c->oq_active) { worker_yield (); return Qnil; }
 
   /* Return cached spans if fresh. */
   if (c->oq_spans && c->oq_span_rev == bp->b_modified_count)
@@ -1529,13 +1351,13 @@ Fsi_ts_query_buffer_sync (lisp lgrammar, lisp lquery, lisp lbuffer)
   job->has_range  = false;
   job->is_outline = true;
   c->oq_span_rev  = bp->b_modified_count;
-  ts_atomic_set (&c->oq_cancel, 0);
-  ts_atomic_set (&c->oq_active, 1);
-  if (c->oq_hthread) { ts_thread_release (c->oq_hthread); c->oq_hthread = NULL; }
-  c->oq_hthread = ts_thread_start (ts_query_thread, job);
+  worker_atomic_set (&c->oq_cancel, 0);
+  worker_atomic_set (&c->oq_active, 1);
+  if (c->oq_hthread) { worker_thread_release (c->oq_hthread); c->oq_hthread = NULL; }
+  c->oq_hthread = worker_thread_start (ts_query_thread, job);
   if (!c->oq_hthread)
     {
-      ts_atomic_set (&c->oq_active, 0);
+      worker_atomic_set (&c->oq_active, 0);
       ts_tree_delete (job->tree);
       delete job;
     }
