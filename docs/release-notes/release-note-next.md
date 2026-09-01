@@ -1390,6 +1390,36 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     **ローカル時刻として解釈する**。round trip がタイムゾーンの分だけずれて
     いた (`set-file-write-time` が UTC でない環境で違う時刻を書く)。
     **コンテナは TZ=UTC なので見えなかった。** `timegm` に直した。
+  * **POSIX でタイムゾーンが常に UTC だったのを直した** (issue #204)。
+    `src/core/platform.h` の `GetTimeZoneInformation` が**構造体を 0 で埋めて
+    返すだけ**だったので、`Bias` が常に 0 になっていた。
+
+    | Lisp | 何がずれていたか |
+    | --- | --- |
+    | `(get-decoded-time)` | 8 番目の値 (タイムゾーン) が常に 0、7 番目 (夏時間) が常に nil |
+    | `(encode-universal-time ...)` / `(decode-universal-time ...)` | タイムゾーンを明示しないと UTC+0 として扱う。**地方時の offset の分だけ間違った値** |
+
+    エラーは出ない。POSIX には `localtime_r` の `tm_gmtoff` と `tm_isdst` が
+    あるので、そこから組むようにした。**`Bias` は「標準時の (UTC - 地方時)」
+    を分で**表したもので、`tm_gmtoff` (地方時 - UTC、秒、夏時間を含む) とは
+    符号も単位も基準も違う。呼び出し側が夏時間のときに 3600 秒引くので、
+    そこと噛み合わせて `isdst > 0` なら `(-tm_gmtoff + 3600) / 60` にした。
+
+    **上の `SystemTimeToFileTime` と同じ理由で見えていなかった。** コンテナも
+    CI の runner も TZ=UTC なので、**間違った値と正しい値が一致する。**
+    2 度目なので、**測り方の方を直した**: `call-process` の `:environ` が
+    POSIX でも動くようになっている (issue #50) ので、**TZ を変えた子プロセス**に
+    答えさせる形にした (`unittest/environ-tests.l` に 3 件)。TZ には
+    `JST-9` という POSIX 形式を使う — `Asia/Tokyo` と違って **tzdata の
+    ファイルが要らない**ので、テストが `/usr/share/zoneinfo` の中身に依らない。
+
+    **夏時間の差が 1 時間でない地域は今も合わない。** 呼び出し側
+    (`src/core/environ.cc` の `get_timezone`) が `-3600` を決め打ちしていて、
+    この関数だけでは直せない (Win32 は `DaylightBias` を別に持っている)。
+
+    見つけ方: `src/core/platform.h` の 183 個の inline スタブを
+    **「呼ばれているのに no-op なもの」**で数え上げた (issue #16 の Phase 4)。
+    12 件あり、これはそのうちの 1 件。
   * **POSIX で FFI が使えるようになった** (issue #133 の段階 2〜3、
     既知失敗 59 -> 57)。**libffi は要らなかった。**
 
