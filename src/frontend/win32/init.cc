@@ -272,6 +272,16 @@ init_user_inifile_path (const wchar_t *ini_file)
   app.ini_file_path = xwcsdup (path);
 }
 
+/* **ダンプイメージの同一性判定に使う** (src/core/data.cc の
+   `dump_get_exe_ident`)。`init_dump_path` と同じ `GetModuleFileNameW` だが、
+   あちらは拡張子を `.wxp` に替えてしまうので別に取る。 */
+static void
+init_exe_path ()
+{
+  if (!GetModuleFileNameW (0, app.exe_path, numberof (app.exe_path)))
+    *app.exe_path = 0;
+}
+
 static void
 init_dump_path ()
 {
@@ -642,6 +652,7 @@ init_lisp_objects ()
 
   try
     {
+      init_exe_path ();
       init_dump_path ();
       if ((ac < __argc || !check_dump_key ())
           && rdump_xyzzy ())
