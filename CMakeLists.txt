@@ -913,6 +913,10 @@ if(NOT WIN32)
     # 置けない** -- ヘッダの static は翻訳単位ごとに別の実体になり、
     # IsBadWritePtr を呼ぶ data.cc から見た表が空になる (issue #240)。
     list(APPEND CORE_SOURCES ${CORE_DIR}/mem-posix.cc)
+    # 名前解決。**worker スレッドで引いて main は C-g を見ながら待つ**
+    # (issue #223)。以前は resolver.h の中で gethostbyname を直に呼んで
+    # いたので、遅い DNS でエディタが固まった。
+    list(APPEND CORE_SOURCES ${CORE_DIR}/resolver-posix.cc)
 endif()
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})

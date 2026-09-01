@@ -54,18 +54,43 @@ public:
 
 #else // !_WIN32
 
-// Linux stub - uses synchronous resolution
+#include <netdb.h>
+
+/* **worker スレッドで引く** (issue #223)。中身は
+   `src/core/resolver-posix.cc`。
+
+   以前はここで `gethostbyname` を直に呼んでいた。**引けてはいたが、遅い DNS で
+   エディタが数秒固まり、C-g でも戻れなかった** -- あの呼びには
+   `poll_quit_char` を挟む隙が無い。
+
+   **結果の寿命は Win32 と同じ約束**である: `lookup_host` が返す `hostent` は
+   このオブジェクトのメンバを指し、**次の lookup まで有効。**
+   `sockinet::saddr::hostname ()` が `h_name` をそのまま返すので、この約束が
+   要る。 */
 class resolver
 {
 public:
-  resolver (int = 60000) {}
-  ~resolver () {}
+  struct job;                   // resolver-posix.cc の中だけで使う
 
-  void cancel () {}
+private:
+  int r_timeout;                // ms。0 以下なら待ち続ける
+  /* 結果。**次の lookup まで有効** (Win32 の r_buf と同じ)。 */
+  hostent r_hostent;
+  char r_name[NI_MAXHOST];
+  char *r_addr_list[2];
+  unsigned char r_addr[16];
 
-  hostent *lookup_host (const char *name) { return gethostbyname(name); }
-  hostent *lookup_host (const void *addr, int len, int type) { return gethostbyaddr((const char*)addr, len, type); }
-  servent *lookup_serv (const char *name, const char *proto) { return getservbyname(name, proto); }
+  job *wait_for_job (job *);
+
+public:
+  resolver (int = 60000);
+  ~resolver ();
+
+  void cancel ();
+
+  hostent *lookup_host (const char *);
+  hostent *lookup_host (const void *, int, int);
+  servent *lookup_serv (const char *, const char *);
 };
 
 #endif // _WIN32

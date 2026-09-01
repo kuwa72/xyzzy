@@ -1019,4 +1019,50 @@ else
   fail=1
 fi
 
+# 名前解決の待ちを C-g で抜けられること (issue #223)。**遅い DNS で
+# エディタが数秒固まり、C-g でも戻れなかった** -- `gethostbyname` を直に
+# 呼んでいたので `poll_quit_char` を挟む隙が無かった。worker スレッドで
+# 引いて、main は 100ms 刻みで C-g を見る形にした。
+#
+# **応答しないネームサーバを指さないと空回りする。** DNS が普通に動いている
+# 所では、無い名前は NXDOMAIN で即座に返るので**待ちが発生しない。**
+#
+# **`/etc/resolv.conf` を書き換えるので、使い捨てのコンテナの中でしか
+# やらない。** `tools/x smoke` は毎回新しいコンテナなので構わないが、
+# **CI の runner と開発機では絶対に触ってはいけない** -- 同じ job の後ろの
+# step や、その人の機械の DNS を壊す。**触れないときは黙って飛ばさず
+# SKIPPED と言う** (「測っていない」と「通った」を混ぜないため)。
+#
+# つまり **CI ではこの 1 件だけ SKIPPED になる。** それでも置いてあるのは、
+# `tools/x smoke` を回す開発者のところでは実際に測れるからである。
+#
+# 見るのはソケットの側と同じ 2 つ (時間は測らない):
+#   1. C-g の後の eval が描かれる
+#   2. **中断が `quit` として届く** (= 解決が自分で戻ったのではない)
+#
+# **60 秒のタイムアウト経路は測らない。** 測ると smoke が 1 分伸びるうえ、
+# 遅い runner で閾値に触る形になる。**flaky にするより測らない方を選ぶ。**
+log=$build/smoke-dns-quit.txt
+if [ ! -f /.dockerenv ] || ! (echo "# smoke probe" >>/etc/resolv.conf) 2>/dev/null; then
+  echo 'smoke: 名前解決の待ちを C-g SKIPPED -- 使い捨てのコンテナの中でないので /etc/resolv.conf を触らない'
+else
+  printf 'nameserver 10.255.255.1\noptions timeout:5 attempts:3\n' >/etc/resolv.conf
+  XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+    python3 "$root/tools/pty-drive.py" \
+    '\w' \
+    '\e\e(handler-case (connect "slow.example.com" 80) (error (e) (concatenate (quote string) "SMOKE" "-DNS-ERR")) (quit (e) (concatenate (quote string) "SMOKE" "-DNS-QUIT")))\r' \
+    '\w' '\Cg' '\w' \
+    '\e\e(concatenate (quote string) "SMOKE" "-DNS-ALIVE")\r' '\w' \
+    >"$log" 2>&1 || true
+  if grep -q 'SMOKE-DNS-QUIT' "$log" && grep -q 'SMOKE-DNS-ALIVE' "$log"; then
+    echo 'smoke: 名前解決の待ちを C-g で抜ける OK -- quit が届き、その後も動く'
+  else
+    echo "smoke: 名前解決の待ちを C-g FAILED, see $log" >&2
+    echo '-- 出た目印:' >&2
+    grep -o 'SMOKE-DNS-[A-Z]*' "$log" | sort -u >&2 || true
+    echo '-- SMOKE-DNS-ERR なら解決が自分で戻った。resolv.conf の細工を見直す' >&2
+    fail=1
+  fi
+fi
+
 exit $fail

@@ -75,6 +75,15 @@ worker_atomic_set (volatile LONG *p, LONG v)
   InterlockedExchange (p, v);
 }
 
+/* 1 減らして**減らした後の値**を返す。持ち主が 2 人いる箱を、**後に手を
+   離した方が解放する**ために使う (名前解決の job がそれ: main が諦めても
+   worker はまだ書いている)。 */
+static inline LONG
+worker_atomic_dec (volatile LONG *p)
+{
+  return InterlockedDecrement (p);
+}
+
 #else /* !_WIN32 */
 
 # include <pthread.h>
@@ -199,6 +208,13 @@ static inline void
 worker_atomic_set (volatile LONG *p, LONG v)
 {
   __atomic_store_n (p, v, __ATOMIC_SEQ_CST);
+}
+
+/* 1 減らして**減らした後の値**を返す。上の Win32 側と同じ約束。 */
+static inline LONG
+worker_atomic_dec (volatile LONG *p)
+{
+  return __atomic_sub_fetch (p, 1, __ATOMIC_SEQ_CST);
 }
 
 #endif /* !_WIN32 */
