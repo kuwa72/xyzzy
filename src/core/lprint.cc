@@ -4,6 +4,8 @@
 #include "sock.h"
 #include "version.h"
 
+extern bool g_batch_mode;       // src/core/Buffer.cc
+
 char upcase_digit_char[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 char downcase_digit_char[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -4219,6 +4221,31 @@ print_condition (lisp cc)
       assert (0);
       return;
     }
+
+  /* **`--batch` では、この後の行き先がどちらも描かれない。** 重要でない側は
+     `app.status_window` へ入るが、あれは画面を描く側が読むバッファで、
+     `--batch` では誰も読まない (端末版は `g_status_buf` へ memcpy するだけ、
+     Win32 版は `SendMessage` の相手が居ない)。重要な側の `MsgBox` は
+     `g_batch_mode` のとき既定のボタンを返すだけで**何も出さない**。
+     結果、`xyzzy --batch -e '(car 1)'` はエラーの文字が 1 つも出ず
+     exit 0 になっていた -- **スクリプトから見て壊れているのに成功に
+     見える** (issue #236)。
+     `*error-output*` へも出す。**stdout ではなく stderr** にするのは、
+     `tools/bytecompile.sh` と `misc/run-tests-batch.l` が stdout を読んで
+     いるため。encoding は `create_std_stream` が決めたものに従う
+     (POSIX は UTF-8、Win32 のコンソールは CP932 -- issue #229)。
+     **終了コードは変えていない。** 呼び元を全部見てから決める話なので
+     分けてある (#236 の段取り 2)。 */
+  if (g_batch_mode && streamp (xsymbol_value (Verror_output)))
+    try
+      {
+        wStreamsStream stream (xsymbol_value (Verror_output));
+        print_condition (stream, cc);
+        stream.add ('\n');
+      }
+    catch (nonlocal_jump &)
+      {
+      }
 
   try
     {
