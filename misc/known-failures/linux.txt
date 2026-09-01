@@ -384,9 +384,23 @@ image-startup-option
 # 
 # ole-tests.l は丸ごと除外してある (tools/run-tests.sh に理由)。ここに残るのは
 # 別のファイルから OLE を触っているもの。
+#
+# **`lisp-mode-eval-last-sexp` は割った (issue #215)。** 名前がここに載って
+# いたのは正しかった -- しかし**あのテストは 19 個の値を見ていて、COM が要る
+# のは 1 個だけ**だった。`deftest` は 1 個でも合わなければ落ちるので、
+# **リーダを測る 18 個の値が POSIX でまるごと暗かった** (`#x123`、`#3(1 2)`、
+# `#2A((1))`、`#C(1 2)`、`#<function: car>` が reader-error になること、など)。
+# 個別に測ったら全部期待どおりだった。OLE の 3 行だけを
+# `lisp-mode-eval-last-sexp-ole` に分けて、こちらに載せている。
+#
+# **件数は変わらないが、測られる性質が 18 個増えた。** 群の名前が正しくても、
+# テストの粒度が粗いと中の性質が測られない -- 同じ形をこのファイルに 2 回
+# 書いている (`fix-start-timer` の裏に機能が 2 つ、`formatter-*` の 8 件の
+# うち 5 件が「起動できないから通る」)。**名前を足すときは、そのテストが
+# 見ている値が全部その理由で落ちているのかを見ること。**
 
 fix-ole-method
-lisp-mode-eval-last-sexp
+lisp-mode-eval-last-sexp-ole
 
 # mingw でも落ちるもの。**POSIX 固有ではない。**
 #

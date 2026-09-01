@@ -1026,10 +1026,6 @@
            (insert-and-eval "#<function: car>")
          (reader-error (c)
            (list (format nil "~A" (reader-error-datum c)) (reader-error-arguments c))))
-       (progn
-         (insert-and-eval "(load-library \"ole\")")
-         (insert-and-eval "(setf fso (ole-create-object \"Scripting.FileSystemObject\"))")
-         (insert-and-eval "#{fso.BuildPath[\"foo\" \"bar\"]}"))
        )))
   => "変数が定義されていません: >"
   => "変数が定義されていません: }"
@@ -1047,7 +1043,25 @@
   => #3A(((1)))
   => #C(1 2)
   => #S(foreign::c-type-definition type :int32 size 4 slots nil accessor system:unpack-int32)
-  => ("ディスパッチングマクロ副文字ではありません" (#\<))
+  => ("ディスパッチングマクロ副文字ではありません" (#\<)))
+
+;; **OLE の値だけを別の `deftest` にした。** 1 つの `deftest` は 1 個でも
+;; 合わなければ落ちるので、これが混ざっている間**リーダを見る 18 個の値が
+;; POSIX でまるごと暗かった** (issue #215)。`misc/known-failures/linux.txt` は
+;; これを OLE の群に置いていて理由としては正しかったが、群の見出しが隠して
+;; いたのは「COM が無い」ではなく「**リーダを測るテストが 1 つ無い**」である。
+;;
+;; 同じ形が同じファイルに 2 回書いてある (`fix-start-timer` の裏に 2 つの機能、
+;; `formatter-*` の 8 件のうち 5 件が「起動できないから通る」)。**群の名前が
+;; 正しくても、テストの粒度が粗いと中の性質が測られない。**
+(deftest lisp-mode-eval-last-sexp-ole (:compare equalp)
+  (with-temp-buffer
+    (flet ((insert-and-eval (sexp)
+             (insert sexp #\LFD)
+             (eval-last-sexp)))
+      (insert-and-eval "(load-library \"ole\")")
+      (insert-and-eval "(setf fso (ole-create-object \"Scripting.FileSystemObject\"))")
+      (insert-and-eval "#{fso.BuildPath[\"foo\" \"bar\"]}")))
   => "foo\\bar")
 
 (deftest lisp-tags-find-target ()
