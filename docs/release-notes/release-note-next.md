@@ -1390,6 +1390,63 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     **ローカル時刻として解釈する**。round trip がタイムゾーンの分だけずれて
     いた (`set-file-write-time` が UTC でない環境で違う時刻を書く)。
     **コンテナは TZ=UTC なので見えなかった。** `timegm` に直した。
+  * **端末版で合図 (ベル) が鳴りも光りもしていなかったのを直した**
+    (issue #203)。`ding` の**どちらの枝も POSIX では何もしていなかった。**
+
+    ```cpp
+    if (xsymbol_value (Vvisible_bell) != Qnil)
+      {
+        HWND hwnd = get_active_window ();
+        RECT r; GetWindowRect (hwnd, &r);   // FALSE、r は未初期化
+        ...                                  // GDI の 6 つが全部 no-op
+      }
+    else
+      MessageBeep (x);                       // {} -- 空
+    ```
+
+    **エラーも警告も検索の失敗も、合図が 1 つも出ていなかった。** 入口は
+    2 つあり、**どちらも既定で開いている**: Lisp の `(ding)`
+    (`*beep-on-never*` は nil。isearch / expand-region / iedit /
+    fuzzy-complete など 15 ファイル以上が呼ぶ) と、エラー・警告の
+    メッセージ (`putmsg` が `Fding` を直に呼ぶ。`*beep-on-error*` と
+    `*beep-on-warn*` はどちらも t)。
+
+    **端末には両方ある。** curses の `beep ()` が鳴らす方、`flash ()` が
+    光らせる方で、`*visible-bell*` の 2 つの枝にそのまま対応する。
+
+    frontend の seam を 2 つ足した (`frontend_beep` / `frontend_flash`)。
+    **どちらを使うかの判断は core に残した** — `*beep-on-never*` と
+    `*visible-bell*` の読みを 3 つの frontend に複写したくないので、
+    frontend が持つのは「どう鳴らすか」「どう光らせるか」だけ。
+
+    | frontend | 鳴らす | 光らせる |
+    | --- | --- | --- |
+    | win32 | `MessageBeep` | 今までの GDI の本体 (`gdi-utils.cc` へ移動) |
+    | ncurses | `beep ()` | `flash ()` |
+    | cli | `\a` を stderr へ | 画面が無いので音に落ちる |
+
+    **`--batch` では curses を上げていないので `stdscr` が 0 で、そこへ
+    `beep ()` を呼ばない。** 代わりに端末があるときだけ `\a` を **stderr へ**
+    書く — stdout はテストやパイプの相手が読んでいるので混ぜない。
+
+    **`platform.h` から 7 つ消えた** (`MessageBeep` / `GetWindowRect` /
+    `LockWindowUpdate` / `GetDCEx` / `PatBlt` / `GdiFlush` / `ReleaseDC` と
+    `DSTINVERT` / `DCX_*`)。**core に残っていた GDI 呼び出しの最後の
+    まとまり**である (issue #16 の Phase 4)。
+
+    **測り方が要点だった。Lisp スイートからは測れない** — 音も画面の反転も
+    返り値を持たず、スイートは全部 `--batch` で curses が上がっていない。
+    `tools/linux-smoke.sh` に入れて、**pty の生のバイト列で見る**ようにした
+    (`XYZZY_PTY_RAW`)。
+
+    ```
+    (ding)                      -> \x07 が 1 個
+    *visible-bell* を立てて ding -> ESC[?5h ... ESC[?5l
+    ```
+
+    修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
+    見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
+    ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
   * **POSIX でタイムゾーンが常に UTC だったのを直した** (issue #204)。
     `src/core/platform.h` の `GetTimeZoneInformation` が**構造体を 0 で埋めて
     返すだけ**だったので、`Bias` が常に 0 になっていた。

@@ -1473,6 +1473,48 @@ Buffer *frontend_tab_order_next_buffer (Buffer *, int) { return 0; }
 lisp frontend_tab_order_buffer_list () { return 0; }
 void frontend_buffer_deleted (Buffer *) {}
 
+/* 合図 (ベル)。**これはスタブではない。**
+ *
+ * **端末には両方ある。** curses の `beep ()` が鳴らす方、`flash ()` が
+ * 光らせる方で、`*visible-bell*` の 2 つの枝にそのまま対応する。どちらを
+ * 使うかは core が決める (`ding`、src/core/lprint.cc)。
+ *
+ * 前は core が GDI を直に呼んでいて、**POSIX ではその 7 つが全部何もしない
+ * スタブだったので、鳴りも光りもしなかった** (issue #203)。
+ *
+ * **curses が上がっていないときに `beep ()` / `flash ()` を呼ばない。**
+ * `--batch` では initscr していないので `stdscr` が 0 で、そこへ出力すると
+ * どうなるかは約束されていない。代わりに、端末があるときだけ `\a` を
+ * **stderr へ**書く — stdout はテストが読んでいるので、そちらへ混ぜない。 */
+static void
+ncurses_bell_fallback ()
+{
+  if (isatty (fileno (stderr)))
+    {
+      fputc ('\a', stderr);
+      fflush (stderr);
+    }
+}
+
+void
+frontend_beep (int)
+{
+  if (stdscr)
+    beep ();
+  else
+    ncurses_bell_fallback ();
+}
+
+void
+frontend_flash ()
+{
+  /* 画面が無ければ光らせようがないので、音に落ちる (黙るよりは合図が出る)。 */
+  if (stdscr)
+    flash ();
+  else
+    ncurses_bell_fallback ();
+}
+
 // ============================================================
 // abbrev.cc stubs (abbreviate_string uses GDI)
 // ============================================================
