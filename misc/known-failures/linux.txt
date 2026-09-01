@@ -290,27 +290,31 @@ wait-object-typep
 # 1 か所で分けたので chdir だけでなく open や delete-file でも Win32 と
 # 同じ条件が付く。
 #
-# **`image-startup-option` と `fix-*load-pathname*-from-dump-image` の理由は
-# 「ダンプイメージに依っている」と 1 行で書いてあったが、測ったら 2 件は
-# 別々の理由だった** (issue #217 の作業中)。ここは 1 行にまとめない。
+# **ダンプイメージの 2 件は両方とも外れた。** 理由は「ダンプイメージに
+# 依っている」と 1 行で書いてあったが、測ったら**そもそも POSIX でダンプが
+# 動くかを誰も測っていなかった** (issue #217 -> #219)。書く側は前から動いて
+# いて、読む側が繋がっていなかっただけだった (762ms -> 206ms)。
 #
-#   * `image-startup-option` は**外れた** (issue #219)。ダンプを一切して
-#     いないテストで、`-image <path>` が `(si:dump-image-path)` に入るかしか
-#     見ていない。落ちていたのは「オプションが読まれていない」からで、
-#     POSIX でもダンプイメージそのものが動く (762ms -> 206ms) ので
-#     読み込みまで通した。
+#   * `image-startup-option` -- ダンプを一切していないテストで、
+#     `-image <path>` が `(si:dump-image-path)` に入るかしか見ていない。
+#     落ちていたのは「オプションが読まれていない」から。
 #
-#   * `fix-*load-pathname*-from-dump-image` は残る。**このテストは
-#     Windows でも中身を測っていない。** 見ているのは子プロセス (`-q`) の
-#     `*load-pathname*` が nil かで、Win32 の子はダンプイメージから起きる
-#     ので「何も load していない」= nil になる。POSIX の子は `-image` を
-#     渡していないのでイメージを使わず、`startup.l` を load している最中に
-#     `-e` が走って `"/work/lisp/startup.l"` が見える。テスト自身が
-#     `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と認めて
-#     いる通りで、**「nil であること」を Win32 でも偶然で測っている。**
-#     代わりに `dump-image-actually-loads` (`unittest/editor-tests.l`) が
-#     イメージを本当に作って読んで、`(xyzzy-dumped-p)` と
-#     `*load-pathname*` を一緒に見る。こちらの期待値を直すのは別の話。
+#   * `fix-*load-pathname*-from-dump-image` -- **このテストは Windows でも
+#     中身を測っていなかった。** `-q` だけを渡して子プロセスの
+#     `*load-pathname*` が nil かを見ていたので、Win32 では隣の `.wxp` を
+#     勝手に読むおかげで偶然通り、POSIX ではイメージを使わないので
+#     `startup.l` を load している最中の値が見えて落ちていた。テスト自身が
+#     `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と認めていた。
+#     **イメージを本当に作ってから測る形に書き換えた** (`with-dump-image`、
+#     unittest/simple-test.l)。**リストから外すのではなく、測り方を直したので
+#     外れた**という並びである。
+#
+# **1 件だけを直すとテストが嘘になる形だった。** `image-startup-option` は
+# argv を変数に入れるだけで緑になるが、それでは機能は 1 mm も動いていない。
+# 読み込みまで通してから外した。同じ理由で、`dump-image-actually-loads`
+# (unittest/editor-tests.l) は `(xyzzy-dumped-p)` だけでなく**ライブラリの
+# 関数が生きていること**も見る -- シンボルが戻っても builtin の関数ポインタが
+# 貼り直されていなければ何もできない。
 #
 # **`user-config-path` / `xyzzy-ini-path` は 7 件のうち 5 件が外れた。** 前は
 # 「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、
@@ -354,7 +358,6 @@ wait-object-typep
 # 混ざっている。文言 (src/core/lprint.cc) と `create-directory` の既存判定は
 # 直したが、番号の体系そのものを揃える話は別 issue にした。
 
-fix-*load-pathname*-from-dump-image
 
 # コマンドライン引数の処理 — **この群も空になった。**
 #

@@ -749,12 +749,16 @@
 (deftest fix-*load-pathname*-from-dump-image ()
   "ダンプ作成時にロードしたファイル名がそのままダンプファイルに保存される
 ようなので、起動時にも初期化するように修正。"
-  ;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう。
-  (eval-in-another-xyzzy
-   `*load-pathname*
-   :options "-q")
-  => nil
-  )
+  ;; **イメージを本当に作ってから測る。** ここは長いあいだ
+  ;; `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう。' と書いてあり、
+  ;; `-q' だけを渡していた。それだと「イメージから起きたか」を制御していない
+  ;; ので、**Win32 では隣の `.wxp' を勝手に読むおかげで偶然通り、POSIX では
+  ;; イメージを使わないので `startup.l' を load している最中の値が見えて
+  ;; 落ちていた** (既知失敗、issue #219)。2010 年の修正が生きているかは、
+  ;; イメージから起きた子プロセスでしか測れない。
+  (with-dump-image (image)
+    (eval-in-another-xyzzy '*load-pathname* :options (dump-image-options image)))
+  => nil)
 
 ;; 	* src : fix format "~F".
 ;; 	formatの"~F"の第一パラメータwを指定しないと第三パラメータkが機能しない
