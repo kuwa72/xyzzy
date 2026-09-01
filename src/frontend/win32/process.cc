@@ -1443,17 +1443,17 @@ public:
   virtual void signal_proc ()
     {
       try {p_so.close ();}
-      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope ());}
+      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope (), e.category ());}
     }
   virtual void kill_proc ()
     {
       try {p_so.close (1);}
-      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope ());}
+      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope (), e.category ());}
     }
   virtual void send (const char *s, int l) const
     {
       try {p_so.send (s, l);}
-      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope ());}
+      catch (sock_error &e) {FEsocket_error (e.error_code (), e.ope (), e.category ());}
     }
   void create (lisp, lisp);
   virtual int readin (u_char *, int);
@@ -1513,7 +1513,7 @@ SocketProcess::create (lisp host, lisp service)
       Fend_wait_cursor ();
       ResumeThread (hread_thread);
       WaitForSingleObject (hread_thread, INFINITE);
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 
   Fend_wait_cursor ();

@@ -76,8 +76,13 @@ blocking_hook ()
 }
 #endif
 
+/* **`e_category` を忘れないこと。** ここを初期化し漏らして
+   `print_error` が category を garbage で見て、Win32 で
+   「connect: Connection refused」が出なくなった (自分で踏んだ)。
+   メンバ初期化子の並びはクラス定義 (src/core/sock.h) の順に揃える。 */
 sock_error::sock_error (const char *ope)
-     : e_error (WS_CALL (WSAGetLastError)()), e_ope (ope)
+     : e_error (WS_CALL (WSAGetLastError)()), e_ope (ope),
+       e_category (WSA_ERROR)
 {
 }
 

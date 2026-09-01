@@ -18,8 +18,14 @@
    SERVERFAIL」と出ていた。**WSA_ERROR はそれを型で分けるために足した。**
    issue #120 を参照。
 
+     DNS_ERROR    名前解決のエラー。`h_errno` (`HOST_NOT_FOUND` = 1 ..) で、
+                  **POSIX では 1..4 が `EPERM`..`EINTR` と完全に重なる。**
+                  `gethostbyname` は `errno` を触らないので、番号を errno と
+                  して扱うと「Success」や「Operation not permitted」と出る
+                  (実際に出ていた、issue #223)
+
    `SOCKET_ERROR` という名前は使えない (Win32 が -1 の意味で使っている)。 */
-enum {CRTL_ERROR, WIN32_ERROR, WSA_ERROR};
+enum {CRTL_ERROR, WIN32_ERROR, WSA_ERROR, DNS_ERROR};
 
 /* OS のエラー番号の**意味**を聞く。`GetLastError ()' の戻り値を `ERROR_*' と
    直に比べてはいけない: 番号の空間がプラットフォームで違う (Win32 は Win32 の

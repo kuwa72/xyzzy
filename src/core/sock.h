@@ -1,6 +1,9 @@
 #ifndef _sock_h_
 #define _sock_h_
 
+/* `sock_error` が category を持つので (下)。 */
+#include "error.h"
+
 #ifdef _WIN32
 #include <winsock.h>
 #else
@@ -10,16 +13,28 @@
 #include <arpa/inet.h>
 #endif
 
+/* **番号と category を対で持つ。** 番号だけだと空間をまたいで誤って当たる
+   (src/core/error.h)。ここに来る番号は 2 種類ある:
+
+     WSA_ERROR  ソケット。Win32 は `WSAGetLastError ()`、POSIX は errno
+     DNS_ERROR  名前解決。`h_errno` (`HOST_NOT_FOUND` = 1 ..)
+
+   **`h_errno` を errno として扱うと嘘になる。** `gethostbyname` は errno を
+   触らないので、解決できない名前で `gethostbyname: Success` と出ていた
+   (issue #223)。1..4 が `EPERM`..`EINTR` と重なるので、errno に入れ直す
+   のも駄目である。 */
 class sock_error
 {
   int e_error;
   const char *e_ope;
+  int e_category;
 public:
-  sock_error (const char *ope, int error)
-       : e_error (error), e_ope (ope) {}
+  sock_error (const char *ope, int error, int category = WSA_ERROR)
+       : e_error (error), e_ope (ope), e_category (category) {}
   sock_error (const char *ope);
   int error_code () const {return e_error;}
   const char *ope () const {return e_ope;}
+  int category () const {return e_category;}
 };
 
 class resolver;
