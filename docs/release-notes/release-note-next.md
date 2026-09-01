@@ -1447,6 +1447,58 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
     見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
     ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
+  * **POSIX で `(connect ...)` / `(make-listen-socket ...)` がエディタごと
+    SIGSEGV していたのを直した** (issue #223)。`handler-case` でも捕まらない
+    ので、**対話中に呼べば未保存のバッファごとプロセスが消えていた。**
+
+    ```
+    $ xyzzy --batch -q -e '(handler-case (connect "127.0.0.1" 80) (error (e) e))'
+    Fatal signal 11
+    Segmentation fault (core dumped)
+    ```
+
+    門は何も閉まっていない。`Fconnect` / `Fmake_listen_socket`
+    (`src/core/stream.cc`) は `#ifdef _WIN32` の外で、`lisp/builtin.l` の宣言も
+    無条件である。**「POSIX には無い機能」ではなく、呼べて落ちる機能**だった。
+    既定で起動時に呼ぶものは無いので起動は壊れないが、**ネットワークを触る
+    拡張を 1 つ書いた瞬間に 100% 落ちる。**
+
+    `src/core/sockimpl.h` は Winsock を**関数ポインタの表**で呼ぶ (Win32 は
+    `WSOCK32.DLL` を `LoadLibrary` して埋める設計)。表を埋める
+    `init_winsock_functions` を呼ぶのは `sock::init_winsock` の
+    `#ifdef _WIN32` 側だけで、しかもその `sock::init_winsock` を呼ぶのは
+    `src/frontend/win32/init.cc` の 1 か所だけ。**POSIX では表が一生 null の
+    ままで、`WS_CALL (socket)(...)` が null 関数ポインタ呼び出しになっていた。**
+
+    **正直な代替は最初から書かれていた。** `WSOCKDEF` の第 4 引数が失敗値で、
+    `dummy_socket` などが `INVALID_SOCKET` / `SOCKET_ERROR` を返すように
+    用意されている。しかも POSIX では `LoadLibraryW` が 0 を返すので、
+    **`init_winsock_functions` は POSIX でもそのまま正しく動く** (全部 dummy を
+    入れる)。呼ばれていなかっただけだった。
+
+    直しは**表を最初から dummy で初期化する**こと。呼ばれる順序に関係なく
+    最悪でも「正直な失敗」になり、Win32 でも `init_winsock` を呼び忘れても
+    落ちなくなる (安全側)。
+
+    **文言も直した。** `WSASYSNOTREADY` (10091) は errno に対応物が無く、
+    `platform.h` でも Win32 の番号のまま置いてあるので `strerror` に渡すと
+    「**Unknown error 10091**」になっていた。POSIX で最初に出るのがこれなので、
+    番号に対応物が無い 4 つ (10091/10092/10093/10101) だけ明示した:
+
+    ```
+    変更前: socket: Unknown error 10091
+    変更後: socket: Socket subsystem is not available
+    ```
+
+    **名前解決の 4 つ (`WSAHOST_NOT_FOUND` = 1 ..) はここでは直せない。**
+    POSIX では 1..4 が `EPERM`..`EINTR` と完全に重なっていて、番号だけでは
+    見分けられない。実体を入れるとき (`getaddrinfo`) に別の category で持つ
+    形で直す。そう書いてある。
+
+    **ソケットが使えるようにはなっていない。** 実体 (BSD ソケット) を入れるのは
+    issue #223 の段取り 2 で、これは段取り 1 (落ちなくして、テストが書ける
+    状態にする) である。テストは「使えること」ではなく「**Lisp のエラーとして
+    返ること**」と「番号が裸で出ていないこと」を見る。
   * **ダンプイメージに「どのバイナリが書いたか」を持たせた** (issue #219 の続き)。
     これが無いと、**再ビルドした後の古いイメージが「有効」と判定される。**
 

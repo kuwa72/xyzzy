@@ -62,3 +62,41 @@
   => "令"
   => "月"
   => "昭")
+
+
+;;;;; ソケット
+;;;
+;;; **POSIX では以前ここでエディタごと SIGSEGV していた** (issue #223)。
+;;; `WINSOCK::*` は関数ポインタの表で、Win32 では `WSOCK32.DLL` から埋める
+;;; 作りだが、埋める `init_winsock_functions` を呼ぶのは Win32 の
+;;; フロントエンドだけだった。POSIX では表が null のまま `(connect ...)` が
+;;; 呼べて、null 関数ポインタ呼び出しで落ちた。**`handler-case` でも捕まらない
+;;; ので、対話中なら未保存のバッファごと消えた。**
+;;;
+;;; **ソケットが使えることは測らない** (POSIX にはまだ実体が入っていない)。
+;;; 測るのは「**Lisp のエラーとして返ってくること**」= プロセスが生きている
+;;; ことと、文言が嘘でないこと。
+
+(deftest socket-failure-is-a-lisp-error-not-a-crash ()
+  ;; プロセスが生きていれば `handler-case' の値が返る。落ちていれば
+  ;; `eval-in-another-xyzzy' が「result not sent.」で失敗する。
+  ;;
+  ;; **子プロセスで測る。** 万一また落ちるようになったとき、スイート全体を
+  ;; 巻き込まずにこのテストだけが赤くなる。
+  ;;
+  ;; 見るのは 2 つ: エラーとして返ったか / 文言に番号が裸で出ていないか。
+  ;; **文言そのものは見ない** -- 実体が入れば別のエラーになる。以前ここは
+  ;; `WSASYSNOTREADY' (10091) が errno として `strerror' に渡され
+  ;; 「Unknown error 10091」になっていた。
+  (if (featurep :unix)
+      (let ((r (eval-in-another-xyzzy
+                '(handler-case (progn (connect "127.0.0.1" 80) :connected)
+                   (error (e) (list :error (format nil "~A" e))))
+                :options "-q")))
+        (list (and (consp r) (eq (car r) :error) t)
+              (not (and (consp r)
+                        (stringp (cadr r))
+                        (string-match "Unknown error" (cadr r))
+                        t))))
+    '(t t))
+  => (t t))
