@@ -275,6 +275,32 @@ scan_config_options (int argc, char **argv)
   startup_args_from = i;
 }
 
+/* **`si:*command-line-args*` を積む。** これが nil のままだと
+   `estartup.l` の `process-command-line` は何もせず、`xyzzy foo.txt` が
+   ファイルを開かない。**対話版はこれを積んでいなかった** ので、端末では
+   引数が全部黙って捨てられていた (issue #217)。batch は積んでいたので
+   `--batch -e "..."` だけが動いていて、テストは全部その形なので
+   誰も気付かなかった。
+
+   `-config` / `-ini` は `scan_config_options` が食べた分
+   (`startup_args_from`) を飛ばす。Lisp 側にこの 2 つの case は無いので、
+   渡すとファイル名として `find-file` される。
+
+   `--batch` / `--self-test` はフロントエンドの選択で、Lisp には渡さない。 */
+static void
+init_command_line_args (int argc, char **argv)
+{
+  lisp p = Qnil;
+  /* 後ろから前へ積む。前から `xcons` で足すと逆順になる。 */
+  for (int i = argc - 1; i >= startup_args_from; i--)
+    {
+      if (!strcmp (argv[i], "--batch") || !strcmp (argv[i], "--self-test"))
+        continue;
+      p = xcons (make_string (argv[i]), p);
+    }
+  xsymbol_value (Vsi_command_line_args) = p;
+}
+
 // 既定は Qhome_dir。**未設定のままだと値は #:unbound で、lisp/backup.l の
 // 起動時の (concat (user-config-path) ".xyzzy.d/backup/") がそれを掴んで
 // 「不正なデータ型です」で startup.l ごと落ちる。**
@@ -1116,6 +1142,8 @@ public:
     create_ncurses_windows ();
     create_default_buffers ();
 
+    init_command_line_args (argc, argv);
+
     slog_cb ("startup begin");
 
     // Suppress verbose loading — corrupts ncurses screen
@@ -1286,18 +1314,7 @@ public:
 
     // Set si:*command-line-args* so estartup.l's process-command-line
     // handles -q, -load, -eval, etc. (same mechanism as Win32 xyzzy-batch)
-    {
-      lisp p = Qnil;
-      // Build list in reverse, skip argv[0], --batch, and the leading
-      // -config / -ini pairs (scan_config_options consumed those).
-      for (int i = argc - 1; i >= startup_args_from; i--)
-        {
-          if (strcmp (argv[i], "--batch") == 0)
-            continue;
-          p = xcons (make_string (argv[i]), p);
-        }
-      xsymbol_value (Vsi_command_line_args) = p;
-    }
+    init_command_line_args (argc, argv);
 
     xsymbol_value (Vload_verbose) = Qt;
 
