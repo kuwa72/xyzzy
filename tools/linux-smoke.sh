@@ -966,4 +966,39 @@ else
   fail=1
 fi
 
+# ソケットの待ちを C-g で抜けられること (issue #242)。**`Fdo_events` が
+# POSIX のフロントエンドで空実装なので、`posix_wait_ready` の C-g 検出は
+# 何も見ていなかった。** 応答しないアドレスへ `connect` するとエディタが
+# 固まって戻れなかった。
+#
+# **時間を測らない。** 「固まらないこと」は時間の性質で、閾値を置くと flaky に
+# なる (PR #71 の教訓)。見るのは到達性だけ:
+#
+#   1. **C-g の後の eval が描かれる** (= 固まっていない)
+#   2. **中断が `quit` として届く** (= C-g が実際に届いた)。
+#      **これが無いと空回りする** -- `connect` が自分で戻ってきただけでも
+#      1 は通ってしまう。`quit` の枝が走ったことが、C-g が効いた証拠になる
+#
+# **目印は実行時に組み立てる。** `\e\e` は打った式をそのまま画面へ出すので、
+# 目印をソースにそのまま書くと、走っていない枝の文字列まで画面に出て grep が
+# 当たる (最初にそれで通してしまった)。`concatenate` で繋いで、**結果として
+# 出たときだけ一致する形**にする。
+log=$build/smoke-socket-quit.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' \
+  '\e\e(handler-case (connect "10.255.255.1" 80) (error (e) (concatenate (quote string) "SMOKE" "-CG-ERR")) (quit (e) (concatenate (quote string) "SMOKE" "-CG-QUIT")))\r' \
+  '\w' '\Cg' '\w' \
+  '\e\e(concatenate (quote string) "SMOKE" "-CG-ALIVE")\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'SMOKE-CG-QUIT' "$log" && grep -q 'SMOKE-CG-ALIVE' "$log"; then
+  echo 'smoke: ソケットの待ちを C-g で抜ける OK -- quit が届き、その後も動く'
+else
+  echo "smoke: ソケットの待ちを C-g FAILED, see $log" >&2
+  echo '-- 出た目印:' >&2
+  grep -o 'SMOKE-CG-[A-Z]*' "$log" | sort -u >&2 || true
+  echo '-- SMOKE-CG-ERR が出ていたら connect が自分で戻ったので、宛先を見直す' >&2
+  fail=1
+fi
+
 exit $fail

@@ -222,7 +222,7 @@ posix_select (int, fd_set *r, fd_set *w, fd_set *e, const struct timeval *tv)
   return ::select (posix_select_nfds (r, w, e), r, w, e, tv ? &t : 0);
 }
 
-/* **ブロッキングするたびに `do-events` を回す。**
+/* **ブロッキングするたびに端末を覗いて C-g を見る。**
 
    Win32 は `WSASetBlockingHook` で、ブロッキング中に Winsock 側から
    `blocking_hook` を呼び返してもらって `Fdo_events` を回す。POSIX にその
@@ -232,6 +232,23 @@ posix_select (int, fd_set *r, fd_set *w, fd_set *e, const struct timeval *tv)
    既定のタイムアウトは -1 (無限) で、`sock::send` / `recv` の
    `writablep` / `readablep` の門は `s_wtimeo.tv_sec >= 0` でしか通らない
    から、**既定では core 側に一切の待ちが無い。** ここで受ける。
+
+   **`Fdo_events` だけでは受けていなかった** (issue #242)。あれは POSIX の
+   フロントエンドで `return Qnil;` の空実装
+   (`src/frontend/ncurses/ncurses-stubs.cc`、`src/frontend/cli/cli-stubs.cc`)
+   なので、100ms ごとに目を覚ましても**呼ぶ先が何もしない。** `QUITP` が見る
+   フラグを立てるのは入力を読む経路だけで、待っている間は誰も読まない。
+   つまりこのループは何も見ておらず、**「ここで受ける」と書いてあるのに
+   固まったままだった。** 測らずに書いた。
+
+   **`poll_quit_char` を呼ぶ。** 走っている Lisp を C-g で止めるために
+   `src/core/quit-poll.cc` に既にあるもので、`QUIT` から呼ばれるのと同じ
+   経路である (issue #162)。端末を nodelay で覗いて、C-g なら
+   `quit-flag` を立て、**それ以外の打鍵は捨てずに入力キューの末尾へ戻す。**
+   中に 50ms の下限が掛かっているので、100ms ごとのこのループとは噛み合う。
+
+   `Fdo_events` の呼びは残してある。POSIX では今のところ何もしないが、
+   **Win32 と読み比べたときに経路が消えていない方が分かりやすい。**
 
    0 = 使える / -1 = 中断かエラー (errno を立てる)。 */
 static int
@@ -253,6 +270,7 @@ posix_wait_ready (SOCKET s, int for_write)
         return -1;
 #ifdef __XYZZY__
       Fdo_events ();
+      poll_quit_char ();
       if (QUITP)
         {
           errno = EINTR;
