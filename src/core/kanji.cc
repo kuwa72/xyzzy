@@ -489,10 +489,31 @@ detect_char_encoding_xyzzy (const char *string, int size, int real_size)
 {
   if (size >= 2 && !(real_size & 1))
     {
+      /* **LE も BE と同じ `simple_*_unicode_p` で見る。** ここは
+         `!sysdep.WinNTp () ? simple_unicode_p (...) : IsTextUnicode (...)`
+         と書いてあった。Win9x では `IsTextUnicode` が当てにならないので
+         自前で見て、NT では API に任せる、という Win9x 時代の分岐である。
+
+         **POSIX では `IsTextUnicode` が常に FALSE を返すスタブ**で、
+         `WinNTp ()` は偽の `GetVersionExW` のおかげで真になるので、
+         **UTF-16LE の BOM 付きファイルが一度も判定されなかった**
+         (issue #204 と同じ「呼ばれているのに no-op」の類、issue #205)。
+         すぐ下の BE の枝には `simple_rev_unicode_p` という本物の判定が
+         あるので、**BE は判定されるのに LE は判定されない**という非対称に
+         なっていた。
+
+         **直し方として「POSIX だけ `simple_unicode_p`」は選ばなかった。**
+         core に `#ifdef` を増やすことになる (issue #16 の方針) 上に、
+         **BOM が既にある場所で `IsTextUnicode` の統計的な判定を通す必要が
+         そもそも無い。** BE の枝がまさにそう書かれていて、この 2 つが
+         非対称だったこと自体がおかしい。
+
+         **Win32 の挙動は変わる。** `IsTextUnicode` は引数 0 で「全部の
+         テストを行う」意味になり、**本物の UTF-16 を弾くことがある**
+         (有名な "Bush hid the facts" と同じ性質)。変わる方向は
+         「BOM 付きの UTF-16LE を弾かなくなる」側だけである。 */
       if (*(u_short *)string == UNICODE_BOM
-          && (!sysdep.WinNTp ()
-              ? simple_unicode_p ((const ucs2_t *)string, size / sizeof (ucs2_t))
-              : IsTextUnicode ((void *)string, size, 0)))
+          && simple_unicode_p ((const ucs2_t *)string, size / sizeof (ucs2_t)))
         return symbol_value_char_encoding (Vencoding_default_utf16le_bom);
       else if (*(u_short *)string == UNICODE_REVBOM
                && simple_rev_unicode_p ((const ucs2_t *)string, size / sizeof (ucs2_t)))

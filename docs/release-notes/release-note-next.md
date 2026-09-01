@@ -1420,6 +1420,53 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     見つけ方: `src/core/platform.h` の 183 個の inline スタブを
     **「呼ばれているのに no-op なもの」**で数え上げた (issue #16 の Phase 4)。
     12 件あり、これはそのうちの 1 件。
+  * **`*detect-char-encoding-mode*` が `:xyzzy` のとき、UTF-16LE の BOM 付き
+    ファイルが判定されなかったのを直した** (issue #205)。
+
+    `src/core/kanji.cc` の `detect_char_encoding_xyzzy` は、**LE と BE で
+    違う判定を通していた:**
+
+    ```cpp
+    // LE
+    !sysdep.WinNTp () ? simple_unicode_p (...) : IsTextUnicode (...)
+    // BE (すぐ下)
+    simple_rev_unicode_p (...)
+    ```
+
+    Win9x では `IsTextUnicode` が当てにならないので自前で見て、NT では API に
+    任せる、という**Win9x 時代の分岐**である。POSIX では `IsTextUnicode` が
+    常に FALSE を返すスタブで、`WinNTp ()` は偽の `GetVersionExW` のおかげで
+    真になるので、**LE の枝が一度も通らなかった。BE は本物の判定があるので
+    通る。**
+
+    **「POSIX だけ `simple_unicode_p`」は選ばなかった。** core に `#ifdef` を
+    増やす (issue #16 の方針に反する) 上に、**BOM が既にある場所で
+    `IsTextUnicode` の統計的な判定を通す必要がそもそも無い。** BE の枝が
+    まさにそう書かれていて、**この 2 つが非対称だったこと自体がおかしい。**
+    LE も `simple_unicode_p` に寄せ、`IsTextUnicode` のスタブを消した。
+
+    **Win32 の挙動は変わる。** `IsTextUnicode` は第 3 引数 0 で「全部の
+    テストを行う」意味になり、**本物の UTF-16 を弾くことがある** (有名な
+    "Bush hid the facts" と同じ性質)。変わる方向は**「BOM 付きの UTF-16LE を
+    弾かなくなる」側だけ**である。
+
+    **最初に「`find-file` の自動判定が壊れている」と書いたが、それは
+    間違いだった。** 判定は `*detect-char-encoding-mode*` で 2 通りあり、
+    **既定は `:libguess`** で両方のフロントエンドが起動時にそう設定している。
+    `:xyzzy` を選んだ人にだけ起きる。
+
+    **分かったのはテストを書いて修正を戻したから**である。戻しても通って
+    しまい、証拠が出ないので経路を追い直した。**「呼ばれているのに no-op」の
+    数え上げでは、その呼び出しが既定の設定で到達するかまでは見ていなかった。**
+
+    テストは 4 件 (`unittest/editor-tests.l`)。既存の
+    `find-file-auto-encoding-*` 4 件はマジックコメントで判定を誘導するので、
+    **BOM だけで判定する経路は 1 件も測られていなかった。** `:libguess` と
+    `:xyzzy` の両方 x LE / BE で測る — **既定の側だけ見ていると `:xyzzy` の
+    壊れが見えない**ことが実際に分かったので。`*detect-char-encoding-mode*`
+    は `setf` で変える: **`let` の束縛は C++ から見えない**
+    (`xsymbol_value` は大域の値を読む。`si:octet-length` の既定値で同じ
+    ことを踏んだ)。
   * **POSIX で FFI が使えるようになった** (issue #133 の段階 2〜3、
     既知失敗 59 -> 57)。**libffi は要らなかった。**
 

@@ -1547,6 +1547,67 @@
   (find-file-auto-encoding-test0 (format nil "; -*- encoding: ~A -*-" param)
                                  encoding))
 
+;;; --- BOM による自動判定 --------------------------------------------------
+;;;
+;;; **上の 4 件はマジックコメントで判定を誘導しているので、BOM だけで判定する
+;;; 経路は 1 件も測られていなかった。**
+;;;
+;;; 判定は `*detect-char-encoding-mode*` で 2 通りある (src/core/kanji.cc の
+;;; `detect_char_encoding')。**既定は `:libguess` で、両方のフロントエンドが
+;;; 起動時にそう設定している** (ncurses-main.cc / win32/init.cc)。
+;;; `:xyzzy` は xyzzy 独自の判定で、**そちらだけが壊れていた** (issue #205):
+;;; UTF-16LE の枝が `IsTextUnicode` を通り、POSIX ではそれが常に FALSE を返す
+;;; スタブだった。**すぐ下の BE の枝には本物の判定があるので BE は通り、
+;;; 非対称だった。**
+;;;
+;;; **だから両方のモードを測る。** 既定の側だけ見ていると、`:xyzzy` に
+;;; したときだけ壊れているものが見えない (実際に見えていなかった)。
+;;;
+;;; 内容も見る。判定だけ合っていて中身が化けていたら意味がない。
+
+(defun bom-encoding-test (encoding)
+  "ENCODING で書いたファイルを開き直し、判定された名前と中身を返す。
+マジックコメントは書かない -- **BOM だけで判定させる。**"
+  (with-temp-files (file)
+    (with-temp-buffer
+      (insert "abc 日本語" #\LFD)
+      (write-file file t nil encoding))
+    (let ((b (ed::find-file-internal file)))
+      (list (char-encoding-name (buffer-fileio-encoding b))
+            (save-excursion
+              (set-buffer b)
+              (buffer-substring (point-min) (point-max)))))))
+
+(defun bom-encoding-test-with-mode (mode encoding)
+  "*detect-char-encoding-mode* を MODE にして測る。
+
+**`let' では効かない。** C++ 側は `xsymbol_value' で大域の値を読むので束縛が
+見えない (`si:octet-length' の既定値で同じことを踏んだ、issue #154)。"
+  (let ((saved *detect-char-encoding-mode*))
+    (unwind-protect
+        (progn
+          (setf *detect-char-encoding-mode* mode)
+          (bom-encoding-test encoding))
+      (setf *detect-char-encoding-mode* saved))))
+
+(deftest find-file-detects-utf16le-bom ()
+  (bom-encoding-test-with-mode :libguess *encoding-utf16le-bom*)
+  => ("utf16le-bom" "abc 日本語\n"))
+
+(deftest find-file-detects-utf16be-bom ()
+  (bom-encoding-test-with-mode :libguess *encoding-utf16be-bom*)
+  => ("utf16be-bom" "abc 日本語\n"))
+
+;; **ここが issue #205 の本番。** `:xyzzy` の判定で LE と BE が同じように
+;; 通ること。修正前は POSIX で LE だけ通らなかった。
+(deftest find-file-detects-utf16le-bom-in-xyzzy-mode ()
+  (bom-encoding-test-with-mode :xyzzy *encoding-utf16le-bom*)
+  => ("utf16le-bom" "abc 日本語\n"))
+
+(deftest find-file-detects-utf16be-bom-in-xyzzy-mode ()
+  (bom-encoding-test-with-mode :xyzzy *encoding-utf16be-bom*)
+  => ("utf16be-bom" "abc 日本語\n"))
+
 (deftest find-file-auto-encoding-use-utf8n ()
   (let ((*find-file-auto-encoding-use-utf8n* t))
     (values

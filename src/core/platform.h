@@ -1708,7 +1708,11 @@ inline BOOL GetUserNameW(LPWSTR buf, DWORD *len) {
 inline BOOL GetWindowPlacement(HWND, WINDOWPLACEMENT*) { return FALSE; }
 
 // Text detection
-inline BOOL IsTextUnicode(const void*, int, int*) { return FALSE; }
+/* **`IsTextUnicode` のスタブは消した。** 呼んでいたのは
+   `detect_char_encoding_xyzzy` (src/core/kanji.cc) 1 箇所だけで、そこは
+   BOM が既にある場所だったので `simple_unicode_p` に寄せた (issue #205)。
+   **常に FALSE を返すスタブだったので、UTF-16LE の BOM 付きファイルが
+   POSIX で一度も判定されなかった。** */
 
 // Global memory (used by ColorDialog.h)
 inline BOOL GlobalUnlock(HGLOBAL) { return FALSE; }
