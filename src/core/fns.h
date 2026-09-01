@@ -290,6 +290,31 @@ lisp frontend_tab_order_buffer_list ();
    残る。** */
 void frontend_buffer_deleted (Buffer *);
 
+/* **合図 (ベル)。鳴らす方と光らせる方。**
+ *
+ * **どちらを使うかは core が決める** (`ding`、src/core/lprint.cc)。
+ * `*beep-on-never*` なら何もせず、`*visible-bell*` なら光らせ、でなければ
+ * 鳴らす。**その判断をここへ渡さないのは、3 つのフロントエンドに同じ変数の
+ * 読みを複写したくない**からである。フロントエンドが持つのは「どう鳴らすか」
+ * 「どう光らせるか」だけ。
+ *
+ * `frontend_beep` の引数は `MessageBeep` の style (`MB_OK` など)。端末には
+ * 音の種類が無いので無視する。
+ *
+ * **端末には両方ある。** curses の `beep ()` と `flash ()` が、この 2 つに
+ * そのまま対応する。画面を持たない `xyzzy-cli` では `frontend_flash` も
+ * 音に落ちる (光らせようがないので、黙るより鳴らす方を選ぶ)。
+ *
+ * これが seam なのは、**そうしないと core が GDI を呼ぶ**ためである。
+ * `ding` の `*visible-bell*` の枝は画面全体を 2 回反転させるもので、
+ * `GetWindowRect` / `LockWindowUpdate` / `GetDCEx` / `PatBlt` / `GdiFlush` /
+ * `ReleaseDC` / `MessageBeep` の 7 つを core から呼んでいた。**POSIX では
+ * 7 つとも何もしないスタブだったので、端末版は鳴りも光りもしなかった**
+ * (issue #203)。**core に残っていた GDI 呼び出しの最後のまとまり**
+ * (issue #16 の Phase 4)。 */
+void frontend_beep (int type);
+void frontend_flash ();
+
 /* usertool.cc */
 lisp get_tooltip_text (lisp);
 

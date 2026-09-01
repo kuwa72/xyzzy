@@ -599,6 +599,25 @@ Buffer *frontend_tab_order_next_buffer (Buffer *, int) { return 0; }
 lisp frontend_tab_order_buffer_list () { return 0; }
 void frontend_buffer_deleted (Buffer *) {}
 
+/* 合図 (ベル)。**xyzzy-cli には画面が無いので、光らせる方も音に落ちる**
+   (黙るよりは合図が出る方を選ぶ)。どちらを使うかは core が決める
+   (`ding`、src/core/lprint.cc)。
+
+   **端末があるときだけ書く。しかも stderr へ。** stdout はテストや
+   パイプの相手が読んでいるので、そこへ `\a` を混ぜない。 */
+static void
+cli_bell ()
+{
+  if (isatty (fileno (stderr)))
+    {
+      fputc ('\a', stderr);
+      fflush (stderr);
+    }
+}
+
+void frontend_beep (int) { cli_bell (); }
+void frontend_flash () { cli_bell (); }
+
 // ============================================================
 // abbrev.cc stubs (abbreviate_string uses GDI)
 // ============================================================

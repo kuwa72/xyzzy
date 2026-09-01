@@ -406,10 +406,12 @@ typedef BYTE BOOLEAN;
 typedef struct _PREVENT_MEDIA_REMOVAL { BOOLEAN PreventMediaRemoval; } PREVENT_MEDIA_REMOVAL;
 inline BOOL DeviceIoControl(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, void*) { return FALSE; }
 
-// GDI
-#define DSTINVERT 0x00550009
-inline BOOL GdiFlush() { return TRUE; }
-inline void MessageBeep(UINT) {}
+/* **`GdiFlush` / `MessageBeep` / `DSTINVERT` は消した。** `ReleaseDC` /
+   `GetWindowRect` / `PatBlt` / `GetDCEx` / `LockWindowUpdate` も同じ理由で
+   下の方から消してある。7 つとも呼んでいたのは `ding` の 1 箇所だけで、
+   そこは frontend の seam (`frontend_beep` / `frontend_flash`) へ移した
+   (issue #203)。**7 つとも何もしないスタブだったので、端末版は鳴りも光りも
+   しなかった。** */
 
 // Network resources
 #define RESOURCE_GLOBALNET  2
@@ -1459,7 +1461,6 @@ inline HWND GetActiveWindow() { return 0; }
 inline COLORREF GetSysColor(int) { return 0; }
 inline int GetDeviceCaps(HDC, int) { return 0; }
 inline HDC GetDC(HWND) { return 0; }
-inline int ReleaseDC(HWND, HDC) { return 0; }
 inline BOOL PostMessageA(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
 inline LRESULT SendMessageA(HWND, UINT, WPARAM, LPARAM) { return 0; }
 
@@ -1479,7 +1480,6 @@ inline HWND CreateWindowEx(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, H
 #define CreateWindowExW CreateWindowEx
 inline int MessageBoxA(HWND, LPCSTR, LPCSTR, UINT) { return IDOK; }
 inline BOOL GetClientRect(HWND, RECT*) { return FALSE; }
-inline BOOL GetWindowRect(HWND, RECT*) { return FALSE; }
 inline BOOL EnableWindow(HWND, BOOL) { return FALSE; }
 inline LRESULT SendMessageW(HWND, UINT, WPARAM, LPARAM) { return 0; }
 inline BOOL PostMessageW(HWND, UINT, WPARAM, LPARAM) { return FALSE; }
@@ -1913,8 +1913,6 @@ inline BOOL VirtualFree(LPVOID addr, size_t size, DWORD type) {
   return FALSE;
 }
 
-// GDI stubs
-inline BOOL PatBlt(HDC, int, int, int, int, DWORD) { return FALSE; }
 
 // Winsock stubs
 inline int WSAStartup(WORD, LPWSADATA) { return 0; }
@@ -1974,13 +1972,10 @@ inline DWORD FormatMessageW(DWORD, LPCVOID, DWORD, DWORD, LPWSTR buf, DWORD n, .
 inline LANGID GetUserDefaultLangID() { return 0; }
 #define wsprintfA sprintf
 
-// Window DC
-#define DCX_WINDOW      0x00000001
-#define DCX_CLIPSIBLINGS 0x00000010
-#define DCX_CACHE       0x00000002
-#define DCX_LOCKWINDOWUPDATE 0x00000400
-inline HDC GetDCEx(HWND, HRGN, DWORD) { return 0; }
-inline BOOL LockWindowUpdate(HWND) { return FALSE; }
+/* **`GetDCEx` / `LockWindowUpdate` と `DCX_*` は消した。** 呼んでいたのは
+   `ding` の `*visible-bell*` の枝 (src/core/lprint.cc) 1 箇所だけで、そこは
+   frontend の seam (`frontend_flash`) へ移した (issue #203)。
+   **7 つとも何もしないスタブだったので、端末版は鳴りも光りもしなかった。** */
 #endif
 
 // _open, _close, _read, _write, _lseek, _eof

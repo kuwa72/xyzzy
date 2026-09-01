@@ -3788,32 +3788,24 @@ Fformat (lisp dest, lisp string, lisp args)
   return format (dest, string, args, true);
 }
 
+/* **どう鳴らす / どう光らせるかは frontend が持つ** (`frontend_beep` /
+   `frontend_flash`、src/core/fns.h)。ここに残すのは**どちらを使うかの判断**
+   だけ。
+
+   前はここに Win32 の GDI で画面を 2 回反転させる本体が直に書いてあり、
+   `GetWindowRect` / `LockWindowUpdate` / `GetDCEx` / `PatBlt` / `GdiFlush` /
+   `ReleaseDC` / `MessageBeep` を core から呼んでいた。**POSIX では 7 つとも
+   何もしないスタブだったので、端末版は鳴りも光りもしなかった**
+   (issue #203)。**エラーも警告も検索の失敗も、合図が 1 つも出ていなかった。** */
 void
 ding (int x)
 {
-  if (xsymbol_value (Vbeep_on_never) == Qnil)
-    {
-      if (xsymbol_value (Vvisible_bell) != Qnil)
-        {
-          HWND hwnd = get_active_window ();
-          RECT r;
-          GetWindowRect (hwnd, &r);
-          DWORD flags = DCX_WINDOW | DCX_CLIPSIBLINGS | DCX_CACHE;
-          if (LockWindowUpdate (hwnd))
-            flags |= DCX_LOCKWINDOWUPDATE;
-          HDC hdc = GetDCEx (hwnd, 0, flags);
-          PatBlt (hdc, 0, 0, r.right - r.left, r.bottom - r.top, DSTINVERT);
-          GdiFlush ();
-          Sleep (20);
-          PatBlt (hdc, 0, 0, r.right - r.left, r.bottom - r.top, DSTINVERT);
-          GdiFlush ();
-          ReleaseDC (hwnd, hdc);
-          if (flags & DCX_LOCKWINDOWUPDATE)
-            LockWindowUpdate (0);
-        }
-      else
-        MessageBeep (x);
-    }
+  if (xsymbol_value (Vbeep_on_never) != Qnil)
+    return;
+  if (xsymbol_value (Vvisible_bell) != Qnil)
+    frontend_flash ();
+  else
+    frontend_beep (x);
 }
 
 lisp

@@ -154,3 +154,36 @@ frameDC::frame_rect (const RECT &r, int w) const
   paint (r);
   SelectClipRgn (f_hdc, 0);
 }
+
+/* 合図 (ベル)。**どちらを使うかは core が決める** (`ding`、
+   src/core/lprint.cc)。ここは「どう鳴らすか」「どう光らせるか」だけ。
+
+   `frontend_flash` の中身は `ding` に直に書いてあったものをそのまま移した。
+   画面全体を `DSTINVERT` で 2 回反転させて元に戻す。**`LockWindowUpdate` が
+   成功したときだけ `DCX_LOCKWINDOWUPDATE` を足す**ところも変えていない
+   (失敗しても反転はできるので、そこで諦めない)。 */
+void
+frontend_beep (int type)
+{
+  MessageBeep (type);
+}
+
+void
+frontend_flash ()
+{
+  HWND hwnd = get_active_window ();
+  RECT r;
+  GetWindowRect (hwnd, &r);
+  DWORD flags = DCX_WINDOW | DCX_CLIPSIBLINGS | DCX_CACHE;
+  if (LockWindowUpdate (hwnd))
+    flags |= DCX_LOCKWINDOWUPDATE;
+  HDC hdc = GetDCEx (hwnd, 0, flags);
+  PatBlt (hdc, 0, 0, r.right - r.left, r.bottom - r.top, DSTINVERT);
+  GdiFlush ();
+  Sleep (20);
+  PatBlt (hdc, 0, 0, r.right - r.left, r.bottom - r.top, DSTINVERT);
+  GdiFlush ();
+  ReleaseDC (hwnd, hdc);
+  if (flags & DCX_LOCKWINDOWUPDATE)
+    LockWindowUpdate (0);
+}

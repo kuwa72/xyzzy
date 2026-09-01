@@ -409,4 +409,46 @@ else
   fail=1
 fi
 
+# 合図 (ベル)。**Lisp スイートからは測れない**: 音も画面の反転も返り値を持た
+# ないし、スイートは全部 --batch なので curses が上がっていない。
+#
+# `ding` は `*visible-bell*` で 2 つに分かれる。**POSIX ではどちらの枝も
+# 何もしていなかった** (issue #203): core が GDI を直に呼んでいて、
+# `MessageBeep` / `GetWindowRect` / `LockWindowUpdate` / `GetDCEx` / `PatBlt` /
+# `GdiFlush` / `ReleaseDC` の 7 つが platform.h の何もしないスタブだった。
+# **検索が見つからないときもエラーのときも、合図が 1 つも出ていなかった。**
+#
+# 端末には両方ある: curses の `beep ()` が BEL (0x07) を出し、`flash ()` が
+# 反転表示のモード (ESC[?5h / ESC[?5l) を出す。**それが端末へ実際に届いて
+# いることを生のバイト列で見る** (XYZZY_PTY_RAW)。
+#
+# **step ごとの塊を分けて見る。** 全体を grep すると、将来ウィンドウタイトルを
+# OSC で出すようにしたときに終端の BEL を拾ってしまい、鳴っていなくても通る
+# ようになる (`refresh-title-bar` は端末側が未実装、issue #16)。
+raw_block () {   # raw_block <log> <n>: n 番目の "=== raw after" の塊だけ出す
+  awk -v n="$2" '
+    /^=== raw after /{i++; inb=(i==n); next}
+    /^=== /{inb=0}
+    inb' "$1"
+}
+
+log=$build/smoke-bell.txt
+XYZZY_PTY_RAW=1 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(ding)\r' '\w' \
+  '\e\e(progn (setq *visible-bell* t) (ding))\r' '\w' \
+  >"$log" 2>&1 || true
+# 塊 1 = (ding) の直後 (起動時の出力も含む)、塊 3 = *visible-bell* を立てた ding。
+if raw_block "$log" 1 | grep -q 'x07' \
+   && raw_block "$log" 3 | grep -q 'x1b\[?5h'; then
+  echo 'smoke: ベル OK -- (ding) が BEL を出し、*visible-bell* で画面が反転する'
+else
+  echo "smoke: ベル FAILED, see $log" >&2
+  echo "-- (ding) の塊に 0x07 があるか:" >&2
+  raw_block "$log" 1 | grep -c 'x07' >&2 || true
+  echo "-- *visible-bell* の塊に ESC[?5h があるか:" >&2
+  raw_block "$log" 3 | grep -c 'x1b\[?5h' >&2 || true
+  fail=1
+fi
+
 exit $fail
