@@ -1393,6 +1393,35 @@ print_error (wStream &stream, const print_control &, lisp object)
       stream.add (strerror (e));
       return;
 
+    case DNS_ERROR:
+      /* **`h_errno`。errno でも Win32 のコードでもない。** 数は少なく、
+         POSIX と Win32 で意味が同じなので (`WSAHOST_NOT_FOUND` は
+         `HOST_NOT_FOUND` と同じ 1) 分岐は要らない。**errno として
+         `strerror` に渡すと「Success」や「Operation not permitted」に
+         なる** -- `gethostbyname` は errno を触らず、1..4 が
+         `EPERM`..`EINTR` と重なるため (issue #223)。 */
+      switch (e)
+        {
+        case HOST_NOT_FOUND:
+          stream.add ("Host not found");
+          return;
+        case TRY_AGAIN:
+          stream.add ("Host not found, try again later");
+          return;
+        case NO_RECOVERY:
+          stream.add ("Non-recoverable name server error");
+          return;
+        case NO_DATA:
+          stream.add ("No address associated with the name");
+          return;
+        }
+      {
+        char buf[64];
+        sprintf (buf, "Name resolution error %d", e);
+        stream.add (buf);
+      }
+      return;
+
     case WSA_ERROR:
 #ifdef _WIN32
       /* Win32 の WSA* は Win32 のコード空間にある独立した番号。 */

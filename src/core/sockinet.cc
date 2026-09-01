@@ -79,7 +79,10 @@ sockinet::saddr::set_addr (const char *hostname)
     {
       hostent *e = netdb::host (hostname);
       if (!e)
-        throw sock_error ("gethostbyname");
+        /* **`h_errno` を DNS_ERROR で運ぶ。** `sock_error (ope)` の 1 引数
+           版は `WSAGetLastError ()` = errno を読むが、`gethostbyname` は
+           errno を触らないので**「Success」と出ていた** (issue #223)。 */
+        throw sock_error ("gethostbyname", h_errno, DNS_ERROR);
       sin_family = e->h_addrtype;
       memcpy (&sin_addr, e->h_addr, e->h_length);
     }

@@ -1480,6 +1480,38 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     `CLAUDE.md` の「古いダンプイメージは絶対アドレスを持っている」も直した --
     **これは誤りで**、イメージは `lmap`/`rlmap` の添字で書いてあり関数ポインタも
     入っていない。**だから POSIX へ移植できた。**
+  * **解決できないホスト名のエラーが `gethostbyname: Success` だったのを直した**
+    (issue #223)。
+
+    ```
+    変更前: gethostbyname: Success
+    変更後: gethostbyname: Host not found
+    ```
+
+    **`gethostbyname` は `errno` を触らない。** 立てるのは `h_errno` である。
+    なのに `sock_error (ope)` の 1 引数版は `WSAGetLastError ()` (= POSIX では
+    errno) を読んでいたので、**直前の成功した操作の errno = 0 が出て
+    「Success」になっていた。**
+
+    **`h_errno` を errno に入れ直すのも駄目である。** `HOST_NOT_FOUND` = 1 は
+    `EPERM` で、`TRY_AGAIN` = 2 は `ENOENT`、`NO_RECOVERY` = 3 は `ESRCH`、
+    `NO_DATA` = 4 は `EINTR`。**1..4 が完全に重なる。** それをやると
+    「Operation not permitted」と出る -- issue #212 で直したのと同じ形の嘘に
+    なるだけである。
+
+    `src/core/error.h` の category に **`DNS_ERROR` を足した。** あのファイルは
+
+    > **番号だけを裸で持ち回ると空間をまたいで誤って当たる。**
+
+    と書いてあり、`CRTL_ERROR` / `WIN32_ERROR` / `WSA_ERROR` の 3 つを分けた
+    のと同じ理由で 4 つ目が要る。`sock_error` が番号と category を対で持ち、
+    `FEsocket_error` がそれをそのまま `make_error` に渡す。
+
+    **ついでに分かったこと: POSIX でホスト名は前から解決できていた。**
+    `resolver.h` の非 Win32 側に同期版 (`gethostbyname` を呼ぶだけ) が既に
+    あった。**issue #223 に「名前解決が無い」と書いたのは誤りで**、無いのは
+    Win32 の非同期の仕組み (ウィンドウメッセージ) だけである。測って分かった。
+    ホスト名で繋ぐテストも足した (`socket-connect-by-hostname`)。
   * **POSIX でソケットが使えるようになった** (issue #223 の段取り 2)。
     落ちなくしただけだったところに BSD ソケットの実体を入れた。
 

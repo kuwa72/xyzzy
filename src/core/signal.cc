@@ -744,7 +744,7 @@ FEsimple_win32_error (int e, lisp v)
 }
 
 lisp
-FEsocket_error (int e, const char *ope)
+FEsocket_error (int e, const char *ope, int category)
 {
   if (QUITP)
     {
@@ -752,10 +752,12 @@ FEsocket_error (int e, const char *ope)
       xsymbol_value (Vinhibit_quit) = Qnil;
       FEquit ();
     }
-  /* **WSA_ERROR で上げる。** ここは sock_error (src/core/sock.cc) からの
-     一本道で、番号は WSAGetLastError () の値。WIN32_ERROR にしていたため
-     文言を選ぶ側 (print_error) がファイルのエラーと区別できなかった。 */
-  COND2 (socket_error, make_error (WSA_ERROR, e), make_string (ope ? ope : ""));
+  /* **category は呼び元 (`sock_error`) が持っている。** 番号は
+     `WSAGetLastError ()` の値 (WSA_ERROR) か `h_errno` (DNS_ERROR) で、
+     **同じ整数の欄に別の空間が入る。** 以前は WIN32_ERROR で上げていて
+     文言を選ぶ側 (print_error) がファイルのエラーと区別できず、さらに
+     名前解決は errno として扱われて「Success」と出ていた (issue #223)。 */
+  COND2 (socket_error, make_error (category, e), make_string (ope ? ope : ""));
 }
 
 lisp

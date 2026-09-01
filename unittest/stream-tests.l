@@ -178,3 +178,41 @@
   ;; `read-line' は 2 値を返す (行と「改行が無かったか」)。
   => "timed"
   => nil)
+
+(deftest socket-connect-by-hostname ()
+  ;; **ホスト名の経路を通す。** 上の往復は IP アドレスで、
+  ;; `sockinet::saddr::set_addr` の `inet_addr` で終わって名前解決に来ない。
+  (handler-case
+      (let* ((srv (make-listen-socket "127.0.0.1" 0 :reuseaddr t))
+             (port (socket-stream-local-port srv))
+             (cli (connect "localhost" port))
+             (acc (accept-connection srv)))
+        (unwind-protect
+            (progn
+              (format cli "byname~%")
+              (finish-output cli)
+              (read-line acc nil :eof))
+          (ignore-errors (close acc))
+          (ignore-errors (close cli))
+          (ignore-errors (close srv))))
+    (error (e) (list :error (format nil "~A" e))))
+  => "byname"
+  => nil)
+
+(deftest socket-unresolvable-hostname-says-so ()
+  ;; **`gethostbyname: Success` と出ていた** (issue #223)。`gethostbyname` は
+  ;; `errno` を触らず `h_errno` を立てるのに、番号を errno として `strerror`
+  ;; に渡していた。しかも `h_errno` の 1..4 は `EPERM`..`EINTR` と重なるので、
+  ;; errno に入れ直すのも駄目。`DNS_ERROR` の category で運ぶ。
+  ;;
+  ;; **文言そのものは見ない** (将来 `getaddrinfo` に替えれば変わる)。
+  ;; 見るのは「エラーになること」と「嘘が出ていないこと」。
+  ;; `.invalid` は RFC 2606 で「絶対に解決されない」と決まっている TLD。
+  (handler-case (progn (connect "no-such-host.invalid" 80) :connected)
+    (error (e)
+      (let ((msg (format nil "~A" e)))
+        (list :error
+              (not (string-match "Success" msg))
+              (not (string-match "not permitted" msg))
+              (not (string-match "Unknown error" msg))))))
+  => (:error t t t))

@@ -883,7 +883,7 @@ Fconnect (lisp lhost, lisp lport, lisp keys)
   catch (sock_error &e)
     {
       Fend_wait_cursor ();
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   Fend_wait_cursor ();
   return stream;
@@ -912,7 +912,7 @@ Fmake_listen_socket (lisp lhost, lisp lport, lisp keys)
   catch (sock_error &e)
     {
       Fend_wait_cursor ();
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   Fend_wait_cursor ();
   return stream;
@@ -952,7 +952,7 @@ Fssl_do_handshake (lisp stream, lisp lserver_name, lisp keys)
   catch (sock_error &e)
     {
       Fend_wait_cursor ();
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   Fend_wait_cursor ();
 
@@ -984,7 +984,7 @@ Faccept_connection (lisp stream, lisp keys)
     }
   catch (sock_error &e)
     {
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   return new_stream;
 }
@@ -1002,7 +1002,7 @@ close_socket_stream (lisp stream, int abort)
   catch (sock_error &e)
     {
       delete so;
-      FEsocket_error (e.error_code (), e.ope ());
+      FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   delete so;
 }
@@ -1019,7 +1019,7 @@ Fsocket_stream_local_address (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1036,7 +1036,7 @@ Fsocket_stream_local_name (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1052,7 +1052,7 @@ Fsocket_stream_local_port (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1068,7 +1068,7 @@ Fsocket_stream_peer_address (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1085,7 +1085,7 @@ Fsocket_stream_peer_name (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1101,7 +1101,7 @@ Fsocket_stream_peer_port (lisp stream)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
 }
 
@@ -1147,7 +1147,7 @@ Fsocket_stream_set_oob_inline (lisp stream, lisp on)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   return Qt;
 }
@@ -1166,7 +1166,7 @@ Fsocket_stream_send_oob_data (lisp stream, lisp string)
     }
   catch (sock_error &e)
     {
-      return FEsocket_error (e.error_code (), e.ope ());
+      return FEsocket_error (e.error_code (), e.ope (), e.category ());
     }
   return Qnil;
 }
@@ -1707,7 +1707,7 @@ readc_stream (lisp stream)
             }
           catch (sock_error &e)
             {
-              FEsocket_error (e.error_code (), e.ope ());
+              FEsocket_error (e.error_code (), e.ope (), e.category ());
             }
 
         case st_general_input:
@@ -1841,7 +1841,7 @@ listen_stream (lisp stream)
             }
           catch (sock_error &e)
             {
-              FEsocket_error (e.error_code (), e.ope ());
+              FEsocket_error (e.error_code (), e.ope (), e.category ());
             }
 
         case st_general_input:
@@ -2107,7 +2107,7 @@ writec_stream (lisp stream, ucs4_t cc)
             }
           catch (sock_error &e)
             {
-              FEsocket_error (e.error_code (), e.ope ());
+              FEsocket_error (e.error_code (), e.ope (), e.category ());
             }
           return;
 
@@ -2218,7 +2218,7 @@ write_stream (lisp stream, const ucs4_t *b, size_t size)
             }
           catch (sock_error &e)
             {
-              FEsocket_error (e.error_code (), e.ope ());
+              FEsocket_error (e.error_code (), e.ope (), e.category ());
             }
           return;
 
@@ -2367,7 +2367,7 @@ flush_stream (lisp stream)
             }
           catch (sock_error &e)
             {
-              FEsocket_error (e.error_code (), e.ope ());
+              FEsocket_error (e.error_code (), e.ope (), e.category ());
             }
           return;
 
