@@ -501,5 +501,47 @@ else
   grep -o '(".*)' "$log" | tail -3 >&2 || true
   fail=1
 fi
+# ダンプイメージ。**書けても読めなければ意味が無いので、両方を 1 本で測る。**
+# `-image` を渡すと、読めなければ startup.l が作り、次からそれで起きる
+# (issue #219)。POSIX では誰もこれを測っていなかった -- 書く側は前から
+# 動いていて、読む側が繋がっていなかった。
+image=$build/smoke-dump.wxp
+rm -f "$image"
+log=$build/smoke-dump.txt
+{
+  echo "--- 1 回目: イメージを作る ---"
+  "$build/xyzzy" --batch -image "$image" -q \
+    -e '(format t "made=~S dumped=~S path=~S~%" (and (file-exist-p (si:dump-image-path)) t) (xyzzy-dumped-p) (and (si:dump-image-path) t))'
+  echo "--- 2 回目: それで起きる ---"
+  "$build/xyzzy" --batch -image "$image" -q \
+    -e '(format t "dumped=~S loadpath=~S sym=~S~%" (xyzzy-dumped-p) *load-pathname* (and (fboundp (quote ed::find-file)) t))'
+} >"$log" 2>&1 || true
+# 3 つ全部見る: 作れた / 2 回目はイメージから起きた / **そのうえで編集の
+# 関数が生きている** (シンボルだけ戻っても関数が貼られていなければ使えない)。
+if grep -q 'made=t dumped=nil path=t' "$log" \
+   && grep -qi 'dumped=t loadpath=nil sym=t' "$log"; then
+  echo 'smoke: ダンプイメージ OK -- 作って、それで起きて、関数が生きている'
+else
+  echo "smoke: ダンプイメージ FAILED, see $log" >&2
+  cat "$log" >&2
+  fail=1
+fi
+
+# 対話でもイメージから起きて、引数のファイルを開けるか。**batch だけ通って
+# 対話が通らない形が実際にあった** (issue #217 の si:*command-line-args*)。
+log=$build/smoke-dump-pty.txt
+XYZZY_PTY_ARGS="-image $image $root/README.md" XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(list (xyzzy-dumped-p) (buffer-name (selected-buffer)))\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q '(t "README\.md")' "$log"; then
+  echo 'smoke: ダンプイメージ (対話) OK -- イメージから起きて引数のファイルが開く'
+else
+  echo "smoke: ダンプイメージ (対話) FAILED, see $log" >&2
+  echo '-- 期待するのは (t "README.md")。出ていたのは:' >&2
+  grep -o '(.*)' "$log" | tail -3 >&2 || true
+  fail=1
+fi
+rm -f "$image"
 
 exit $fail

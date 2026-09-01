@@ -278,6 +278,28 @@ find_section (const ini_file &ini, const std::string &section,
    ウィンドウの位置を書くので結果としていつも存在する。端末ビルドには終了時に
    書くものが無いので、**作らないと「設定ファイルの場所」が指す先が存在しない
    まま**になる。 */
+/* `-image <path>' -> `app.dump_image'。**Win32 の init.cc:628 の移植。**
+   あちらは `CommandLineToArgvW' が UTF-16 の argv を作るので、そのまま
+   `WINFS::GetFullPathName' に通せる。POSIX の argv は UTF-8 なので
+   `widen' を挟むだけで、あとは同じ。
+
+   **ファイルの存在は見ない。** `-image' は「これを使う、無ければ作る」の
+   指定で、初回は必ず存在しない (`lisp/startup.l` が `dump-xyzzy` で作る)。 */
+void
+init_posix_dump_image (const char *path)
+{
+  *app.dump_image = 0;
+  if (!path || !*path)
+    return;
+
+  wchar_t w[PATH_MAX + 1], *tail;
+  widen (std::string (path), w, numberof (w));
+  DWORD l = WINFS::GetFullPathName (w, numberof (app.dump_image),
+                                    app.dump_image, &tail);
+  if (!l || l >= numberof (app.dump_image))
+    *app.dump_image = 0;
+}
+
 void
 init_posix_config_paths (const char *config_path, const char *ini_file)
 {

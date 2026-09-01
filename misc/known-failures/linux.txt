@@ -294,24 +294,23 @@ wait-object-typep
 # 「ダンプイメージに依っている」と 1 行で書いてあったが、測ったら 2 件は
 # 別々の理由だった** (issue #217 の作業中)。ここは 1 行にまとめない。
 #
-#   * `image-startup-option` は**ダンプを一切していない。** 見ているのは
-#     `-image <path>` を渡したとき `(si:dump-image-path)` がそれを返すか
-#     だけで、**落ちているのは「オプションが読まれていない」から**である。
-#     `src/frontend/win32/init.cc` は `-image` を argv から拾って
-#     `app.dump_image` と `Qdump_image_path` に入れるが、
-#     `src/frontend/ncurses/ncurses-main.cc` は `Qdump_image_path` を
-#     `Qnil` で固定していて `-image` をどこでも見ていない。ダンプ自体が
-#     動くかとは無関係に直せる。
+#   * `image-startup-option` は**外れた** (issue #219)。ダンプを一切して
+#     いないテストで、`-image <path>` が `(si:dump-image-path)` に入るかしか
+#     見ていない。落ちていたのは「オプションが読まれていない」からで、
+#     POSIX でもダンプイメージそのものが動く (762ms -> 206ms) ので
+#     読み込みまで通した。
 #
-#   * `fix-*load-pathname*-from-dump-image` の方は本当にダンプイメージ
-#     の話で、**Windows では中身が測られていない。** 見ているのは子プロセス
-#     (`-q`) の `*load-pathname*` が nil かで、Win32 の子はダンプイメージ
-#     から起きるので「何も load していない」= nil になる。POSIX の子は
-#     ダンプが無いので `startup.l` を load している最中に `-e` が走り、
-#     `"/work/lisp/startup.l"` が見える。テスト自身のコメントが
-#     `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と書いて
-#     いる通り、**このテストは「nil であること」を Win32 でも偶然で
-#     測っている。**
+#   * `fix-*load-pathname*-from-dump-image` は残る。**このテストは
+#     Windows でも中身を測っていない。** 見ているのは子プロセス (`-q`) の
+#     `*load-pathname*` が nil かで、Win32 の子はダンプイメージから起きる
+#     ので「何も load していない」= nil になる。POSIX の子は `-image` を
+#     渡していないのでイメージを使わず、`startup.l` を load している最中に
+#     `-e` が走って `"/work/lisp/startup.l"` が見える。テスト自身が
+#     `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と認めて
+#     いる通りで、**「nil であること」を Win32 でも偶然で測っている。**
+#     代わりに `dump-image-actually-loads` (`unittest/editor-tests.l`) が
+#     イメージを本当に作って読んで、`(xyzzy-dumped-p)` と
+#     `*load-pathname*` を一緒に見る。こちらの期待値を直すのは別の話。
 #
 # **`user-config-path` / `xyzzy-ini-path` は 7 件のうち 5 件が外れた。** 前は
 # 「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、
@@ -356,7 +355,6 @@ wait-object-typep
 # 直したが、番号の体系そのものを揃える話は別 issue にした。
 
 fix-*load-pathname*-from-dump-image
-image-startup-option
 
 # コマンドライン引数の処理 — **この群も空になった。**
 #
