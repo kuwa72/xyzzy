@@ -697,4 +697,72 @@ else
   echo 'smoke: batch のクリップボード OK -- --batch の stdout に OSC 52 が出ない'
 fi
 
+# ポップアップ (`popup-list` / `popup-string`)。**端末フロントエンドで最も
+# 大きい実装なのに、確認が 1 件も無かった** -- `ncurses-stubs.cc` の
+# `Fpopup_list` が 275 行、`Fpopup_string` が 131 行で、`unittest/` と
+# ここに名前が 1 度も出ていなかった (`popup-list` を数えた
+# `unittest/popup-window-tests.l` は `lisp/popup-window.l` の段組みの方で、
+# 別のもの)。
+#
+# **Lisp スイートからは測れない。** 描くものなので返り値を持たず、スイートは
+# 全部 `--batch` で curses が上がっていない。
+#
+# **飾りではなく既定の経路である。** `lisp/startup.l` が端末で
+# `*popup-completion-list-default*` を立てるので、`C-x C-f` の補完で候補が
+# 複数あるとここが出る (`lisp/complete.l` の `popup-completion-list`)。
+#
+# 3 つ見る:
+#
+#   1. 枠が出ること
+#   2. **枠の上下の長さが揃っていること。** 幅を「文字数」で数えると
+#      日本語の項目で崩れる (全角は 2 桁)。上下の罫線は ASCII なので
+#      桁数をそのまま比べられる
+#   3. **選んだ文字列がコールバックへ渡ること。** 描くだけ描けて選択が
+#      効かない形があるので、画面だけ見ていても足りない
+log=$build/smoke-popup-list.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' \
+  '\e\e(progn (setq ed::*pg* nil) (popup-list (list "あいうえおかきくけこ" "beta") (function (lambda (s) (setq ed::*pg* s)))))\r' \
+  '\w' '\r' '\w' \
+  '\e\e(format nil "PG=[~A]" ed::*pg*)\r' '\w' \
+  >"$log" 2>&1 || true
+# 罫線は ACS なので、pty 側のモデルには l/q/k と m/q/j の文字で落ちてくる。
+top=$(grep -o 'lq*k' "$log" | head -1)
+bot=$(grep -o 'mq*j' "$log" | head -1)
+if [ -n "$top" ] && [ "${#top}" = "${#bot}" ] \
+   && grep -q 'xあいうえおかきくけこ *x' "$log" \
+   && grep -q 'PG=\[あいうえおかきくけこ\]' "$log"; then
+  echo 'smoke: popup-list OK -- 枠が出て、上下の桁が揃い、選んだ文字列がコールバックへ渡る'
+else
+  echo "smoke: popup-list FAILED, see $log" >&2
+  echo "-- 枠の上 '$top' (${#top} 桁) と下 '$bot' (${#bot} 桁):" >&2
+  echo '-- 日本語の項目の行があるか:' >&2
+  grep -c 'xあいうえおかきくけこ *x' "$log" >&2 || true
+  echo '-- コールバックが受けた文字列 (PG=[...]):' >&2
+  grep -o 'PG=\[[^]]*\]' "$log" | head -2 >&2 || true
+  fail=1
+fi
+
+# `popup-string` は別の入口で、別の実装 (`lisp/calendar.l` の祝日と
+# `lisp/edict.l` の辞書引きが使う)。**`popup-list` が通っても
+# こちらは通らない**ので分けて見る。
+log=$build/smoke-popup-string.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(popup-string "不正 abc" (point))\r' '\w' \
+  >"$log" 2>&1 || true
+top=$(grep -o 'lq*k' "$log" | head -1)
+bot=$(grep -o 'mq*j' "$log" | head -1)
+if [ -n "$top" ] && [ "${#top}" = "${#bot}" ] \
+   && grep -q 'x 不正 abc x' "$log"; then
+  echo 'smoke: popup-string OK -- 枠が出て、日本語混じりの文字列が桁で収まる'
+else
+  echo "smoke: popup-string FAILED, see $log" >&2
+  echo "-- 枠の上 '$top' (${#top} 桁) と下 '$bot' (${#bot} 桁):" >&2
+  echo '-- 中身の行があるか:' >&2
+  grep -c 'x 不正 abc x' "$log" >&2 || true
+  fail=1
+fi
+
 exit $fail
