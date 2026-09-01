@@ -1483,7 +1483,12 @@ inline BOOL SetWindowTextW(HWND, LPCWSTR) { return FALSE; }
 inline BOOL SetWindowTextA(HWND, LPCSTR) { return FALSE; }
 inline HWND SetFocus(HWND) { return 0; }
 inline BOOL InvalidateRect(HWND, const RECT*, BOOL) { return FALSE; }
-inline BOOL IsBadWritePtr(void*, size_t) { return FALSE; }
+/* **`IsBadWritePtr` は `src/core/mem-posix.cc` に実体がある** (issue #240)。
+   ここに `return FALSE;` (= 「悪くない」) のスタブがあったので、**保守的 GC の
+   guard が一度も効いていなかった。** 記帳はヘッダの `static` に置けない
+   (翻訳単位ごとに別の実体になり、`data.cc` から見た表が空になる) ので、
+   宣言だけを置いてある。詳細は mem-posix.cc の先頭。 */
+BOOL IsBadWritePtr(void*, size_t);
 inline LRESULT CallWindowProc(WNDPROC, HWND, UINT, WPARAM, LPARAM) { return 0; }
 inline BOOL SetProp(HWND, LPCWSTR, HANDLE) { return FALSE; }
 inline HANDLE GetProp(HWND, LPCWSTR) { return 0; }
@@ -1855,99 +1860,12 @@ inline void GetSystemInfo(SYSTEM_INFO *si) {
 #include <sys/mman.h>
 #include <stdlib.h>
 
-// Track reserved regions for proper cleanup
-struct _VirtualAllocInfo {
-  void *mmap_base;    // original mmap return
-  size_t mmap_size;   // original mmap size
-  void *aligned_base; // aligned address returned to caller
-  size_t region_size; // requested size
-  _VirtualAllocInfo *next;
-};
-static _VirtualAllocInfo *_va_regions = nullptr;
-
-// Return the OS allocation granularity (max of page size and 64KB).
-// Cached after first call.
-static inline size_t _va_granularity() {
-  static size_t g = 0;
-  if (!g) {
-    long pgsz = sysconf(_SC_PAGESIZE);
-    size_t pg = (pgsz > 0) ? (size_t)pgsz : 4096;
-    g = (pg > 65536) ? pg : 65536;
-  }
-  return g;
-}
-
-inline LPVOID VirtualAlloc(LPVOID addr, size_t size, DWORD type, DWORD protect) {
-  int prot = PROT_NONE;
-  if (protect == PAGE_READWRITE) prot = PROT_READ | PROT_WRITE;
-  if (type & MEM_COMMIT) prot = PROT_READ | PROT_WRITE;
-
-  if (addr) {
-    // MEM_COMMIT within existing reservation.
-    // On Linux, MAP_FIXED can overwrite an existing PROT_NONE mapping.
-    // On macOS, mprotect is the correct approach for already-reserved pages.
-    if (mprotect(addr, size, prot) == 0)
-      return addr;
-    // Fallback for cases where the region wasn't previously mapped (e.g. MEM_RESERVE+MEM_COMMIT)
-    void *p = mmap(addr, size, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    return (p == MAP_FAILED) ? 0 : p;
-  }
-
-  // MEM_RESERVE (new allocation): need alignment-aligned address.
-  // Use the OS allocation granularity (at least 64KB, or page size on
-  // systems with larger pages like Apple Silicon with 16KB pages).
-  size_t alignment = _va_granularity();
-  size_t alloc_size = size + alignment - 1;
-  void *raw = mmap(NULL, alloc_size, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (raw == MAP_FAILED) return 0;
-
-  // Align up to granularity boundary
-  void *aligned = (void *)(((uintptr_t)raw + alignment - 1) & ~(alignment - 1));
-
-  // Trim excess at front and back
-  size_t front = (uintptr_t)aligned - (uintptr_t)raw;
-  size_t back = alloc_size - front - size;
-  if (front > 0) munmap(raw, front);
-  if (back > 0) munmap((void *)((uintptr_t)aligned + size), back);
-
-  // Track for MEM_RELEASE (which passes size=0)
-  _VirtualAllocInfo *info = (_VirtualAllocInfo *)malloc(sizeof(_VirtualAllocInfo));
-  if (info) {
-    info->mmap_base = aligned;
-    info->mmap_size = size;
-    info->aligned_base = aligned;
-    info->region_size = size;
-    info->next = _va_regions;
-    _va_regions = info;
-  }
-
-  return (LPVOID)aligned;
-}
-
-inline BOOL VirtualFree(LPVOID addr, size_t size, DWORD type) {
-  if (type == MEM_DECOMMIT) {
-    // Make pages inaccessible (like Windows MEM_DECOMMIT)
-    return mprotect(addr, size, PROT_NONE) == 0;
-  }
-  if (type == MEM_RELEASE) {
-    // Find tracked region (Windows allows size=0 to free whole region)
-    _VirtualAllocInfo **pp = &_va_regions;
-    while (*pp) {
-      if ((*pp)->aligned_base == addr) {
-        _VirtualAllocInfo *info = *pp;
-        *pp = info->next;
-        BOOL result = munmap(info->mmap_base, info->mmap_size) == 0;
-        ::free(info);
-        return result;
-      }
-      pp = &(*pp)->next;
-    }
-    // Not tracked - try direct munmap with given size
-    if (size > 0) return munmap(addr, size) == 0;
-    return FALSE;
-  }
-  return FALSE;
-}
+/* **`VirtualAlloc` / `VirtualFree` の実体は `src/core/mem-posix.cc`。**
+   予約の記帳 (どの範囲を commit したか) を持つので、ヘッダの `static` には
+   置けない -- 翻訳単位ごとに別の実体になり、`IsBadWritePtr` を呼ぶ
+   `data.cc` から見た表が空になる (issue #240)。宣言だけを置く。 */
+LPVOID VirtualAlloc(LPVOID addr, size_t size, DWORD type, DWORD protect);
+BOOL VirtualFree(LPVOID addr, size_t size, DWORD type);
 
 
 // Winsock stubs

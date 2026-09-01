@@ -909,6 +909,10 @@ if(NOT WIN32)
     # INI ファイルの読み書き (Get/WritePrivateProfileStringW)。設定の
     # 読み書き (conf-io.cc) がこの 2 つの上に建っている -- issue #143。
     list(APPEND CORE_SOURCES ${CORE_DIR}/ini-posix.cc)
+    # VirtualAlloc / VirtualFree / IsBadWritePtr。**記帳を持つのでヘッダに
+    # 置けない** -- ヘッダの static は翻訳単位ごとに別の実体になり、
+    # IsBadWritePtr を呼ぶ data.cc から見た表が空になる (issue #240)。
+    list(APPEND CORE_SOURCES ${CORE_DIR}/mem-posix.cc)
 endif()
 
 add_library(xyzzy-core STATIC ${CORE_SOURCES})
@@ -1103,6 +1107,23 @@ set(CLI_SOURCES
     ${CLI_DIR}/cli-stubs.cc
     ${CLI_DIR}/cli-symtable-ed.cc
 )
+
+# src/core/mem-posix.cc の単体確認 (issue #240)。**このリポジトリで最初の
+# C++ のテストである。** 見たい性質 (「予約しただけのページは
+# IsBadWritePtr が『悪い』と答える」) は Lisp から呼べず、症状 (GC が
+# PROT_NONE のページを読んで落ちる) はスタックのゴミ次第なので Lisp からは
+# 作れない。**述語そのものしか測れない。**
+#
+# core とはリンクせず mem-posix.cc 1 つだけを持つ。small に保つのが条件で、
+# 大きくなるならテストの置き場そのものを設計する話になる。
+# tools/linux-smoke.sh から走らせる。
+if(NOT WIN32)
+    add_executable(mem-posix-test
+        ${CORE_DIR}/mem-posix-test.cc
+        ${CORE_DIR}/mem-posix.cc)
+    target_compile_definitions(mem-posix-test PRIVATE UNICODE _UNICODE)
+    target_compile_options(mem-posix-test PRIVATE "SHELL:-iquote ${CORE_DIR}" "SHELL:-iquote ${GEN_DIR}")
+endif()
 
 add_executable(xyzzy-cli ${CLI_SOURCES})
 target_compile_definitions(xyzzy-cli PRIVATE UNICODE _UNICODE DSFMT_MEXP=19937)
