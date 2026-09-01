@@ -290,8 +290,28 @@ wait-object-typep
 # 1 か所で分けたので chdir だけでなく open や delete-file でも Win32 と
 # 同じ条件が付く。
 #
-# `image-startup-option` と `fix-*load-pathname*-from-dump-image` は
-# ダンプイメージに依っている。
+# **`image-startup-option` と `fix-*load-pathname*-from-dump-image` の理由は
+# 「ダンプイメージに依っている」と 1 行で書いてあったが、測ったら 2 件は
+# 別々の理由だった** (issue #217 の作業中)。ここは 1 行にまとめない。
+#
+#   * `image-startup-option` は**ダンプを一切していない。** 見ているのは
+#     `-image <path>` を渡したとき `(si:dump-image-path)` がそれを返すか
+#     だけで、**落ちているのは「オプションが読まれていない」から**である。
+#     `src/frontend/win32/init.cc` は `-image` を argv から拾って
+#     `app.dump_image` と `Qdump_image_path` に入れるが、
+#     `src/frontend/ncurses/ncurses-main.cc` は `Qdump_image_path` を
+#     `Qnil` で固定していて `-image` をどこでも見ていない。ダンプ自体が
+#     動くかとは無関係に直せる。
+#
+#   * `fix-*load-pathname*-from-dump-image` の方は本当にダンプイメージ
+#     の話で、**Windows では中身が測られていない。** 見ているのは子プロセス
+#     (`-q`) の `*load-pathname*` が nil かで、Win32 の子はダンプイメージ
+#     から起きるので「何も load していない」= nil になる。POSIX の子は
+#     ダンプが無いので `startup.l` を load している最中に `-e` が走り、
+#     `"/work/lisp/startup.l"` が見える。テスト自身のコメントが
+#     `;; FIXME: ダンプイメージがまだ無い場合 pass ってしまう` と書いて
+#     いる通り、**このテストは「nil であること」を Win32 でも偶然で
+#     測っている。**
 #
 # **`user-config-path` / `xyzzy-ini-path` は 7 件のうち 5 件が外れた。** 前は
 # 「レジストリと ini ファイルに依っている」と 1 行で片付けてあったが、

@@ -26,6 +26,9 @@ the process does not survive the script.
 Environment:
     XYZZY_EXE   the binary to run (default /work/_build/linux/xyzzy, i.e. the
                 path inside the tools/x container)
+    XYZZY_PTY_ARGS   コマンドラインの引数 (空白で切る)。付けないと引数なしで
+                起動する。**ここが空だと「引数が効かない」ことは測れない** ので、
+                起動オプションを見るときは必ず渡す。
     XYZZY_PTY_ROWS / XYZZY_PTY_COLS   screen size (default 30x100)
     XYZZY_PTY_BOOT   seconds to wait for the first paint (default 90).  Start up
                 loads the whole lisp library and draws nothing until it is done:
@@ -54,6 +57,7 @@ import os, pty, re, select, sys, time, fcntl, termios, struct
 ROWS = int(os.environ.get("XYZZY_PTY_ROWS", "30"))
 COLS = int(os.environ.get("XYZZY_PTY_COLS", "100"))
 EXE = os.environ.get("XYZZY_EXE", "/work/_build/linux/xyzzy")
+ARGS = os.environ.get("XYZZY_PTY_ARGS", "").split()
 HOME = os.environ.get("XYZZYHOME", "/work")
 BOOT = float(os.environ.get("XYZZY_PTY_BOOT", "90"))
 RAW = bool(os.environ.get("XYZZY_PTY_RAW"))
@@ -230,7 +234,7 @@ def main():
         os.environ["TERM"] = "xterm-256color"
         os.environ["XYZZYHOME"] = HOME
         os.environ["LANG"] = "en_US.UTF-8"
-        os.execv(EXE, [EXE])
+        os.execv(EXE, [EXE] + ARGS)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
     scr = Screen()
     raw = bytearray()

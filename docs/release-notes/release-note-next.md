@@ -1447,6 +1447,45 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
     見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
     ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
+  * **端末版が `~/.xyzzy` をまったく読んでいなかったのを直した** (issue #217)。
+    `lisp/startup.l` の `si:*startup` は `#-ncurses` 側が `ed::startup` を
+    呼ぶだけなのに対し、**`#+ncurses` 側は `ed::startup` の中身を手で書き
+    写していて、写し損じた分がそのまま欠けていた。**
+
+    ```
+    ~/.xyzzy                     読まない
+    ~/.xyzzy.history             読まない (書くだけ -- 保存フックは登録済み)
+    -q / -no-init-file           食べないので「-q」という名前のバッファが開く
+    *pre-startup-hook*           走らない
+    keep-compatibility           呼ばれない (*last-xyzzy-version* が未束縛)
+    init-misc-options            呼ばれない (タブ幅・禁則が設定値を見ない)
+    init-pseudo-frame            呼ばれない (*pseudo-frame-list* が空)
+    ```
+
+    **写し間違いではなく、写すという方針自体が保たない。** 直しは
+    `si:*startup` を両フロントエンドで `(ed::startup)` の 1 行にし、端末
+    固有のキー割り当て (`DEL`、`F10`、`S-矢印`) を `*pre-startup-hook*` へ
+    移した。**フックに置いたのは `~/.xyzzy` より前に走らせるため**で、
+    既定値がユーザ設定を後から上書きしないようにする。
+
+    **対話版はさらに引数を全部捨てていた。** `si:*command-line-args*` を
+    積んでいるのは `BatchFrontend::init` だけで、`NcursesFrontend::init`
+    には無かった。つまり `xyzzy foo.txt` が端末で何も開かない。積む処理を
+    `init_command_line_args` に切り出して両方から呼ぶ
+    (`src/frontend/ncurses/ncurses-main.cc`)。
+
+    **テストが全部 `--batch -q` で走ることが、この穴を隠していた。** その
+    呼び方は「`~/.xyzzy` を読まない」ことを期待する形なので、読まないバグは
+    そこでは見えない。既知失敗にも 1 件も現れていなかった。`ed::startup` の
+    後半 (`keep-compatibility` / `init-pseudo-frame` / `-q` の消費 / 引数の
+    ファイル) は `-q` 付きでも測れるので**普通のテストにした** (5 件、
+    `unittest/editor-tests.l`)。`~/.xyzzy` と履歴は `HOME` を差し替えて測る
+    ので unix 限定にした -- Windows は `XYZZYHOME` を先に見て、それは同時に
+    子プロセスの `lisp/` の場所も変えてしまう。**対話版の引数だけは Lisp から
+    測れない** (テストは子プロセスを `--batch` で起こす) ので、
+    `tools/linux-smoke.sh` に pty の確認を足した。`tools/pty-drive.py` は
+    引数を渡せなかったので `XYZZY_PTY_ARGS` を足した -- **渡せないままだと
+    「引数が効かない」ことは測れない。**
   * **既知失敗 1 件の裏で、リーダを測る 18 個の値が POSIX で暗かった**
     (issue #215)。`lisp-mode-eval-last-sexp` は **19 個の値を 1 つの
     `deftest` で見ていて、COM が要るのは 1 個だけ**だった

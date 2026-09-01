@@ -1161,6 +1161,103 @@
   => t)
 
 
+;;;;; 起動時に何が走るか
+;;;
+;;; **`si:*startup' は `ed::startup' を呼ぶ。** 端末ビルドはかつてその一部を
+;;; 手で書き写していて、写し損じた分が黙って欠けていた (issue #217)。ここで
+;;; 見るのは「欠けていたら分かる値」で、`ed::startup' の各段が実際に呼ばれた
+;;; 痕跡を子プロセスから読む。
+;;;
+;;; **どれも `-q' 付きで測れる。** `~/.xyzzy' を読む段より後ろにあるものは
+;;; `-q' でも走るので、テストスイートの呼び方 (`--batch -q') のままで見える。
+;;; `~/.xyzzy' そのものは下の unix 限定のテストで見る。
+
+(deftest startup-runs-keep-compatibility ()
+  ;; `keep-compatibility' が `*last-xyzzy-version*' を作る。
+  (eval-in-another-xyzzy '(and (boundp 'ed::*last-xyzzy-version*)
+                               (equal ed::*last-xyzzy-version* (software-version)))
+                         :options "-q")
+  => t)
+
+(deftest startup-runs-init-pseudo-frame ()
+  ;; フレームが 1 つ無いと `select-pseudo-frame' の類が全部使えない。
+  (eval-in-another-xyzzy '(length ed::*pseudo-frame-list*) :options "-q")
+  => 1)
+
+(deftest startup-eats-no-init-file-option ()
+  ;; **`-q' を食べ残すとファイル名として `find-file' される。** 端末ビルドは
+  ;; 「-q」という名前のバッファを開いていた。
+  (eval-in-another-xyzzy '(and (find-buffer "-q") t) :options "-q")
+  => nil)
+
+(deftest startup-opens-a-file-given-on-the-command-line ()
+  ;; **`process-command-line' がここまで来ているかを見る。** 引数の名前も
+  ;; 位置も何も付いていないものは `find-file' に落ちるのが仕様。
+  (with-temp-files (file)
+    (eval-in-another-xyzzy
+     `(and (find-buffer ,(file-namestring file)) t)
+     :options (format nil "-q \"~A\"" file)))
+  => t)
+
+;;; **`~/.xyzzy' と履歴ファイルは `HOME' を差し替えて測る。**
+;;; POSIX では `HOME' が唯一の出所なので効くが、Windows は `XYZZYHOME' を
+;;; 先に見て、テストの実行が必ずそれを設定している (`run-tests.sh')。
+;;; **Windows でここを測るには XYZZYHOME を差し替えるしかなく、それは同時に
+;;; 子プロセスの lisp/ の場所も変えてしまう** ので、unix だけで測る。
+;;; Windows 側は `ed::startup' を昔から通っているので、欠けていたのは POSIX。
+
+(defun startup-test-clean-home (home)
+  ;; **子プロセスが HOME に書き戻す。** `kill-xyzzy' が `*kill-xyzzy-hook*'
+  ;; を回して `save-history-file' / `save-abbrev-file' が走るので、こちらが
+  ;; 置いたファイルだけ消しても `with-temp-dirs' の `delete-directory' が
+  ;; 「Directory not empty」で落ちる。中を全部消す。
+  (dolist (f (directory home :absolute t :file-only t :show-dots t :recursive t))
+    (ignore-errors (delete-file f)))
+  (dolist (d (sort (directory home :absolute t :directory-only t
+                              :show-dots t :recursive t)
+                   #'> :key #'length))
+    (ignore-errors (delete-directory d))))
+
+(deftest startup-loads-user-init-file ()
+  (if (featurep :unix)
+      (with-temp-dirs (home)
+        (unwind-protect
+            (progn
+              (with-open-file (s (merge-pathnames ".xyzzy" home) :direction :output
+                                 :if-does-not-exist :create :if-exists :overwrite)
+                (format s "(setq ed::*startup-test-dotxyzzy* :loaded)~%"))
+              (with-open-file (s (merge-pathnames ".xyzzy.history" home) :direction :output
+                                 :if-does-not-exist :create :if-exists :overwrite)
+                (format s "(setq ed::*startup-test-history* :loaded)~%"))
+              (eval-in-another-xyzzy
+               '(list (and (boundp 'ed::*startup-test-dotxyzzy*)
+                           ed::*startup-test-dotxyzzy*)
+                      (and (boundp 'ed::*startup-test-history*)
+                           ed::*startup-test-history*)
+                      ed::*history-file-loaded*)
+               :environ `(("HOME" . ,(namestring home)))))
+          (startup-test-clean-home home)))
+    '(:loaded :loaded t))
+  => (:loaded :loaded t))
+
+(deftest startup-honours-no-init-file-for-the-user-init-file ()
+  ;; **`-q' の意味の側も測る。** 上のテストだけだと「常に読む」に直しても通る。
+  (if (featurep :unix)
+      (with-temp-dirs (home)
+        (unwind-protect
+            (progn
+              (with-open-file (s (merge-pathnames ".xyzzy" home) :direction :output
+                                 :if-does-not-exist :create :if-exists :overwrite)
+                (format s "(setq ed::*startup-test-dotxyzzy* :loaded)~%"))
+              (eval-in-another-xyzzy
+               '(boundp 'ed::*startup-test-dotxyzzy*)
+               :options "-q"
+               :environ `(("HOME" . ,(namestring home)))))
+          (startup-test-clean-home home)))
+    nil)
+  => nil)
+
+
 (deftest lisp-mode-indent-region-first-line ()
   (with-temp-buffer
     (insert "  (defvar foo 1)" #\LFD)

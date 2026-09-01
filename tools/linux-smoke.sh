@@ -476,4 +476,30 @@ else
   fail=1
 fi
 
+# 対話起動が ed::startup を通っているか。**batch では測れない。**
+# `si:*command-line-args*' を積むのは対話版とバッチ版で別の場所で、対話版は
+# 積んでいなかった (issue #217)。テストスイートは全部 --batch なので、
+# ここが対話版の起動オプションを見る唯一の場所。
+#
+# 3 つ同時に見る: 引数のファイルが開いたか / `~/.xyzzy' が読まれたか /
+# `init-pseudo-frame' が走ったか。HOME を差し替えるので、この端末が
+# ほんとうに使っている ~/.xyzzy は触らない。
+log=$build/smoke-startup.txt
+home=$build/smoke-home
+rm -rf "$home"
+mkdir -p "$home"
+printf '(setq ed::*smoke-dotxyzzy* :loaded)\n' >"$home/.xyzzy"
+HOME=$home XYZZY_PTY_ARGS=$root/README.md XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(list (buffer-name (selected-buffer)) (and (boundp (quote ed::*smoke-dotxyzzy*)) ed::*smoke-dotxyzzy*) (length ed::*pseudo-frame-list*))\r' '\w' \
+  >"$log" 2>&1 || true
+if grep -q '("README\.md" :loaded 1)' "$log"; then
+  echo 'smoke: 対話起動 OK -- 引数のファイルが開き、~/.xyzzy が読まれ、フレームが 1 つある'
+else
+  echo "smoke: 対話起動 FAILED, see $log" >&2
+  echo '-- 期待するのは ("README.md" :loaded 1)。出ていたのは:' >&2
+  grep -o '(".*)' "$log" | tail -3 >&2 || true
+  fail=1
+fi
+
 exit $fail
