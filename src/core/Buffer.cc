@@ -1344,13 +1344,14 @@ Buffer::refresh_title_bar () const
   lisp fmt = symbol_value (Vtitle_bar_format, this);
   if (stringp (fmt))
     {
-      /* Phase 2: buffer_info::format は Char* (UTF-16) を書き出すので
-         直接 SetWindowTextW へ渡す。 */
+      /* buffer_info::format は Char* (UTF-16) を書き出すので、そのまま
+         frontend へ渡す (出す先は win32 なら SetWindowTextW、端末なら
+         OSC 0。src/core/fns.h)。 */
       Char buf[512 + 10];
       buffer_info binfo (0, this, 0, 0, 0);
       Char *end = binfo.format (fmt, buf, buf + 512);
       *end = 0;
-      SetWindowTextW (app.toplev, (LPCWSTR)buf);
+      frontend_set_frame_title (buf);
     }
   else
     {
@@ -1383,7 +1384,7 @@ Buffer::refresh_title_bar () const
           b = store_title (x, b, be);
         }
       *b = 0;
-      SetWindowTextW (app.toplev, (LPCWSTR)b0);
+      frontend_set_frame_title (b0);
     }
   b_last_title_bar_buffer = 0; // 次回タイトルバーを強制的に再描画させる
 }

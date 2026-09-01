@@ -56,8 +56,10 @@ lisp Fkeymapp (lisp);
 static void
 ncurses_cleanup ()
 {
-  // Disable button-event tracking and SGR mouse mode before endwin
-  printf ("\033[?1002l\033[?1006l");
+  /* マウスの追跡を止め、**タイトルを元へ戻す** (`CSI 23;0t`)。起動直後に
+     `CSI 22;0t` で積んだものを降ろす。解釈しない端末は CSI をそのまま
+     無視するので、付けても壊れない。 */
+  printf ("\033[?1002l\033[?1006l\033[23;0t");
   fflush (stdout);
   endwin ();
 }
@@ -1091,6 +1093,11 @@ public:
 
     // ncurses init
     initscr ();
+    /* **タイトルを積んでおく** (`CSI 22;0t`)。これが無いと、xyzzy が
+       終わった後もシェルのタブに開いていたファイル名が残る。降ろすのは
+       `ncurses_cleanup`。 */
+    printf ("\033[22;0t");
+    fflush (stdout);
     raw ();
     noecho ();
     keypad (stdscr, TRUE);

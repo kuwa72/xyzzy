@@ -618,6 +618,12 @@ cli_bell ()
 void frontend_beep (int) { cli_bell (); }
 void frontend_flash () { cli_bell (); }
 
+/* `xyzzy-cli` は画面を持たない REPL なので、タイトルを出す先が無い。
+   **端末に OSC 0 を投げないのは意図してである**: このバイナリはパイプの
+   相手に読ませるために使う (`tools/linux-smoke.sh` がそうしている) ので、
+   エスケープシーケンスを混ぜない。 */
+void frontend_set_frame_title (const Char *) {}
+
 // ============================================================
 // abbrev.cc stubs (abbreviate_string uses GDI)
 // ============================================================

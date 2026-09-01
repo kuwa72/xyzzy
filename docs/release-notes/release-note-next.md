@@ -1447,6 +1447,54 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
     見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
     ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
+  * **端末版でウィンドウ (タブ) のタイトルが出るようにした** (issue #211)。
+    `Buffer::refresh_title_bar` (`src/core/Buffer.cc`) は組み立てたタイトルを
+    `SetWindowTextW (app.toplev, ...)` へ渡していて、POSIX ではそれが
+    `FALSE` を返すだけのスタブだったので**組み立てた文字列を捨てていた。**
+
+    **出す先だけの話ではなかった。** タイトルを更新すべきか判断して
+    `refresh_title_bar` を呼ぶ `Buffer::set_frame_title` の呼び出し元は
+    `src/frontend/win32/disp.cc` の 1 箇所しかなく、**端末の再描画からは
+    呼ばれていなかった。** 出口を直しても、呼ばれなければ何も変わらない。
+
+    ベル (issue #203) と同じ形にした。**タイトルを組み立てる所は core に
+    残し**、出す所だけ seam にした:
+
+    ```cpp
+    void frontend_set_frame_title (const Char *title);   // src/core/fns.h
+    ```
+
+      win32   : 今までの SetWindowTextW (app.toplev, ...)
+      ncurses : OSC 0 (ESC ] 0 ; <title> ST)
+      cli     : 画面が無いので何もしない
+
+    `title-bar-format` の展開、ファイル名とアプリ名の並び順
+    (`*title-bar-text-order*`)、管理者権限の印は**どの環境でも同じ答えを出す
+    べきもの**なので core に置いたままである。**core から user32 の呼び出しが
+    2 つ減った** (issue #16 の Phase 4)。
+
+    終端は BEL ではなく **ST (`ESC \`) を使う。** BEL だと
+    `tools/linux-smoke.sh` のベルの check (生のバイト列から `\x07` を探す) と
+    混ざって、鳴っていないのに通るようになる。
+
+    **制御文字は落としている。** POSIX のファイル名には ESC も改行も入れられ
+    るので、そのまま流すと**タイトルの中から端末へ好きなエスケープシーケンス
+    を送り込める。**
+
+    終了時にタイトルを元へ戻す (`CSI 22;0t` で積んで `CSI 23;0t` で降ろす)。
+    これが無いと、xyzzy が終わった後もシェルのタブに開いていたファイル名が
+    残る。解釈しない端末は CSI をそのまま無視する。
+
+    実測 (`XYZZY_PTY_RAW=1`、`tools/linux-smoke.sh` に入れた):
+
+    ```
+    起動時         -> ESC]0;xyzzy 0.6.0-... - *scratch*ESC\
+    find-file の後 -> ESC]0;xyzzy 0.6.0-... - /work/README.mdESC\
+    ```
+
+    **塊ごとに分けて見ている**: 全体を grep すると「バッファを切り替えても
+    タイトルが変わらない」を見逃す。1 打鍵ごとに OSC を投げているわけでは
+    ない (`set_frame_title` が変化を見ている。実測で 2 回だけ)。
   * **POSIX で `(special-file-p ...)` が常に nil だったのを直した**
     (issue #206)。`src/core/platform.h` の `GetFileType` が**常に
     `FILE_TYPE_DISK` を返すスタブ**だったので、`special_file_p`
