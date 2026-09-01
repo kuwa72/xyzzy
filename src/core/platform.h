@@ -339,8 +339,21 @@ typedef void (*FARPROC)(void);
 #define MB_ICONSTOP        MB_ICONERROR
 
 // File type
-#define FILE_TYPE_DISK 0x0001
-inline DWORD GetFileType(HANDLE) { return FILE_TYPE_DISK; }
+//
+// special_file_p (src/core/pathname.cc) is the only caller, and it asks one
+// question: "is this something other than a plain file on a disk?".  It used
+// to get FILE_TYPE_DISK unconditionally, so *every* answer was "plain file",
+// and (special-file-p "/dev/null") was nil.  The real one is in
+// src/core/vfs-posix.cc: a HANDLE here is the fd, so it is one fstat away.
+//
+// The values match Windows, because the two platforms have to agree on what
+// counts as special: on Windows a pipe handle really does answer
+// FILE_TYPE_PIPE, so FIFOs and sockets map there rather than to CHAR.
+#define FILE_TYPE_UNKNOWN 0x0000
+#define FILE_TYPE_DISK    0x0001
+#define FILE_TYPE_CHAR    0x0002
+#define FILE_TYPE_PIPE    0x0003
+DWORD GetFileType(HANDLE);
 
 // Shell file operations
 typedef WORD FILEOP_FLAGS;

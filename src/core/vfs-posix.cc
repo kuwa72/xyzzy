@@ -158,9 +158,27 @@ HANDLE WINAPI WINFS::CreateFile (LPCWSTR p, DWORD access, DWORD,
       break;
     }
 
-  int fd = open (os_path (p), flags, 0644);
+  /* **O_NONBLOCK は開くためだけに付けて、開いたら外す。** POSIX の FIFO は
+     open(2) が相手側を待ち合わせるので、これが無いと *名前を調べるだけ* の
+     呼び方でも止まる: special_file_p は「特殊ファイルか」を知るために一度
+     開くだけなのに、FIFO を渡すと **書き手が現れるまで xyzzy 全体が固まって
+     いた** (C-x C-f で FIFO を指すと戻ってこない)。開いた後に外すので、
+     実際の read/write はどの呼び出し元から見てもこれまで通り待つ。ふつうの
+     ファイルには O_NONBLOCK は何の効果も無い。
+
+     残る違いは 1 つで、**書き手として FIFO を開くと、読み手がいなければ
+     待たずに ENXIO で失敗する**。特殊ファイルへの書き込みは
+     special_file_p が先に弾くので、そこへ来る呼び出し元は今は無い。
+
+     O_NOCTTY は別の理由: 種類を調べるためにデバイスノードを開くように
+     なったので、/dev/tty* を渡されたときに制御端末を取ってしまわない
+     ようにする。 */
+  int fd = open (os_path (p), flags | O_NONBLOCK | O_NOCTTY, 0644);
   if (fd < 0)
     return INVALID_HANDLE_VALUE;
+  int fl = fcntl (fd, F_GETFL);
+  if (fl >= 0)
+    fcntl (fd, F_SETFL, fl & ~O_NONBLOCK);
   return (HANDLE)(intptr_t)fd;
 }
 
@@ -566,6 +584,23 @@ int WINAPI WINFS::get_file_data (const wchar_t *path, WIN32_FIND_DATAW &fd)
 // time did nothing here.  A HANDLE outside Windows is the fd (see
 // WINFS::CreateFile above), so all of them are one fstat away.
 // ============================================================
+
+DWORD
+GetFileType (HANDLE h)
+{
+  struct stat st;
+  if (h == INVALID_HANDLE_VALUE || fstat ((int)(intptr_t)h, &st) != 0)
+    return FILE_TYPE_UNKNOWN;
+  if (S_ISCHR (st.st_mode) || S_ISBLK (st.st_mode))
+    return FILE_TYPE_CHAR;
+  if (S_ISFIFO (st.st_mode) || S_ISSOCK (st.st_mode))
+    return FILE_TYPE_PIPE;
+  /* ディレクトリもここに落ちる。Windows でもディレクトリのハンドルは
+     FILE_TYPE_DISK なので、答えは揃っている (Windows では
+     FILE_FLAG_BACKUP_SEMANTICS 無しに開けないので、そもそもここまで来ない)。
+     special_file_p を見る側はどれもディレクトリを別に弾いている。 */
+  return FILE_TYPE_DISK;
+}
 
 BOOL
 GetFileTime (HANDLE h, FILETIME *ctime, FILETIME *atime, FILETIME *mtime)

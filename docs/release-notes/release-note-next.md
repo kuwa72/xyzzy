@@ -1447,6 +1447,47 @@ Lisp テストスイートは走るようになり (走っていなかった -> 
     修正を戻すと**どちらも 0 個**になる (実測)。**step ごとの塊を分けて
     見ている**: 全体を grep すると、将来ウィンドウタイトルを OSC で出す
     ようにしたとき終端の BEL を拾って、鳴っていなくても通るようになる。
+  * **POSIX で `(special-file-p ...)` が常に nil だったのを直した**
+    (issue #206)。`src/core/platform.h` の `GetFileType` が**常に
+    `FILE_TYPE_DISK` を返すスタブ**だったので、`special_file_p`
+    (`src/core/pathname.cc`) の
+
+    ```cpp
+    int dev = GetFileType (h) != FILE_TYPE_DISK;   // 常に 0
+    ```
+
+    が**デバイスノードにも FIFO にもソケットにも「ふつうのファイル」と
+    答えていた。**
+
+    **1 個の答えで 7 つの門が開いていた。** `(special-file-p ...)` 自身より、
+    それを見て弾く側が問題だった。門に条件変数は無いので、既定の設定でそのまま
+    通る:
+
+    | 呼び出し元 | 通ると何が起きるか |
+    | --- | --- |
+    | `find-file` / `read-file` / `insert-file` (`lisp/files.l`) | `C-x C-f /dev/null` がデバイスファイルをバッファとして開く |
+    | `insert-file-contents` (`src/core/insdel.cc`) | 同上を Lisp から |
+    | `Buffer::save_buffer` (`src/core/fileio.cc`) | **改名による保存 (precious file の作法) をデバイスファイルに対してやる** |
+    | `do_auto_save` / `write-region` (同) | 同上 |
+
+    POSIX の `HANDLE` は fd なので (`WINFS::CreateFile`, `vfs-posix.cc`)、
+    `fstat` の `st_mode` から `S_ISCHR` / `S_ISBLK` を `FILE_TYPE_CHAR`、
+    `S_ISFIFO` / `S_ISSOCK` を `FILE_TYPE_PIPE` に写した。**Windows でも
+    パイプのハンドルは `FILE_TYPE_PIPE` を返すので、両方の答えが揃う。**
+
+    **測っていて 2 つ目が出てきた。`GetFileType` を直すだけでは FIFO の経路は
+    答えに到達しない。** POSIX の `open(2)` は FIFO の相手側を待ち合わせるので、
+    種類を知るために一度開くだけの `special_file_p` が**書き手が現れるまで
+    xyzzy 全体を固めていた** (`C-x C-f` で FIFO を指すと戻ってこない。実測で
+    確認した)。`WINFS::CreateFile` が `O_NONBLOCK` を付けて開き、開いたら
+    `fcntl` で外すようにした -- **実際の read/write はどの呼び出し元から見ても
+    これまで通り待つ。** ふつうのファイルに `O_NONBLOCK` は何の効果も無い。
+    同じ理由で `O_NOCTTY` も足した: 種類を調べるためにデバイスノードを開くの
+    だから、`/dev/tty*` を渡されたときに制御端末を取ってしまわないように
+    する。
+
+    FIFO のテストは**別プロセスで測っている** (`eval-in-another-xyzzy` の
+    `:timeout`)。戻らなくなったときに**スイート全体を止めずに赤にする**ため。
   * **POSIX でタイムゾーンが常に UTC だったのを直した** (issue #204)。
     `src/core/platform.h` の `GetTimeZoneInformation` が**構造体を 0 で埋めて
     返すだけ**だったので、`Bias` が常に 0 になっていた。
