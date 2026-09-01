@@ -653,4 +653,48 @@ else
   fail=1
 fi
 
+# クリップボード (OSC 52)。**Lisp スイートからは片面しか測れない** --
+# `unittest/clipboard-tests.l` が測るのは内部バッファの往復までで、
+# 端末へ実際にシーケンスが出ているかは返り値を持たない。生のバイト列で見る。
+#
+# 2 つ同時に見る:
+#
+#   1. **stdout が端末のときは出る。** `osc52_copy` に
+#      `!stdscr || !isatty` の guard を足した (それまで `--batch` でも書いて
+#      いて、stdout を読んでいるテストのログにエスケープが混ざった)。guard を
+#      広く取りすぎて**機能ごと止めてしまう**方向の壊し方があるので、出る側を
+#      ここで押さえる。
+#   2. **base64 の padding が `=` である。** `base64_encode` は長さが 3 の
+#      倍数でないときに `=` を 1 つも出さず、**0 で埋めた分を `A` として
+#      載せていた。** "不正 あいう" は UTF-8 で 16 バイトなので、貼った先には
+#      NUL が 2 個付く。**16 バイトのような「3 で割り切れない」入力でないと
+#      出ない**ので、ASCII 3 文字で測っても通ってしまう。
+log=$build/smoke-clipboard.txt
+XYZZY_PTY_RAW=1 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(copy-to-clipboard "不正 あいう")\r' '\w' \
+  >"$log" 2>&1 || true
+# 不正 あいう = UTF-8 16 バイト -> base64 で 5LiN5q2jIOOBguOBhOOBhg==
+if grep -q 'x1b\]52;c;5LiN5q2jIOOBguOBhOOBhg==' "$log"; then
+  echo 'smoke: クリップボード OK -- OSC 52 が端末へ出て、base64 の padding が = になる'
+else
+  echo "smoke: クリップボード FAILED, see $log" >&2
+  echo '-- 期待するのは x1b]52;c;5LiN5q2jIOOBguOBhOOBhg==。出ていたのは:' >&2
+  grep -o 'x1b\]52;c;[A-Za-z0-9+/=]*' "$log" | head -3 >&2 || true
+  fail=1
+fi
+
+# guard の裏側: **`--batch` では出ない。** 上の check だけだと「常に出す」形へ
+# 戻しても通ってしまう。ここが落ちるのはテストスイートのログが汚れるのと同じ
+# ことなので、そちらより先に分かるようにしておく。
+log=$build/smoke-clipboard-batch.txt
+"$build/xyzzy" --batch -q -e '(copy-to-clipboard "不正 あいう")' >"$log" 2>&1 || true
+if grep -aq ']52;c;' "$log"; then
+  echo "smoke: batch のクリップボード FAILED -- --batch の stdout に OSC 52 が出ている, see $log" >&2
+  grep -ao ']52;c;[A-Za-z0-9+/=]*' "$log" | head -3 >&2 || true
+  fail=1
+else
+  echo 'smoke: batch のクリップボード OK -- --batch の stdout に OSC 52 が出ない'
+fi
+
 exit $fail
