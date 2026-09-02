@@ -2685,7 +2685,10 @@ ncurses_reframe (Window *wp)
     {
       // maxwidth = visible text columns (excluding margin + linenum)
       int maxwidth = wp->w_ech.cx - 1;  // -1 for leading space
-      if (wp->w_flags & Window::WF_LINE_NUMBER)
+      /* ここも `w_flags` ではなく `flags ()` -- 既定で出ている行番号を
+         数えないと maxwidth が 7 桁広くなり、**点が右端の外へ出てから
+         横スクロールする。** */
+      if (wp->flags () & Window::WF_LINE_NUMBER)
         maxwidth -= Window::LINENUM_COLUMNS + 1;
       maxwidth -= bp->b_prompt_columns;
 
@@ -2782,8 +2785,14 @@ glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
   // redraw_line() adds a leading space (left margin) at glyph column 0,
   // plus optional line number columns. x tracks the text column;
   // the leading space offset is added at the end.
+  /* **`w_flags` ではなく `flags ()` を見る。** `w_flags` はそのウィンドウで
+     明示的に上書きした分しか持たず、既定 (`w_default_flags`) とバッファ毎の
+     分は `flags ()` が混ぜる。行番号は既定で出る (issue #173) ので、ここを
+     `w_flags` で見ると**行番号を出しているのに 0 桁として数え**、カーソルが
+     `LINENUM_COLUMNS + 1` = 7 桁左に来る。描く側も
+     `draw_ruler` も `flags ()` を見ている。 */
   int linenum_offset = 0;
-  if (wp->w_flags & Window::WF_LINE_NUMBER)
+  if (wp->flags () & Window::WF_LINE_NUMBER)
     linenum_offset = Window::LINENUM_COLUMNS + 1;
 
   while (pt.p_point < target && pt.p_point < nchars && y < rows)
@@ -2828,6 +2837,26 @@ glyph_point_to_screen (Window *wp, int *out_y, int *out_x)
   // Adjust for horizontal scroll (w_top_column) then add glyph offsets:
   // +1 for leading space margin, + linenum columns
   *out_x = (x - wp->w_top_column) + 1 + linenum_offset;
+}
+
+/* 点が画面のどこに来るかを、**画面の絶対位置で**返す。
+
+   `glyph_point_to_screen` はウィンドウのテキスト領域の中の位置を返すので、
+   呼ぶ側が `w_rect` と**ルーラの行数**を足す必要がある。**足していたのは
+   `w_rect` だけで、ルーラの行を 3 箇所とも忘れていた** ので、ルーラを既定で
+   出すようにした時点 (issue #173) から、カーソルは点の 1 行上に居た。
+   描く側 (`draw_window_contents`) は `w_rect.top + ruler` から描いている。
+
+   **1 行ずれても字は点に入る**ので、画面を見ても「入力位置とカーソルが
+   ずれている」としか見えず、どちらが正しいのか分からない。足す場所を
+   ここ 1 箇所にして、呼ぶ側で足せないようにする。 */
+static void
+point_to_screen (Window *wp, int *out_row, int *out_col)
+{
+  int cy, cx;
+  glyph_point_to_screen (wp, &cy, &cx);
+  *out_row = wp->w_rect.top + ncurses_ruler_rows (wp) + cy;
+  *out_col = wp->w_rect.left + cx;
 }
 
 // Initialize ncurses color pairs for syntax highlighting and text properties
@@ -3143,12 +3172,17 @@ render_window (Window *wp, int total_cols)
   if (text_rows < 1)
     text_rows = 1;
 
-  if (ruler)
-    draw_ruler (wp, wp->w_rect.top, col_offset, text_cols);
-
   ncurses_calc_client_size (wp, text_cols, text_rows);
   bp->window_size_changed ();
   ncurses_reframe (wp);
+
+  /* **ルーラは reframe の後に描く。** ルーラの目盛は `w_top_column` から
+     作るので、横スクロールを決める `ncurses_reframe` より前に描くと
+     **1 回前の位置の目盛が出る。** 120 桁の行を打つとテキストは 32 桁目から
+     出ているのにルーラは 0 から始まっていて、次の打鍵でようやく揃う、という
+     形で見える (打鍵が止まると再描画も止まるので、揃わないまま残る)。 */
+  if (ruler)
+    draw_ruler (wp, wp->w_rect.top, col_offset, text_cols);
 
   // Update selection region from point/marker (same as win32/disp.cc)
   if ((wp->w_selection_type & (Buffer::CONTINUE_PRE_SELECTION
@@ -3407,13 +3441,13 @@ refresh_screen (int f)
             }
           else
             {
-              int cy, cx;
-              glyph_point_to_screen (sel, &cy, &cx);
-              int win_top = sel->w_rect.top;
-              int col_offset = sel->w_rect.left;
-              int text_rows = sel->w_rect.bottom - sel->w_rect.top - 1;
-              if (cy < text_rows)
-                move (win_top + cy, col_offset + cx);
+              int crow, ccol;
+              point_to_screen (sel, &crow, &ccol);
+              /* テキスト領域の下端はモード行の 1 行上。**ルーラの分は
+                 `point_to_screen` が足しているので、ここで引くのは
+                 モード行だけ。** */
+              if (crow < sel->w_rect.bottom - ncurses_mode_line_rows (sel))
+                move (crow, ccol);
               curs_set (1);
             }
         }
@@ -4712,17 +4746,17 @@ Fpopup_string (lisp lstring, lisp lpoint, lisp ltimeout)
   Window *wp = selected_window ();
   if (wp)
     {
-      int cy, cx;
-      glyph_point_to_screen (wp, &cy, &cx);
-      int abs_y = wp->w_rect.top + cy + 1;  // below cursor
-      int abs_x = wp->w_rect.left + cx;
+      int crow, ccol;
+      point_to_screen (wp, &crow, &ccol);
+      int abs_y = crow + 1;  // below cursor
+      int abs_x = ccol;
 
       if (abs_y + win_height <= term_rows - 1)
         win_row = abs_y;
       else
         {
           // Place above cursor
-          win_row = wp->w_rect.top + cy - win_height;
+          win_row = crow - win_height;
           if (win_row < 0)
             win_row = 0;
         }
@@ -4887,10 +4921,10 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
   else if (sel)
     {
       // Position near cursor in editing window
-      int cy, cx;
-      glyph_point_to_screen (sel, &cy, &cx);
-      int abs_y = sel->w_rect.top + cy + 1;  // +1 below cursor
-      int abs_x = sel->w_rect.left + cx;
+      int crow, ccol;
+      point_to_screen (sel, &crow, &ccol);
+      int abs_y = crow + 1;  // +1 below cursor
+      int abs_x = ccol;
 
       // Check if there's room below cursor
       if (abs_y + win_height <= term_rows - 1)
@@ -4898,7 +4932,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
       else
         {
           // Place above cursor
-          win_row = sel->w_rect.top + cy - win_height;
+          win_row = crow - win_height;
           if (win_row < 0)
             win_row = 0;
         }
@@ -6528,24 +6562,37 @@ ncurses_find_window_at (int row, int col)
 static int
 ncurses_screen_to_text (Window *wp, int row, int col, int *line, int *column)
 {
-  int text_top = wp->w_rect.top;
+  /* **カーソルを置く側 (`point_to_screen`) と同じ数え方にする。** ここは
+     その逆写像で、ずれると**クリックした所と点の入る所が食い違う。**
+     実際に 1 行下・1 桁右に入っていた (issue #255): ルーラの行と、
+     `redraw_line` が glyph 列の先頭に置く左余白 1 桁を数えていなかった。 */
+  int ruler = ncurses_ruler_rows (wp);
+  int text_top = wp->w_rect.top + ruler;
   int text_left = wp->w_rect.left;
-  int text_rows = wp->w_rect.bottom - wp->w_rect.top - 1;  // -1 for modeline
+  int text_rows = (wp->w_rect.bottom - wp->w_rect.top
+                   - ncurses_mode_line_rows (wp) - ruler);
+  if (text_rows < 1)
+    text_rows = 1;
   int has_separator = (wp->w_rect.right < (int)app.active_frame.size.cx) ? 1 : 0;
   int text_cols = (wp->w_rect.right - wp->w_rect.left) - has_separator;
 
   int linenum_offset = 0;
   if (wp->flags () & Window::WF_LINE_NUMBER)
     linenum_offset = Window::LINENUM_COLUMNS + 1;
+  /* 左余白 1 桁 + 行番号の桁。**テキストの 1 桁目はここから始まる。** */
+  int text_off = 1 + linenum_offset;
+  int text_width = text_cols - text_off;
+  if (text_width < 1)
+    text_width = 1;
 
   int y = row - text_top;
-  int x = col - text_left - linenum_offset;
+  int x = col - text_left - text_off;
 
   int oob = 0;
   if (y < 0) { oob = 1; y = 0; }
   else if (y >= text_rows) { oob = 1; y = text_rows - 1; }
   if (x < 0) { oob = 1; x = 0; }
-  else if (x >= text_cols - linenum_offset) { oob = 1; x = text_cols - linenum_offset - 1; }
+  else if (x >= text_width) { oob = 1; x = text_width - 1; }
 
   *line = wp->w_last_top_linenum + y;
   *column = wp->w_top_column + x;
