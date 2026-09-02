@@ -52,7 +52,15 @@ class Terminal
   int t_cur_row, t_cur_col;
   int t_scroll_top, t_scroll_bottom;
 
-  // Saved cursor
+  /* 保存したカーソル。**画面ごとに 1 つ持つ。**
+     xterm の DECSC / DECRC は primary と alternate で別の保存位置を持ち、
+     `CSI ? 1049 h` は「DECSC と同じ所へ保存」、`CSI ? 1049 l` は
+     「DECRC と同じ所から復元」と定義されている (ctlseqs)。**1049 専用の
+     3 つ目を持たせてはいけない**: DECSC のあとに 1049h -> 1049l と来たら、
+     続く DECRC は 1049h が保存した位置へ戻るのが xterm の挙動である。
+
+     1 つしか無かったときは、alternate 画面の中の DECSC が primary 側の
+     保存位置を壊していた (issue #29)。 */
   struct SavedCursor
   {
     int row, col;
@@ -63,7 +71,6 @@ class Terminal
   };
   SavedCursor t_saved_primary;
   SavedCursor t_saved_alt;
-  SavedCursor t_saved_1049;
 
   // Current SGR
   term_color_t t_fg, t_bg;

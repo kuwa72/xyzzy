@@ -768,12 +768,16 @@ Terminal::handle_dec_private (int final_ch)
         case 1049: case 47: case 1047:
           if (set && !t_alt_active)
             {
+              /* **DECSC と同じ所へ保存する** (ctlseqs: "Save cursor as in
+                 DECSC")。ここは primary 画面に居るときしか通らないので、
+                 保存先は primary の側で決まる。 */
               if (t_params[i] == 1049)
                 {
-                  t_saved_1049.row = t_cur_row; t_saved_1049.col = t_cur_col;
-                  t_saved_1049.fg = t_fg; t_saved_1049.bg = t_bg;
-                  t_saved_1049.attrs = t_attrs;
-                  t_saved_1049.origin_mode = t_origin_mode;
+                  t_saved_primary.row = t_cur_row;
+                  t_saved_primary.col = t_cur_col;
+                  t_saved_primary.fg = t_fg; t_saved_primary.bg = t_bg;
+                  t_saved_primary.attrs = t_attrs;
+                  t_saved_primary.origin_mode = t_origin_mode;
                 }
               TermCell *tmp = t_screen;
               t_screen = t_alt_screen; t_alt_screen = tmp;
@@ -787,12 +791,16 @@ Terminal::handle_dec_private (int final_ch)
               TermCell *tmp = t_screen;
               t_screen = t_alt_screen; t_alt_screen = tmp;
               t_alt_active = 0;
+              /* **DECRC と同じ所から復元する** (ctlseqs: "restore cursor as
+                 in DECRC")。この時点で primary に戻しているので、読む先は
+                 primary の側。 */
               if (t_params[i] == 1049)
                 {
-                  t_cur_row = t_saved_1049.row; t_cur_col = t_saved_1049.col;
-                  t_fg = t_saved_1049.fg; t_bg = t_saved_1049.bg;
-                  t_attrs = t_saved_1049.attrs;
-                  t_origin_mode = t_saved_1049.origin_mode;
+                  t_cur_row = t_saved_primary.row;
+                  t_cur_col = t_saved_primary.col;
+                  t_fg = t_saved_primary.fg; t_bg = t_saved_primary.bg;
+                  t_attrs = t_saved_primary.attrs;
+                  t_origin_mode = t_saved_primary.origin_mode;
                   ensure_cursor_bounds ();
                 }
               t_dirty = 1;
