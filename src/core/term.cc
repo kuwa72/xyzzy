@@ -35,9 +35,6 @@ Terminal::Terminal (int rows, int cols)
     : t_rows (rows), t_cols (cols),
       t_cur_row (0), t_cur_col (0),
       t_scroll_top (0), t_scroll_bottom (rows - 1),
-      t_saved_row (0), t_saved_col (0),
-      t_saved_fg (TCOLOR_DEFAULT), t_saved_bg (TCOLOR_DEFAULT),
-      t_saved_attrs (0),
       t_fg (TCOLOR_DEFAULT), t_bg (TCOLOR_DEFAULT), t_attrs (0),
       t_state (TS_NORMAL), t_nparam (0), t_intermediate (0),
       t_utf8_acc (0), t_utf8_remain (0),
@@ -685,12 +682,18 @@ Terminal::handle_csi (int final_ch)
       break;
 
     case 's': // SCP
-      t_saved_row = t_cur_row; t_saved_col = t_cur_col;
+      {
+        SavedCursor &sc = t_alt_active ? t_saved_alt : t_saved_primary;
+        sc.row = t_cur_row; sc.col = t_cur_col;
+      }
       break;
 
     case 'u': // RCP
-      t_cur_row = t_saved_row; t_cur_col = t_saved_col;
-      ensure_cursor_bounds (); t_pending_wrap = 0;
+      {
+        const SavedCursor &sc = t_alt_active ? t_saved_alt : t_saved_primary;
+        t_cur_row = sc.row; t_cur_col = sc.col;
+        ensure_cursor_bounds (); t_pending_wrap = 0;
+      }
       break;
 
     case 'n': // DSR (Device Status Report)
@@ -765,11 +768,16 @@ Terminal::handle_dec_private (int final_ch)
         case 1049: case 47: case 1047:
           if (set && !t_alt_active)
             {
+              /* **DECSC と同じ所へ保存する** (ctlseqs: "Save cursor as in
+                 DECSC")。ここは primary 画面に居るときしか通らないので、
+                 保存先は primary の側で決まる。 */
               if (t_params[i] == 1049)
                 {
-                  t_saved_row = t_cur_row; t_saved_col = t_cur_col;
-                  t_saved_fg = t_fg; t_saved_bg = t_bg;
-                  t_saved_attrs = t_attrs;
+                  t_saved_primary.row = t_cur_row;
+                  t_saved_primary.col = t_cur_col;
+                  t_saved_primary.fg = t_fg; t_saved_primary.bg = t_bg;
+                  t_saved_primary.attrs = t_attrs;
+                  t_saved_primary.origin_mode = t_origin_mode;
                 }
               TermCell *tmp = t_screen;
               t_screen = t_alt_screen; t_alt_screen = tmp;
@@ -783,11 +791,16 @@ Terminal::handle_dec_private (int final_ch)
               TermCell *tmp = t_screen;
               t_screen = t_alt_screen; t_alt_screen = tmp;
               t_alt_active = 0;
+              /* **DECRC と同じ所から復元する** (ctlseqs: "restore cursor as
+                 in DECRC")。この時点で primary に戻しているので、読む先は
+                 primary の側。 */
               if (t_params[i] == 1049)
                 {
-                  t_cur_row = t_saved_row; t_cur_col = t_saved_col;
-                  t_fg = t_saved_fg; t_bg = t_saved_bg;
-                  t_attrs = t_saved_attrs;
+                  t_cur_row = t_saved_primary.row;
+                  t_cur_col = t_saved_primary.col;
+                  t_fg = t_saved_primary.fg; t_bg = t_saved_primary.bg;
+                  t_attrs = t_saved_primary.attrs;
+                  t_origin_mode = t_saved_primary.origin_mode;
                   ensure_cursor_bounds ();
                 }
               t_dirty = 1;
@@ -835,14 +848,22 @@ Terminal::handle_esc (int ch)
   switch (ch)
     {
     case '7': // DECSC
-      t_saved_row = t_cur_row; t_saved_col = t_cur_col;
-      t_saved_fg = t_fg; t_saved_bg = t_bg; t_saved_attrs = t_attrs;
+      {
+        SavedCursor &sc = t_alt_active ? t_saved_alt : t_saved_primary;
+        sc.row = t_cur_row; sc.col = t_cur_col;
+        sc.fg = t_fg; sc.bg = t_bg; sc.attrs = t_attrs;
+        sc.origin_mode = t_origin_mode;
+      }
       break;
 
     case '8': // DECRC
-      t_cur_row = t_saved_row; t_cur_col = t_saved_col;
-      t_fg = t_saved_fg; t_bg = t_saved_bg; t_attrs = t_saved_attrs;
-      ensure_cursor_bounds (); t_pending_wrap = 0;
+      {
+        const SavedCursor &sc = t_alt_active ? t_saved_alt : t_saved_primary;
+        t_cur_row = sc.row; t_cur_col = sc.col;
+        t_fg = sc.fg; t_bg = sc.bg; t_attrs = sc.attrs;
+        t_origin_mode = sc.origin_mode;
+        ensure_cursor_bounds (); t_pending_wrap = 0;
+      }
       break;
 
     case 'D': new_line (); break;

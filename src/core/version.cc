@@ -23,8 +23,13 @@
     "." _TOSTR (PROGRAM_PATCH_LEVEL)
 #endif /* PROGRAM_PATCH_LEVEL */
 
-#if defined(PROGRAM_VERSION_DESCRIBE_STRING)
-# define DISPLAY_VERSION_STRING PROGRAM_VERSION_DESCRIBE_STRING
+/* 表示用のバージョンは**素のバージョンで始める。** タグより後ろに居るときは
+   `git describe` の後ろ半分 ("-37-g97c4acf" / "-dirty") だけを足す
+   (cmake/git-describe.cmake)。タグの名前は**前の**リリースを指すので、
+   そのまま出すと bump からタグまでの間、0.7.0 のビルドが自分を
+   "0.6.0-144-gfc2e845e" と名乗る。 */
+#if defined(PROGRAM_VERSION_DESCRIBE_SUFFIX)
+# define DISPLAY_VERSION_STRING PROGRAM_VERSION PROGRAM_VERSION_DESCRIBE_SUFFIX
 #else
 # define DISPLAY_VERSION_STRING PROGRAM_VERSION
 #endif

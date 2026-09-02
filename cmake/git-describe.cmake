@@ -55,8 +55,18 @@ if(GIT_FOUND AND EXISTS "${XYZZY_SOURCE_DIR}/.git")
         # would claim this is a release build when it may well not be.
         set(_content "/* git describe failed - use the plain version string */")
     elseif("${_short}" STREQUAL "${_long}")
-        string(REGEX REPLACE "^v" "" _describe "${_short}")
-        set(_content "#define PROGRAM_VERSION_DESCRIBE_STRING \"${_describe}\"")
+        # **Keep only the suffix ("-37-g97c4acf[-dirty]"), not the tag name.**
+        # The tag names the *last* release, and CMakeLists.txt is bumped before
+        # the tag is pushed, so between those two the describe string says the
+        # old version: a 0.7.0 build would call itself "0.6.0-144-gfc2e845e" in
+        # the title bar and the About dialog -- naming a release it is not.
+        # Prepending PROGRAM_VERSION instead means the display version always
+        # starts with the plain version, which is what
+        # version-display-string-starts-with-the-plain-version asserts (that
+        # test fails locally in exactly that window; CI never saw it because
+        # the actions checkout has no tags, so describe finds nothing).
+        string(REGEX REPLACE "^v?[0-9]+(\\.[0-9]+)*" "" _suffix "${_short}")
+        set(_content "#define PROGRAM_VERSION_DESCRIBE_SUFFIX \"${_suffix}\"")
     else()
         set(_content "/* On a tag - use the plain version string */")
     endif()
