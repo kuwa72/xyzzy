@@ -6,7 +6,8 @@
 #   tools/x shell                  interactive shell inside the container
 #   tools/x configure [ARCH] ...   run cmake configure  (ARCH: i686 | x86_64 | aarch64 | linux)
 #   tools/x arm-prep               generate src/core/gen/ for aarch64 (uses x86_64)
-#   tools/x build     [ARCH] ...   build (extra args go to cmake --build)
+#   tools/x build     [ARCH] ...   build (extra args go to cmake --build; runs
+#                                  configure itself if that ARCH has none yet)
 #   tools/x bytecompile [ARCH]     byte compile the lisp library (makes start up fast)
 #   tools/x package   [ARCH]       install into _dist/ARCH (a runnable tree to copy out)
 #   tools/x test      [ARCH] ...   run the lisp test suite under Wine
@@ -133,6 +134,45 @@ docker_run() {
 # きてほしい呼び出しは `DOCKER_EXEC= docker_run ...' で呼ぶ。
 DOCKER_EXEC=exec
 
+# cmake の configure。**arch ごとに引数が違う**ので 1 箇所に置く
+# (`build' が configure されていない arch のために自分で呼ぶ)。
+do_configure() {
+  # The native build takes no toolchain file: the compiler is the container's
+  # own gcc and the product is ELF, not PE.
+  if [ "$ARCH" = linux ]; then
+    docker_run cmake -S /work -B /work/_build/linux -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
+  else
+    docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
+  fi
+}
+
+# **configure していない arch を build しようとしたら、自分で configure する。**
+# `cmake --build' は「/work/_build/i686 is not a directory」しか言わないので、
+# 何を打てばよいのか分からない。実際に踏んだ: `tools/deploy-windows.sh' が
+# x86_64 を出し終えたところで i686 でこれに当たって止まった (i686 の build
+# ディレクトリだけ無かった)。
+#
+# **configure を先に持つ意味は失われない。** cmake の configure は既に
+# configure 済みなら何もしないのではなく、キャッシュを読み直して走り直すので、
+# ここでは CMakeCache.txt が無いときだけ呼ぶ。引数を渡したい場合は
+# `tools/x configure ARCH ...' を明示的に打つ (こちらは常に走る)。
+ensure_configured() {
+  [ -f "$ROOT/_build/$ARCH/CMakeCache.txt" ] && return 0
+  echo "tools/x: _build/$ARCH が configure されていないので configure する。" >&2
+  # docker_run から戻ってきてほしいので exec を外す。**関数への代入前置きは
+  # 戻ったあとも残るかがシェル依存**なので、明示的に戻す。
+  DOCKER_EXEC=
+  do_configure
+  DOCKER_EXEC=exec
+}
+
 cmd=${1:-help}
 [ $# -gt 0 ] && shift
 
@@ -150,22 +190,10 @@ case "$cmd" in
     docker_run bash
     ;;
   configure)
-    # The native build takes no toolchain file: the compiler is the container's
-    # own gcc and the product is ELF, not PE.
-    if [ "$ARCH" = linux ]; then
-      docker_run cmake -S /work -B /work/_build/linux -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
-    else
-      docker_run cmake -S /work -B "/work/_build/$ARCH" -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE="/work/cmake/mingw-$ARCH.cmake" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache "$@"
-    fi
+    do_configure "$@"
     ;;
   build)
+    ensure_configured
     docker_run cmake --build "/work/_build/$ARCH" "$@"
     ;;
   arm-prep)
@@ -187,6 +215,7 @@ case "$cmd" in
     #
     # DOCKER_EXEC を空にして呼ぶと docker_run が exec しないで戻る
     # (既定は exec — コンテナを PID 1 の子として置き換える)。
+    ensure_configured
     DOCKER_EXEC= docker_run cmake --build "/work/_build/$ARCH" || {
       echo "tools/x: ビルドが失敗した。テストは走らせない (古い exe を測ることになる)。" >&2
       exit 1

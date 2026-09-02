@@ -79,10 +79,18 @@ version=$(sed -n 's/^project(.*VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt | head
 # arch -> name used in the deployed directory and the zip
 declare -A label=([x86_64]=amd64 [i686]=x86)
 
+archs="x86_64 i686"
+
+# Build and package *every* arch before touching the destination.  Doing
+# build-then-deploy per arch in one loop means a failure on the second arch
+# leaves the first one already swapped in: half the destination new, half old,
+# and nothing says so.  That is not hypothetical -- the i686 build died on a
+# missing build tree (cmake: "_build/i686 is not a directory") *after* amd64
+# had been deployed.  tools/x now configures that itself, but a build can
+# always fail for some other reason, and the fix for the shape is this order.
 bytecompiled=0
-for arch in x86_64 i686; do
-  name=${label[$arch]}
-  echo "### $arch -> xyzzy-$name"
+for arch in $archs; do
+  echo "### building $arch"
 
   tools/x build "$arch"
   if [ "$bytecompiled" = 0 ]; then
@@ -93,7 +101,13 @@ for arch in x86_64 i686; do
 
   zip=$root/_build/$arch/xyzzy-$version.zip
   [ -f "$zip" ] || { echo "deploy: $zip was not produced" >&2; exit 1; }
+done
 
+for arch in $archs; do
+  name=${label[$arch]}
+  echo "### $arch -> xyzzy-$name"
+
+  zip=$root/_build/$arch/xyzzy-$version.zip
   out=$dest/xyzzy-$name
 
   # Refuse to touch a running install.  Windows keeps a running .exe open with
