@@ -83,6 +83,17 @@ jobs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
+    # **リリース本文が作れることを、ビルドの前に見る。** ここが 10 秒で済むのに
+    # 対して、下の build は 25 分かかる。0.7.0 では本文が長すぎて (183,333 文字、
+    # 上限 125,000) `gh release create` が**全部ビルドし終わった後に**落ちた。
+    - name: Check the release body fits
+      env:
+        VERSION: ${{ steps.tag.outputs.version }}
+      run: |
+        set -eu
+        python3 tools/release-body.py \
+          "docs/release-notes/release-note-${VERSION}.md" "$VERSION" | wc -c
+
     # The tag has to sit on main.  Development is trunk-only, so anything worth
     # shipping has already been merged; a tag somewhere else means it is being
     # cut from work that never went through a pull request, and none of the
@@ -191,8 +202,17 @@ jobs:
         if [ "$PRERELEASE" = true ]; then
           flags="--prerelease"
         fi
+        # **本文は tools/release-body.py に作らせる。** ノートをそのまま渡して
+        # いたが、GitHub のリリース本文は 125,000 文字までで、0.7.0 のノート
+        # (183,333 文字) は入らない。3 アーキのビルドが全部終わった後に
+        # HTTP 422 "body is too long" で落ち、タグは push 済みでリリースは
+        # 無い、という形になった。入るときはそのまま、入らないときは
+        # 「イントロ + 節と件数 + 既知の問題 + 全文へのリンク」になる。
+        python3 tools/release-body.py \
+          "docs/release-notes/release-note-${VERSION}.md" "$VERSION" > release-body.md
+        wc -c release-body.md
         # shellcheck disable=SC2086
         gh release create '${{ github.ref_name }}' $flags \
           --title 'xyzzy ${{ github.ref_name }}' \
-          --notes-file "docs/release-notes/release-note-${VERSION}.md" \
+          --notes-file release-body.md \
           dist/*
