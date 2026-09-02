@@ -128,7 +128,7 @@ public:
   Process (Buffer *bp, lisp pl, lisp marker);
   ~Process ();
 
-  void create (lisp command, lisp execdir, lisp lenv);
+  void create (lisp command, lisp execdir, lisp lenv, int want_terminal);
   void poll_output ();
   void terminated ();
   void send (const char *s, int l) const;
@@ -173,7 +173,7 @@ Process::~Process ()
 }
 
 void
-Process::create (lisp command, lisp execdir, lisp lenv)
+Process::create (lisp command, lisp execdir, lisp lenv, int want_terminal)
 {
   /* A Unix command line and a Unix pathname are UTF-8 bytes, not CP932. */
   char *cmdline = (char *)alloca (i2u8l (xstring_contents (command),
@@ -210,6 +210,22 @@ Process::create (lisp command, lisp execdir, lisp lenv)
       if (*dir && chdir (dir) < 0)
         ;  // ignore chdir failure in child
 
+      /* **端末として使わないなら ONLCR を切る** (issue #250)。pty の行規則は
+         `\n` を `\r\n` にする。端末エミュレータはそれを解釈するが、
+         **バッファのテキストとして入れる経路では CR がそのまま文字として
+         残る** (`"hello\x0d\x0a"` が入った)。エコーも切る -- 送った分が
+         返ってきて出力に混ざる。 */
+      if (!want_terminal)
+        {
+          struct termios t;
+          if (tcgetattr (STDIN_FILENO, &t) == 0)
+            {
+              t.c_oflag &= ~ONLCR;
+              t.c_lflag &= ~ECHO;
+              tcsetattr (STDIN_FILENO, TCSANOW, &t);
+            }
+        }
+
       // Reset signal handlers
       signal (SIGINT, SIG_DFL);
       signal (SIGQUIT, SIG_DFL);
@@ -239,8 +255,20 @@ Process::create (lisp command, lisp execdir, lisp lenv)
   int flags = fcntl (master_fd, F_GETFL, 0);
   fcntl (master_fd, F_SETFL, flags | O_NONBLOCK);
 
-  // Create terminal emulator matching pty size
-  p_term = new Terminal (ws.ws_row, ws.ws_col);
+  /* **端末エミュレータは頼まれたときだけ作る** (issue #250)。
+
+     以前は必ず作っていた。すると `poll_output` が常にそちらへ食わせるので、
+     **`insert_output` に一度も来ない** = バッファにテキストが入らず、
+     `set-process-filter` も呼ばれなかった。しかも `terminated ()` が
+     プロセスを一覧から外すので `buffer_terminal` が探せなくなり、
+     **子が終わった瞬間にエミュレータごと出力が消えた** (`echo` のような
+     短い命令では一度も見えない)。
+
+     端末が要るのは `M-x shell` (eshell) のように**画面を持つ子**だけで、
+     `execute-subprocess` や flymake のようにテキストが欲しい側は要らない。
+     頼む側が `:terminal t` を渡す。 */
+  if (want_terminal)
+    p_term = new Terminal (ws.ws_row, ws.ws_col);
 }
 
 void
@@ -745,7 +773,8 @@ Fmake_process (lisp command, lisp keys)
   Process *pr = new Process (bp, process, Process::make_process_marker (bp));
   try
     {
-      pr->create (command, execdir, find_keyword (Kenviron, keys));
+      pr->create (command, execdir, find_keyword (Kenviron, keys),
+                  find_keyword (Kterminal, keys) != Qnil);
     }
   catch (nonlocal_jump &)
     {
