@@ -1387,8 +1387,17 @@ Fmake_process (lisp command, lisp keys)
   xprocess_outcode (process) = outcode;
   xprocess_eol_code (process) = eol;
 
+  /* **ConPty は頼まれたときだけ使う** (issue #250)。
+
+     以前は使える環境では常に ConPty で、出力は端末エミュレータへ入って
+     いた。すると**バッファにテキストが入らず `set-process-filter` も
+     呼ばれない。** 端末が要るのは `M-x shell` のように画面を持つ子だけで、
+     `execute-subprocess` や flymake のようにテキストが欲しい側は要らない。
+
+     頼まれなければ ConPty より前からある生パイプの経路 (`NormalProcess`)
+     を使う。**そちらはバッファへ挿入し、フィルタも呼ぶ。** */
   Process *pr;
-  if (conpty_available ())
+  if (find_keyword (Kterminal, keys) != Qnil && conpty_available ())
     {
       ConPtyProcess *cp = new ConPtyProcess (bp, process, Process::make_process_marker (bp));
       try

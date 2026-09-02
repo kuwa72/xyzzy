@@ -51,7 +51,13 @@
 	 (return-from shell t)))
   (goto-char (point-max))
   (shell-mode)
-  (make-process *eshell* :output (selected-buffer))
+  ;; **`:terminal t` を渡す** (issue #250)。eshell は画面を持つ子なので
+  ;; 端末エミュレータが要る。渡さないと出力がバッファのテキストとして
+  ;; 入ってしまい、カーソル移動やクリアが素のエスケープとして見える。
+  ;;
+  ;; 逆に `execute-subprocess` や flymake のようにテキストが欲しい側は
+  ;; 渡さない -- あちらは `set-process-filter` とバッファの中身が要る。
+  (make-process *eshell* :output (selected-buffer) :terminal t)
   (let ((proc (buffer-process (selected-buffer))))
     (when (and proc (si:process-terminal-p proc))
       (set-minor-mode-map *terminal-map*))))

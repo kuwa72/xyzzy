@@ -1311,6 +1311,10 @@ static symbols kwd[] =
 #undef environ
   DEFKWD2 (environ),
   DEFKWD2 (exec-directory),
+  /* `make-process` に「端末として使う」を渡す (issue #250)。**渡されなければ
+     端末エミュレータを作らず、出力をバッファのテキストとして入れる** =
+     `set-process-filter` も効く。渡すのは `M-x shell` (eshell) だけである。 */
+  DEFKWD2 (terminal),
   DEFKWD2 (no-std-handles),
   DEFKWD2 (run),
   DEFKWD2 (exit),
