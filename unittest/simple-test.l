@@ -1053,7 +1053,27 @@ Returns list of failures."
                         (format ,out ":error~%~S" error))))
                   (kill-xyzzy)))))))
 
-(defun eval-in-another-xyzzy--read-results (result-filename)
+;;; 子プロセスが結果ファイルに何も書かなかったときに、**なぜ書けなかったのかを
+;;; 一緒に出す。** 「result not sent.」だけだと、CI のログには落ちたテストの名前
+;;; しか残らないので、次に起きたときも同じ推測から始めることになる (issue #253 で
+;;; 実際にそうなった: 「子が xyzzy.ini を書き終える前に消しに行っている」と
+;;; 推測したが、後から落ちた `xyzzy-ini-path-startup-option` にはその 2 つ目の値が
+;;; 無く、推測は外れていた)。
+;;;
+;;; 出すのは 3 つ: 子の終了コード、結果ファイルの大きさ、**子の出力**
+;;; (`*Temp*` バッファに溜まっている -- 起動に失敗したときのメッセージは
+;;; ここにしか出ない)。長すぎると失敗行が読めなくなるので頭 2000 字まで。
+(defun eval-in-another-xyzzy--child-output (tmpbuf &optional (limit 2000))
+  (and tmpbuf
+       (not (deleted-buffer-p tmpbuf))
+       (save-excursion
+         (set-buffer tmpbuf)
+         (let ((s (buffer-substring (point-min) (point-max))))
+           (if (> (length s) limit)
+               (concat (subseq s 0 limit) " ...(truncated)")
+             s)))))
+
+(defun eval-in-another-xyzzy--read-results (result-filename &optional proc tmpbuf)
   (with-open-file (in result-filename
                    :direction :input)
     (case (read in nil '#1=#:eof)
@@ -1065,7 +1085,11 @@ Returns list of failures."
                  (if (si:*structurep error)
                    (error error)
                    (error "unknown error~@[: ~S~]" error))))
-      (#1#     (error "result not sent.")))))
+      (#1#     (error "result not sent. exit-code=~S status=~S file-length=~S~@[~%child output:~%~A~]"
+                      (and proc (ignore-errors (process-exit-code proc)))
+                      (and proc (ignore-errors (process-status proc)))
+                      (ignore-errors (file-length result-filename))
+                      (eval-in-another-xyzzy--child-output tmpbuf))))))
 
 (defun eval-in-another-xyzzy--delete-tmpbuf (tmpbuf time-limit)
   (handler-case
@@ -1108,7 +1132,7 @@ Returns list of failures."
             (when (> (get-universal-time) (+ create-time timeout))
               (signal-process proc)
               (error "eval-in-another-xyzzy timeout.")))
-          (eval-in-another-xyzzy--read-results tmpfile))
+          (eval-in-another-xyzzy--read-results tmpfile proc tmpbuf))
       (eval-in-another-xyzzy--delete-tmpbuf tmpbuf (+ create-time 180000))
       (delete-file tmpfile))))
 
