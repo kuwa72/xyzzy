@@ -1131,7 +1131,6 @@ int assert_failed (const char *file, int line)
 #include "Window.h"
 #include "charset.h"
 #include "painter.h"        // issue #195 step4: NcursesPainter
-#include "font-metrics.h"   // issue #195 step5: NcursesFontMetrics
 #include <ncurses.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -2172,10 +2171,20 @@ output_glyph (int row, int col, glyph_t g)
 //
 // Units: ncurses is a cell terminal, so x,y are character cells and
 // cell_width()/cell_height() are 1. Colors arrive as COLORREF (packed RGB);
-// COLORREF -> color pair is get_colorref_pair (step4b). For now draw_text
-// reuses output_glyph, whose glyph-derived color governs text color, so the
-// step4c call-path switch is pixel-identical; the COLORREF args are honored
-// in a later step.
+// COLORREF -> color pair is get_colorref_pair, used by the Char-run draw_text
+// and by the terminal emulator.
+//
+// **色の引数を使わない primitive があるのは、渡す側に色が無いからである**
+// (issue #261 で「色を捨てている」と読まれたので測った):
+//
+//   draw_text (glyph 版)  色は glyph が持っている (output_glyph が使う)
+//   fill_rect             呼ぶ側 (render_glyph_row) が CLR_INVALID を渡す。
+//                         端末の fill は「セルを空白にする」ことなので、
+//                         塗る色が無い
+//   draw_hline/vline      ACS の罫線文字で描く。端末に濃淡は無い
+//
+// **後で対応する予定のもの、ではない。** 予定として書いてあると、実装が
+// 足りないように読める。
 struct NcursesPainter : public Painter
 {
   // Text output: draw the glyph run [g, ge) starting at cell (x, y).
@@ -2282,26 +2291,14 @@ struct NcursesPainter : public Painter
   int cell_height () const override { return 1; }
 };
 
-// NcursesFontMetrics — issue #195 step5b (dummy).
-//
-// A terminal has no scalable fonts: every cell is 1x1, ASCII is one column,
-// fullwidth is two. ncurses never actually measures a font (FontSet::create
-// is Win32-only and not compiled here), so this exists to satisfy the
-// FontMetrics interface and document the cell=1 model; it is not yet wired in.
-struct NcursesFontMetrics : public FontMetrics
-{
-  FontMetricsResult measure (const LOGFONTW & /*lf*/) override
-  {
-    FontMetricsResult r;
-    r.ave_char_width = 1;
-    r.ascent = 1;
-    r.descent = 0;
-    r.ascii_width = 1;
-    r.fullwidth = 2;
-    return r;
-  }
-  int dpi_y () const override { return 96; }  // nominal; unused on a terminal
-};
+/* **`NcursesFontMetrics` は消した。** `FontMetrics` (issue #195) は core が
+   GDI を直に呼ばないための seam だが、**端末側には尋ねる相手が居ない**:
+   `FontSet::create` は Win32 だけでコンパイルされ、端末はフォントを 1 度も
+   measure しない。「1 セル = ASCII 1 桁 / 全角 2 桁」という模型は
+   `char_width` / `glyph_width` が持っている。
+
+   実装だけ置いて配線しないと、**繋がっているように見えて実は死んでいる**
+   (issue #261 でそう読まれた)。wx が要るようになったら wx が書く。 */
 
 // Render one glyph_data row to ncurses screen row.
 // col_offset: starting column on screen (0 for full-width windows).

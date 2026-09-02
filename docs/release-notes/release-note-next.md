@@ -36,4 +36,18 @@ xyzzy リリースノート
     `Connection refused` の差で判定する。`/etc/hosts` を書き足すので
     **使い捨てのコンテナの中でしかやらない** (DNS の check と同じ理由で、
     触れないときは SKIPPED と言う)。
+  * **端末側の `FontMetrics` のダミーを消した** (issue #261)。`FontMetrics`
+    (#195) は core が GDI を直に呼ばないための seam だが、**端末には尋ねる
+    相手が居ない**: `FontSet::create` は Win32 だけでコンパイルされ、端末は
+    フォントを 1 度も measure しない。参照 0 件の実装が置いてあると、
+    **繋がっているように見えて実は死んでいる。** 実際にそう読み違えて
+    issue を立てた。
+
+    同じ issue で「端末の `Painter` が色を捨てている」とも書いたが、**測ったら
+    渡す側に色が無かった**: glyph 版の `draw_text` は色を glyph が持っており
+    (`output_glyph` がそれで描く)、`fill_rect` は呼ぶ側が `CLR_INVALID` を
+    渡す (端末の fill は「セルを空白にする」ことなので塗る色が無い)、罫線は
+    ACS の文字で引く。**コメントが "honored in a later step" と書いてあったのが
+    誤解のもと**だったので、primitive ごとに「なぜ色の引数を使わないか」に
+    書き換えた。**予定として書くと、実装が足りないように読める。**
 
