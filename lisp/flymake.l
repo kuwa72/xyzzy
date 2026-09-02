@@ -25,7 +25,7 @@
 
 (in-package "editor")
 
-(export '(flymake-check flymake-clear
+(export '(flymake-check flymake-check-async flymake-clear
 	  flymake-next-error flymake-previous-error
 	  flymake-list-errors flymake-echo-error
 	  toggle-flymake
@@ -324,19 +324,124 @@ FORMATS は試す形の名前の一覧 (既定は (:gcc))。**モードごとに
 		    n)))))
 	  (ignore-errors (delete-file temp))))))))
 
+;;;
+;;; 自動で走る側は待たない (issue #248)
+;;;
+;;; **`flymake-check` は同期のままにしてある。** `M-x flymake-check` は戻った
+;;; 時点で印が付いていることを期待される対話コマンドで、
+;;; `unittest/flymake-tests.l` の 3 件もその形で書いてある。**変えると
+;;; 「呼んだのに何も起きない」に見える。**
+;;;
+;;; 待って困るのは**自動で走る側だけ**である。`*flymake-idle-delay*' を入れると
+;;; 入力が止まるたびに走るので、gcc のような重いチェッカでは**止まるたびに
+;;; エディタが固まる。** そこだけ非同期にした。
+;;;
+;;; **経路が 2 本になるのは承知の上。** 共有しているのは書き出し・解析・装飾で、
+;;; 違うのは待ち方だけである。
+;;;
+;;; **`make-process` の出力が取れるようになるまで書けなかった** (issue #250)。
+;;; それまでは端末エミュレータへ食わせていたので、非同期にすると「止まらない
+;;; けれど何も出ない」に変わるだけだった。
+
+;;; 検査中かどうか。**バッファごとに持つ。**
+;;;
+;;; **`defvar` を使ってはいけない。** defvar はシンボルを special にし、
+;;; special な変数はバッファローカルになれない (`lisp/startup.l' の
+;;; `*buffer-package*' の注記と同じ理由)。
+(setq-default flymake-checking nil)
+(make-variable-buffer-local 'flymake-checking)
+
+;;; 溜めている出力。**バッファごとに持つ。**
+(setq-default flymake-output nil)
+(make-variable-buffer-local 'flymake-output)
+
+(defun flymake-async-finish (buf temp tick fmt)
+  "非同期の検査が終わったときに呼ばれる。**元のバッファへ戻って**装飾する。"
+  (ignore-errors (delete-file temp))
+  (when (and buf (not (deleted-buffer-p buf)))
+    (save-excursion
+      (set-buffer buf)
+      (let ((output flymake-output))
+	(setq flymake-checking nil)
+	(setq flymake-output nil)
+	;; **編集されていたら結果を捨てる。** 走らせてから終わるまでの間に行が
+	;; 動いていれば、印の位置が合わない。**ずれた印を付けるくらいなら
+	;; 付けない方がまし**で、入力が止まればまた走る。
+	(when (and output (eql tick (buffer-modified-count)))
+	  (flymake-decorate (flymake-parse-output output fmt))
+	  (refresh-screen)))))
+  nil)
+
+(defun flymake-check-async ()
+  "**待たずに**このバッファを検査する。エコー領域には何も出さない。
+
+既に走っているときは何もしない。**重ねて起動すると、入力が止まるたびに
+プロセスが積み上がる。**"
+  (let ((spec (flymake-spec-for-buffer)))
+    (when (and spec (not flymake-checking))
+      (let ((temp (flymake-temp-file-name))
+	    (buf (selected-buffer))
+	    (tick (buffer-modified-count))
+	    (fmt (getf spec :format))
+	    (outbuf nil))
+	(handler-case
+	    (progn
+	      (write-region (point-min) (point-max) temp nil
+			    (buffer-fileio-encoding))
+	      ;; **`:output` にバッファを渡す必要があるが、中身は使わない。**
+	      ;; 出力はフィルタで溜める -- sentinel の時点でバッファが揃って
+	      ;; いるかに頼らない形にしてある。`:terminal` は渡さない
+	      ;; (端末エミュレータを作られると出力が来ない、issue #250)。
+	      (setq outbuf (create-new-buffer " *flymake output*"))
+	      (multiple-value-bind (cmdline dir)
+		  (shell-command-line
+		   (formatter-expand-file-name (getf spec :command) temp)
+		   (default-directory))
+		(let ((proc (make-process cmdline
+					  :output outbuf
+					  :exec-directory dir
+					  :incode *default-process-encoding*
+					  :show :hide)))
+		  (setq flymake-checking t)
+		  (setq flymake-output "")
+		  (set-process-filter
+		   proc
+		   #'(lambda (p s)
+		       (when (and buf (not (deleted-buffer-p buf)))
+			 (save-excursion
+			   (set-buffer buf)
+			   (setq flymake-output
+				 (concat (or flymake-output "") s))))))
+		  (set-process-sentinel
+		   proc
+		   #'(lambda (p)
+		       (ignore-errors (delete-buffer outbuf))
+		       (flymake-async-finish buf temp tick fmt)))
+		  proc)))
+	  (error (e)
+	    ;; 起動できなかった。**印は付けない**が、後片付けはする。
+	    (ignore-errors (delete-file temp))
+	    (when outbuf
+	      (ignore-errors (delete-buffer outbuf)))
+	    (setq flymake-checking nil)
+	    (setq flymake-output nil)
+	    nil))))))
+
 (defun flymake-after-save ()
   "`*after-save-buffer-hook*' から呼ばれる。設定が無いモードでは黙る。"
   (when (and *flymake-on-save* (flymake-spec-for-buffer))
-    (ignore-errors (flymake-check t)))
+    (ignore-errors (flymake-check-async)))
   nil)
 
 (add-hook '*after-save-buffer-hook* 'flymake-after-save)
 
 (defun flymake-idle-check ()
-  "タイマから呼ばれる。**黙って検査する** (エコー領域に何も出さない)。"
+  "タイマから呼ばれる。**黙って、待たずに検査する** (issue #248)。
+
+以前は `flymake-check' を同期で呼んでいたので、**入力が止まるたびに
+チェッカの終わるまでエディタが固まった。**"
   (when (and *flymake-idle-delay* (flymake-spec-for-buffer))
-    (ignore-errors (flymake-check t))
-    (refresh-screen))
+    (ignore-errors (flymake-check-async)))
   nil)
 
 (defun flymake-schedule ()
