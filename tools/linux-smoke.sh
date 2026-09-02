@@ -385,6 +385,124 @@ else
   fail=1
 fi
 
+# カーソルの居る所と点の居る所が同じであること。
+#
+# **字は点に入るので、カーソルが 1 行上に居ても画面は正しく見える。**
+# それで、ルーラを既定で出すようにした時点 (issue #173) から
+# 「入力位置とカーソルがずれる」状態が残っていた: カーソルを置く側は
+# `w_rect.top` しか足しておらず、描く側は `w_rect.top + ルーラの行数` から
+# 描いていた。桁の方も `w_flags` (そのウィンドウで明示的に上書きした分だけ)
+# を見ていたので、**既定で出ている行番号を 0 桁として数え**、7 桁左に来ていた。
+#
+# 測り方は「dump の中でテキストが居る行と桁」と「pty-drive.py が出す
+# `=== cursor 行,桁`」の突き合わせ。**数字を焼き付けない**のは、行番号の桁数も
+# メニューバーの有無もここで測りたいことではないため。
+#
+# ルーラを消した状態も測る。**両方測らないと「ルーラの分を足す」と
+# 「常に 1 足す」が区別できない。**
+cursor_at () {   # cursor_at <log> <n>: n 番目の dump の "行 桁"
+  awk -v n="$2" '/^=== cursor /{i++; if (i==n) {gsub(/[^0-9,]/,""); sub(/,/," "); print; exit}}' "$1"
+}
+text_at () {     # text_at <log> <n> <word>: n 番目の dump で word の直後の "行 桁"
+  awk -v n="$2" -v w="$3" '
+    /^=== (startup|after) /{i++; row=-1; next}
+    /^=== cursor /{next}
+    {if (i==n) {row++; c=index($0, w); if (c && row>=0 && !done) {print row, c-1+length(w); done=1; exit}}}' "$1"
+}
+
+# **消したルーラは戻してから終わる。** ここで消したまま終えると、次の
+# チェックが「ルーラの無い画面」を測ることになる (実際にそう見える形で
+# 1 度失敗させた)。設定として残るかどうかに依存しない書き方にする。
+log=$build/smoke-cursor.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" 'abc' '\extoggle-ruler\r' '\extoggle-ruler\r' \
+  >"$log" 2>&1 || true
+# dump 2 = 'abc' を打った直後 (ルーラあり)、dump 3 = ルーラを消した後。
+# dump 1 は起動直後、dump 4 は戻した後。
+with_ruler=$(cursor_at "$log" 2);    with_ruler_text=$(text_at "$log" 2 abc)
+without_ruler=$(cursor_at "$log" 3); without_ruler_text=$(text_at "$log" 3 abc)
+if [ -n "$with_ruler_text" ] && [ "$with_ruler" = "$with_ruler_text" ] \
+   && [ -n "$without_ruler_text" ] && [ "$without_ruler" = "$without_ruler_text" ]; then
+  echo "smoke: カーソル位置 OK -- 点と同じ所に居る (ルーラあり $with_ruler / なし $without_ruler)"
+else
+  echo "smoke: カーソル位置 FAILED, see $log" >&2
+  echo "-- ルーラあり: cursor=[$with_ruler] text=[$with_ruler_text]" >&2
+  echo "-- ルーラなし: cursor=[$without_ruler] text=[$without_ruler_text]" >&2
+  fail=1
+fi
+
+# クリックした所に点が入ること。**同じ数え方の逆写像**なので、カーソルと
+# 同じ理由で壊れていた (1 行下・1 桁右に入っていた、issue #255)。
+#
+# SGR (1006) のマウス報告を生のバイト列で送る。桁と行は**1 起点**なので、
+# 画面の行 2・桁 8 (メニューバー 0 / ルーラ 1 / テキスト 2、行番号 7 桁 +
+# 左余白 1 桁) は `3;9`。そこは 1 行目の 1 桁目なので `(1 0)` が入るのが正しい。
+log=$build/smoke-cursor-click.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" 'abc\rdef\rghi' \
+  '\x1b[<0;9;3M\x1b[<0;9;3m' \
+  '\e\e(list (current-line-number) (current-column))\r' \
+  >"$log" 2>&1 || true
+if grep -q '^(1 0)$' "$log"; then
+  echo 'smoke: クリック位置 OK -- 1 行目の 1 桁目を押すと点がそこに入る'
+else
+  echo "smoke: クリック位置 FAILED, see $log" >&2
+  grep -nE '^\([0-9-]+ [0-9-]+\)$' "$log" >&2 || tail -20 "$log" >&2
+  fail=1
+fi
+
+# 横に流れたときのカーソルとルーラ。**画面より長い行で 2 つ壊れていた。**
+#
+#   * 横スクロールの幅も行番号の桁を数え損ねていて (同じ `w_flags`)、
+#     **点が右端の外に出てから**流れる。外に出た `move` は失敗するので、
+#     カーソルは前に描いた所 (画面の左下) に残る
+#   * ルーラを `ncurses_reframe` より前に描いていたので、目盛が**1 回前の
+#     位置**のまま。次の打鍵でようやく揃う
+#
+# 測るのは 2 つ。**どちらも「流れた桁数」を焼き付けない**:
+#
+#   カーソル  行末の `[EOF` の直前に居る (点はそこにある)
+#   ルーラ    目盛の `+` が来ている桁のテキストが `0` か `5`。`+` はバッファの
+#             5 の倍数の桁に付き、テキストは桁番号の下 1 桁を並べたものなので、
+#             **流れた桁数がいくつでも成り立つ**。ずれていると成り立たない
+#             (32 桁流れた状態で目盛が 0 から始まると、`+` の下は 7 や 2 になる)
+log=$build/smoke-cursor-hscroll.txt
+long_line=$(awk 'BEGIN{for (i = 0; i < 120; i++) printf "%d", i % 10}')
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" "$long_line" \
+  >"$log" 2>&1 || true
+hscroll_cursor=$(cursor_at "$log" 2)
+hscroll_text=$(text_at "$log" 2 '[EOF')
+# `[EOF` の直後ではなく直前が点なので、text_at の桁から `[EOF` の長さを引く。
+hscroll_text=$(printf '%s\n' "$hscroll_text" | awk '{print $1, $2 - 4}')
+ruler_ok=$(awk '
+  /^=== (startup|after) /{i++; row=-1; next}
+  /^=== cursor /{next}
+  # 行 0 = メニューバー、行 1 = ルーラ、行 2 = テキストの 1 行目。
+  {if (i==2) {row++; if (row==1) ruler=$0; if (row==2) text=$0}}
+  END {
+    if (ruler == "" || text == "") {print "no-rows"; exit}
+    start = index(text, "x") + 1        # 行番号の区切り (ACS_VLINE) の右がテキスト
+    if (start <= 1) {print "no-text"; exit}
+    n = 0
+    for (c = start; c <= length(text); c++)
+      {
+        if (substr(ruler, c, 1) != "+") continue
+        d = substr(text, c, 1)
+        if (d !~ /[0-9]/) continue
+        n++
+        if (d != "0" && d != "5") {print "mismatch at " c " (" d ")"; exit}
+      }
+    print (n >= 5) ? "ok" : "too-few(" n ")"   # 1 個も見ずに通らないようにする
+  }' "$log")
+if [ "$hscroll_cursor" = "$hscroll_text" ] && [ "$ruler_ok" = ok ]; then
+  echo "smoke: 横スクロール OK -- カーソルは点に付いていて ($hscroll_cursor)、ルーラの目盛が揃っている"
+else
+  echo "smoke: 横スクロール FAILED, see $log" >&2
+  echo "-- cursor=[$hscroll_cursor] text=[$hscroll_text] ruler=[$ruler_ok]" >&2
+  fail=1
+fi
+
 # xyzzy-cli links xyzzy-core alone and reads a REPL from stdin.  It exists as
 # the core separation test: anything the core leaks that only the Win32
 # frontend can satisfy shows up here as a link error or as a start up crash.

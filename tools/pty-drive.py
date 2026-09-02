@@ -10,7 +10,8 @@ cursor sits, what a popup window looks like, whether a key reached the command
 loop at all -- has to be looked at, and looking at it by hand does not scale.
 
 Each argument is one step: the keys are written, then the screen is printed
-once the output goes quiet.  Escapes in a step:
+once the output goes quiet, followed by one "=== cursor row,col ===" line for
+where the cursor would sit (see Screen.cursor).  Escapes in a step:
 
     \\e  ESC        \\r  RET        \\t  TAB        \\n  LFD
     \\CX  control-X (\\Cx is C-x)
@@ -242,6 +243,22 @@ class Screen:
     def dump(self):
         return '\n'.join(''.join(row).rstrip() for row in self.buf)
 
+    def cursor(self):
+        """Where the terminal would put its cursor, as one line after the dump.
+
+        The docstring above promises you can see "where the cursor sits" and
+        nothing printed it, so a cursor that lands on the wrong row read as a
+        correct screen: the *text* goes in at the point either way.  That is
+        exactly how the ncurses cursor ended up one row above the point once
+        the ruler became a default (the cursor placement added w_rect.top, the
+        drawing added w_rect.top + ruler rows).
+
+        The row is exact.  The column is only the column the frontend asked
+        for, which is the true screen column only in an ASCII row -- `put`
+        advances one cell per character, double width or not (see above).
+        """
+        return "=== cursor %d,%d ===" % (self.r, self.c)
+
 def main():
     steps = sys.argv[1:] or [""]
     pid, fd = pty.fork()
@@ -290,6 +307,7 @@ def main():
               % (BOOT, st))
     print("=== startup ===")
     print(scr.dump())
+    print(scr.cursor())
     for step in steps:
         if not step: continue
         for chunk in unescape(step).split(b'\x00WAIT\x00'):
@@ -298,6 +316,7 @@ def main():
             drain()
         print("=== after %r ===" % step)
         print(scr.dump())
+        print(scr.cursor())
         if RAW:
             print("=== raw after %r ===" % step)
             print(repr(bytes(raw)))
