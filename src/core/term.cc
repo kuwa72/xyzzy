@@ -1110,7 +1110,7 @@ int
 terminal_key_to_bytes (const Terminal *term, lChar c, char *buf, int bufsize)
 {
   // Mouse/menu events — not forwarded
-  if (c & (LCHAR_MOUSE | LCHAR_MENU))
+  if (lchar_event_p (c))
     return 0;
 
   /* 機能キー。

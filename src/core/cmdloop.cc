@@ -223,7 +223,22 @@ dispatch (lChar cc)
   app.as_itimer.reset ();
   app.last_cmd_tick = GetTickCount ();
 
-  if (cc & LCHAR_MENU)
+  /* 端末の貼り付け (issue #241)。**キーマップを通さない** -- 貼り付けは
+     キーではなく出来事で、`LCHAR_MENU` と同じ側にある。走らせるものは
+     `bracketed-paste-function` から引く (`default-input-function` と同じ
+     形。下の astral の分岐がそれ)。**変数にしてあるので Lisp から
+     差し替えられる。** */
+  if (LCHAR_KIND (cc) == LCHAR_PASTE)
+    {
+      command = symbol_value (Vbracketed_paste_function, selected_buffer ());
+      if (command == Qnil || command == Qunbound)
+        return Qt;
+      goto run_command;
+    }
+
+  /* **`&` ではなく kind の一致で見る。** kind 4 (menu) と kind 5 (paste) は
+     bit 2 を共有するので、`&` だと paste がここへ落ちる (chtype.h の注記)。 */
+  if (LCHAR_KIND (cc) == LCHAR_MENU)
     {
       if (c >= MENU_ID_RANGE_MIN && c < MENU_ID_RANGE_MAX)
         command = lookup_menu_command (c);

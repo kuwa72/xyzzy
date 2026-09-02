@@ -38,15 +38,105 @@ extern volatile int g_need_resize;
 // Returns lChar (CCF_LBTNxxx | LCHAR_MOUSE etc), or lChar_EOF if unhandled.
 lChar ncurses_mouse_dispatch (MEVENT *mev);
 
+/* --- 貼り付け (bracketed paste、issue #241) --------------------------------
+
+   端末は貼り付けを `ESC[200~` … `ESC[201~` で囲んで送る (DECSET 2004)。
+   **囲みが無いと貼り付けと打鍵が区別できない**ので、自動インデント・自動
+   ペア・electric が 1 文字ずつに反応して、**貼ったものと違うものが入る**
+   (`c-mode` で 4 桁のインデントが 6 桁になった)。
+
+   **バイト列を自分で解析しない。** `define_key` で ncurses に 2 つの並びを
+   教えると、`wget_wch` が普通のキーとして返してくれる。教えないと
+   `ESC[2` までがキーの並びとして食われて、残った `00~` がテキストとして
+   バッファに入る (実測した)。
+
+   囲みの中身は**キューへ流さずここに溜める。** 取り出しは
+   `si:*take-pasted-text` で、`dispatch` が `LCHAR_PASTE` を見て
+   `bracketed-paste-function` を走らせる。 */
+enum
+{
+  KEY_PASTE_BEGIN = KEY_MAX + 1,
+  KEY_PASTE_END   = KEY_MAX + 2
+};
+
+/* 溜めた中身。**1 回取り出したら空にする。** */
+static Char *g_paste_text;
+static int g_paste_len;
+
 void
 ncurses_mouse_init ()
 {
   mousemask (ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   // Enable SGR (1006) mouse mode for coordinates > 223
   // Enable button-event tracking (1002) for drag motion events
-  printf ("\033[?1002h\033[?1006h");
+  // Enable bracketed paste (2004) so a paste can be told from typing (#241)
+  printf ("\033[?1002h\033[?1006h\033[?2004h");
   fflush (stdout);
   mouseinterval (0);  // no click-resolution delay (we handle it ourselves)
+  /* **`define_key` は keypad より後で呼ぶ必要は無い**が、`initscr` の後で
+     なければならない (ncurses の内部表を触る)。ここは初期化の途中。 */
+  define_key ("\033[200~", KEY_PASTE_BEGIN);
+  define_key ("\033[201~", KEY_PASTE_END);
+}
+
+/* 囲みの中を読み切って `g_paste_text` へ溜める。**終わりが来ないまま入力が
+   絶えたら、そこで打ち切る** (端末が壊れた並びを送ってきても待ち続けない)。
+
+   改行は `ESC[200~` の中では素の CR か LF で来る。**両方 LF に寄せる** --
+   バッファへ入れるのは Lisp の文字列で、行末は LF で表す。 */
+static void
+collect_paste ()
+{
+  int cap = 256, len = 0;
+  Char *buf = (Char *)malloc (sizeof *buf * cap);
+  if (!buf)
+    return;
+
+  for (;;)
+    {
+      wint_t wch;
+      int ret = wget_wch (stdscr, &wch);
+      if (ret == ERR)
+        break;
+      if (ret == KEY_CODE_YES)
+        {
+          if (wch == KEY_PASTE_END)
+            break;
+          /* 囲みの中に来た他の特殊キーは捨てる。**貼り付けの中身は
+             テキストであって、キーではない。** */
+          continue;
+        }
+      Char c = Char (wch);
+      if (c == '\r')
+        c = '\n';
+      if (len + 1 > cap)
+        {
+          cap *= 2;
+          Char *p = (Char *)realloc (buf, sizeof *buf * cap);
+          if (!p)
+            break;
+          buf = p;
+        }
+      buf[len++] = c;
+    }
+
+  free (g_paste_text);
+  g_paste_text = buf;
+  g_paste_len = len;
+}
+
+/* 溜めた中身を Lisp の文字列で返して、こちらを空にする。2 回目は nil。
+   **main スレッドの上でしか呼ばれない** (`dispatch` から)。 */
+lisp
+Fsi_take_pasted_text ()
+{
+  if (!g_paste_text)
+    return Qnil;
+  lisp r = make_string (g_paste_text, g_paste_len);
+  free (g_paste_text);
+  g_paste_text = 0;
+  g_paste_len = 0;
+  return r;
 }
 
 // Helper: process a KEY_MOUSE event from wget_wch.
@@ -488,6 +578,19 @@ kbd_queue::fetch (int wait, int)
                   handle_resize (*this);
                   continue;
                 }
+
+              /* 貼り付けの始まり (issue #241)。**囲みの中を読み切って
+                 溜め、キューには「貼り付けが来た」1 つだけを返す。**
+                 1 文字ずつ返すと electric が反応する。 */
+              if (ret == KEY_CODE_YES && wch == KEY_PASTE_BEGIN)
+                {
+                  collect_paste ();
+                  return record_key (LCHAR_PASTE);
+                }
+
+              /* 始まりを見ずに終わりだけ来たら捨てる (端末の取りこぼし)。 */
+              if (ret == KEY_CODE_YES && wch == KEY_PASTE_END)
+                continue;
 
               if (ret == KEY_CODE_YES && wch == KEY_MOUSE)
                 {

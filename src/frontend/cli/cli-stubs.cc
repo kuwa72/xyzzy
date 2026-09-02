@@ -780,6 +780,16 @@ lisp Fdo_events () { return Qnil; }
 // Lisp-facing functions that are Win32-only but registered in symtable
 // ============================================================
 
+/* 端末の貼り付け (issue #241) はここには無い。画面も端末も無いので、
+   囲みを受け取る経路自体が存在しない。
+
+   **`#ifndef _WIN32` の外に置く。** 中に書いたら **Windows の
+   `xyzzy-cli.exe` だけがリンクに失敗した** -- あれは 4 つある link 先の 1 つで、
+   `cli-stubs.cc` から取る (Win32 の `xyzzy` / `xyzzy-batch` は
+   `src/frontend/win32/clipboard.cc` の方から取る)。 */
+lisp Fsi_take_pasted_text () { return Qnil; }
+
+
 #ifndef _WIN32
 #include <unistd.h>
 

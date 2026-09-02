@@ -63,7 +63,14 @@ kbd_queue::save_key (lChar c)
   if (kbd_macro || !save_p ())
     return;
   /* メニューの選択とマウスの移動は打鍵ではない。 */
-  if ((c & LCHAR_MENU) || char_mouse_move_p (c))
+  /* 貼り付け (issue #241) も記録しない。**中身は溜めた側にしか無い**ので、
+     再生しても同じものは入らない。記録できる形にするには中身ごと残す
+     必要があり、それは別の話。 */
+  /* **`lchar_event_p` は使わない。** あれはマウスの押した/離したも含むが、
+     ここは元からそれを記録していた (除いていたのは移動だけ)。挙動を
+     変えないよう kind を名指しで見る。 */
+  if (LCHAR_KIND (c) == LCHAR_MENU || LCHAR_KIND (c) == LCHAR_PASTE
+      || char_mouse_move_p (c))
     return;
   if (nsaved == KBDMACRO_MAX)
     stop_macro ();

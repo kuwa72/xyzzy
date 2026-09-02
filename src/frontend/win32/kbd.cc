@@ -284,7 +284,9 @@ kbd_queue::fetch (int in_main, int req_mouse_move)
         }
     }
   in_main_loop = 0;
-  if (!(c & (LCHAR_MOUSE | LCHAR_MENU)))
+  /* `&` で kind を見分けると kind 4 以上が混ざる (chtype.h の注記)。
+     Win32 では paste の kind は出ないが、判定はそちらへ揃えておく。 */
+  if (!lchar_event_p (c))
     process_events ();
   xsymbol_value (Vquit_flag) = Qnil;
   return c;

@@ -277,6 +277,15 @@ open_clipboard (HWND hwnd)
   return 0;
 }
 
+/* **Win32 に bracketed paste は無い** (issue #241)。あれは端末が貼り付けを
+   囲んで送る仕組みで、GUI の貼り付けは `paste-from-clipboard` が
+   クリップボードから読む。ここは常に nil を返す。 */
+lisp
+Fsi_take_pasted_text ()
+{
+  return Qnil;
+}
+
 lisp
 Fcopy_to_clipboard (lisp string)
 {

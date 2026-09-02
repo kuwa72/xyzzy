@@ -202,6 +202,38 @@
 #define LCHAR_MOUSE LCKIND_MOUSE          /* kind 2 */
 #define LCHAR_MENU  (4 << LCKIND_SHIFT)   /* kind 4 (予約枠) */
 
+/* 端末の貼り付け (bracketed paste、issue #241)。**キーではなく「その動作を
+   しろ」という出来事**なので、`LCHAR_MENU` と同じ側に置く -- キーマップを
+   通さず `dispatch` が早い所で分岐する。
+
+   **文字として流してはいけない。** 貼り付けを 1 文字ずつキューへ入れると、
+   自動インデント・自動ペア・electric がそれぞれに反応して、
+   **貼ったものと違うものが入る** (c-mode で 4 桁のインデントが 6 桁に
+   なった)。中身は `si:*take-pasted-text` で受け取る。 */
+#define LCHAR_PASTE (5 << LCKIND_SHIFT)   /* kind 5 */
+
+/* **kind が 4 以上のものは `&` で見分けられない。** kind 4 (menu) と
+   kind 5 (paste) は bit 2 を共有するので、`cc & LCHAR_MENU` は paste にも
+   当たり、`cc & LCHAR_PASTE` は menu にも当たる。**実際に踏んだ**: paste の
+   分岐を `&` で書いたら、メニューから選んだコマンドが走らなくなった
+   (`tools/linux-smoke.sh` の「メニューの実行」が落ちた)。
+   **kind を見るときは `LCHAR_KIND (cc) == ...` で比べる。**
+
+   **union の判定も `&` では書けない。** `LCHAR_MENU | LCHAR_PASTE` は
+   `7 << 21` = kind mask 全体になるので、`c & (LCHAR_MENU | LCHAR_PASTE)` は
+   **kind 1 (function key) にも当たる。** これも実際に踏んだ:
+   `terminal-key-*` が 8 件まとめて落ちた (`src/core/term.cc` の guard)。
+   下の `lchar_event_p` を使う。 */
+
+/* キーや文字ではなく「出来事」の lChar か (mouse / menu / paste)。
+   **キーマップにも表示にもマクロにも載らないもの**をまとめて聞くための判定。 */
+static inline int
+lchar_event_p (lChar lc)
+{
+  lChar k = LCHAR_KIND (lc);
+  return k == LCKIND_MOUSE || k == LCHAR_MENU || k == LCHAR_PASTE;
+}
+
 /* code point をそのまま載せた lChar か (modifier なし・kind CHAR・
    BMP 外)。BMP 内なら旧 Char encoding と値が一致するので、この判定が
    必要になるのは 0x10000 以上だけ。 */

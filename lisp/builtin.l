@@ -498,6 +498,7 @@
 (si::defun-builtin *stream-column (&optional stream))
 (si::defun-builtin *stream-line-number (&optional stream))
 (si::defun-builtin *minibuffer-message (message &optional prompt-p))
+(si::defun-builtin *take-pasted-text ())
 (si::defun-builtin *show-window-foreground ())
 (si::defun-builtin *activate-toplevel ())
 (si::defun-builtin *create-wait-object ())

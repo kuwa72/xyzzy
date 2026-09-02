@@ -928,6 +928,9 @@ static symbols sys[] =
 
   /* toplev.cc */
   SI_DEFUN3 (*minibuffer-message, 1, 1, 0),
+  /* 端末が溜めた貼り付けの中身を 1 回だけ取り出す (issue #241)。
+     2 回目は nil。端末以外のフロントエンドでは常に nil。 */
+  SI_DEFUN3 (*take-pasted-text, 0, 0, 0),
   SI_DEFUN3 (*show-window-foreground, 0, 0, 0),
   SI_DEFUN3 (*activate-toplevel, 0, 0, 0),
   SI_DEFVAR2 (*paste-hook*),
@@ -2837,6 +2840,10 @@ static symbols ed[] =
   DEFVAR2 (*quit-flag*),
   DEFVAR2 (*inhibit-quit*),
   MAKE_SYMBOL2 (default-input-function),
+  /* 端末の貼り付け (bracketed paste、issue #241) を受け取るコマンド。
+     `default-input-function` と同じ形で、`dispatch` がここを引いて走らせる。
+     **キーマップに置かない**のは、貼り付けが「キー」ではなく出来事だから。 */
+  MAKE_SYMBOL2 (bracketed-paste-function),
   DEFVAR2 (*prefix-value*),
   DEFVAR2 (*prefix-args*),
   DEFVAR2 (*save-window-size*),
