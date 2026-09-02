@@ -18,7 +18,8 @@
 	  end-of-line beginning-of-line end-of-buffer beginning-of-buffer
 	  delete-horizontal-spaces just-one-space delete-trailing-spaces
 	  delete-indentation split-line back-to-indentation delete-blank-lines
-	  default-input-function self-insert-command *auto-fill-hook newline
+	  default-input-function bracketed-paste-function
+	  insert-pasted-text self-insert-command *auto-fill-hook newline
 	  *self-insert-hook* *delete-backward-hook*
 	  zap-to-char overwrite-mode toggle-over point-marker
 	  set-mark-command exchange-point-and-mark
@@ -411,6 +412,30 @@ lisp/startup.l が入れる #\\DEL) ため、コマンド 1 箇所に掛ける�
 
 (or (boundp 'default-input-function)
     (setq default-input-function 'self-insert-command))
+
+;;; 端末の貼り付け (bracketed paste、issue #241)。
+;;;
+;;; **`self-insert-command` を通さないことが本題である。** 貼り付けを 1 文字
+;;; ずつ打鍵として流すと、自動インデント・自動ペア・electric がそれぞれに
+;;; 反応して**貼ったものと違うものが入る** (c-mode で 4 桁のインデントが
+;;; 6 桁になった)。ここは文字列を 1 回で `insert` する。
+;;;
+;;; **`*self-insert-hook*` を見ない。** 見ないことが目的なので、フックを
+;;; 足した人が忘れる余地が無い形にしてある (フックの側で「貼り付け中か」を
+;;; 判定する作りだと、判定を忘れた分だけ崩れる)。
+;;;
+;;; undo は 1 回で戻る (`insert` 1 回なので自然にそうなる)。
+(defun insert-pasted-text ()
+  (interactive)
+  (let ((s (si:*take-pasted-text)))
+    (when s
+      (when (pre-selection-p)
+	(delete-region (selection-mark) (selection-point))
+	(stop-selection))
+      (insert s))))
+
+(or (boundp 'bracketed-paste-function)
+    (setq bracketed-paste-function 'insert-pasted-text))
 
 (defvar *self-insert-hook* nil
   "non-nil なら、self-insert-command は文字を挿入する前に

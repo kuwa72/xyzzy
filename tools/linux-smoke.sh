@@ -1065,4 +1065,49 @@ else
   fi
 fi
 
+# 端末の貼り付け (bracketed paste、issue #241)。**囲みが無いと貼り付けと
+# 打鍵が区別できず、自動インデント・自動ペア・electric が 1 文字ずつに
+# 反応して、貼ったものと違うものが入る。**
+#
+# **この check は自分で差を作って見せる。** 同じテキストを 2 回送る:
+#
+#   1. `ESC[200~` … `ESC[201~` で囲む -> **4 桁のまま入る**
+#   2. 囲まない (= 直す前と同じ経路) -> **6 桁になる**
+#
+# 2 が無いと空回りする -- c-mode が自動インデントしない設定になっただけでも
+# 1 は通ってしまう。**負の確認が check の中に入っている形である。**
+#
+# 併せて `ESC[?2004h` が実際に出ていることを生のバイト列で見る。出さなければ
+# 端末は囲んで送ってこないので、**中の処理が正しくても機能しない。**
+log=$build/smoke-paste.txt
+XYZZY_PTY_RAW=1 XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(c-mode)\r' '\w' \
+  '\x1b[200~int f(int x) {\r  if (x) {\r    return 1;\r  }\r}\r\x1b[201~' '\w' \
+  '\e\e(buffer-substring (point-min) (point-max))\r' '\w' \
+  >"$log" 2>&1 || true
+log2=$build/smoke-paste-unbracketed.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\e\e(c-mode)\r' '\w' \
+  'int f(int x) {\r  if (x) {\r    return 1;\r  }\r}\r' '\w' \
+  '\e\e(buffer-substring (point-min) (point-max))\r' '\w' \
+  >"$log2" 2>&1 || true
+# 4 桁のまま = 囲みが効いている。6 桁 = 1 文字ずつ流れて electric が働いた。
+kept='return 1;'
+if grep -q 'x1b\[?2004h' "$log" \
+   && grep -q '"int f(int x) {.x0a  if (x) {.x0a    return 1;.x0a  }.x0a}.x0a"' "$log" \
+   && grep -q '"int f(int x) {.x0a  if (x) {.x0a      return 1;.x0a  }.x0a}.x0a"' "$log2"; then
+  echo 'smoke: 貼り付け OK -- 囲みがあれば 4 桁のまま、無ければ 6 桁になる (差が出ている)'
+else
+  echo "smoke: 貼り付け FAILED, see $log / $log2" >&2
+  echo '-- ESC[?2004h を出しているか:' >&2
+  grep -c 'x1b\[?2004h' "$log" >&2 || true
+  echo '-- 囲んで送った結果 (4 桁のはず):' >&2
+  grep -o '"int f(int x) {[^"]*"' "$log" | head -1 >&2 || true
+  echo '-- 囲まずに送った結果 (6 桁のはず。同じなら差が出ていない):' >&2
+  grep -o '"int f(int x) {[^"]*"' "$log2" | head -1 >&2 || true
+  fail=1
+fi
+
 exit $fail
