@@ -241,6 +241,116 @@ foo.pl had compilation errors."
       (flymake-test-cleanup buf)))
   => (1 nil t "fake-diagnostic"))
 
+;;;
+;;; 自動で走る側は待たない (issue #248)
+;;;
+;;; **`flymake-check` は同期のまま**で、上の 3 件がそれを見ている。非同期に
+;;; なったのは `flymake-check-async` (保存時とアイドル時が呼ぶ側)。
+;;;
+;;; **`make-process` の出力が取れるようになるまで書けなかった** (issue #250)。
+
+;; 走らせてから戻るまでに終わっていないこと = 待っていないこと。
+;;
+;; **遅いコマンドが要るので unix だけ。** cmd.exe に `sleep` が無く、`ping` で
+;; 待たせる形は「出力が診断行だけ」という前提を壊す。**非同期の経路自体は
+;; 両方で同じコード**で、下の 3 件が両方で走る。
+(deftest flymake-check-async-does-not-block ()
+  (if (not (featurep :unix))
+      '(t t)
+    (let ((buf (flymake-test-buffer)))
+      (unwind-protect
+	  (let ((ed::*flymake-alist*
+		 (list (list buffer-mode
+			     :command "sleep 1; echo x.c:2:1: error: slow-diag"))))
+	    (ed::flymake-check-async)
+	    ;; 戻った時点でまだ走っている。
+	    (let ((running ed::flymake-checking))
+	      (list (and running t)
+		    (flymake-test-wait
+		     #'(lambda () (not ed::flymake-checking)) 30))))
+	(flymake-test-cleanup buf))))
+  => (t t))
+
+;; 終わったら印が付いていること。**バッファは書き換わらないこと。**
+(deftest flymake-check-async-decorates-when-it-finishes ()
+  (let ((buf (flymake-test-buffer)))
+    (unwind-protect
+	(let ((ed::*flymake-alist*
+	       (list (list buffer-mode
+			   :command "echo x.c:2:1: error: async-diag"))))
+	  (ed::flymake-check-async)
+	  (flymake-test-wait #'(lambda () (not ed::flymake-checking)) 30)
+	  (goto-line 2)
+	  (list (buffer-modified-p)
+		(and (find-text-attribute 'ed::flymake) t)
+		(fourth (first ed::*flymake-diagnostics*))))
+      (flymake-test-cleanup buf)))
+  => (nil t "async-diag"))
+
+;; 走っている最中に呼んでも積み上がらないこと。
+(deftest flymake-check-async-does-not-stack ()
+  (if (not (featurep :unix))
+      '(t nil)
+    (let ((buf (flymake-test-buffer)))
+      (unwind-protect
+	  (let ((ed::*flymake-alist*
+		 (list (list buffer-mode
+			     :command "sleep 1; echo x.c:2:1: error: one"))))
+	    (let* ((first (and (ed::flymake-check-async) t))
+		   (second (ed::flymake-check-async)))
+	      (flymake-test-wait #'(lambda () (not ed::flymake-checking)) 30)
+	      (list first second)))
+	(flymake-test-cleanup buf))))
+  => (t nil))
+
+;; **走らせてから編集されたら結果を捨てること。** 行が動いていれば印の位置が
+;; 合わないので、ずれた印を付けるより付けない方がまし (入力が止まればまた
+;; 走る)。
+;;
+;; **診断が 0 件であることだけを見ると空回りする** -- 検査が動いていなくても
+;; 通る。だから「同じ命令を編集せずに走らせたら 1 件付く」ことも一緒に見る。
+(deftest flymake-check-async-drops-a-stale-result ()
+  (if (not (featurep :unix))
+      '(1 0)
+    (let ((buf (flymake-test-buffer)))
+      (unwind-protect
+	  (let ((ed::*flymake-alist*
+		 (list (list buffer-mode
+			     :command "sleep 1; echo x.c:2:1: error: stale"))))
+	    ;; 編集しない場合: 付く。
+	    (ed::flymake-check-async)
+	    (flymake-test-wait #'(lambda () (not ed::flymake-checking)) 30)
+	    (let ((fresh (length ed::*flymake-diagnostics*)))
+	      (ed::flymake-clear)
+	      ;; 編集した場合: 捨てられる。
+	      (ed::flymake-check-async)
+	      (goto-char (point-min))
+	      (insert "inserted\n")
+	      (flymake-test-wait #'(lambda () (not ed::flymake-checking)) 30)
+	      (list fresh (length ed::*flymake-diagnostics*))))
+	(flymake-test-cleanup buf))))
+  => (1 0))
+
+;; **アイドルの経路が非同期の側を呼んでいること。** 上の 4 件は
+;; `flymake-check-async` を直に呼ぶので、**配線を戻して同期に呼ぶようにしても
+;; どれも落ちない。** ここで押さえる。
+(deftest flymake-idle-check-does-not-block ()
+  (if (not (featurep :unix))
+      '(t t)
+    (let ((buf (flymake-test-buffer)))
+      (unwind-protect
+	  (let ((*flymake-idle-delay* 0.05)
+		(ed::*flymake-alist*
+		 (list (list buffer-mode
+			     :command "sleep 1; echo x.c:2:1: error: idle-async"))))
+	    (ed::flymake-idle-check)
+	    (let ((running ed::flymake-checking))
+	      (list (and running t)
+		    (flymake-test-wait
+		     #'(lambda () (not ed::flymake-checking)) 30))))
+	(flymake-test-cleanup buf))))
+  => (t t))
+
 ;; 設定の無いモードでは何もしない (nil を返す)。
 (deftest flymake-check-without-a-checker-does-nothing ()
   (let ((buf (flymake-test-buffer)))
