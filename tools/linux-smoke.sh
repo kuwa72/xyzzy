@@ -1183,6 +1183,50 @@ else
   fi
 fi
 
+# 非 ASCII のホスト名が引けること (issue #258)。**POSIX の名前解決は UTF-8 を
+# 取るのに、`w2s` で CP932 にして渡していた** ので、`/etc/hosts` に UTF-8 で
+# 置いた名前が引けなかった。
+#
+# **`/etc/hosts` を書き足すので、使い捨てのコンテナの中でしかやらない**
+# (DNS の check と同じ理由)。触れないときは黙って飛ばさず SKIPPED と言う。
+#
+# **名前は Lisp の中でコードポイントから組む。** コマンドラインで渡すと、
+# 引数のバイト列を CP932 として読んだ文字列を `w2s` が CP932 へ戻すので
+# **2 つの誤りが打ち消し合って通ってしまう** -- 直す前でも通る測り方になる。
+#
+# 見るのは 3 つで、**「引けた」を「つながった」と混ぜない**:
+#
+#   ascii-name.test  引ける         -> connect が Connection refused
+#   日本.test        引ける (これ)  -> 同じく Connection refused
+#   no-such.test     引けない (対照) -> gethostbyname: Host not found
+#
+# 宛先は 127.0.0.9 の port 9 (discard) で、**誰も listen していないので即座に
+# 拒否される。** 「解決できた」ことは、拒否のエラーが返ることで分かる。
+log=$build/smoke-idn-host.txt
+if [ ! -f /.dockerenv ] || ! (echo "# smoke probe" >>/etc/hosts) 2>/dev/null; then
+  echo 'smoke: 非 ASCII のホスト名 SKIPPED -- 使い捨てのコンテナの中でないので /etc/hosts を触らない'
+else
+  printf '127.0.0.9 ascii-name.test\n127.0.0.9 \346\227\245\346\234\254.test\n' >>/etc/hosts
+  err () {   # err <式>: connect のエラー文字列を 1 行で出す
+    "$build/xyzzy" --batch -q \
+      -e "(handler-case (connect $1 9) (error (e) (format t \"IDN:~A~%\" (si:*condition-string e))))" \
+      2>&1 | grep '^IDN:' | tail -1
+  }
+  ascii=$(err '"ascii-name.test"')
+  jp=$(err '(format nil "~C~C.test" (code-char #x65e5) (code-char #x672c))')
+  none=$(err '"no-such-name.test"')
+  { echo "ascii=$ascii"; echo "jp=$jp"; echo "none=$none"; } >"$log"
+  case "$ascii|$jp|$none" in
+    *refused*\|*refused*\|*"not found"*)
+      echo 'smoke: 非 ASCII のホスト名 OK -- UTF-8 の名前が引けて、無い名前は引けない' ;;
+    *)
+      echo "smoke: 非 ASCII のホスト名 FAILED, see $log" >&2
+      cat "$log" >&2
+      echo '-- jp が "not found" なら CP932 に変換して渡している (issue #258)' >&2
+      fail=1 ;;
+  esac
+fi
+
 # 端末の貼り付け (bracketed paste、issue #241)。**囲みが無いと貼り付けと
 # 打鍵が区別できず、自動インデント・自動ペア・electric が 1 文字ずつに
 # 反応して、貼ったものと違うものが入る。**

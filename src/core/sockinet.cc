@@ -120,8 +120,24 @@ sockinet::saddr::set_addr (lisp lhost)
     set_addr ((u_long)x);
   else if (stringp (lhost))
     {
+      /* **POSIX の名前解決は UTF-8 のバイト列を取る。** `w2s` は CP932 に
+         するので、非 ASCII のホスト名が解決できなかった (issue #258):
+         `/etc/hosts` に UTF-8 で置いた「日本.test」を引くと
+         `gethostbyname: Host not found` になる (ASCII の名前は引ける)。
+         `src/core/environ.cc` の環境変数と同じ形で分ける。
+
+         **コマンドラインから渡すと通ってしまう**ので、そういう測り方では
+         見つからない: 引数のバイト列を CP932 として読んだ文字列を `w2s` が
+         CP932 へ戻すため、2 つの誤りが打ち消し合う。測るときは
+         `(code-char #x65e5)` のようにコードポイントから名前を組む。 */
+#ifdef _WIN32
       char *host = (char *)alloca (xstring_length (lhost) * 2 + 1);
       w2s (host, lhost);
+#else
+      char *host = (char *)alloca (i2u8l (xstring_contents (lhost),
+                                          xstring_length (lhost)));
+      i2u8 (xstring_contents (lhost), xstring_length (lhost), host);
+#endif
       set_addr (host);
     }
   else
@@ -138,8 +154,15 @@ sockinet::saddr::set_port (lisp lport)
     set_port (u_short (x));
   else if (stringp (lport))
     {
+      /* サービス名も同じ (`getservbyname`)。**`/etc/services` は UTF-8。** */
+#ifdef _WIN32
       char *port = (char *)alloca (xstring_length (lport) * 2 + 1);
       w2s (port, lport);
+#else
+      char *port = (char *)alloca (i2u8l (xstring_contents (lport),
+                                          xstring_length (lport)));
+      i2u8 (xstring_contents (lport), xstring_length (lport), port);
+#endif
       set_port (port, "tcp");
     }
   else
