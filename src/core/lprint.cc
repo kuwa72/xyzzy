@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "safe_ptr.h"
 #include "wstream.h"
 #include "sock.h"
 #include "version.h"
@@ -3392,7 +3393,14 @@ Format::iteration (wStream &stream)
       if (l == Qnil)
         error (Eargument_is_circle);
       Format f (p, pe - p, IL_ILLEGAL, backward_compat_p);
-      lisp *v = (lisp *)alloca (sizeof (lisp) * fixnum_value (l));
+      /* 上の `format_internal` と同じ理由で heap + `protect_gc`
+         (issue #260)。**ここは繰り返し指令の中なので、alloca だと指令が
+         回るたびに積み上がる。** */
+      int nargs_ = fixnum_value (l);
+      safe_ptr <lisp> v (new lisp[nargs_ ? nargs_ : 1]);
+      for (int i = 0; i < nargs_; i++)
+        v[i] = Qnil;
+      protect_gc gcpro (v, nargs_);
       f.setarg (v, args);
       if (once_at_least)
         goto oal_4;
@@ -3788,7 +3796,18 @@ format_internal (wStream &stream, const ucs4_t *p, int size, lisp args, int in_l
   if (l == Qnil)
     FEprogram_error (Eargument_is_circle);
   Format f (p, size, in_loop, backward_compat_p);
-  lisp *v = (lisp *)alloca (sizeof (lisp) * fixnum_value (l));
+  /* **引数の数は Lisp が決める。** `alloca` だと 300 万要素で SIGSEGV する
+     (測った: `(format nil "~{~A~}" (make-list 3000000))`、issue #260)。
+
+     **heap に置くと `gc_mark_in_stack` から見えなくなる**ので、
+     `protect_gc` で明示的に根にする。**先に埋めてから protect する** --
+     未初期化のゴミを GC に辿らせると、以前それで実 Windows のアクセス違反に
+     なった (多値バッファの件、#16 Phase 1)。 */
+  int nargs_ = fixnum_value (l);
+  safe_ptr <lisp> v (new lisp[nargs_ ? nargs_ : 1]);
+  for (int i = 0; i < nargs_; i++)
+    v[i] = Qnil;
+  protect_gc gcpro (v, nargs_);
   f.setarg (v, args);
   f.process (stream);
 }

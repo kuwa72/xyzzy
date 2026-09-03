@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "safe_ptr.h"
 
 #define SXHASH_DEPTH 3
 #define MIN_REHASH_THRESHOLD 0.0625
@@ -611,7 +612,16 @@ Fgethash_region (lisp from, lisp to, lisp hash_table, lisp defalt)
   if (p1 > p2)
     swap (p1, p2);
   int l = p2 - p1;
-  ucs4_t *b = (ucs4_t *)alloca (sizeof *b * l);
+  /* **リージョンの長さは Lisp が決める。** `alloca` だと長さの 4 倍のバイト数を
+     スタックに取るので、**3MB のバッファで SIGSEGV する** (測った: 12 回
+     262144 文字を入れて `(gethash-region (point-min) (point-max) h)`)。
+     `check_stack_overflow` は再帰の深さしか見ないので捕まらない (issue #260)。
+
+     **中身は文字なので heap へ移して構わない** -- Lisp オブジェクトを置く
+     配列だと `gc_mark_in_stack` から見えなくなるので `protect_gc` が必要に
+     なるが、ここは `ucs4_t` である。`temporary_string` はポインタを借りる
+     だけなので、`b` より先に壊れるよう宣言の順を保つ。 */
+  safe_ptr <ucs4_t> b (new ucs4_t[l ? l : 1]);
   bp->substring (p1, l, b);
   temporary_string t (b, l);
   return Fgethash (t.string (), hash_table, defalt);
