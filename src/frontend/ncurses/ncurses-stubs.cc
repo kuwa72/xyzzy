@@ -1013,12 +1013,20 @@ Fsi_minibuffer_message (lisp message, lisp prompt)
    呼ばれたときに「何もしない」のが正しい答え**である (「前に出した」と
    嘘をつくのでも、エラーにするのでもない)。
 
-   待機オブジェクト (`si:*create-wait-object` ほか) は
-   `WaitForMultipleObjects` に当たるもので、**POSIX に対応物が無い**
-   (`misc/known-failures/linux.txt` の `wait-object-*` 2 件)。ここは
-   「まだ書いていない」ではなく「無い」側だが、**呼ぶ側が
-   `Buffer::cleanup_waitobj_list` から無条件に触るので no-op のままに
-   してある。** */
+   待機オブジェクト (`si:*create-wait-object` ほか) は、**オブジェクトの
+   側は実は POSIX へ普通に移植できる** (`eventfd`/`pipe` で書ける、
+   `Twait_object` という Lisp の型自体は core にもう在る)。無いのは
+   「待つ相手」で、`-wait` を使うのは `lisp/estartup.l` の
+   `ed::*xyzzycli-helper` 経由だけ、それを呼ぶのは
+   `src/frontend/win32/xyzzycli.cc` だけ、つまり**POSIX には
+   `xyzzycli` に相当するプログラムが 1 つも無い** (issue #222)。
+   オブジェクトだけ実装しても「待つ人が誰もいない」ので機能は動かない ---
+   `misc/known-failures/linux.txt` の `wait-object-*` 2 件だけ緑にするのは
+   `image-startup-option` (issue #219) と同じ「動いていないのに緑」の形に
+   なるので、やらない。以前ここには「`Buffer::cleanup_waitobj_list` から
+   無条件に触るので no-op にしてある」と書いてあったが、**この関数の
+   端末版 (このファイル内) は自前の空実装で、そもそも wait-object を
+   一切触らない** ので誤りだった。 */
 lisp Fsi_show_window_foreground () { return Qnil; }
 lisp Fsi_activate_toplevel () { return Qnil; }
 lisp Fsi_app_user_model_id () { return Qnil; }
@@ -4084,7 +4092,15 @@ lisp Fadmin_user_p ()
 
 lisp Fsi_get_key_state (lisp)
 {
-  return Qnil;
+  /* Win32 の GetKeyState は「今この瞬間」の物理キー状態をいつでも問い合わせ
+     られるが、端末は個々のキー入力が届いたときにしか修飾キーの状態を知る
+     手段が無い (継続的に押下状態を保持していない)。「押されていない」を
+     黙って返すと、実際に押されている時に誤った答えを返す (issue #259)。
+     現状唯一の呼び出し元 (lisp/keyboard.l の si:control-pressed 等、
+     lisp/app-menu.l から) は :windows-vista で feature ガードされていて
+     端末では素通りしないが、si:get-key-state 自体は公開関数なので
+     ここで正しく「無い」と言う。 */
+  return unsupported (Ssi_get_key_state);
 }
 
 /* Fsi_uuid_create は src/core/system.cc が POSIX でも実装するように
@@ -7127,7 +7143,7 @@ lisp Fole_getprop (lisp, lisp, lisp) { return unsupported (Sole_getprop); }
 lisp Fole_method (lisp, lisp, lisp) { return unsupported (Sole_method); }
 lisp Fole_method_star (lisp, lisp, lisp, lisp) { return unsupported (Sole_method_star); }
 lisp Fole_create_event_sink (lisp, lisp, lisp) { return unsupported (Sole_create_event_sink); }
-lisp Fset_ole_event_handler (lisp, lisp, lisp) { return Qnil; }
+lisp Fset_ole_event_handler (lisp, lisp, lisp) { return unsupported (Sset_ole_event_handler); }
 lisp Fole_enumerator_create (lisp) { return unsupported (Sole_enumerator_create); }
 lisp Fole_enumerator_next (lisp) { return unsupported (Sole_enumerator_next); }
 lisp Fole_enumerator_reset (lisp) { return unsupported (Sole_enumerator_reset); }
@@ -7246,7 +7262,7 @@ lisp Flist_archive (lisp, lisp) { return unsupported (Slist_archive); }
 lisp Fcreate_archive (lisp, lisp, lisp) { return unsupported (Screate_archive); }
 lisp Fextract_archive (lisp, lisp, lisp) { return unsupported (Sextract_archive); }
 lisp Fdelete_file_in_archive (lisp, lisp) { return unsupported (Sdelete_file_in_archive); }
-lisp Fconvert_to_SFX (lisp, lisp) { return Qnil; }
+lisp Fconvert_to_SFX (lisp, lisp) { return unsupported (Sconvert_to_SFX); }
 lisp Farchiver_dll_version (lisp) { return Qnil; }
 lisp Farchiver_dll_config_dialog (lisp, lisp) { return unsupported (Sarchiver_dll_config_dialog); }
 
