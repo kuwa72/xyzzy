@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "toplev.h"
 #include "ctl3d.h"
 #include "environ.h"
 #include "except.h"

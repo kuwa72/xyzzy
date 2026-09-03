@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "statarea.h"
 #include "gdi-utils.h"
 #include "binfo.h"
@@ -532,7 +533,7 @@ win32_role_font (int role)
   if (role == PFONT_MODELINE)
     return app.modeline_param.m_hfont;
   if (role == PFONT_RULER)
-    return sysdep.hfont_ruler;
+    return win32_sysdep.hfont_ruler;
   return app.text_font.font (role);
 }
 
@@ -2064,10 +2065,10 @@ Window::paint_mode_line (Painter &painter)
   /* 3D bevel border (was CreatePen/MoveToEx/LineTo): highlight top+left,
      shadow right+bottom. LineTo excludes its endpoint pixel; the hline/
      vline ranges below reproduce the same pixel coverage. */
-  painter.draw_vline (0, 1, w_ml_size.cy - 1, sysdep.btn_highlight);
-  painter.draw_hline (0, w_ml_size.cx - 1, 0, sysdep.btn_highlight);
-  painter.draw_vline (w_ml_size.cx - 1, 0, w_ml_size.cy - 1, sysdep.btn_shadow);
-  painter.draw_hline (0, w_ml_size.cx, w_ml_size.cy - 1, sysdep.btn_shadow);
+  painter.draw_vline (0, 1, w_ml_size.cy - 1, win32_sysdep.btn_highlight);
+  painter.draw_hline (0, w_ml_size.cx - 1, 0, win32_sysdep.btn_highlight);
+  painter.draw_vline (w_ml_size.cx - 1, 0, w_ml_size.cy - 1, win32_sysdep.btn_shadow);
+  painter.draw_hline (0, w_ml_size.cx, w_ml_size.cy - 1, win32_sysdep.btn_shadow);
 }
 
 /* issue #195 step 3e: HDC entry point wraps the Painter& version. */

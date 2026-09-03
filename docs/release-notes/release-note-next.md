@@ -200,4 +200,5 @@ xyzzy リリースノート
     既存の変数のみを束縛する縮小スコープでの実装。`*readtable*` は
     `copy-readtable nil` で標準リードテーブルに復帰する。
   * **Win32 GUI に関する `environ::load_geometry` / `save_geometry` と `format-drive` の実装をフロントエンド側へ移した** (issue #284)。`src/core/environ.cc` と `src/core/pathname.cc` から Win32 GUI 呼び出しを減らし、core のプラットフォーム非依存部分を保つため。Win32 以外では `format-drive` は `unsupported-on-this-platform` エラーになる。
+  * **`src/core/fns.h` と `src/core/sysdep.h` から Win32 GUI 型の宣言をフロントエンド側へ移した** (issue #281)。ウィンドウプロシージャ・ダイアログヘルパ (`HWND`) と UI フォント/配色 (`HFONT`/`COLORREF`) を `src/frontend/win32/` 側のヘッダ/型へ分離し、core ヘッダの Win32 型を減らした。`HFONT`/`COLORREF` 関連は `Win32Sysdep` として `src/frontend/win32/win32sysdep.h` に分離。
 

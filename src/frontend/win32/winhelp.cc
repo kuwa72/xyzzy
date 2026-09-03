@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "dialogs.h"
 #include "resource.h"
 #include "oleconv.h"
 

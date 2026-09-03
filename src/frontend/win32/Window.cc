@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "Window.h"
 #include "gdi-utils.h"
 #include "conf.h"
 #include "ipc.h"
@@ -286,8 +288,8 @@ StatusWindow::paint (const DRAWITEMSTRUCT *dis)
   TEXTMETRIC tm;
   GetTextMetrics (dis->hDC, &tm);
 
-  COLORREF ofg = SetTextColor (dis->hDC, sysdep.btn_text);
-  COLORREF obg = SetBkColor (dis->hDC, sysdep.btn_face);
+  COLORREF ofg = SetTextColor (dis->hDC, win32_sysdep.btn_text);
+  COLORREF obg = SetBkColor (dis->hDC, win32_sysdep.btn_face);
 
   int x = dis->rcItem.left + 1;
   int y = (dis->rcItem.top + dis->rcItem.bottom - tm.tmHeight) / 2;
@@ -636,9 +638,9 @@ Window::init_colors (const XCOLORREF *colors, const XCOLORREF *mlcolors,
   for (i = 1; i < numberof (w_textprop_xbackcolor); i++)
     w_textprop_backcolor[i] = w_textprop_xbackcolor[i];
 
-  default_colors[WCOLOR_GRAY] = sysdep.gray_text;
-  default_colors[WCOLOR_BTNSHADOW] = sysdep.btn_shadow;
-  default_colors[WCOLOR_BTNTEXT] = sysdep.btn_text;
+  default_colors[WCOLOR_GRAY] = win32_sysdep.gray_text;
+  default_colors[WCOLOR_BTNSHADOW] = win32_sysdep.btn_shadow;
+  default_colors[WCOLOR_BTNTEXT] = win32_sysdep.btn_text;
 
   HDC hdc = GetDC (0);
   for (i = 0; i < WCOLOR_MAX; i++)
@@ -732,20 +734,20 @@ Window::create_default_windows ()
   XCOLORREF cc[USER_DEFINABLE_COLORS];
   for (int i = 0; i < USER_DEFINABLE_COLORS; i++)
     cc[i] = wcolor_index_names[i].rgb;
-  cc[WCOLOR_TEXT] = XCOLORREF (sysdep.window_text, COLOR_WINDOWTEXT);
-  cc[WCOLOR_BACK] = XCOLORREF (sysdep.window, COLOR_WINDOW);
-  cc[WCOLOR_HIGHLIGHT_TEXT] = XCOLORREF (sysdep.highlight_text,
+  cc[WCOLOR_TEXT] = XCOLORREF (win32_sysdep.window_text, COLOR_WINDOWTEXT);
+  cc[WCOLOR_BACK] = XCOLORREF (win32_sysdep.window, COLOR_WINDOW);
+  cc[WCOLOR_HIGHLIGHT_TEXT] = XCOLORREF (win32_sysdep.highlight_text,
                                          COLOR_HIGHLIGHTTEXT);
-  cc[WCOLOR_HIGHLIGHT] = XCOLORREF (sysdep.highlight, COLOR_HIGHLIGHT);
+  cc[WCOLOR_HIGHLIGHT] = XCOLORREF (win32_sysdep.highlight, COLOR_HIGHLIGHT);
   cc[WCOLOR_REVERSE] = XCOLORREF (GetSysColor (COLOR_BACKGROUND),
                                   COLOR_BACKGROUND);
   cc[WCOLOR_LINENUM] = cc[WCOLOR_TEXT];
-  cc[WCOLOR_MODELINE_FG] = XCOLORREF (sysdep.btn_text, COLOR_BTNTEXT);
-  cc[WCOLOR_MODELINE_BG] = XCOLORREF (sysdep.btn_face, COLOR_BTNFACE);
+  cc[WCOLOR_MODELINE_FG] = XCOLORREF (win32_sysdep.btn_text, COLOR_BTNTEXT);
+  cc[WCOLOR_MODELINE_BG] = XCOLORREF (win32_sysdep.btn_face, COLOR_BTNFACE);
 
   XCOLORREF mlcc[2];
-  mlcc[0] = XCOLORREF (sysdep.btn_highlight, COLOR_BTNHIGHLIGHT);
-  mlcc[1] = XCOLORREF (sysdep.btn_text, COLOR_BTNTEXT);
+  mlcc[0] = XCOLORREF (win32_sysdep.btn_highlight, COLOR_BTNHIGHLIGHT);
+  mlcc[1] = XCOLORREF (win32_sysdep.btn_text, COLOR_BTNTEXT);
 
   XCOLORREF fg[GLYPH_TEXTPROP_NCOLORS], bg[GLYPH_TEXTPROP_NCOLORS];
   for (int i = 0; i < GLYPH_TEXTPROP_NCOLORS; i++)
@@ -2735,22 +2737,22 @@ Window::paint_ruler_box (Painter &painter, const RECT &r) const
   calc_ruler_box (r, br);
 
   br.right--;
-  painter.draw_hline (br.left, br.right, br.top, sysdep.window_text);
-  painter.draw_vline (br.left, br.top, br.bottom, sysdep.window_text);
-  painter.draw_vline (br.right, br.top, br.bottom, sysdep.window_text);
+  painter.draw_hline (br.left, br.right, br.top, win32_sysdep.window_text);
+  painter.draw_vline (br.left, br.top, br.bottom, win32_sysdep.window_text);
+  painter.draw_vline (br.right, br.top, br.bottom, win32_sysdep.window_text);
   br.bottom--;
-  painter.draw_hline (br.left, br.right, br.bottom, sysdep.window_text);
+  painter.draw_hline (br.left, br.right, br.bottom, win32_sysdep.window_text);
   br.left++;
   br.top++;
-  painter.draw_hline (br.left, br.right, br.top, sysdep.btn_highlight);
-  painter.draw_vline (br.left, br.top, br.bottom, sysdep.btn_highlight);
+  painter.draw_hline (br.left, br.right, br.top, win32_sysdep.btn_highlight);
+  painter.draw_vline (br.left, br.top, br.bottom, win32_sysdep.btn_highlight);
   br.left++;
   br.top++;
   br.right--;
-  painter.draw_vline (br.right, br.top, br.bottom, sysdep.btn_shadow);
+  painter.draw_vline (br.right, br.top, br.bottom, win32_sysdep.btn_shadow);
   br.bottom--;
-  painter.draw_hline (br.left, br.right, br.bottom, sysdep.btn_shadow);
-  painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.btn_face);
+  painter.draw_hline (br.left, br.right, br.bottom, win32_sysdep.btn_shadow);
+  painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, win32_sysdep.btn_face);
 }
 
 void
@@ -2767,14 +2769,14 @@ Window::paint_ruler (Painter &painter, const RECT &r, int x, int y, int column) 
     {
       wchar_t wbuf[32];
       int l = swprintf (wbuf, 32, L"%d", column);
-      painter.draw_text_chars (x - l * sysdep.ruler_ext.cx / 2, r.top,
-                               (const Char *)wbuf, l, sysdep.window_text, 0,
+      painter.draw_text_chars (x - l * win32_sysdep.ruler_ext.cx / 2, r.top,
+                               (const Char *)wbuf, l, win32_sysdep.window_text, 0,
                                PFONT_RULER, &r, false);
     }
   else if (!(column % 5))
-    painter.draw_vline (x, y - 2, y + 2, sysdep.window_text);
+    painter.draw_vline (x, y - 2, y + 2, win32_sysdep.window_text);
   else
-    painter.draw_vline (x, y - 1, y + 1, sysdep.window_text);
+    painter.draw_vline (x, y - 1, y + 1, win32_sysdep.window_text);
 }
 
 void
@@ -2789,28 +2791,28 @@ Window::paint_ruler (Painter &painter) const
   MapWindowPoints (HWND_DESKTOP, app.active_frame.hwnd, (POINT *)&r, 2);
   r.bottom = r.top;
   r.top -= RULER_HEIGHT;
-  painter.draw_hline (r.left, r.right - 1, r.top, sysdep.btn_highlight);
-  painter.draw_vline (r.left, r.top, r.bottom, sysdep.btn_highlight);
-//  painter.draw_hline (r.left, r.right, r.bottom, sysdep.btn_shadow);
-  painter.draw_vline (r.right - 1, r.top, r.bottom, sysdep.btn_shadow);
+  painter.draw_hline (r.left, r.right - 1, r.top, win32_sysdep.btn_highlight);
+  painter.draw_vline (r.left, r.top, r.bottom, win32_sysdep.btn_highlight);
+//  painter.draw_hline (r.left, r.right, r.bottom, win32_sysdep.btn_shadow);
+  painter.draw_vline (r.right - 1, r.top, r.bottom, win32_sysdep.btn_shadow);
 
   calc_ruler_rect (r);
 
   if (w_ruler_fold_column == Buffer::FOLD_NONE)
-    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.window);
+    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, win32_sysdep.window);
   else if (w_ruler_fold_column <= w_ruler_top_column)
-    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.btn_shadow);
+    painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, win32_sysdep.btn_shadow);
   else
     {
       int x = r.left + ((w_ruler_fold_column - w_ruler_top_column)
                         * app.text_font.cell ().cx);
       if (x < r.right)
         {
-          painter.fill_rect (r.left, r.top, x - r.left, r.bottom - r.top, sysdep.window);
-          painter.fill_rect (x, r.top, r.right - x, r.bottom - r.top, sysdep.btn_shadow);
+          painter.fill_rect (r.left, r.top, x - r.left, r.bottom - r.top, win32_sysdep.window);
+          painter.fill_rect (x, r.top, r.right - x, r.bottom - r.top, win32_sysdep.btn_shadow);
         }
       else
-        painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, sysdep.window);
+        painter.fill_rect (r.left, r.top, r.right - r.left, r.bottom - r.top, win32_sysdep.window);
     }
 
   int y = (r.top + r.bottom) / 2;
@@ -2837,9 +2839,9 @@ Window::erase_ruler (Painter &painter, const RECT &r) const
 
   if (w_ruler_fold_column == Buffer::FOLD_NONE
       || w_ruler_column < w_ruler_fold_column)
-    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.window);
+    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, win32_sysdep.window);
   else
-    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, sysdep.btn_shadow);
+    painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, win32_sysdep.btn_shadow);
 
   int y = (r.top + r.bottom) / 2;
   int x = (r.left + app.text_font.cell ().cx / 2

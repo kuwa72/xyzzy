@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "dialogs.h"
 #include "gdi-utils.h"
 #include "ldialog.h"
 #include "ColorDialog.h"
@@ -11,11 +13,11 @@ static void
 paint_color_list (DRAWITEMSTRUCT *dis, const wchar_t *string, COLORREF color)
 {
   COLORREF bg = (dis->itemState & ODS_SELECTED
-                 ? sysdep.highlight : sysdep.window);
+                 ? win32_sysdep.highlight : win32_sysdep.window);
   COLORREF obg = SetBkColor (dis->hDC, bg);
   COLORREF ofg = SetTextColor (dis->hDC, (dis->itemState & ODS_SELECTED
-                                          ? sysdep.highlight_text
-                                          : sysdep.window_text));
+                                          ? win32_sysdep.highlight_text
+                                          : win32_sysdep.window_text));
   const RECT &r = dis->rcItem;
   if (dis->itemID != UINT (-1))
     {

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "Window.h"
 #include "dyn-handle.h"
 #include "sockinet.h"
 #include "byte-stream.h"

@@ -3,7 +3,8 @@
 #include "vfs.h"
 #include "resource.h"
 
-Sysdep sysdep;
+Win32Sysdep win32_sysdep;
+Sysdep &sysdep = win32_sysdep;
 
 Sysdep::Sysdep ()
 {
@@ -37,11 +38,13 @@ Sysdep::Sysdep ()
   comctl32_version = get_dll_version ("comctl32.dll");
   shell32_version = get_dll_version ("shell32.dll");
 
-  load_colors ();
   load_settings ();
   load_cursors ();
   hcur_current = hcur_arrow;
+}
 
+Win32Sysdep::Win32Sysdep ()
+{
   hfont_ui = 0;
   hfont_ui90 = 0;
   hfont_ui270 = 0;
@@ -55,9 +58,15 @@ Sysdep::Sysdep ()
   HGDIOBJ of = SelectObject (hdc, hfont_ruler);
   GetTextExtentPoint32W (hdc, L"0", 1, &ruler_ext);
   SelectObject (hdc, of);
+
+  load_colors ();
 }
 
 Sysdep::~Sysdep ()
+{
+}
+
+Win32Sysdep::~Win32Sysdep ()
 {
   if (hfont_ui)
     DeleteObject (hfont_ui);
@@ -72,7 +81,7 @@ Sysdep::~Sysdep ()
 void
 Sysdep::init_wintype ()
 {
-  switch (sysdep.os_ver.dwPlatformId)
+  switch (this->os_ver.dwPlatformId)
     {
     case VER_PLATFORM_WIN32s:
       wintype = WINTYPE_WIN32S;
@@ -188,7 +197,7 @@ Sysdep::init_process_type ()
 }
 
 HFONT
-Sysdep::create_ui_font (int e)
+Win32Sysdep::create_ui_font (int e)
 {
   LOGFONTW lf;
   memset (&lf, 0, sizeof lf);
@@ -200,7 +209,7 @@ Sysdep::create_ui_font (int e)
 }
 
 HFONT
-Sysdep::ui_font ()
+Win32Sysdep::ui_font ()
 {
   if (!hfont_ui)
     hfont_ui = create_ui_font (0);
@@ -208,7 +217,7 @@ Sysdep::ui_font ()
 }
 
 HFONT
-Sysdep::ui_font90 ()
+Win32Sysdep::ui_font90 ()
 {
   if (!hfont_ui90)
     hfont_ui90 = create_ui_font (900);
@@ -216,7 +225,7 @@ Sysdep::ui_font90 ()
 }
 
 HFONT
-Sysdep::ui_font270 ()
+Win32Sysdep::ui_font270 ()
 {
   if (!hfont_ui270)
     hfont_ui270 = create_ui_font (2700);
@@ -224,7 +233,7 @@ Sysdep::ui_font270 ()
 }
 
 void
-Sysdep::load_colors ()
+Win32Sysdep::load_colors ()
 {
   btn_text = GetSysColor (COLOR_BTNTEXT);
   btn_highlight = GetSysColor (COLOR_BTNHIGHLIGHT);

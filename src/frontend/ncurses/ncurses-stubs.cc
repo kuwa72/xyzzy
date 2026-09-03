@@ -62,7 +62,8 @@ Application::~Application ()
   xfree (ini_file_path);
 }
 
-Sysdep sysdep;
+Sysdep ncurses_sysdep;
+Sysdep &sysdep = ncurses_sysdep;
 
 Sysdep::Sysdep ()
 {
@@ -86,9 +87,6 @@ Sysdep::~Sysdep ()
 {
 }
 
-HFONT Sysdep::ui_font () { return 0; }
-HFONT Sysdep::ui_font90 () { return 0; }
-HFONT Sysdep::ui_font270 () { return 0; }
 DWORD Sysdep::get_dll_version (const char *) { return 0; }
 
 // ============================================================

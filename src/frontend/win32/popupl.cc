@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "monitor.h"
 
 static const wchar_t csPopupList[] = L"PopupList";
@@ -159,7 +160,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
                                WS_POPUP | WS_VSCROLL, 0, 0, 0, 0,
                                app.toplev, 0, app.hinst, 0);
 
-  HFONT hf = sysdep.ui_font ();
+  HFONT hf = win32_sysdep.ui_font ();
   SendMessage (hwnd_popup, WM_SETFONT, WPARAM (hf), 1);
 
   SIZE sz;

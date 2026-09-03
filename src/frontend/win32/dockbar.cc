@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "gdi-utils.h"
 #include "dockbar.h"
 #include "mman.h"
@@ -99,23 +100,23 @@ dock_bar::draw_borders (HDC hdc, RECT &r) const
   int oleft = r.left;
   if (border () & BORDER_LEFT)
     {
-      draw_vline (hdc, r.top, r.bottom, r.left, sysdep.btn_highlight);
+      draw_vline (hdc, r.top, r.bottom, r.left, win32_sysdep.btn_highlight);
       r.left++;
     }
   if (border () & BORDER_TOP)
     {
-      draw_hline (hdc, r.left, r.right, r.top, sysdep.btn_highlight);
+      draw_hline (hdc, r.left, r.right, r.top, win32_sysdep.btn_highlight);
       r.top++;
     }
   if (border () & BORDER_RIGHT)
     {
       r.right--;
-      draw_vline (hdc, r.top, r.bottom, r.right, sysdep.btn_shadow);
+      draw_vline (hdc, r.top, r.bottom, r.right, win32_sysdep.btn_shadow);
     }
   if (border () & BORDER_BOTTOM)
     {
       r.bottom--;
-      draw_hline (hdc, oleft, r.right, r.bottom, sysdep.btn_shadow);
+      draw_hline (hdc, oleft, r.right, r.bottom, win32_sysdep.btn_shadow);
     }
 }
 
@@ -124,17 +125,17 @@ dock_bar::draw_gripper (HDC hdc, const RECT &r) const
 {
   if (!dock_vert_p ())
     {
-      draw_vline (hdc, r.top + 2, r.bottom - 2, r.left + 2, sysdep.btn_highlight);
-      draw_vline (hdc, r.top + 1, r.bottom - 2, r.left + 4, sysdep.btn_shadow);
-      draw_hline (hdc, r.left + 2, r.left + 4, r.top + 1, sysdep.btn_highlight);
-      draw_hline (hdc, r.left + 2, r.left + 5, r.bottom - 2, sysdep.btn_shadow);
+      draw_vline (hdc, r.top + 2, r.bottom - 2, r.left + 2, win32_sysdep.btn_highlight);
+      draw_vline (hdc, r.top + 1, r.bottom - 2, r.left + 4, win32_sysdep.btn_shadow);
+      draw_hline (hdc, r.left + 2, r.left + 4, r.top + 1, win32_sysdep.btn_highlight);
+      draw_hline (hdc, r.left + 2, r.left + 5, r.bottom - 2, win32_sysdep.btn_shadow);
     }
   else
     {
-      draw_vline (hdc, r.top + 2, r.top + 4, r.left + 1, sysdep.btn_highlight);
-      draw_hline (hdc, r.left + 2, r.right - 2, r.top + 2, sysdep.btn_highlight);
-      draw_vline (hdc, r.top + 2, r.top + 5, r.right - 2, sysdep.btn_shadow);
-      draw_hline (hdc, r.left + 1, r.right - 2, r.top + 4, sysdep.btn_shadow);
+      draw_vline (hdc, r.top + 2, r.top + 4, r.left + 1, win32_sysdep.btn_highlight);
+      draw_hline (hdc, r.left + 2, r.right - 2, r.top + 2, win32_sysdep.btn_highlight);
+      draw_vline (hdc, r.top + 2, r.top + 5, r.right - 2, win32_sysdep.btn_shadow);
+      draw_hline (hdc, r.left + 1, r.right - 2, r.top + 4, win32_sysdep.btn_shadow);
     }
 }
 
@@ -157,7 +158,7 @@ dock_bar::erase_non_client () const
   IntersectClipRect (hdc, wr.left, wr.top, wr.right, wr.bottom);
   sendmsg (WM_ERASEBKGND, WPARAM (hdc), 0);
 #else
-  fill_rect (hdc, wr, sysdep.btn_face);
+  fill_rect (hdc, wr, win32_sysdep.btn_face);
 #endif
   adjust_gripper (hdc, wr, cr);
   draw_gripper (hdc, wr);
@@ -314,7 +315,7 @@ tool_bar::erase_bkgnd (HDC hdc) const
 {
   RECT r;
   GetClientRect (b_hwnd, &r);
-  fill_rect (hdc, r, sysdep.btn_face);
+  fill_rect (hdc, r, win32_sysdep.btn_face);
 }
 
 LRESULT
@@ -483,7 +484,7 @@ tab_bar::create (HWND hwnd_parent)
     return 0;
 
   set_padding (6, 4);
-  set_font (sysdep.ui_font ());
+  set_font (win32_sysdep.ui_font ());
   calc_tab_height ();
 
   HWND hwnd_tt = get_tooltips ();
@@ -543,13 +544,13 @@ tab_bar::dock_edge ()
         {
         case EDGE_TOP:
           modify_style (TCS_VERTICAL | TCS_BOTTOM | TCS_FIXEDWIDTH, 0);
-          set_font (sysdep.ui_font ());
+          set_font (win32_sysdep.ui_font ());
           set_item_size (0, 0);
           break;
 
         default:
           modify_style (TCS_VERTICAL | TCS_FIXEDWIDTH, TCS_BOTTOM);
-          set_font (sysdep.ui_font ());
+          set_font (win32_sysdep.ui_font ());
           set_item_size (0, 0);
           break;
 
@@ -557,13 +558,13 @@ tab_bar::dock_edge ()
           if (t_horz_text)
             {
               modify_style (TCS_RIGHT, TCS_VERTICAL | TCS_FIXEDWIDTH);
-              set_font (sysdep.ui_font ());
+              set_font (win32_sysdep.ui_font ());
               set_item_size (t_horz_height, t_horz_width);
             }
           else
             {
               modify_style (TCS_RIGHT | TCS_FIXEDWIDTH, TCS_VERTICAL);
-              set_font (sysdep.ui_font90 ());
+              set_font (win32_sysdep.ui_font90 ());
               set_item_size (0, 0);
             }
           break;
@@ -572,13 +573,13 @@ tab_bar::dock_edge ()
           if (t_horz_text)
             {
               modify_style (0, TCS_VERTICAL | TCS_RIGHT | TCS_FIXEDWIDTH);
-              set_font (sysdep.ui_font ());
+              set_font (win32_sysdep.ui_font ());
               set_item_size (t_horz_height, t_horz_width);
             }
           else
             {
               modify_style (TCS_FIXEDWIDTH, TCS_VERTICAL | TCS_RIGHT);
-              set_font (sysdep.ui_font270 ());
+              set_font (win32_sysdep.ui_font270 ());
               set_item_size (0, 0);
             }
           break;
@@ -608,7 +609,7 @@ tab_bar::calc_tab_height ()
     delete_item (0);
 
   HDC hdc = GetDC (b_hwnd);
-  HGDIOBJ of = SelectObject (hdc, sysdep.ui_font ());
+  HGDIOBJ of = SelectObject (hdc, win32_sysdep.ui_font ());
   SIZE sz;
   GetTextExtentPoint32W (hdc, L"...", 3, &sz);
   t_dots = sz.cx;
@@ -826,11 +827,11 @@ tab_bar::erase_bkgnd (HDC hdc)
       HRGN hrgn = CreateRectRgnIndirect (&r);
       ExtSelectClipRgn (hdc, hrgn, RGN_DIFF);
       DeleteObject (hrgn);
-      fill_rect (hdc, cr, sysdep.btn_face);
+      fill_rect (hdc, cr, win32_sysdep.btn_face);
       SelectClipRgn (hdc, 0);
     }
   else
-    fill_rect (hdc, cr, sysdep.btn_face);
+    fill_rect (hdc, cr, win32_sysdep.btn_face);
 
   t_erasebkgnd_called = 1;
 }
@@ -845,7 +846,7 @@ intersect_p (const RECT &r1, const RECT &r2)
 void
 tab_bar::paint_left (HDC hdc, const RECT &cr, const RECT &clip, int n)
 {
-  HGDIOBJ of = SelectObject (hdc, t_horz_text ? sysdep.ui_font () : sysdep.ui_font90 ());
+  HGDIOBJ of = SelectObject (hdc, t_horz_text ? win32_sysdep.ui_font () : win32_sysdep.ui_font90 ());
   draw_item_struct dis;
   dis.hdc = hdc;
   int cur = get_cursel ();
@@ -875,13 +876,13 @@ tab_bar::paint_left (HDC hdc, const RECT &cr, const RECT &clip, int n)
         }
       if (cur < 0 || i != cur + 1)
         {
-          draw_hline (hdc, r.left + 1, r.right, r.top, sysdep.btn_highlight);
-          draw_vline (hdc, r.top + 1, r.bottom - 1, r.left, sysdep.btn_highlight);
+          draw_hline (hdc, r.left + 1, r.right, r.top, win32_sysdep.btn_highlight);
+          draw_vline (hdc, r.top + 1, r.bottom - 1, r.left, win32_sysdep.btn_highlight);
         }
       else
-        draw_vline (hdc, r.top + 2, r.bottom - 1, r.left, sysdep.btn_highlight);
+        draw_vline (hdc, r.top + 2, r.bottom - 1, r.left, win32_sysdep.btn_highlight);
       if (i != cur - 1)
-        draw_hline (hdc, r.left + 1, r.right, r.bottom - 1, sysdep.btn_shadow);
+        draw_hline (hdc, r.left + 1, r.right, r.bottom - 1, win32_sysdep.btn_shadow);
       draw_item (dis);
     }
   SelectObject (hdc, of);
@@ -890,7 +891,7 @@ tab_bar::paint_left (HDC hdc, const RECT &cr, const RECT &clip, int n)
 void
 tab_bar::paint_top (HDC hdc, const RECT &cr, const RECT &clip, int n)
 {
-  HGDIOBJ of = SelectObject (hdc, sysdep.ui_font ());
+  HGDIOBJ of = SelectObject (hdc, win32_sysdep.ui_font ());
   draw_item_struct dis;
   dis.hdc = hdc;
   int cur = get_cursel ();
@@ -920,13 +921,13 @@ tab_bar::paint_top (HDC hdc, const RECT &cr, const RECT &clip, int n)
         }
       if (cur < 0 || i != cur + 1)
         {
-          draw_vline (hdc, r.top + 1, r.bottom, r.left, sysdep.btn_highlight);
-          draw_hline (hdc, r.left + 1, r.right - 1, r.top, sysdep.btn_highlight);
+          draw_vline (hdc, r.top + 1, r.bottom, r.left, win32_sysdep.btn_highlight);
+          draw_hline (hdc, r.left + 1, r.right - 1, r.top, win32_sysdep.btn_highlight);
         }
       else
-        draw_hline (hdc, r.left + 2, r.right - 1, r.top, sysdep.btn_highlight);
+        draw_hline (hdc, r.left + 2, r.right - 1, r.top, win32_sysdep.btn_highlight);
       if (i != cur - 1)
-        draw_vline (hdc, r.top + 1, r.bottom, r.right - 1, sysdep.btn_shadow);
+        draw_vline (hdc, r.top + 1, r.bottom, r.right - 1, win32_sysdep.btn_shadow);
       draw_item (dis);
     }
   SelectObject (hdc, of);
@@ -935,7 +936,7 @@ tab_bar::paint_top (HDC hdc, const RECT &cr, const RECT &clip, int n)
 void
 tab_bar::paint_right (HDC hdc, const RECT &cr, const RECT &clip, int n)
 {
-  HGDIOBJ of = SelectObject (hdc, t_horz_text ? sysdep.ui_font () : sysdep.ui_font270 ());
+  HGDIOBJ of = SelectObject (hdc, t_horz_text ? win32_sysdep.ui_font () : win32_sysdep.ui_font270 ());
   draw_item_struct dis;
   dis.hdc = hdc;
   int cur = get_cursel ();
@@ -965,13 +966,13 @@ tab_bar::paint_right (HDC hdc, const RECT &cr, const RECT &clip, int n)
         }
       if (cur < 0 || i != cur + 1)
         {
-          draw_hline (hdc, r.left, r.right - 1, r.top, sysdep.btn_highlight);
-          draw_vline (hdc, r.top + 1, r.bottom - 1, r.right - 1, sysdep.btn_shadow);
+          draw_hline (hdc, r.left, r.right - 1, r.top, win32_sysdep.btn_highlight);
+          draw_vline (hdc, r.top + 1, r.bottom - 1, r.right - 1, win32_sysdep.btn_shadow);
         }
       else
-        draw_vline (hdc, r.top + 2, r.bottom - 1, r.right - 1, sysdep.btn_shadow);
+        draw_vline (hdc, r.top + 2, r.bottom - 1, r.right - 1, win32_sysdep.btn_shadow);
       if (i != cur - 1)
-        draw_hline (hdc, r.left, r.right - 1, r.bottom - 1, sysdep.btn_shadow);
+        draw_hline (hdc, r.left, r.right - 1, r.bottom - 1, win32_sysdep.btn_shadow);
       draw_item (dis);
     }
   SelectObject (hdc, of);
@@ -980,7 +981,7 @@ tab_bar::paint_right (HDC hdc, const RECT &cr, const RECT &clip, int n)
 void
 tab_bar::paint_bottom (HDC hdc, const RECT &cr, const RECT &clip, int n)
 {
-  HGDIOBJ of = SelectObject (hdc, sysdep.ui_font ());
+  HGDIOBJ of = SelectObject (hdc, win32_sysdep.ui_font ());
   draw_item_struct dis;
   dis.hdc = hdc;
   int cur = get_cursel ();
@@ -1010,13 +1011,13 @@ tab_bar::paint_bottom (HDC hdc, const RECT &cr, const RECT &clip, int n)
         }
       if (cur < 0 || i != cur + 1)
         {
-          draw_vline (hdc, r.top, r.bottom - 1, r.left, sysdep.btn_highlight);
-          draw_hline (hdc, r.left + 1, r.right - 1, r.bottom - 1, sysdep.btn_shadow);
+          draw_vline (hdc, r.top, r.bottom - 1, r.left, win32_sysdep.btn_highlight);
+          draw_hline (hdc, r.left + 1, r.right - 1, r.bottom - 1, win32_sysdep.btn_shadow);
         }
       else
-        draw_hline (hdc, r.left + 2, r.right - 1, r.bottom - 1, sysdep.btn_shadow);
+        draw_hline (hdc, r.left + 2, r.right - 1, r.bottom - 1, win32_sysdep.btn_shadow);
       if (i != cur - 1)
-        draw_vline (hdc, r.top, r.bottom - 1, r.right - 1, sysdep.btn_shadow);
+        draw_vline (hdc, r.top, r.bottom - 1, r.right - 1, win32_sysdep.btn_shadow);
       draw_item (dis);
     }
   SelectObject (hdc, of);
@@ -1084,8 +1085,8 @@ tab_bar::paint ()
   int n = item_count ();
   if (n > 0)
     {
-      SetTextColor (hdc, sysdep.btn_text);
-      SetBkColor (hdc, sysdep.btn_face);
+      SetTextColor (hdc, win32_sysdep.btn_text);
+      SetBkColor (hdc, win32_sysdep.btn_face);
       switch (edge ())
         {
         case EDGE_TOP:
@@ -1242,12 +1243,12 @@ tab_bar::adjust_gripper (HDC hdc, RECT &wr, const RECT &cr) const
     switch (edge ())
       {
       case EDGE_LEFT:
-        draw_vline (hdc, wr.top, wr.bottom, cr.right, sysdep.btn_highlight);
+        draw_vline (hdc, wr.top, wr.bottom, cr.right, win32_sysdep.btn_highlight);
         wr.right = cr.right - 1;
         break;
 
       case EDGE_RIGHT:
-        draw_vline (hdc, wr.top, wr.bottom, cr.left - 1, sysdep.btn_shadow);
+        draw_vline (hdc, wr.top, wr.bottom, cr.left - 1, win32_sysdep.btn_shadow);
         wr.left = cr.left + 1;
         break;
       }
@@ -2504,10 +2505,10 @@ tool_bm::load_mapped_bitmap (const wchar_t *filename, HBITMAP &hbm)
   struct {DWORD from, to;} cm[] =
     {
 #define RGB2BGR(c) (RGB (GetBValue (c), GetGValue (c), GetRValue (c)))
-      {RGB2BGR (RGB (0, 0, 0)), RGB2BGR (sysdep.btn_text)},
-      {RGB2BGR (RGB (0x80, 0x80, 0x80)), RGB2BGR (sysdep.btn_shadow)},
-      {RGB2BGR (RGB (0xc0, 0xc0, 0xc0)), RGB2BGR (sysdep.btn_face)},
-      {RGB2BGR (RGB (0xff, 0xff, 0xff)), RGB2BGR (sysdep.btn_highlight)},
+      {RGB2BGR (RGB (0, 0, 0)), RGB2BGR (win32_sysdep.btn_text)},
+      {RGB2BGR (RGB (0x80, 0x80, 0x80)), RGB2BGR (win32_sysdep.btn_shadow)},
+      {RGB2BGR (RGB (0xc0, 0xc0, 0xc0)), RGB2BGR (win32_sysdep.btn_face)},
+      {RGB2BGR (RGB (0xff, 0xff, 0xff)), RGB2BGR (win32_sysdep.btn_highlight)},
 #undef RGB2BGR
     };
 

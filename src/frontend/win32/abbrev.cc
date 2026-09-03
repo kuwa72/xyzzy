@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "oleconv.h"
 
 /* Phase 2-5: take an in-place wchar_t buffer (null-terminated, with
@@ -128,7 +129,7 @@ static int
 abbrev_string (wchar_t *wbuf, int maxl, int pathname_p)
 {
   HDC hdc (GetDC (0));
-  HGDIOBJ of (SelectObject (hdc, sysdep.ui_font ()));
+  HGDIOBJ of (SelectObject (hdc, win32_sysdep.ui_font ()));
   TEXTMETRICW tm;
   GetTextMetricsW (hdc, &tm);
   int maxpxl = tm.tmAveCharWidth * maxl;
