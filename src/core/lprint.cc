@@ -4,6 +4,7 @@
 #include "wstream.h"
 #include "sock.h"
 #include "version.h"
+#include <vector>
 
 extern bool g_batch_mode;       // src/core/Buffer.cc
 
@@ -749,8 +750,8 @@ static void
 print_integer (wStream &stream, const print_control &pc, lisp linteger)
 {
   int w = print_integer_width (pc, linteger);
-  char *b = (char *)alloca (w);
-  stream.add (print_integer (b + w, pc, linteger, 0));
+  std::vector<char> b (w);
+  stream.add (print_integer (b.data () + w, pc, linteger, 0));
 }
 
 static void
@@ -759,12 +760,12 @@ print_fraction (wStream &stream, const print_control &pc, lisp object)
   int w = max (max (print_integer_width (pc, xfract_num (object)),
                     print_integer_width (pc, xfract_den (object))),
                10);
-  char *b = (char *)alloca (w);
+  std::vector<char> b (w);
   if (pc.radix)
-    stream.add (print_base_spec (b + w, pc.base, 1));
-  stream.add (print_integer (b + w, xfract_num (object), pc.base, 0, pc.radix));
+    stream.add (print_base_spec (b.data () + w, pc.base, 1));
+  stream.add (print_integer (b.data () + w, xfract_num (object), pc.base, 0, pc.radix));
   stream.add ('/');
-  stream.add (print_integer (b + w, xfract_den (object), pc.base, 0, pc.radix));
+  stream.add (print_integer (b.data () + w, xfract_den (object), pc.base, 0, pc.radix));
 }
 
 static void
@@ -2248,8 +2249,8 @@ Format::integer (wStream &stream, lisp linteger, int base, int istart)
 
   print_control pc (base);
   int fmtw = print_integer_width (linteger, base);
-  char *b0 = (char *)alloca (fmtw);
-  char *be = b0 + fmtw;
+  std::vector<char> b0 (fmtw);
+  char *be = b0.data () + fmtw;
   char *b = print_integer (be, pc, linteger, atsign);
   int l = be - b - 1;
   if (!colon)
@@ -4042,12 +4043,14 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
   check_string (lmsg);
   int l = count_crlf (xstring_contents (lmsg),
                       xstring_contents (lmsg) + xstring_length (lmsg));
-  ucs4_t *msg4 = (ucs4_t *)alloca (sizeof (ucs4_t) * (l + 1));
+  std::vector<ucs4_t> msg4v (l + 1);
+  ucs4_t *msg4 = msg4v.data ();
   copy_crlf (msg4,
              xstring_contents (lmsg),
              xstring_contents (lmsg) + xstring_length (lmsg));
   msg4[l] = 0;
-  Char *msg = (Char *)alloca (sizeof (Char) * (l + 1) * 2);
+  std::vector<Char> msgv ((l + 1) * 2);
+  Char *msg = msgv.data ();
   Char *msgdp = msg;
   for (int mi = 0; mi < l; mi++)
     {
@@ -4058,6 +4061,7 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
   *msgdp = 0;
 
   const Char *title;
+  std::vector<Char> tbv;
   if (!ltitle || ltitle == Qnil)
     title = TitleBarStringC;
   else
@@ -4065,7 +4069,8 @@ Fmessage_box (lisp lmsg, lisp ltitle, lisp styles, lisp args)
       check_string (ltitle);
       int tl = xstring_length (ltitle);
       const ucs4_t *ts = xstring_contents (ltitle);
-      Char *tb = (Char *)alloca (sizeof (Char) * (tl + 1) * 2);
+      tbv.resize ((tl + 1) * 2);
+      Char *tb = tbv.data ();
       Char *tbdp = tb;
       for (int ti = 0; ti < tl; ti++)
         {
@@ -4131,13 +4136,15 @@ putmsg (wStream &stream, int msgboxp, int style, int beep)
 {
   stream.finish ();
   int l = stream.length ();
-  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * (l + 1));
+  std::vector<ucs4_t> bv (l + 1);
+  ucs4_t *b = bv.data ();
   stream.copy (b);
   b[l] = 0;
 
   if (msgboxp)
     {
-      Char *bc = (Char *)alloca (sizeof (Char) * (l + 1) * 2);
+      std::vector<Char> bcv ((l + 1) * 2);
+      Char *bc = bcv.data ();
       Char *bcdp = bc;
       for (int bi = 0; bi < l; bi++)
         {
@@ -4339,9 +4346,9 @@ Fsi_condition_string (lisp cc)
   print_condition (stream, cc);
   stream.finish ();
   int l = stream.length ();
-  ucs4_t *b = (ucs4_t *)alloca (sizeof (ucs4_t) * l);
-  stream.copy (b);
-  return make_string (b, l);
+  std::vector<ucs4_t> bv (l);
+  stream.copy (bv.data ());
+  return make_string (bv.data (), l);
 }
 
 lisp
