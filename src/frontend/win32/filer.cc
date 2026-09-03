@@ -7,6 +7,7 @@
 #include "colors.h"
 #include "ctxmenu.h"
 #include "com.h"
+#include <vector>
 
 #ifndef SHGFI_OVERLAYINDEX
 #define SHGFI_OVERLAYINDEX 0x000000040
@@ -1370,6 +1371,14 @@ FilerView::thread_main ()
       if (fv_stop_thread)
         break;
 
+      /* alloca だとこの外側 while が 1 回転しても解放されない
+         (thread_main 自身は return しない関数本体なので、確保は関数が
+         終わるまで積み残る)。ディレクトリを切り替えて fv_hevent が立つ
+         たびに 1 回分ずつスタックへ積み重なり、いつか溢れる (issue #260)。
+         std::vector はこのブロックを抜ける (continue/break/goto term
+         いずれでも) たびに自動で解放されるので、ここでは alloca ではなく
+         これを使う。 */
+      std::vector <wchar_t> path_vec;
       wchar_t *path;
       int sequence;
       int len;
@@ -1381,7 +1390,8 @@ FilerView::thread_main ()
           continue;
 
         len = (int) wcslen (fv_icon_path);
-        path = (wchar_t *)alloca ((len + MAX_PATH + 1) * sizeof (wchar_t));
+        path_vec.resize (len + MAX_PATH + 1);
+        path = &path_vec[0];
         wcscpy (path, fv_icon_path);
         sequence = fv_sequence;
         chunk = fv_chunk;
