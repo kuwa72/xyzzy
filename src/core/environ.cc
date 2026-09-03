@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "environ.h"
 #include "conf.h"
+#include <vector>
 #ifdef _WIN32
 #include "monitor.h"
 #endif
@@ -1108,15 +1109,15 @@ Fsi_getenv (lisp var)
   check_string (var);
 #ifdef _WIN32
   /* Phase 3: ucs4 → UTF-16. */
-  wchar_t *v = (wchar_t *)alloca (i2wl (var) * sizeof (wchar_t));
-  i2w (var, (ucs2_t *)v);
-  const wchar_t *e = _wgetenv (v);
+  std::vector<wchar_t> v (i2wl (var));
+  i2w (var, (ucs2_t *)v.data ());
+  const wchar_t *e = _wgetenv (v.data ());
   return e ? make_string ((const Char *)e, wcslen (e)) : Qnil;
 #else
   /* The environment on a Unix system is UTF-8 bytes, not CP932. */
-  char *v = (char *)alloca (i2u8l (xstring_contents (var), xstring_length (var)));
-  i2u8 (xstring_contents (var), xstring_length (var), v);
-  const char *e = getenv (v);
+  std::vector<char> v (i2u8l (xstring_contents (var), xstring_length (var)));
+  i2u8 (xstring_contents (var), xstring_length (var), v.data ());
+  const char *e = getenv (v.data ());
   return e ? make_string_from_utf8 (e) : Qnil;
 #endif
 }
@@ -1134,15 +1135,15 @@ Fsi_putenv (lisp var, lisp val)
       n += i2wl (val) - 1;
     }
 
-  wchar_t *b = (wchar_t *)alloca (n * sizeof (wchar_t));
-  ucs2_t *v = i2w (var, (ucs2_t *)b);
+  std::vector<wchar_t> b (n);
+  ucs2_t *v = i2w (var, (ucs2_t *)b.data ());
   *v++ = L'=';
   if (val && val != Qnil)
     i2w (val, v);                 // value + NUL
   else
     *v = 0;
 
-  int r = _wputenv (b);
+  int r = _wputenv (b.data ());
   return (r < 0 || !val) ? Qnil : val;
 #else
   /* **`putenv' ではなく `setenv' / `unsetenv' を使う。**
@@ -1161,21 +1162,21 @@ Fsi_putenv (lisp var, lisp val)
      `setenv` は名前と値を別に取り、どちらも複写する。値が nil のときは
      `unsetenv`。 */
   size_t nl = i2u8l (xstring_contents (var), xstring_length (var));
-  char *name = (char *)alloca (nl);
-  i2u8 (xstring_contents (var), xstring_length (var), name);
+  std::vector<char> name (nl);
+  i2u8 (xstring_contents (var), xstring_length (var), name.data ());
 
   if (!val || val == Qnil)
     {
-      unsetenv (name);
+      unsetenv (name.data ());
       return Qnil;
     }
 
   check_string (val);
   size_t vl = i2u8l (xstring_contents (val), xstring_length (val));
-  char *value = (char *)alloca (vl);
-  i2u8 (xstring_contents (val), xstring_length (val), value);
+  std::vector<char> value (vl);
+  i2u8 (xstring_contents (val), xstring_length (val), value.data ());
 
-  return setenv (name, value, 1) ? Qnil : val;
+  return setenv (name.data (), value.data (), 1) ? Qnil : val;
 #endif
 }
 
