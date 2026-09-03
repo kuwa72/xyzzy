@@ -1183,6 +1183,42 @@ else
   fi
 fi
 
+# Lisp が決める長さを alloca していた 2 箇所 (issue #260)。**どちらも Lisp から
+# editor を落とせた** -- 長さの 4 倍 / 8 倍のバイト数をスタックに取るので、
+# 3MB 級で SIGSEGV する。`check_stack_overflow` は再帰の深さしか見ないので
+# 捕まらない。
+#
+#   gethash-region   リージョン長 x 4 バイト     src/core/hash.cc
+#   format の引数配列 引数の数 x 8 バイト x 2 箇所 src/core/lprint.cc
+#
+# **Lisp スイートではなく smoke に置く。** 直っていないと**プロセスが落ちる**
+# 種類のテストで、スイートの中に置くと run 全体が死んで後ろが測られなくなる
+# (`tools/run-tests.sh` の exclude list のコメントと同じ理由)。ここは check
+# ごとに別プロセスなので、落ちても 1 件の失敗として出る。
+#
+# 大きさは **linux のスタック (8MB) を超える所**に取ってある。Windows は
+# 32MB なので、同じ大きさでは直っていなくても落ちない -- **この check は
+# POSIX 側の番犬である。**
+log=$build/smoke-alloca.txt
+"$build/xyzzy" --batch -q \
+  -e '(progn
+        (let ((h (make-hash-table :test (quote equal))))
+          (dotimes (i 12) (insert (make-sequence (quote string) 262144 :initial-element #\a)))
+          (gethash-region (point-min) (point-max) h)
+          (format t "SMOKE-ALLOCA-HASH ~D~%" (buffer-size)))
+        (let ((r (format nil "~{~A~}" (make-list 1200000 :initial-element 1))))
+          (format t "SMOKE-ALLOCA-FORMAT ~D~%" (length r)))
+        (kill-xyzzy))' >"$log" 2>&1
+rc=$?
+if [ "$rc" = 0 ] && grep -q '^SMOKE-ALLOCA-HASH 3145728' "$log" \
+   && grep -q '^SMOKE-ALLOCA-FORMAT 1200000' "$log"; then
+  echo 'smoke: 大きな alloca OK -- gethash-region と format が 3MB 級で落ちない'
+else
+  echo "smoke: 大きな alloca FAILED (exit $rc), see $log" >&2
+  grep -E 'SMOKE-ALLOCA|Segmentation|Stack' "$log" >&2 || tail -5 "$log" >&2
+  fail=1
+fi
+
 # 非 ASCII のホスト名が引けること (issue #258)。**POSIX の名前解決は UTF-8 を
 # 取るのに、`w2s` で CP932 にして渡していた** ので、`/etc/hosts` に UTF-8 で
 # 置いた名前が引けなかった。

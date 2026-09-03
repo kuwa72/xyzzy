@@ -81,4 +81,30 @@ xyzzy リリースノート
     **smoke に check は足していない。** 到達できない経路なので、入れても
     絶対に落ちない check になる (`tools/linux-smoke.sh` の決まりは「入れた
     check が本当に落ちるか確かめる」)。
+  * **Lisp から editor を落とせる `alloca` を 2 箇所直した** (issue #260)。
+    どちらも**長さを Lisp が決める**のに `alloca` していた:
+
+      * `gethash-region` -- リージョン長 x 4 バイト。**3MB のバッファで
+        SIGSEGV** した (`src/core/hash.cc`)
+      * `format` の引数配列 -- 引数の数 x 8 バイト、2 箇所。
+        `(format nil "~{~A~}" (make-list 3000000))` で **SIGSEGV**
+        (`src/core/lprint.cc`)
+
+    `check_stack_overflow` は**再帰の深さしか見ない**ので、この形は捕まらない。
+
+    **`format` の側には GC の罠がある。** 配列の中身が Lisp オブジェクトなので、
+    heap に移すと `gc_mark_in_stack` から見えなくなる (`alloca` ならスタックが
+    走査されるので見えていた)。`protect_gc` で明示的に根にし、**先に `nil` で
+    埋めてから protect する** -- 未初期化のゴミを GC に辿らせると、以前それで
+    実 Windows のアクセス違反になった (多値バッファの件)。
+
+    **速さは測って変わらない**: 20 万回の `(format nil "~A~A~S" ...)` が
+    1578 / 1587 ms (前) 対 1584 ms (後)。誤差の範囲なので、小さいときだけ
+    `alloca` に戻す分岐は入れていない。
+
+    **確認は smoke に置いた** (43 件になった)。**Lisp スイートには置かない** --
+    直っていないとプロセスが落ちる種類なので、スイートに置くと run 全体が
+    死んで後ろが測られなくなる。大きさは linux のスタック (8MB) を超える所に
+    取ってあり、**Windows は 32MB なのでこの check は POSIX 側の番犬**である。
+    負の確認: 2 つの修正を戻すと check が Segmentation fault で落ちる。
 
