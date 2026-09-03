@@ -1293,6 +1293,7 @@ Window::Window (int minibufp, int temporary)
   w_ruler_column = -1;
   w_ruler_fold_column = Buffer::FOLD_NONE;
   w_ignore_scroll_margin = 0;
+  w_mode_line_state = 0;
   w_hwnd = 0;
   w_hwnd_ml = 0;
   memset (&w_vsinfo, 0, sizeof w_vsinfo);
@@ -1347,6 +1348,7 @@ Window::Window (const Window &src)
   w_ruler_column = -1;
   w_ruler_fold_column = Buffer::FOLD_NONE;
   w_ignore_scroll_margin = 0;
+  w_mode_line_state = 0;
   w_hwnd = 0;
   w_hwnd_ml = 0;
   memset (&w_vsinfo, 0, sizeof w_vsinfo);
@@ -1450,13 +1452,6 @@ void Window::modify_all_mode_line () {}
 void Window::init_colors (const XCOLORREF *, const XCOLORREF *,
                           const XCOLORREF *, const XCOLORREF *) {}
 void Window::init (int, int) {}
-
-// mode_line_painter vtable anchor functions
-bool mode_line_percent_painter::need_repaint_all () { return false; }
-int mode_line_percent_painter::paint_percent (HDC) { return 0; }
-int mode_line_percent_painter::calc_percent (Buffer *, point_t) { return 0; }
-bool mode_line_point_painter::need_repaint_all () { return false; }
-int mode_line_point_painter::paint_point (HDC) { return 0; }
 
 /* WindowConfiguration とその lisp 入口は src/core/window-config.cc に移した
    (issue #82)。ここに空の実装を置いていたため、端末では
