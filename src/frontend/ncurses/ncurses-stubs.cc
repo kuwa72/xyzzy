@@ -2326,14 +2326,34 @@ render_glyph_row (int row, int col_offset, int cols, const glyph_data *gd)
   // internally, so the rendering is identical — only the call path changes.
   // Clip [g, gend) to the cells that fit in `cols` here, since draw_text has
   // no column limit of its own.
+  //
+  /* **ここは番犬で、本当の切り詰めは core がやっている。** 全角が 1 桁しか
+     残っていない所に来たとき、`Window::redraw_line` (src/core/glyph.cc) が
+     `if (g + 1 == ge) { exceed = 1; break; }` で**置くのをやめて** fold mark
+     に回す。だから半分だけの全角がここへ渡ってくることはない。
+     (`window-columns` 43 の縦分割に全角を並べて生のバイト列を数えると、
+     書かれる全角は常に収まる個数だった。)
+
+     それでも「残り桁に収まらない glyph は出さない」で書くのは、**この関数
+     だけを見て正しさが分かるようにする**ため。以前は `x < cols` を見てから
+     `x += 2` していたので、**条件だけ読むと 1 桁溢れるように見える** --
+     実際に溢れないのは core の側の性質で、ここには書いていなかった。 */
   int x = 0, gend = 0;
-  while (gend < len && x < cols)
+  while (gend < len)
     {
-      glyph_t gt = g[gend++];
+      glyph_t gt = g[gend];
       if (gt & GLYPH_JUNK)
-        continue;
+        {
+          gend++;            // wide trail — その lead と一緒に出す
+          continue;
+        }
       int w = (int) glyph_width (gt);
-      x += (w > 0) ? w : 1;
+      if (w <= 0)
+        w = 1;
+      if (x + w > cols)
+        break;
+      x += w;
+      gend++;
     }
 
   painter.draw_text (col_offset, row, g, g + gend,
