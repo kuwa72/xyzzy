@@ -284,4 +284,49 @@
   => (((1 2) 3) 4)
   => (1 (2 (3 4)))
   => ((((foo 1) 2) 3) 4)
-  => (1 (2 (3 (4 foo)))))
+   => (1 (2 (3 (4 foo)))))
+
+(deftest search-clhs-examples ()
+  (values
+   (search "cat" "concatenate")
+   (search '(3 4) '(1 2 3 4 5) :from-end t))
+  => 3
+  => 2)
+
+(deftest search-basic ()
+  (values
+   (search "ab" "xabx")
+   (search "ab" "xabx" :from-end t)
+   (search "xyz" "hello")
+   (search "" "hello")
+   (search "hello" "hello"))
+  => 1
+  => 1
+  => nil
+  => 0
+  => 0)
+
+(deftest search-with-test ()
+  (values
+   (search '(1 2) '(0 1 2 3) :test #'=)
+   (search "ab" "xABx" :test #'char-equal))
+  => 1
+  => 1)
+
+(deftest search-with-start-end ()
+  (values
+   (search '(2 3) '(1 2 3 4 5) :start2 1 :end2 4)
+   (search '(2 3) '(1 2 3 4 5) :start2 3)
+   (search '(1 2) '(1 2 1 2) :start1 0 :end1 1 :start2 2))
+  => 1
+  => nil
+  => 2)
+
+(deftest search-with-key ()
+  (values
+   (search '() '(1 2 3 4 5))
+   (search "ab" "xABx" :key #'char-downcase)
+   (search "cd" "abcde" :key #'char-code))
+  => 0
+  => 1
+  => 2)
