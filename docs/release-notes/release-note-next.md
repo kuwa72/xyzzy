@@ -170,8 +170,14 @@ xyzzy リリースノート
 
     残り 89 件は既存のコメントで「nil が正しい答え」と説明済みだった
     (issue #185 以降の作業で分類が進んでいたので、今回の対象はその後に
-    残っていた分)。未実装だが実装できる側 (`si:search-path` / `eject-media`)
-    と、判断が割れる側 (`current-kbd-layout` 系 2 件) は今回は対象外。
+    残っていた分)。判断が割れる側 (`current-kbd-layout` 系 2 件) は今回は対象外。
+  * **`si:search-path` が POSIX で常に `nil` を返していたのを修正した**
+    (issue #282)。スタブのまま残っていた `Fsi_search_path` を、Win32 の
+    `SearchPathW` に相当する実装に置き換えた。検索順は (1) 実行ファイルの
+    ディレクトリ、(2) カレントディレクトリ、(3) PATH 環境変数の各ディレクトリ。
+    `access(X_OK)` で実行可能かを判定する。`*eshell*` の自動検出
+    (`lisp/process.l` の `$SHELL` が未設定のとき `bash` を探す経路) が
+    動くようになった。
   * **`si:getenv` / `si:putenv` に長い文字列を渡すと SIGSEGV で落ちていた
     のを直した** (issue #286)。`environ.cc` の POSIX 側と Win32 側の 4 箇所
     で、`alloca` のサイズが呼び出し元の文字列長そのものだった。33MB の文字列で

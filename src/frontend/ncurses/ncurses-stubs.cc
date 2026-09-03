@@ -4106,8 +4106,140 @@ lisp Fsi_get_key_state (lisp)
 /* Fsi_uuid_create は src/core/system.cc が POSIX でも実装するように
    なったので、ここのスタブを消した。 */
 
-lisp Fsi_search_path (lisp, lisp, lisp)
+/* POSIX 版 `si:search-path'。Win32 の SearchPathW に相当するものを
+   実行可能ファイルの検索で実装する。
+
+   検索順:
+     1. 実行ファイルと同じディレクトリ (app.exe_path)
+     2. カレントディレクトリ (getcwd)
+     3. PATH 環境変数の各ディレクトリ
+
+   各ディレクトリで `dir/file' を作り、access(X_OK) で判定する。
+   ext が指定されていて file がその拡張子で終わっていない場合は
+   `dir/file.ext' も試す。 */
+
+#include <stdlib.h>
+#include <string.h>
+
+static char *
+w2u8 (const wchar_t *w, char *buf, int bufsize)
 {
+  int n = 0;
+  for (const wchar_t *p = w; *p && n < bufsize - 5; p++)
+    {
+      wint_t c = static_cast<wint_t>(*p);
+      if (c < 0x80)
+        buf[n++] = char (c);
+      else if (c < 0x800)
+        {
+          buf[n++] = char (0xc0 | (c >> 6));
+          buf[n++] = char (0x80 | (c & 0x3f));
+        }
+      else
+        {
+          buf[n++] = char (0xe0 | (c >> 12));
+          buf[n++] = char (0x80 | ((c >> 6) & 0x3f));
+          buf[n++] = char (0x80 | (c & 0x3f));
+        }
+    }
+  buf[n] = 0;
+  return buf;
+}
+
+static int
+has_suffix (const char *s, const char *suffix)
+{
+  size_t sl = strlen (s);
+  size_t rl = strlen (suffix);
+  return sl >= rl && strcmp (s + sl - rl, suffix) == 0;
+}
+
+lisp
+Fsi_search_path (lisp lfile, lisp lpath, lisp lext)
+{
+  check_string (lfile);
+  int file_len = xstring_length (lfile);
+  int file_u8l = i2u8l (xstring_contents (lfile), file_len);
+  char *file = (char *)alloca (file_u8l + 1);
+  i2u8 (xstring_contents (lfile), file_len, file);
+
+  const char *ext = 0;
+  int ext_len = 0;
+  if (lext && lext != Qnil)
+    {
+      check_string (lext);
+      ext_len = xstring_length (lext);
+      int ext_u8l = i2u8l (xstring_contents (lext), ext_len);
+      ext = (const char *)alloca (ext_u8l + 1);
+      i2u8 (xstring_contents (lext), ext_len, (char *)ext);
+    }
+
+  /* 検索ディレクトリのリストを構築。 */
+  std::vector<std::string> dirs;
+
+  /* 1. 実行ファイルのディレクトリ */
+  if (*app.exe_path)
+    {
+      char exe_u8[PATH_MAX * 4 + 1];
+      w2u8 (app.exe_path, exe_u8, sizeof exe_u8);
+      /* ディレクトリ部分だけ取る */
+      char *slash = strrchr (exe_u8, '/');
+      if (slash)
+        {
+          std::string d (exe_u8, slash - exe_u8);
+          dirs.push_back (d);
+        }
+    }
+
+  /* 2. カレントディレクトリ */
+  {
+    char cwd[PATH_MAX + 1];
+    if (getcwd (cwd, sizeof cwd))
+      dirs.push_back (cwd);
+  }
+
+  /* 3. PATH 環境変数 */
+  const char *env_path = getenv ("PATH");
+  if (env_path && *env_path)
+    {
+      /* PATH を ':' で分割して走査。各要素は alloca で取る。 */
+      size_t path_len = strlen (env_path);
+      char *path_copy = (char *)alloca (path_len + 1);
+      memcpy (path_copy, env_path, path_len + 1);
+
+      char *sp = 0;
+      char *token = strtok_r (path_copy, ":", &sp);
+      while (token)
+        {
+          if (*token)
+            dirs.push_back (token);
+          token = strtok_r (0, ":", &sp);
+        }
+    }
+
+  /* 検索。 */
+  size_t file_len_s = strlen (file);
+  for (const auto &d : dirs)
+    {
+      /* dir/file */
+      size_t try_len = d.size () + 1 + file_len_s;
+      char *try_path = (char *)alloca (try_len + 1);
+      snprintf (try_path, try_len + 1, "%s/%s", d.c_str (), file);
+      if (access (try_path, X_OK) == 0)
+        return make_string (try_path);
+
+      /* dir/file.ext (ext があるとき、file がその拡張子で終わらない) */
+      if (ext && !has_suffix (file, ext))
+        {
+          size_t ext_l = strlen (ext);
+          size_t try_len2 = d.size () + 1 + file_len_s + ext_l;
+          char *try_path2 = (char *)alloca (try_len2 + 1);
+          snprintf (try_path2, try_len2 + 1, "%s/%s%s", d.c_str (), file, ext);
+          if (access (try_path2, X_OK) == 0)
+            return make_string (try_path2);
+        }
+    }
+
   return Qnil;
 }
 
