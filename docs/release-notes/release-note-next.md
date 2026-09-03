@@ -177,4 +177,11 @@ xyzzy リリースノート
     で、`alloca` のサイズが呼び出し元の文字列長そのものだった。33MB の文字列で
     スタック (8MB) を超え、即座にページフォルト。`alloca` を `std::vector`
     に変更した。
+  * **`lprint.cc` の `alloca` が巨大な bignum の表示や長いエラーメッセージで
+    スタックオーバーフローするのを直した** (issue #287)。`print_integer`、
+    `print_fraction`、`Format::integer` の bignum 表示、`Fmessage_box` の
+    メッセージ/タイトル変換、`Fsi_condition_string`、`putmsg` の 7 箇所で、
+    `alloca` のサイズが入力に比例して上限がなかった。`alloca` を `std::vector`
+    に変更した。これらは Lisp オブジェクトへのポインタを含まない文字データの
+    バッファなので `protect_gc` は不要。
 
