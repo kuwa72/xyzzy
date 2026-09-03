@@ -233,3 +233,100 @@
                   (not (and (string-match "削除" msg) t))))))
     '(t t))
   => (t t))
+
+(deftest with-standard-io-syntax-binds-print-vars ()
+  "with-standard-io-syntax が印字変数を標準値に束縛すること。"
+  (with-standard-io-syntax
+    (list *print-readably*
+          *print-escape*
+          *print-pretty*
+          *print-base*
+          *print-radix*
+          *print-circle*
+          *print-level*
+          *print-length*
+          *read-suppress*
+          *read-eval*))
+  => (nil t nil 10 nil nil nil nil nil t))
+
+(deftest with-standard-io-syntax-restores-vars ()
+  "with-standard-io-syntax がbody終了後に変数を元に戻すこと。"
+  (values
+   (let ((*print-readably* t)
+         (*print-escape* nil)
+         (*print-pretty* t)
+         (*print-base* 16)
+         (*print-radix* t)
+         (*print-circle* t)
+         (*print-level* 5)
+         (*print-length* 10)
+         (*read-suppress* t)
+         (*read-eval* nil))
+     (with-standard-io-syntax
+       (list *print-readably*
+             *print-escape*
+             *print-pretty*
+             *print-base*
+             *print-radix*
+             *print-circle*
+             *print-level*
+             *print-length*
+             *read-suppress*
+             *read-eval*)))
+   (let ((*print-readably* t)
+         (*print-escape* nil)
+         (*print-pretty* t)
+         (*print-base* 16)
+         (*print-radix* t)
+         (*print-circle* t)
+         (*print-level* 5)
+         (*print-length* 10)
+         (*read-suppress* t)
+         (*read-eval* nil))
+     (with-standard-io-syntax)
+     (list *print-readably*
+           *print-escape*
+           *print-pretty*
+           *print-base*
+           *print-radix*
+           *print-circle*
+           *print-level*
+           *print-length*
+           *read-suppress*
+           *read-eval*)))
+  => (nil t nil 10 nil nil nil nil nil t)
+  => (t nil t 16 t t 5 10 t nil))
+
+(deftest with-standard-io-syntax-restores-readtable ()
+  "with-standard-io-syntax が body 終了後に readtable を元に戻すこと。"
+  (values
+   (let ((original *readtable*))
+     (with-standard-io-syntax
+       (not (eq *readtable* original))))
+   (let ((original *readtable*))
+     (with-standard-io-syntax)
+     (eq *readtable* original)))
+  => non-nil
+  => t)
+
+(deftest with-standard-io-syntax-return-value ()
+  "with-standard-io-syntax が body の値を返すこと。"
+  (with-standard-io-syntax
+    (values :ok 42))
+  => :ok
+  => 42)
+
+(deftest with-standard-io-syntax-nested ()
+  "入れ子になった with-standard-io-syntax が正しく動作すること。"
+  (values
+   (let ((*print-base* 16))
+     (with-standard-io-syntax
+       (list *print-base*
+            (let ((*print-base* 2))
+              (with-standard-io-syntax
+                *print-base*)))))
+   (let ((*print-base* 16))
+     (with-standard-io-syntax)
+     *print-base*))
+  => (10 10)
+  => 16)

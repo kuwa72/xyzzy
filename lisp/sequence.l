@@ -12,7 +12,7 @@
 	  remove-duplicates delete-duplicates
 	  substitute substitute-if substitute-if-not nsubstitute
 	  nsubstitute-if nsubstitute-if-not count count-if count-if-not
-	  mismatch merge sort))
+	  mismatch search merge sort))
 
 (setf (symbol-function 'sort) #'stable-sort)
 
@@ -335,6 +335,30 @@
 			   (funcall key (elt sequence1 i))
 			   (funcall key (elt sequence2 j)))
 	    (return i)))))))
+
+(defun search (sequence1 sequence2 &key from-end test test-not (key #'identity)
+			 (start1 0) (start2 0) end1 end2)
+  (with-sequence-start-end start1 end1 sequence1
+    (with-sequence-start-end start2 end2 sequence2
+      (let ((len1 (- end1 start1))
+	    (len2 (- end2 start2)))
+	(when (> len1 len2)
+	  (return-from search nil))
+	(if from-end
+	    (do ((i (- end2 len1) (1- i)))
+		((< i start2) nil)
+	      (unless (mismatch sequence1 sequence2
+				:start1 start1 :end1 end1
+				:start2 i :end2 (+ i len1)
+				:test test :test-not test-not :key key)
+		(return i)))
+	  (do ((i start2 (1+ i)))
+	      ((> i (- end2 len1)) nil)
+	    (unless (mismatch sequence1 sequence2
+			      :start1 start1 :end1 end1
+			      :start2 i :end2 (+ i len1)
+			      :test test :test-not test-not :key key)
+	      (return i))))))))
 
 (defun merge (result-type sequence1 sequence2 predicate &key (key #'identity))
   (unless key (setq key #'identity))
