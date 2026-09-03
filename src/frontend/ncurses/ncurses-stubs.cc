@@ -883,6 +883,8 @@ void make_geometry_key (char *buf, size_t, const char *prefix) { if (buf) *buf =
 int reg2ini () { return 0; }
 void reg_delete_tree () {}
 
+lisp Fformat_drive (lisp, lisp) { return FEsimple_error (Eunsupported_on_this_platform, make_string ("format-drive")); }
+
 // ============================================================
 // colors.cc stubs
 // ============================================================

@@ -3,9 +3,6 @@
 #include "environ.h"
 #include "conf.h"
 #include <vector>
-#ifdef _WIN32
-#include "monitor.h"
-#endif
 
 const Char Registry::base[] = {'S','o','f','t','w','a','r','e','\\',
                                'F','r','e','e',' ',
@@ -941,109 +938,6 @@ environ::load_settings ()
     Buffer::b_default_linenum_mode = Buffer::LNMODE_DISP;
 }
 
-int
-environ::load_geometry (int cmdshow, POINT *point, SIZE *size)
-{
-  load_settings ();
-
-  point->x = point->y = CW_USEDEFAULT;
-  size->cx = size->cy = CW_USEDEFAULT;
-
-  char name[64];
-  make_geometry_key (name, sizeof name, 0);
-  WINDOWPLACEMENT w;
-  if (read_conf (cfgMisc, name, w)
-      && w.rcNormalPosition.left < w.rcNormalPosition.right
-      && w.rcNormalPosition.top < w.rcNormalPosition.bottom)
-    {
-      if (environ::restore_window_size)
-        {
-          cmdshow = w.showCmd;
-          size->cx = w.rcNormalPosition.right - w.rcNormalPosition.left;
-          size->cy = w.rcNormalPosition.bottom - w.rcNormalPosition.top;
-        }
-      if (environ::restore_window_position)
-        {
-          RECT r;
-          int min_visible = (GetSystemMetrics(SM_CYSIZEFRAME)
-                             + GetSystemMetrics(SM_CYBORDER)
-                             + GetSystemMetrics(SM_CYCAPTION));
-          r.left = w.rcNormalPosition.left + min_visible;
-          r.top = w.rcNormalPosition.top + min_visible;
-          r.right = w.rcNormalPosition.right - min_visible;
-          r.bottom = w.rcNormalPosition.bottom - min_visible;
-#ifdef _WIN32
-          if (monitor.get_monitor_from_rect (&r))
-            {
-              point->x = w.rcNormalPosition.left;
-              point->y = w.rcNormalPosition.top;
-            }
-          else
-#endif
-            {
-              point->x = point->y = CW_USEDEFAULT;
-            }
-        }
-    }
-
-  return cmdshow;
-}
-
-void
-environ::save_geometry ()
-{
-  save_window_size = xsymbol_value (Vsave_window_size) != Qnil;
-  save_window_snap_size = xsymbol_value (Vsave_window_snap_size) != Qnil;
-  save_window_position = xsymbol_value (Vsave_window_position) != Qnil;
-
-  if (save_window_size || save_window_position)
-    {
-      WINDOWPLACEMENT w;
-      w.length = sizeof w;
-      if (GetWindowPlacement (app.toplev, &w))
-        {
-          if (save_window_snap_size)
-            adjust_snap_window_size (app.toplev, w);
-          char name[256];
-          make_geometry_key (name, sizeof name, 0);
-          if (!save_window_size || !save_window_position)
-            {
-              WINDOWPLACEMENT ow;
-              if (read_conf (cfgMisc, name, ow)
-                  && ow.rcNormalPosition.left < ow.rcNormalPosition.right
-                  && ow.rcNormalPosition.top < ow.rcNormalPosition.bottom)
-                {
-                  int old_cx = ow.rcNormalPosition.right - ow.rcNormalPosition.left;
-                  int old_cy = ow.rcNormalPosition.bottom - ow.rcNormalPosition.top;
-                  int new_cx = w.rcNormalPosition.right - w.rcNormalPosition.left;
-                  int new_cy = w.rcNormalPosition.bottom - w.rcNormalPosition.top;
-
-                  if (!save_window_position)
-                    {
-                      w.showCmd = ow.showCmd;
-                      w.rcNormalPosition.left = ow.rcNormalPosition.left;
-                      w.rcNormalPosition.top = ow.rcNormalPosition.top;
-                    }
-
-                  if (!save_window_size)
-                    {
-                      w.rcNormalPosition.right = w.rcNormalPosition.left + old_cx;
-                      w.rcNormalPosition.bottom = w.rcNormalPosition.top + old_cy;
-                    }
-                  else
-                    {
-                      w.rcNormalPosition.right = w.rcNormalPosition.left + new_cx;
-                      w.rcNormalPosition.bottom = w.rcNormalPosition.top + new_cy;
-                    }
-                }
-            }
-
-          write_conf (cfgMisc, name, w);
-        }
-    }
-
-  save_settings ();
-}
 
 /* 位置以外の設定を書き出す。`save_geometry' の後半をそのまま切り出したもの
    で、端末フロントエンドからも呼ぶ (上の `load_settings' の注を参照)。 */
