@@ -172,4 +172,9 @@ xyzzy リリースノート
     (issue #185 以降の作業で分類が進んでいたので、今回の対象はその後に
     残っていた分)。未実装だが実装できる側 (`si:search-path` / `eject-media`)
     と、判断が割れる側 (`current-kbd-layout` 系 2 件) は今回は対象外。
+  * **`si:getenv` / `si:putenv` に長い文字列を渡すと SIGSEGV で落ちていた
+    のを直した** (issue #286)。`environ.cc` の POSIX 側と Win32 側の 4 箇所
+    で、`alloca` のサイズが呼び出し元の文字列長そのものだった。33MB の文字列で
+    スタック (8MB) を超え、即座にページフォルト。`alloca` を `std::vector`
+    に変更した。
 
