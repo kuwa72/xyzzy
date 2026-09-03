@@ -184,4 +184,9 @@ xyzzy リリースノート
     `alloca` のサイズが入力に比例して上限がなかった。`alloca` を `std::vector`
     に変更した。これらは Lisp オブジェクトへのポインタを含まない文字データの
     バッファなので `protect_gc` は不要。
+  * **`with-standard-io-syntax` マクロを実装した** (issue #279)。ANSI CL の
+    標準マクロで、印字/読込の動的変数群を標準値に束縛する。C++ コア側に
+    `*print-case*`/`*print-gensym*`/`*print-array*`/`*read-base*` が存在しないため、
+    既存の変数のみを束縛する縮小スコープでの実装。`*readtable*` は
+    `copy-readtable nil` で標準リードテーブルに復帰する。
 
