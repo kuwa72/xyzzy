@@ -1003,6 +1003,7 @@ set(WIN32_SOURCES
     ${WIN32_DIR}/appid.cc
     ${WIN32_DIR}/arc-if.cc
     ${WIN32_DIR}/archiver.cc
+    ${WIN32_DIR}/format-drive.cc
     ${WIN32_DIR}/guid.cc
     ${WIN32_DIR}/process.cc
     ${WIN32_DIR}/listen.cc

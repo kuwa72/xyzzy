@@ -199,4 +199,5 @@ xyzzy リリースノート
     `*print-case*`/`*print-gensym*`/`*print-array*`/`*read-base*` が存在しないため、
     既存の変数のみを束縛する縮小スコープでの実装。`*readtable*` は
     `copy-readtable nil` で標準リードテーブルに復帰する。
+  * **Win32 GUI に関する `environ::load_geometry` / `save_geometry` と `format-drive` の実装をフロントエンド側へ移した** (issue #284)。`src/core/environ.cc` と `src/core/pathname.cc` から Win32 GUI 呼び出しを減らし、core のプラットフォーム非依存部分を保つため。Win32 以外では `format-drive` は `unsupported-on-this-platform` エラーになる。
 
