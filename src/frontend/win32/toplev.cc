@@ -1,5 +1,8 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "toplev.h"
+#include "Window.h"
 #include "clipboard.h"
 #include "statarea.h"
 #include "gdi-utils.h"
@@ -627,15 +630,15 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint (hwnd, &ps);
 
-        fill_rect (hdc, ps.rcPaint, sysdep.btn_face);
+        fill_rect (hdc, ps.rcPaint, win32_sysdep.btn_face);
 
         RECT r;
         GetClientRect (hwnd, &r);
-        draw_hline (hdc, 0, r.right, 0, sysdep.btn_shadow);
+        draw_hline (hdc, 0, r.right, 0, win32_sysdep.btn_shadow);
 
         GetWindowRect (app.active_frame.hwnd, &r);
         MapWindowPoints (HWND_DESKTOP, hwnd, (POINT *)&r, 1);
-        draw_hline (hdc, r.left, r.right, r.top - 1, sysdep.btn_shadow);
+        draw_hline (hdc, r.left, r.right, r.top - 1, win32_sysdep.btn_shadow);
 
         EndPaint (hwnd, &ps);
         SetWindowLongPtr (hwnd, GWL_STYLE, ostyle);
@@ -672,7 +675,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       break;
 
     case WM_SYSCOLORCHANGE:
-      sysdep.load_colors ();
+      win32_sysdep.load_colors ();
       Ctl3d::color_change ();
       Window::init_colors ();
       reload_caret_colors ();
@@ -1130,7 +1133,7 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint (hwnd, &ps);
-        fill_rect (hdc, ps.rcPaint, sysdep.btn_face);
+        fill_rect (hdc, ps.rcPaint, win32_sysdep.btn_face);
         for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
           if (wp->flags () & Window::WF_RULER)
             wp->paint_ruler (hdc);

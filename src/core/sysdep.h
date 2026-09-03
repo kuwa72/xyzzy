@@ -16,16 +16,6 @@ struct Sysdep
   UINT vscroll;
   UINT hscroll;
 
-  COLORREF btn_text;
-  COLORREF btn_highlight;
-  COLORREF btn_shadow;
-  COLORREF btn_face;
-  COLORREF window_text;
-  COLORREF gray_text;
-  COLORREF highlight_text;
-  COLORREF highlight;
-  COLORREF window;
-
   HGDIOBJ hbr_white;
   HGDIOBJ hbr_black;
   HGDIOBJ hpen_white;
@@ -55,9 +45,6 @@ struct Sysdep
   const char *windows_name;
   const wchar_t *windows_short_name;   /* goes into paths, so wide */
 
-  HFONT hfont_ruler;
-  SIZE ruler_ext;
-
   enum machine_type
     {
       MACHINETYPE_UNKNOWN,
@@ -77,17 +64,10 @@ struct Sysdep
 
   process_type process_type;
 private:
-  HFONT hfont_ui;
-  HFONT hfont_ui90;
-  HFONT hfont_ui270;
-  static HFONT create_ui_font (int);
   void init_wintype ();
   void init_machine_type ();
   void init_process_type ();
 public:
-  HFONT ui_font ();
-  HFONT ui_font90 ();
-  HFONT ui_font270 ();
 
   wchar_t curdir[PATH_MAX];
   wchar_t host_name[MAX_COMPUTERNAME_LENGTH + 1];
@@ -99,7 +79,6 @@ public:
   DWORD comctl32_version;
   DWORD shell32_version;
 
-  void load_colors ();
   void load_settings ();
   void load_cursors ();
 
@@ -134,6 +113,6 @@ public:
 };
 
 
-extern Sysdep sysdep;
+extern Sysdep &sysdep;
 
 #endif

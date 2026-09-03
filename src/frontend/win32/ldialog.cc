@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "dialogs.h"
 #include "ldialog.h"
 #include "ColorDialog.h"
 #include "privctrl.h"
@@ -1063,13 +1065,13 @@ Dialog::draw_item (int id, DRAWITEMSTRUCT *dis)
   COLORREF ofg, obg;
   if (dis->itemState & ODS_SELECTED && dis->itemID != UINT (-1))
     {
-      ofg = SetTextColor (dis->hDC, sysdep.highlight_text);
-      obg = SetBkColor (dis->hDC, sysdep.highlight);
+      ofg = SetTextColor (dis->hDC, win32_sysdep.highlight_text);
+      obg = SetBkColor (dis->hDC, win32_sysdep.highlight);
     }
   else
     {
-      obg = SetBkColor (dis->hDC, sysdep.window);
-      ofg = SetTextColor (dis->hDC, sysdep.window_text);
+      obg = SetBkColor (dis->hDC, win32_sysdep.window);
+      ofg = SetTextColor (dis->hDC, win32_sysdep.window_text);
     }
 
   const RECT &r = dis->rcItem;

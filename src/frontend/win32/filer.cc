@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "dialogs.h"
 #include "environ.h"
 #include "conf.h"
 #include "font.h"
@@ -2166,7 +2168,7 @@ Filer::Paint ()
     {
       HFONT hf = HFONT (SendMessage (id_hwnd, WM_GETFONT, 0, 0));
       HGDIOBJ of = SelectObject (hdc, hf);
-      int obk = SetBkColor (hdc, sysdep.btn_face);
+      int obk = SetBkColor (hdc, win32_sysdep.btn_face);
 
       if (stringp (f_lguide_text))
         paint_text (hdc, f_lguide_text, f_guide_area);

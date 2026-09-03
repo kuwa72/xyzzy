@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "gdi-utils.h"
 #include "resource.h"
 
@@ -62,7 +63,7 @@ draw_vline (HDC hdc, int y1, int y2, int x, COLORREF c)
 void
 paint_button_off (HDC hdc, const RECT &r)
 {
-  HGDIOBJ open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_highlight));
+  HGDIOBJ open = SelectObject (hdc, CreatePen (PS_SOLID, 0, win32_sysdep.btn_highlight));
   MoveToEx (hdc, r.left, r.bottom - 1, 0);
   LineTo (hdc, r.left, r.top);
   LineTo (hdc, r.right - 1, r.top);
@@ -73,7 +74,7 @@ paint_button_off (HDC hdc, const RECT &r)
   LineTo (hdc, r.left - 1, r.bottom - 1);
   SelectObject (hdc, open);
 
-  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_shadow));
+  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, win32_sysdep.btn_shadow));
   MoveToEx (hdc, r.left + 1, r.bottom - 2, 0);
   LineTo (hdc, r.right - 2, r.bottom - 2);
   LineTo (hdc, r.right - 2, r.top);
@@ -89,37 +90,37 @@ paint_button_on (HDC hdc, const RECT &r)
   LineTo (hdc, r.right - 1, r.top);
   SelectObject (hdc, open);
 
-  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_highlight));
+  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, win32_sysdep.btn_highlight));
   LineTo (hdc, r.right - 1, r.bottom - 1);
   LineTo (hdc, r.left - 1, r.bottom - 1);
   DeleteObject (SelectObject (hdc, open));
 
-  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, sysdep.btn_shadow));
+  open = SelectObject (hdc, CreatePen (PS_SOLID, 0, win32_sysdep.btn_shadow));
   MoveToEx (hdc, r.left + 1, r.bottom - 3, 0);
   LineTo (hdc, r.left + 1, r.top + 1);
   LineTo (hdc, r.right - 2, r.top + 1);
   DeleteObject (SelectObject (hdc, open));
 
-  SetPixel (hdc, r.left + 1, r.bottom - 2, sysdep.btn_face);
-  SetPixel (hdc, r.right -2, r.top + 1, sysdep.btn_face);
+  SetPixel (hdc, r.left + 1, r.bottom - 2, win32_sysdep.btn_face);
+  SetPixel (hdc, r.right -2, r.top + 1, win32_sysdep.btn_face);
 }
 #else
 void
 paint_button_off (HDC hdc, const RECT &r)
 {
-  draw_vline (hdc, r.top, r.bottom - 1, r.left, sysdep.btn_highlight);
-  draw_hline (hdc, r.left, r.right - 1, r.top, sysdep.btn_highlight);
-  draw_vline (hdc, r.top, r.bottom, r.right - 1, sysdep.btn_shadow);
-  draw_hline (hdc, r.left, r.right, r.bottom - 1, sysdep.btn_shadow);
+  draw_vline (hdc, r.top, r.bottom - 1, r.left, win32_sysdep.btn_highlight);
+  draw_hline (hdc, r.left, r.right - 1, r.top, win32_sysdep.btn_highlight);
+  draw_vline (hdc, r.top, r.bottom, r.right - 1, win32_sysdep.btn_shadow);
+  draw_hline (hdc, r.left, r.right, r.bottom - 1, win32_sysdep.btn_shadow);
 }
 
 void
 paint_button_on (HDC hdc, const RECT &r)
 {
-  draw_vline (hdc, r.top, r.bottom - 1, r.left, sysdep.btn_shadow);
-  draw_hline (hdc, r.left, r.right - 1, r.top, sysdep.btn_shadow);
-  draw_vline (hdc, r.top, r.bottom, r.right - 1, sysdep.btn_highlight);
-  draw_hline (hdc, r.left, r.right, r.bottom - 1, sysdep.btn_highlight);
+  draw_vline (hdc, r.top, r.bottom - 1, r.left, win32_sysdep.btn_shadow);
+  draw_hline (hdc, r.left, r.right - 1, r.top, win32_sysdep.btn_shadow);
+  draw_vline (hdc, r.top, r.bottom, r.right - 1, win32_sysdep.btn_highlight);
+  draw_hline (hdc, r.left, r.right, r.bottom - 1, win32_sysdep.btn_highlight);
 }
 #endif
 

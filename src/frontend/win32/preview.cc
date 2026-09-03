@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
+#include "dialogs.h"
 #include "resource.h"
 #include "print.h"
 #include "preview.h"
@@ -458,7 +460,7 @@ preview_page_window::calc_origin (POINT &p) const
 void
 preview_page_window::paint_paper (HDC hdc) const
 {
-  HBRUSH hbr = CreateSolidBrush (sysdep.btn_shadow);
+  HBRUSH hbr = CreateSolidBrush (win32_sysdep.btn_shadow);
   HGDIOBJ obj = SelectObject (hdc, hbr);
   PatBlt (hdc, p_physsize_pxl.cx, SHADOW,
           SHADOW, p_physsize_pxl.cy, PATCOPY);

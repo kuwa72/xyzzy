@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "gdi-utils.h"
 #include "environ.h"
 #include "fnkey.h"
@@ -45,7 +46,7 @@ FKWin::FKWin ()
 
   TEXTMETRIC tm;
   HDC hdc = GetDC (0);
-  HGDIOBJ ofont = SelectObject (hdc, sysdep.ui_font ());
+  HGDIOBJ ofont = SelectObject (hdc, win32_sysdep.ui_font ());
   GetTextMetrics (hdc, &tm);
   fk_height = tm.tmHeight + 10;
   SelectObject (hdc, ofont);
@@ -72,9 +73,9 @@ FKWin::paint_text (HDC hdc, int n, const RECT &br, int offset) const
   r.top = br.top + 1 + offset;
   r.bottom = br.bottom - 2 + offset;
 
-  int ofg = SetTextColor (hdc, sysdep.btn_text);
-  int obg = SetBkColor (hdc, sysdep.btn_face);
-  HGDIOBJ of = SelectObject (hdc, sysdep.ui_font ());
+  int ofg = SetTextColor (hdc, win32_sysdep.btn_text);
+  int obg = SetBkColor (hdc, win32_sysdep.btn_face);
+  HGDIOBJ of = SelectObject (hdc, win32_sysdep.ui_font ());
 
   if (fk_vkey & FVK_META)
     n += META_OFFSET;
@@ -120,8 +121,8 @@ FKWin::paint_on (HDC hdc, int n, const RECT &r) const
 void
 FKWin::paint_buttons (HDC hdc) const
 {
-  draw_hline (hdc, 0, fk_sz.cx, 0, sysdep.btn_highlight);
-  draw_hline (hdc, 0, fk_sz.cx, fk_sz.cy - 1, sysdep.btn_shadow);
+  draw_hline (hdc, 0, fk_sz.cx, 0, win32_sysdep.btn_highlight);
+  draw_hline (hdc, 0, fk_sz.cx, fk_sz.cy - 1, win32_sysdep.btn_shadow);
 
   for (int i = 0; i < fk_nbuttons; i++)
     {

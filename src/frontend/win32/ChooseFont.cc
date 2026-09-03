@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "gdi-utils.h"
 #include "ChooseFont.h"
 
@@ -333,13 +334,13 @@ ChooseFontP::draw_font_list (HWND, DRAWITEMSTRUCT *dis)
 
   if (dis->itemState & ODS_SELECTED)
     {
-      ofg = SetTextColor (dis->hDC, sysdep.highlight_text);
-      obg = SetBkColor (dis->hDC, sysdep.highlight);
+      ofg = SetTextColor (dis->hDC, win32_sysdep.highlight_text);
+      obg = SetBkColor (dis->hDC, win32_sysdep.highlight);
     }
   else
     {
-      ofg = SetTextColor (dis->hDC, sysdep.window_text);
-      obg = SetBkColor (dis->hDC, sysdep.window);
+      ofg = SetTextColor (dis->hDC, win32_sysdep.window_text);
+      obg = SetBkColor (dis->hDC, win32_sysdep.window);
     }
 
   const RECT &r = dis->rcItem;

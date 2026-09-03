@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "win32sysdep.h"
 #include "colors.h"
 #include "conf.h"
 #include "Filer.h"
@@ -40,16 +41,16 @@ get_misc_color (int i)
 static void
 load_default ()
 {
-  xcolors[MC_FILER_FG] = XCOLORREF (sysdep.window_text, COLOR_WINDOWTEXT);
-  xcolors[MC_FILER_BG] = XCOLORREF (sysdep.window, COLOR_WINDOW);
-  xcolors[MC_FILER_HIGHLIGHT_FG] = XCOLORREF (sysdep.highlight_text, COLOR_HIGHLIGHTTEXT);
-  xcolors[MC_FILER_HIGHLIGHT_BG] = XCOLORREF (sysdep.highlight, COLOR_HIGHLIGHT);
+  xcolors[MC_FILER_FG] = XCOLORREF (win32_sysdep.window_text, COLOR_WINDOWTEXT);
+  xcolors[MC_FILER_BG] = XCOLORREF (win32_sysdep.window, COLOR_WINDOW);
+  xcolors[MC_FILER_HIGHLIGHT_FG] = XCOLORREF (win32_sysdep.highlight_text, COLOR_HIGHLIGHTTEXT);
+  xcolors[MC_FILER_HIGHLIGHT_BG] = XCOLORREF (win32_sysdep.highlight, COLOR_HIGHLIGHT);
   xcolors[MC_FILER_CURSOR] = RGB (192, 0, 192);
 
   for (int i = MC_BUFTAB_SEL_FG; i <= MC_TAB_FG; i += 2)
     {
-      xcolors[i] = XCOLORREF (sysdep.btn_text, COLOR_BTNTEXT);
-      xcolors[i + 1] = XCOLORREF (sysdep.btn_face, COLOR_BTNFACE);
+      xcolors[i] = XCOLORREF (win32_sysdep.btn_text, COLOR_BTNTEXT);
+      xcolors[i + 1] = XCOLORREF (win32_sysdep.btn_face, COLOR_BTNFACE);
     }
 }
 

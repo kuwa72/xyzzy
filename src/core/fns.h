@@ -92,10 +92,6 @@ void toplev_gc_mark (void (*)(lisp));
 int toplev_accept_mouse_move_p ();
 
 /* toplev.cc (frontend) */
-LRESULT CALLBACK toplevel_wndproc (HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK frame_wndproc (HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK client_wndproc (HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK modeline_wndproc (HWND, UINT, WPARAM, LPARAM);
 void main_loop ();
 int start_quit_thread ();
 int wait_process_terminate (HANDLE);
@@ -153,14 +149,6 @@ void init_menu_popup (WPARAM, LPARAM);
 lisp lookup_menu_command (int);
 lisp track_popup_menu (lisp, lisp, const POINT *);
 
-/* dialogs.cc */
-void center_window (HWND);
-void set_window_icon (HWND);
-void init_list_column (HWND, int, const int *, const int *, int, const char *, const char *);
-void save_list_column_width (HWND, int, const char *, const char *);
-int lv_find_selected_item (HWND);
-int lv_find_focused_item (HWND);
-
 /* **パス名の突き合わせ。** 大文字小文字を区別するかどうかは
    `WINFS::case_insensitive_names` (src/core/vfs.h) に従う。
 
@@ -204,9 +192,6 @@ lisp symbol_value_char_encoding (lisp);
 int to_vender_code (lisp);
 int to_lang (lisp);
 lisp from_lang (int);
-
-/* Window.cc */
-void ForceSetForegroundWindow (HWND);
 
 /* **表示フラグ (`set-window-flags` / `set-local-window-flags`) の
    フロントエンド側。** Lisp から見える入口は core にある

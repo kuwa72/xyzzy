@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "Window.h"
 #include "clipboard.h"
 #include "ctxmenu.h"
 #include "com.h"
