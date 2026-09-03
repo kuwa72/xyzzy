@@ -71,6 +71,34 @@
   => "hoge2"
   => "hoge2")
 
+;;; --- 長い文字列でスタックオーバーフローしないこと ---------------------------
+;;;
+;;; `si:getenv' / `si:putenv' は以前 `alloca' でバッファを取っていて、
+;;; 呼び出し元の文字列長そのままのサイズを確保した。十分長い文字列を渡すと
+;;; スタック (8MB) を超えて SIGSEGV した (issue #286)。`std::vector' に
+;;; 変更したあとの回帰テスト。
+
+(deftest test-long-string-getenv-does-not-crash ()
+  "長い文字列を env 名にして `si:getenv' が SIGSEGV しないこと。
+alloca の代わりに std::vector を使うようにしたあとの回帰テスト (issue #286)。
+MSVC はデフォルトスタック 1MB なので、concat で一時バッファが
+積み上がっても大丈夫なサイズに留める。"
+  (let ((s "A"))
+    (dotimes (i 10)
+      (setq s (concat s s)))
+    ;; 2^10 = 1024 バイト。MSVC の 1MB スタックでも安全。
+    (si:getenv s))
+  => nil)
+
+(deftest test-long-string-putenv-does-not-crash ()
+  "長い文字列を名前にして `si:putenv' が SIGSEGV しないこと。
+`si:getenv' と同じく alloca → std::vector。"
+  (let ((s "A"))
+    (dotimes (i 10)
+      (setq s (concat s s)))
+    (si:putenv s "1"))
+  => "1")
+
 ;;; --- Windows 固有のディレクトリ -----------------------------------------
 
 ;; **未束縛の変数を読むと `#:unbound' がそのまま出てくる。** 値を入れている
