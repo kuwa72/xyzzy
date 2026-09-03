@@ -108,3 +108,18 @@ xyzzy リリースノート
     取ってあり、**Windows は 32MB なのでこの check は POSIX 側の番犬**である。
     負の確認: 2 つの修正を戻すと check が Segmentation fault で落ちる。
 
+  * **`FilerView::thread_main` の `alloca` を `std::vector` に変えた** (issue
+    #260)。これは Windows 専用のフォルダビューアイコン読み込みスレッドの本体
+    で、外側の `while (WaitForSingleObject (...))` が**スレッド生存中ずっと
+    回り続けて return しない**。`alloca` はスタックフレームが戻るまで解放
+    されないので、この形では**ディレクトリを切り替えて while が 1 回転する
+    たびに前回分が積み残る** -- フォルダビューアを開いたまま長時間ディレクト
+    リを切り替え続けると、いつかスタックが溢れる。
+
+    `std::vector` はブロックローカルの自動変数なので、`continue` / `break` /
+    `goto term` のどの出口でも while 1 回分の終わりで確実に解放される。
+
+    Windows 専用の経路で、手元 (Linux/Wine) では再現も再測定もできない。
+    mingw クロスビルドが通ることと、`alloca` がこの関数から消えたことは
+    確認済み。動作の再現・確認は CI のビルド以降になる。
+
