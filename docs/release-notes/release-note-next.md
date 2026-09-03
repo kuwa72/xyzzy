@@ -122,4 +122,24 @@ xyzzy リリースノート
     Windows 専用の経路で、手元 (Linux/Wine) では再現も再測定もできない。
     mingw クロスビルドが通ることと、`alloca` がこの関数から消えたことは
     確認済み。動作の再現・確認は CI のビルド以降になる。
+  * **ConPTY reader スレッドとの排他を、格子を触る GUI 側の残り 2 箇所へ
+    広げた** (issue #264)。PR #28 で入れた `terminal_lock ()` は reader
+    スレッドの `feed ()` と、GUI スレッドの描画・リサイズだけを排他して
+    いた。**選択範囲のクリップボードコピー (`terminal_copy_selection`) と
+    スクロールバー操作 (`process_vscroll` の `scrollback_scroll`) は
+    まだ外に居た。**
+
+    `terminal_copy_selection` は格子のセル (`display_cell`) を読んでいる間
+    だけロックする (クリップボード API 呼び出しは格子を触らないので外)。
+    `process_vscroll` は `scrollback_scroll` が書く `t_scrollback_offset`
+    を、reader スレッドの `feed ()` も新しい出力が届くたびに直接書いている
+    (スクロールバックを追っている最中にライブ表示へ戻す処理、
+    `src/core/term.cc` の `feed ()`) ので、両方をロックの下に入れて排他する。
+
+    スクロールバーのカウンタ表示 (`update_vscroll_bar` / `vscroll_lines`)
+    はカウンタの読みだけで torn read にならないので対象外 (issue に書かれた
+    優先度どおり)。データ競合自体は CI では測れない (経路は Wine の ConPty
+    で走るが、競合の検出手段が無い) ので、確認は mingw クロスビルドが通る
+    ことと `CRITICAL_SECTION` の再入 (同一スレッドなので許される) の形を
+    崩していないことに留まる。
 

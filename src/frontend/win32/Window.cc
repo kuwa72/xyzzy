@@ -1161,11 +1161,21 @@ Window::terminal_copy_selection (Terminal *term) const
   if (!w_term_sel_p || !term)
     return;
 
+  extern void terminal_lock ();
+  extern void terminal_unlock ();
+
   int r0, c0, r1, c1;
   terminal_selection_range (&r0, &c0, &r1, &c1);
 
   /* 行末の空白は落とす。端末の格子は右端まで空白で埋まっているので、
-     そのまま取ると 1 行ごとに何十桁もの空白が付いてくる。 */
+     そのまま取ると 1 行ごとに何十桁もの空白が付いてくる。
+
+     格子 (display_cell) を読んでいる間は terminal_lock () で ConPTY の
+     reader スレッドの feed () と排他する (issue #264)。reader が同じ
+     セルへ書き込み中に読むと、行が半分だけ新しい内容になった文字列を
+     クリップボードへコピーしてしまう。GlobalAlloc 以降はクリップボード
+     API だけで格子を触らないので、ロックの外に出す。 */
+  terminal_lock ();
   int nrows = term->rows ();
   int ncols = term->cols ();
   wchar_t *buf = 0;
@@ -1194,7 +1204,7 @@ Window::terminal_copy_selection (Terminal *term) const
               cap = cap ? cap * 2 : 256;
               wchar_t *nb = (wchar_t *)realloc (buf, cap * sizeof (wchar_t));
               if (!nb)
-                { free (buf); return; }
+                { terminal_unlock (); free (buf); return; }
               buf = nb;
             }
           if (ch < 0x10000)
@@ -1212,13 +1222,14 @@ Window::terminal_copy_selection (Terminal *term) const
               cap = cap ? cap * 2 : 256;
               wchar_t *nb = (wchar_t *)realloc (buf, cap * sizeof (wchar_t));
               if (!nb)
-                { free (buf); return; }
+                { terminal_unlock (); free (buf); return; }
               buf = nb;
             }
           buf[len++] = L'\r';
           buf[len++] = L'\n';
         }
     }
+  terminal_unlock ();
 
   if (!len)
     { free (buf); return; }
@@ -1361,9 +1372,18 @@ Window::process_vscroll (int code)
           default:
             return;
           }
+        /* scrollback_scroll () は格子の中身ではなく offset だけを書く
+           カウンタ操作だが、reader スレッドの feed () が同時に格子へ
+           書き込みつつ offset を動かす経路と地続きなので、
+           terminal_copy_selection と同じ理由でロックする (issue #264)。 */
+        extern void terminal_lock ();
+        extern void terminal_unlock ();
+        terminal_lock ();
         int before = term->scrollback_offset ();
         term->scrollback_scroll (delta);
-        if (term->scrollback_offset () == before)
+        int after = term->scrollback_offset ();
+        terminal_unlock ();
+        if (after == before)
           return;
         terminal_clear_selection ();  /* 座標がずれるので解除 */
         w_disp_flags |= WDF_WINDOW;
