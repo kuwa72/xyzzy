@@ -8,7 +8,8 @@
 (in-package "lisp")
 
 (export '(with-open-stream with-input-from-string with-output-to-string
-	  with-open-file prin1 princ print prin1-to-string princ-to-string
+	  with-open-file with-standard-io-syntax
+	  prin1 princ print prin1-to-string princ-to-string
 	  read-from-string))
 
 (setf (get 'with-open-stream 'ed:lisp-indent-hook) 1)
@@ -49,6 +50,22 @@
 
 (defmacro with-open-file ((stream filename &rest options) &body body)
   `(with-open-stream (,stream (open ,filename ,@options))
+     ,@body))
+
+(setf (get 'with-standard-io-syntax 'ed:lisp-indent-hook) 0)
+
+(defmacro with-standard-io-syntax (&body body)
+  `(let ((*print-readably* nil)
+	 (*print-escape* t)
+	 (*print-pretty* nil)
+	 (*print-base* 10)
+	 (*print-radix* nil)
+	 (*print-circle* nil)
+	 (*print-level* nil)
+	 (*print-length* nil)
+	 (*read-suppress* nil)
+	 (*read-eval* t)
+	 (*readtable* (copy-readtable nil)))
      ,@body))
 
 (defun read-from-string (string &optional (eof-error-p t) eof-value
