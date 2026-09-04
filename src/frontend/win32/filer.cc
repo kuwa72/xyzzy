@@ -3099,7 +3099,7 @@ ViewerWindow::resize (int x, int y, int w, int h)
   w_rect.top = y;
   w_rect.right = x + w;
   w_rect.bottom = y + h;
-  MoveWindow (w_hwnd, x, y, w, h, 1);
+  MoveWindow (hwnd(), x, y, w, h, 1);
 }
 
 ViewerBuffer::ViewerBuffer ()
@@ -3161,9 +3161,9 @@ ViewerWindow::repaint ()
     return;
   Point p = w_point;
   redraw_window (p, 1, 1, 0);
-  HDC hdc = GetDC (w_hwnd);
+  HDC hdc = GetDC (hwnd());
   paint_window (hdc);
-  ReleaseDC (w_hwnd, hdc);
+  ReleaseDC (hwnd(), hdc);
   w_disp_flags = 0;
 }
 
@@ -3174,8 +3174,8 @@ ViewerWindow::update_window ()
     {
       w_disp_flags = 0;
       PAINTSTRUCT ps;
-      BeginPaint (w_hwnd, &ps);
-      EndPaint (w_hwnd, &ps);
+      BeginPaint (hwnd(), &ps);
+      EndPaint (hwnd(), &ps);
       if (w_glyphs.g_rep)
         {
           RECT r;

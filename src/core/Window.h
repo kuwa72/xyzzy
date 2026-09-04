@@ -287,8 +287,14 @@ struct Window
 
   lisp lwp;
 
-  HWND w_hwnd;
-  HWND w_hwnd_ml;
+  // Opaque Win32 HWND handles.  The frontend/win32 code stores HWNDs here
+  // and accesses them through hwnd()/hwnd_ml() helpers.
+  void *w_hwnd;
+  void *w_hwnd_ml;
+
+  HWND hwnd () const { return static_cast <HWND> (w_hwnd); }
+  HWND hwnd_ml () const { return static_cast <HWND> (w_hwnd_ml); }
+
   RECT w_order;
   RECT w_rect;
   SIZE w_client;

@@ -140,7 +140,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
   wp->point2window_pos ((!lpoint || lpoint == Qnil
                          ? wp->w_point.p_point : wp->w_bufp->coerce_to_point (lpoint)),
                         pos);
-  ClientToScreen (wp->w_hwnd, &pos);
+  ClientToScreen (wp->hwnd(), &pos);
 
   if (!consp (list))
     return Qnil;

@@ -932,11 +932,11 @@ goto_pt (const POINTL &pt)
     if (wp->w_bufp)
       {
         RECT r;
-        GetClientRect (wp->w_hwnd, &r);
+        GetClientRect (wp->hwnd(), &r);
         POINT p;
         p.x = pt.x;
         p.y = pt.y;
-        ScreenToClient (wp->w_hwnd, &p);
+        ScreenToClient (wp->hwnd(), &p);
         if (PtInRect (&r, p))
           {
             if (wp->w_bufp->read_only_p ())

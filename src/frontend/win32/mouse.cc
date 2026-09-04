@@ -328,7 +328,7 @@ mouse_state::dispatch (Window *wp, WPARAM wparam, LPARAM lparam, int op)
           break;
         }
       MSG msg;
-      if (!PeekMessage (&msg, wp->w_hwnd, WM_MOUSEFIRST, wm_mouse_last, PM_NOREMOVE))
+      if (!PeekMessage (&msg, wp->hwnd(), WM_MOUSEFIRST, wm_mouse_last, PM_NOREMOVE))
         {
           int status;
           if (SwapMouseButton (0))
@@ -355,8 +355,8 @@ mouse_state::dispatch (Window *wp, WPARAM wparam, LPARAM lparam, int op)
             {
               POINT p;
               GetCursorPos (&p);
-              ScreenToClient (wp->w_hwnd, &p);
-              PostMessage (wp->w_hwnd, WM_MOUSEMOVE,
+              ScreenToClient (wp->hwnd(), &p);
+              PostMessage (wp->hwnd(), WM_MOUSEMOVE,
                            ((GetAsyncKeyState (VK_CONTROL) < 0 ? MK_CONTROL : 0)
                             | (GetAsyncKeyState (VK_SHIFT) < 0 ? MK_SHIFT : 0)
                             | status),
@@ -407,7 +407,7 @@ mouse_state::down (Window *wp, WPARAM wparam, LPARAM lparam, UINT button)
     return;
   if (wp->w_bufp && !((wparam & ~button) & MK_BUTTON_MASK))
     {
-      ms_hwnd = wp->w_hwnd;
+      ms_hwnd = wp->hwnd();
       SetCapture (ms_hwnd);
       wparam |= button;
       click_count (wparam, lparam);
@@ -482,7 +482,7 @@ mouse_state::track_popup_menu (HMENU hmenu, lisp lbtn, const POINT *pt)
               return 0;
             p.x = wp->caret_x () + app.text_font.cell ().cx;
             p.y = wp->caret_y () + app.text_font.cell ().cy;
-            ClientToScreen (wp->w_hwnd, &p);
+            ClientToScreen (wp->hwnd(), &p);
             break;
           }
         }
