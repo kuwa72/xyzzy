@@ -247,7 +247,7 @@ Window::update_last_caret ()
 }
 
 void
-Window::update_caret (HWND hwnd, int x, int y, int w, int h, COLORREF cc)
+update_caret (HWND hwnd, int x, int y, int w, int h, COLORREF cc)
 {
   int gray_caret = app.f_in_drop;
   if (!app.ime_composition
@@ -373,7 +373,7 @@ Window::update_caret () const
       cc = GetNearestColor (hdc, cc);
       ReleaseDC (hwnd(), hdc);
 
-      update_caret (hwnd(), caret_xpixel (x), caret_ypixel (y),
+      ::update_caret (hwnd(), caret_xpixel (x), caret_ypixel (y),
                     sz.cx, sz.cy, cc);
     }
 }
@@ -593,19 +593,6 @@ Win32Painter::cell_height () const
 
 /* -------------------------------------------------------------------- */
 
-/* issue #195 step 3: the HDC entry point is now a thin adapter that builds
-   a Win32Painter and delegates to the Painter& renderer above. All glyph
-   drawing flows through the Painter. (Kept so paint_line's existing
-   hdc/hdcmem call sites stay unchanged; folded away once paint_line itself
-   takes a Painter&.) `padding` was already dead in the glyph path. */
-void
-Window::paint_glyphs (HDC hdc, HDC hdcmem, const glyph_t *gstart, const glyph_t *g,
-                      const glyph_t *ge, char *buf, const INT * /*padding*/,
-                      int x, int y, int yoffset) const
-{
-  Win32Painter painter (hdc, hdcmem);
-  paint_glyphs (painter, gstart, g, ge, buf, x, y, yoffset);
-}
 
 /* Painter& variant of paint_glyphs (issue #195 step 2). A faithful
    transcription of the HDC version above with GDI leaf calls routed
@@ -931,7 +918,16 @@ Window::paint_line (Painter &painter, glyph_data *ogd, const glyph_data *ngd,
 }
 
 void
-Window::erase_cursor_line (HDC hdc) const
+Window::erase_cursor_line () const
+{
+  HDC hdc = GetDC (hwnd());
+  Win32Painter painter (hdc, 0);
+  erase_cursor_line (painter);
+  ReleaseDC (hwnd(), hdc);
+}
+
+void
+Window::erase_cursor_line (Painter &painter) const
 {
   if (w_cursor_line.ypixel < 0 || !w_glyphs.g_rep)
     return;
@@ -939,63 +935,57 @@ Window::erase_cursor_line (HDC hdc) const
   int y = w_cursor_line.ypixel / app.text_font.cell ().cy;
   if (y >= 0 && y < w_ch_max.cy)
     {
-      HDC xhdc = hdc;
-      if (!hdc)
-        {
-          hide_caret ();
-          hdc = GetDC (hwnd());
-        }
+      HDC hdc = static_cast <Win32Painter &> (painter).hdc ();
+      HDC hdcmem = CreateCompatibleDC (hdc);
+      HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+      Win32Painter glyph_painter (hdc, hdcmem);
 
-      int x1 = (w_cursor_line.x1 - app.text_font.cell ().cx / 2) / app.text_font.cell ().cx + 1;
+      int x1 = (w_cursor_line.x1 - app.text_font.cell ().cx / 2)
+        / app.text_font.cell ().cx + 1;
       int x2pixel = w_cursor_line.x2;
       if (w_bufp->b_fold_columns != Buffer::FOLD_NONE)
         {
-          int w = w_cursor_line.x1 + ((w_bufp->b_fold_columns - w_last_top_column)
-                                      * app.text_font.cell ().cx);
+          int w = w_cursor_line.x1
+            + ((w_bufp->b_fold_columns - w_last_top_column)
+                * app.text_font.cell ().cx);
           if (x2pixel < w)
             x2pixel = w;
         }
       int x2 = (x2pixel - app.text_font.cell ().cx / 2
-                + app.text_font.cell ().cx - 1) / app.text_font.cell ().cx + 1;
+                + app.text_font.cell ().cx - 1)
+        / app.text_font.cell ().cx + 1;
 
       const glyph_data *gd = w_glyphs.g_rep->gr_oglyph[y];
-      const glyph_t *g = gd->gd_cc + x1, *ge = gd->gd_cc + min (int (gd->gd_len), x2);
+      const glyph_t *g = gd->gd_cc + x1;
+      const glyph_t *ge = gd->gd_cc + min (int (gd->gd_len), x2);
       int x = w_cursor_line.x1;
-      HGDIOBJ of = SelectObject (hdc, app.text_font.font (FONT_ASCII));
-      HDC hdcmem = CreateCompatibleDC (hdc);
-      HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
-      HGDIOBJ obr = SelectObject (hdc, CreateSolidBrush (w_colors[WCOLOR_BACK]));
-
-      INT *padding;
-      if (!app.text_font.need_pad_p ())
-        padding = 0;
-      else
-        {
-          padding = (INT *)alloca (sizeof *padding * w_ch_max.cx);
-          for (int i = 0; i < w_ch_max.cx; i++)
-            padding[i] = app.text_font.cell ().cx;
-        }
-      char *buf = (char *)alloca (w_ch_max.cx + 3);
-      paint_glyphs (hdc, hdcmem, gd->gd_cc, g, ge, buf, padding, x,
+      char *buf = (char *) alloca (w_ch_max.cx + 3);
+      paint_glyphs (glyph_painter, gd->gd_cc, g, ge, buf, x,
                     (w_cursor_line.ypixel - app.text_font.cell ().cy + 1),
                     app.text_font.cell ().cy - 1);
+
       SelectObject (hdcmem, obm);
       DeleteDC (hdcmem);
-      SelectObject (hdc, of);
-      DeleteObject (SelectObject (hdc, obr));
 
       x += (ge - g) * app.text_font.cell ().cx;
       if (x < w_cursor_line.x2)
-        draw_hline (hdc, x, w_cursor_line.x2,
-                    w_cursor_line.ypixel, w_colors[WCOLOR_BACK]);
-      if (hdc != xhdc)
-        ReleaseDC (hwnd(), hdc);
+        painter.draw_hline (x, w_cursor_line.x2, w_cursor_line.ypixel,
+                            w_colors[WCOLOR_BACK]);
     }
   const_cast <Window *> (this)->w_cursor_line.ypixel = -1;
 }
 
 void
-Window::paint_cursor_line (HDC hdc, int f) const
+Window::paint_cursor_line (int f) const
+{
+  HDC hdc = GetDC (hwnd());
+  Win32Painter painter (hdc, 0);
+  paint_cursor_line (painter, f);
+  ReleaseDC (hwnd(), hdc);
+}
+
+void
+Window::paint_cursor_line (Painter &painter, int f) const
 {
   int x1, x2, y;
   int paint = (w_last_flags & WF_CURSOR_LINE
@@ -1037,20 +1027,14 @@ Window::paint_cursor_line (HDC hdc, int f) const
       erase = 1;
     }
 
-  HDC xhdc = hdc;
-  if (!hdc)
-    {
-      hide_caret ();
-      hdc = GetDC (hwnd());
-    }
-
   if (erase)
-    erase_cursor_line (hdc);
+    erase_cursor_line (painter);
 
   if (paint)
     {
       if (inverse)
         {
+          HDC hdc = static_cast <Win32Painter &> (painter).hdc ();
           HGDIOBJ open = SelectObject
             (hdc, CreatePen (PS_SOLID, 0, w_colors[WCOLOR_CURSOR] ^ w_colors[WCOLOR_BACK]));
           int omode = SetROP2 (hdc, R2_XORPEN);
@@ -1060,15 +1044,12 @@ Window::paint_cursor_line (HDC hdc, int f) const
           DeleteObject (SelectObject (hdc, open));
         }
       else
-        draw_hline (hdc, x1, x2, y, w_colors[WCOLOR_CURSOR]);
+        painter.draw_hline (x1, x2, y, w_colors[WCOLOR_CURSOR]);
 
       const_cast <Window *> (this)->w_cursor_line.ypixel = y;
       const_cast <Window *> (this)->w_cursor_line.x1 = x1;
       const_cast <Window *> (this)->w_cursor_line.x2 = x2;
     }
-
-  if (hdc != xhdc)
-    ReleaseDC (hwnd(), hdc);
 }
 
 #define MAX_KWDLEN 256
@@ -1092,7 +1073,7 @@ Window::scroll_down_region (int y1, int y2, int dy, int offset) const
   if (maxl == offset)
     return;
 
-  erase_cursor_line (0);
+  erase_cursor_line ();
 
   g = w_glyphs.g_rep->gr_oglyph;
   for (int yd = y2, ys = y2 - dy; ys >= y1; yd--, ys--)
@@ -1128,7 +1109,7 @@ Window::scroll_up_region (int y1, int y2, int dy, int offset) const
   if (maxl == offset)
     return;
 
-  erase_cursor_line (0);
+  erase_cursor_line ();
 
   g = w_glyphs.g_rep->gr_oglyph;
   for (int yd = y1, ys = y1 + dy; ys <= y2; yd++, ys++)
@@ -1267,28 +1248,13 @@ Window::paint_region (Painter &painter, int from, int to) const
       }
 }
 
-/* issue #195 step 3f: HDC entry point builds the glyph-atlas memory DC and a
-   Win32Painter, then delegates. (The FONT_ASCII select / WCOLOR_BACK brush
-   / padding the old HDC version set up are gone: paint_glyphs picks its own
-   per-charset font, blank fills go through painter.fill_rect, and padding
-   was dead in the glyph path.) */
-void
-Window::paint_region (HDC hdc, int from, int to) const
-{
-  HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
-  Win32Painter painter (hdc, hdcmem);
-  paint_region (painter, from, to);
-  SelectObject (hdcmem, obm);
-  DeleteDC (hdcmem);
-}
 
 // Window::redraw_window() moved to core/glyph.cc
 
 void
 Window::scroll_lines (int dy)
 {
-  erase_cursor_line (0);
+  erase_cursor_line ();
 
   glyph_data **og = w_glyphs.g_rep->gr_oglyph;
   int maxl = 0;
@@ -1497,7 +1463,7 @@ Window::reframe ()
 #endif
       if (w_disp_flags & WDF_GOAL_COLUMN)
         w_goal_column = w_column;
-      paint_cursor_line (0, 0);
+      paint_cursor_line (0);
       return;
     }
 
@@ -1627,7 +1593,7 @@ Window::reframe ()
   if (!need_repaint && df.p_point == w_last_disp)
     {
       w_disp = w_last_disp;
-      paint_cursor_line (0, 0);
+      paint_cursor_line (0);
       return;
     }
 
@@ -1660,15 +1626,20 @@ Window::reframe ()
 
 paint:
   HDC hdc = GetDC (hwnd());
+  HDC hdcmem = CreateCompatibleDC (hdc);
+  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  Win32Painter painter (hdc, hdcmem);
   if (w_cursor_line.ypixel >= 0
       && w_cursor_line.x1 == app.text_font.cell ().cx / 2
       && flags () & WF_LINE_NUMBER)
-    erase_cursor_line (hdc);
-  paint_window (hdc);
+    erase_cursor_line (painter);
+  paint_window (painter);
   w_last_top_column = w_top_column;
   w_last_top_linenum = disp_linenum;
   w_last_flags = flags ();
-  paint_cursor_line (hdc, 1);
+  paint_cursor_line (painter, 1);
+  SelectObject (hdcmem, obm);
+  DeleteDC (hdcmem);
   ReleaseDC (hwnd(), hdc);
   return;
 }
@@ -1756,7 +1727,12 @@ Window::paint_minibuffer_message (lisp string)
   hide_caret ();
 
   HDC hdc = GetDC (hwnd());
-  paint_window (hdc);
+  HDC hdcmem = CreateCompatibleDC (hdc);
+  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  Win32Painter painter (hdc, hdcmem);
+  paint_window (painter);
+  SelectObject (hdcmem, obm);
+  DeleteDC (hdcmem);
   ReleaseDC (hwnd(), hdc);
 
   update_caret ();
@@ -1777,8 +1753,13 @@ Window::clear_window ()
     }
 
   HDC hdc = GetDC (hwnd());
-  paint_window (hdc);
-  paint_cursor_line (hdc, 1);
+  HDC hdcmem = CreateCompatibleDC (hdc);
+  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  Win32Painter painter (hdc, hdcmem);
+  paint_window (painter);
+  paint_cursor_line (painter, 1);
+  SelectObject (hdcmem, obm);
+  DeleteDC (hdcmem);
   ReleaseDC (hwnd(), hdc);
 }
 
@@ -2082,14 +2063,6 @@ Window::paint_mode_line (Painter &painter)
   painter.draw_hline (0, w_ml_size.cx, w_ml_size.cy - 1, win32_sysdep.btn_shadow);
 }
 
-/* issue #195 step 3e: HDC entry point wraps the Painter& version. */
-void
-Window::paint_mode_line (HDC hdc)
-{
-  Win32Painter painter (hdc, 0);
-  paint_mode_line (painter);
-}
-
 void
 Window::paint_mode_line ()
 {
@@ -2099,13 +2072,15 @@ Window::paint_mode_line ()
       BeginPaint (hwnd_ml(), &ps);
       EndPaint (hwnd_ml(), &ps);
       HDC hdc = GetDC (hwnd_ml());
-      paint_mode_line (hdc);
+      Win32Painter painter (hdc, 0);
+      paint_mode_line (painter);
       ReleaseDC (hwnd_ml(), hdc);
     }
   else
     {
       HDC hdc = BeginPaint (hwnd_ml(), &ps);
-      paint_mode_line (hdc);
+      Win32Painter painter (hdc, 0);
+      paint_mode_line (painter);
       EndPaint (hwnd_ml(), &ps);
     }
 }
@@ -2165,7 +2140,8 @@ Window::redraw_mode_line ()
       || mls.point.need_repaint_all()
 	  || mls.percent.need_repaint_all())
     {
-      paint_mode_line (hdc);
+      Win32Painter painter (hdc, 0);
+      paint_mode_line (painter);
       w_disp_flags &= ~WDF_MODELINE;
       r = 1;
     }
@@ -2730,13 +2706,6 @@ Window::paint_terminal (Painter &painter, Terminal *term, int force)
     painter.fill_rect (0, trows * cellh, w_client.cx, w_client.cy - trows * cellh, def_bg);
 }
 
-/* issue #195 step 3g: HDC entry point wraps the Painter& version. */
-void
-Window::paint_terminal (HDC hdc, Terminal *term, int force)
-{
-  Win32Painter painter (hdc, 0);
-  paint_terminal (painter, term, force);
-}
 
 /* ターミナルの桁数・行数を窓に合わせる。ConPTY にも伝わるので、向こう側の
    アプリが SIGWINCH 相当を受け取って描き直す。
@@ -2780,7 +2749,7 @@ Window::refresh_terminal (int f)
       int tcr = term->cursor_row ();
       int tcc = term->cursor_col ();
       if (tcr >= 0 && tcr < term->rows () && tcc >= 0 && tcc < term->cols ())
-        update_caret (hwnd(), caret_xpixel (tcc), caret_ypixel (tcr),
+        ::update_caret (hwnd(), caret_xpixel (tcc), caret_ypixel (tcr),
                       2 * sysdep.border.cx, app.text_font.size ().cy,
                       w_colors[WCOLOR_CARET]);
     }
@@ -2791,7 +2760,8 @@ Window::refresh_terminal (int f)
   // Always repaint terminal (it's cheap compared to glyph diffing)
   {
     HDC hdc = GetDC (hwnd());
-    paint_terminal (hdc, term, 0);
+    Win32Painter painter (hdc, 0);
+    paint_terminal (painter, term, 0);
     ReleaseDC (hwnd(), hdc);
     term->clear_dirty ();
   }
@@ -2886,13 +2856,6 @@ Window::paint_background (Painter &painter, int x, int y, int w, int h) const
   painter.fill_rect (x, y, w, h, w_colors[WCOLOR_BACK]);
 }
 
-/* issue #195 step 3b: HDC entry point wraps the Painter& version. */
-void
-Window::paint_background (HDC hdc, int x, int y, int w, int h) const
-{
-  Win32Painter painter (hdc, 0);
-  paint_background (painter, x, y, w, h);
-}
 
 void
 Window::winsize_changed (int w, int h)
@@ -2964,12 +2927,13 @@ Window::update_window ()
         {
           PAINTSTRUCT ps;
           HDC hdc = BeginPaint (hwnd(), &ps);
+          Win32Painter painter (hdc, 0);
           /* リサイズ直後の WM_PAINT はこの経路で来る。描く前に大きさを
              合わせておかないと、古い桁数のまま描いてしまう。 */
           terminal_lock ();
           sync_terminal_size (term);
           /* WM_PAINT では DC の内容が失われているので全面描き直す。 */
-          paint_terminal (hdc, term, 1);
+          paint_terminal (painter, term, 1);
           terminal_unlock ();
           EndPaint (hwnd(), &ps);
           return;
@@ -2999,9 +2963,14 @@ Window::update_window ()
     }
   else
     {
-      paint_region (hdc, r.top, r.bottom);
+      HDC hdcmem = CreateCompatibleDC (hdc);
+      HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+      Win32Painter painter (hdc, hdcmem);
+      paint_region (painter, r.top, r.bottom);
+      SelectObject (hdcmem, obm);
+      DeleteDC (hdcmem);
       EndPaint (hwnd(), &ps);
-      paint_cursor_line (0, 1);
+      paint_cursor_line (1);
     }
   if (this == selected_window ()
       && !app.ime_composition

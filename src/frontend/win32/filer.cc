@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "ed.h"
 #include "win32sysdep.h"
+#include "painter-win32.h"
 #include "dialogs.h"
 #include "environ.h"
 #include "conf.h"
@@ -3025,7 +3026,10 @@ vw_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       }
 
     case WM_ERASEBKGND:
-      get_window (hwnd)->paint_background (HDC (wparam));
+      {
+        Win32Painter painter (HDC (wparam), 0);
+        get_window (hwnd)->paint_background (painter);
+      }
       return 1;
 
     case WM_PAINT:
@@ -3162,7 +3166,12 @@ ViewerWindow::repaint ()
   Point p = w_point;
   redraw_window (p, 1, 1, 0);
   HDC hdc = GetDC (hwnd());
-  paint_window (hdc);
+  HDC hdcmem = CreateCompatibleDC (hdc);
+  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  Win32Painter painter (hdc, hdcmem);
+  paint_window (painter);
+  SelectObject (hdcmem, obm);
+  DeleteDC (hdcmem);
   ReleaseDC (hwnd(), hdc);
   w_disp_flags = 0;
 }
