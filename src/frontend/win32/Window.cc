@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "ed-hwnd.h"
 #include "win32sysdep.h"
 #include "Window.h"
 #include "gdi-utils.h"
@@ -134,8 +135,10 @@ ModelineParam::init (HFONT hf)
   ReleaseDC (0, hdc);
 }
 
+HWND g_status_window_hwnd;
+
 StatusWindow::StatusWindow ()
-     : sw_hwnd (0), sw_b (sw_buf)
+     : sw_b (sw_buf)
 {
   sw_last.l = 0;
   sw_last.textf = 0;
@@ -144,8 +147,8 @@ StatusWindow::StatusWindow ()
 void
 StatusWindow::restore ()
 {
-  SendMessage (sw_hwnd, SB_SETTEXT, SBT_OWNERDRAW | 0, LPARAM (&sw_last));
-  UpdateWindow (sw_hwnd);
+  SendMessage (g_status_window_hwnd, SB_SETTEXT, SBT_OWNERDRAW | 0, LPARAM (&sw_last));
+  UpdateWindow (g_status_window_hwnd);
 }
 
 int
@@ -153,9 +156,9 @@ StatusWindow::text (const char *s)
 {
   {
     WideStr ws (s);
-    SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM ((const wchar_t *)ws));
+    SendMessageW (g_status_window_hwnd, SB_SETTEXT, 0, LPARAM ((const wchar_t *)ws));
   }
-  UpdateWindow (sw_hwnd);
+  UpdateWindow (g_status_window_hwnd);
   sw_last.textf = 1;
   return sw_last.l;
 }
@@ -163,8 +166,8 @@ StatusWindow::text (const char *s)
 int
 StatusWindow::text (const wchar_t *s)
 {
-  SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM (s));
-  UpdateWindow (sw_hwnd);
+  SendMessageW (g_status_window_hwnd, SB_SETTEXT, 0, LPARAM (s));
+  UpdateWindow (g_status_window_hwnd);
   sw_last.textf = 1;
   return sw_last.l;
 }
@@ -225,8 +228,8 @@ StatusWindow::flush ()
       memcpy (sw_last.buf, sw_buf, sizeof *sw_buf * l);
       sw_last.l = l;
       sw_last.textf = 0;
-      SendMessage (sw_hwnd, SB_SETTEXT, SBT_OWNERDRAW | 0, LPARAM (&sw_last));
-      UpdateWindow (sw_hwnd);
+      SendMessage (g_status_window_hwnd, SB_SETTEXT, SBT_OWNERDRAW | 0, LPARAM (&sw_last));
+      UpdateWindow (g_status_window_hwnd);
     }
 }
 
@@ -266,19 +269,14 @@ StatusWindow::clear (int no_update)
       sw_last.textf = 0;
       if (!no_update)
         {
-          SendMessageW (sw_hwnd, SB_SETTEXT, 0, LPARAM (L""));
-          UpdateWindow (sw_hwnd);
+          SendMessageW (g_status_window_hwnd, SB_SETTEXT, 0, LPARAM (L""));
+          UpdateWindow (g_status_window_hwnd);
         }
     }
   sw_b = sw_buf;
 }
 
-void
-StatusWindow::set (HWND hwnd)
-{
-  sw_hwnd = hwnd;
-  restore ();
-}
+
 
 int
 StatusWindow::paint (const DRAWITEMSTRUCT *dis)
@@ -375,7 +373,7 @@ Window::init (int minibufp, int temporary)
                        Application::ClientClassName, L"",
                        (WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE
                         | WS_VSCROLL | WS_HSCROLL),
-                       0, 0, 0, 0, app.active_frame.hwnd, 0, app.hinst, this))
+                       0, 0, 0, 0, g_active_frame_hwnd, 0, app.hinst, this))
     FEstorage_error ();
 
   if (minibufp)
@@ -383,7 +381,7 @@ Window::init (int minibufp, int temporary)
   else if (!CreateWindow (Application::ModelineClassName, L"",
                           WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE,
                           0, 0, 0, 0,
-                          app.active_frame.hwnd, 0, app.hinst, this))
+                          g_active_frame_hwnd, 0, app.hinst, this))
     {
       DestroyWindow (hwnd());
       FEstorage_error ();
@@ -809,7 +807,7 @@ Window::create_default_windows ()
   if (!IsIconic (app.toplev))
     {
       RECT r;
-      GetClientRect (app.active_frame.hwnd, &r);
+      GetClientRect (g_active_frame_hwnd, &r);
       app.active_frame.size.cx = r.right;
       app.active_frame.size.cy = r.bottom;
     }
@@ -1083,11 +1081,11 @@ Window::move_all_windows (int update)
         if (wp->w_bufp)
           wp->w_bufp->window_size_changed ();
 
-      InvalidateRect (app.active_frame.hwnd, 0, 1);
+      InvalidateRect (g_active_frame_hwnd, 0, 1);
       InvalidateRect (app.toplev, 0, 1);
       if (update)
         {
-          UpdateWindow (app.active_frame.hwnd);
+          UpdateWindow (g_active_frame_hwnd);
           UpdateWindow (app.toplev);
         }
     }
@@ -2716,7 +2714,7 @@ void
 Window::calc_ruler_rect (RECT &r) const
 {
   POINT p = {0, 0};
-  MapWindowPoints (hwnd(), app.active_frame.hwnd, &p, 1);
+  MapWindowPoints (hwnd(), g_active_frame_hwnd, &p, 1);
   r.left = p.x + app.text_font.cell ().cx / 2;
   if (flags () & WF_LINE_NUMBER)
     r.left += (LINENUM_COLUMNS + 1) * app.text_font.cell ().cx;
@@ -2785,7 +2783,7 @@ Window::paint_ruler (Painter &painter) const
   RECT r;
 
   GetWindowRect (hwnd(), &r);
-  MapWindowPoints (HWND_DESKTOP, app.active_frame.hwnd, (POINT *)&r, 2);
+  MapWindowPoints (HWND_DESKTOP, g_active_frame_hwnd, (POINT *)&r, 2);
   r.bottom = r.top;
   r.top -= RULER_HEIGHT;
   painter.draw_hline (r.left, r.right - 1, r.top, win32_sysdep.btn_highlight);
@@ -2863,14 +2861,14 @@ Window::update_ruler ()
       w_ruler_top_column = w_top_column;
       w_ruler_column = w_column;
       w_ruler_fold_column = w_bufp->b_fold_columns;
-      HDC hdc = GetDC (app.active_frame.hwnd);
+      HDC hdc = GetDC (g_active_frame_hwnd);
       Win32Painter painter (hdc, 0);
       paint_ruler (painter);
-      ReleaseDC (app.active_frame.hwnd, hdc);
+      ReleaseDC (g_active_frame_hwnd, hdc);
     }
   else if (w_ruler_column != w_column)
     {
-      HDC hdc = GetDC (app.active_frame.hwnd);
+      HDC hdc = GetDC (g_active_frame_hwnd);
       RECT r;
       calc_ruler_rect (r);
       Win32Painter painter (hdc, 0);
@@ -2878,7 +2876,7 @@ Window::update_ruler ()
         erase_ruler (painter, r);
       w_ruler_column = w_column;
       paint_ruler_box (painter, r);
-      ReleaseDC (app.active_frame.hwnd, hdc);
+      ReleaseDC (g_active_frame_hwnd, hdc);
     }
 }
 

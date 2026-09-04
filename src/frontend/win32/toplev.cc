@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "ed-hwnd.h"
 #include "win32sysdep.h"
 #include "toplev.h"
 #include "Window.h"
@@ -23,6 +24,11 @@ text_drop_target tdropt;
 #endif
 
 main_frame g_frame;
+
+HWND g_app_hwnd_sw;
+HWND g_active_frame_hwnd;
+HWND g_active_frame_has_caret;
+HWND g_active_frame_has_caret_last;
 
 /* **core から呼ばれる 2 つ** (宣言は src/core/fns.h)。core は `g_frame` を
    知らないので、ここで受ける (issue #185)。 */
@@ -246,7 +252,7 @@ Fset_cursor (lisp cur)
 static void
 frame_rect (int w, int h, RECT &r)
 {
-  GetClientRect (app.hwnd_sw, &r);
+  GetClientRect (g_app_hwnd_sw, &r);
   r.left = 0;
   r.top = 0;
   r.right = w;
@@ -265,14 +271,14 @@ resize_toplevel (int cx, int cy)
     {
       hwnd_before = app.active_frame.fnkey->hwnd ();
       SetWindowPos (app.active_frame.fnkey->hwnd (),
-                    app.hwnd_sw,
+                    g_app_hwnd_sw,
                     0, r.bottom,
                     cx, app.active_frame.fnkey->height (),
                     SWP_DRAWFRAME | SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
   else
     {
-      hwnd_before = app.hwnd_sw;
+      hwnd_before = g_app_hwnd_sw;
       ShowWindow (app.active_frame.fnkey->hwnd (), SW_HIDE);
     }
 
@@ -350,7 +356,7 @@ do_dnd (HDROP hdrop)
 void
 set_ime_caret ()
 {
-  if (app.active_frame.has_caret)
+  if (g_active_frame_has_caret)
     {
       HIMC hIMC = app.kbdq.gime.ImmGetContext (app.toplev);
       if (!hIMC)
@@ -362,7 +368,7 @@ set_ime_caret ()
       const FontObject &font = kbd_queue::kbd_encoding_font ();
 
       POINT pt (app.active_frame.caret_pos);
-      MapWindowPoints (app.active_frame.has_caret, app.toplev, &pt, 1);
+      MapWindowPoints (g_active_frame_has_caret, app.toplev, &pt, 1);
       pt.x += font.offset ().x;
       pt.y += font.offset ().y;
 
@@ -514,7 +520,7 @@ refresh_blink_interval ()
   if (xsymbol_value (Vblink_caret) == Qnil)
     {
       set_caret_blink_time ();
-      if (app.active_frame.has_caret)
+      if (g_active_frame_has_caret)
         {
           Window *wp = selected_window ();
           if (wp)
@@ -566,14 +572,15 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_CREATE:
       appid::set ();
       app.toplev = hwnd;
-      app.hwnd_sw = CreateStatusWindow ((SBARS_SIZEGRIP | WS_CHILD | WS_VISIBLE
+      g_app_hwnd_sw = CreateStatusWindow ((SBARS_SIZEGRIP | WS_CHILD | WS_VISIBLE
                                          | WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
                                         0, hwnd, 0);
-      if (!app.hwnd_sw)
+      if (!g_app_hwnd_sw)
         return -1;
 
-      g_stat_area.init (app.hwnd_sw);
-      app.status_window.set (app.hwnd_sw);
+      g_stat_area.init (g_app_hwnd_sw);
+      g_status_window_hwnd = g_app_hwnd_sw;
+      app.status_window.restore ();
 
       try
         {
@@ -592,15 +599,15 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                          hwnd, 0, app.hinst, app.active_frame.fnkey))
         return -1;
 
-      app.active_frame.hwnd = CreateWindow (Application::FrameClassName, L"",
+      g_active_frame_hwnd = CreateWindow (Application::FrameClassName, L"",
                                             (WS_VISIBLE | WS_CHILD
                                              | WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
                                             0, 0, 0, 0,
                                             hwnd, 0, app.hinst, 0);
-      if (!app.active_frame.hwnd)
+      if (!g_active_frame_hwnd)
         return -1;
 
-      g_frame.init (hwnd, app.active_frame.hwnd);
+      g_frame.init (hwnd, g_active_frame_hwnd);
       app.user_timer.init (hwnd);
 
       DragAcceptFiles (hwnd, 1);
@@ -637,7 +644,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         GetClientRect (hwnd, &r);
         draw_hline (hdc, 0, r.right, 0, win32_sysdep.btn_shadow);
 
-        GetWindowRect (app.active_frame.hwnd, &r);
+        GetWindowRect (g_active_frame_hwnd, &r);
         MapWindowPoints (HWND_DESKTOP, hwnd, (POINT *)&r, 1);
         draw_hline (hdc, r.left, r.right, r.top - 1, win32_sysdep.btn_shadow);
 
@@ -681,7 +688,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       Window::init_colors ();
       reload_caret_colors ();
       Window::update_last_caret ();
-      SendMessage (app.hwnd_sw, msg, wparam, lparam);
+      SendMessage (g_app_hwnd_sw, msg, wparam, lparam);
       break;
 
     case WM_INPUTLANGCHANGE:
@@ -696,9 +703,9 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       g_frame.reload_settings ();
       {
         RECT or, nr;
-        GetClientRect (app.hwnd_sw, &or);
-        SendMessage (app.hwnd_sw, msg, wparam, lparam);
-        GetClientRect (app.hwnd_sw, &nr);
+        GetClientRect (g_app_hwnd_sw, &or);
+        SendMessage (g_app_hwnd_sw, msg, wparam, lparam);
+        GetClientRect (g_app_hwnd_sw, &nr);
         g_stat_area.reload_settings ();
         if (or.bottom != nr.bottom)
           {
@@ -733,7 +740,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       return 0;
 
     case WM_SIZE:
-      SendMessage (app.hwnd_sw, msg, wparam, lparam);
+      SendMessage (g_app_hwnd_sw, msg, wparam, lparam);
       g_stat_area.resize ();
       if (wparam != SIZE_MINIMIZED)
         resize_toplevel (LOWORD (lparam), HIWORD (lparam));
@@ -919,7 +926,8 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         int eq = pid == GetCurrentProcessId ();
         if (LOWORD (wparam) != WA_INACTIVE)
           {
-            app.status_window.set (app.hwnd_sw);
+            g_status_window_hwnd = g_app_hwnd_sw;
+            app.status_window.restore ();
             if (!eq && !HIWORD (wparam))
               PostMessage (hwnd, WM_PRIVATE_DELAYED_ACTIVATE, 1, 0);
           }
@@ -1191,7 +1199,7 @@ on_vedge_p (HWND hwnd, POINT &p)
 
   RECT r;
   GetWindowRect (hwnd, &r);
-  MapWindowPoints (HWND_DESKTOP, app.active_frame.hwnd, (POINT *)&r, 2);
+  MapWindowPoints (HWND_DESKTOP, g_active_frame_hwnd, (POINT *)&r, 2);
   return r.left;
 }
 
@@ -1317,8 +1325,8 @@ client_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             {
               point.x = short (LOWORD (lparam));
               point.y = short (HIWORD (lparam));
-              ScreenToClient (app.active_frame.hwnd, &point);
-              frame_window_resize (app.active_frame.hwnd,
+              ScreenToClient (g_active_frame_hwnd, &point);
+              frame_window_resize (g_active_frame_hwnd,
                                            MAKELONG (x - 1, point.y),
                                            &point);
               return 0;
@@ -1381,8 +1389,8 @@ modeline_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         Window *wp = get_window (hwnd);
         if (!wp)
           return 0;
-        MapWindowPoints (hwnd, app.active_frame.hwnd, &point, 1);
-        return frame_window_resize (wp, app.active_frame.hwnd, point, 0);
+        MapWindowPoints (hwnd, g_active_frame_hwnd, &point, 1);
+        return frame_window_resize (wp, g_active_frame_hwnd, point, 0);
       }
 
     case WM_PAINT:

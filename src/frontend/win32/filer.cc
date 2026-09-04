@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "ed-hwnd.h"
 #include "win32sysdep.h"
 #include "painter-win32.h"
 #include "dialogs.h"
@@ -2300,7 +2301,8 @@ Filer::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
       if (LOWORD (wparam) != WA_INACTIVE)
         {
           f_mlactive = f_mlfiler == this;
-          app.status_window.set (f_hwnd_status);
+          g_status_window_hwnd = f_hwnd_status;
+          app.status_window.restore ();
           f_pview->echo_filename ();
         }
       return 0;

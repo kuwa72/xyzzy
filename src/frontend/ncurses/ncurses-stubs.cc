@@ -53,7 +53,6 @@ Application::Application ()
   in_gc = 0;
   exit_code = 0;
   toplev = 0;
-  hwnd_sw = 0;
   hinst = 0;
 }
 
@@ -100,7 +99,6 @@ static int g_status_len = 0;
 
 StatusWindow::StatusWindow ()
 {
-  sw_hwnd = 0;
   sw_b = sw_buf;
   sw_tail = sw_buf + TEXT_MAX;
   sw_last.l = 0;
@@ -223,7 +221,6 @@ StatusWindow::clear (int)
   sw_b = sw_buf;
 }
 
-void StatusWindow::set (HWND) {}
 int StatusWindow::paint (const DRAWITEMSTRUCT *) { return 0; }
 
 // ============================================================
