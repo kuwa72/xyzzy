@@ -3,6 +3,7 @@
 #include "win32sysdep.h"
 #include "toplev.h"
 #include "Window.h"
+#include "painter-win32.h"
 #include "clipboard.h"
 #include "statarea.h"
 #include "gdi-utils.h"
@@ -1134,15 +1135,16 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint (hwnd, &ps);
         fill_rect (hdc, ps.rcPaint, win32_sysdep.btn_face);
+        Win32Painter painter (hdc, 0);
         for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
           if (wp->flags () & Window::WF_RULER)
-            wp->paint_ruler (hdc);
+            wp->paint_ruler (painter);
         EndPaint (hwnd, &ps);
         return 0;
       }
 
     case WM_LBUTTONDOWN:
-      return Window::frame_window_resize (hwnd, lparam);
+      return frame_window_resize (hwnd, lparam);
 
     case WM_SIZE:
       if (app.active_frame.windows)
@@ -1157,7 +1159,7 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       return 0;
 
     case WM_SETCURSOR:
-      if (Window::frame_window_setcursor (hwnd, wparam, lparam))
+      if (frame_window_setcursor (hwnd, wparam, lparam))
         return 1;
       break;
 
@@ -1277,7 +1279,10 @@ client_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       break;
 
     case WM_ERASEBKGND:
-      get_window (hwnd)->paint_background (HDC (wparam));
+      {
+        Win32Painter painter (HDC (wparam), 0);
+        get_window (hwnd)->paint_background (painter);
+      }
       return 1;
 
     case WM_PAINT:
@@ -1313,7 +1318,7 @@ client_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
               point.x = short (LOWORD (lparam));
               point.y = short (HIWORD (lparam));
               ScreenToClient (app.active_frame.hwnd, &point);
-              Window::frame_window_resize (app.active_frame.hwnd,
+              frame_window_resize (app.active_frame.hwnd,
                                            MAKELONG (x - 1, point.y),
                                            &point);
               return 0;
@@ -1377,7 +1382,7 @@ modeline_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         if (!wp)
           return 0;
         MapWindowPoints (hwnd, app.active_frame.hwnd, &point, 1);
-        return wp->frame_window_resize (app.active_frame.hwnd, point, 0);
+        return frame_window_resize (wp, app.active_frame.hwnd, point, 0);
       }
 
     case WM_PAINT:

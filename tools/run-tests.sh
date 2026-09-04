@@ -270,4 +270,12 @@ case $status in
   2) echo "run-tests.sh: the suite did not finish" >&2 ;;
   *) echo "run-tests.sh: the suite exited with $status" >&2 ;;
 esac
+
+# ソース構造の不変条件を検査 (issues #281, #294, #295, #296)。
+if [ "$status" -eq 0 ] || [ "$status" -eq 1 ]; then
+  if [ -f "$root/tools/check-win32-separation.py" ]; then
+    python3 "$root/tools/check-win32-separation.py" "$root" || status=1
+  fi
+fi
+
 exit "$status"

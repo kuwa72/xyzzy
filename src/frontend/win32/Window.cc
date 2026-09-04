@@ -2290,7 +2290,7 @@ Window::find_point_window (const POINT &point, int &vert)
 }
 
 int
-Window::frame_window_setcursor (HWND hwnd, WPARAM, LPARAM lparam)
+frame_window_setcursor (HWND hwnd, WPARAM, LPARAM lparam)
 {
   if (LOWORD (lparam) == HTCLIENT)
     {
@@ -2298,7 +2298,7 @@ Window::frame_window_setcursor (HWND hwnd, WPARAM, LPARAM lparam)
       GetCursorPos (&point);
       ScreenToClient (hwnd, &point);
       int vert;
-      if (find_point_window (point, vert))
+      if (Window::find_point_window (point, vert))
         {
           SetCursor (vert ? sysdep.hcur_sizewe : sysdep.hcur_sizens);
           return 1;
@@ -2418,40 +2418,40 @@ paint_resize_line (HWND hwnd, const RECT &cr, int vert)
 }
 
 int
-Window::frame_window_resize (HWND hwnd, const POINT &point, int vert)
+frame_window_resize (Window *wp, HWND hwnd, const POINT &point, int vert)
 {
   int nmin, nmax;
   int d;
   RECT r;
   if (vert)
     {
-      Window *top = find_vert_window (&RECT::top);
+      Window *top = wp->find_vert_window (&RECT::top);
       if (!top)
         return 0;
-      Window *bottom = find_vert_window (&RECT::bottom);
+      Window *bottom = wp->find_vert_window (&RECT::bottom);
       if (!bottom)
         return 0;
-      nmin = get_vert_min (top->w_rect.top, bottom->w_rect.bottom);
-      nmax = get_vert_max (top->w_rect.top, bottom->w_rect.bottom);
+      nmin = wp->get_vert_min (top->w_rect.top, bottom->w_rect.bottom);
+      nmax = wp->get_vert_max (top->w_rect.top, bottom->w_rect.bottom);
       r.top = top->w_rect.top;
       r.bottom = bottom->w_rect.bottom;
-      r.left = r.right = w_rect.right;
-      d = w_rect.right - point.x;
+      r.left = r.right = wp->w_rect.right;
+      d = wp->w_rect.right - point.x;
     }
   else
     {
-      Window *left = find_horiz_window (&RECT::left);
+      Window *left = wp->find_horiz_window (&RECT::left);
       if (!left)
         return 0;
-      Window *right = find_horiz_window (&RECT::right);
+      Window *right = wp->find_horiz_window (&RECT::right);
       if (!right)
         return 0;
-      nmin = get_horiz_min (left->w_rect.left, right->w_rect.right);
-      nmax = get_horiz_max (left->w_rect.left, right->w_rect.right);
+      nmin = wp->get_horiz_min (left->w_rect.left, right->w_rect.right);
+      nmax = wp->get_horiz_max (left->w_rect.left, right->w_rect.right);
       r.left = left->w_rect.left;
       r.right = right->w_rect.right;
-      r.top = r.bottom = w_rect.bottom;
-      d = w_rect.bottom - point.y;
+      r.top = r.bottom = wp->w_rect.bottom;
+      d = wp->w_rect.bottom - point.y;
     }
   paint_resize_line (hwnd, r, vert);
   SetCapture (hwnd);
@@ -2485,10 +2485,10 @@ Window::frame_window_resize (HWND hwnd, const POINT &point, int vert)
           ReleaseCapture ();
           paint_resize_line (hwnd, r, vert);
           if (vert)
-            change_vert_size (min (max (nmin, short (LOWORD (msg.lParam)) + d), nmax),
+            wp->change_vert_size (min (max (nmin, short (LOWORD (msg.lParam)) + d), nmax),
                               r.top, r.bottom);
           else
-            change_horiz_size (min (max (nmin, short (HIWORD (msg.lParam)) + d), nmax),
+            wp->change_horiz_size (min (max (nmin, short (HIWORD (msg.lParam)) + d), nmax),
                                r.left, r.right);
           refresh_screen (0);
           return 1;
@@ -2511,7 +2511,7 @@ done:
 }
 
 int
-Window::frame_window_resize (HWND hwnd, LPARAM lparam, const POINT *real)
+frame_window_resize (HWND hwnd, LPARAM lparam, const POINT *real)
 {
   POINT point;
   point.x = short (LOWORD (lparam));
@@ -2520,7 +2520,7 @@ Window::frame_window_resize (HWND hwnd, LPARAM lparam, const POINT *real)
   Window *wp = Window::find_point_window (point, vert);
   if (!wp)
     return 0;
-  return wp->frame_window_resize (hwnd, real ? *real : point, vert);
+  return frame_window_resize (wp, hwnd, real ? *real : point, vert);
 }
 
 
@@ -2759,13 +2759,6 @@ Window::paint_ruler_box (Painter &painter, const RECT &r) const
   painter.fill_rect (br.left, br.top, br.right - br.left, br.bottom - br.top, win32_sysdep.btn_face);
 }
 
-void
-Window::paint_ruler_box (HDC hdc, const RECT &r) const
-{
-  Win32Painter painter (hdc, 0);
-  paint_ruler_box (painter, r);
-}
-
 inline void
 Window::paint_ruler (Painter &painter, const RECT &r, int x, int y, int column) const
 {
@@ -2829,13 +2822,6 @@ Window::paint_ruler (Painter &painter) const
 }
 
 void
-Window::paint_ruler (HDC hdc) const
-{
-  Win32Painter painter (hdc, 0);
-  paint_ruler (painter);
-}
-
-void
 Window::erase_ruler (Painter &painter, const RECT &r) const
 {
   RECT br;
@@ -2868,13 +2854,6 @@ Window::erase_ruler (Painter &painter, const RECT &r) const
 }
 
 void
-Window::erase_ruler (HDC hdc, const RECT &r) const
-{
-  Win32Painter painter (hdc, 0);
-  erase_ruler (painter, r);
-}
-
-void
 Window::update_ruler ()
 {
   if (w_disp_flags & WDF_WINDOW
@@ -2885,7 +2864,8 @@ Window::update_ruler ()
       w_ruler_column = w_column;
       w_ruler_fold_column = w_bufp->b_fold_columns;
       HDC hdc = GetDC (app.active_frame.hwnd);
-      paint_ruler (hdc);
+      Win32Painter painter (hdc, 0);
+      paint_ruler (painter);
       ReleaseDC (app.active_frame.hwnd, hdc);
     }
   else if (w_ruler_column != w_column)
@@ -2893,10 +2873,11 @@ Window::update_ruler ()
       HDC hdc = GetDC (app.active_frame.hwnd);
       RECT r;
       calc_ruler_rect (r);
+      Win32Painter painter (hdc, 0);
       if (w_ruler_column >= 0)
-        erase_ruler (hdc, r);
+        erase_ruler (painter, r);
       w_ruler_column = w_column;
-      paint_ruler_box (hdc, r);
+      paint_ruler_box (painter, r);
       ReleaseDC (app.active_frame.hwnd, hdc);
     }
 }

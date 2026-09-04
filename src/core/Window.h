@@ -472,24 +472,18 @@ struct Window
   void set_buffer (Buffer *);
   void calc_client_size (int, int);
   void reframe ();
-  void paint_glyphs (HDC, HDC, const glyph_t *, const glyph_t *, const glyph_t *,
-                     char *, const INT *, int, int, int) const;
-  // issue #195 step 2: Painter& variant, runs alongside the HDC one above.
+  // issue #195 step 2: Painter& variant.
   void paint_glyphs (struct Painter &, const glyph_t *, const glyph_t *,
                      const glyph_t *, char *, int, int, int) const;
-  // issue #195 step 3f: paint_line/region/window take Painter&. paint_line's
-  // only caller is paint_region, so it has no HDC overload; region/window
-  // keep HDC wrappers for the WndProc / refresh call sites.
+  // issue #195 step 3f: paint_line/region/window take Painter&.
+  // paint_line's only caller is paint_region.
   void paint_line (struct Painter &, glyph_data *, const glyph_data *,
                    char *, int) const;
   void paint_window (struct Painter &) const;
-  void paint_window (HDC) const;
   void paint_region (struct Painter &, int, int) const;
-  void paint_region (HDC, int, int) const;
   /* force: 1 = 全面描き直す (WM_PAINT。DC の内容が失われている)。
      0 = 前回描いた格子と比べて、変わった行だけ描く。 */
   void paint_terminal (struct Painter &, class Terminal *, int force);
-  void paint_terminal (HDC, class Terminal *, int force);
   int refresh_terminal (int f);
   void sync_terminal_size (class Terminal *);
   /* ターミナルのマウス選択 (win32)。 */
@@ -512,11 +506,9 @@ struct Window
   void update_window ();
   void clear_window ();
   void paint_mode_line (struct Painter &);   // issue #195 step 3e
-  void paint_mode_line (HDC);                // wraps the Painter& one
   void paint_mode_line ();
-  void paint_background (HDC) const;
-  void paint_background (HDC, int, int, int, int) const;
-  // issue #195 step 3b: Painter& variant; the HDC ones wrap it.
+  // issue #195 step 3b: Painter& variant.
+  void paint_background (struct Painter &) const;
   void paint_background (struct Painter &, int, int, int, int) const;
   void winsize_changed (int, int);
   point_t bol_point (point_t) const;
@@ -550,7 +542,6 @@ struct Window
   void hide_caret () const;
   void update_caret () const;
   static void update_last_caret ();
-  static void update_caret (HWND, int, int, int, int, COLORREF);
   static void delete_caret ();
   static void compute_geometry (const SIZE & = app.active_frame.size,
                                 int = app.text_font.cell ().cy);
@@ -598,10 +589,6 @@ struct Window
   int enlarge_window_vert (int);
   int enlarge_window (int, int);
 
-  static int frame_window_setcursor (HWND, WPARAM, LPARAM);
-  static int frame_window_resize (HWND, LPARAM, const POINT * = 0);
-  int frame_window_resize (HWND, const POINT &, int);
-
   int redraw_mode_line ();
   static void modify_all_mode_line ();
 
@@ -636,18 +623,17 @@ struct Window
 
   void calc_ruler_rect (RECT &) const;
   void calc_ruler_box (const RECT &, RECT &) const;
-  // issue #195 step 3d: Painter& variants; the HDC ones wrap them.
+  // issue #195 step 3d: Painter& variants.
   void paint_ruler (struct Painter &, const RECT &, int, int, int) const;
   void paint_ruler (struct Painter &) const;
   void paint_ruler_box (struct Painter &, const RECT &) const;
   void erase_ruler (struct Painter &, const RECT &) const;
-  void paint_ruler (HDC) const;
-  void paint_ruler_box (HDC, const RECT &) const;
-  void erase_ruler (HDC, const RECT &r) const;
   void update_ruler ();
 
-  void erase_cursor_line (HDC) const;
-  void paint_cursor_line (HDC, int) const;
+  void erase_cursor_line () const;
+  void erase_cursor_line (struct Painter &) const;
+  void paint_cursor_line (int) const;
+  void paint_cursor_line (struct Painter &, int) const;
   void point2window_pos (point_t, POINT &) const;
 };
 
@@ -688,21 +674,15 @@ Window::minibuffer_window_p () const
 }
 
 inline void
-Window::paint_background (HDC hdc) const
-{
-  paint_background (hdc, 0, 0, w_rect.right, w_rect.bottom);
-}
-
-inline void
 Window::paint_window (Painter &painter) const
 {
   paint_region (painter, 0, w_ch_max.cy);
 }
 
 inline void
-Window::paint_window (HDC hdc) const
+Window::paint_background (Painter &painter) const
 {
-  paint_region (hdc, 0, w_ch_max.cy);
+  paint_background (painter, 0, 0, w_rect.right, w_rect.bottom);
 }
 
 inline COLORREF
