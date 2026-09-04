@@ -307,7 +307,6 @@ class StatusWindow
 {
 public:
   enum {TEXT_MAX = 1024};
-  HWND sw_hwnd;
 protected:
   struct swbuf
     {
@@ -330,7 +329,6 @@ public:
   void flush ();
   void clear (int = 0);
   StatusWindow ();
-  void set (HWND);
   int paint (const DRAWITEMSTRUCT *);
 };
 
@@ -344,12 +342,9 @@ struct Frame
   Window *deleted;
   int windows_moved;
 
-  HWND hwnd;
   SIZE size;
 
   int has_focus;
-  HWND has_caret;
-  HWND has_caret_last;
   int caret_on;
   int gray_caret;
   SIZE caret_size;
@@ -390,7 +385,6 @@ public:
 
   HINSTANCE hinst;
   HWND toplev;
-  HWND hwnd_sw;
 
   /* `clipboard clipboard;` と `status_area stat_area;` はここに居たが、
      **`src/core/` の中から触っているコードが 1 つも無かった** ので
@@ -399,7 +393,8 @@ public:
      (src/frontend/win32/statarea.h) である。
 
      **`Application` のメンバだったせいで、`ed.h` を include する全ての
-     翻訳単位が 2 つのクラスの定義を要求していた** (`HWND` が 13 個)。
+     翻訳単位が 2 つのクラスの定義を要求していた**。
+     同じく HWND ハンドルも issue #297 で frontend グローバルに出している。
      Lisp から見えるクリップボードの入口は `Frontend::copy_to_clipboard` /
      `get_clipboard_data` (src/core/frontend.h) の方で、こちらは
      Win32 のウィンドウメッセージ (WM_DRAWCLIPBOARD ほか) を捌く道具である。 */

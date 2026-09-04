@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "ed-hwnd.h"
 #include "toplev.h"
 #include "ctl3d.h"
 #include "environ.h"
@@ -983,7 +984,7 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
   if (sysdep.Win5p ())
     UpdateWindow (app.toplev);
 
-  app.modeline_param.init (HFONT (SendMessage (app.hwnd_sw, WM_GETFONT, 0, 0)));
+  app.modeline_param.init (HFONT (SendMessage (g_app_hwnd_sw, WM_GETFONT, 0, 0)));
 
   if (!init_editor_objects ())
     return 0;

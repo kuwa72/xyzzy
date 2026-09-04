@@ -49,7 +49,6 @@ Application::Application ()
   in_gc = 0;
   exit_code = 0;
   toplev = 0;
-  hwnd_sw = 0;
   hinst = 0;
 }
 
@@ -91,7 +90,6 @@ DWORD Sysdep::get_dll_version (const char *) { return 0; }
 
 StatusWindow::StatusWindow ()
 {
-  sw_hwnd = 0;
   sw_b = sw_buf;
   sw_tail = sw_buf + TEXT_MAX;
   sw_last.l = 0;
@@ -112,7 +110,6 @@ void StatusWindow::puts (const char *, int) {}
 void StatusWindow::puts (int, int) {}
 void StatusWindow::flush () {}
 void StatusWindow::clear (int) {}
-void StatusWindow::set (HWND) {}
 int StatusWindow::paint (const DRAWITEMSTRUCT *) { return 0; }
 
 // ============================================================

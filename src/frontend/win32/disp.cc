@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ed.h"
+#include "ed-hwnd.h"
 #include "win32sysdep.h"
 #include "statarea.h"
 #include "gdi-utils.h"
@@ -215,7 +216,7 @@ Window::caret_size (SIZE &size) const
 void
 Window::hide_caret () const
 {
-  if (app.active_frame.has_caret == hwnd() && app.active_frame.caret_on)
+  if (g_active_frame_has_caret == hwnd() && app.active_frame.caret_on)
     {
       HideCaret (hwnd());
       app.active_frame.caret_on = 0;
@@ -225,11 +226,11 @@ Window::hide_caret () const
 void
 Window::delete_caret ()
 {
-  if (app.active_frame.has_caret)
+  if (g_active_frame_has_caret)
     {
       xcaret.destroy ();
       app.active_frame.caret_on = 0;
-      app.active_frame.has_caret = 0;
+      g_active_frame_has_caret = 0;
     }
 }
 
@@ -259,26 +260,26 @@ update_caret (HWND hwnd, int x, int y, int w, int h, COLORREF cc)
       else
         set_caret_blink_time ();
     }
-  if (!app.active_frame.has_caret)
+  if (!g_active_frame_has_caret)
     {
-      app.active_frame.has_caret = hwnd;
+      g_active_frame_has_caret = hwnd;
       xcaret.create (hwnd, gray_caret ? HBITMAP (1) : 0, w, h, cc);
       ShowCaret (hwnd);
     }
-  else if (app.active_frame.has_caret != hwnd
+  else if (g_active_frame_has_caret != hwnd
            || w != app.active_frame.caret_size.cx
            || h != app.active_frame.caret_size.cy
            || cc != app.active_frame.last_caret_color
            || app.active_frame.gray_caret != gray_caret)
     {
-      app.active_frame.has_caret = hwnd;
+      g_active_frame_has_caret = hwnd;
       xcaret.destroy ();
       xcaret.create (hwnd, gray_caret ? HBITMAP (1) : 0, w, h, cc);
       ShowCaret (hwnd);
     }
   else if (!app.active_frame.caret_on)
     ShowCaret (hwnd);
-  app.active_frame.has_caret_last = hwnd;
+  g_active_frame_has_caret_last = hwnd;
   app.active_frame.last_caret_color = cc;
   app.active_frame.caret_on = 1;
   app.active_frame.caret_size.cx = w;
@@ -312,7 +313,7 @@ Window::update_caret () const
 
   if (!show)
     {
-      if (app.active_frame.has_caret == hwnd())
+      if (g_active_frame_has_caret == hwnd())
         delete_caret ();
     }
   else
