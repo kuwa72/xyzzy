@@ -243,8 +243,8 @@ calc_pos (lisp lpoint, RECT &r)
   r.top -= 4;
   r.bottom += 8;
 
-  ClientToScreen (wp->w_hwnd, (POINT *)&r);
-  ClientToScreen (wp->w_hwnd, (POINT *)&r + 1);
+  ClientToScreen (wp->hwnd(), (POINT *)&r);
+  ClientToScreen (wp->hwnd(), (POINT *)&r + 1);
 }
 
 lisp

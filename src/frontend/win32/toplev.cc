@@ -171,7 +171,7 @@ set_current_cursor (const Window *wp)
     {
       POINT p;
       GetCursorPos (&p);
-      ScreenToClient (wp->w_hwnd, &p);
+      ScreenToClient (wp->hwnd(), &p);
       int l = app.text_font.cell ().cx / 2;
       if (wp->w_last_flags & Window::WF_LINE_NUMBER)
         l += (Window::LINENUM_COLUMNS + 1) * app.text_font.cell ().cx;

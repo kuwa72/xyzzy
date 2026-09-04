@@ -385,7 +385,7 @@ Window::init (int minibufp, int temporary)
                           0, 0, 0, 0,
                           app.active_frame.hwnd, 0, app.hinst, this))
     {
-      DestroyWindow (w_hwnd);
+      DestroyWindow (hwnd());
       FEstorage_error ();
     }
 
@@ -487,10 +487,10 @@ Window::~Window ()
   w_term_shadow = 0;
   if (windowp (lwp))
     xwindow_wp (lwp) = 0;
-  if (IsWindow (w_hwnd))
-    DestroyWindow (w_hwnd);
-  if (IsWindow (w_hwnd_ml))
-    DestroyWindow (w_hwnd_ml);
+  if (IsWindow (hwnd()))
+    DestroyWindow (hwnd());
+  if (IsWindow (hwnd_ml()))
+    DestroyWindow (hwnd_ml());
 }
 
 void
@@ -1000,7 +1000,7 @@ Window::compute_geometry (const SIZE &old_size, int)
       if (wp->w_rect.right != app.active_frame.size.cx)
         cx -= FRAME_WIDTH;
       cx -= RIGHT_PADDING;
-      if (wp->w_hwnd_ml)
+      if (wp->hwnd_ml())
         cy -= app.modeline_param.m_height + 4 + FRAME_WIDTH;
       if (!wp->minibuffer_window_p () && wp->flags () & WF_RULER)
         cy -= RULER_HEIGHT;
@@ -1020,7 +1020,7 @@ Window::move_all_windows (int update)
     {
       int cx, cy;
       int mlh;
-      if (wp->w_hwnd_ml)
+      if (wp->hwnd_ml())
         {
           mlh = wp->flags () & WF_MODE_LINE ? app.modeline_param.m_height + 4 : 0;
           cx = wp->w_rect.right == app.active_frame.size.cx ? 0 : FRAME_WIDTH;
@@ -1034,37 +1034,37 @@ Window::move_all_windows (int update)
 
       RECT or, nr;
       if (!mod)
-        GetWindowRect (wp->w_hwnd, &or);
+        GetWindowRect (wp->hwnd(), &or);
 
       SIZE size;
       size.cx = max (0, int (wp->w_rect.right - wp->w_rect.left - cx));
       int ruler = (!wp->minibuffer_window_p () && wp->flags () & WF_RULER
                    ? RULER_HEIGHT : 0);
       size.cy = max (0, int (wp->w_rect.bottom - wp->w_rect.top - mlh - cy - ruler));
-      MoveWindow (wp->w_hwnd, wp->w_rect.left, wp->w_rect.top + ruler,
+      MoveWindow (wp->hwnd(), wp->w_rect.left, wp->w_rect.top + ruler,
                   size.cx, size.cy, 1);
 
       if (!mod)
         {
-          GetWindowRect (wp->w_hwnd, &nr);
+          GetWindowRect (wp->hwnd(), &nr);
           mod = memcmp (&or, &nr, sizeof or);
         }
 
       RECT r;
-      GetClientRect (wp->w_hwnd, &r);
+      GetClientRect (wp->hwnd(), &r);
       wp->calc_client_size (r.right - RIGHT_PADDING, r.bottom);
-      if (wp->w_hwnd_ml)
+      if (wp->hwnd_ml())
         {
           if (!mod)
-            GetWindowRect (wp->w_hwnd_ml, &or);
+            GetWindowRect (wp->hwnd_ml(), &or);
           wp->w_ml_size.cx = size.cx;
           wp->w_ml_size.cy = mlh;
-          InvalidateRect (wp->w_hwnd_ml, 0, 1);
-          MoveWindow (wp->w_hwnd_ml,
+          InvalidateRect (wp->hwnd_ml(), 0, 1);
+          MoveWindow (wp->hwnd_ml(),
                       wp->w_rect.left, wp->w_rect.bottom - mlh - cy, size.cx, mlh, 1);
           if (!mod)
             {
-              GetWindowRect (wp->w_hwnd_ml, &nr);
+              GetWindowRect (wp->hwnd_ml(), &nr);
               mod = memcmp (&or, &nr, sizeof or);
             }
         }
@@ -1072,9 +1072,9 @@ Window::move_all_windows (int update)
 
   for (Window *wp = app.active_frame.reserved; wp; wp = wp->w_next)
     {
-      MoveWindow (wp->w_hwnd, 0, 0, 0, 0, 1);
-      if (wp->w_hwnd_ml)
-        MoveWindow (wp->w_hwnd_ml, 0, 0, 0, 0, 1);
+      MoveWindow (wp->hwnd(), 0, 0, 0, 0, 1);
+      if (wp->hwnd_ml())
+        MoveWindow (wp->hwnd_ml(), 0, 0, 0, 0, 1);
     }
 
   if (mod)
@@ -1097,7 +1097,7 @@ void
 Window::repaint_all_windows ()
 {
   for (Window *wp = app.active_frame.windows; wp; wp = wp->w_next)
-    if (!GetUpdateRect (wp->w_hwnd, 0, 0))
+    if (!GetUpdateRect (wp->hwnd(), 0, 0))
       wp->update_window ();
 }
 
@@ -1268,7 +1268,7 @@ Window::update_vscroll_bar ()
       if (w_vsinfo.sb_seen != ScrollInfo::yes)
         {
           w_vsinfo.sb_seen = ScrollInfo::yes;
-          ShowScrollBar (w_hwnd, SB_VERT, 1);
+          ShowScrollBar (hwnd(), SB_VERT, 1);
         }
       /* ターミナルバッファは buffer 本文を持たない (表示は TermCell を
          直接描いている) ので、count_lines () は常に 0 行を返す。範囲が
@@ -1318,7 +1318,7 @@ Window::update_vscroll_bar ()
     {
       if (w_vsinfo.sb_seen != ScrollInfo::no)
         {
-          ShowScrollBar (w_hwnd, SB_VERT, 0);
+          ShowScrollBar (hwnd(), SB_VERT, 0);
           w_vsinfo.sb_seen = ScrollInfo::no;
           w_vsinfo.nMax = w_vsinfo.nMin;
           w_vsinfo.nPage = UINT (-1);
@@ -1327,7 +1327,7 @@ Window::update_vscroll_bar ()
         }
     }
   if (w_vsinfo.fMask)
-    SetScrollInfo (w_hwnd, SB_VERT, &w_vsinfo, 1);
+    SetScrollInfo (hwnd(), SB_VERT, &w_vsinfo, 1);
 }
 
 int
@@ -1369,7 +1369,7 @@ Window::process_vscroll (int code)
             {
               ScrollInfo i;
               i.fMask = SIF_TRACKPOS;
-              GetScrollInfo (w_hwnd, SB_VERT, &i);
+              GetScrollInfo (hwnd(), SB_VERT, &i);
               /* update_vscroll_bar の nPos = 1 + count - offset の逆。 */
               int off = 1 + term->scrollback_count () - i.nTrackPos;
               delta = off - term->scrollback_offset ();
@@ -1424,7 +1424,7 @@ Window::process_vscroll (int code)
       {
         ScrollInfo i;
         i.fMask = SIF_TRACKPOS;
-        GetScrollInfo (w_hwnd, SB_VERT, &i);
+        GetScrollInfo (hwnd(), SB_VERT, &i);
         if (!scroll_window (i.nTrackPos, 1))
           return;
         break;
@@ -1458,7 +1458,7 @@ Window::wheel_scroll (const wheel_info &wi)
     if (term && term->mouse_mode ())
       {
         POINT pt = wi.wi_pt;
-        ScreenToClient (w_hwnd, &pt);
+        ScreenToClient (hwnd(), &pt);
         int cellw = app.text_font.cell ().cx;
         int cellh = app.text_font.cell ().cy;
         if (cellw > 0 && cellh > 0)
@@ -1534,7 +1534,7 @@ Window::update_hscroll_bar ()
       if (w_hsinfo.sb_seen != ScrollInfo::yes)
         {
           w_hsinfo.sb_seen = ScrollInfo::yes;
-          ShowScrollBar (w_hwnd, SB_HORZ, 1);
+          ShowScrollBar (hwnd(), SB_HORZ, 1);
         }
       int pos;
       int w;
@@ -1571,7 +1571,7 @@ Window::update_hscroll_bar ()
       if (w_hsinfo.sb_seen != ScrollInfo::no)
         {
           w_hsinfo.sb_seen = ScrollInfo::no;
-          ShowScrollBar (w_hwnd, SB_HORZ, 0);
+          ShowScrollBar (hwnd(), SB_HORZ, 0);
           w_hsinfo.nMax = w_hsinfo.nMin;
           w_hsinfo.nPage = UINT (-1);
           w_hsinfo.nPos = -1;
@@ -1579,7 +1579,7 @@ Window::update_hscroll_bar ()
         }
     }
   if (w_hsinfo.fMask)
-    SetScrollInfo (w_hwnd, SB_HORZ, &w_hsinfo, 1);
+    SetScrollInfo (hwnd(), SB_HORZ, &w_hsinfo, 1);
 }
 
 void
@@ -1614,7 +1614,7 @@ Window::process_hscroll (int code)
       {
         ScrollInfo i;
         i.fMask = SIF_TRACKPOS;
-        GetScrollInfo (w_hwnd, SB_HORZ, &i);
+        GetScrollInfo (hwnd(), SB_HORZ, &i);
         if (!scroll_window_horizontally (i.nTrackPos - w_hsinfo.nPos))
           return;
         break;
@@ -1964,16 +1964,16 @@ Window::find_scr_point_window (const POINT &pt, int ml, int *in_ml)
   for (wp = app.active_frame.windows; wp; wp = wp->w_next)
     {
       RECT r;
-      GetWindowRect (wp->w_hwnd, &r);
+      GetWindowRect (wp->hwnd(), &r);
       if (PtInRect (&r, pt))
         {
           if (in_ml)
             *in_ml = 0;
           break;
         }
-      if (ml && wp->w_hwnd_ml)
+      if (ml && wp->hwnd_ml())
         {
-          GetWindowRect (wp->w_hwnd_ml, &r);
+          GetWindowRect (wp->hwnd_ml(), &r);
           if (PtInRect (&r, pt))
             {
               if (in_ml)
@@ -2109,11 +2109,11 @@ Fget_window_handle (lisp window)
 #ifdef _WIN64
   if (!window || window == Qnil)
     return make_integer ((int64_t)(intptr_t)app.toplev);
-  return make_integer ((int64_t)(intptr_t)Window::coerce_to_window (window)->w_hwnd);
+  return make_integer ((int64_t)(intptr_t)Window::coerce_to_window (window)->hwnd());
 #else
   if (!window || window == Qnil)
     return make_fixnum (long (app.toplev));
-  return make_fixnum (long (Window::coerce_to_window (window)->w_hwnd));
+  return make_fixnum (long (Window::coerce_to_window (window)->hwnd()));
 #endif
 }
 
@@ -2707,7 +2707,7 @@ Fbegin_auto_scroll ()
       || (bp->b_fold_columns == Buffer::FOLD_NONE
           ? bp->count_lines ()
           : bp->folded_count_lines ()) <= 1
-      || !begin_auto_scroll (wp->w_hwnd, p, auto_scroll, wp))
+      || !begin_auto_scroll (wp->hwnd(), p, auto_scroll, wp))
     return Qnil;
   return Qt;
 }
@@ -2716,7 +2716,7 @@ void
 Window::calc_ruler_rect (RECT &r) const
 {
   POINT p = {0, 0};
-  MapWindowPoints (w_hwnd, app.active_frame.hwnd, &p, 1);
+  MapWindowPoints (hwnd(), app.active_frame.hwnd, &p, 1);
   r.left = p.x + app.text_font.cell ().cx / 2;
   if (flags () & WF_LINE_NUMBER)
     r.left += (LINENUM_COLUMNS + 1) * app.text_font.cell ().cx;
@@ -2791,7 +2791,7 @@ Window::paint_ruler (Painter &painter) const
 
   RECT r;
 
-  GetWindowRect (w_hwnd, &r);
+  GetWindowRect (hwnd(), &r);
   MapWindowPoints (HWND_DESKTOP, app.active_frame.hwnd, (POINT *)&r, 2);
   r.bottom = r.top;
   r.top -= RULER_HEIGHT;
