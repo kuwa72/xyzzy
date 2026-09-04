@@ -16,6 +16,7 @@
 #include "eaw.h"
 #include "painter-win32.h"
 #include "minibuffer-message.h"
+#include "modeline-painter.h"
 
 extern Terminal *buffer_terminal (const Buffer *bp);
 extern void terminal_lock ();
@@ -117,6 +118,14 @@ void
 reload_caret_colors ()
 {
   xcaret.load_colors ();
+}
+
+static mode_line_state &
+window_mode_line_state (Window *w)
+{
+  if (!w->w_mode_line_state)
+    w->w_mode_line_state = new mode_line_state;
+  return *static_cast <mode_line_state *> (w->w_mode_line_state);
 }
 
 // Buffer::next_char() moved to core/glyph.cc
@@ -1992,30 +2001,32 @@ Window::paint_mode_line (Painter &painter)
   r.right = w_ml_size.cx - 1;
   r.bottom = w_ml_size.cy - 1;
 
+  mode_line_state &mls = window_mode_line_state (this);
+
   std::list<mode_line_painter*> painters;
-  w_point_painter.set_posp(posp);
-  w_percent_painter.set_posp(percentp);
+  mls.point.set_posp(posp);
+  mls.percent.set_posp(percentp);
   if(posp) {
-	  w_point_painter.setup_paint(&app.modeline_param, w_column, w_plinenum, w_ml_size);
-	  painters.push_back(&w_point_painter);
+	  mls.point.setup_paint(&app.modeline_param, w_column, w_plinenum, w_ml_size);
+	  painters.push_back(&mls.point);
   }
   else
   {
-	  w_point_painter.no_format_specifier();
+	  mls.point.no_format_specifier();
   }
 
 
   if(percentp) {
-	  w_percent_painter.setup_paint(&app.modeline_param, mode_line_percent_painter::calc_percent(w_bufp, w_point.p_point), w_ml_size);
+	  mls.percent.setup_paint(&app.modeline_param, mode_line_percent_painter::calc_percent(w_bufp, w_point.p_point), w_ml_size);
 
 	  if(posp && posp > percentp) // tenuki sort.
-		  painters.push_front(&w_percent_painter);
+		  painters.push_front(&mls.percent);
 	  else
-		  painters.push_back(&w_percent_painter);
+		  painters.push_back(&mls.percent);
   }
   else
   {
-	  w_percent_painter.no_format_specifier();
+	  mls.percent.no_format_specifier();
   }
 
 
@@ -2143,14 +2154,16 @@ Window::redraw_mode_line ()
 
   int r;
 
+  mode_line_state &mls = window_mode_line_state (this);
+
   HDC hdc = GetDC (w_hwnd_ml);
   // a little slow. we can avoid this setup if we check validity.
-  w_point_painter.setup_paint(&app.modeline_param, w_column, w_plinenum, w_ml_size);
-  w_percent_painter.setup_paint(&app.modeline_param, mode_line_percent_painter::calc_percent(w_bufp, w_point.p_point), w_ml_size);
+  mls.point.setup_paint(&app.modeline_param, w_column, w_plinenum, w_ml_size);
+  mls.percent.setup_paint(&app.modeline_param, mode_line_percent_painter::calc_percent(w_bufp, w_point.p_point), w_ml_size);
 
   if (w_disp_flags & WDF_MODELINE
-      || w_point_painter.need_repaint_all()
-	  || w_percent_painter.need_repaint_all())
+      || mls.point.need_repaint_all()
+	  || mls.percent.need_repaint_all())
     {
       paint_mode_line (hdc);
       w_disp_flags &= ~WDF_MODELINE;
@@ -2172,8 +2185,8 @@ Window::redraw_mode_line ()
       HGDIOBJ of = SelectObject (hdc, app.modeline_param.m_hfont);
 
 	  // order is not important.
-	  w_point_painter.update_paint(hdc);
-	  w_percent_painter.update_paint(hdc);
+	  mls.point.update_paint(hdc);
+	  mls.percent.update_paint(hdc);
 
       SelectObject (hdc, of);
       SetTextColor (hdc, ofg);

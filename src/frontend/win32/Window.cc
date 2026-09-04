@@ -8,6 +8,7 @@
 #include "wheel.h"
 #include "painter-win32.h"
 #include "term.h"
+#include "modeline-painter.h"
 
 #define RULER_HEIGHT 13
 #define FRAME_WIDTH 2
@@ -363,6 +364,7 @@ Window::init (int minibufp, int temporary)
   w_ruler_fold_column = Buffer::FOLD_NONE;
 
   w_ignore_scroll_margin = 0;
+  w_mode_line_state = 0;
 
   if (temporary)
     return;
@@ -479,6 +481,8 @@ Window::Window (int minibufp, int temporary)
 
 Window::~Window ()
 {
+  delete static_cast <mode_line_state *> (w_mode_line_state);
+  w_mode_line_state = 0;
   free (w_term_shadow);
   w_term_shadow = 0;
   if (windowp (lwp))
