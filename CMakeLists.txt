@@ -1112,6 +1112,9 @@ set(CLI_SOURCES
     ${CLI_DIR}/cli-stubs.cc
     ${CLI_DIR}/cli-symtable-ed.cc
 )
+if(NOT WIN32)
+    list(APPEND CLI_SOURCES ${CMAKE_SOURCE_DIR}/src/frontend/posix/waitobj.cc)
+endif()
 
 # src/core/mem-posix.cc の単体確認 (issue #240)。**このリポジトリで最初の
 # C++ のテストである。** 見たい性質 (「予約しただけのページは
@@ -1204,6 +1207,7 @@ if(NOT WIN32)
             ${CORE_DIR}/abbrev-columns.cc
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
+            ${CMAKE_SOURCE_DIR}/src/frontend/posix/waitobj.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
             ${NCURSES_DIR}/ncurses-process.cc
             ${NCURSES_DIR}/ncurses-dialog.cc

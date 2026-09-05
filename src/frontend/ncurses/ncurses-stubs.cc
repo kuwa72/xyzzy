@@ -937,14 +937,6 @@ lwin32_menu::~lwin32_menu ()
     bitclr (used_id, id - MENU_ID_RANGE_MIN);
 }
 
-void lwait_object::cleanup ()
-{
-  if (hevent)
-    {
-      CloseHandle (hevent);
-      hevent = 0;
-    }
-}
 
 // ============================================================
 // ツールバーのコマンド引きと GC の mark (宣言は src/core/fns.h)
@@ -1015,26 +1007,14 @@ Fsi_minibuffer_message (lisp message, lisp prompt)
    呼ばれたときに「何もしない」のが正しい答え**である (「前に出した」と
    嘘をつくのでも、エラーにするのでもない)。
 
-   待機オブジェクト (`si:*create-wait-object` ほか) は、**オブジェクトの
-   側は実は POSIX へ普通に移植できる** (`eventfd`/`pipe` で書ける、
-   `Twait_object` という Lisp の型自体は core にもう在る)。無いのは
-   「待つ相手」で、`-wait` を使うのは `lisp/estartup.l` の
-   `ed::*xyzzycli-helper` 経由だけ、それを呼ぶのは
-   `src/frontend/win32/xyzzycli.cc` だけ、つまり**POSIX には
-   `xyzzycli` に相当するプログラムが 1 つも無い** (issue #222)。
-   オブジェクトだけ実装しても「待つ人が誰もいない」ので機能は動かない ---
-   `misc/known-failures/linux.txt` の `wait-object-*` 2 件だけ緑にするのは
-   `image-startup-option` (issue #219) と同じ「動いていないのに緑」の形に
-   なるので、やらない。以前ここには「`Buffer::cleanup_waitobj_list` から
-   無条件に触るので no-op にしてある」と書いてあったが、**この関数の
-   端末版 (このファイル内) は自前の空実装で、そもそも wait-object を
-   一切触らない** ので誤りだった。 */
+   待機オブジェクト (`si:*create-wait-object` ほか) は
+   `src/frontend/posix/waitobj.cc` の共通実装へ移した。POSIX では pipe の
+   読み書き端点を 1 つの opaque handle にまとめ、破棄時に通知してから
+   両端を閉じる。サーバとクライアント本体がまだ無いため、実際の待機経路は
+   後続の issue で実装する。 */
 lisp Fsi_show_window_foreground () { return Qnil; }
 lisp Fsi_activate_toplevel () { return Qnil; }
 lisp Fsi_app_user_model_id () { return Qnil; }
-lisp Fsi_create_wait_object () { return Qnil; }
-lisp Fsi_add_wait_object (lisp, lisp) { return Qnil; }
-lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
 
 // ============================================================
 // dll.cc stubs (sys_fns[] references)
@@ -3994,7 +3974,6 @@ lisp Fend_wait_cursor () { return Qnil; }
 
 
 // Fprocess_marker: implemented in ncurses-process.cc
-void Buffer::cleanup_waitobj_list () {}
 
 // ============================================================
 // DLL/FFI stubs
