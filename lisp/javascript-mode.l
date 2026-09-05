@@ -146,3 +146,7 @@
     (make-local-variable 'keyword-hash-table)
     (setq keyword-hash-table *typescript-keyword-hash-table*))
   (run-hooks '*typescript-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'javascript-mode))
+(add-hook '*javascript-mode-hook* 'ts-enable-for-buffer)

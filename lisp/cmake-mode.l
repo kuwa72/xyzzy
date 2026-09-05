@@ -140,3 +140,7 @@
   (setq comment-end "")
   (make-local-variable '*cmake-indent-level*)
   (run-hooks '*cmake-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'cmake-mode))
+(add-hook '*cmake-mode-hook* 'ts-enable-for-buffer)

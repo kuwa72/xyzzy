@@ -52,3 +52,14 @@
   "Leader t s に割り当てられていること"
   (lookup-keymap ed::*leader-toggle-map* #\s)
   => toggle-ts-highlight)
+
+
+(deftest ts-repository-language-registrations ()
+  "リポジトリで使う言語の文法がモードへ登録されること"
+  (dolist (file '("cmake-mode" "python-mode" "json-mode" "yaml-mode"
+                  "shell-mode" "javascript-mode"))
+    (require file))
+  (mapcar (lambda (mode) (not (null (gethash mode ed::*ts-grammar-registry*))))
+          '(cmake-mode python-mode json-mode yaml-mode shell-script-mode
+            javascript-mode))
+  => (t t t t t t))

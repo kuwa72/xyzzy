@@ -21,6 +21,22 @@
   (merge-pathnames "grammars/" (si:system-root))
   "Root directory for per-language subdirectories (grammars/<lang>/).")
 
+(defvar *ts-default-color-alist*
+  '(("comment" . 15)
+    ("string" . 9)
+    ("number" . 13)
+    ("constant" . 13)
+    ("operator" . 12)
+    ("keyword" . 12)
+    ("type" . 13)
+    ("function" . 10)
+    ("function.call" . 10)
+    ("function.definition" . 10)
+    ("variable" . 7)
+    ("property" . 7)
+    ("tag" . 12))
+  "Default Tree-sitter capture colors for modes without a custom palette.")
+
 (defvar *ts-grammar-suffix* (if (featurep :unix) ".so" ".dll")
   "文法の共有ライブラリの拡張子。
 
@@ -80,7 +96,7 @@ COLORS is an alist of (capture-name . fg-color-number)."
                                   lang-name (ts-grammar-query-file lang-name))))
          (gram         (si:load-ts-grammar (ts-grammar-file lang-name) lang-name)))
     (setf (gethash mode *ts-grammar-registry*)
-          (list gram query-str colors))
+          (list gram query-str (or colors *ts-default-color-alist*)))
     gram))
 
 ;;; --- Buffer-local state --------------------------------------------------
@@ -218,3 +234,13 @@ nil にしてキーワードファイルの色付けだけにできる。")
       (format t "ts:~D spans~%" (length spans))
       (dolist (s spans)
         (format t "  ~A  [~D, ~D)~%" (first s) (second s) (third s))))))
+
+
+;;; Register grammars for modes whose source files may have been loaded before ts.l.
+(dolist (entry '((cmake-mode . "cmake")
+                 (python-mode . "python")
+                 (json-mode . "json")
+                 (yaml-mode . "yaml")
+                 (shell-script-mode . "bash")
+                 (javascript-mode . "javascript")))
+  (ignore-errors (ts-register-mode (car entry) :lang (cdr entry))))

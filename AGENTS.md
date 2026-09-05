@@ -19,6 +19,6 @@ PR を作成して終わりにせず、CI 終了確認・マージ・issue ク�
 
 - 作業ブランチは `topic/*`、PR の base は常に `main`。
 - 変更時はリリースノートを必ず更新する。
-- `grammars/**/*.dll` はビルドで変更されてもコミットしない。
+- `grammars/**/*.dll` はビルド生成物としてGitで追跡せず、コミットしない。
 - `git add -A` は使わず、変更対象を明示して staging する。
 - `misc/known-failures/*.txt` は CI の結果を根拠にせず変更しない。

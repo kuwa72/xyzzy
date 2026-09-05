@@ -35,6 +35,8 @@ xyzzy リリースノート
 
   * **POSIX 版 listen サーバを ncurses の入力待ちに統合した** (issue #307)。
     キー入力を待つ `select` で Unix domain socket も監視し、端末版を起動したまま届いた Lisp リクエストを同じイベントループ上で評価できるようにした。
+  * **Tree-sitter の文法ライブラリをビルド生成物に変更し、リポジトリの言語対応を拡張した**。
+    DLL/SOをGitで追跡せず、CMakeがC/C++/Perl/Markdownに加えてBash、CMake、HTML、JavaScript、JSON、Python、YAMLの文法をビルドして、リリース時だけパッケージへ含めるようにした。
   * **issue 対応の TDD・PR・CI・マージ手順を各エージェントの共通指示に明文化した**。
     対応漏れを防ぐため、テストから始め、CI の終了と issue クローズ確認までを完了条件にした。
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。

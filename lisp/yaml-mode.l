@@ -174,3 +174,7 @@
   (setq comment-end "")
   (make-local-variable '*yaml-indent-level*)
   (run-hooks '*yaml-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'yaml-mode))
+(add-hook '*yaml-mode-hook* 'ts-enable-for-buffer)

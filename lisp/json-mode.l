@@ -156,3 +156,7 @@
   (setq regexp-keyword-list (json-setup-keywords))
   (make-local-variable '*json-indent-level*)
   (run-hooks '*json-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'json-mode))
+(add-hook '*json-mode-hook* 'ts-enable-for-buffer)
