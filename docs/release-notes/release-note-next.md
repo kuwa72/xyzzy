@@ -22,6 +22,8 @@ xyzzy リリースノート
   * **FontObject のフォントハンドル管理を Win32 frontend へ移した** (issue #301)。
     core の `font.h` が `HFONT` の所有・変換・破棄を行わないようにし、古い GDI 計測経路も整理した。
   * **Win32 のトップレベル HWND を `Application` から frontend 側へ移した** (issue #298)。core の `ed.h` が GUI ウィンドウハンドルを所有しないようにし、名前解決の親ウィンドウ取得は frontend seam 経由にした。
+  * **`reference.xml` と Lisp/C++ の登録シンボルを突き合わせるチェッカーを追加した** (issue #302)。
+    手作業では追いにくい未文書化シンボルと古いリファレンス項目を、実装をビルドせず一覧で確認できるようにした。
 
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。
     POSIX の名前解決は UTF-8 のバイト列を取るのに、`w2s` で **CP932 に変換して
