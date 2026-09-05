@@ -165,6 +165,11 @@ _build/
 # written by misc/bytecompile-batch.l
 /bytecompile-progress.log
 
+# Local analysis and generated grammar output
+/grammars/
+/.serena/
+/graphify-out/
+
 # The native (ELF) build writes the tree-sitter grammars next to the committed
 # .dll of the same grammar.  The .dll are tracked (.githooks/pre-commit keeps
 # rebuilt ones out of a commit); these have never been, and are not shipped.
