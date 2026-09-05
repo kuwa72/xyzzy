@@ -115,11 +115,9 @@
 # 止まる。** 呼び出し規約の `:stdcall` は POSIX では既定の 1 つに落ちるだけで、
 # 問題にならない。下の Win32 API の群に移した。
 #
-# **ここに残っているのは 2 種類:**
-#
-#   * `last-win32-error` 2 件 — `MultiByteToWideChar` と `GetLastError` を
-#     kernel32 から引く。**POSIX に相当するものが無い。**
-#   * `wait-object-*` 2 件 — 待機可能オブジェクト。同じく相当物が無い。
+# **ここに残っているのは `last-win32-error` 2 件だけ:**
+# `MultiByteToWideChar` と `GetLastError` を kernel32 から引く。
+# **POSIX に相当するものが無い。**
 #
 # **`pack-unpack-*` 4 件はここから外れた。FFI とは関係が無かった。**
 # `si:pack-*` / `si:unpack-*` はチャンク (バイト列) を読み書きするだけで DLL を
@@ -148,7 +146,6 @@
 # 一緒に通るはず」と書いてあった。**FFI は動くようになったが、この 2 件は
 # 通らなかった。** 止まっているのは呼ぶ側ではなく**呼ぶ相手**で、
 # `MultiByteToWideChar` は kernel32 の中にあり、**kernel32 は POSIX に無い。**
-# `wait-object` は WaitForMultipleObjects で、同じく相当物が無い。
 #
 # **`defun-c-callable-stdcall` は上の FFI 群から移した。** callback を作る所
 # (`si:make-c-callable`) は POSIX でも動くようになったが、このテストが渡す
@@ -234,8 +231,6 @@
 defun-c-callable-stdcall
 last-win32-error
 last-win32-error-getlasterror
-wait-object-check-type-1
-wait-object-typep
 
 # ファイル名とパス。
 #

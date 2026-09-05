@@ -42,10 +42,11 @@ Common Lisp でも Emacs Lisp でもないので、他のエディタや処理�
 ----------------
 
 組み込み関数・特殊形式・変数の一覧は `reference/reference.xml` にあります
-(インストーラ・ZIP 版では `docs/reference/` にコピーされます)。xmldoc 形式の
-XML なので、`xmldoc-mode` (Lisp モードの一種) で xyzzy 自身で開くとセクションごとに
-読めます。**存在しない関数を推測で使わないこと** — Common Lisp や Emacs Lisp に
-あるからといって xyzzy にあるとは限りません。まずここで確認してください。
+(インストーラ・ZIP 版では `docs/reference/` にコピーされます)。XML の編集・表示には
+`xml-mode` を使えますが、この配布物には専用の `xmldoc-mode` は含まれていません。
+XML の説明は過去の Xyzzy Documentation Project のリファレンスであり、現在の Lisp/C++
+ソースから自動生成されたものではありません。**存在しない関数を推測で使わないこと** —
+Common Lisp や Emacs Lisp にあるからといって xyzzy にあるとは限りません。まずここで確認してください。
 
 サンプル・実例
 --------------

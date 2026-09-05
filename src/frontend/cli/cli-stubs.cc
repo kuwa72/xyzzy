@@ -345,6 +345,7 @@ lwin32_menu::~lwin32_menu ()
     DestroyMenu (handle);
 }
 
+#ifdef _WIN32
 void lwait_object::cleanup ()
 {
   if (hevent)
@@ -353,6 +354,7 @@ void lwait_object::cleanup ()
       hevent = 0;
     }
 }
+#endif
 
 // ============================================================
 // ツールバーのコマンド引きと GC の mark (宣言は src/core/fns.h)
@@ -480,9 +482,11 @@ lisp Fsi_minibuffer_message (lisp, lisp) { return Qnil; }
 lisp Fsi_show_window_foreground () { return Qnil; }
 lisp Fsi_activate_toplevel () { return Qnil; }
 lisp Fsi_app_user_model_id () { return Qnil; }
+#ifdef _WIN32
 lisp Fsi_create_wait_object () { return Qnil; }
 lisp Fsi_add_wait_object (lisp, lisp) { return Qnil; }
 lisp Fsi_remove_wait_object (lisp, lisp) { return Qnil; }
+#endif
 
 // ============================================================
 // dll.cc stubs (sys_fns[] references)
@@ -708,7 +712,9 @@ lisp Fend_wait_cursor () { return Qnil; }
    core の実装が引かれず、CLI だけ nil を返し続ける** (リンクは通るので
    気付けない)。 */
 lisp Fprocess_marker (lisp) { return Qnil; }
+#ifdef _WIN32
 void Buffer::cleanup_waitobj_list () {}
+#endif
 
 // ============================================================
 // DLL/FFI stubs
