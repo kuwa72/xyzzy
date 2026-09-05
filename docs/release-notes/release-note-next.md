@@ -37,6 +37,8 @@ xyzzy リリースノート
     キー入力を待つ `select` で Unix domain socket も監視し、端末版を起動したまま届いた Lisp リクエストを同じイベントループ上で評価できるようにした。
   * **POSIX 版 xyzzycli クライアントの骨格を追加した** (issue #308)。
     Unix domain socket へ接続し、`ed::*xyzzycli-helper` へファイル名を UTF-8 の S 式で送る。サーバ未起動時はエラーを出し、起動中の場合は 60 秒間接続をリトライする。
+  * **POSIX 版 xyzzycli に `-wait`・サーバ自動起動・E2E を実装した** (issue #309)。
+    `recvmsg` で `SCM_RIGHTS` の wait fd を受け取り、バッファが kill されるまで `read` でブロックする。サーバが動いていなければ `xyzzy --batch` でサーバを起動してから接続する。`EDITOR=xyzzycli git commit` でコミットメッセージを端末版 xyzzy で編集できる形が揃った。
   * **Tree-sitter の文法ライブラリをビルド生成物に変更し、リポジトリの言語対応を拡張した**。
     DLL/SOをGitで追跡せず、CMakeがC/C++/Perl/Markdownに加えてBash、CMake、HTML、JavaScript、JSON、Python、YAMLの文法をビルドして、リリース時だけパッケージへ含めるようにした。
   * **issue 対応の TDD・PR・CI・マージ手順を各エージェントの共通指示に明文化した**。

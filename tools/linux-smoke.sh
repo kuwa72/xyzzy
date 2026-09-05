@@ -17,7 +17,7 @@ set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 build=${1:-$root/_build/linux}
 
-for exe in xyzzy xyzzy-cli; do
+for exe in xyzzy xyzzy-cli xyzzycli; do
   [ -x "$build/$exe" ] || {
     echo "linux-smoke.sh: $build/$exe not built" >&2; exit 2; }
 done
@@ -1361,5 +1361,78 @@ else
   grep -o '"int f(int x) {[^"]*"' "$log2" | head -1 >&2 || true
   fail=1
 fi
+
+# xyzzycli -wait: open a file through the listen socket, wait for
+# the buffer to be killed, then exit.  This is the flow that
+# EDITOR=xyzzycli uses.
+log=$build/smoke-xyzzycli-wait.txt
+rm -f "/tmp/xyzzy-$(id -u).sock" "${XDG_RUNTIME_DIR:-}/xyzzy-$(id -u).sock"
+tmpfile=$build/smoke-xyzzycli-wait-input.txt
+echo "hello from xyzzycli" >"$tmpfile"
+# Start xyzzy with the listen server, then have xyzzycli open the file with
+# -wait.  After a short delay, kill the buffer from Lisp so the wait fd fires.
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(start-xyzzy-server)\r' \
+  >"$build/smoke-xyzzycli-wait-server.txt" 2>&1 &
+pty_pid=$!
+set +e
+# Wait for the listen socket to appear.
+for i in $(seq 1 120); do
+  sock=""
+  for p in "${XDG_RUNTIME_DIR:-}/xyzzy-$(id -u).sock" "/tmp/xyzzy-$(id -u).sock"; do
+    [ -S "$p" ] && sock="$p" && break
+  done
+  [ -n "$sock" ] && break
+  sleep 0.05
+done
+if [ -z "$sock" ]; then
+  echo "smoke: xyzzycli -wait FAILED -- listen socket did not appear" >&2
+  kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null || true
+  fail=1
+else
+  # Run xyzzycli with -wait in the background.
+  "$build/xyzzycli" -wait "$tmpfile" >"$log" 2>&1 &
+  cli_pid=$!
+
+  # Give the server time to open the file.
+  sleep 1
+
+  # Kill the buffer from Lisp so the wait object fires.
+  python3 - "$sock" <<'PY'
+import socket, sys
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.settimeout(5)
+    s.connect(sys.argv[1])
+    s.sendall(b'(progn (let ((b (find-buffer (file-namestring "smoke-xyzzycli-wait-input.txt")))) (when b (delete-buffer b))) t)')
+    s.shutdown(socket.SHUT_WR)
+    s.recv(1)
+PY
+  # Wait for xyzzycli to exit (it should unblock after buffer kill).
+  cli_exit=1
+  for i in $(seq 1 50); do
+    if ! kill -0 "$cli_pid" 2>/dev/null; then
+      wait "$cli_pid"
+      cli_exit=$?
+      break
+    fi
+    sleep 0.1
+  done
+  if kill -0 "$cli_pid" 2>/dev/null; then
+    kill "$cli_pid" 2>/dev/null
+    wait "$cli_pid" 2>/dev/null || true
+  fi
+
+  kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null || true
+  if [ "$cli_exit" -eq 0 ]; then
+    echo 'smoke: xyzzycli -wait OK -- opened file, waited for buffer kill, exited cleanly'
+  else
+    echo "smoke: xyzzycli -wait FAILED (exit=$cli_exit), see $log" >&2
+    cat "$log" >&2 || true
+    fail=1
+  fi
+fi
+set -e
+rm -f "$tmpfile"
 
 exit $fail
