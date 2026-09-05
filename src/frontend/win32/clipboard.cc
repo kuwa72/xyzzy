@@ -323,7 +323,7 @@ Fcopy_to_clipboard (lisp string)
 #endif
 
   int result = 0;
-  if (open_clipboard (app.toplev))
+  if (open_clipboard (get_toplevel_window ()))
     {
       if (EmptyClipboard ())
         for (int i = 0; i < numberof (clp) && clp[i].hgl; i++)
@@ -537,7 +537,7 @@ Fget_clipboard_data ()
 {
   int result = -1;
   lisp lstring = make_simple_string ();
-  if (open_clipboard (app.toplev))
+  if (open_clipboard (get_toplevel_window ()))
     {
       lisp encoding = symbol_value (Vclipboard_char_encoding,
                                     selected_buffer ());

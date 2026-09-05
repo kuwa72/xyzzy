@@ -26,9 +26,16 @@ text_drop_target tdropt;
 main_frame g_frame;
 
 HWND g_app_hwnd_sw;
+HWND g_toplevel_window_hwnd;
 HWND g_active_frame_hwnd;
 HWND g_active_frame_has_caret;
 HWND g_active_frame_has_caret_last;
+
+HWND
+get_toplevel_window ()
+{
+  return g_toplevel_window_hwnd;
+}
 
 /* **core から呼ばれる 2 つ** (宣言は src/core/fns.h)。core は `g_frame` を
    知らないので、ここで受ける (issue #185)。 */
@@ -81,7 +88,7 @@ quit_thread_entry (void *p)
                 // may be ghost window.
                 if (IsHungAppWindow (hwnd_fg))
                   {
-                    if (IsHungAppWindow (app.toplev))
+                    if (IsHungAppWindow (get_toplevel_window ()))
                       {
                         msg.wParam = 1;
                       }
@@ -147,7 +154,7 @@ quit_thread_entry (void *p)
           case WM_HOTKEY:
             if (!app.f_protect_quit)
               {
-                PostMessage (app.toplev, WM_PRIVATE_QUIT, 0, 0);
+                PostMessage (get_toplevel_window (), WM_PRIVATE_QUIT, 0, 0);
                 xsymbol_value (Vquit_flag) = Qt;
               }
             break;
@@ -221,7 +228,7 @@ end_wait_cursor (int f)
     }
   if (app.toplevel_is_active)
     {
-      if (GetFocus () == app.toplev)
+      if (GetFocus () == get_toplevel_window ())
         mouse_state::hide_cursor ();
       set_current_cursor ();
     }
@@ -289,7 +296,7 @@ void
 recalc_toplevel ()
 {
   RECT r;
-  GetClientRect (app.toplev, &r);
+  GetClientRect (get_toplevel_window (), &r);
   resize_toplevel (r.right, r.bottom);
 }
 
@@ -305,7 +312,7 @@ do_dnd (HDROP hdrop)
         wp = selected_window ();
       else
         {
-          ClientToScreen (app.toplev, &pt);
+          ClientToScreen (get_toplevel_window (), &pt);
           wp = Window::find_scr_point_window (pt, 1, 0);
         }
 
@@ -319,9 +326,9 @@ do_dnd (HDROP hdrop)
             {
               if (xsymbol_value (Vdrag_and_drop_auto_activate) != Qnil)
                 {
-                  if (IsIconic (app.toplev))
-                    ShowWindow (app.toplev, SW_RESTORE);
-                  ForceSetForegroundWindow (app.toplev);
+                  if (IsIconic (get_toplevel_window ()))
+                    ShowWindow (get_toplevel_window (), SW_RESTORE);
+                  ForceSetForegroundWindow (get_toplevel_window ());
                 }
               lisp list = Qnil;
               /* The W form: DragQueryFileA hands back the path in the ANSI
@@ -358,7 +365,7 @@ set_ime_caret ()
 {
   if (g_active_frame_has_caret)
     {
-      HIMC hIMC = app.kbdq.gime.ImmGetContext (app.toplev);
+      HIMC hIMC = app.kbdq.gime.ImmGetContext (get_toplevel_window ());
       if (!hIMC)
         return;
 
@@ -368,7 +375,7 @@ set_ime_caret ()
       const FontObject &font = kbd_queue::kbd_encoding_font ();
 
       POINT pt (app.active_frame.caret_pos);
-      MapWindowPoints (g_active_frame_has_caret, app.toplev, &pt, 1);
+      MapWindowPoints (g_active_frame_has_caret, get_toplevel_window (), &pt, 1);
       pt.x += font.offset ().x;
       pt.y += font.offset ().y;
 
@@ -378,7 +385,7 @@ set_ime_caret ()
       app.kbdq.gime.ImmSetCompositionWindow (hIMC, &cf);
 
       app.kbdq.gime.ImmSetCompositionFont (hIMC, const_cast<LOGFONTW *> (&font.logfont ()));
-      app.kbdq.gime.ImmReleaseContext (app.toplev, hIMC);
+      app.kbdq.gime.ImmReleaseContext (get_toplevel_window (), hIMC);
     }
 }
 
@@ -515,7 +522,7 @@ restore_caret_blink_time ()
 static void
 refresh_blink_interval ()
 {
-  if (app.ime_composition || GetFocus () != app.toplev)
+  if (app.ime_composition || GetFocus () != get_toplevel_window ())
     return;
   if (xsymbol_value (Vblink_caret) == Qnil)
     {
@@ -555,8 +562,8 @@ process_mouse_activate (LPARAM lparam)
         break;
       }
 
-  if (GetFocus () != app.toplev)
-    SetFocus (app.toplev);
+  if (GetFocus () != get_toplevel_window ())
+    SetFocus (get_toplevel_window ());
 
   return r;
 }
@@ -571,7 +578,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     {
     case WM_CREATE:
       appid::set ();
-      app.toplev = hwnd;
+      g_toplevel_window_hwnd = hwnd;
       g_app_hwnd_sw = CreateStatusWindow ((SBARS_SIZEGRIP | WS_CHILD | WS_VISIBLE
                                          | WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
                                         0, hwnd, 0);
@@ -627,7 +634,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       environ::save_geometry ();
       g_clipboard.remove_listener (hwnd);
       PostQuitMessage (0);
-      app.toplev = 0;
+      g_toplevel_window_hwnd = 0;
       return 0;
 
     case WM_PAINT:
@@ -1132,7 +1139,7 @@ frame_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_CREATE:
       {
         RECT r;
-        GetClientRect (app.toplev, &r);
+        GetClientRect (get_toplevel_window (), &r);
         frame_rect (r.right, r.bottom, r);
         MoveWindow (hwnd, r.left, r.top, r.right - r.left, r.bottom - r.top, 0);
         return 0;
@@ -1228,14 +1235,14 @@ client_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       }
 
     case WM_VSCROLL:
-      if (GetFocus () != app.toplev)
-        SetFocus (app.toplev);
+      if (GetFocus () != get_toplevel_window ())
+        SetFocus (get_toplevel_window ());
       get_window (hwnd)->process_vscroll (LOWORD (wparam));
       return 0;
 
     case WM_HSCROLL:
-      if (GetFocus () != app.toplev)
-        SetFocus (app.toplev);
+      if (GetFocus () != get_toplevel_window ())
+        SetFocus (get_toplevel_window ());
       get_window (hwnd)->process_hscroll (LOWORD (wparam));
       return 0;
 
@@ -1359,7 +1366,7 @@ client_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       return process_mouse_activate (lparam);
 
     case WM_SETFOCUS:
-      SetFocus (app.toplev);
+      SetFocus (get_toplevel_window ());
       return 0;
     }
 
@@ -1478,8 +1485,8 @@ Fmain_loop ()
 lisp
 Fsi_show_window_foreground ()
 {
-  if (IsIconic (app.toplev))
-    ShowWindow (app.toplev, SW_RESTORE);
+  if (IsIconic (get_toplevel_window ()))
+    ShowWindow (get_toplevel_window (), SW_RESTORE);
   ForceSetForegroundWindow (get_active_window ());
   return Qnil;
 }
@@ -1487,11 +1494,11 @@ Fsi_show_window_foreground ()
 lisp
 Fsi_activate_toplevel ()
 {
-  if (IsWindowEnabled (app.toplev))
+  if (IsWindowEnabled (get_toplevel_window ()))
     {
-      if (IsIconic (app.toplev))
-        ShowWindow (app.toplev, SW_RESTORE);
-      SetActiveWindow (app.toplev);
+      if (IsIconic (get_toplevel_window ()))
+        ShowWindow (get_toplevel_window (), SW_RESTORE);
+      SetActiveWindow (get_toplevel_window ());
       return Qt;
     }
   return Qnil;
@@ -1501,7 +1508,7 @@ lisp
 Fcall_menu (lisp ln)
 {
   int req = fixnum_value (ln);
-  HMENU hmenu = GetMenu (app.toplev);
+  HMENU hmenu = GetMenu (get_toplevel_window ());
   if (!hmenu)
     return Qnil;
   int n = GetMenuItemCount (hmenu);
@@ -1520,7 +1527,7 @@ Fcall_menu (lisp ln)
       else
         break;
     }
-  PostMessage (app.toplev, WM_PRIVATE_CALL_MENU, b[1], (1 << 29) | 1);
+  PostMessage (get_toplevel_window (), WM_PRIVATE_CALL_MENU, b[1], (1 << 29) | 1);
   return Qt;
 }
 

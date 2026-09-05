@@ -44,7 +44,7 @@ resolver::create (HINSTANCE hinst)
   if (r_hwnd) return 1;
   HWND parent = 0;
 #ifdef __XYZZY__
-  parent = app.toplev;
+  parent = get_toplevel_window ();
 #endif
   DWORD style = parent ? WS_CHILD : WS_OVERLAPPED;
   if (!parent) parent = HWND_DESKTOP;

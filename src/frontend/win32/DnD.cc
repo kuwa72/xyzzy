@@ -369,7 +369,7 @@ shell_context_menu (HWND hwnd, IShellFolder *sf,
     return 0;
 
   HWND hwnd_active = GetActiveWindow ();
-  int enabled = IsWindowEnabled (app.toplev);
+  int enabled = IsWindowEnabled (get_toplevel_window ());
 
   CMINVOKECOMMANDINFO ci;
   ci.cbSize = sizeof ci;
@@ -382,8 +382,8 @@ shell_context_menu (HWND hwnd, IShellFolder *sf,
   ole_error (ctx_menu->InvokeCommand (&ci));
 
   SetActiveWindow (hwnd_active);
-  if (!enabled && IsWindowEnabled (app.toplev))
-    EnableWindow (app.toplev, 0);
+  if (!enabled && IsWindowEnabled (get_toplevel_window ()))
+    EnableWindow (get_toplevel_window (), 0);
 
   return 1;
 }

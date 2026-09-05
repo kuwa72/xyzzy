@@ -372,6 +372,8 @@ struct Region
   point_t p2;
 };
 
+HWND get_toplevel_window ();
+
 class Application
 {
 public:
@@ -384,7 +386,6 @@ public:
   static const wchar_t ModelineClassName[];
 
   HINSTANCE hinst;
-  HWND toplev;
 
   /* `clipboard clipboard;` と `status_area stat_area;` はここに居たが、
      **`src/core/` の中から触っているコードが 1 つも無かった** ので
@@ -514,7 +515,7 @@ inline HWND
 get_active_window ()
 {
   HWND hwnd = GetActiveWindow ();
-  return hwnd ? hwnd : app.toplev;
+  return hwnd ? hwnd : get_toplevel_window ();
 }
 
 inline
