@@ -7,6 +7,7 @@
 #include "binfo.h"
 #include "syntaxinfo.h"
 #include "fontmap.h"
+#include "font-win32.h"
 #define DEFINE_LUCIDA_OFFSET_TABLE
 #include "lucida-width.h"
 #include "jisx0212-hash.h"
@@ -938,7 +939,7 @@ Window::erase_cursor_line (Painter &painter) const
     {
       HDC hdc = static_cast <Win32Painter &> (painter).hdc ();
       HDC hdcmem = CreateCompatibleDC (hdc);
-      HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+      HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
       Win32Painter glyph_painter (hdc, hdcmem);
 
       int x1 = (w_cursor_line.x1 - app.text_font.cell ().cx / 2)
@@ -1628,7 +1629,7 @@ Window::reframe ()
 paint:
   HDC hdc = GetDC (hwnd());
   HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
   Win32Painter painter (hdc, hdcmem);
   if (w_cursor_line.ypixel >= 0
       && w_cursor_line.x1 == app.text_font.cell ().cx / 2
@@ -1729,7 +1730,7 @@ Window::paint_minibuffer_message (lisp string)
 
   HDC hdc = GetDC (hwnd());
   HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
   Win32Painter painter (hdc, hdcmem);
   paint_window (painter);
   SelectObject (hdcmem, obm);
@@ -1755,7 +1756,7 @@ Window::clear_window ()
 
   HDC hdc = GetDC (hwnd());
   HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
   Win32Painter painter (hdc, hdcmem);
   paint_window (painter);
   paint_cursor_line (painter, 1);
@@ -2965,7 +2966,7 @@ Window::update_window ()
   else
     {
       HDC hdcmem = CreateCompatibleDC (hdc);
-      HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+      HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
       Win32Painter painter (hdc, hdcmem);
       paint_region (painter, r.top, r.bottom);
       SelectObject (hdcmem, obm);

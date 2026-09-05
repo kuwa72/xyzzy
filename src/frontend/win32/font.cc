@@ -249,12 +249,29 @@ FontObject::update (LOGFONTW &lf, const lisp keys, const bool recommend_size_p)
   return update;
 }
 
-void
-FontSet::paint_newline_bitmap (HDC hdc)
+struct fontset_bitmap_holder
 {
-  int h = fs_size.cy / 2;
-  int y0 = fs_size.cy - 2;
-  int ox = fs_cell.cx * newline + 2;
+  HBITMAP value;
+  fontset_bitmap_holder () : value (0) {}
+  ~fontset_bitmap_holder () {if (value) DeleteObject (value);}
+  operator HBITMAP () const {return value;}
+  fontset_bitmap_holder &operator= (HBITMAP bitmap)
+    {
+      value = bitmap;
+      return *this;
+    }
+};
+
+static fontset_bitmap_holder g_fontset_bitmap;
+
+static void
+paint_newline_bitmap (const FontSet &fs, HDC hdc)
+{
+  SIZE size = fs.size ();
+  SIZE cell = fs.cell ();
+  int h = size.cy / 2;
+  int y0 = size.cy - 2;
+  int ox = cell.cx * FontSet::newline + 2;
   int y;
   for (y = 0; y < h; y++)
     SetPixel (hdc, ox, y0 - y, RGB (0, 0, 0));
@@ -269,65 +286,72 @@ FontSet::paint_newline_bitmap (HDC hdc)
     SetPixel (hdc, ox + x, y0 - y, RGB (0, 0, 0));
 }
 
-void
-FontSet::paint_backsl_bitmap (HDC hdc)
+static void
+paint_backsl_bitmap (const FontSet &fs, HDC hdc)
 {
-  HGDIOBJ of = SelectObject (hdc, fs_font[FONT_ASCII]);
+  SIZE cell = fs.cell ();
+  HGDIOBJ of = SelectObject (hdc, fs.font (FONT_ASCII));
 
-  TextOutW (hdc, fs_cell.cx * backsl, 0, L"/", 1);
-  StretchBlt (hdc, fs_cell.cx * backsl, 0, fs_cell.cx, fs_cell.cy,
-              hdc, fs_cell.cx * (backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
+  TextOutW (hdc, cell.cx * FontSet::backsl, 0, L"/", 1);
+  StretchBlt (hdc, cell.cx * FontSet::backsl, 0, cell.cx, cell.cy,
+              hdc, cell.cx * (FontSet::backsl + 1) - 1, 0, -cell.cx, cell.cy,
               SRCCOPY);
 
-  TextOutW (hdc, fs_cell.cx * bold_backsl, 0, L"/", 1);
+  TextOutW (hdc, cell.cx * FontSet::bold_backsl, 0, L"/", 1);
   int omode = SetBkMode (hdc, TRANSPARENT);
-  TextOutW (hdc, fs_cell.cx * bold_backsl + 1, 0, L"/", 1);
+  TextOutW (hdc, cell.cx * FontSet::bold_backsl + 1, 0, L"/", 1);
   SetBkMode (hdc, omode);
-  StretchBlt (hdc, fs_cell.cx * bold_backsl, 0, fs_cell.cx, fs_cell.cy,
-              hdc, fs_cell.cx * (bold_backsl + 1) - 1, 0, -fs_cell.cx, fs_cell.cy,
+  StretchBlt (hdc, cell.cx * FontSet::bold_backsl, 0, cell.cx, cell.cy,
+              hdc, cell.cx * (FontSet::bold_backsl + 1) - 1, 0, -cell.cx, cell.cy,
               SRCCOPY);
 
   SelectObject (hdc, of);
 }
 
-void
-FontSet::paint_sep_bitmap (HDC hdc)
+static void
+paint_sep_bitmap (const FontSet &fs, HDC hdc)
 {
-  int x = fs_cell.cx * sep + fs_cell.cx / 4;
+  SIZE cell = fs.cell ();
+  int x = cell.cx * FontSet::sep + cell.cx / 4;
   MoveToEx (hdc, x, 0, 0);
-  LineTo (hdc, x, fs_cell.cy);
+  LineTo (hdc, x, cell.cy);
 }
 
-void
-FontSet::paint_tab_bitmap (HDC hdc)
+static void
+paint_tab_bitmap (const FontSet &fs, HDC hdc)
 {
-  int h = fs_ascent / 4;
-  int x0 = fs_cell.cx * htab + (fs_cell.cx - h) / 2;
-  int y0 = fs_ascent - 1;
+  SIZE cell = fs.cell ();
+  int ascent = fs.font (FONT_JP).ascent ();
+  int h = ascent / 4;
+  int x0 = cell.cx * FontSet::htab + (cell.cx - h) / 2;
+  int y0 = ascent - 1;
   MoveToEx (hdc, x0, y0, 0);
   LineTo (hdc, x0 + h, y0);
   LineTo (hdc, x0, y0 - h);
   LineTo (hdc, x0, y0);
 }
 
-void
-FontSet::paint_fullspc_bitmap (HDC hdc)
+static void
+paint_fullspc_bitmap (const FontSet &fs, HDC hdc)
 {
-  int h = fs_ascent / 4;
+  SIZE size = fs.size ();
+  SIZE cell = fs.cell ();
+  int ascent = fs.font (FONT_JP).ascent ();
+  int h = ascent / 4;
   if (!h)
     h = 2;
   else if (h & 1)
     h++;
-  int w = fs_size.cx * 2 * 3 / 4;
+  int w = size.cx * 2 * 3 / 4;
   if (!w)
     w = 2;
   else if (w & 1)
     w++;
 
-  int x1 = fs_cell.cx * fullspc1 + (fs_size.cx * 2 - w) / 2;
+  int x1 = cell.cx * FontSet::fullspc1 + (size.cx * 2 - w) / 2;
   int x2 = x1 + w;
-  int y1 = fs_ascent - 1;
-  int y2 = fs_ascent - h;
+  int y1 = ascent - 1;
+  int y2 = ascent - h;
 
   for (int x = x1; x < x2; x += 2)
     {
@@ -342,57 +366,62 @@ FontSet::paint_fullspc_bitmap (HDC hdc)
     }
 }
 
-void
-FontSet::paint_halfspc_bitmap (HDC hdc)
+static void
+paint_halfspc_bitmap (const FontSet &fs, HDC hdc)
 {
-  int h = fs_size.cy / 5;
+  SIZE size = fs.size ();
+  int h = size.cy / 5;
   if (h < 3)
     h = 3;
 
-  MoveToEx (hdc, fs_size.cx * halfspc + 1, fs_ascent - h, 0);
-  LineTo (hdc, fs_size.cx * halfspc + 1, fs_ascent - 1);
-  LineTo (hdc, fs_size.cx * (halfspc + 1) - 2, fs_ascent - 1);
-  LineTo (hdc, fs_size.cx * (halfspc + 1) - 2, fs_ascent - h - 1);
+  MoveToEx (hdc, size.cx * FontSet::halfspc + 1, fs.font (FONT_JP).ascent () - h, 0);
+  LineTo (hdc, size.cx * FontSet::halfspc + 1, fs.font (FONT_JP).ascent () - 1);
+  LineTo (hdc, size.cx * (FontSet::halfspc + 1) - 2, fs.font (FONT_JP).ascent () - 1);
+  LineTo (hdc, size.cx * (FontSet::halfspc + 1) - 2, fs.font (FONT_JP).ascent () - h - 1);
 }
 
-void
-FontSet::paint_blank (HDC hdc)
+static void
+paint_blank (const FontSet &fs, HDC hdc)
 {
-  if (fs_size.cx > 2 && fs_ascent > 2)
+  SIZE size = fs.size ();
+  SIZE cell = fs.cell ();
+  int ascent = fs.font (FONT_JP).ascent ();
+  if (size.cx > 2 && ascent > 2)
     {
-      PatBlt (hdc, fs_cell.cx * blank + 1, 1,
-              fs_size.cx - 2, fs_ascent - 2, BLACKNESS);
-      PatBlt (hdc, fs_cell.cx * wblank1 + 1, 1,
-              fs_size.cx * 2 - 2, fs_ascent - 2, BLACKNESS);
+      PatBlt (hdc, cell.cx * FontSet::blank + 1, 1,
+              size.cx - 2, ascent - 2, BLACKNESS);
+      PatBlt (hdc, cell.cx * FontSet::wblank1 + 1, 1,
+              size.cx * 2 - 2, ascent - 2, BLACKNESS);
     }
 }
 
-void
-FontSet::paint_fold_bitmap (HDC hdc)
+static void
+paint_fold_bitmap (const FontSet &fs, HDC hdc)
 {
-  int s0 = fs_cell.cx * fold_sep0;
-  int s1 = fs_cell.cx * fold_sep1;
-  int m0 = fs_cell.cx * fold_mark_sep0;
-  int m1 = fs_cell.cx * fold_mark_sep1;
+  SIZE cell = fs.cell ();
+  int s0 = cell.cx * FontSet::fold_sep0;
+  int s1 = cell.cx * FontSet::fold_sep1;
+  int m0 = cell.cx * FontSet::fold_mark_sep0;
+  int m1 = cell.cx * FontSet::fold_mark_sep1;
 
-  PatBlt (hdc, s0, 0, fs_cell.cx, fs_cell.cy, WHITENESS);
-  PatBlt (hdc, s1, 0, fs_cell.cx, fs_cell.cy, WHITENESS);
-  PatBlt (hdc, m0, 0, fs_cell.cx, fs_cell.cy, WHITENESS);
-  PatBlt (hdc, m1, 0, fs_cell.cx, fs_cell.cy, WHITENESS);
+  PatBlt (hdc, s0, 0, cell.cx, cell.cy, WHITENESS);
+  PatBlt (hdc, s1, 0, cell.cx, cell.cy, WHITENESS);
+  PatBlt (hdc, m0, 0, cell.cx, cell.cy, WHITENESS);
+  PatBlt (hdc, m1, 0, cell.cx, cell.cy, WHITENESS);
 
-  const FontObject &f = fs_font[FONT_ASCII];
+  const FontObject &f = fs.font (FONT_ASCII);
   HGDIOBJ of = SelectObject (hdc, f);
   wchar_t wc = L'<';
   ExtTextOutW (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
   ExtTextOutW (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
   SelectObject (hdc, of);
 
-  for (int y = 0; y < fs_cell.cy; y += 2)
+  for (int y = 0; y < cell.cy; y += 2)
     {
       SetPixel (hdc, s0, y, RGB (0, 0, 0));
       SetPixel (hdc, m0, y, RGB (0, 0, 0));
     }
-  for (int y = fs_cell.cy & 1; y < fs_cell.cy; y += 2)
+  for (int y = cell.cy & 1; y < cell.cy; y += 2)
     {
       SetPixel (hdc, s1, y, RGB (0, 0, 0));
       SetPixel (hdc, m1, y, RGB (0, 0, 0));
@@ -400,28 +429,35 @@ FontSet::paint_fold_bitmap (HDC hdc)
 }
 
 void
-FontSet::create_bitmap ()
+create_fontset_bitmap (const FontSet &fs)
 {
-  if (fs_hbm)
-    DeleteObject (fs_hbm);
-  fs_hbm = CreateBitmap (fs_cell.cx * max_bitmap, fs_cell.cy, 1, 1, 0);
+  if (g_fontset_bitmap)
+    DeleteObject (g_fontset_bitmap);
+  SIZE cell = fs.cell ();
+  g_fontset_bitmap = CreateBitmap (cell.cx * FontSet::max_bitmap, cell.cy, 1, 1, 0);
   HDC hdc = GetDC (0);
   HDC hdcmem = CreateCompatibleDC (hdc);
   ReleaseDC (0, hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, fs_hbm);
+  HGDIOBJ obm = SelectObject (hdcmem, g_fontset_bitmap);
   HGDIOBJ open = SelectObject (hdcmem, CreatePen (PS_SOLID, 0, RGB (0, 0, 0)));
-  PatBlt (hdcmem, 0, 0, fs_cell.cx * max_bitmap, fs_cell.cy, WHITENESS);
-  paint_newline_bitmap (hdcmem);
-  paint_backsl_bitmap (hdcmem);
-  paint_sep_bitmap (hdcmem);
-  paint_tab_bitmap (hdcmem);
-  paint_fullspc_bitmap (hdcmem);
-  paint_halfspc_bitmap (hdcmem);
-  paint_blank (hdcmem);
-  paint_fold_bitmap (hdcmem);
+  PatBlt (hdcmem, 0, 0, cell.cx * FontSet::max_bitmap, cell.cy, WHITENESS);
+  paint_newline_bitmap (fs, hdcmem);
+  paint_backsl_bitmap (fs, hdcmem);
+  paint_sep_bitmap (fs, hdcmem);
+  paint_tab_bitmap (fs, hdcmem);
+  paint_fullspc_bitmap (fs, hdcmem);
+  paint_halfspc_bitmap (fs, hdcmem);
+  paint_blank (fs, hdcmem);
+  paint_fold_bitmap (fs, hdcmem);
   DeleteObject (SelectObject (hdcmem, open));
   SelectObject (hdcmem, obm);
   DeleteDC (hdcmem);
+}
+
+HBITMAP
+fontset_bitmap ()
+{
+  return g_fontset_bitmap;
 }
 
 // issue #195 step5d: create font `fo` from `lf` and measure it through the
@@ -507,7 +543,6 @@ FontSet::create (const FontSetParam &param)
         }
     }
 
-  create_bitmap ();
   save_params (param);
   return 1;
 }
