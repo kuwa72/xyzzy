@@ -8,6 +8,7 @@
 
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -113,6 +114,79 @@ bind_listen_socket (const std::string &path)
   listen_path = path;
   return true;
 }
+
+bool
+read_request (int fd, std::string *request)
+{
+  char buffer[4096];
+  for (;;)
+    {
+      ssize_t n = recv (fd, buffer, sizeof buffer, 0);
+      if (n > 0)
+        {
+          request->append (buffer, n);
+          continue;
+        }
+      if (n == 0)
+        return true;
+      if (errno != EINTR)
+        return false;
+    }
+}
+
+bool
+send_response (int fd, bool success, int wait_fd)
+{
+  char status = success ? 0 : 1;
+  struct iovec iov = {&status, sizeof status};
+  char control[CMSG_SPACE (sizeof (int))];
+  std::memset (control, 0, sizeof control);
+  struct msghdr message;
+  std::memset (&message, 0, sizeof message);
+  message.msg_iov = &iov;
+  message.msg_iovlen = 1;
+  if (wait_fd >= 0)
+    {
+      message.msg_control = control;
+      message.msg_controllen = sizeof control;
+      struct cmsghdr *header = CMSG_FIRSTHDR (&message);
+      header->cmsg_level = SOL_SOCKET;
+      header->cmsg_type = SCM_RIGHTS;
+      header->cmsg_len = CMSG_LEN (sizeof wait_fd);
+      std::memcpy (CMSG_DATA (header), &wait_fd, sizeof wait_fd);
+    }
+  return sendmsg (fd, &message, 0) == 1;
+}
+
+bool
+eval_request (const std::string &request, int *wait_fd)
+{
+  *wait_fd = -1;
+  lisp stream = Qnil;
+  protect_gc gcpro (stream);
+  dynamic_bind dynb (Vsi_accept_kill_xyzzy, Qnil);
+  bool success = false;
+  try
+    {
+      stream = Fmake_string_input_stream (make_string_from_utf8 (request.c_str ()),
+                                          0, 0);
+      lisp obj = Feval (Fread (stream, Qnil, Qnil, Qnil));
+      if (wait_object_p (obj) && xwait_object_ref (obj))
+        *wait_fd = wait_object_read_fd (obj);
+      success = true;
+    }
+  catch (nonlocal_jump &)
+    {
+      print_condition (nonlocal_jump::data ());
+    }
+  if (stream != Qnil)
+    {
+      Fclose (stream, Qnil);
+      refresh_screen (1);
+    }
+  return success;
+}
+
 }
 
 void
@@ -141,6 +215,35 @@ end_listen_server ()
   listen_fd = -1;
   unlink (listen_path.c_str ());
   listen_path.clear ();
+}
+
+int
+listen_server_fd ()
+{
+  return listen_fd;
+}
+
+int
+read_listen_server (WPARAM, LPARAM)
+{
+  if (listen_fd < 0)
+    return 0;
+
+  int client_fd;
+  do
+    client_fd = accept (listen_fd, 0, 0);
+  while (client_fd < 0 && errno == EINTR);
+  if (client_fd < 0)
+    return 0;
+
+  std::string request;
+  bool success = read_request (client_fd, &request);
+  int wait_fd = -1;
+  if (success)
+    success = eval_request (request, &wait_fd);
+  bool sent = send_response (client_fd, success, success ? wait_fd : -1);
+  close (client_fd);
+  return success && sent;
 }
 
 lisp

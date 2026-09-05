@@ -181,6 +181,7 @@ void reload_caret_colors ();
 void start_listen_server ();
 void init_listen_server ();
 void end_listen_server ();
+int listen_server_fd ();
 int read_listen_server (WPARAM, LPARAM);
 extern UINT wm_private_xyzzysrv;
 

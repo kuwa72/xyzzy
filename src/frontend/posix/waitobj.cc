@@ -83,3 +83,12 @@ Fsi_remove_wait_object (lisp lwaitobj, lisp lbuffer)
     decref_waitobj (lwaitobj);
   return Qt;
 }
+
+int
+wait_object_read_fd (lisp lwaitobj)
+{
+  check_wait_object (lwaitobj);
+  posix_wait_handle *handle =
+    static_cast<posix_wait_handle *> (xwait_object_hevent (lwaitobj));
+  return handle ? handle->read_fd : -1;
+}
