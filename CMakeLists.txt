@@ -1481,6 +1481,14 @@ endif() # WIN32
 # Cross-platform tools
 # ============================================================
 
+# xyzzycli: POSIX command-line launcher
+if(NOT WIN32)
+add_executable(xyzzycli ${CMAKE_SOURCE_DIR}/src/frontend/posix/xyzzycli.cc)
+target_compile_definitions(xyzzycli PRIVATE UNICODE _UNICODE)
+target_compile_options(xyzzycli PRIVATE -Wall)
+install(TARGETS xyzzycli RUNTIME DESTINATION bin)
+endif()
+
 # gendic: EDICT -> xyzzy binary dictionary converter
 add_executable(gendic ${SRC_DIR}/gendic.cc)
 if(MSVC)
