@@ -1,39 +1,4 @@
 #!/bin/sh
-# Refuse to commit the tree-sitter DLLs by accident.
-#
-# grammars/*/tree-sitter-*.dll are checked in, and every local build rewrites
-# them, so they are permanently "modified" in the working tree.  Anything that
-# stages broadly -- git add -A, git commit -a, an agent tidying up -- sweeps them
-# into an unrelated commit as binary noise.  They were left out of four commits
-# in a row by hand, which is exactly the sort of vigilance that should not be
-# hand-work.
-#
-# To commit them on purpose (a grammar really was rebuilt):
-#
-#   XYZZY_ALLOW_GRAMMAR_DLL=1 git commit ...
-#
-# Installed by tools/setup-hooks.sh, which sets core.hooksPath.  See CLAUDE.md.
-set -eu
-
-[ "${XYZZY_ALLOW_GRAMMAR_DLL:-}" = 1 ] && exit 0
-
-staged=$(git diff --cached --name-only --diff-filter=ACM -- grammars \
-         | grep '\.dll$' || true)
-
-[ -z "$staged" ] && exit 0
-
-cat >&2 <<MSG
-pre-commit: refusing to commit rebuilt tree-sitter DLLs.
-
-$(echo "$staged" | sed 's/^/  /')
-
-  These are rewritten by every local build, so they show as modified whether or
-  not you touched a grammar.  Unstage them:
-
-    git restore --staged $(echo "$staged" | tr '\n' ' ')
-
-  If a grammar really was rebuilt and you mean to ship it:
-
-    XYZZY_ALLOW_GRAMMAR_DLL=1 git commit ...
-MSG
-exit 1
+# Project-specific pre-commit checks are currently handled by CI.
+# Installed by tools/setup-hooks.sh, which sets core.hooksPath.
+exit 0

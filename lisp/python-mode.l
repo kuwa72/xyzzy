@@ -196,3 +196,7 @@
   (setq comment-end "")
   (make-local-variable '*python-indent-level*)
   (run-hooks '*python-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'python-mode))
+(add-hook '*python-mode-hook* 'ts-enable-for-buffer)

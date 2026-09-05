@@ -222,6 +222,66 @@ set_target_properties(tree-sitter-markdown-inline-grammar PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown"
     LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/markdown")
 
+# Languages used by this repository's source tree.
+function(add_extra_tree_sitter_grammar lang repository tag)
+    set(_fc_name "ts-extra-${lang}")
+    FetchContent_Declare(${_fc_name}
+        GIT_REPOSITORY ${repository}
+        GIT_TAG        ${tag}
+        GIT_SHALLOW    TRUE)
+    FetchContent_GetProperties(${_fc_name})
+    if(NOT ${_fc_name}_POPULATED)
+        FetchContent_Populate(${_fc_name})
+    endif()
+    set(_source_dir "${${_fc_name}_SOURCE_DIR}")
+    file(GLOB _sources CONFIGURE_DEPENDS
+        "${_source_dir}/src/parser.c"
+        "${_source_dir}/src/scanner.c"
+        "${_source_dir}/src/scanner.cc")
+    add_library(tree-sitter-${lang}-grammar SHARED ${_sources})
+    target_include_directories(tree-sitter-${lang}-grammar PRIVATE
+        "${_source_dir}/src")
+    set_target_properties(tree-sitter-${lang}-grammar PROPERTIES
+        OUTPUT_NAME               "tree-sitter-${lang}"
+        PREFIX                    ""
+        RUNTIME_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/${lang}"
+        LIBRARY_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/grammars/${lang}")
+    if(WIN32 AND NOT MSVC AND lang STREQUAL "bash")
+        target_link_options(tree-sitter-${lang}-grammar PRIVATE
+            -static-libstdc++ -static-libgcc)
+    endif()
+    set(TREE_SITTER_${lang}_SOURCE_DIR "${_source_dir}" PARENT_SCOPE)
+endfunction()
+
+add_extra_tree_sitter_grammar(bash
+    https://github.com/tree-sitter/tree-sitter-bash.git v0.6.0)
+add_extra_tree_sitter_grammar(cmake
+    https://github.com/uyha/tree-sitter-cmake.git v0.7.4)
+add_extra_tree_sitter_grammar(html
+    https://github.com/tree-sitter/tree-sitter-html.git v0.23.2)
+add_extra_tree_sitter_grammar(javascript
+    https://github.com/tree-sitter/tree-sitter-javascript.git v0.25.0)
+add_extra_tree_sitter_grammar(json
+    https://github.com/tree-sitter/tree-sitter-json.git v0.24.8)
+add_extra_tree_sitter_grammar(python
+    https://github.com/tree-sitter/tree-sitter-python.git v0.25.0)
+add_extra_tree_sitter_grammar(yaml
+    https://github.com/tree-sitter-grammars/tree-sitter-yaml.git v0.7.2)
+
+foreach(_lang bash cmake html javascript json python yaml)
+    file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/grammars/${_lang}")
+    set(_query "${TREE_SITTER_${_lang}_SOURCE_DIR}/queries/highlights.scm")
+    if(EXISTS "${_query}")
+        file(COPY "${_query}" DESTINATION "${CMAKE_SOURCE_DIR}/grammars/${_lang}")
+    endif()
+endforeach()
+
+file(WRITE "${CMAKE_SOURCE_DIR}/grammars/bash/highlights.scm" [=[
+(comment) @comment
+(string) @string
+(number) @number
+]=])
+file(WRITE "${CMAKE_SOURCE_DIR}/grammars/html/highlights.scm" "")
 # 文法をソースの隣にも置く: `lisp/ts.l' は (si:system-root)/grammars/ を見に
 # 行き、開発中それはリポジトリのルートである。ビルドの出力そのものはビルド
 # ツリーに残す (共有の 1 か所から install すると、x86-64 のパッケージに
@@ -245,13 +305,34 @@ add_custom_target(grammars-in-source-tree ALL
             $<TARGET_FILE:tree-sitter-markdown-grammar> "${CMAKE_SOURCE_DIR}/grammars/markdown/"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:tree-sitter-markdown-inline-grammar> "${CMAKE_SOURCE_DIR}/grammars/markdown/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-bash-grammar> "${CMAKE_SOURCE_DIR}/grammars/bash/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-cmake-grammar> "${CMAKE_SOURCE_DIR}/grammars/cmake/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-html-grammar> "${CMAKE_SOURCE_DIR}/grammars/html/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-javascript-grammar> "${CMAKE_SOURCE_DIR}/grammars/javascript/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-json-grammar> "${CMAKE_SOURCE_DIR}/grammars/json/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-python-grammar> "${CMAKE_SOURCE_DIR}/grammars/python/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tree-sitter-yaml-grammar> "${CMAKE_SOURCE_DIR}/grammars/yaml/"
     COMMENT "Copying the tree-sitter grammars next to the sources")
 add_dependencies(grammars-in-source-tree
     tree-sitter-c-grammar
     tree-sitter-cpp-grammar
     tree-sitter-perl-grammar
     tree-sitter-markdown-grammar
-    tree-sitter-markdown-inline-grammar)
+    tree-sitter-markdown-inline-grammar
+    tree-sitter-bash-grammar
+    tree-sitter-cmake-grammar
+    tree-sitter-html-grammar
+    tree-sitter-javascript-grammar
+    tree-sitter-json-grammar
+    tree-sitter-python-grammar
+    tree-sitter-yaml-grammar)
 
 # ============================================================
 # Find zlib (prefer static library for -static linking)
@@ -1426,10 +1507,8 @@ install(TARGETS gendic RUNTIME DESTINATION bin)
 # grammars, which means no highlighting for the modes that use it.
 #
 # The libraries come from the targets rather than from grammars/ in the source
-# tree: the build writes its output there (RUNTIME_OUTPUT_DIRECTORY) and the
-# committed .dll files are still sitting next to it, so reading the directory
-# can pick up a library built for another target.  The queries do come from the
-# source tree; they are text.
+# tree: the build writes its output there (RUNTIME_OUTPUT_DIRECTORY).  The
+# queries are copied from the fetched grammar sources into the source tree.
 # ============================================================
 install(TARGETS tree-sitter-c-grammar
         RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/c
@@ -1443,6 +1522,11 @@ install(TARGETS tree-sitter-perl-grammar
 install(TARGETS tree-sitter-markdown-grammar tree-sitter-markdown-inline-grammar
         RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/markdown
         LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/markdown)
+foreach(_lang bash cmake html javascript json python yaml)
+    install(TARGETS tree-sitter-${_lang}-grammar
+            RUNTIME DESTINATION ${XYZZY_DATA_DIR}/grammars/${_lang}
+            LIBRARY DESTINATION ${XYZZY_DATA_DIR}/grammars/${_lang})
+endforeach()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/grammars/
         DESTINATION ${XYZZY_DATA_DIR}/grammars
         FILES_MATCHING PATTERN "*.scm")

@@ -171,3 +171,7 @@
   (setq comment-end "")
   (make-local-variable '*shell-script-indent-level*)
   (run-hooks '*shell-script-mode-hook*))
+
+
+(ignore-errors (ts-register-mode 'shell-script-mode :lang "bash"))
+(add-hook '*shell-script-mode-hook* 'ts-enable-for-buffer)

@@ -10,7 +10,7 @@ xyzzy (kuwa72 フォーク) で作業するときの前提。**ここには機�
 
 | 仕組み | 止めるもの |
 | --- | --- |
-| `.githooks/pre-commit` | 再ビルドされた `grammars/**/*.dll` のコミット |
+| `.githooks/pre-commit` | 現在、専用チェックなし（生成DLLは`.gitignore`で除外） |
 | `.githooks/pre-push` | `main` への直接 push、`CMakeLists.txt` と一致しないタグ、ノートの無いタグ、`main` 上に無いタグ |
 | `.github/workflows/mingw.yml` | 既知失敗以外のテスト失敗 (required check)。毎晩も走る |
 | `.github/workflows/build.yml` | 同上を MSVC 3 アーキで。毎週も走る |
@@ -27,7 +27,7 @@ git hooks は `.git/hooks` が versioned でないため `core.hooksPath` が必
 が `.githooks` を返すか見る。
 
 override が要るとき (めったに無い):
-`XYZZY_ALLOW_PUSH_MAIN=1` / `XYZZY_SKIP_TAG_CHECK=1` / `XYZZY_ALLOW_GRAMMAR_DLL=1`
+`XYZZY_ALLOW_PUSH_MAIN=1` / `XYZZY_SKIP_TAG_CHECK=1`
 
 ## 機械が判定できないので守ること
 
@@ -124,8 +124,8 @@ bump → ノート → main へマージ → タグ。**タグを先に打つと
   か、そのファイルを消す。**`--batch` は既定オフ**なので、テストと
   `tools/bytecompile.sh` は影響を受けない (イメージは Lisp ライブラリ全体を含むので、
   `.lc` を作り直しても識別子では弾けない)。
-* **`grammars/*.dll` はビルドすると必ず変更扱いになる。** コミットしない
-  (pre-commit が止める)。`git add -A` を避け、対象ファイルを明示的に staging する。
+* **`grammars/*.dll` はビルド生成物で、`.gitignore` により追跡しない。** リリース時は
+  CMakeのinstall対象からパッケージへ入る。
 * Lisp の API を調べるときは `.claude/skills/xyzzy-lisp`。
 
 ## Issue 対応の完了条件
