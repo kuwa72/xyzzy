@@ -91,7 +91,7 @@ FilerView::measure_item (MEASUREITEMSTRUCT *mis) const
 void
 FilerView::set_font () const
 {
-  if (!filer_font.hfont ())
+  if (!filer_font.font_handle ())
     {
       LOGFONTW lf;
       if (read_conf (cfgFont, cfgFiler, lf))
@@ -102,8 +102,8 @@ FilerView::set_font () const
         }
     }
 
-  if (filer_font.hfont ())
-    SendMessage (fv_hwnd, WM_SETFONT, WPARAM (filer_font.hfont ()), 1);
+  if (filer_font.font_handle ())
+    SendMessage (fv_hwnd, WM_SETFONT, WPARAM (filer_font.font_handle ()), 1);
 }
 
 void
@@ -3294,7 +3294,7 @@ Ffiler_viewer ()
 lisp
 Fget_filer_font ()
 {
-  if (!filer_font.hfont ())
+  if (!filer_font.font_handle ())
     return Qnil;
 
   LOGFONTW lf = filer_font.logfont ();

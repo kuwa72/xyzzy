@@ -681,7 +681,7 @@ ChooseFontPage::init_page (PropSheet *sheet, int page_no, PROPSHEETPAGEW *psp)
   for (int i = 0; i < FONT_MAX; i++)
     {
       LOGFONTW lfw;
-      GetObjectW (app.text_font.font (i), sizeof lfw, &lfw);
+      GetObjectW (HFONT (app.text_font.font (i).font_handle ()), sizeof lfw, &lfw);
       cfp_param.fs_logfont[i] = lfw;
     }
   cfp_param.fs_line_spacing = app.text_font.line_spacing ();
