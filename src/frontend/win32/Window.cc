@@ -804,7 +804,7 @@ Window::create_default_windows ()
   app.active_frame.selected = wp;
 
   SIZE osize = {0, 0};
-  if (!IsIconic (app.toplev))
+  if (!IsIconic (get_toplevel_window ()))
     {
       RECT r;
       GetClientRect (g_active_frame_hwnd, &r);
@@ -1082,11 +1082,11 @@ Window::move_all_windows (int update)
           wp->w_bufp->window_size_changed ();
 
       InvalidateRect (g_active_frame_hwnd, 0, 1);
-      InvalidateRect (app.toplev, 0, 1);
+      InvalidateRect (get_toplevel_window (), 0, 1);
       if (update)
         {
           UpdateWindow (g_active_frame_hwnd);
-          UpdateWindow (app.toplev);
+          UpdateWindow (get_toplevel_window ());
         }
     }
 }
@@ -1247,7 +1247,7 @@ Window::terminal_copy_selection (Terminal *term) const
   GlobalUnlock (hmem);
   free (buf);
 
-  if (OpenClipboard (app.toplev))
+  if (OpenClipboard (get_toplevel_window ()))
     {
       EmptyClipboard ();
       SetClipboardData (CF_UNICODETEXT, hmem);
@@ -2106,11 +2106,11 @@ Fget_window_handle (lisp window)
 {
 #ifdef _WIN64
   if (!window || window == Qnil)
-    return make_integer ((int64_t)(intptr_t)app.toplev);
+    return make_integer ((int64_t)(intptr_t)get_toplevel_window ());
   return make_integer ((int64_t)(intptr_t)Window::coerce_to_window (window)->hwnd());
 #else
   if (!window || window == Qnil)
-    return make_fixnum (long (app.toplev));
+    return make_fixnum (long (get_toplevel_window ()));
   return make_fixnum (long (Window::coerce_to_window (window)->hwnd()));
 #endif
 }
@@ -2403,8 +2403,8 @@ paint_resize_line (HWND hwnd, const RECT &cr, int vert)
     r.left -= FRAME_WIDTH;
   else
     r.top -= FRAME_WIDTH;
-  MapWindowPoints (hwnd, app.toplev, (POINT *)&r, 2);
-  HDC hdc = GetDC (app.toplev);
+  MapWindowPoints (hwnd, get_toplevel_window (), (POINT *)&r, 2);
+  HDC hdc = GetDC (get_toplevel_window ());
   HBITMAP hbm = LoadBitmap (app.hinst, MAKEINTRESOURCE (IDB_CHECK));
   HBRUSH hbr = CreatePatternBrush (hbm);
   DeleteObject (hbm);
@@ -2412,7 +2412,7 @@ paint_resize_line (HWND hwnd, const RECT &cr, int vert)
   PatBlt (hdc, r.left, r.top, r.right - r.left, r.bottom - r.top, PATINVERT);
   SelectObject (hdc, obr);
   DeleteObject (hbr);
-  ReleaseDC (app.toplev, hdc);
+  ReleaseDC (get_toplevel_window (), hdc);
 }
 
 int
@@ -2585,7 +2585,7 @@ next_xyzzy_window (int next)
   int i = xyzzy_instance::instnum ();
   if (i < 0)
     i = -1;
-  xyzzy_hwnd xh (app.toplev);
+  xyzzy_hwnd xh (get_toplevel_window ());
   HWND hwnd = next ? xh.next (i) : xh.prev (i);
   if (!hwnd)
     return Qnil;
@@ -2608,14 +2608,14 @@ Fprevious_xyzzy_window ()
 lisp
 Fcount_xyzzy_instance ()
 {
-  xyzzy_hwnd xh (app.toplev);
+  xyzzy_hwnd xh (get_toplevel_window ());
   return make_fixnum (xh.count ());
 }
 
 lisp
 Flist_xyzzy_windows ()
 {
-  xyzzy_hwnd xh (app.toplev);
+  xyzzy_hwnd xh (get_toplevel_window ());
   int i = -1;
   lisp p = Qnil;
   while (1)
@@ -2640,7 +2640,7 @@ Factivate_xyzzy_window (lisp x)
 {
   int i = fixnum_value (x);
   int o = i--;
-  xyzzy_hwnd xh (app.toplev);
+  xyzzy_hwnd xh (get_toplevel_window ());
   HWND hwnd = xh.next (i);
   if (!hwnd || i != o)
     return Qnil;

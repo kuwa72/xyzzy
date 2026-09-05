@@ -848,7 +848,7 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 {
   SetErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
   SetDllDirectoryW(L"");
-  app.toplev = 0;
+  g_toplevel_window_hwnd = 0;
 
   init_ucs2_table ();
 
@@ -916,11 +916,11 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   ole_initialized = SUCCEEDED (OleInitialize (0));
 
-  app.toplev = CreateWindow (Application::ToplevelClassName, TitleBarStringW,
+  g_toplevel_window_hwnd = CreateWindow (Application::ToplevelClassName, TitleBarStringW,
                              WS_OVERLAPPEDWINDOW,
                              point.x, point.y, size.cx, size.cy,
                              HWND_DESKTOP, 0, hinst, 0);
-  if (!app.toplev)
+  if (!get_toplevel_window ())
     return 0;
 
   mouse_state::install_hook ();
@@ -930,7 +930,7 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   WINDOWPLACEMENT wp;
   wp.length = sizeof wp;
-  GetWindowPlacement (app.toplev, &wp);
+  GetWindowPlacement (get_toplevel_window (), &wp);
 
   if (point.x != CW_USEDEFAULT)
     {
@@ -951,10 +951,10 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
       wp.flags = 0;
       wp.showCmd = cmdshow;
     }
-  SetWindowPlacement (app.toplev, &wp);
+  SetWindowPlacement (get_toplevel_window (), &wp);
 
   if (point.x != CW_USEDEFAULT && show_normal)
-    SetWindowPos (app.toplev, 0, 0, 0,
+    SetWindowPos (get_toplevel_window (), 0, 0, 0,
                   wp.rcNormalPosition.right - wp.rcNormalPosition.left,
                   wp.rcNormalPosition.bottom - wp.rcNormalPosition.top,
                   SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
@@ -963,14 +963,14 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
   if (size.cx != CW_USEDEFAULT && show_normal)
     {
       RECT r;
-      GetClientRect (app.toplev, &r);
+      GetClientRect (get_toplevel_window (), &r);
       AdjustWindowRect (&r, WS_OVERLAPPEDWINDOW, 0);
       int aw = r.right - r.left, ah = r.bottom - r.top;
-      GetWindowRect (app.toplev, &r);
+      GetWindowRect (get_toplevel_window (), &r);
       int ww = r.right - r.left, wh = r.bottom - r.top;
       ww = min (ww, aw);
       wh = min (wh, ah);
-      SetWindowPos (app.toplev, 0, 0, 0, ww, wh,
+      SetWindowPos (get_toplevel_window (), 0, 0, 0, ww, wh,
                     SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
     }
 #endif /* WINDOWBLINDS_FIXED */
@@ -980,9 +980,9 @@ init_app (HINSTANCE hinst, int passed_cmdshow, int &ole_initialized)
 
   Fbegin_wait_cursor ();
 
-  ShowWindow (app.toplev, cmdshow);
+  ShowWindow (get_toplevel_window (), cmdshow);
   if (sysdep.Win5p ())
-    UpdateWindow (app.toplev);
+    UpdateWindow (get_toplevel_window ());
 
   app.modeline_param.init (HFONT (SendMessage (g_app_hwnd_sw, WM_GETFONT, 0, 0)));
 
@@ -1000,7 +1000,7 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
   int ole_initialized = 0;
   if (init_app (hinst, cmdshow, ole_initialized))
     {
-      xyzzy_instance xi (app.toplev);
+      xyzzy_instance xi (get_toplevel_window ());
 
       MSG msg;
       while (PeekMessage (&msg, 0, 0, 0, PM_REMOVE))
@@ -1111,10 +1111,10 @@ WinMain (HINSTANCE hinst, HINSTANCE, LPSTR, int cmdshow)
 
   mouse_state::remove_hook ();
 
-  if (app.toplev)
+  if (get_toplevel_window ())
     {
       end_listen_server ();
-      DestroyWindow (app.toplev);
+      DestroyWindow (get_toplevel_window ());
     }
 
   if (ole_initialized)

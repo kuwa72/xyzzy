@@ -10,14 +10,14 @@ Frun_winhelp (lisp file, lisp topic)
   wchar_t wpath[PATH_MAX + 1];
   pathname2wstr (file, wpath);
   if (!topic || topic == Qnil)
-    return boole (WinHelpW (app.toplev, wpath, HELP_CONTENTS, 0));
+    return boole (WinHelpW (get_toplevel_window (), wpath, HELP_CONTENTS, 0));
 
   check_string (topic);
   /* Phase 3: ucs4 → UTF-16, truncate input to fit worst-case 2x. */
   int tlen = min<int> (xstring_length (topic), 511);
   wchar_t wb[1024];
   i2w (xstring_contents (topic), tlen, (ucs2_t *)wb);
-  return boole (WinHelpW (app.toplev, wpath, HELP_PARTIALKEY, (DWORD_PTR)wb));
+  return boole (WinHelpW (get_toplevel_window (), wpath, HELP_PARTIALKEY, (DWORD_PTR)wb));
 }
 
 lisp
@@ -25,7 +25,7 @@ Fkill_winhelp (lisp file)
 {
   wchar_t wpath[PATH_MAX + 1];
   pathname2wstr (file, wpath);
-  return boole (WinHelpW (app.toplev, wpath, HELP_QUIT, 0));
+  return boole (WinHelpW (get_toplevel_window (), wpath, HELP_QUIT, 0));
 }
 
 struct iheader

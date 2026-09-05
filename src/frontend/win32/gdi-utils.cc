@@ -191,9 +191,9 @@ frontend_flash ()
 
 /* ウィンドウのタイトル。core が組み立てた UTF-16 をそのまま渡す
    (`frontend_set_frame_title`、src/core/fns.h)。**元の `Buffer.cc` の
-   `SetWindowTextW (app.toplev, ...)` をここへ移しただけ**で、挙動は変わらない。 */
+   `SetWindowTextW (get_toplevel_window (), ...)` をここへ移しただけ**で、挙動は変わらない。 */
 void
 frontend_set_frame_title (const Char *title)
 {
-  SetWindowTextW (app.toplev, (LPCWSTR)title);
+  SetWindowTextW (get_toplevel_window (), (LPCWSTR)title);
 }

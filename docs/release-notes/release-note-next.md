@@ -15,6 +15,8 @@ xyzzy リリースノート
 変更
 ----
 
+  * **Win32 のトップレベル HWND を `Application` から frontend 側へ移した** (issue #298)。core の `ed.h` が GUI ウィンドウハンドルを所有しないようにし、名前解決の親ウィンドウ取得は frontend seam 経由にした。
+
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。
     POSIX の名前解決は UTF-8 のバイト列を取るのに、`w2s` で **CP932 に変換して
     渡していた** (Unicode 化のときの取り残し、`w2s` / `w2sl` の 44 箇所のうち

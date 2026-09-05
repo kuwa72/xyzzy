@@ -182,7 +182,7 @@ XMessageBox::init_dialog ()
     }
 
   RECT warea;
-  monitor.get_workarea_from_window (app.toplev, &warea);
+  monitor.get_workarea_from_window (get_toplevel_window (), &warea);
 
   LONG maxw = (warea.right - warea.left) * 4 / 5;
   LONG maxh = (warea.bottom - warea.top) * 3 / 4;
@@ -289,7 +289,7 @@ XMessageBox::init_dialog ()
   SendMessage (hwnd, DM_SETDEFID, btn[default_btn].id, 0);
 
   /* DialogBoxParam, unlike MessageBox, does not disable its owner window
-     for us. Without this, the owner (typically app.toplev) stays clickable
+     for us. Without this, the owner (typically get_toplevel_window ()) stays clickable
      while this "modal" box is up, and a WM_CLOSE delivered to it re-enters
      Buffer::kill_xyzzy from inside this dialog's own message loop. */
   if (owner && IsWindow (owner))

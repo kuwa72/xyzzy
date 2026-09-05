@@ -178,10 +178,10 @@ environ::save_geometry ()
     {
       WINDOWPLACEMENT w;
       w.length = sizeof w;
-      if (GetWindowPlacement (app.toplev, &w))
+      if (GetWindowPlacement (get_toplevel_window (), &w))
         {
           if (save_window_snap_size)
-            adjust_snap_window_size (app.toplev, w);
+            adjust_snap_window_size (get_toplevel_window (), w);
           char name[256];
           make_geometry_key (name, sizeof name, 0);
           if (!save_window_size || !save_window_position)

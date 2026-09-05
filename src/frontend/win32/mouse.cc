@@ -516,7 +516,7 @@ mouse_state::hide_cursor ()
       && !app.wait_cursor_depth)
     {
       RECT r;
-      GetWindowRect (app.toplev, &r);
+      GetWindowRect (get_toplevel_window (), &r);
       DWORD pos = GetMessagePos ();
       POINT p;
       p.x = short (LOWORD (pos));

@@ -165,7 +165,7 @@ static void
 redraw_menu (lisp lmenu)
 {
   if (xsymbol_value (Vlast_active_menu) == lmenu)
-    DrawMenuBar (app.toplev);
+    DrawMenuBar (get_toplevel_window ());
 }
 
 static void
