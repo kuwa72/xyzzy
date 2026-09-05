@@ -7,6 +7,7 @@
 #include "environ.h"
 #include "conf.h"
 #include "font.h"
+#include "font-win32.h"
 #include "Filer.h"
 #include "colors.h"
 #include "ctxmenu.h"

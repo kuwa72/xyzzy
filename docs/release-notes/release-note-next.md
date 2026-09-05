@@ -15,6 +15,8 @@ xyzzy リリースノート
 変更
 ----
 
+  * **Win32 固有のフォント補助関数の宣言を core から frontend へ移した** (issue #299)。
+    `get_font_height` と `font_exist_p` は Win32 frontend からしか呼ばれていないため、core のヘッダから外して依存方向を明確にした。
   * **Win32 のトップレベル HWND を `Application` から frontend 側へ移した** (issue #298)。core の `ed.h` が GUI ウィンドウハンドルを所有しないようにし、名前解決の親ウィンドウ取得は frontend seam 経由にした。
 
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。

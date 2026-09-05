@@ -3,6 +3,7 @@
 #include "win32sysdep.h"
 #include "dialogs.h"
 #include "ldialog.h"
+#include "font-win32.h"
 #include "ColorDialog.h"
 #include "privctrl.h"
 #include "oleconv.h"

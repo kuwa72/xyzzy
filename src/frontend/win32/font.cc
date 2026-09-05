@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "conf.h"
 #include "font-metrics.h"
+#include "font-win32.h"
 
 const UINT FontSet::fs_lang_id[] =
 {

@@ -7,6 +7,7 @@
 #include "ColorDialog.h"
 #include "conf.h"
 #include "font.h"
+#include "font-win32.h"
 #include "wconv.h"
 
 static void
