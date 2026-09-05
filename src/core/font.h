@@ -68,15 +68,6 @@ struct FontSetParam
 class FontSet
 {
 protected:
-  void create_bitmap ();
-  void paint_newline_bitmap (HDC);
-  void paint_backsl_bitmap (HDC);
-  void paint_tab_bitmap (HDC);
-  void paint_fullspc_bitmap (HDC);
-  void paint_halfspc_bitmap (HDC);
-  void paint_sep_bitmap (HDC);
-  void paint_blank (HDC);
-  void paint_fold_bitmap (HDC);
   void save_params (const FontSetParam &);
   void load_params (FontSetParam &);
 
@@ -108,7 +99,6 @@ public:
 
 protected:
   FontObject fs_font[FONT_MAX];
-  HBITMAP fs_hbm;
   SIZE fs_size;
   SIZE fs_cell;
   int fs_ascent;
@@ -120,14 +110,13 @@ protected:
   int fs_size_pixel;
 
 public:
-  FontSet () : fs_hbm (0) {}
-  ~FontSet () {if (fs_hbm) DeleteObject (fs_hbm);}
+  FontSet () {}
+  ~FontSet () {}
   int create (const FontSetParam &);
   void init ();
   lisp make_alist () const;
   const bool update (FontSetParam &param, const lisp lfontset) const;
   const FontObject &font (int n) const {return fs_font[n];}
-  const HBITMAP &hbm () const {return fs_hbm;}
   const SIZE &size () const {return fs_size;}
   const SIZE &cell () const {return fs_cell;}
   int need_pad_p () const {return fs_need_pad;}

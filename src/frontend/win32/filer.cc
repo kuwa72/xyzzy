@@ -3170,7 +3170,7 @@ ViewerWindow::repaint ()
   redraw_window (p, 1, 1, 0);
   HDC hdc = GetDC (hwnd());
   HDC hdcmem = CreateCompatibleDC (hdc);
-  HGDIOBJ obm = SelectObject (hdcmem, app.text_font.hbm ());
+  HGDIOBJ obm = SelectObject (hdcmem, fontset_bitmap ());
   Win32Painter painter (hdc, hdcmem);
   paint_window (painter);
   SelectObject (hdcmem, obm);
