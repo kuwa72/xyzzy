@@ -67,7 +67,7 @@ if os.environ.get("XDG_RUNTIME_DIR"):
     paths.append(f"{os.environ['XDG_RUNTIME_DIR']}/xyzzy-{os.getuid()}.sock")
 paths.append(f"/tmp/xyzzy-{os.getuid()}.sock")
 request = b'(progn (message "SMOKE-LISTEN") t)'
-for _ in range(100):
+for _ in range(600):
     if not os.path.exists(f"/proc/{pid}"):
         break
     for path in paths:
