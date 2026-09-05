@@ -23,7 +23,7 @@ center_window (HWND hwnd)
   if (!owner)
     owner = GetParent (hwnd);
   if (!owner)
-    owner = app.toplev;
+    owner = get_toplevel_window ();
 
   RECT dr, or;
   GetWindowRect (hwnd, &dr);

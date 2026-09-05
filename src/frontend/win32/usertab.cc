@@ -341,7 +341,7 @@ Fcreate_tab_bar (lisp name, lisp callback)
 
   try
     {
-      bar->create (app.toplev);
+      bar->create (get_toplevel_window ());
     }
   catch (nonlocal_jump &)
     {

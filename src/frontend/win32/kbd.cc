@@ -301,7 +301,7 @@ kbd_queue::sleep_timer::sleep_timer (kbd_queue &q)
 
 kbd_queue::sleep_timer::~sleep_timer ()
 {
-  KillTimer (app.toplev, TID_SLEEP);
+  KillTimer (get_toplevel_window (), TID_SLEEP);
   app.sleep_timer_exhausted = 0;
   s_kbdq.st_start_time = s_save_start_time;
   s_kbdq.st_timeout = s_save_timeout;
@@ -312,7 +312,7 @@ kbd_queue::sleep_timer::~sleep_timer ()
       if (req >= curtime)
         app.sleep_timer_exhausted = 1;
       else
-        SetTimer (app.toplev, TID_SLEEP, req - curtime, 0);
+        SetTimer (get_toplevel_window (), TID_SLEEP, req - curtime, 0);
     }
 }
 
@@ -323,7 +323,7 @@ kbd_queue::sleep_timer::wait (int timeout, int kbdp)
   s_kbdq.st_start_time = GetTickCount ();
   s_kbdq.st_timeout = timeout;
   app.sleep_timer_exhausted = 0;
-  SetTimer (app.toplev, TID_SLEEP, timeout, 0);
+  SetTimer (get_toplevel_window (), TID_SLEEP, timeout, 0);
   while ((!kbdp || s_kbdq.head == s_kbdq.tail) && !app.sleep_timer_exhausted)
     {
       QUIT;
@@ -401,7 +401,7 @@ kbd_queue::track_popup_menu (HMENU hmenu, int button, const POINT &p)
   if (idlep ())
     {
       result = TrackPopupMenu (hmenu, TPM_RETURNCMD | TPM_LEFTALIGN | button,
-                               p.x, p.y, 0, app.toplev, 0);
+                               p.x, p.y, 0, get_toplevel_window (), 0);
       if (result == -1)
         result = 0;
     }
@@ -419,13 +419,13 @@ kbd_queue::close_ime ()
         last_ime_status = -1;
       else if (last_ime_status == -1)
         {
-          HIMC imc = gime.ImmGetContext (app.toplev);
+          HIMC imc = gime.ImmGetContext (get_toplevel_window ());
           if (imc)
             {
               last_ime_status = gime.ImmGetOpenStatus (imc);
               if (last_ime_status)
                 gime.ImmSetOpenStatus (imc, 0);
-              gime.ImmReleaseContext (app.toplev, imc);
+              gime.ImmReleaseContext (get_toplevel_window (), imc);
             }
         }
     }
@@ -439,11 +439,11 @@ kbd_queue::restore_ime ()
       && xsymbol_value (Vime_control) != Qnil
       && last_ime_status != -1)
     {
-      HIMC imc = gime.ImmGetContext (app.toplev);
+      HIMC imc = gime.ImmGetContext (get_toplevel_window ());
       if (imc)
         {
           gime.ImmSetOpenStatus (imc, last_ime_status);
-          gime.ImmReleaseContext (app.toplev, imc);
+          gime.ImmReleaseContext (get_toplevel_window (), imc);
           last_ime_status = -1;
         }
     }
@@ -452,13 +452,13 @@ kbd_queue::restore_ime ()
 int
 kbd_queue::toggle_ime (int new_stat, int update_last_ime_status)
 {
-  HIMC imc = gime.ImmGetContext (app.toplev);
+  HIMC imc = gime.ImmGetContext (get_toplevel_window ());
   if (!imc)
     return 0;
   int old_stat = gime.ImmGetOpenStatus (imc) ? IME_MODE_ON : IME_MODE_OFF;
   if (new_stat == IME_MODE_TOGGLE || new_stat != old_stat)
     gime.ImmSetOpenStatus (imc, old_stat != IME_MODE_ON);
-  gime.ImmReleaseContext (app.toplev, imc);
+  gime.ImmReleaseContext (get_toplevel_window (), imc);
   if (update_last_ime_status)
     last_ime_status = -1;
   return old_stat;
@@ -514,7 +514,7 @@ kbd_queue::lookup_kbd_macro (lisp string) const
 void
 check_kbd_enable ()
 {
-  if (IsWindowEnabled (app.toplev))
+  if (IsWindowEnabled (get_toplevel_window ()))
     return;
   FEprogram_error (Ekbd_input_is_disabled);
 }
@@ -601,7 +601,7 @@ translate_unicode (HWND hwnd, WPARAM wparam, LPARAM lparam)
 BOOL
 XyzzyTranslateMessage (const MSG *msg)
 {
-  if (msg->hwnd == app.toplev || Filer::filer_ancestor_p (msg->hwnd))
+  if (msg->hwnd == get_toplevel_window () || Filer::filer_ancestor_p (msg->hwnd))
     {
       switch (msg->message)
         {
@@ -1400,12 +1400,12 @@ Fset_ime_read_string (lisp string)
       ucs2_t *we = i2w (string, (ucs2_t *)read);
       read_len = (int)(we - (ucs2_t *)read);
     }
-  HIMC hIMC = app.kbdq.gime.ImmGetContext (app.toplev);
+  HIMC hIMC = app.kbdq.gime.ImmGetContext (get_toplevel_window ());
   if (!hIMC)
     return Qnil;
   int f = app.kbdq.gime.ImmSetCompositionString (hIMC, SCS_SETSTR, 0, 0,
                                                  read, read_len * sizeof (wchar_t));
-  app.kbdq.gime.ImmReleaseContext (app.toplev, hIMC);
+  app.kbdq.gime.ImmReleaseContext (get_toplevel_window (), hIMC);
   return boole (f);
 }
 
@@ -1432,7 +1432,7 @@ Fime_register_word_dialog (lisp lcomp, lisp lread)
           *we = 0;
         }
     }
-  return boole (app.kbdq.gime.ImmConfigureIME (GetKeyboardLayout (0), app.toplev,
+  return boole (app.kbdq.gime.ImmConfigureIME (GetKeyboardLayout (0), get_toplevel_window (),
                                                IME_CONFIG_REGISTERWORD, &rw));
 }
 

@@ -2271,8 +2271,8 @@ Filer::WndProc (UINT msg, WPARAM wparam, LPARAM lparam)
       if (dual_window_p ())
         f_fv2.save_column ();
       save_geometry ();
-      if (IsWindowEnabled (app.toplev))
-        SetActiveWindow (app.toplev);
+      if (IsWindowEnabled (get_toplevel_window ()))
+        SetActiveWindow (get_toplevel_window ());
       return 1;
 
     case WM_NCDESTROY:
@@ -2567,7 +2567,7 @@ Filer::read_char () const
           return decode_syschars (msg.wParam);
 
         case WM_PRIVATE_QUIT:
-          if (msg.hwnd == app.toplev && GetActiveWindow () == id_hwnd)
+          if (msg.hwnd == get_toplevel_window () && GetActiveWindow () == id_hwnd)
             {
               xsymbol_value (Vquit_flag) = Qnil;
               return xchar_code (app.lquit_char);

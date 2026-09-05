@@ -1827,15 +1827,15 @@ print_engine::doprint1 (HWND hwnd)
 
   user_abort = 0;
   HWND printing = CreateDialog (app.hinst, MAKEINTRESOURCE (IDD_PRINTING),
-                                app.toplev, (DLGPROC)printing_dlgproc);
+                                get_toplevel_window (), (DLGPROC)printing_dlgproc);
   SetDlgItemTextW (printing, IDC_DOCNAME, wdocname);
   ShowWindow (printing, SW_SHOW);
   UpdateWindow (printing);
-  EnableWindow (app.toplev, 0);
+  EnableWindow (get_toplevel_window (), 0);
 
   if (StartDocW (pe_dev, &di) == SP_ERROR)
     {
-      EnableWindow (app.toplev, 1);
+      EnableWindow (get_toplevel_window (), 1);
       DestroyWindow (printing);
       FEsimple_win32_error (GetLastError ());
     }
@@ -1878,7 +1878,7 @@ print_engine::doprint1 (HWND hwnd)
   else
     AbortDoc (pe_dev);
 
-  EnableWindow (app.toplev, 1);
+  EnableWindow (get_toplevel_window (), 1);
   DestroyWindow (printing);
 
   if (user_abort)

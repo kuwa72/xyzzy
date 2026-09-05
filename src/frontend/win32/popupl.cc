@@ -79,7 +79,7 @@ wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
         case VK_SPACE:
           if (call_callback (hwnd))
-            PostMessage (app.toplev, msg, wparam, lparam);
+            PostMessage (get_toplevel_window (), msg, wparam, lparam);
           return 0;
 
         case VK_RETURN:
@@ -92,7 +92,7 @@ wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
           return 0;
 
         default:
-          PostMessage (app.toplev, msg, wparam, lparam);
+          PostMessage (get_toplevel_window (), msg, wparam, lparam);
           DestroyWindow (hwnd);
           return 0;
         }
@@ -158,7 +158,7 @@ Fpopup_list (lisp list, lisp callback, lisp lpoint)
 
   hwnd_popup = CreateWindowEx (WS_EX_DLGMODALFRAME, csPopupList, L"",
                                WS_POPUP | WS_VSCROLL, 0, 0, 0, 0,
-                               app.toplev, 0, app.hinst, 0);
+                               get_toplevel_window (), 0, app.hinst, 0);
 
   HFONT hf = win32_sysdep.ui_font ();
   SendMessage (hwnd_popup, WM_SETFONT, WPARAM (hf), 1);

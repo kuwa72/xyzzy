@@ -334,7 +334,7 @@ protected:
   void terminated (int);
 
   void notify_term () const
-    {PostMessage (app.toplev, WM_PRIVATE_PROCESS_TERMINATE, 0, LPARAM (this));}
+    {PostMessage (get_toplevel_window (), WM_PRIVATE_PROCESS_TERMINATE, 0, LPARAM (this));}
 
 public:
   virtual ~Process ();
@@ -365,7 +365,7 @@ public:
           LeaveCriticalSection (&p_cri);
           if (!empty_p)
             {
-              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+              PostMessage (get_toplevel_window (), WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
               p_pending = 1;
             }
         }
@@ -551,10 +551,10 @@ Process::store_output (const ucs4_t *w, int l)
       DWORD_PTR result;
 
       do
-        if (SendMessageTimeout (app.toplev, WM_PRIVATE_PROCESS_OUTPUT,
+        if (SendMessageTimeout (get_toplevel_window (), WM_PRIVATE_PROCESS_OUTPUT,
                                 WPARAM (&r), LPARAM (this),
                                 SMTO_NORMAL, 1000, &result)
-            || !IsWindow (app.toplev)
+            || !IsWindow (get_toplevel_window ())
             || r.done)
           return;
       while (!p_in_send_string);
@@ -967,7 +967,7 @@ set_clipboard_from_osc52 (const char *pcpd)
               MultiByteToWideChar (CP_UTF8, 0, (char *)raw, rawlen, wbuf, wlen);
               wbuf[wlen] = 0;
               GlobalUnlock (hmem);
-              if (OpenClipboard (app.toplev))
+              if (OpenClipboard (get_toplevel_window ()))
                 {
                   EmptyClipboard ();
                   SetClipboardData (CF_UNICODETEXT, hmem);
@@ -1021,7 +1021,7 @@ ConPtyProcess::read_process ()
           p_term->feed (buf, n);
           if (!p_pending)
             {
-              PostMessage (app.toplev, WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
+              PostMessage (get_toplevel_window (), WM_PRIVATE_PROCESS_OUTPUT, 0, LPARAM (this));
               p_pending = 1;
             }
           terminal_unlock ();

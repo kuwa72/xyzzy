@@ -208,7 +208,7 @@ create_popup ()
   hwnd_popup = CreateWindow (wclass, L"",
                              WS_POPUP | WS_BORDER,
                              0, 0, 0, 0,
-                             app.toplev, 0, app.hinst, 0);
+                             get_toplevel_window (), 0, app.hinst, 0);
   if (!hwnd_popup)
     return 0;
 

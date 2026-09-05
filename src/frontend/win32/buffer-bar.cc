@@ -222,7 +222,7 @@ buffer_bar::make_instance ()
   if (!b_bar)
     {
       b_bar = new buffer_bar (g_frame);
-      if (!b_bar->create (app.toplev))
+      if (!b_bar->create (get_toplevel_window ()))
         return 0;
       b_bar->insert_buffers ();
       g_frame.add (b_bar);

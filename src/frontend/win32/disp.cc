@@ -2797,18 +2797,18 @@ refresh_screen (int f)
                    : Qnil));
   if (lmenu != xsymbol_value (Vlast_active_menu))
     {
-      if (SetMenu (app.toplev, lmenu == Qnil ? 0 : xwin32_menu_handle (lmenu)))
+      if (SetMenu (get_toplevel_window (), lmenu == Qnil ? 0 : xwin32_menu_handle (lmenu)))
         {
-          DrawMenuBar (app.toplev);
+          DrawMenuBar (get_toplevel_window ());
 #ifndef WINDOWBLINDS_FIXED // WindowBlinds�΍�
           if (lmenu == Qnil || xsymbol_value (Vlast_active_menu) == Qnil)
             {
               RECT r;
-              GetWindowRect (app.toplev, &r);
+              GetWindowRect (get_toplevel_window (), &r);
               int w = r.right - r.left;
               int h = r.bottom - r.top;
-              MoveWindow (app.toplev, r.left, r.top, w - 1, h - 1, 1);
-              MoveWindow (app.toplev, r.left, r.top, w, h, 1);
+              MoveWindow (get_toplevel_window (), r.left, r.top, w - 1, h - 1, 1);
+              MoveWindow (get_toplevel_window (), r.left, r.top, w, h, 1);
             }
 #endif /* WINDOWBLINDS_FIXED */
           xsymbol_value (Vlast_active_menu) = lmenu;
@@ -2975,7 +2975,7 @@ Window::update_window ()
     }
   if (this == selected_window ()
       && !app.ime_composition
-      && GetFocus () == app.toplev)
+      && GetFocus () == get_toplevel_window ())
     update_caret ();
 }
 

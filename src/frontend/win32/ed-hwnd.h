@@ -11,6 +11,7 @@ extern HWND g_active_frame_hwnd;
 extern HWND g_active_frame_has_caret;
 extern HWND g_active_frame_has_caret_last;
 extern HWND g_app_hwnd_sw;
+extern HWND g_toplevel_window_hwnd;
 
 # endif // _WIN32
 

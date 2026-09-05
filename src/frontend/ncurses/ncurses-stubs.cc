@@ -20,6 +20,12 @@ Application app;
 char enable_quit::q_enable;
 Frontend *g_frontend;
 
+HWND
+get_toplevel_window ()
+{
+  return 0;
+}
+
 Application::Application ()
      : mouse (kbdq)
 {
@@ -52,7 +58,6 @@ Application::Application ()
   initial_stack = &tem;
   in_gc = 0;
   exit_code = 0;
-  toplev = 0;
   hinst = 0;
 }
 
