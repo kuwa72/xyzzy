@@ -128,6 +128,14 @@ bump → ノート → main へマージ → タグ。**タグを先に打つと
   (pre-commit が止める)。`git add -A` を避け、対象ファイルを明示的に staging する。
 * Lisp の API を調べるときは `.claude/skills/xyzzy-lisp`。
 
+## Issue 対応の完了条件
+
+issue に着手したら、TDD で進める。まず再現テストまたは失敗する回帰テストを書いて
+失敗を確認し、実装後に同じテストが通ることを確認する。その後、PR を作成し、
+`tools/ci-wait.sh <PR番号>` をバックグラウンドで走らせて全 CI の終了を確認する。
+required check がすべて pass したら PR をマージし、issue が closed になったことと
+マージコミットを確認する。PR 作成や CI 起動だけでは完了としない。
+
 ## ブランチ
 
 トランクは `main` 一本。作業は `topic/*` から PR。`develop` は 2026-08-21 に
