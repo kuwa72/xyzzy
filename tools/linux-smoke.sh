@@ -54,6 +54,7 @@ XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
   '\e\e(progn (start-xyzzy-server) (read-char *keyboard*))\r' \
   >"$log" 2>&1 &
 pty_pid=$!
+set +e
 python3 - "$pty_pid" >"$build/smoke-listen-client.txt" <<'PY'
 import os
 import socket
@@ -86,6 +87,7 @@ print("listen request timed out")
 sys.exit(1)
 PY
 client_status=$?
+set -e
 wait "$pty_pid" || true
 if [ "$client_status" -eq 0 ]; then
   echo 'smoke: ncurses listen OK -- socket requests run on the input loop'
