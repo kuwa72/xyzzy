@@ -19,6 +19,8 @@ xyzzy リリースノート
     `get_font_height` と `font_exist_p` は Win32 frontend からしか呼ばれていないため、core のヘッダから外して依存方向を明確にした。
   * **グリフアトラスの生成と管理を Win32 frontend へ移した** (issue #300)。
     `FontSet` は core でフォントの計測値だけを保持し、GDI の `HBITMAP` と描画処理が core のヘッダへ漏れないようにした。
+  * **FontObject のフォントハンドル管理を Win32 frontend へ移した** (issue #301)。
+    core の `font.h` が `HFONT` の所有・変換・破棄を行わないようにし、古い GDI 計測経路も整理した。
   * **Win32 のトップレベル HWND を `Application` から frontend 側へ移した** (issue #298)。core の `ed.h` が GUI ウィンドウハンドルを所有しないようにし、名前解決の親ウィンドウ取得は frontend seam 経由にした。
 
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。

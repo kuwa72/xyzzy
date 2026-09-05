@@ -9,23 +9,22 @@ struct FontMetricsResult;  // font-metrics.h (issue #195 step5)
 class FontObject
 {
 protected:
-  HFONT fo_hfont;
+  void *fo_hfont;
+  void (*fo_release)(void *);
   int fo_need_pad;
   POINT fo_offset;
   SIZE fo_size;
   int fo_ascent;
   LOGFONTW fo_logfont;
 public:
-  FontObject () : fo_hfont (0) {}
-  ~FontObject () {if (fo_hfont) DeleteObject (fo_hfont);}
+  FontObject () : fo_hfont (0), fo_release (0) {}
+  ~FontObject () {if (fo_hfont && fo_release) fo_release (fo_hfont);}
   int create (const LOGFONTW &);
   int create (const wchar_t *, int, int);
-  operator HFONT () const {return fo_hfont;}
-  const HFONT hfont () const {return fo_hfont;}
+  void *font_handle () const {return fo_hfont;}
   int need_pad_p () const {return fo_need_pad;}
   void require_pad () {fo_need_pad = 1;}
   void get_metrics ();
-  void get_metrics (HDC, SIZE &, SIZE &);
   void set_metrics (const FontMetricsResult &);  // issue #195 step5d
   void calc_offset (const SIZE &);
   const SIZE &size () const {return fo_size;}

@@ -63,6 +63,12 @@ const FontSet::fontface FontSet::fs_default_face[] =
   {L"Symbols Nerd Font Mono"},
 };
 
+static void
+release_font_handle (void *handle)
+{
+  DeleteObject (HFONT (handle));
+}
+
 int
 FontObject::create (const wchar_t *face, int h, int charset)
 {
@@ -82,9 +88,10 @@ FontObject::create (const LOGFONTW &lf)
   HFONT h = CreateFontIndirectW (&lf);
   if (!h)
     return 0;
-  if (fo_hfont)
-    DeleteObject (fo_hfont);
+  if (fo_hfont && fo_release)
+    fo_release (fo_hfont);
   fo_hfont = h;
+  fo_release = release_font_handle;
   GetObjectW (h, sizeof fo_logfont, &fo_logfont);
   return 1;
 }
@@ -92,29 +99,19 @@ FontObject::create (const LOGFONTW &lf)
 void
 FontObject::get_metrics ()
 {
-  SIZE ex1, ex2;
-
   HDC hdc = GetDC (0);
-  get_metrics (hdc, ex1, ex2);
-  ReleaseDC (0, hdc);
-}
-
-void
-FontObject::get_metrics (HDC hdc, SIZE &ex1, SIZE &ex2)
-{
-  HGDIOBJ of = SelectObject (hdc, fo_hfont);
+  HGDIOBJ of = SelectObject (hdc, HFONT (fo_hfont));
   TEXTMETRICW tm;
   GetTextMetricsW (hdc, &tm);
   fo_size.cx = tm.tmAveCharWidth;
   fo_size.cy = tm.tmAscent + tm.tmDescent;
   fo_ascent = tm.tmAscent;
-  GetTextExtentPoint32W (hdc, L"A", 1, &ex1);
-  GetTextExtentPoint32W (hdc, L"\x3042", 1, &ex2);  // U+3042 あ
   SelectObject (hdc, of);
+  ReleaseDC (0, hdc);
 }
 
 // issue #195 step5c: Win32FontMetrics — the GDI implementation of the neutral
-// FontMetrics interface. It mirrors FontObject::get_metrics(HDC,...) exactly
+// FontMetrics interface. It mirrors the previous FontObject measurement path exactly
 // (same screen DC, same GetTextMetricsW / GetTextExtentPoint32W probes) so the
 // measurement is pixel-equivalent; the only difference is that it owns the
 // font/DC lifetime internally and takes a LOGFONTW rather than a pre-selected
@@ -156,7 +153,7 @@ struct Win32FontMetrics : public FontMetrics
 };
 
 // issue #195 step5d: store metrics measured through FontMetrics, replicating
-// exactly the side effect get_metrics(HDC,...) had on the FontObject.
+// exactly the side effect the previous measurement path had on the FontObject.
 void
 FontObject::set_metrics (const FontMetricsResult &r)
 {
@@ -290,7 +287,7 @@ static void
 paint_backsl_bitmap (const FontSet &fs, HDC hdc)
 {
   SIZE cell = fs.cell ();
-  HGDIOBJ of = SelectObject (hdc, fs.font (FONT_ASCII));
+  HGDIOBJ of = SelectObject (hdc, HFONT (fs.font (FONT_ASCII).font_handle ()));
 
   TextOutW (hdc, cell.cx * FontSet::backsl, 0, L"/", 1);
   StretchBlt (hdc, cell.cx * FontSet::backsl, 0, cell.cx, cell.cy,
@@ -410,7 +407,7 @@ paint_fold_bitmap (const FontSet &fs, HDC hdc)
   PatBlt (hdc, m1, 0, cell.cx, cell.cy, WHITENESS);
 
   const FontObject &f = fs.font (FONT_ASCII);
-  HGDIOBJ of = SelectObject (hdc, f);
+  HGDIOBJ of = SelectObject (hdc, HFONT (f.font_handle ()));
   wchar_t wc = L'<';
   ExtTextOutW (hdc, m0 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
   ExtTextOutW (hdc, m1 + f.offset ().x, f.offset ().y, 0, 0, &wc, 1, 0);
@@ -463,7 +460,7 @@ fontset_bitmap ()
 // issue #195 step5d: create font `fo` from `lf` and measure it through the
 // neutral FontMetrics interface, storing the result on the FontObject and
 // recording the ascii/fullwidth advance widths in `ex` (cx only is read by
-// create() below). Replaces the old create()+get_metrics(HDC) pair.
+// create() below). Replaces the old create()+measurement pair.
 static void
 measure_into (FontMetrics &fm, FontObject &fo, const LOGFONTW &lf, SIZE ex[2])
 {

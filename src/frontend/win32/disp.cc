@@ -438,7 +438,7 @@ paint_chars (HDC hdc, int x, int y, int flags, const RECT &r,
              const INT * /*padding*/)
 {
   const FontObject &f = app.text_font.font (font_idx);
-  HGDIOBJ of = SelectObject (hdc, f);
+  HGDIOBJ of = SelectObject (hdc, HFONT (f.font_handle ()));
 
   wchar_t wbuf[512];
   INT wpad[512];
@@ -467,7 +467,7 @@ Win32Painter::draw_text (int x, int y, const glyph_t *g, const glyph_t *ge,
      opaque=false, and fill_rect for the lines), matching the existing
      paint_glyphs passes, so `flags` is informational here. */
   const FontObject &f = app.text_font.font (charset);
-  HGDIOBJ of = SelectObject (p_hdc, f);
+  HGDIOBJ of = SelectObject (p_hdc, HFONT (f.font_handle ()));
   COLORREF ofg = SetTextColor (p_hdc, fg);
   COLORREF obg = 0;
   int omode = 0;
@@ -526,7 +526,7 @@ int
 Win32Painter::text_width (const glyph_t *g, const glyph_t *ge, int charset)
 {
   const FontObject &f = app.text_font.font (charset);
-  HGDIOBJ of = SelectObject (p_hdc, f);
+  HGDIOBJ of = SelectObject (p_hdc, HFONT (f.font_handle ()));
   wchar_t wbuf[512];
   INT wpad[512];
   int n = paint_build_wchars (g, ge, wbuf, wpad, app.text_font.cell ().cx, 512);
@@ -545,7 +545,7 @@ win32_role_font (int role)
     return app.modeline_param.m_hfont;
   if (role == PFONT_RULER)
     return win32_sysdep.hfont_ruler;
-  return app.text_font.font (role);
+  return HFONT (app.text_font.font (role).font_handle ());
 }
 
 void
@@ -2410,7 +2410,7 @@ font_has_glyph (HDC hdc, const FontObject &fo, ucs4_t cp)
 {
   if (cp >= 0x10000)
     return 0;   /* surrogate pair の判定は省く (JP 側に任せる) */
-  HGDIOBJ of = SelectObject (hdc, fo);
+  HGDIOBJ of = SelectObject (hdc, HFONT (fo.font_handle ()));
   WCHAR w = WCHAR (cp);
   WORD gi = 0;
   DWORD r = GetGlyphIndicesW (hdc, &w, 1, &gi, GGI_MARK_NONEXISTING_GLYPHS);
@@ -2479,7 +2479,7 @@ flush_term_run (HDC hdc, Painter &painter, term_run &run, int cellh)
     return;
 
   const FontObject &f = app.text_font.font (run.role);
-  HGDIOBJ of = SelectObject (hdc, f);
+  HGDIOBJ of = SelectObject (hdc, HFONT (f.font_handle ()));
   COLORREF ofg = SetTextColor (hdc, run.fg);
   COLORREF obg = SetBkColor (hdc, run.bg);
   RECT rc = { run.x, run.y, run.x + run.w, run.y + cellh };

@@ -5,7 +5,7 @@
 /*
  FontMetrics — platform-neutral font measurement interface (issue #195 step5).
 
- The core's font path leaks Win32 GDI: `FontObject::get_metrics(HDC)` and
+ The core's font path used to leak Win32 GDI through `FontObject::get_metrics()` and
  `FontObject::dpi()` call `GetDC`/`GetDeviceCaps`/`GetTextMetricsW`/
  `GetTextExtentPoint32W` directly (implemented in `src/frontend/win32/font.cc`,
  which is a Win32-only source). `FontMetrics` projects the measurement those
@@ -29,7 +29,7 @@
 # include "platform.h"    // LOGFONTW, SIZE
 
 // Result of measuring one logical font, mirroring what
-// FontObject::get_metrics(HDC, SIZE&, SIZE&) computes today.
+// FontObject::get_metrics() computes today.
 struct FontMetricsResult
 {
   int ave_char_width;   // TEXTMETRIC::tmAveCharWidth
