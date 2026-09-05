@@ -15,6 +15,9 @@ xyzzy リリースノート
 変更
 ----
 
+  * **Win32 固有のフォント補助関数の宣言を core から frontend へ移した** (issue #299)。
+    `get_font_height` と `font_exist_p` は Win32 frontend からしか呼ばれていないため、core のヘッダから外して依存方向を明確にした。
+
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。
     POSIX の名前解決は UTF-8 のバイト列を取るのに、`w2s` で **CP932 に変換して
     渡していた** (Unicode 化のときの取り残し、`w2s` / `w2sl` の 44 箇所のうち
