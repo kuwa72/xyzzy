@@ -43,6 +43,58 @@ else
   fail=1
 fi
 
+# The interactive ncurses command loop must service the POSIX listen socket
+# while it is waiting for a key.  The request is evaluated before the driver
+# releases the blocking read, so the smoke test covers both the socket response
+# and Lisp evaluation on the event-loop thread.
+log=$build/smoke-listen.txt
+rm -f "/tmp/xyzzy-$(id -u).sock" "${XDG_RUNTIME_DIR:-}/xyzzy-$(id -u).sock"
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\e\e(progn (start-xyzzy-server) (read-char *keyboard*))\r' \
+  >"$log" 2>&1 &
+pty_pid=$!
+python3 - "$pty_pid" >"$build/smoke-listen-client.txt" <<'PY'
+import os
+import socket
+import sys
+import time
+
+pid = int(sys.argv[1])
+paths = []
+if os.environ.get("XDG_RUNTIME_DIR"):
+    paths.append(f"{os.environ['XDG_RUNTIME_DIR']}/xyzzy-{os.getuid()}.sock")
+paths.append(f"/tmp/xyzzy-{os.getuid()}.sock")
+request = b'(progn (message "SMOKE-LISTEN") t)'
+for _ in range(100):
+    if not os.path.exists(f"/proc/{pid}"):
+        break
+    for path in paths:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.settimeout(1)
+                client.connect(path)
+                client.sendall(request)
+                client.shutdown(socket.SHUT_WR)
+                status = client.recv(1)
+                print(f"response={status.hex()}")
+                raise SystemExit(0 if status == b"\0" else 1)
+        except (BlockingIOError, FileNotFoundError, ConnectionRefusedError, TimeoutError):
+            pass
+    time.sleep(0.05)
+print("listen request timed out")
+sys.exit(1)
+PY
+client_status=$?
+wait "$pty_pid" || true
+if [ "$client_status" -eq 0 ]; then
+  echo 'smoke: ncurses listen OK -- socket requests run on the input loop'
+else
+  echo "smoke: ncurses listen FAILED, see $log" >&2
+  cat "$build/smoke-listen-client.txt" >&2 || true
+  tail -20 "$log" >&2
+  fail=1
+fi
 # File operations, in the frontend that has the lisp library loaded.  Every
 # call below reached a "return FALSE" stub in platform.h until the POSIX side
 # was written (see src/core/vfs-posix.cc): copy-file copied nothing, and every

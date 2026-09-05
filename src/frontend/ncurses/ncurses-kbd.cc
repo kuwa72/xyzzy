@@ -504,10 +504,17 @@ kbd_queue::fetch (int wait, int)
       FD_SET (STDIN_FILENO, &rfds);
       int maxfd = STDIN_FILENO;
 
-      // Add process fds to the select set
+      // Add process and listen-server fds to the select set
       int pmax = collect_process_fds (&rfds);
       if (pmax > maxfd)
         maxfd = pmax;
+      int listen_fd = listen_server_fd ();
+      if (listen_fd >= 0)
+        {
+          FD_SET (listen_fd, &rfds);
+          if (listen_fd > maxfd)
+            maxfd = listen_fd;
+        }
 
       /* 100ms timeout: allows periodic process polling and resize checks.
          **ユーザタイマの期限が先に来るならそちらに合わせる。** POSIX には
@@ -558,6 +565,12 @@ kbd_queue::fetch (int wait, int)
           // Poll process output if any process fd is ready
           if (pmax >= 0)
             poll_processes ();
+
+          // Process one listen request on the event-loop thread.  The request
+          // evaluator may call Lisp, so do not handle another connection until
+          // it returns.
+          if (listen_fd >= 0 && FD_ISSET (listen_fd, &rfds))
+            read_listen_server (0, 0);
 
           // Check if stdin is ready
           if (FD_ISSET (STDIN_FILENO, &rfds))

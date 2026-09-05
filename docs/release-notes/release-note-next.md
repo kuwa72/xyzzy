@@ -33,6 +33,8 @@ xyzzy リリースノート
   * **POSIX 版 listen サーバが Lisp リクエストを評価し、`-wait` の通知 fd を渡せるようにした** (issue #306)。
     Unix domain socket から UTF-8 の S 式を読み、Win32 版と同じ Lisp ヘルパーを評価した結果を返すことで、後続の xyzzy-cli がファイルを開いて待機できるようにした。
 
+  * **POSIX 版 listen サーバを ncurses の入力待ちに統合した** (issue #307)。
+    キー入力を待つ `select` で Unix domain socket も監視し、端末版を起動したまま届いた Lisp リクエストを同じイベントループ上で評価できるようにした。
   * **issue 対応の TDD・PR・CI・マージ手順を各エージェントの共通指示に明文化した**。
     対応漏れを防ぐため、テストから始め、CI の終了と issue クローズ確認までを完了条件にした。
   * **非 ASCII のホスト名とサービス名が引けるようになった** (issue #258)。
