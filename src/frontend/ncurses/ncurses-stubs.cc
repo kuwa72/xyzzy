@@ -840,7 +840,6 @@ void reload_caret_colors () {}
 // ============================================================
 
 UINT wm_private_xyzzysrv = 0;
-int read_listen_server (WPARAM, LPARAM) { return 0; }
 
 // ============================================================
 // Window.cc stubs

@@ -34,6 +34,8 @@ xwait_object_ref (lisp x)
   return ((lwait_object *)x)->ref;
 }
 
+int wait_object_read_fd (lisp);
+
 inline lwait_object *
 make_wait_object ()
 {
