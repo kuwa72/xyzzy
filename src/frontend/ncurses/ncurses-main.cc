@@ -1265,6 +1265,7 @@ public:
     create_default_buffers ();
 
     init_command_line_args (argc, argv);
+    init_listen_server ();
 
     slog_cb ("startup begin");
 
@@ -1290,6 +1291,7 @@ public:
         slog_cb ("using Lisp keybindings");
       }
 
+    start_listen_server ();
     return 0;
   }
 
@@ -1303,6 +1305,7 @@ public:
        その後半と同じもの。 */
     if (app.ini_file_path)
       environ::save_settings ();
+    end_listen_server ();
     ncurses_cleanup ();
   }
 

@@ -840,9 +840,6 @@ void reload_caret_colors () {}
 // ============================================================
 
 UINT wm_private_xyzzysrv = 0;
-void start_listen_server () {}
-void init_listen_server () {}
-void end_listen_server () {}
 int read_listen_server (WPARAM, LPARAM) { return 0; }
 
 // ============================================================
@@ -7297,8 +7294,6 @@ lisp Ftab_bar_modify_item (lisp, lisp, lisp, lisp, lisp) { return Qnil; }
 /* --- xyzzy サーバ (他のプロセスから開かせる)。**ユーザが名指しで呼ぶので
    エラーを上げる** (#185 の分類で A)。問い合わせ (`list-servers` /
    `list-server-resources`) は nil のまま — 「サーバは無い」が正しい答え。 */
-lisp Fstart_xyzzy_server () { return unsupported (Sstart_xyzzy_server); }
-lisp Fstop_xyzzy_server () { return unsupported (Sstop_xyzzy_server); }
 
 /* --- ファンクションバー。**端末に無いので no-op が正しい。** ---
    `number-of-function-bar-labels` が 0 を返すのは「ラベルは 0 個」という

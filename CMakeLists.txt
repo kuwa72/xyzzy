@@ -1207,6 +1207,7 @@ if(NOT WIN32)
             ${CORE_DIR}/abbrev-columns.cc
             ${NCURSES_DIR}/ncurses-main.cc
             ${NCURSES_DIR}/ncurses-stubs.cc
+            ${CMAKE_SOURCE_DIR}/src/frontend/posix/listen.cc
             ${CMAKE_SOURCE_DIR}/src/frontend/posix/waitobj.cc
             ${NCURSES_DIR}/ncurses-kbd.cc
             ${NCURSES_DIR}/ncurses-process.cc
