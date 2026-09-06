@@ -272,9 +272,9 @@ POSIX だけで測る。"
   => :refused)
 
 (deftest path-name-too-long-is-rejected ()
-  "WPATH_MAX (512 コードポイント) 以上のパス名はエラーになる。"
+  "WPATH_MAX 以上のパス名はエラーになる。"
   (let ((path ""))
-    (dotimes (i 512)
+    (dotimes (i 2048)
       (setq path (concat path "a")))
     (merge-pathnames path ""))
   !! simple-error)

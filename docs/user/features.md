@@ -65,8 +65,10 @@ GUI 版と機能をなるべく共有しています。ソースからビルド�
 
 ### パス名の長さ
 
-xyzzy が扱えるパス名は 512 コードポイント未満です。512 コードポイント以上のパス名を
-渡すと、バッファをあふれさせずに `Epath_name_too_long` エラーになります。
+xyzzy が扱えるパス名の上限は、ビルド時の `PATH_MAX / 2` コードポイントです。Windows 版では
+`PATH_MAX` が 1024 のため 512 コードポイント未満、POSIX 版では OS の `PATH_MAX` に
+基づく上限になります。上限以上のパス名を渡すと、バッファをあふれさせずに
+`Epath_name_too_long` エラーになります。
 
 各リリースで何をなぜ変えたかは、リポジトリの `docs/release-notes/release-note-<版>.md` や
 GitHub の [Releases](https://github.com/kuwa72/xyzzy/releases) に書いてあります。
