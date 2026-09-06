@@ -15,6 +15,8 @@ xyzzy リリースノート
 変更
 ----
 
+  * **POSIX 版の `eject-media` を unsupported エラーにした** (issue #283)。
+    引数 DRIVE は Win32 のドライブ文字で POSIX に対応する概念が無く、黙って nil を返すと取り出せたように見えるため、`unsupported-on-this-platform` エラーで明示するようにした。
   * **Win32 固有のフォント補助関数の宣言を core から frontend へ移した** (issue #299)。
     `get_font_height` と `font_exist_p` は Win32 frontend からしか呼ばれていないため、core のヘッダから外して依存方向を明確にした。
   * **グリフアトラスの生成と管理を Win32 frontend へ移した** (issue #300)。

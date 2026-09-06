@@ -7374,14 +7374,15 @@ lisp Farchiver_dll_config_dialog (lisp, lisp) { return unsupported (Sarchiver_dl
    常にそうなる。`get-special-folder-location` の nil も「そんなフォルダは
    無い」で正しい。
 
-   `eject-media` (メディアの取り出し) は**端末でも意味があるが、POSIX の
-   やり方が違う** (`eject` コマンド / `CDROMEJECT` の ioctl)。実装していない
-   ので no-op のままだが、**これは「無いから no-op」ではなく「まだ書いて
-   いない」**方である。 */
+   `eject-media` (メディアの取り出し) は端末でも意味があるが、**引数の
+   DRIVE が Win32 のドライブ文字で、POSIX には対応する概念が無い**。
+   ドライブ文字からデバイスを引く規則が無いのでシグネチャのままでは
+   実装できず、黙って nil を返すと取り出せたように見えるので
+   unsupported にする (issue #283)。 */
 // Fshell_execute: implemented in ncurses-process.cc
 lisp Fcreate_shortcut (lisp, lisp, lisp) { return unsupported (Screate_shortcut); }
 lisp Fresolve_shortcut (lisp) { return Qnil; }
-lisp Feject_media (lisp) { return Qnil; }
+lisp Feject_media (lisp) { return unsupported (Seject_media); }
 lisp Fget_special_folder_location (lisp) { return Qnil; }
 
 // Misc

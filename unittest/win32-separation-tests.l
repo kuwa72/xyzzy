@@ -14,7 +14,17 @@
 エラーにする (issue #284)。"
     (handler-case (progn (format-drive) :no-error)
       (error (c) (declare (ignore c)) :error))
-    => :error))
+    => :error)
+
+;; eject-media の DRIVE 引数は Win32 のドライブ文字で、POSIX に対応する
+;; 概念が無い。黙って nil を返すと「取り出せた」ように見えるので
+;; unsupported-on-this-platform エラーにする (issue #283)。
+(deftest eject-media-is-unsupported-on-posix
+    "POSIX/CLI フロントエンドでは eject-media を unsupported-on-this-platform
+エラーにする (issue #283)。"
+  (handler-case (progn (eject-media #\P) :no-error)
+    (error (c) (declare (ignore c)) :error))
+  => :error))
 
 (deftest refresh-screen-runs-without-error
     "リフレッシュ経路 (paint_window / paint_region などの Painter& 描画パイプライン)
