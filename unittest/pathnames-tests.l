@@ -270,3 +270,11 @@ POSIX だけで測る。"
       (progn (ed::find-file-internal (special-file-test-device)) :opened)
     (error () :refused))
   => :refused)
+
+(deftest path-name-too-long-is-rejected ()
+  "WPATH_MAX (512 コードポイント) 以上のパス名はエラーになる。"
+  (let ((path ""))
+    (dotimes (i 512)
+      (setq path (concat path "a")))
+    (merge-pathnames path ""))
+  !! simple-error)

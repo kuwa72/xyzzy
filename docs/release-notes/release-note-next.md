@@ -17,6 +17,8 @@ xyzzy リリースノート
 
   * **POSIX 版の `eject-media` を unsupported エラーにした** (issue #283)。
     引数 DRIVE は Win32 のドライブ文字で POSIX に対応する概念が無く、黙って nil を返すと取り出せたように見えるため、`unsupported-on-this-platform` エラーで明示するようにした。
+  * **パス名の固定長上限を仕様として明文化した** (issue #275)。
+    `std::filesystem::path` への広範な移行は型変換とオーバーロード解決のリスクに対して効果が見合わないため見送り、512 コードポイント以上は `Epath_name_too_long` で拒否する現状の契約を利用者向けドキュメントとテストで固定した。
   * **Win32 固有のフォント補助関数の宣言を core から frontend へ移した** (issue #299)。
     `get_font_height` と `font_exist_p` は Win32 frontend からしか呼ばれていないため、core のヘッダから外して依存方向を明確にした。
   * **グリフアトラスの生成と管理を Win32 frontend へ移した** (issue #300)。
