@@ -63,5 +63,12 @@ Win32 API は Unicode (W サフィックス) 版を使っているため、シ�
 GUI 版と機能をなるべく共有しています。ソースからビルドする方法はリポジトリの
 `docs/dev/building.md` にあります。
 
+### パス名の長さ
+
+xyzzy が扱えるパス名の上限は、ビルド時の `PATH_MAX / 2` コードポイントです。Windows 版では
+`PATH_MAX` が 1024 のため 512 コードポイント未満、POSIX 版では OS の `PATH_MAX` に
+基づく上限になります。上限以上のパス名を渡すと、バッファをあふれさせずに
+`Epath_name_too_long` エラーになります。
+
 各リリースで何をなぜ変えたかは、リポジトリの `docs/release-notes/release-note-<版>.md` や
 GitHub の [Releases](https://github.com/kuwa72/xyzzy/releases) に書いてあります。
