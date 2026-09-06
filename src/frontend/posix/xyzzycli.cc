@@ -7,9 +7,14 @@
 
 #include <climits>
 #include <ctime>
+#include <fcntl.h>
+#include <libgen.h>
+#include <poll.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -105,6 +110,128 @@ send_request (int fd, const std::string &request)
   return true;
 }
 
+// Receive the one-byte status and an optional wait fd via SCM_RIGHTS.
+// Returns true on success.  *wait_fd is set to the received fd or -1.
+static bool
+recv_response (int fd, char *status, int *wait_fd)
+{
+  *wait_fd = -1;
+  struct iovec iov = {status, sizeof (char)};
+  char control[CMSG_SPACE (sizeof (int))];
+  struct msghdr message;
+  std::memset (&message, 0, sizeof message);
+  message.msg_iov = &iov;
+  message.msg_iovlen = 1;
+  message.msg_control = control;
+  message.msg_controllen = sizeof control;
+
+  ssize_t n = recvmsg (fd, &message, 0);
+  if (n != 1)
+    return false;
+
+  struct cmsghdr *header = CMSG_FIRSTHDR (&message);
+  if (header && header->cmsg_level == SOL_SOCKET
+      && header->cmsg_type == SCM_RIGHTS
+      && header->cmsg_len == CMSG_LEN (sizeof (int)))
+    std::memcpy (wait_fd, CMSG_DATA (header), sizeof (int));
+
+  return true;
+}
+
+// Resolve the xyzzy server executable path.
+// Looks for "xyzzy" next to xyzzycli, then falls back to PATH.
+static std::string
+find_xyzzy_exe (const char *argv0)
+{
+  // Try the directory containing xyzzycli itself.
+  std::string self;
+
+  // Resolve via /proc/self/exe first (Linux).
+  char buf[4096];
+  ssize_t len = readlink ("/proc/self/exe", buf, sizeof buf - 1);
+  if (len > 0)
+    {
+      buf[len] = '\0';
+      self = buf;
+    }
+  else if (argv0 && std::strchr (argv0, '/'))
+    {
+      // argv[0] contains a path component; use it directly.
+      char *tmp = strdup (argv0);
+      if (tmp)
+        {
+          self = tmp;
+          free (tmp);
+        }
+    }
+
+  if (!self.empty ())
+    {
+      // dirname may modify the string, so work on a copy.
+      char *tmp = strdup (self.c_str ());
+      if (tmp)
+        {
+          std::string dir = dirname (tmp);
+          free (tmp);
+          std::string candidate = dir + "/xyzzy";
+          if (access (candidate.c_str (), X_OK) == 0)
+            return candidate;
+        }
+    }
+
+  return "xyzzy";
+}
+
+// Start the xyzzy server (xyzzy-ncurses) in the background.
+// Returns true if the process was started successfully.
+static bool
+run_server (const char *argv0)
+{
+  std::string exe = find_xyzzy_exe (argv0);
+
+  pid_t pid = fork ();
+  if (pid < 0)
+    return false;
+
+  if (pid == 0)
+    {
+      // Child: start a new session so the server is independent.
+      setsid ();
+
+      // Redirect stdin/stdout/stderr to /dev/null.
+      int devnull = open ("/dev/null", O_RDWR);
+      if (devnull >= 0)
+        {
+          dup2 (devnull, STDIN_FILENO);
+          dup2 (devnull, STDOUT_FILENO);
+          dup2 (devnull, STDERR_FILENO);
+          if (devnull > STDERR_FILENO)
+            close (devnull);
+        }
+
+      // Start xyzzy with --batch and an expression that starts the server
+      // and waits.
+      execlp (exe.c_str (), exe.c_str (),
+              "--batch",
+              "-e", "(progn (start-xyzzy-server) (loop (sleep 3600)))",
+              static_cast<char *> (0));
+      _exit (127);
+    }
+
+  // Parent: wait briefly for the child to exec (not for it to exit).
+  // The actual readiness check is done by wait_for_connection.
+  struct timespec ts = {0, 50000000};
+  nanosleep (&ts, 0);
+
+  // Check that the child hasn't immediately exited (exec failure).
+  int wstatus;
+  pid_t r = waitpid (pid, &wstatus, WNOHANG);
+  if (r == pid)
+    return false;
+
+  return true;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -145,19 +272,21 @@ main (int argc, char *argv[])
   if (connect (fd, reinterpret_cast<const struct sockaddr *> (&addr),
                sizeof (addr)) != 0)
     {
-      if (errno == ENOENT)
-        {
-          close (fd);
-          std::fprintf (stderr, "xyzzycli: server is not running\n");
-          return 1;
-        }
+      int e = errno;
+      close (fd);
 
-      if (errno == ECONNREFUSED)
+      if (e == ENOENT || e == ECONNREFUSED)
         {
-          close (fd);
+          // Server is not running; try to start it.
+          if (!run_server (argv[0]))
+            {
+              std::fprintf (stderr, "xyzzycli: cannot start server\n");
+              return 1;
+            }
           if (!wait_for_connection (addr, &fd))
             {
-              std::fprintf (stderr, "xyzzycli: server did not become ready: %s\n",
+              std::fprintf (stderr,
+                            "xyzzycli: server did not become ready: %s\n",
                             std::strerror (errno));
               return 1;
             }
@@ -165,7 +294,7 @@ main (int argc, char *argv[])
       else
         {
           std::fprintf (stderr, "xyzzycli: cannot connect to server: %s\n",
-                        std::strerror (errno));
+                        std::strerror (e));
           return 1;
         }
     }
@@ -198,13 +327,28 @@ main (int argc, char *argv[])
     }
 
   char status;
-  if (read (fd, &status, sizeof (status)) != 1 || status != 0)
+  int wait_fd = -1;
+  if (!recv_response (fd, &status, &wait_fd) || status != 0)
     {
+      if (wait_fd >= 0)
+        close (wait_fd);
       close (fd);
       std::fprintf (stderr, "xyzzycli: request failed\n");
       return 1;
     }
 
   close (fd);
+
+  // If the server returned a wait fd (SCM_RIGHTS), block until the
+  // buffer is killed.  The server writes one byte to the pipe when
+  // the wait object is cleaned up.
+  if (wait_fd >= 0)
+    {
+      char signal;
+      while (read (wait_fd, &signal, sizeof signal) < 0 && errno == EINTR)
+        ;
+      close (wait_fd);
+    }
+
   return 0;
 }
