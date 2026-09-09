@@ -471,6 +471,19 @@ measure_into (FontMetrics &fm, FontObject &fo, const LOGFONTW &lf, SIZE ex[2])
   ex[1].cx = r.fullwidth;
 }
 
+/* 指定 code point のグリフがフォントに存在するか調べる。
+   GetTextExtentPoint32W だけでは欠落グリフの fallback 幅が返ってしまうため、
+   幅比を判定する前に存在確認が必要。 */
+static int
+font_has_glyph (HDC hdc, HFONT hfont, WCHAR wc)
+{
+  HGDIOBJ of = SelectObject (hdc, hfont);
+  WORD gi;
+  DWORD r = GetGlyphIndicesW (hdc, &wc, 1, &gi, GGI_MARK_NONEXISTING_GLYPHS);
+  SelectObject (hdc, of);
+  return r != GDI_ERROR && gi != 0xffff;
+}
+
 int
 FontSet::create (const FontSetParam &param)
 {
@@ -520,6 +533,72 @@ FontSet::create (const FontSetParam &param)
         lf.lfWidth = fs_size.cx;
         measure_into (fm, fs_font[i], lf, ex[i]);
       }
+
+  /* 等幅グリッドを崩さないか、実際の A / あ の advance 幅を見て確認する。
+     1:2 でないフォント（PlemolJP35 / Myrica P 等の狭幅変種）を使うと
+     グリフがセルに合わず、文字間が広く見える。 */
+  {
+    HDC hdc = GetDC (0);
+    for (int i = 0; i < FONT_MAX; i++)
+      {
+        if (i == FONT_SYMBOL)
+          continue;
+        HFONT h = HFONT (fs_font[i].font_handle ());
+        if (!h)
+          continue;
+        if (!font_has_glyph (hdc, h, L'A'))
+          continue;
+
+        int half = ex[i][0].cx;
+        if (half <= 0)
+          continue;
+
+        if (font_has_glyph (hdc, h, L'\x3042'))
+          {
+            int full = ex[i][1].cx;
+            if (full > 0)
+              {
+                if (abs (full - half * 2) > half / 4)
+                  {
+                    Char wbuf[256];
+                    int n = swprintf ((wchar_t *)wbuf, numberof (wbuf),
+                                      L"%ls: A=%d, あ=%d (1:%.2f)",
+                                      fs_font[i].logfont ().lfFaceName,
+                                      half, full,
+                                      double (full) / half);
+                    if (n > 0)
+                      warn (Efont_width_mismatch, make_string (wbuf, n));
+                  }
+                else if (abs (half - fs_size.cx) > fs_size.cx / 4)
+                  {
+                    Char wbuf[256];
+                    int n = swprintf ((wchar_t *)wbuf, numberof (wbuf),
+                                      L"%ls: A=%d, cell=%d",
+                                      fs_font[i].logfont ().lfFaceName,
+                                      half, fs_size.cx);
+                    if (n > 0)
+                      warn (Efont_width_mismatch, make_string (wbuf, n));
+                  }
+              }
+          }
+        else
+          {
+            /* 全角グリフを持たない欧文フォントは、半角幅が ASCII セル幅と
+               大きくずれていないか確認する。 */
+            if (abs (half - fs_size.cx) > fs_size.cx / 4)
+              {
+                Char wbuf[256];
+                int n = swprintf ((wchar_t *)wbuf, numberof (wbuf),
+                                  L"%ls: A=%d, cell=%d",
+                                  fs_font[i].logfont ().lfFaceName,
+                                  half, fs_size.cx);
+                if (n > 0)
+                  warn (Efont_width_mismatch, make_string (wbuf, n));
+              }
+          }
+      }
+    ReleaseDC (0, hdc);
+  }
 
   fs_cell.cx = fs_size.cx;
   fs_cell.cy = fs_size.cy + fs_line_spacing;
