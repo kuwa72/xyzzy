@@ -51,12 +51,18 @@ get_font_idx (unsigned int cp)
     return FONT_GREEK;
 
   /* General Punctuation .. Misc Symbols (U+2000-U+2E7F)。
-     U+2010-U+215F (General Punctuation, Currency, Letterlike Symbols,
-     Number Forms 等) は Latin font に振る — JP font に glyph が無くて
-     豆腐化しがちな † ™ € ‰ などはこちら。
+     CJK で全角を使う約物 (… — “” ‘’ † ‡ • ※ 等) は JP font。
+     eaw.cc の is_ambiguous (Wide 扱い) と揃える。欧文専用の ™ € 等は
+     Latin のまま。
      U+2160-U+22FF (Roman numerals, Arrows, Math) と U+2460-U+26FF
      (Enclosed alpha, Box, Block, Geometric, Misc symbols) は CJK fullwidth
      glyph が定着しているので JP font。eaw.cc の wide 範囲と揃える。 */
+  if (cp == 0x2010 || (cp >= 0x2013 && cp <= 0x2016)
+      || (cp >= 0x2018 && cp <= 0x2019) || (cp >= 0x201C && cp <= 0x201D)
+      || (cp >= 0x2020 && cp <= 0x2022) || (cp >= 0x2024 && cp <= 0x2027)
+      || cp == 0x2030 || (cp >= 0x2032 && cp <= 0x2033)
+      || cp == 0x2035 || cp == 0x203B || cp == 0x203E)
+    return FONT_JP; /* CJK 約物は全角グリフ (eaw.cc と揃える) */
   if (cp < 0x2160)
     return FONT_LATIN;       /* General Punct, Currency, Letterlike, etc. */
   if (cp < 0x2300)
