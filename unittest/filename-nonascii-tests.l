@@ -163,3 +163,23 @@
                 (directory (fname-test-directory) :wild "한*.txt")))
     (fname-test-teardown))
   => ("한국어시험.txt"))
+
+;; ファイル履歴の保存・読み込みで非 ASCII ファイル名が化けないこと
+(deftest filename-nonascii-history-roundtrip ()
+  "ヒストリファイルを保存・読み込んでも非 ASCII ファイル名が化けないこと"
+  (with-temp-files (histfile)
+    (unwind-protect
+	(let ((ed::*history-file-name* histfile)
+	      (ed::*history-file-loaded* t))
+	  (ed::define-history-variable ed::*test-nonascii-history* nil)
+	  (setq ed::*test-nonascii-history*
+		(list "日本語.txt" "한국어시험.txt" "絵文字😀.txt"))
+	  (ed::save-history-file)
+	  (setq ed::*test-nonascii-history* :not-loaded)
+	  (ed::load-history-file)
+	  (let ((result ed::*test-nonascii-history*))
+	    (ed::unregister-history-variable 'ed::*test-nonascii-history*)
+	    result))
+      (when (boundp 'ed::*test-nonascii-history*)
+	(ed::unregister-history-variable 'ed::*test-nonascii-history*))))
+  => ("日本語.txt" "한국어시험.txt" "絵文字😀.txt"))

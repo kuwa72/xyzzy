@@ -67,8 +67,11 @@
       *resume-file-name-long* *resume-file-name-short*))
 
 (defun load-history-file ()
-  (let ((vars *history-variable-list*))
-    (load (history-file-name) :if-does-not-exist nil :verbose nil :print nil)
+  (let ((vars *history-variable-list*)
+	(hf (history-file-name)))
+    (when (and hf (file-exist-p hf))
+      (with-open-file (s hf :direction :input :encoding :utf8)
+	(load s :verbose nil :print nil)))
     (mapcar #'register-history-variable vars))
   (ignore-errors (run-hooks '*load-history-hook*))
   (setq *history-file-loaded* t)
@@ -125,7 +128,8 @@
       (with-open-file (s (history-file-name)
 			 :direction :output
 			 :if-exists :supersede
-			 :if-does-not-exist :create)
+			 :if-does-not-exist :create
+			 :encoding :utf8)
 	(flet ((put (var value)
 		 (unless (eq *package* (symbol-package var))
 		   (setq *package* (symbol-package var))
