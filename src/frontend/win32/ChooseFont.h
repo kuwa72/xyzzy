@@ -39,6 +39,7 @@ protected:
   void notify_font_size (HWND, int);
   void notify_size_pixel (HWND, int);
   void notify_font_filter (HWND, int);
+  void apply_font_to_all (HWND);
   void draw_font_list (HWND, DRAWITEMSTRUCT *);
   void draw_sample (HWND, DRAWITEMSTRUCT *);
 
