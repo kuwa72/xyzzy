@@ -6,11 +6,10 @@
    現時点では:
      - 結合文字 (主要な combining marks range) → 0
      - CJK / 全角 / Hangul / Emoji 等 → 2
+     - Ambiguous のうち CJK で全角を使う約物 (U+2010 等) → 本文は 2 / 端末は 1
      - それ以外 (ASCII, Latin, 記号, etc.) → 1
 
-   将来 UCD 由来の正確なデータで置き換える予定。Ambiguous 範囲
-   (e.g. U+00A1) は narrow (1) 固定。xyzzy 流儀の wide 選好に
-   したい場合は設定フラグで切替可能にする。                          */
+   将来 UCD 由来の正確なデータで置き換える予定。 */
 
 static inline int
 is_combining (unsigned int cp)
@@ -79,14 +78,27 @@ is_wide_always (unsigned int cp)
 }
 
 /* UAX #11 の Ambiguous (locale 依存で Wide / Narrow が変わる範囲)。
-   xyzzy はエディタ本文では伝統的に CJK 環境として Wide 扱いにしている。 */
+   xyzzy はエディタ本文では伝統的に CJK 環境として Wide 扱いにしている。
+   ターミナルは Narrow で引く (term.cc が ambiguous_is_wide=0)。 */
 static inline int
 is_ambiguous (unsigned int cp)
 {
-  /* U+2010-U+215F の Ambiguous (General Punctuation, Currency,
-     Letterlike Symbols, Number Forms 等) は典型的な日本語フォントに
-     glyph が無く豆腐化するため、CJK 環境でも wide 扱いから外している。 */
-  return ((cp >= 0x2160 && cp <= 0x217F) /* Roman numerals */
+  /* 日本語の自然文に出る約物 (… — “” ‘’ † ‡ • 等) は UAX #11 で Ambiguous
+     だが CJK では全角で使う。欧文フォントのプロポーショナルグリフを 1 セルに
+     押し込むと字間が不均等に見えるため、CJK として Wide 扱いにする。
+     フォント側の振り分けは fontmap.cc を揃えること。 */
+  return ((cp == 0x2010) /* HYPHEN */
+          || (cp >= 0x2013 && cp <= 0x2016) /* EN DASH .. DOUBLE VERTICAL LINE */
+          || (cp >= 0x2018 && cp <= 0x2019) /* SINGLE QUOTATION MARKS */
+          || (cp >= 0x201C && cp <= 0x201D) /* DOUBLE QUOTATION MARKS */
+          || (cp >= 0x2020 && cp <= 0x2022) /* DAGGER .. BULLET */
+          || (cp >= 0x2024 && cp <= 0x2027) /* ONE DOT LEADER .. HYPHENATION POINT (…含む) */
+          || cp == 0x2030 /* PER MILLE SIGN */
+          || (cp >= 0x2032 && cp <= 0x2033) /* PRIME .. DOUBLE PRIME */
+          || cp == 0x2035 /* REVERSED PRIME */
+          || cp == 0x203B /* REFERENCE MARK ※ */
+          || cp == 0x203E /* OVERLINE */
+          || (cp >= 0x2160 && cp <= 0x217F) /* Roman numerals */
           || (cp >= 0x2190 && cp <= 0x21FF) /* Arrows */
           || (cp >= 0x2200 && cp <= 0x22FF) /* Mathematical Operators */
           || (cp >= 0x2460 && cp <= 0x24FF) /* Enclosed Alphanumerics */
