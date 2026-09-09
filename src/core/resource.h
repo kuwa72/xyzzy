@@ -413,6 +413,7 @@
 #define IDC_PROPORTIONAL                2129
 #define IDC_SIZE_PIXEL                  2130
 #define IDC_USE_BITMAP                  2131
+#define IDC_APPLY_FONT_ALL              2132
 #define IDC_ADD_HEADER                  2134
 #define IDC_DELETE_HEADER               2135
 #define IDC_ADD_FOOTER                  2136

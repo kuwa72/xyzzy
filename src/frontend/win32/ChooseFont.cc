@@ -419,6 +419,19 @@ current_lang (HWND hwnd)
 }
 
 void
+ChooseFontP::apply_font_to_all (HWND hwnd)
+{
+  int lang = current_lang (hwnd);
+  if (lang < 0)
+    return;
+
+  for (int i = 0; i < FONT_MAX; i++)
+    cf_param.fs_logfont[i] = cf_param.fs_logfont[lang];
+
+  InvalidateRect (GetDlgItem (hwnd, IDC_SAMPLE), 0, 0);
+}
+
+void
 ChooseFontP::draw_sample (HWND hwnd, DRAWITEMSTRUCT *dis)
 {
   const char *sample = samples[0].string;
@@ -533,6 +546,10 @@ ChooseFontP::do_command (HWND hwnd, int id, int code)
 
     case IDC_FONT_FILTER:
       notify_font_filter (hwnd, code);
+      return 1;
+
+    case IDC_APPLY_FONT_ALL:
+      apply_font_to_all (hwnd);
       return 1;
 
     default:
