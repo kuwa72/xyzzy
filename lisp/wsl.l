@@ -10,12 +10,15 @@
 (require "terminal")
 
 (export '(*wsl-distribution* *wsl-unc-prefix* *wsl-path-prefix* *wsl-command*
-	  *wsl-mode-map* *wsl-mode-hook*
+	  *wsl-mode-map* *wsl-mode-hook* *wsl-project-distro* *wsl-compile-buffer-name*
 	  wsl-mode wsl wsl-shell
 	  wsl-path-to-windows windows-path-to-wsl
 	  wsl-parse-distributions wsl-list-distributions wsl-read-distribution
 	  wsl-osc-52-sequence wsl-copy-string wsl-paste-string
-	  wsl-copy-region wsl-paste))
+	  wsl-copy-region wsl-paste
+	  wsl-path-p wsl-extract-distro wsl-current-distro wsl-project-p
+	  wsl-open-directory wsl-build-command-line wsl-git-command-line
+	  wsl-translate-log-paths wsl-compile wsl-git))
 
 ;;; 設定変数
 (defvar *wsl-distribution* nil
@@ -244,3 +247,162 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
   "wsl と同等のコマンド。"
   (interactive "P")
   (wsl distro dir))
+
+
+;;; ------------------------------------------------------------------
+;;; WSL プロジェクト判定・管理 (Issue #343)
+
+(defvar-local *wsl-project-distro* nil
+  "カレントバッファまたはプロジェクトの WSL ディストリビューション名")
+
+(defvar *wsl-compile-buffer-name* "*WSL-Compilation*"
+  "WSL コンパイルバッファの既定名")
+
+(defun wsl-path-p (path)
+  "PATH が WSL UNC パス (\\\\wsl.localhost\\... や \\\\wsl$\\... など) であれば t を返す。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (and (stringp path)
+       (let ((norm (map-backslash-to-slash path)))
+	 (and (string-matchp "^//\\(wsl\\.localhost\\|wsl\\$\\)/" norm) t))))
+
+(defun wsl-extract-distro (path)
+  "WSL UNC パスからディストリビューション名を抽出する。WSL パスでなければ nil を返す。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (when (and (stringp path) (plusp (length path)))
+    (let ((norm (map-backslash-to-slash path)))
+      (when (string-match "^//\\(wsl\\.localhost\\|wsl\\$\\)/\\([^/]+\\)" norm)
+	(match-string 2)))))
+
+(defun wsl-current-distro (&optional dir)
+  "現在のコンテキスト（バッファ、ディレクトリ、または既定値）における WSL ディストリビューション名を返す。"
+  (or *wsl-project-distro*
+      (when dir (wsl-extract-distro dir))
+      (wsl-extract-distro (default-directory))
+      *wsl-distribution*
+      "Ubuntu"))
+
+(defun wsl-project-p (&optional dir)
+  "DIR (省略時は default-directory) が WSL プロジェクト内であれば t を返す。"
+  (let ((target (or dir (default-directory))))
+    (or (and *wsl-project-distro* t)
+	(wsl-path-p target))))
+
+(defun wsl-open-directory (distro wsl-path)
+  "ディストリビューション DISTRO の WSL パス WSL-PATH を Windows UNC パスとして開き、プロジェクトルートに設定する。"
+  (interactive
+   (let* ((d (wsl-read-distribution))
+	  (p (read-string "WSL directory: " :default "~")))
+     (list d p)))
+  (let* ((resolved-wsl-path (cond ((or (string= wsl-path "~") (string= wsl-path "~/"))
+				   "/home")
+				  ((string-match "^~/" wsl-path)
+				   (concat "/home" (subseq wsl-path 1)))
+				  (t wsl-path)))
+	 (win-path (wsl-path-to-windows resolved-wsl-path distro))
+	 (win-dir (if (string-match "[/\\]$" win-path)
+		      win-path
+		    (concat win-path "/"))))
+    (when (file-directory-p win-dir)
+      (set-default-directory win-dir))
+    (setq *wsl-project-distro* distro)
+    (when (fboundp 'project-remember-project)
+      (project-remember-project win-dir))
+    (message "Opened WSL directory: ~A (~A)" win-dir distro)
+    win-dir))
+
+
+;;; ------------------------------------------------------------------
+;;; 外部ツールディスパッチ (compile / git) (Issue #343)
+
+(defun wsl-build-command-line (command &optional distro wsl-dir)
+  "WSL 上で COMMAND を実行するための wsl.exe コマンドライン文字列を構築する。"
+  (let ((d (or distro *wsl-project-distro* *wsl-distribution*))
+	(dir (or wsl-dir
+		 (let ((dd (default-directory)))
+		   (if (wsl-path-p dd)
+		       (windows-path-to-wsl dd)
+		     nil)))))
+    (format nil "~A~A~A -- sh -c ~S"
+	    *wsl-command*
+	    (if (and d (plusp (length d)))
+		(format nil " -d ~A" d)
+	      "")
+	    (if (and dir (plusp (length dir)))
+		(format nil " --cd ~A" dir)
+	      "")
+	    command)))
+
+(defun wsl-git-command-line (git-args &optional distro wsl-dir)
+  "WSL 上で git を実行するためのコマンドライン文字列を構築する。"
+  (wsl-build-command-line (format nil "git ~A" git-args) distro wsl-dir))
+
+(defun wsl-translate-log-paths (log-string &optional distro)
+  "コンパイルログ内の Linux パス (/home/... や /mnt/c/... など) を Windows パスに変換する。"
+  (unless (stringp log-string)
+    (return-from wsl-translate-log-paths log-string))
+  (let ((target-distro (or distro *wsl-project-distro* *wsl-distribution* "Ubuntu"))
+	(result "")
+	(start 0))
+    ;; Linux の絶対パスパターン: /mnt/<drive>/... または /<dir>/...
+    (while (string-match "\\(/mnt/[a-zA-Z]/[^:() \t'\"<>]+\\|/[^:() \t'\"<>]+\\)" log-string start)
+      (let* ((m-start (match-beginning 1))
+	     (m-end (match-end 1))
+	     (linux-path (subseq log-string m-start m-end))
+	     (win-path (wsl-path-to-windows linux-path target-distro)))
+	(setq result (concat result
+			     (subseq log-string start m-start)
+			     win-path))
+	(setq start m-end)))
+    (concat result (subseq log-string start))))
+
+(defun wsl-compile (command &optional distro dir)
+  "WSL 上で COMMAND を実行し、結果を compilation バッファに出力してエラー解析を行う。"
+  (interactive
+   (list (read-string "WSL compile command: "
+		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
+  (let* ((target-distro (or distro (wsl-current-distro dir)))
+	 (target-dir (or dir (default-directory)))
+	 (wsl-dir (windows-path-to-wsl target-dir))
+	 (cmdline (wsl-build-command-line command target-distro wsl-dir))
+	 (buf (get-buffer-create *wsl-compile-buffer-name*)))
+    (save-excursion
+      (set-buffer buf)
+      (setq buffer-read-only nil)
+      (erase-buffer buf)
+      (insert (format nil "-*- mode: compilation; default-directory: ~S -*-\n" target-dir))
+      (insert (format nil "WSL: ~A (~A)\nCommand: ~A\n\n" wsl-dir target-distro cmdline))
+      (call-process cmdline :output buf :show :hide :wait t)
+      ;; ログ内の Linux パスを Windows パスに置換して next-error でジャンプ可能にする
+      (let ((translated (wsl-translate-log-paths (buffer-substring (point-min) (point-max)) target-distro)))
+	(erase-buffer buf)
+	(insert translated))
+      (goto-char (point-min)))
+    (pop-to-buffer buf)
+    (when (fboundp 'set-error-buffer)
+      (set-error-buffer buf))
+    (when (fboundp 'build-error-list)
+      (build-error-list))
+    buf))
+
+(defun wsl-git (&optional (git-args "status") dir)
+  "WSL 上で Git コマンドを実行し、出力をバッファに表示する。"
+  (interactive "sWSL git args: ")
+  (let* ((target-distro (wsl-current-distro dir))
+	 (target-dir (or dir (default-directory)))
+	 (wsl-dir (windows-path-to-wsl target-dir))
+	 (cmdline (wsl-git-command-line git-args target-distro wsl-dir))
+	 (buf (get-buffer-create "*WSL Git*")))
+    (save-excursion
+      (set-buffer buf)
+      (setq buffer-read-only nil)
+      (erase-buffer buf)
+      (call-process cmdline :output buf :show :hide :wait t)
+      (let ((translated (wsl-translate-log-paths (buffer-substring (point-min) (point-max)) target-distro)))
+	(erase-buffer buf)
+	(insert translated))
+      (goto-char (point-min)))
+    (pop-to-buffer buf)
+    buf))
+

@@ -1,0 +1,73 @@
+#!/bin/sh
+#
+# xyzzy - Launch Windows xyzzy from WSL (Windows Subsystem for Linux)
+#
+# Usage:
+#   xyzzy                     Launch xyzzy
+#   xyzzy .                   Open current directory in xyzzy
+#   xyzzy <file> [<file2>...] Open file(s) in xyzzy
+#
+
+set -e
+
+find_xyzzy() {
+  if [ -n "$XYZZY_EXE" ] && [ -x "$XYZZY_EXE" ]; then
+    echo "$XYZZY_EXE"
+    return 0
+  fi
+
+  if [ -n "$XYZZYHOME" ]; then
+    for candidate in "$XYZZYHOME/xyzzycli.exe" "$XYZZYHOME/xyzzy.exe"; do
+      if [ -f "$candidate" ]; then
+        echo "$candidate"
+        return 0
+      fi
+    done
+  fi
+
+  for cmd in xyzzycli.exe xyzzy.exe; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      command -v "$cmd"
+      return 0
+    fi
+  done
+
+  for candidate in \
+    "/mnt/c/xyzzy/xyzzycli.exe" \
+    "/mnt/c/xyzzy/xyzzy.exe" \
+    "/mnt/c/Program Files/xyzzy/xyzzycli.exe" \
+    "/mnt/c/Program Files/xyzzy/xyzzy.exe" \
+    "/mnt/c/Program Files (x86)/xyzzy/xyzzycli.exe" \
+    "/mnt/c/Program Files (x86)/xyzzy/xyzzy.exe"
+  do
+    if [ -f "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+XYZZY_BIN=$(find_xyzzy || true)
+
+if [ -z "$XYZZY_BIN" ]; then
+  echo "Error: xyzzy.exe or xyzzycli.exe not found." >&2
+  echo "Please set XYZZYHOME or XYZZY_EXE to the xyzzy installation path." >&2
+  exit 1
+fi
+
+ARGS=()
+for arg in "$@"; do
+  if [ -e "$arg" ] || [ -d "$arg" ]; then
+    if command -v wslpath >/dev/null 2>&1; then
+      ARGS+=("$(wslpath -w "$arg")")
+    else
+      ARGS+=("$arg")
+    fi
+  else
+    ARGS+=("$arg")
+  fi
+done
+
+exec "$XYZZY_BIN" "${ARGS[@]}"
