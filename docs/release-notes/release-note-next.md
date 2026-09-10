@@ -15,6 +15,8 @@ xyzzy リリースノート
 変更
 ----
 
+  * バッファの行が短くなった後にスクロールすると、変更前の文字が行末に
+    残って表示されることがある問題を修正しました。
   * **WSL連携 (パス相互変換・ターミナル起動・クリップボード統合) (issue #342)**:
     Windows 上の xyzzy から WSL（Windows Subsystem for Linux）をシームレスに操作できるようにする `lisp/wsl.l` を追加しました。
     - **パス相互変換 API**:
@@ -67,3 +69,5 @@ xyzzy リリースノート
     `wsl-open-directory` 等のディストリビューション一覧取得処理で、Emacs Lisp の関数名である `generate-new-buffer` が使われていたのを xyzzy の組み込み関数 `create-new-buffer` に修正しました。
   * **WSL ディレクトリオープン時のバッファ表示と初期ディレクトリ設定 (issue #353)**:
     `wsl-open-directory` で WSL ディレクトリを開いた際、専用バッファ `*WSL: <distro>:<path>*` を作成・表示し、当該バッファおよびグローバルのカレントディレクトリを WSL 側の UNC パスに設定することで、直後の `C-x C-f` (`find-file`) やファイラ等で当該ディレクトリが初期位置として提示されるように改善しました。また、WSL パスを直接指定して開く対話的コマンド `wsl-find-file` を追加しました。
+  * **`wsl-open-directory` でのディレクトリ補完サポート (issue #355)**:
+    `wsl-open-directory` の対話的ディレクトリ入力において、Windows UNC パスを基にしたミニバッファディレクトリ補完機能 (`wsl-read-directory`, `wsl-resolve-directory-path`) を導入し、WSL 内のディレクトリを TAB 補完等で選択・入力できるようにしました。

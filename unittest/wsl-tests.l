@@ -186,3 +186,17 @@
   (fboundp 'wsl-find-file)
   => t)
 
+(deftest wsl-read-directory-defined ()
+  "wsl-read-directory 関数が定義されている"
+  (fboundp 'wsl-read-directory)
+  => t)
+
+(deftest wsl-resolve-directory-path-test ()
+  "wsl-resolve-directory-path がチルダや UNC パスを正しく Linux パスに解決する"
+  (list (wsl-resolve-directory-path "~" "Ubuntu")
+        (wsl-resolve-directory-path "~/work" "Ubuntu")
+        (wsl-resolve-directory-path "/home/user/test" "Ubuntu")
+        (wsl-resolve-directory-path "\\\\wsl.localhost\\Ubuntu\\home\\user" "Ubuntu")
+        (wsl-resolve-directory-path "//wsl.localhost/Ubuntu/home/user/dir/" "Ubuntu"))
+  => ("/home" "/home/work" "/home/user/test" "/home/user" "/home/user/dir/"))
+

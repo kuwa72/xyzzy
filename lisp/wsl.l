@@ -17,7 +17,8 @@
 	  wsl-osc-52-sequence wsl-copy-string wsl-paste-string
 	  wsl-copy-region wsl-paste
 	  wsl-path-p wsl-extract-distro wsl-current-distro wsl-project-p
-	  wsl-open-directory wsl-find-file wsl-build-command-line wsl-git-command-line
+	  wsl-open-directory wsl-read-directory wsl-resolve-directory-path
+	  wsl-find-file wsl-build-command-line wsl-git-command-line
 	  wsl-translate-log-paths wsl-compile wsl-git))
 
 ;;; 設定変数
@@ -289,18 +290,42 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
     (or (and *wsl-project-distro* t)
 	(wsl-path-p target))))
 
+(defun wsl-resolve-directory-path (path &optional distro)
+  "WSL ディレクトリパス (チルダ、UNC パス、Linux パス) を正規化された Linux パスに変換・解決する。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (cond ((or (string= path "~") (string= path "~/"))
+	 "/home")
+	((string-match "^~/" path)
+	 (concat "/home" (subseq path 1)))
+	((wsl-path-p path)
+	 (windows-path-to-wsl path))
+	(t path)))
+
+(defun wsl-read-directory (&optional prompt distro default-dir)
+  "ディストリビューション DISTRO 内のディレクトリパスを補完付きで入力させる。
+Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read-directory-name を呼び出し、
+入力された UNC パスまたは Linux パスを Linux 側パスに正規化して返す。"
+  (let* ((d (or distro (wsl-current-distro) "Ubuntu"))
+	 (initial-wsl (or default-dir "~"))
+	 (resolved-initial (wsl-resolve-directory-path initial-wsl d))
+	 (unc-default (wsl-path-to-windows resolved-initial d))
+	 (unc-dir (let ((s (map-backslash-to-slash unc-default)))
+		    (if (string-match "/$" s) s (concat s "/"))))
+	 (input (read-directory-name (or prompt (format nil "WSL (~A) directory: " d))
+				     :default unc-dir)))
+    (if (and (stringp input) (plusp (length input)))
+	(wsl-resolve-directory-path input d)
+      resolved-initial)))
+
 (defun wsl-open-directory (distro wsl-path)
   "ディストリビューション DISTRO の WSL パス WSL-PATH を Windows UNC パスとして開き、プロジェクトルートに設定する。
 専用バッファを開いてカレントディレクトリを切り替えるため、その後の C-x C-f 等で当該ディレクトリが初期位置になります。"
   (interactive
    (let* ((d (wsl-read-distribution))
-	  (p (read-string "WSL directory: " :default "~")))
+	  (p (wsl-read-directory "WSL directory: " d "~")))
      (list d p)))
-  (let* ((resolved-wsl-path (cond ((or (string= wsl-path "~") (string= wsl-path "~/"))
-				   "/home")
-				  ((string-match "^~/" wsl-path)
-				   (concat "/home" (subseq wsl-path 1)))
-				  (t wsl-path)))
+  (let* ((resolved-wsl-path (wsl-resolve-directory-path wsl-path distro))
 	 (win-path (wsl-path-to-windows resolved-wsl-path distro))
 	 ;; スラッシュ形式に正規化して内部パスの整合性を保つ
 	 (win-dir (let ((s (map-backslash-to-slash win-path)))
