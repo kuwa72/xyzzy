@@ -63,3 +63,5 @@ xyzzy リリースノート
       - バッファが WSL プロジェクト内にある場合、`lsp-start-server` が自動的に WSL 側言語サーバーを起動し、ディストリビューションコンテキストを保持。
     - **透過的な診断と定義ジャンプ**:
       - WSL 側言語サーバーからの診断通知 (`publishDiagnostics`) や定義ジャンプ (`textDocument/definition`) で返される URI を UNC パスに透過マッピングし、xyzzy バッファで直接開いて該当位置へジャンプ。
+  * **`wsl-list-distributions` で未定義関数 `generate-new-buffer` が呼ばれる不具合の修正 (issue #351)**:
+    `wsl-open-directory` 等のディストリビューション一覧取得処理で、Emacs Lisp の関数名である `generate-new-buffer` が使われていたのを xyzzy の組み込み関数 `create-new-buffer` に修正しました。
