@@ -14,6 +14,7 @@
 	  lsp-make-initialize-params lsp-make-did-open-params
 	  lsp-make-did-change-params lsp-make-did-close-params
 	  lsp-extract-diagnostics lsp-parse-location
+	  lsp-path-to-uri lsp-uri-to-path lsp-wsl-server-command
 	  lsp-start-server lsp-stop-server
 	  lsp-find-definition lsp-mode))
 
@@ -228,13 +229,66 @@
 
 
 ;;; ------------------------------------------------------------------
-;;; 3. ライフサイクル & ドキュメント同期パラメータ構築
+;;; 3. URI / パス相互変換 & WSL 透過トランスレータ (Issue #345)
+
+(defun lsp-path-to-uri (path &optional distro)
+  "ファイルパス (Windows ローカルパスまたは WSL UNC パス) を LSP 用の file:// URI に変換する。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (when (string-match "^file:" path)
+    (return-from lsp-path-to-uri path))
+  ;; WSL UNC パス (\\wsl.localhost\... や //wsl.localhost/...)
+  (if (and (fboundp 'wsl-path-p) (wsl-path-p path))
+      (let ((linux-path (if (fboundp 'windows-path-to-wsl)
+			    (windows-path-to-wsl path)
+			  path)))
+	(concat "file:///" (substitute-string (map-backslash-to-slash linux-path) "^/+" "")))
+    (let ((norm (map-backslash-to-slash path)))
+      (cond
+       ;; ドライブレター形式 (C:/... や c:/...)
+       ((string-match "^\\([a-zA-Z]:.*\\)$" norm)
+	(concat "file:///" norm))
+       ;; Linux パス (/home/... など)
+       ((string-match "^/+" norm)
+	(concat "file:///" (substitute-string norm "^/+" "")))
+       (t
+	(concat "file:///" norm))))))
+
+(defun lsp-uri-to-path (uri &optional distro)
+  "LSP の file:// URI を xyzzy で開くためのファイルパス (Windows パスまたは WSL UNC パス) に変換する。"
+  (unless (stringp uri)
+    (return-from lsp-uri-to-path nil))
+  (let ((clean (substitute-string uri "^file:/*" "/")))
+    ;; ドライブレター形式 (/C:/... -> C:/...)
+    (if (string-match "^/\\([a-zA-Z]:/.*\\)$" clean)
+	(match-string 1)
+      ;; /mnt/<drive>/... -> <drive>:/...
+      (if (string-match "^/mnt/\\([a-zA-Z]\\)\\(/.*\\)?$" clean)
+	  (if (fboundp 'wsl-path-to-windows)
+	      (wsl-path-to-windows clean distro)
+	    (let ((drive (char-upcase (char (match-string 1) 0)))
+		  (rest (match-string 2)))
+	      (format nil "~C:~A" drive (or rest "/"))))
+	;; /home/... などの Linux パス -> WSL UNC パス
+	(if (string-match "^/" clean)
+	    (if (fboundp 'wsl-path-to-windows)
+		(wsl-path-to-windows clean distro)
+	      clean)
+	  clean)))))
+
+(defun lsp-wsl-server-command (command &optional distro dir)
+  "WSL 上で言語サーバーを起動するためのコマンドラインを生成する。"
+  (let ((d (or distro (and (fboundp 'wsl-current-distro) (wsl-current-distro dir)) "Ubuntu"))
+	(wsl (or (and (boundp '*wsl-command*) *wsl-command*) "wsl.exe")))
+    (format nil "~A -d ~A -- ~A" wsl d command)))
+
+
+;;; ------------------------------------------------------------------
+;;; 4. ライフサイクル & ドキュメント同期パラメータ構築
 
 (defun lsp-make-initialize-params (root-path &optional pid)
   "initialize リクエストのパラメータ alist を構築する。"
-  (let ((uri (if (string-match "^file:" root-path)
-		 root-path
-	       (concat "file:///" (substitute-string (map-backslash-to-slash root-path) "^/+" "")))))
+  (let ((uri (lsp-path-to-uri root-path)))
     `(("processId" . ,(or pid :null))
       ("rootPath" . ,root-path)
       ("rootUri" . ,uri)
@@ -321,7 +375,8 @@
   (next-id 1)
   (callbacks (make-hash-table :test 'equal))
   root-path
-  server-cmd)
+  server-cmd
+  wsl-distro)
 
 (defun lsp-send-request (client method params &optional callback)
   "JSON-RPC リクエストを送信する。"
@@ -362,11 +417,23 @@
 	(when diags
 	  (message "LSP Diagnostics: ~D issue(s) reported" (length diags))))))))
 
-(defun lsp-start-server (command &optional root-path)
-  "言語サーバープロセスを起動してクライアントオブジェクトを返す。"
+(defun lsp-start-server (command &optional root-path distro)
+  "言語サーバープロセスを起動してクライアントオブジェクトを返す。
+WSL プロジェクト内または明示的に DISTRO が指定された場合は WSL 経由でサーバーを起動する。"
   (let* ((root (or root-path (default-directory)))
-	 (client (make-lsp-client :root-path root :server-cmd command))
-	 (proc (make-process command
+	 (target-distro (or distro
+			    (and (fboundp 'wsl-path-p) (wsl-path-p root)
+				 (fboundp 'wsl-extract-distro) (wsl-extract-distro root))
+			    (and (fboundp 'wsl-current-distro) (wsl-current-distro root))))
+	 (is-wsl (or distro
+		     (and (fboundp 'wsl-path-p) (wsl-path-p root))
+		     (and (fboundp 'wsl-project-p) (wsl-project-p root))))
+	 (actual-cmd (if is-wsl
+			 (lsp-wsl-server-command command target-distro root)
+		       command))
+	 (client (make-lsp-client :root-path root :server-cmd actual-cmd
+				  :wsl-distro (and is-wsl target-distro)))
+	 (proc (make-process actual-cmd
 			     :exec-directory root
 			     :incode *encoding-utf8*
 			     :outcode *encoding-utf8*
@@ -417,7 +484,8 @@
       (message "No active LSP client.")
       (return-from lsp-find-definition nil))
     (let* ((filename (get-buffer-file-name))
-	   (uri (if filename (concat "file:///" (substitute-string (map-backslash-to-slash filename) "^/+" "")) nil))
+	   (distro (and client (lsp-client-wsl-distro client)))
+	   (uri (if filename (lsp-path-to-uri filename distro) nil))
 	   (line (1- (current-line-number)))
 	   (col (current-column)))
       (unless uri
@@ -430,7 +498,7 @@
        #'(lambda (res)
 	   (let ((loc (lsp-parse-location res)))
 	     (if loc
-		 (let ((file (substitute-string (getf loc :uri) "^file:///" "")))
+		 (let ((file (lsp-uri-to-path (getf loc :uri) distro)))
 		   (find-file file)
 		   (goto-line (1+ (getf loc :line)))
 		   (goto-column (getf loc :col)))
