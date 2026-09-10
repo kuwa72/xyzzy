@@ -88,6 +88,12 @@
   (wsl-parse-distributions "U\0b\0u\0n\0t\0u\0\r\0\n\0D\0e\0b\0i\0a\0n\0\r\0\n\0")
   => ("Ubuntu" "Debian"))
 
+(deftest wsl-list-distributions-callable ()
+  "wsl-list-distributions が未定義関数エラー (generate-new-buffer 等) を起こさず呼べる"
+  (let ((res (ignore-errors (wsl-list-distributions))))
+    (or (null res) (listp res)))
+  => t)
+
 ;;; ------------------------------------------------------------------
 ;;; 3. クリップボード連携 / OSC 52
 

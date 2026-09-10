@@ -133,7 +133,7 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 (defun wsl-list-distributions ()
   "wsl.exe -l -q を実行し、利用可能なディストリビューション名のリストを返す。"
   (interactive)
-  (let ((buf (generate-new-buffer " *wsl-list*")))
+  (let ((buf (create-new-buffer " *wsl-list*")))
     (unwind-protect
 	(let ((status (ignore-errors
 			(call-process (format nil "~A -l -q" *wsl-command*)
