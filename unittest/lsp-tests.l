@@ -105,3 +105,37 @@
          (loc (lsp-parse-location (json-decode loc-json))))
     (list (getf loc :uri) (getf loc :line) (getf loc :col)))
   => ("file:///test.h" 25 4))
+
+;;; ------------------------------------------------------------------
+;;; 5. WSL 透過連携 (Issue #345)
+
+(deftest lsp-path-to-uri-wsl-test ()
+  "WSL UNC パスおよび Windows パスの URI 変換"
+  (list (lsp-path-to-uri "\\\\wsl.localhost\\Ubuntu\\home\\user\\project\\main.rs")
+        (lsp-path-to-uri "//wsl.localhost/Ubuntu/home/user/project/main.rs")
+        (lsp-path-to-uri "C:/project/test.c"))
+  => ("file:///home/user/project/main.rs"
+      "file:///home/user/project/main.rs"
+      "file:///C:/project/test.c"))
+
+(deftest lsp-uri-to-path-wsl-test ()
+  "URI から WSL UNC パスおよび Windows パスへの逆変換"
+  (let ((*wsl-unc-prefix* "\\\\wsl.localhost"))
+    (list (lsp-uri-to-path "file:///home/user/project/main.rs" "Ubuntu")
+          (lsp-uri-to-path "file:///mnt/c/project/test.c")
+          (lsp-uri-to-path "file:///C:/project/test.c")))
+  => ("\\\\wsl.localhost\\Ubuntu\\home\\user\\project\\main.rs"
+      "C:/project/test.c"
+      "C:/project/test.c"))
+
+(deftest lsp-wsl-server-command-test ()
+  "WSL 言語サーバー起動コマンドラインの構築"
+  (lsp-wsl-server-command "rust-analyzer" "Ubuntu")
+  => "wsl.exe -d Ubuntu -- rust-analyzer")
+
+(deftest lsp-make-initialize-params-wsl-test ()
+  "WSL パスに対する initialize パラメータの構築"
+  (let* ((params (lsp-make-initialize-params "\\\\wsl.localhost\\Ubuntu\\home\\user\\project" 1234))
+         (root-uri (cdr (assoc "rootUri" params :test #'string=))))
+    root-uri)
+  => "file:///home/user/project")

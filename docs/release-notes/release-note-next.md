@@ -53,3 +53,13 @@ xyzzy リリースノート
       - `textDocument/definition` によるシンボル定義位置（ファイルURI、行・文字オフセット）のパースと定義元バッファ・カーソル位置へのジャンプ (`lsp-find-definition`)。
     - **マイナーモード `lsp-mode`**:
       - バッファごとのフック（`after-change-functions`, `after-save-hook`, `kill-buffer-hook`）とキーマップ (`M-.` で `lsp-find-definition`) を提供。
+  * **LSP の WSL 透過接続（URIトランスレータとWSL内言語サーバー起動） (issue #345)**:
+    Windows 上の xyzzy から WSL 内にインストールされた言語サーバー（rust-analyzer, pyright, gopls 等）をシームレスに利用するための透過連携機能を実装しました。
+    - **URI / パス相互変換トランスレータ (`lsp-path-to-uri` / `lsp-uri-to-path`)**:
+      - Windows UNC パス（`\\wsl.localhost\<distro>\home\...` 等）を WSL 側 URI（`file:///home/...`）へ透過変換。
+      - WSL 側 URI（`file:///home/...`）を Windows UNC パスへ逆変換。また `/mnt/<drive>/...` 形式の URI をローカル Windows ドライブパスへ解決。
+    - **WSL 言語サーバーの起動と自動ディスパッチ**:
+      - `lsp-wsl-server-command`: `wsl.exe -d <distro> -- <command>` 形式でのコマンドライン構築。
+      - バッファが WSL プロジェクト内にある場合、`lsp-start-server` が自動的に WSL 側言語サーバーを起動し、ディストリビューションコンテキストを保持。
+    - **透過的な診断と定義ジャンプ**:
+      - WSL 側言語サーバーからの診断通知 (`publishDiagnostics`) や定義ジャンプ (`textDocument/definition`) で返される URI を UNC パスに透過マッピングし、xyzzy バッファで直接開いて該当位置へジャンプ。
