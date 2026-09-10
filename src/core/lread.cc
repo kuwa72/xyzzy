@@ -2123,7 +2123,7 @@ load_file (lisp filename, lisp realname, lisp if_does_not_exist,
   else
     {
       stream = create_file_stream (filename, Kinput, Qnil,
-                                   if_does_not_exist, Kcanonical, 0);
+                                   if_does_not_exist, Kutf8, 0);
       if (stream == Qnil)
         return Qnil;
     }

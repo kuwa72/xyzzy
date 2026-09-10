@@ -521,7 +521,7 @@ Fopen (lisp filename, lisp keys)
   lisp direction = find_keyword (Kdirection, keys, Kinput);
   lisp if_exists = find_keyword (Kif_exists, keys, 0);
   lisp if_does_not_exist = find_keyword (Kif_does_not_exist, keys, 0);
-  lisp encoding = find_keyword (Kencoding, keys, Kcanonical);
+  lisp encoding = find_keyword (Kencoding, keys, Kutf8);
   lisp share = find_keyword (Kshare, keys, 0);
 
   if (direction == Kinput)
@@ -1476,7 +1476,8 @@ detect_file_encoding (lisp stream)
                 {
                   char enc = xfile_stream_encoding (stream);
                   xfile_stream_encoding (stream) =
-                    (enc == lstream::ENCODE_CANON)
+                    (enc == lstream::ENCODE_CANON
+                     || enc == lstream::ENCODE_CANON_UTF8)
                     ? lstream::ENCODE_CANON_UTF8
                     : lstream::ENCODE_RAW_UTF8;
                 }
