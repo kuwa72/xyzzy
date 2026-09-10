@@ -21,6 +21,9 @@ xyzzy リリースノート
   * **`open`・`load` の既定エンコーディングを UTF-8 にした**。
     外部ファイルを開く `open` と `load` の既定が CP932 (CRLF) のままだったため、エンコーディング指定のないファイル入出力で日本語などの非 ASCII を扱うと文字化けしていた。既定を `:utf8` に変更し、先頭の `-*- Encoding: utf-8 -*-` マーカーはこれまで通り尊重する (`src/core/lread.cc`、`src/core/stream.cc`)。 
 
+  * **`connect`・`accept-connection` のソケット既定エンコーディングも UTF-8 にした**。
+    `connect` / `accept-connection` / `make-listen-socket` によるソケット通信も、既定が CP932 のままでは非 ASCII を化けさせていた。読み込み側に UTF-8 デコードと CRLF 変換を実装し、既定を `:utf8` に統一した。外部プロトコルで CP932 が必要な場合は `:encoding :canonical` を指定すれば従来どおり使える (`src/core/stream.cc`)。 
+
   * **日本語の自然文に出る約物を本文では全角 (2 桁) で数えるようにした**。
     `… — “” ‘’ † ‡ • ※` 等は UAX #11 で Ambiguous のため従来は本文でも 1 桁で数え、欧文フォントのプロポーショナルグリフを 1 セルに押し込めて字間が不均等に見えていた。`src/core/eaw.cc` の CJK 扱いに加え、`src/core/fontmap.cc` で日本語フォントに振るようにし、桁数と描画グリフを一致させた。ターミナル側は Narrow のまま。なお Myrica P / PlemolJP35 等のプロポーショナル・狭幅変種や半角:全角が 1:2 でないフォントは等幅グリッドと合わないため、本文には M 系・通常版 (1:2) を使うこと。
   * **Win32 の `FontSet::create` でフォントの半角：全角比を確認して警告するようにした**。

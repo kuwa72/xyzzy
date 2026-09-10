@@ -858,7 +858,7 @@ Fconnect (lisp lhost, lisp lport, lisp keys)
   try
     {
       Fbegin_wait_cursor ();
-      int encoding = stream_encoding (find_keyword (Kencoding, keys, Kcanonical));
+      int encoding = stream_encoding (find_keyword (Kencoding, keys, Kutf8));
       sockinet::saddr addr (lhost, lport);
       stream = make_socket_stream ();
       protect_gc gcpro (stream);
@@ -969,7 +969,7 @@ lisp
 Faccept_connection (lisp stream, lisp keys)
 {
   valid_socket_stream_p (stream);
-  int encoding = stream_encoding (find_keyword (Kencoding, keys, Kcanonical));
+  int encoding = stream_encoding (find_keyword (Kencoding, keys, Kutf8));
   lisp new_stream = Qnil;
   try
     {
@@ -1691,20 +1691,80 @@ readc_stream (lisp stream)
               int c = xsocket_stream_sock (stream)->sgetc ();
               if (c == sock::eof)
                 return lChar_EOF;
-              if (xsocket_stream_encoding (stream) != lstream::ENCODE_BINARY)
+              char enc = xsocket_stream_encoding (stream);
+              if (enc == lstream::ENCODE_CANON_UTF8
+                  || enc == lstream::ENCODE_RAW_UTF8)
+                {
+                  /* UTF-8 decode, mirroring the file stream path. */
+                  int nbytes;
+                  ucs4_t wc;
+                  if (c < 0x80)
+                    wc = c;
+                  else if ((c & 0xE0) == 0xC0)
+                    {
+                      nbytes = 1;
+                      wc = c & 0x1F;
+                      goto socket_utf8_cont;
+                    }
+                  else if ((c & 0xF0) == 0xE0)
+                    {
+                      nbytes = 2;
+                      wc = c & 0x0F;
+                      goto socket_utf8_cont;
+                    }
+                  else if ((c & 0xF8) == 0xF0)
+                    {
+                      nbytes = 3;
+                      wc = c & 0x07;
+                      goto socket_utf8_cont;
+                    }
+                  else
+                    wc = c; // invalid lead byte
+
+                  if (0)
+                    {
+                    socket_utf8_cont:
+                      for (int i = 0; i < nbytes; i++)
+                        {
+                          int cb = xsocket_stream_sock (stream)->sgetc ();
+                          if (cb == sock::eof || (cb & 0xC0) != 0x80)
+                            {
+                              if (cb != sock::eof)
+                                xsocket_stream_sock (stream)->sungetc (cb);
+                              break;
+                            }
+                          wc = (wc << 6) | (cb & 0x3F);
+                        }
+                    }
+
+                  ucs4_t ic = wc;
+
+                  if (enc == lstream::ENCODE_CANON_UTF8 && ic == '\r')
+                    {
+                      int c2 = xsocket_stream_sock (stream)->sgetc ();
+                      if (c2 == '\n')
+                        ic = '\n';
+                      else if (c2 != sock::eof)
+                        xsocket_stream_sock (stream)->sungetc (c2);
+                    }
+                  if (ic == '\n')
+                    xstream_linenum (stream)++;
+                  return ic;
+                }
+              if (enc != lstream::ENCODE_BINARY)
                 {
                   if (SJISP (c))
                     {
                       int c2 = xsocket_stream_sock (stream)->sgetc ();
                       return c2 == sock::eof ? c : ((c << 8) | c2);
                     }
-                  else if (xsocket_stream_encoding (stream) == lstream::ENCODE_CANON
+                  else if (enc == lstream::ENCODE_CANON
                            && c == '\r')
                     {
                       int c2 = xsocket_stream_sock (stream)->sgetc ();
                       if (c2 == '\n')
                         c = c2;
-                      else
+                      else if (c2 != sock::eof)
                         xsocket_stream_sock (stream)->sungetc (c2);
                     }
                 }

@@ -199,6 +199,28 @@
   => "byname"
   => nil)
 
+(deftest socket-round-trip-utf8 ()
+  "ソケットの既定エンコーディングが UTF-8 なら非 ASCII も往復する"
+  (handler-case
+      (let* ((srv (make-listen-socket "127.0.0.1" 0 :reuseaddr t))
+             (port (socket-stream-local-port srv))
+             (cli (connect "127.0.0.1" port))
+             (acc (accept-connection srv)))
+        (unwind-protect
+            (progn
+              (format cli "日本語~%")
+              (finish-output cli)
+              (let ((got (read-line acc nil :eof)))
+                (format acc "한국어~%")
+                (finish-output acc)
+                (list got
+                      (read-line cli nil :eof))))
+          (ignore-errors (close acc))
+          (ignore-errors (close cli))
+          (ignore-errors (close srv))))
+    (error (e) (list :error (format nil "~A" e))))
+  => ("日本語" "한국어"))
+
 (deftest socket-unresolvable-hostname-says-so ()
   ;; **`gethostbyname: Success` と出ていた** (issue #223)。`gethostbyname` は
   ;; `errno` を触らず `h_errno` を立てるのに、番号を errno として `strerror`
