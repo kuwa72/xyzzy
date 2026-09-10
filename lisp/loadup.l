@@ -99,6 +99,7 @@
 (si:*load-library "project") (gc)
 (si:*load-library "git") (gc)
 (si:*load-library "wsl") (gc)
+(si:*load-library "lsp") (gc)
 (si:*load-library "modeline") (gc)
 (si:*load-library "session") (gc)
 (si:*load-library "about") (gc)

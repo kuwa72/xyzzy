@@ -39,4 +39,17 @@ xyzzy リリースノート
       WSL 側での Git コマンド実行支援。
     - **WSL 側 CLI スクリプト (`tools/xyzzy-wsl`)**:
       WSL 側シェルからカレントディレクトリやファイルを Windows 側 xyzzy で開くためのランチャースクリプトを提供。
-
+  * **LSP クライアント基本機能の実装 (JSON-RPC・ドキュメント同期・診断・定義ジャンプ) (issue #344)**:
+    Language Server Protocol (LSP) と連携するための軽量クライアント基盤 `lisp/lsp.l` を追加しました。
+    - **JSON エンコーダー / デコーダー**:
+      - 外部ライブラリ依存のない組み込み Lisp による高速・軽量な JSON パーサーおよびシリアライザー (`json-encode`, `json-decode`)。
+    - **JSON-RPC / Content-Length プロトコル処理**:
+      - LSP 仕様に準拠した Content-Length ヘッダ付きメッセージの送受信・バッファリングおよびリクエスト/レスポンス処理 (`lsp-make-message`, `lsp-parse-messages`, `lsp-send-request`, `lsp-send-notification`)。
+    - **ライフサイクル & ドキュメント同期**:
+      - 言語サーバープロセスとの初期化ハンドシェイク (`initialize`, `initialized`)、シャットダウン処理 (`shutdown`, `exit`)。
+      - ファイルオープン (`textDocument/didOpen`)、バッファ変更 (`textDocument/didChange` full sync)、保存 (`textDocument/didSave`)、クローズ (`textDocument/didClose`) の同期。
+    - **診断と定義ジャンプ**:
+      - `textDocument/publishDiagnostics` によるエラー・警告の解析と抽出 (`lsp-extract-diagnostics`)。
+      - `textDocument/definition` によるシンボル定義位置（ファイルURI、行・文字オフセット）のパースと定義元バッファ・カーソル位置へのジャンプ (`lsp-find-definition`)。
+    - **マイナーモード `lsp-mode`**:
+      - バッファごとのフック（`after-change-functions`, `after-save-hook`, `kill-buffer-hook`）とキーマップ (`M-.` で `lsp-find-definition`) を提供。
