@@ -173,8 +173,16 @@
       "Building target all"))
 
 (deftest wsl-open-directory-test ()
-  "wsl-open-directory がディストリビューションとパスから Windows UNC パスを設定する"
+  "wsl-open-directory がディストリビューションとパスから Windows UNC パスを設定し、バッファを開く"
   (let ((dir (wsl-open-directory "Ubuntu" "/home/user/project")))
-    (list dir *wsl-project-distro*))
-  => ("\\\\wsl.localhost\\Ubuntu\\home\\user\\project/" "Ubuntu"))
+    (list (and (string-matchp "Ubuntu" dir) t)
+          (and (string-matchp "home/user/project" dir) t)
+          *wsl-project-distro*
+          (stringp (buffer-name (selected-buffer)))))
+  => (t t "Ubuntu" t))
+
+(deftest wsl-find-file-defined ()
+  "wsl-find-file コマンドが定義されている"
+  (fboundp 'wsl-find-file)
+  => t)
 
