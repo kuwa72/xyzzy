@@ -17,7 +17,7 @@
 	  wsl-osc-52-sequence wsl-copy-string wsl-paste-string
 	  wsl-copy-region wsl-paste
 	  wsl-path-p wsl-extract-distro wsl-current-distro wsl-project-p
-	  wsl-open-directory wsl-build-command-line wsl-git-command-line
+	  wsl-open-directory wsl-find-file wsl-build-command-line wsl-git-command-line
 	  wsl-translate-log-paths wsl-compile wsl-git))
 
 ;;; 設定変数
@@ -290,7 +290,8 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 	(wsl-path-p target))))
 
 (defun wsl-open-directory (distro wsl-path)
-  "ディストリビューション DISTRO の WSL パス WSL-PATH を Windows UNC パスとして開き、プロジェクトルートに設定する。"
+  "ディストリビューション DISTRO の WSL パス WSL-PATH を Windows UNC パスとして開き、プロジェクトルートに設定する。
+専用バッファを開いてカレントディレクトリを切り替えるため、その後の C-x C-f 等で当該ディレクトリが初期位置になります。"
   (interactive
    (let* ((d (wsl-read-distribution))
 	  (p (read-string "WSL directory: " :default "~")))
@@ -301,16 +302,43 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 				   (concat "/home" (subseq wsl-path 1)))
 				  (t wsl-path)))
 	 (win-path (wsl-path-to-windows resolved-wsl-path distro))
-	 (win-dir (if (string-match "[/\\]$" win-path)
-		      win-path
-		    (concat win-path "/"))))
+	 ;; スラッシュ形式に正規化して内部パスの整合性を保つ
+	 (win-dir (let ((s (map-backslash-to-slash win-path)))
+		    (if (string-match "/$" s) s (concat s "/"))))
+	 (buf-name (format nil "*WSL: ~A:~A*" distro resolved-wsl-path))
+	 (buf (get-buffer-create buf-name)))
+    ;; 専用バッファに切り替えて作業ディレクトリを設定
+    (set-buffer buf)
     (when (file-directory-p win-dir)
-      (set-default-directory win-dir))
+      (ignore-errors (set-default-directory win-dir buf)))
+    (setq-default *wsl-project-distro* distro)
     (setq *wsl-project-distro* distro)
+    (setq need-not-save t)
+    (setq auto-save nil)
+    (erase-buffer buf)
+    (insert (format nil "WSL Project: ~A (~A)\n" resolved-wsl-path distro))
+    (insert (format nil "Windows UNC Path: ~A\n\n" win-dir))
+    (insert "Commands in this directory:\n")
+    (insert "  C-x C-f     - Find file (starts at this WSL directory)\n")
+    (insert "  M-x wsl     - Open WSL terminal in this directory\n")
+    (insert "  M-x wsl-compile - Run build command on WSL\n")
+    (insert "  M-x wsl-git - Run git command on WSL\n")
+    (insert "  M-x wsl-find-file - Find file in this project\n")
+    (setq buffer-read-only t)
+    (switch-to-buffer buf)
     (when (fboundp 'project-remember-project)
       (project-remember-project win-dir))
     (message "Opened WSL directory: ~A (~A)" win-dir distro)
     win-dir))
+
+(defun wsl-find-file (&optional dir)
+  "WSL プロジェクト内のファイルを補完選択して開く。"
+  (interactive)
+  (let* ((target-dir (or dir (default-directory)))
+	 (distro (wsl-current-distro target-dir)))
+    (if (and (fboundp 'project-find-file) (wsl-project-p target-dir))
+	(project-find-file target-dir)
+      (call-interactively 'find-file))))
 
 
 ;;; ------------------------------------------------------------------
