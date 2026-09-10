@@ -119,3 +119,56 @@
         (boundp '*wsl-distribution*)
         (boundp '*wsl-unc-prefix*))
   => (t t t t t))
+
+;;; ------------------------------------------------------------------
+;;; 5. WSL プロジェクト判定・ディストリビューション抽出 (Issue #343)
+
+(deftest wsl-extract-distro-test ()
+  "WSL UNC パスからディストリビューション名を抽出する"
+  (list (wsl-extract-distro "\\\\wsl.localhost\\Ubuntu\\home\\user")
+        (wsl-extract-distro "//wsl.localhost/Debian/etc")
+        (wsl-extract-distro "\\\\wsl$\\arch\\home")
+        (wsl-extract-distro "//wsl$/kali-linux/opt")
+        (wsl-extract-distro "C:/Users/user"))
+  => ("Ubuntu" "Debian" "arch" "kali-linux" nil))
+
+(deftest wsl-project-p-test ()
+  "パスが WSL プロジェクト内かどうかを判定する"
+  (list (wsl-project-p "\\\\wsl.localhost\\Ubuntu\\home\\user")
+        (wsl-project-p "//wsl$/Debian/var")
+        (wsl-project-p "C:/Users/user/project"))
+  => (t t nil))
+
+;;; ------------------------------------------------------------------
+;;; 6. WSL コマンドライン構築とコンパイル・git連携 (Issue #343)
+
+(deftest wsl-build-command-line-test ()
+  "WSL 実行コマンドラインを正しく構築する"
+  (list (wsl-build-command-line "make" "Ubuntu" "/home/user/proj")
+        (wsl-build-command-line "cargo build" nil "/mnt/c/work"))
+  => ("wsl.exe -d Ubuntu --cd /home/user/proj -- sh -c \"make\""
+      "wsl.exe --cd /mnt/c/work -- sh -c \"cargo build\""))
+
+(deftest wsl-git-command-line-test ()
+  "WSL 上で git を実行するコマンドラインを構築する"
+  (wsl-git-command-line "status --short" "Ubuntu" "/home/user/proj")
+  => "wsl.exe -d Ubuntu --cd /home/user/proj -- sh -c \"git status --short\"")
+
+(deftest wsl-translate-log-paths-test ()
+  "コンパイルログのエラー行の Linux パスを Windows パスに変換する"
+  (let ((*wsl-unc-prefix* "\\\\wsl.localhost"))
+    (list (wsl-translate-log-paths "/home/user/main.c:10:5: error: syntax error" "Ubuntu")
+          (wsl-translate-log-paths "/mnt/c/Users/user/proj/test.c(20): warning C4000" "Ubuntu")
+          (wsl-translate-log-paths "make[1]: Entering directory '/home/user/proj'" "Ubuntu")
+          (wsl-translate-log-paths "Building target all" "Ubuntu")))
+  => ("\\\\wsl.localhost\\Ubuntu\\home\\user\\main.c:10:5: error: syntax error"
+      "C:/Users/user/proj/test.c(20): warning C4000"
+      "make[1]: Entering directory '\\\\wsl.localhost\\Ubuntu\\home\\user\\proj'"
+      "Building target all"))
+
+(deftest wsl-open-directory-test ()
+  "wsl-open-directory がディストリビューションとパスから Windows UNC パスを設定する"
+  (let ((dir (wsl-open-directory "Ubuntu" "/home/user/project")))
+    (list dir *wsl-project-distro*))
+  => ("\\\\wsl.localhost\\Ubuntu\\home\\user\\project/" "Ubuntu"))
+

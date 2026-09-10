@@ -29,3 +29,14 @@ xyzzy リリースノート
     - **クリップボード・OSC 52 支援**:
       - `wsl-osc-52-sequence`: ターミナル用 OSC 52 エスケープシーケンスの生成ユーティリティ。
       - `wsl-copy-string`, `wsl-paste-string`, `wsl-copy-region`, `wsl-paste`: xyzzy のクリップボード／kill-ring との連携ユーティリティ。
+  * **WSLプロジェクト管理と外部ツール自動ディスパッチ (issue #343)**:
+    WSL 上のプロジェクトに対するディレクトリオープン、ビルド・Git実行の自動委譲、およびコンパイルエラー解析の連携を実装しました。
+    - **WSL プロジェクトオープン (`M-x wsl-open-directory`)**:
+      ディストリビューションと WSL パスを指定して Windows 側 UNC パス (`\\wsl.localhost\<distro>\...`) を開き、プロジェクトルートおよび WSL コンテキストを設定。
+    - **compilation-mode の WSL 連携 (`M-x wsl-compile`)**:
+      WSL 上でのビルドコマンド実行（`wsl.exe -d <distro> --cd <wsl_dir> -- sh -c "..."`）を行い、コンパイルログ内の Linux パスを Windows パスに自動変換することで `next-error` (`C-x \``) による該当ファイル・行へのジャンプを実現。
+    - **WSL Git 連携 (`M-x wsl-git`)**:
+      WSL 側での Git コマンド実行支援。
+    - **WSL 側 CLI スクリプト (`tools/xyzzy-wsl`)**:
+      WSL 側シェルからカレントディレクトリやファイルを Windows 側 xyzzy で開くためのランチャースクリプトを提供。
+
