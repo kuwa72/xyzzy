@@ -159,7 +159,7 @@
 (add-local-option-prop-page
  'misc
  '(dialog 0 0 213 165
-   (:caption "もろもろ")
+   (:caption "バッファ設定")
    (:control
     (:static nil "文字エンコーディング(&E):" #x50020000 8 7 71 8)
     (:combobox encoding nil #x50210003 7 18 112 139)
@@ -185,7 +185,7 @@
     (:button readonly "書き込み禁止(&R)" #x50010003 106 123 77 10)
     (:button newline "行番号は表示行(&N)" #x50010003 7 136 86 10)
     (:button indenttab "インデントにタブを使う(&T)" #x50010003 106 136 88 10)
-    (:button noneedsave "保存してなくても文句を言わない(&V)" #x50010003 7 149 133 10)))
+    (:button noneedsave "変更があっても保存確認しない(&V)" #x50010003 7 149 133 10)))
  #'(lambda ()
      (let ((eol (buffer-eol-code)))
        (multiple-value-bind (tab localtab)
