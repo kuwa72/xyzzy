@@ -88,6 +88,7 @@
     t)
   => t)
 
+#-ncurses
 (deftest test-directory-page-improvements ()
   "ディレクトリタブからレガシーなMSVC/MSDN設定が削除されていること"
   (let* ((tmpl (find-prop-page-template 'ed::directory ed::*option-prop-page*))
