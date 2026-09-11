@@ -1,5 +1,111 @@
+;;; -*- Mode: Lisp; Encoding: utf-8 -*-
 (deftest *do-completion-matched-list-order ()
   (*do-completion "1" :list nil '("100" "12" "123" "222" "111" "333" "11"))
   => "1"
   => ("11" "111" "123" "12" "100")
   => nil)
+
+(defun completion-cycle-test-tab (candidates)
+  "ミニバッファの TAB 連打と同等の経路で補完を 1 回進める。"
+  (ed::do-completion-internal (point-min) (point-max)
+                              :list-ignore-case candidates nil nil nil nil))
+
+(deftest minibuffer-complete-cycles-candidates-with-tab ()
+  "TAB 連打で候補が順に挿入されること (1 回目は一覧のまま、2 回目以降はサイクル)"
+  (with-temp-buffer
+    (insert "a")
+    (let ((ed::*print-completion-list-hook* (lambda (list prefix) nil))
+          (candidates '("abc" "abd" "aef"))
+          (results nil))
+      (let ((ed::*last-command* nil)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates)
+        (push (buffer-substring (point-min) (point-max)) results))
+      (dotimes (i 4)
+        (let ((ed::*last-command* 'ed::minibuffer-complete)
+              (ed::*this-command* 'ed::minibuffer-complete))
+          (completion-cycle-test-tab candidates)
+          (push (buffer-substring (point-min) (point-max)) results)))
+      (nreverse results)))
+  => ("a" "abc" "abd" "aef" "abc"))
+
+(deftest minibuffer-complete-cycle-can-be-disabled ()
+  "nil では従来通り (一覧どまりで候補挿入しない) こと"
+  (with-temp-buffer
+    (insert "a")
+    (let ((ed::*print-completion-list-hook* (lambda (list prefix) nil))
+          (ed::*minibuffer-completion-cycle* nil)
+          (candidates '("abc" "abd" "aef"))
+          (results nil))
+      (let ((ed::*last-command* nil)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates)
+        (push (buffer-substring (point-min) (point-max)) results))
+      (dotimes (i 2)
+        (let ((ed::*last-command* 'ed::minibuffer-complete)
+              (ed::*this-command* 'ed::minibuffer-complete))
+          (completion-cycle-test-tab candidates)
+          (push (buffer-substring (point-min) (point-max)) results)))
+      (nreverse results)))
+  => ("a" "a" "a"))
+
+(deftest minibuffer-complete-cycle-after-common-prefix ()
+  "共通接頭辞の伸長→一覧→サイクルの順になること"
+  (with-temp-buffer
+    (insert "a")
+    (let ((ed::*print-completion-list-hook* (lambda (list prefix) nil))
+          (candidates '("abc" "abd"))
+          (results nil))
+      (let ((ed::*last-command* nil)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates)
+        (push (buffer-substring (point-min) (point-max)) results))
+      (dotimes (i 4)
+        (let ((ed::*last-command* 'ed::minibuffer-complete)
+              (ed::*this-command* 'ed::minibuffer-complete))
+          (completion-cycle-test-tab candidates)
+          (push (buffer-substring (point-min) (point-max)) results)))
+      (nreverse results)))
+  => ("ab" "ab" "abc" "abd" "abc"))
+
+(deftest minibuffer-complete-cycle-breaks-on-edit ()
+  "候補挿入後に編集したらサイクルが切れること"
+  (with-temp-buffer
+    (insert "a")
+    (let ((ed::*print-completion-list-hook* (lambda (list prefix) nil))
+          (candidates '("abc" "abd" "aef")))
+      (let ((ed::*last-command* nil)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates))
+      (let ((ed::*last-command* 'ed::minibuffer-complete)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates))
+      (values (buffer-substring (point-min) (point-max))
+              (progn
+                (delete-region (point-min) (point-max))
+                (insert "ax")
+                (let ((ed::*last-command* 'ed::minibuffer-complete)
+                      (ed::*this-command* 'ed::minibuffer-complete))
+                  (completion-cycle-test-tab candidates))
+                (buffer-substring (point-min) (point-max))))))
+  => "abc"
+  => "ax")
+
+(deftest minibuffer-complete-and-exit-does-not-cycle ()
+  "RET 確定の経路では次候補に置き換えないこと"
+  (with-temp-buffer
+    (insert "a")
+    (let ((ed::*print-completion-list-hook* (lambda (list prefix) nil))
+          (candidates '("abc" "abd" "aef")))
+      (let ((ed::*last-command* nil)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates))
+      (let ((ed::*last-command* 'ed::minibuffer-complete)
+            (ed::*this-command* 'ed::minibuffer-complete))
+        (completion-cycle-test-tab candidates))
+      (let ((ed::*last-command* 'ed::minibuffer-complete)
+            (ed::*this-command* 'ed::minibuffer-complete-and-exit))
+        (ed::do-completion-internal (point-min) (point-max)
+                                    :list-ignore-case candidates nil nil nil nil))
+      (buffer-substring (point-min) (point-max))))
+  => "abc")

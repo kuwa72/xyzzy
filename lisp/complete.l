@@ -12,16 +12,25 @@
 	  *print-completion-list-hook*
 	  *print-completion-sort-function*
 	  *popup-completion-list-default*
+	  *minibuffer-completion-cycle*
 	  *executable-file-suffixes*))
 
 (defvar *completion-auto-help* t)
 (defvar *popup-completion-list-default* nil)
+;;; TAB 連打で候補を順に挿入するサイクル補完 (ミニバッファ)。nil で従来通り
+;;; (一覧表示どまり・2 回目は *Completion* バッファのスクロール) に戻す。
+(defvar *minibuffer-completion-cycle* t)
 
 (defvar-local *completion-related-buffer* nil)
 (defvar-local *completion-list* nil)
 (defvar-local *completion-list-column* nil)
 (defvar-local *completion-prefix* nil)
 (defvar-local *completion-last-string* nil)
+;;; サイクル補完の状態 (ミニバッファのバッファローカルで持つ)。
+;;; origin: サイクル開始時の入力、list: 挿入する候補全文の並び。
+(defvar-local *completion-cycle-origin* nil)
+(defvar-local *completion-cycle-list* nil)
+(defvar-local *completion-cycle-index* nil)
 
 (defvar *executable-list* nil)
 (defvar *executable-file-suffixes* '("*.exe" "*.bat" "*.com" "*.lnk"))
@@ -158,8 +167,55 @@
     (insert last-char)
     t))
 
+(defun completion-cycle-full-string (item prefix)
+  (let ((s (if (symbolp item) (symbol-name item) item)))
+    (if (stringp prefix)
+	(concat prefix s)
+      s)))
+
+(defun completion-cycle-sorted-full-list (list prefix)
+  "一覧表示と同じ並びで、挿入用の候補全文を作る。"
+  (let ((sorted (copy-list list)))
+    (setq sorted (if *print-completion-sort-function*
+		     (sort sorted *print-completion-sort-function*)
+		   (nreverse sorted)))
+    (mapcar #'(lambda (x) (completion-cycle-full-string x prefix)) sorted)))
+
+(defun completion-cycle-clear ()
+  (setq *completion-cycle-origin* nil)
+  (setq *completion-cycle-list* nil)
+  (setq *completion-cycle-index* nil))
+
+(defun completion-cycle-start (string list prefix)
+  (when list
+    (setq *completion-cycle-origin* string)
+    (setq *completion-cycle-list*
+	  (completion-cycle-sorted-full-list list prefix))
+    (setq *completion-cycle-index* -1)))
+
+(defun completion-cycle-try (from to)
+  "TAB 連打の継続なら次候補を挿入して t を返す。継続でなければ nil。"
+  (and *minibuffer-completion-cycle*
+       (eq *last-command* 'minibuffer-complete)
+       (eq *this-command* 'minibuffer-complete)
+       *completion-cycle-list*
+       (let ((string (buffer-substring from to)))
+	 (when (or (equal string *completion-cycle-origin*)
+		   (member string *completion-cycle-list* :test #'equal))
+	   (let* ((pos (position string *completion-cycle-list* :test #'equal))
+		  (next (if (null pos)
+			    0
+			  (mod (1+ pos) (length *completion-cycle-list*)))))
+	     (setq *completion-cycle-index* next)
+	     (delete-region from to)
+	     (insert (nth next *completion-cycle-list*))
+	     t)))))
+
 (defun do-completion-internal (from to type &optional compl not-uniq-ok word last-char popup-p)
   (let ((string (buffer-substring from to)))
+    (when (completion-cycle-try from to)
+      (return-from do-completion-internal t))
+    (completion-cycle-clear)
     (when (and (member type '(:file-name :exist-file-name
 			      :file-name-list :directory-name))
 	       (string-match "\\(^\\|[\\/]\\)\\.\\.[\\/]?$" string)
@@ -176,6 +232,7 @@
 		      (cond ((completion-insert-self string list prefix last-char to)
 			     t)
 			    (*completion-auto-help*
+			     (completion-cycle-start string list prefix)
 			     (print-completion-list list prefix string popup-p from to)
 			     't)
 			    (t
@@ -189,6 +246,7 @@
 	       (cond ((completion-insert-self string list prefix last-char to)
 		      t)
 		     (t
+		      (completion-cycle-start string list prefix)
 		      (or not-uniq-ok
 			  (print-completion-list list prefix string popup-p from to))
 		      result)))
