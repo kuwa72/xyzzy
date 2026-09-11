@@ -619,6 +619,11 @@ FontSet::create (const FontSetParam &param)
         }
     }
 
+  /* bitmap マーク (改行・タブ・スペース等) の strip はここで作る。
+     起動時の init () -> create () でも要る: 別途作らないと strip が NULL の
+     ままになり、全 bitmap マークの blit が空振りする。 */
+  create_fontset_bitmap (*this);
+
   save_params (param);
   return 1;
 }

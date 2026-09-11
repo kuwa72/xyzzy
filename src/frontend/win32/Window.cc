@@ -708,7 +708,6 @@ Window::change_parameters (const FontSetParam &param,
      渡していた。ステータス行の行数をその高さから割り戻していたからで、
      行数は w_minibuffer_lines が持つようになったので要らない (issue #97)。 */
   app.text_font.create (param);
-  create_fontset_bitmap (app.text_font);
   if (change_color_p)
     init_colors (colors, mlcolors, fg, bg);
 
