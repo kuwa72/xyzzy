@@ -26,6 +26,13 @@
         (json-encode '((:name . "xyzzy") (:version . 1))))
   => ("[1, 2, 3]" "{\"name\": \"xyzzy\", \"version\": 1}"))
 
+(deftest json-escape-string-special-chars ()
+  "引用符・バックスラッシュ・改行を逃がすこと (未定義 write-string の回帰)"
+  (list (json-escape-string "\"")
+        (json-escape-string "\\")
+        (json-escape-string (string #\LFD)))
+  => ("\\\"" "\\\\" "\\n"))
+
 (deftest json-decode-primitives ()
   "プリミティブ値の JSON デコード"
   (list (json-decode "123")

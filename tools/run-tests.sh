@@ -278,4 +278,13 @@ if [ "$status" -eq 0 ] || [ "$status" -eq 1 ]; then
   fi
 fi
 
+# 未定義関数呼び出しの静的検査。バイトコンパイラは警告を出さないため、
+# 実行するまで気づけない (lsp-mode の prefix-numeric-value など)。
+# 許可リストは tools/lisp-undefined-allowlist.txt。
+if [ "$status" -eq 0 ] || [ "$status" -eq 1 ]; then
+  if [ -f "$root/tools/check-lisp-undefined.py" ]; then
+    python3 "$root/tools/check-lisp-undefined.py" "$root" || status=1
+  fi
+fi
+
 exit "$status"

@@ -1,0 +1,58 @@
+# tools/check-lisp-undefined.py が呼び出しを許すシンボル。一行一名前。
+# 大文字小文字とパッケージ接頭辞は無視される。追加するときは理由を残すこと。
+# 目標はこのファイルを空に近づけることではなく、機械的に見えない定義を
+# 人間が確認した証拠として残すこと。
+
+# --- calc-assoc-left/right が defun を生成 (lisp/calc.l) ---
+calc-power-expr
+calc-logior-expr
+
+# --- cmu_loop.l の他処理系互換参照。実行時はその場で区別される ---
+ext:file-comment
+excl:package-definition-lock
+loop::make-hash-table-iteration-generator
+
+# --- C で定義されたコンディションのアクセサ。
+# define-condition-accessors が実行時に name-slot を生成する。
+# スロット名は src/core/signal.cc の D* エントリの K* と対応する ---
+reader-error-stream
+reader-error-linenum
+reader-error-datum
+reader-error-arguments
+no-target-operation
+no-target-target
+file-lost-error-pathname
+file-lost-error-lost-pathname
+file-error-pathname
+file-error-datum
+simple-condition-format-string
+simple-condition-format-arguments
+simple-package-error-datum1
+simple-package-error-datum2
+socket-error-operation
+socket-error-datum
+win32-exception-description
+win32-exception-code
+win32-exception-address
+simple-error-format-arguments
+# check-type-error は type-error を継承。新設スロットは静的に見えるが、
+# 継承スロット (datum, expected-type) は C 側の定義を見るしかない。
+check-type-error-datum
+check-type-error-expected-type
+
+# --- simple-test.l の macrolet が実行時に組み立てる ssn-* マクロ群 ---
+ssn-report-output
+ssn-pass-count
+ssn-fail-count
+ssn-total-count
+ssn-finished-tests
+ssn-current-test
+ssn-remaining-tests
+
+# --- テストの fixture データ。評価されることはない ---
+# (si:*fset 'foo #'bar) の bar (unittest/simple-test.l)
+bar
+
+# --- FIXME: 定義がなく呼び出しだけある。別 issue で対応する ---
+# life-backward-char / life-end-edit から呼ばれるが、どこにも定義がない。
+indent-rigidly

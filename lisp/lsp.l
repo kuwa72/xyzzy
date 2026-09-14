@@ -27,11 +27,11 @@
     (dotimes (i (length str))
       (let ((c (char str i)))
 	(case c
-	  (#\" (write-string "\\\"" s))
-	  (#\\ (write-string "\\\\" s))
-	  (#\LFD (write-string "\\n" s))
-	  (#\RET (write-string "\\r" s))
-	  (#\TAB (write-string "\\t" s))
+	  (#\" (write-char #\\ s) (write-char #\" s))
+	  (#\\ (write-char #\\ s) (write-char #\\ s))
+	  (#\LFD (write-char #\\ s) (write-char #\n s))
+	  (#\RET (write-char #\\ s) (write-char #\r s))
+	  (#\TAB (write-char #\\ s) (write-char #\t s))
 	  (t (write-char c s)))))
     (get-output-stream-string s)))
 

@@ -15,6 +15,20 @@ xyzzy リリースノート
 変更
 ----
 
+  * Lisp の未定義関数呼び出しをテスト前に検出する静的検査
+    `tools/check-lisp-undefined.py` を追加。バイトコンパイラは未定義関数
+    を警告しないため、`lsp-mode` の `prefix-numeric-value` のように実行時
+    まで気づけない不具合があった。`tools/run-tests.sh` の最後に組み込み、
+    `lisp/`・`unittest/`・`misc/` を走査する。機械的に見えない定義
+    (マクロ生成・C 定義コンディションのアクセサ等) は
+    `tools/lisp-undefined-allowlist.txt` に理由付きで列挙する。
+    自己テストは `python3 tools/test-check-lisp-undefined.py`。
+  * `json-escape-string` が存在しない `write-string` を呼んでいた不具合を
+    修正。引用符・バックスラッシュを含む文字列の JSON エンコードで
+    「関数が定義されていません」になった。xyzzy にある `write-char` の
+    組み合わせに置き換え、上記静的検査で検出・回帰テスト
+    (`json-escape-string-special-chars`) を追加。
+
   * `lsp-install-server` コマンドを追加。Windows / WSL 両方のコンテキストで
     言語サーバーを自動インストールする。権限エラー時はインストールコマンドを
     ミニバッファに提示し kill-ring にも保存する。
