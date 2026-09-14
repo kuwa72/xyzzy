@@ -28,10 +28,11 @@
 
 (deftest json-escape-string-special-chars ()
   "引用符・バックスラッシュ・改行を逃がすこと (未定義 write-string の回帰)"
-  (list (json-escape-string "\"")
-        (json-escape-string "\\")
-        (json-escape-string (string #\LFD)))
-  => ("\\\"" "\\\\" "\\n"))
+  ;; json-escape-string は editor 内部関数のため公開 API の json-encode 越しに検証する。
+  (list (json-encode "\"")
+        (json-encode "\\")
+        (json-encode (string #\LFD)))
+  => ("\"\\\"\"" "\"\\\\\"" "\"\\n\""))
 
 (deftest json-decode-primitives ()
   "プリミティブ値の JSON デコード"
