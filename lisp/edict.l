@@ -149,7 +149,8 @@
 (defun edict-analogize-conjugation (from to)
   (long-operation
     (let ((string (buffer-substring from to))
-	  (rl nil))
+	  (rl nil)
+	  (r nil))
       (when (setq r (lookup-dictionary *edict-dictionary-path*
 				       "xyzzydic" "xyzzye2j" string))
 	(push (cons string r) rl))

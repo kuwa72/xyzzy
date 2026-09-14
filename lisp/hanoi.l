@@ -6,6 +6,8 @@
 
 (provide "hanoi")
 
+(defvar hanoi-top-of-line-number nil)
+
 (defun hanoi-setup-screen (nrings ring)
   (let* ((width (window-columns))
 	 (height (window-height))
