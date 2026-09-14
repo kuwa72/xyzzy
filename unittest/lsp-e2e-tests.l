@@ -22,6 +22,27 @@
 (defvar *lsp-test-python* nil
   "fake サーバーを動かす python。調べた結果を覚えておく (:none は無し)。")
 
+(defun lsp-test-python-runs-p (cmd)
+  "CMD がこの環境で本当に走るかどうか。
+
+**`where' の戻り値だけでは足りない。** Wine は `where python3' に 0 を
+返し、出力は空だ。つまり「見つかった」と「走らない」を区別できない。
+Wine が見せる PATH には Linux の PATH が混ざっているので名前だけは
+引っかかるが、Windows のプロセスとして起動できるのは PE だけなので、
+fake サーバーは 1 つも起動しない (CI で 5 テストが 30 秒ずつ待って落ちた)。
+**実際に走らせて版を言わせる。**"
+  (let ((buf (create-new-buffer " *lsp-python-probe*")))
+    (unwind-protect
+	(progn
+	  (ignore-errors
+	    (call-process (format nil "~A --version" cmd)
+			  :output buf :show :hide :wait t))
+	  (save-excursion
+	    (set-buffer buf)
+	    (not (null (string-match "ython"
+				     (buffer-substring (point-min) (point-max)))))))
+      (delete-buffer buf))))
+
 (defun lsp-test-python ()
   "fake サーバーを起動できる python のコマンド名。無ければ nil。
 
@@ -29,8 +50,8 @@
 `python3' は無い (あるのは `python')。"
   (unless *lsp-test-python*
     (setq *lsp-test-python*
-	  (cond ((lsp-server-installed-p "python3") "python3")
-		((lsp-server-installed-p "python") "python")
+	  (cond ((lsp-test-python-runs-p "python3") "python3")
+		((lsp-test-python-runs-p "python") "python")
 		(t :none))))
   (and (stringp *lsp-test-python*) *lsp-test-python*))
 
