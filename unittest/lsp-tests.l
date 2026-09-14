@@ -163,8 +163,9 @@
   => ("sudo -n apt install -y python3-pylsp" "apt"))
 
 (deftest lsp-server-installed-p-true-test ()
-  "存在するコマンド (cmd) に対して t を返す"
-  (lsp-server-installed-p "cmd")
+  "存在するコマンドに対して t を返す (Windows: cmd / POSIX: sh)"
+  (not (null (or (lsp-server-installed-p "cmd")
+                 (lsp-server-installed-p "sh"))))
   => t)
 
 ;;; ------------------------------------------------------------------
