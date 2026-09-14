@@ -8,7 +8,7 @@
 (in-package "editor")
 
 (export '(*lsp-mode* *lsp-mode-map* *lsp-mode-hook*
-	  *lsp-default-servers* *lsp-clients*
+	  *lsp-default-servers* *lsp-clients* *lsp-server-installers*
 	  json-encode json-decode
 	  lsp-make-message lsp-parse-messages
 	  lsp-make-initialize-params lsp-make-did-open-params
@@ -16,6 +16,7 @@
 	  lsp-extract-diagnostics lsp-parse-location
 	  lsp-path-to-uri lsp-uri-to-path lsp-wsl-server-command
 	  lsp-start-server lsp-stop-server
+	  lsp-server-installed-p lsp-install-server *lsp-last-install-log*
 	  lsp-find-definition lsp-mode))
 
 ;;; ------------------------------------------------------------------
@@ -26,11 +27,11 @@
     (dotimes (i (length str))
       (let ((c (char str i)))
 	(case c
-	  (#\" (write-string "\\\"" s))
-	  (#\\ (write-string "\\\\" s))
-	  (#\LFD (write-string "\\n" s))
-	  (#\RET (write-string "\\r" s))
-	  (#\TAB (write-string "\\t" s))
+	  (#\" (write-char #\\ s) (write-char #\" s))
+	  (#\\ (write-char #\\ s) (write-char #\\ s))
+	  (#\LFD (write-char #\\ s) (write-char #\n s))
+	  (#\RET (write-char #\\ s) (write-char #\r s))
+	  (#\TAB (write-char #\\ s) (write-char #\t s))
 	  (t (write-char c s)))))
     (get-output-stream-string s)))
 
@@ -369,6 +370,169 @@
     ("go-mode" . "gopls"))
   "メジャーモード名と既定の言語サーバーコマンドの対応表")
 
+;;; ------------------------------------------------------------------
+;;; 5-a. LSP サーバーインストーラ
+
+(defvar *lsp-last-install-log* nil
+  "直近に lsp-install-server が失敗したときのログファイルのパス。")
+
+(defvar *lsp-server-installers*
+  '(("clangd"
+     (:windows "winget install LLVM.LLVM" nil)
+     (:wsl     "sudo apt install -y clangd" "sudo"))
+    ("pylsp"
+     (:windows "pip install python-lsp-server" "pip")
+     (:wsl     "sudo -n apt install -y python3-pylsp" "apt"))
+    ("gopls"
+     (:windows "go install golang.org/x/tools/gopls@latest" "go")
+     (:wsl     "go install golang.org/x/tools/gopls@latest" "go"))
+    ("rust-analyzer"
+     (:windows "rustup component add rust-analyzer" "rustup")
+     (:wsl     "rustup component add rust-analyzer" "rustup"))
+    ("typescript-language-server"
+     (:windows "npm install -g typescript-language-server typescript" "npm")
+     (:wsl     "npm install -g typescript-language-server typescript" "npm"))
+    ("yaml-language-server"
+     (:windows "npm install -g yaml-language-server" "npm")
+     (:wsl     "npm install -g yaml-language-server" "npm"))
+    ("json-language-server"
+     (:windows "npm install -g vscode-langservers-extracted" "npm")
+     (:wsl     "npm install -g vscode-langservers-extracted" "npm")))
+  "サーバー名とインストールコマンドの対応表。
+各エントリは (SERVER-NAME . PROPERTIES)。
+PROPERTIES は ((:windows CMD PREREQ) (:wsl CMD PREREQ))。
+PREREQ が nil なら前提ツール不要、文字列なら which で存在確認する。")
+
+(defun lsp-server-installed-p (server)
+  "SERVER コマンドが PATH 上に存在するか判定する。
+Windows では `where`、POSIX では `which` を使用する。"
+  (let* ((is-win (let ((p (os-platform)))
+		   (and (symbolp p)
+			(string-match "^windows" (symbol-name p)))))
+	 (probe-cmd (if is-win
+			(format nil "where ~A" server)
+		      (format nil "which ~A" server)))
+	 (buf (create-new-buffer " *lsp-probe*")))
+    (unwind-protect
+	(let ((rc (call-process probe-cmd :output buf :show :hide :wait t)))
+	  (zerop rc))
+      (delete-buffer buf))))
+
+(defun lsp--wsl-installed-p (server &optional distro)
+  "WSL ディストロ上で SERVER コマンドの存在を確認する。"
+  (let ((wsl (or (and (boundp '*wsl-command*) *wsl-command*) "wsl.exe"))
+        (buf (create-new-buffer " *lsp-probe*")))
+    (unwind-protect
+        (let ((rc (call-process (format nil "~A -d ~A -- which ~A" wsl (or distro "Ubuntu") server)
+                                :output buf :show :hide :wait t)))
+          (zerop rc))
+      (delete-buffer buf))))
+
+(defun lsp--installed-p (server is-wsl distro)
+  "コンテキストに応じた存在確認。WSL なら WSL 側で which する。"
+  (if is-wsl
+      (lsp--wsl-installed-p server distro)
+    (lsp-server-installed-p server)))
+
+(defun lsp--server-entry (name)
+  "*lsp-server-installers* から NAME のエントリを検索する。"
+    (assoc name *lsp-server-installers* :test #'string=))
+
+(defun lsp--install-cmd (entry context)
+  "ENTRY から CONTEXT (:windows か :wsl) のインストールコマンドと prereq を返す。
+  (values command prerequisite)。該当がなければ (values nil nil)。"
+  (let ((prop (assoc context entry)))
+    (if prop
+	(let ((cmd (cadr prop))
+	      (prereq (caddr prop)))
+	  (values cmd prereq))
+      (values nil nil))))
+
+(defun lsp--check-prereq (prereq)
+  "PREREQ ツールの存在を確認する。nil なら t を返す。"
+  (or (null prereq) (lsp-server-installed-p prereq)))
+
+(defun lsp--permission-error-p (output)
+  "OUTPUT 文字列に権限エラーを示すパターンが含まれるか判定する。"
+  (or (string-match "Permission denied" output)
+      (string-match "EACCES" output)
+      (string-match "Access is denied" output)
+      (string-match "require administrator" output)
+      (string-match "no tty present" output)
+      (string-match "a password is required" output)))
+
+(defun lsp--finish-failed-install (server cmd actual-cmd rc buf)
+  "インストール失敗時の後処理。ログをバッファとファイルに残して表示する。"
+  (let ((logfile (format nil "~A/xyzzy-lsp-install-~A.log"
+                         (or (si:getenv "TEMP") (si:getenv "TMP") ".")
+                         server)))
+    (save-excursion
+      (set-buffer buf)
+      (goto-char (point-min))
+      (insert (format nil "Command: ~A~%Exit code: ~D~%~%" actual-cmd rc))
+      (write-region (point-min) (point-max) logfile))
+    (setq *lsp-last-install-log* logfile)
+    (kill-new logfile)
+    (let ((err-text (save-excursion
+                      (set-buffer buf)
+                      (buffer-substring (point-min) (point-max)))))
+      (if (lsp--permission-error-p err-text)
+          (progn
+            (message "Permission denied (exit ~D). Run manually: ~A" rc cmd)
+            (kill-new cmd))
+        (message "Failed to install ~A (exit ~D). Log: ~A" server rc logfile)))
+    (pop-to-buffer buf)))
+
+(defun lsp-install-server (server)
+  "言語サーバー SERVER をインストールする。
+カレントバッファが WSL パスなら WSL 側で、そうでなければ Windows 側で実行する。"
+  (interactive
+   (let* ((default (and (boundp '*lsp-default-servers*)
+			(cdr (assoc (symbol-name (or buffer-mode 'fundamental-mode))
+				    *lsp-default-servers*
+				    :test #'string=))))
+	  (candidates (mapcar #'car *lsp-server-installers*))
+	  (prompt (if default
+		      (format nil "Install LSP server (default ~A): " default)
+		    "Install LSP server: "))
+	  (sel (completing-read prompt candidates :default default :must-match t)))
+     (list sel)))
+  (let ((entry (lsp--server-entry server)))
+    (unless entry
+      (error "Unknown server: ~A" server))
+    (let* ((is-wsl (and (fboundp 'wsl-path-p)
+			(wsl-path-p (default-directory))))
+	   (distro (and is-wsl (fboundp 'wsl-current-distro) (wsl-current-distro (default-directory))))
+	   (prop (assoc (if is-wsl :wsl :windows) entry))
+	   (cmd (and prop (cadr prop)))
+	   (prereq (and prop (caddr prop))))
+      (unless cmd
+	(error "No installer defined for ~A" server))
+      (cond
+       ((lsp--installed-p server is-wsl distro)
+	(message "~A is already installed." server))
+       ((and prereq (not (lsp--installed-p prereq is-wsl distro)))
+	(message "~A requires ~A. Please install ~A first."
+		 server prereq prereq))
+       (t
+	        (message "Installing ~A ..." server)
+        (let ((actual-cmd (if is-wsl
+                              (lsp-wsl-server-command cmd distro)
+                            cmd))
+              (buf (create-new-buffer "*lsp-install*")))
+          (let ((rc (call-process actual-cmd :output buf :show :hide :wait t)))
+            (if (zerop rc)
+                (progn
+                  (if (lsp-server-installed-p server)
+                      (progn
+                        (message "~A installed successfully." server)
+                        (delete-buffer buf)
+                        (when *lsp-last-install-log*
+                        (delete-file *lsp-last-install-log* :if-does-not-exist :skip)))
+                    (progn
+                      (pop-to-buffer buf)
+                      (message "~A installed, but ~A is not on PATH. Add it to PATH and restart xyzzy." server server))))
+              (lsp--finish-failed-install server cmd actual-cmd rc buf)))))))))
 (defstruct lsp-client
   process
   (recv-buf "")
@@ -506,11 +670,8 @@ WSL プロジェクト内または明示的に DISTRO が指定された場合�
 
 (defun lsp-mode (&optional (arg nil sv))
   "LSP マイナーモードのトグル。"
-  (interactive)
-  (setq *lsp-mode*
-	(if sv
-	    (plusp (prefix-numeric-value arg))
-	  (not *lsp-mode*)))
+  (interactive "p")
+  (toggle-mode '*lsp-mode* arg sv)
   (if *lsp-mode*
       (progn
 	(set-minor-mode-map *lsp-mode-map*)
