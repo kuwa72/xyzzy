@@ -139,3 +139,43 @@
          (root-uri (cdr (assoc "rootUri" params :test #'string=))))
     root-uri)
   => "file:///home/user/project")
+
+;;; ------------------------------------------------------------------
+;;; 6. LSP サーバーインストーラ
+
+(deftest lsp-server-installers-defined-test ()
+  "*lsp-server-installers* が定義されている"
+  (and (boundp '*lsp-server-installers*)
+       (listp *lsp-server-installers*)
+       (> (length *lsp-server-installers*) 0))
+  => t)
+
+(deftest lsp-server-installers-has-expected-servers ()
+  "*lsp-server-installers* に主要サーバーが登録されている"
+  (mapcar #'car *lsp-server-installers*)
+  => ("clangd" "pylsp" "gopls" "rust-analyzer"
+      "typescript-language-server" "yaml-language-server"
+      "json-language-server"))
+
+(deftest lsp-server-installers-pylsp-wsl-test ()
+  "pylsp の WSL インストーラは apt を使う (PEP 668 の system pip を避ける)"
+  (cdr (assoc :wsl (cdr (assoc "pylsp" *lsp-server-installers* :test #'string=))))
+  => ("sudo -n apt install -y python3-pylsp" "apt"))
+
+(deftest lsp-server-installed-p-true-test ()
+  "存在するコマンド (cmd) に対して t を返す"
+  (lsp-server-installed-p "cmd")
+  => t)
+
+;;; ------------------------------------------------------------------
+;;; 7. lsp-mode トグル (prefix-numeric-value 未定義の回帰)
+
+(deftest lsp-mode-toggle-test ()
+  "(lsp-mode t) で有効化できる (Emacs流 prefix-numeric-value を使わない)"
+  (unwind-protect
+      (progn
+        (lsp-mode -1)
+        (lsp-mode t)
+        *lsp-mode*)
+    (lsp-mode -1))
+  => t)
