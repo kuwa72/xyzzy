@@ -21,7 +21,8 @@
 (defvar *javascript-indent-tabs-mode* nil)
 
 (unless (boundp 'javascript-indent-level)
-  (setq javascript-indent-level 2)
+  (setq javascript-indent-level 2))
+(unless (boundp 'javascript-continued-statement-offset)
   (setq javascript-continued-statement-offset 2))
 
 ;;; ============================================================

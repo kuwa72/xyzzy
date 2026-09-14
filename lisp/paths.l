@@ -12,4 +12,4 @@
 
 (setq *info-viewer-title* "vcbks40.mvb")
 
-(setq *edict-dictionary-path* "~/xyzzy/edict")
+(defvar *edict-dictionary-path* "~/xyzzy/edict")

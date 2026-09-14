@@ -1,0 +1,6 @@
+# Undefined-variable checker allowlist (tools/check-lisp-undefined.py).
+# One symbol per line; lines starting with # are comments. These names
+# are known to be intentional and must not fail the static check.
+# - ccl::*warn-if-redefine-kernel*: set under #+:CORAL for another Lisp
+#   (lisp/cmu_loop.l); never bound on xyzzy.
+ccl::*warn-if-redefine-kernel*

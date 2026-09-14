@@ -104,7 +104,8 @@
 
 (defun display-buffer (buffer &optional not-this-window)
   (interactive "BDisplay Buffer: \np")
-  (let ((curw (selected-window)))
+  (let ((curw (selected-window))
+	w)
     (when (and (null not-this-window)
 	       (eq (window-buffer curw) buffer))
       (return-from display-buffer curw))

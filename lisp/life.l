@@ -158,7 +158,7 @@
 (defun life-grim-reaper ()
   (goto-char (point-min))
   ;; For speed declare all local variable outside the loop.
-  (let (char pivot list)
+  (let (char pivot list living-neighbors)
     (unless (scan-buffer life-life-string)
       (life-extinct-quit))
     (while t
