@@ -26,6 +26,18 @@
         (json-encode '((:name . "xyzzy") (:version . 1))))
   => ("[1, 2, 3]" "{\"name\": \"xyzzy\", \"version\": 1}"))
 
+(deftest json-encode-nested-objects ()
+  "入れ子のオブジェクトと、オブジェクト 1 個だけの配列の JSON エンコード"
+  ;; 値がオブジェクトのリスト (didChange の contentChanges がこの形) を
+  ;; 「キーと値の組」と取り違えると、キー側を文字列化しようとして
+  ;; 型エラーになる。
+  (list (json-encode '(("textDocument" . (("uri" . "file:///x")))))
+        (json-encode '(("contentChanges" . ((("text" . "hello"))))))
+        (json-encode '(("a" . (1 2 3)))))
+  => ("{\"textDocument\": {\"uri\": \"file:///x\"}}"
+      "{\"contentChanges\": [{\"text\": \"hello\"}]}"
+      "{\"a\": [1, 2, 3]}"))
+
 (deftest json-escape-string-special-chars ()
   "引用符・バックスラッシュ・改行を逃がすこと (未定義 write-string の回帰)"
   ;; json-escape-string は editor 内部関数のため公開 API の json-encode 越しに検証する。
@@ -74,6 +86,17 @@
     (multiple-value-bind (msgs rem) (lsp-parse-messages partial)
       (list msgs rem)))
   => (nil "Content-Length: 50\r\n\r\n{\"jsonrpc\":"))
+
+(deftest lsp-parse-messages-lf-only-header ()
+  "ヘッダの区切りが LF だけでもメッセージを読めること"
+  ;; **Windows ではこれが実際に起きる。** `make-process' の `:eol-code' は
+  ;; 既定が CRLF で、受信した `\r' を全部落とすため、ヘッダが `\n\n' で
+  ;; 届く。CRLF 決め打ちのままだと initialize の応答が永遠に来ない。
+  (let* ((payload "{\"jsonrpc\":\"2.0\",\"method\":\"test\"}")
+         (stream (format nil "Content-Length: ~D\n\n~A" (length payload) payload)))
+    (multiple-value-bind (msgs rem) (lsp-parse-messages stream)
+      (list (length msgs) (cdr (assoc "method" (car msgs) :test #'string=)) rem)))
+  => (1 "test" ""))
 
 ;;; ------------------------------------------------------------------
 ;;; 3. ライフサイクル & ドキュメントメッセージ構築

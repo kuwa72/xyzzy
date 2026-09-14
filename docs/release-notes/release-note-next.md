@@ -60,3 +60,34 @@ xyzzy リリースノート
     `-ERR`) を受け取れる。トークン未設定時は認証なし、設定時は先頭行
     `AUTH <token>` が必要。`accept` がブロッキングのため serve 中は xyzzy が
     応答専念になる (C-g / 切断で復帰)。ノンブロック化は今後の課題。
+
+  * LSP クライアントが Windows で全く動かなかった不具合を修正。
+    `make-process` の `:outcode` に BOM 付きの `*encoding-utf8*` を渡していた
+    ため、送るメッセージの先頭に毎回 BOM (EF BB BF) が付き、言語サーバーは
+    ヘッダの 1 文字目が化けて**どのリクエストも解釈しなかった**。
+    `*encoding-utf8n*` に変更した。あわせて `:eol-code` に `*eol-lf*` を指定。
+    Windows の既定は CRLF 変換で、受信した `\r` を全部落とすため
+    Content-Length ヘッダの区切りが `\n\n` に化けて応答を読めなかった。
+    `lsp-parse-messages` は CRLF / LF どちらの区切りも受けるようにした。
+  * `json-encode` が「オブジェクト 1 個だけの配列」をオブジェクトと取り違えて
+    型エラーになる不具合を修正。`textDocument/didChange` の `contentChanges`
+    がまさにこの形で、ドキュメント同期が送れなかった。キーが文字列か
+    シンボルかで見分ける。
+  * POSIX (ncurses) のサブプロセスが子の端末を行規則の既定のまま使っていた
+    ため、改行を含まない `process-send-string` が子に届かず、LSP の
+    メッセージが送れなかった。子の端末を `ICANON`・`ECHO` なし、
+    `VMIN=1` / `VTIME=0` に設定する。
+  * LSP の端から端までのテストを追加。`tools/fake-lsp-server.py` (Python
+    だけで動く最小の LSP サーバー) を相手に、起動・initialize・ドキュメント
+    同期・診断・定義ジャンプ・停止を `unittest/lsp-e2e-tests.l` で確認する。
+    実サーバーに依存しないので CI でも走る。
+  * WSL から Windows 上の xyzzy を走らせて動作確認するための
+    `tools/win-xyzzy.sh` を追加。作業ツリーの `lisp/`・`misc/`・`unittest/`・
+    `tools/` を Windows 側のコピーへ差分コピーして `xyzzy-batch.exe` を実行する
+    (UNC パスは `XYZZYHOME` に使えず、xyzzy 内で `//wsl.localhost/...` の形に
+    なって「Permission denied」で死ぬため、実体をコピーする)。Wine では
+    再現しない差 (ConPTY・コンソール API・ドライブレター・`:eol-code`・
+    ファイルの共有モード) をここで潰す。なお Windows の `open` は既定が
+    共有なしなので、他のプロセスが書くファイルをテストが読むときは
+    `:share :read-write` を明示する (読み手がいる間、書き手の append が
+    `PermissionError` で落ちる)。

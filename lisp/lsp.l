@@ -17,6 +17,10 @@
 	  lsp-path-to-uri lsp-uri-to-path lsp-wsl-server-command
 	  lsp-start-server lsp-stop-server
 	  lsp-server-installed-p lsp-install-server *lsp-last-install-log*
+	  lsp-decode-utf8 lsp-notify-open lsp-notify-change lsp-notify-save
+	  lsp-notify-close lsp-request-definition
+	  lsp-connect lsp-disconnect lsp-sync-buffer
+	  *lsp-language-ids* *lsp-idle-delay*
 	  lsp-find-definition lsp-mode))
 
 ;;; ------------------------------------------------------------------
@@ -35,8 +39,35 @@
 	  (t (write-char c s)))))
     (get-output-stream-string s)))
 
+(defun json-key-string (key)
+  "オブジェクトのキーを JSON のキー文字列へ変換する。"
+  (cond ((symbolp key) (string-downcase (string key)))
+	((stringp key) key)
+	(t (format nil "~A" key))))
+
+(defun json-object-p (obj)
+  "OBJ が JSON オブジェクト ((キー . 値) のリスト) かどうか。
+
+**`(consp (car obj))' だけで判定してはいけない。** 値がオブジェクトの
+配列、たとえば `(((\"text\" . \"hello\")))' (didChange の `contentChanges'
+がこの形) も car が cons になるので、オブジェクトと取り違えると値の側を
+さらにキーと値の組として読み、`(\"text\" . \"hello\")' をキーとして
+文字列化しようとして型エラーになる。キーは文字列かシンボルなので、
+そこで見分ける。"
+  (and (consp obj)
+       (let ((result t))
+	 (dolist (pair obj)
+	   (unless (and (consp pair)
+			(or (stringp (car pair)) (symbolp (car pair))))
+	     (setq result nil)))
+	 result)))
+
 (defun json-encode (obj)
-  "Lisp オブジェクトを JSON 文字列へシリアライズする。"
+  "Lisp オブジェクトを JSON 文字列へシリアライズする。
+
+オブジェクトは `((キー . 値) ...)'、配列は vector か値のリストで表す。
+値がリストのときは「そのまま配列」になる。オブジェクトにしたいときは
+`(キー . ((キー . 値) ...))' のように cons の cdr へオブジェクトを置く。"
   (cond ((eq obj t) "true")
 	((eq obj :false) "false")
 	((eq obj :null) "null")
@@ -44,23 +75,18 @@
 	((numberp obj) (format nil "~D" obj))
 	((stringp obj) (format nil "\"~A\"" (json-escape-string obj)))
 	((symbolp obj) (format nil "\"~A\"" (json-escape-string (string-downcase (string obj)))))
-	((and (consp obj) (consp (car obj)))
-	 ;; alist: ((key . val) ...) -> {"key": val, ...}
-	 (let ((entries
-		(mapcar #'(lambda (pair)
-			    (let* ((raw-k (car pair))
-				   (k (cond ((symbolp raw-k)
-					     (string-downcase (string raw-k)))
-					    (t (string raw-k))))
-				   (v (cdr pair)))
-			      (format nil "\"~A\": ~A" (json-escape-string k) (json-encode v))))
-			obj)))
-	   (format nil "{~{~A~^, ~}}" entries)))
+	((json-object-p obj)
+	 (format nil "{~{~A~^, ~}}"
+		 (mapcar #'(lambda (pair)
+			     (format nil "\"~A\": ~A"
+				     (json-escape-string (json-key-string (car pair)))
+				     (json-encode (cdr pair))))
+			 obj)))
+	((vectorp obj)
+	 (format nil "[~{~A~^, ~}]" (mapcar #'json-encode (coerce obj 'list))))
 	((consp obj)
 	 ;; list: [item, ...]
 	 (format nil "[~{~A~^, ~}]" (mapcar #'json-encode obj)))
-	((vectorp obj)
-	 (format nil "[~{~A~^, ~}]" (mapcar #'json-encode (coerce obj 'list))))
 	(t "null")))
 
 (defun json-decode (str)
@@ -198,10 +224,46 @@
 (defun lsp-make-message (payload)
   "ペイロード (JSON文字列またはLispオブジェクト) に Content-Length ヘッダを付加する。"
   (let* ((json (if (stringp payload) payload (json-encode payload)))
-	 (len (if (fboundp 'si:octet-length)
-		  (si:octet-length json :encoding *encoding-utf8n*)
-		(length json))))
+	 ;; **バイト数で数える。** Content-Length はバイト数であって文字数では
+	 ;; ない。`length' で数えると、日本語を含むメッセージで相手が待ち続ける。
+	 (len (si:octet-length json :encoding *encoding-utf8n*)))
     (format nil "Content-Length: ~D\r\n\r\n~A" len json)))
+
+(defun lsp-decode-utf8 (bytes)
+  "UTF-8 のバイト列を文字列へ復号する。
+
+`make-process' の `:incode' に `*encoding-binary*' を渡しているので、
+フィルタが受け取る文字列は 1 文字 = 1 バイトである。Content-Length は
+バイト数なので、本文を切り出すにはこの形で受け取る必要がある。"
+  (let ((out (make-string-output-stream))
+	(n (length bytes))
+	(i 0))
+    (labels ((continuation ()
+	       (incf i)
+	       (logand (char-code (char bytes i)) #x3F)))
+      (while (< i n)
+	(let* ((b (char-code (char bytes i)))
+	       (cp nil))
+	  (cond ((< b #x80)
+		 (setq cp b)
+		 (incf i))
+		((= (logand b #xE0) #xC0)
+		 (setq cp (logior (ash (logand b #x1F) 6) (continuation)))
+		 (incf i))
+		((= (logand b #xF0) #xE0)
+		 (setq cp (logior (ash (logand b #x0F) 12) (ash (continuation) 6)))
+		 (setq cp (logior cp (continuation)))
+		 (incf i))
+		((= (logand b #xF8) #xF0)
+		 (setq cp (logior (ash (logand b #x07) 18) (ash (continuation) 12)))
+		 (setq cp (logior cp (ash (continuation) 6)))
+		 (setq cp (logior cp (continuation)))
+		 (incf i))
+		(t
+		 (setq cp b)
+		 (incf i)))
+	  (write-char (code-char cp) out))))
+    (get-output-stream-string out)))
 
 (defun lsp-parse-messages (buffer)
   "ストリームバッファから Content-Length ヘッダを持つ完全な JSON-RPC メッセージを取り出す。
@@ -209,23 +271,40 @@
   (let ((messages nil)
 	(buf buffer))
     (loop
-      (if (string-match "^Content-Length: \\([0-9]+\\)\r\n\r\n" buf)
-	  (let* ((header-end (match-end 0))
-		 (len (parse-integer (match-string 1)))
-		 (total-len (+ header-end len)))
-	    (if (>= (length buf) total-len)
-		(let* ((json-str (subseq buf header-end total-len))
-		       (parsed (ignore-errors (json-decode json-str))))
-		  (when parsed
-		    (push parsed messages))
-		  (setq buf (subseq buf total-len)))
-	      ;; ペイロードがまだ全て届いていない
-	      (return)))
-	;; ヘッダが途中またはゴミがある場合
-	(let ((pos (string-match "Content-Length: " buf)))
-	  (if (and pos (> pos 0))
-	      (setq buf (subseq buf pos))
-	    (return)))))
+      ;; **ヘッダの終わりを探してから中身を見る。** 以前は
+      ;; `^Content-Length: N\r\n\r\n' を決め打ちで照合していたので、
+      ;; Content-Type のような別のヘッダが 1 行あるだけで一致しなくなり、
+      ;; 届いたものは溜まる一方で**何も読めなくなっていた** (clangd は
+      ;; Content-Length の次に Content-Type を送る)。
+      ;; **CRLF でも LF でも受ける。** プロセスの `:eol-code' が CRLF の
+      ;; ままだと、フロントエンドが受信した `\r' を落としてヘッダが
+      ;; `\n\n' で届く (Windows の既定)。`lsp-start-server' は `*eol-lf*'
+      ;; を渡して変換を止めているが、そこで救えない経路 (WSL の
+      ;; `wsl.exe' 越しなど) でも読めるようにしておく。
+      (let* ((crlf-end (string-match "\r\n\r\n" buf))
+	     (lf-end (string-match "\n\n" buf))
+	     (header-end (cond ((null crlf-end) lf-end)
+			       ((null lf-end) crlf-end)
+			       (t (min crlf-end lf-end))))
+	     (sep-len (if (eql header-end crlf-end) 4 2)))
+	(if (null header-end)
+	    ;; ヘッダがまだ全部届いていない。届くまでそのまま溜める。
+	    (return)
+	  (let* ((header (subseq buf 0 header-end))
+		 (len (and (string-match "Content-Length:[ \t]*\\([0-9]+\\)" header)
+			   (parse-integer (match-string 1)))))
+	    (if (null len)
+		;; ヘッダの形をしていないものが前に残っている。読み飛ばす。
+		(setq buf (subseq buf (+ header-end sep-len)))
+	      (let ((total (+ header-end sep-len len)))
+		(if (< (length buf) total)
+		    ;; 本文がまだ全部届いていない。
+		    (return)
+		  (let* ((body (subseq buf (+ header-end sep-len) total))
+			 (parsed (ignore-errors (json-decode (lsp-decode-utf8 body)))))
+		    (when parsed
+		      (push parsed messages))
+		    (setq buf (subseq buf total))))))))))
     (values (nreverse messages) buf)))
 
 
@@ -314,6 +393,10 @@
   "textDocument/didClose 通知のパラメータ alist を構築する。"
   `(("textDocument" . (("uri" . ,uri)))))
 
+(defun lsp-make-did-save-params (uri)
+  "textDocument/didSave 通知のパラメータ alist を構築する。"
+  `(("textDocument" . (("uri" . ,uri)))))
+
 
 ;;; ------------------------------------------------------------------
 ;;; 4. 診断 & 定義位置パース
@@ -353,7 +436,11 @@
 	     (start (cdr (assoc "start" range :test #'string=)))
 	     (line (and start (cdr (assoc "line" start :test #'string=))))
 	     (col (and start (cdr (assoc "character" start :test #'string=)))))
-	(list :uri uri :line line :col col)))))
+	;; **位置が無ければ nil。** 以前は uri が nil でも plist を返していたので、
+	;; 呼び出し側の `(if loc ...)' が常に真になり、「定義が見つかりません」の
+	;; 代わりに空のバッファを開こうとしていた。
+	(when uri
+	  (list :uri uri :line line :col col))))))
 
 
 ;;; ------------------------------------------------------------------
@@ -367,8 +454,23 @@
     ("c++-mode" . "clangd")
     ("python-mode" . "pylsp")
     ("rust-mode" . "rust-analyzer")
-    ("go-mode" . "gopls"))
+    ("go-mode" . "gopls")
+    ("javascript-mode" . "typescript-language-server --stdio")
+    ("yaml-mode" . "yaml-language-server --stdio")
+    ("json-mode" . "vscode-json-language-server --stdio"))
   "メジャーモード名と既定の言語サーバーコマンドの対応表")
+
+(defvar *lsp-language-ids*
+  '(("c-mode" . "c")
+    ("c++-mode" . "cpp")
+    ("python-mode" . "python")
+    ("rust-mode" . "rust")
+    ("go-mode" . "go")
+    ("javascript-mode" . "javascript")
+    ("typescript-mode" . "typescript")
+    ("yaml-mode" . "yaml")
+    ("json-mode" . "json"))
+  "メジャーモード名と LSP の languageId の対応表。無いモードは plaintext。")
 
 ;;; ------------------------------------------------------------------
 ;;; 5-a. LSP サーバーインストーラ
@@ -539,8 +641,20 @@ Windows では `where`、POSIX では `which` を使用する。"
   (next-id 1)
   (callbacks (make-hash-table :test 'equal))
   root-path
+  ;; 起動に使った生のコマンド。同じサーバーを二重に起動しないための照合に使う。
+  command
+  ;; 実際に起動したコマンド行 (WSL 経由なら wsl.exe ... が入る)。
   server-cmd
-  wsl-distro)
+  wsl-distro
+  ;; 子の出力を受ける捨てバッファ。`:output' を省略すると make-process は
+  ;; 「今のバッファ」に結び付く (lsp-start-server の注記を見よ)。
+  output-buffer
+  ;; URI -> 版番号。didOpen で 1 から数え始める。
+  (versions (make-hash-table :test 'equal))
+  ;; URI -> 診断のリスト。
+  (diagnostics (make-hash-table :test 'equal))
+  ;; こちらから止めたのか。sentinel でメッセージを出し分けるため。
+  stopping)
 
 (defun lsp-send-request (client method params &optional callback)
   "JSON-RPC リクエストを送信する。"
@@ -564,22 +678,45 @@ Windows では `where`、POSIX では `which` を使用する。"
 	 (msg (lsp-make-message notif)))
     (process-send-string (lsp-client-process client) msg)))
 
+(defun lsp-send-response (client id result)
+  "サーバーからの要求への応答を送る。"
+  (process-send-string (lsp-client-process client)
+		       (lsp-make-message `(("jsonrpc" . "2.0")
+					   ("id" . ,id)
+					   ("result" . ,result)))))
+
 (defun lsp-handle-message (client msg)
   "受信した JSON-RPC メッセージをディスパッチする。"
   (let ((id (cdr (assoc "id" msg :test #'string=)))
 	(method (cdr (assoc "method" msg :test #'string=))))
     (cond
-     ;; レスポンス (id に対するコールバック)
+     ;; **サーバーからの要求 (id と method が両方ある) を先に見る。**
+     ;; 応答にも id はあるので、順序を逆にすると要求を応答として扱い、
+     ;; コールバックを呼んで**サーバーは応答を待ち続ける。** 中身は
+     ;; `workspace/configuration' のように「答えないと先へ進まない」ものが
+     ;; あるので、断るにしても必ず 1 つ返す。
+     ((and id method)
+      (lsp-send-response client id :null))
      (id
       (let ((cb (gethash id (lsp-client-callbacks client))))
 	(when cb
 	  (remhash id (lsp-client-callbacks client))
-	  (funcall cb (cdr (assoc "result" msg :test #'string=))))))
+	  (let ((err (cdr (assoc "error" msg :test #'string=))))
+	    (if err
+		(progn
+		  (message "LSP error: ~A"
+			   (cdr (assoc "message" err :test #'string=)))
+		  (funcall cb nil))
+	      (funcall cb (cdr (assoc "result" msg :test #'string=))))))))
      ;; サーバーからの通知
      ((and method (string= method "textDocument/publishDiagnostics"))
-      (let ((diags (lsp-extract-diagnostics msg)))
-	(when diags
-	  (message "LSP Diagnostics: ~D issue(s) reported" (length diags))))))))
+      (let* ((diags (lsp-extract-diagnostics msg))
+	     (uri (getf (car diags) :uri)))
+	(when uri
+	  (setf (gethash uri (lsp-client-diagnostics client)) diags))
+	(message "LSP Diagnostics: ~D issue(s) reported" (length diags))))
+     (t nil))
+    nil))
 
 (defun lsp-start-server (command &optional root-path distro)
   "言語サーバープロセスを起動してクライアントオブジェクトを返す。
@@ -595,12 +732,39 @@ WSL プロジェクト内または明示的に DISTRO が指定された場合�
 	 (actual-cmd (if is-wsl
 			 (lsp-wsl-server-command command target-distro root)
 		       command))
-	 (client (make-lsp-client :root-path root :server-cmd actual-cmd
+	 (outbuf (create-new-buffer " *lsp server output*"))
+	 (client (make-lsp-client :root-path root :command command
+				  :server-cmd actual-cmd
+				  :output-buffer outbuf
 				  :wsl-distro (and is-wsl target-distro)))
 	 (proc (make-process actual-cmd
+			     ;; **`:output' は省略できない。** 省略すると
+			     ;; make-process は「今のバッファ」に結び付き、
+			     ;; (1) フィルタを張る前に子が書いた分がそのまま
+			     ;; 編集中のファイルへ挿入され、(2) そのバッファでは
+			     ;; もう 1 つプロセスを起こせなくなる
+			     ;; (`buffer_has_process')。2 つ目の症状は
+			     ;; 「最初の 1 つ以外は起動できない」形で出る。
+			     :output outbuf
+			     ;; **生バイトで受ける。** Content-Length はバイト数
+			     ;; なので、文字列へ復号した後では本文を切り出せない
+			     ;; (改行の変換は下の `:eol-code' で止める)。
+			     :incode *encoding-binary*
+			     ;; **BOM 無しの UTF-8 で送る。** `*encoding-utf8*'
+			     ;; は `:signature t' なので、送るたびに先頭へ
+			     ;; BOM (EF BB BF) が付く。サーバーはそれを
+			     ;; ヘッダの一部として読むので、最初の 1 文字が
+			     ;; 化けて**どのメッセージも解釈されない**
+			     ;; (initialize の応答が返らない、の正体)。
+			     :outcode *encoding-utf8n*
+			     ;; **改行変換を止める。** `:eol-code' の既定は
+			     ;; プラットフォーム任せで、Windows は CRLF。
+			     ;; CRLF 変換は受信した `\r' を**全部**落とすので、
+			     ;; Content-Length ヘッダの区切りが `\n\n' に化け、
+			     ;; パーサがいつまでも本文を待つ。`*eol-lf*' は
+			     ;; 変換なしの意味 (`eol_noconv')。
+			     :eol-code *eol-lf*
 			     :exec-directory root
-			     :incode *encoding-utf8*
-			     :outcode *encoding-utf8*
 			     :show :hide)))
     (setf (lsp-client-process client) proc)
     (set-process-filter
@@ -613,6 +777,9 @@ WSL プロジェクト内または明示的に DISTRO が指定された場合�
 	   (setf (lsp-client-recv-buf client) rem)
 	   (dolist (m msgs)
 	     (lsp-handle-message client m)))))
+    (set-process-sentinel
+     proc
+     #'(lambda (p) (lsp--server-exited client)))
     ;; initialize 送信
     (lsp-send-request client "initialize" (lsp-make-initialize-params root)
 		      #'(lambda (res)
@@ -620,53 +787,211 @@ WSL プロジェクト内または明示的に DISTRO が指定された場合�
     (push client *lsp-clients*)
     client))
 
+(defun lsp--server-exited (client)
+  "サーバーが終わったときの後片付け。"
+  (setq *lsp-clients* (delete client *lsp-clients*))
+  (let ((buf (lsp-client-output-buffer client)))
+    (when (and buf (not (deleted-buffer-p buf)))
+      (ignore-errors (delete-buffer buf))))
+  (unless (lsp-client-stopping client)
+    (message "LSP server exited: ~A" (lsp-client-server-cmd client)))
+  nil)
+
 (defun lsp-stop-server (&optional client)
   "言語サーバープロセスを停止する。"
   (let ((c (or client (car *lsp-clients*))))
     (when c
+      (setf (lsp-client-stopping c) t)
       (ignore-errors (lsp-send-request c "shutdown" nil))
       (ignore-errors (lsp-send-notification c "exit" nil))
-      (setq *lsp-clients* (delete c *lsp-clients*)))))
+      (let ((proc (lsp-client-process c)))
+	(when (and proc (eq (process-status proc) :run))
+	  ;; **`shutdown'/`exit' を送るだけではプロセスは残る。** 応答しない
+	  ;; サーバー (起動に失敗した、既に死んでいる) を待つ相手はいないので、
+	  ;; 少しだけ待ってから殺す。待たずに殺すと、行儀の良いサーバーが
+	  ;; `shutdown' を処理する前に消える。
+	  (let ((start (get-internal-real-time)))
+	    (while (and (eq (process-status proc) :run)
+			(< (- (get-internal-real-time) start) 1000))
+	      (sleep-for 0.05)))
+	  (when (eq (process-status proc) :run)
+	    (ignore-errors (kill-process proc)))))
+      (setq *lsp-clients* (delete c *lsp-clients*))
+      (let ((buf (lsp-client-output-buffer c)))
+	(when (and buf (not (deleted-buffer-p buf)))
+	  (ignore-errors (delete-buffer buf)))))
+    nil))
 
 
 ;;; ------------------------------------------------------------------
-;;; 6. 対話コマンド & lsp-mode
+;;; 6. ドキュメント同期 (didOpen / didChange / didSave / didClose)
+
+(defun lsp-notify-open (client uri language-id text)
+  "textDocument/didOpen を送り、版番号を 1 から数え始める。"
+  (setf (gethash uri (lsp-client-versions client)) 1)
+  (lsp-send-notification client "textDocument/didOpen"
+			 (lsp-make-did-open-params uri language-id 1 text)))
+
+(defun lsp-notify-change (client uri text)
+  "textDocument/didChange を送る。版番号は送るたびに 1 つ増える。"
+  (let ((version (1+ (or (gethash uri (lsp-client-versions client)) 0))))
+    (setf (gethash uri (lsp-client-versions client)) version)
+    (lsp-send-notification client "textDocument/didChange"
+			   (lsp-make-did-change-params uri version text))))
+
+(defun lsp-notify-save (client uri)
+  "textDocument/didSave を送る。"
+  (lsp-send-notification client "textDocument/didSave"
+			 (lsp-make-did-save-params uri)))
+
+(defun lsp-notify-close (client uri)
+  "textDocument/didClose を送り、版番号を忘れる。"
+  (remhash uri (lsp-client-versions client))
+  (lsp-send-notification client "textDocument/didClose"
+			 (lsp-make-did-close-params uri)))
+
+(defun lsp-request-definition (client uri line col callback)
+  "textDocument/definition を送る。CALLBACK は位置 (無ければ nil) を受ける。"
+  (lsp-send-request client "textDocument/definition"
+		    `(("textDocument" . (("uri" . ,uri)))
+		      ("position" . (("line" . ,line) ("character" . ,col))))
+		    #'(lambda (res)
+			(funcall callback (lsp-parse-location res)))))
+
+
+;;; ------------------------------------------------------------------
+;;; 7. バッファとの連動 & 対話コマンド
 
 (defvar-local *lsp-mode* nil)
 (defvar *lsp-mode-hook* nil)
 (defvar *lsp-mode-map* nil)
 
+(defvar *lsp-idle-delay* 0.5
+  "打鍵が止まってから didChange を送るまでの秒数。")
+
+;;; **`defvar' を使ってはいけない。** defvar はシンボルを special にし、
+;;; special な変数はバッファローカルになれない (`lisp/flymake.l' の
+;;; `flymake-checking' と同じ理由)。
+(setq-default lsp-client nil)
+(make-variable-buffer-local 'lsp-client)
+
+(setq-default lsp-document-uri nil)
+(make-variable-buffer-local 'lsp-document-uri)
+
+(setq-default lsp-last-synced nil)
+(make-variable-buffer-local 'lsp-last-synced)
+
 (unless *lsp-mode-map*
   (setq *lsp-mode-map* (make-sparse-keymap))
   (define-key *lsp-mode-map* '(#\M-.) 'lsp-find-definition))
 
+(defun lsp-mode-name ()
+  "このバッファのメジャーモード名。"
+  (symbol-name (or buffer-mode 'fundamental-mode)))
+
+(defun lsp-buffer-language-id ()
+  "このバッファをサーバーへ伝える languageId。"
+  (or (cdr (assoc (lsp-mode-name) *lsp-language-ids* :test #'string=))
+      "plaintext"))
+
+(defun lsp-buffer-uri ()
+  "このバッファのファイルの URI。ファイルを訪ねていなければ nil。"
+  (let ((file (get-buffer-file-name)))
+    (and file (lsp-path-to-uri (namestring file)))))
+
+(defun lsp-connect ()
+  "このバッファの言語サーバーにつなぎ、didOpen を送る。"
+  (let ((server (cdr (assoc (lsp-mode-name) *lsp-default-servers* :test #'string=)))
+	(uri (lsp-buffer-uri)))
+    (cond
+     ((null server)
+      (message "No language server configured for ~A" (lsp-mode-name))
+      nil)
+     ((null uri)
+      (message "This buffer is not visiting a file.")
+      nil)
+     (t
+      (let ((client (or (find server *lsp-clients*
+			       :key #'lsp-client-command :test #'string=)
+			(lsp-start-server server))))
+	(setq lsp-client client)
+	(setq lsp-document-uri uri)
+	(setq lsp-last-synced (buffer-modified-count))
+	(lsp-notify-open client uri (lsp-buffer-language-id)
+			 (buffer-substring (point-min) (point-max)))
+	t)))))
+
+(defun lsp-disconnect ()
+  "didClose を送って、このバッファとサーバーの縁を切る。
+
+**プロセスは止めない。** 同じサーバーを別のバッファも使っていることがあり、
+こちらから切っただけで相手を落とすのは行き過ぎである。落とすのは
+`lsp-stop-server' の仕事。"
+  (when (and lsp-client lsp-document-uri)
+    (ignore-errors (lsp-notify-close lsp-client lsp-document-uri)))
+  (setq lsp-client nil)
+  (setq lsp-document-uri nil)
+  (setq lsp-last-synced nil)
+  nil)
+
+(defun lsp-sync-buffer ()
+  "変わっていれば didChange を送る。タイマから呼ばれる。"
+  (when (and *lsp-mode* lsp-client lsp-document-uri)
+    (let ((tick (buffer-modified-count)))
+      (unless (eql tick lsp-last-synced)
+	(setq lsp-last-synced tick)
+	(ignore-errors
+	  (lsp-notify-change lsp-client lsp-document-uri
+			     (buffer-substring (point-min) (point-max)))))))
+  nil)
+
+(defun lsp-schedule-sync ()
+  "`*post-command-hook*' から、1 回だけのタイマを張り直す。
+
+**打鍵ごとに送るのではない。** 張り直すので、入力が続いている間は発火せず、
+止まってから `*lsp-idle-delay*' 秒後に 1 回だけ走る (`lisp/flymake.l' の
+`flymake-schedule' と同じ形)。"
+  (when (and *lsp-mode* lsp-client)
+    (stop-timer 'lsp-sync-buffer)
+    (start-timer *lsp-idle-delay* 'lsp-sync-buffer t))
+  nil)
+
+(add-hook '*post-command-hook* 'lsp-schedule-sync)
+
+(defun lsp-after-save ()
+  "`*after-save-buffer-hook*' から didChange と didSave を送る。"
+  (when (and *lsp-mode* lsp-client lsp-document-uri)
+    (ignore-errors
+      (lsp-notify-change lsp-client lsp-document-uri
+			 (buffer-substring (point-min) (point-max)))
+      (lsp-notify-save lsp-client lsp-document-uri)))
+  nil)
+
+(add-hook '*after-save-buffer-hook* 'lsp-after-save)
+
 (defun lsp-find-definition ()
   "カーソル位置のシンボルの定義位置へジャンプする。"
   (interactive)
-  (let ((client (car *lsp-clients*)))
+  (let ((client (or lsp-client (car *lsp-clients*)))
+	(uri (or lsp-document-uri (lsp-buffer-uri))))
     (unless client
       (message "No active LSP client.")
       (return-from lsp-find-definition nil))
-    (let* ((filename (get-buffer-file-name))
-	   (distro (and client (lsp-client-wsl-distro client)))
-	   (uri (if filename (lsp-path-to-uri filename distro) nil))
-	   (line (1- (current-line-number)))
-	   (col (current-column)))
-      (unless uri
-	(message "Buffer has no associated file.")
-	(return-from lsp-find-definition nil))
-      (lsp-send-request
-       client "textDocument/definition"
-       `(("textDocument" . (("uri" . ,uri)))
-	 ("position" . (("line" . ,line) ("character" . ,col))))
-       #'(lambda (res)
-	   (let ((loc (lsp-parse-location res)))
-	     (if loc
-		 (let ((file (lsp-uri-to-path (getf loc :uri) distro)))
-		   (find-file file)
-		   (goto-line (1+ (getf loc :line)))
-		   (goto-column (getf loc :col)))
-	       (message "Definition not found."))))))))
+    (unless uri
+      (message "Buffer has no associated file.")
+      (return-from lsp-find-definition nil))
+    (let ((distro (lsp-client-wsl-distro client)))
+      (lsp-request-definition
+       client uri (1- (current-line-number)) (current-column)
+       #'(lambda (loc)
+	   (cond
+	    ((null loc)
+	     (message "Definition not found."))
+	    (t
+	     (find-file (lsp-uri-to-path (getf loc :uri) distro))
+	     (goto-line (1+ (getf loc :line)))
+	     (goto-column (getf loc :col))))))
+      t)))
 
 (defun lsp-mode (&optional (arg nil sv))
   "LSP マイナーモードのトグル。"
@@ -675,5 +1000,9 @@ WSL プロジェクト内または明示的に DISTRO が指定された場合�
   (if *lsp-mode*
       (progn
 	(set-minor-mode-map *lsp-mode-map*)
+	(ignore-errors (lsp-connect))
 	(run-hooks '*lsp-mode-hook*))
-    (unset-minor-mode-map *lsp-mode-map*)))
+    (progn
+      (ignore-errors (lsp-disconnect))
+      (unset-minor-mode-map *lsp-mode-map*)))
+  *lsp-mode*)
