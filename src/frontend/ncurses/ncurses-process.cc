@@ -210,18 +210,33 @@ Process::create (lisp command, lisp execdir, lisp lenv, int want_terminal)
       if (*dir && chdir (dir) < 0)
         ;  // ignore chdir failure in child
 
-      /* **端末として使わないなら ONLCR を切る** (issue #250)。pty の行規則は
-         `\n` を `\r\n` にする。端末エミュレータはそれを解釈するが、
-         **バッファのテキストとして入れる経路では CR がそのまま文字として
-         残る** (`"hello\x0d\x0a"` が入った)。エコーも切る -- 送った分が
-         返ってきて出力に混ざる。 */
+      /* **端末として使わないなら、行規則をまるごと外す** (issue #250)。
+
+         ONLCR: pty は `\n` を `\r\n` にする。端末エミュレータはそれを
+         解釈するが、**バッファのテキストとして入れる経路では CR がそのまま
+         文字として残る** (`"hello\x0d\x0a"` が入った)。
+
+         ECHO: 送った分が返ってきて出力に混ざる。
+
+         ICANON: **これが LSP を止めていた。** 既定の行規則は入力を
+         行単位で溜めるので、`process-send-string' で書いた分は改行が
+         来るまで子へ渡らない。LSP のメッセージは本文の後ろに改行が
+         無いので、**子は最後の 1 バイトをいつまでも受け取れない**
+         (相手からは「initialize を送ったのに応答が無い」に見える。
+         Win32 の `NormalProcess' は生のパイプなので起きない)。
+
+         ICRNL/IXON: 本文の `\r' を `\n' に変え、0x11/0x13 を食べる。
+         バイト列をそのまま渡す経路なので、どちらも止める。 */
       if (!want_terminal)
         {
           struct termios t;
           if (tcgetattr (STDIN_FILENO, &t) == 0)
             {
               t.c_oflag &= ~ONLCR;
-              t.c_lflag &= ~ECHO;
+              t.c_lflag &= ~(ECHO | ICANON);
+              t.c_iflag &= ~(ICRNL | IXON);
+              t.c_cc[VMIN] = 1;
+              t.c_cc[VTIME] = 0;
               tcsetattr (STDIN_FILENO, TCSANOW, &t);
             }
         }
