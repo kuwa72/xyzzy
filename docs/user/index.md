@@ -10,6 +10,7 @@ xyzzy 利用者向けドキュメント
   * [設定](configuration.md) — GUI の設定ダイアログと設定ファイルの関係
   * [コマンドラインオプション](command-line.md) — 起動オプションと xyzzycli
   * [標準添付 Lisp ライブラリ・モード](lisp-libraries.md) — 同梱されている言語モード・ツール・ライブラリの一覧
+  * [LSP (Language Server Protocol)](lsp.md) — 言語サーバーにつないで定義ジャンプと診断収集を行う
   * [Lisp で拡張する](lisp-extensions.md) — 初期化ファイルの書き方と関数リファレンス
 
 開発に参加する・ビルドする・リリースする側の情報は [docs/dev/](../dev/README.md)

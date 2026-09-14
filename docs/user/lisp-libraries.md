@@ -167,6 +167,11 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `back-tag-jump` (`M-*`): ジャンプ元に戻る。
 - **関数一覧 (`lisp/listfn.l`)**:
   - `M-x list-function`: バッファ内の関数・メソッド定義を抽出してリスト表示し、選択行へジャンプ。
+- **LSP (Language Server Protocol) (`lisp/lsp.l`)**:
+  - `lsp-mode` (`M-x lsp-mode`): 言語サーバーにつなぎ、バッファの同期・診断の収集・定義ジャンプを有効にする。
+  - `lsp-find-definition` (`M-.`): カーソル位置のシンボルの定義へジャンプ。LSP が有効なバッファでは `M-.` は TAGS の `jump-tag` ではなくこちらに割り当てられる。
+  - `lsp-install-server` (`M-x lsp-install-server`): 対応する言語サーバーのインストールコマンドを実行する。
+  - 詳しい導入手順と設定は [LSP (Language Server Protocol)](lsp.md) を参照。
 - **C プリプロセッサ条件の非表示 (`lisp/hideif.l`)**:
   - `M-x hide-ifdef` / `M-x show-ifdef`: `#ifdef` / `#ifndef` ブロックを判定し、無効なコード領域を折りたたんで非表示化。
 - **ウィンドウ比較 (`lisp/comparew.l`)**:

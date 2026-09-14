@@ -91,3 +91,11 @@ xyzzy リリースノート
     共有なしなので、他のプロセスが書くファイルをテストが読むときは
     `:share :read-write` を明示する (読み手がいる間、書き手の append が
     `PermissionError` で落ちる)。
+  * LSP クライアントの使い方をまとめた `docs/user/lsp.md` を追加 (issue #383)。
+    概要 (できること・できないこと)、対応モードと既定サーバーの表、`M-x
+    lsp-install-server` と手動インストール、Windows と WSL の違い、`M-x
+    lsp-mode` と `M-.` の使い方、`*lsp-default-servers*` などの設定変数、
+    サーバーの止め方、うまくつながらないときの確認手順を書いた。変数名・
+    コマンド名は `lisp/lsp.l` に合わせ、`M-x` から呼べない
+    `lsp-stop-server` のような関数はその旨を明記した。`docs/user/index.md` ・
+    `docs/user/features.md` ・ `docs/user/lisp-libraries.md` から辿れる。

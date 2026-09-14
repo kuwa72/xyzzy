@@ -26,6 +26,8 @@ Basic, IDL, Lisp などのモードが入っています。JSON, YAML, TOML, Mak
 Dockerfile なども含め、ファイルを開くと拡張子や shebang から自動的にモードが選ばれます。
 tree-sitter によるハイライトが使えるモードもあります (C, C++, Perl, Markdown)。
 各モードの詳細や設定方法は [標準添付 Lisp ライブラリ・モード](lisp-libraries.md) を参照してください。
+言語サーバー (LSP) につないで定義ジャンプとエラー・警告の収集を行う方法は
+[LSP (Language Server Protocol)](lsp.md) に書いてあります。
 
 このフォーク独自の機能
 -----------------------
@@ -69,6 +71,15 @@ xyzzy が扱えるパス名の上限は、ビルド時の `PATH_MAX / 2` コー�
 `PATH_MAX` が 1024 のため 512 コードポイント未満、POSIX 版では OS の `PATH_MAX` に
 基づく上限になります。上限以上のパス名を渡すと、バッファをあふれさせずに
 `Epath_name_too_long` エラーになります。
+
+### LSP (Language Server Protocol)
+
+C, C++, Python, Rust, Go, JavaScript, TypeScript, YAML, JSON のモードで、外部の
+言語サーバーに解析させてカーソル位置の定義へ飛ぶ (`M-.`) ことと、サーバーが
+報告したエラー・警告を受け取ることができます。サーバー本体は別途インストール
+が必要です。`M-x lsp-install-server` で入れられます。
+
+詳しくは [LSP (Language Server Protocol)](lsp.md) を参照してください。
 
 各リリースで何をなぜ変えたかは、リポジトリの `docs/release-notes/release-note-<版>.md` や
 GitHub の [Releases](https://github.com/kuwa72/xyzzy/releases) に書いてあります。
