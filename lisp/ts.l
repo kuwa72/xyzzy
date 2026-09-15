@@ -56,6 +56,25 @@ macOS は `.dylib' になるが、リポジトリに置いてある文法は `.d
 (defvar *ts-grammar-registry* (make-hash-table)
   "Hash table mapping mode symbol -> (grammar query colors).")
 
+(defvar *ts-grammar-objects* (make-hash-table :test 'equal)
+  "文法 DLL のパス -> 読み込み済みの文法オブジェクト。
+
+**同じ DLL は一度しか読まない。** `si:load-ts-grammar' を二度呼ぶと、
+二度目は読み込み済みのモジュールを `GetModuleHandleW' / `dlopen' で拾った
+だけの別オブジェクトになる。前のオブジェクトが誰からも指されなくなると、
+そのデストラクタが `FreeLibrary' / `dlclose' を呼び、**まだ使う側が残って
+いるのに DLL が外れる。** `g_ts_cache' の `TSTree' / `TSQuery' と裏スレッド
+は `TSLanguage' を指したままだから、次の問い合わせで 0xc0000005 になる
+(issue #382)。
+
+C++ 側でも文法 DLL は外さないようにした (`src/core/ts.h')。ここで
+オブジェクトまで使い回すのは、**孤児になる owner を作らないため**である。
+`ts-register-mode' は mode ファイル (`python-mode' など) と `ts.l' の両方
+から呼ばれるので、登録のたびに読み直すとそこで owner が孤児になる。
+
+読み直しても新しい DLL は拾えない (二度目は既に読み込み済みのモジュールが
+返る) ので、ここで古いオブジェクトを返しても挙動は変わらない。")
+
 (defun ts-mode-to-lang (mode)
   "Derive grammar lang name from MODE: strip trailing -mode suffix."
   (let* ((name (string-downcase (symbol-name mode)))
@@ -68,6 +87,14 @@ macOS は `.dylib' になるが、リポジトリに置いてある文法は `.d
   "Return the path to the grammar DLL for LANG."
   (merge-pathnames (format nil "~A/tree-sitter-~A~A" lang lang *ts-grammar-suffix*)
                    *ts-grammar-directory*))
+
+(defun ts-load-grammar (lang-name)
+  "LANG-NAME の文法オブジェクトを返す。読み込みはパスごとに一度だけ。"
+  (let* ((path (ts-grammar-file lang-name))
+         (gram (gethash path *ts-grammar-objects*)))
+    (or gram
+        (setf (gethash path *ts-grammar-objects*)
+              (si:load-ts-grammar path lang-name)))))
 
 (defun ts-grammar-query-file (lang)
   "Return the path to highlights.scm for LANG."
@@ -94,7 +121,7 @@ COLORS is an alist of (capture-name . fg-color-number)."
                            (ts-read-query-file (ts-grammar-query-file lang-name))
                            (error "ts: no query for ~A (tried ~A)"
                                   lang-name (ts-grammar-query-file lang-name))))
-         (gram         (si:load-ts-grammar (ts-grammar-file lang-name) lang-name)))
+         (gram         (ts-load-grammar lang-name)))
     (setf (gethash mode *ts-grammar-registry*)
           (list gram query-str (or colors *ts-default-color-alist*)))
     gram))

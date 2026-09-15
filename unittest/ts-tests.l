@@ -174,3 +174,35 @@ Lisp を経由せず C の中で属性を付ける** (大きなファイルで�
                          '(("number" . 13)))
           (list-text-attributes))))
   => ((8 10 ts-face :foreground 13)))
+
+;;; --- 文法の寿命 ----------------------------------------------------------
+
+(deftest ts-register-mode-keeps-one-grammar-object ()
+  "同じモードを二度登録しても、文法オブジェクトが増えないこと。
+
+`si:load-ts-grammar' は二度目以降、読み込み済みのモジュールを
+`GetModuleHandleW' / `dlopen' で拾っただけの**別のオブジェクト**にする。
+Windows では参照数が増えないので、先に読んだ側が GC されるとデストラクタの
+`FreeLibrary' が DLL を外す。外れると `g_ts_cache' の `TSTree' /
+`TSQuery' と解析用の裏スレッドが持つ `TSLanguage' が宙に浮く。64bit
+ビルドでは python の文法でこれが起き、`ts_query_cursor__advance' の中で
+0xc0000005 で落ちた (issue #382)。
+
+`ts-register-mode' は `python-mode' のような mode ファイルと `ts.l' の
+後ろの一括登録の両方から呼ばれる。登録のたびに読み直すと、そこで owner が
+孤児になる。ここで見るのはその手前、**登録が同じオブジェクトを使い回す
+こと**である。
+
+**GC に頼る再現はここには書けない。** 孤児にしたオブジェクトは GC の
+保守的なスタック走査 (`gc_mark_in_stack') に拾われて回収されないので、
+テストの中でデストラクタを走らせられない (実測: デストラクタに印を
+付けたビルドでも、この suite の中では一度も走らなかった)。"
+  (let ((a (ed::ts-register-mode 'ts-tests-reuse-mode :lang "c"
+                                 :query "(primitive_type) @type.builtin"))
+        (b (ed::ts-register-mode 'ts-tests-reuse-mode :lang "c"
+                                 :query "(primitive_type) @type.builtin")))
+    (values (eq a b)
+            (eq a (first (gethash 'ts-tests-reuse-mode
+                                  ed::*ts-grammar-registry*)))))
+  => t
+  => t)
