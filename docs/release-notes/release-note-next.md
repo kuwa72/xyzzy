@@ -99,3 +99,11 @@ xyzzy リリースノート
     コマンド名は `lisp/lsp.l` に合わせ、`M-x` から呼べない
     `lsp-stop-server` のような関数はその旨を明記した。`docs/user/index.md` ・
     `docs/user/features.md` ・ `docs/user/lisp-libraries.md` から辿れる。
+  * `lsp-install-server` が WSL 側へ入れた直後に Windows 側の PATH を確認して
+    いた不具合を修正 (issue #385)。WSL プロジェクトでは `wsl.exe` 越しに WSL 側
+    へ入れるのに、入れた後の確認だけ `where` (Windows 側) を見ていた。WSL 側に
+    しかコマンドが無いと「入ったのに PATH に無い」と誤って報告し、
+    `*lsp-install*` バッファを開いていた。入れた側と同じコンテキストで確認する
+    (`lsp--installed-p`)。回帰テストは
+    `lsp-install-server-wsl-verifies-on-wsl-side` と
+    `lsp-install-server-local-verifies-with-local-probe`。

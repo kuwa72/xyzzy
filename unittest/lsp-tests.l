@@ -196,7 +196,82 @@
 (deftest lsp-server-installed-p-true-test ()
   "存在するコマンドに対して t を返す (Windows: cmd / POSIX: sh)"
   (not (null (or (lsp-server-installed-p "cmd")
-                 (lsp-server-installed-p "sh"))))
+                (lsp-server-installed-p "sh"))))
+  => t)
+
+(deftest lsp-install-server-wsl-verifies-on-wsl-side ()
+  "WSL 側へ入れた直後の確認は WSL 側で行う。
+
+`lsp-install-server' は WSL プロジェクトでは wsl.exe 越しに WSL 側へ入れるのに、
+入れた後の確認だけ Windows 側 (where) を見ていた。WSL 側にしかコマンドが無いと
+「installed, but ... is not on PATH」と誤って報告し、*lsp-install* バッファを
+開いてしまう。"
+  (let ((wsl-installed nil)
+        (windows-probe nil)
+        (popped nil)
+        (ran nil)
+        (orig (mapcar #'(lambda (name) (cons name (symbol-function name)))
+                      '(wsl-path-p wsl-current-distro ed::lsp--wsl-installed-p
+                        lsp-server-installed-p call-process pop-to-buffer))))
+    (unwind-protect
+        (progn
+          (setf (symbol-function 'wsl-path-p) #'(lambda (path) t))
+          (setf (symbol-function 'wsl-current-distro) #'(lambda (&optional dir) "Ubuntu"))
+          ;; WSL 側の確認だけが「入った」と言う。Windows 側には無い。
+          ;; 前提ツール (clangd の WSL 版は sudo) は入っている前提にする。
+          (setf (symbol-function 'ed::lsp--wsl-installed-p)
+                #'(lambda (server &optional distro)
+                    (if (string= server "clangd") wsl-installed t)))
+          (setf (symbol-function 'lsp-server-installed-p)
+                #'(lambda (server) (setq windows-probe t) nil))
+          (setf (symbol-function 'call-process)
+                #'(lambda (command &rest options)
+                    (setq ran command)
+                    (setq wsl-installed t)
+                    0))
+          (setf (symbol-function 'pop-to-buffer)
+                #'(lambda (&rest args) (setq popped t)))
+          (lsp-install-server "clangd")
+          (values ran (null windows-probe) (null popped)))
+      (dolist (pair orig)
+        (setf (symbol-function (car pair)) (cdr pair)))))
+  => "wsl.exe -d Ubuntu -- sudo apt install -y clangd"
+  => t
+  => t)
+
+(deftest lsp-install-server-local-verifies-with-local-probe ()
+  "WSL でないときは従来どおりローカル側で確認する。
+
+上のテストの裏返し。WSL 側の確認に寄せ過ぎて、ローカルのインストールまで
+wsl.exe 越しに確かめに行かないこと。"
+  (let ((local-installed nil)
+        (wsl-probe nil)
+        (popped nil)
+        (ran nil)
+        (orig (mapcar #'(lambda (name) (cons name (symbol-function name)))
+                      '(wsl-path-p wsl-current-distro ed::lsp--wsl-installed-p
+                        lsp-server-installed-p call-process pop-to-buffer))))
+    (unwind-protect
+        (progn
+          (setf (symbol-function 'wsl-path-p) #'(lambda (path) nil))
+          (setf (symbol-function 'wsl-current-distro) #'(lambda (&optional dir) "Ubuntu"))
+          (setf (symbol-function 'ed::lsp--wsl-installed-p)
+                #'(lambda (server &optional distro) (setq wsl-probe t) nil))
+          (setf (symbol-function 'lsp-server-installed-p)
+                #'(lambda (server) local-installed))
+          (setf (symbol-function 'call-process)
+                #'(lambda (command &rest options)
+                    (setq ran command)
+                    (setq local-installed t)
+                    0))
+          (setf (symbol-function 'pop-to-buffer)
+                #'(lambda (&rest args) (setq popped t)))
+          (lsp-install-server "clangd")
+          (values ran (null wsl-probe) (null popped)))
+      (dolist (pair orig)
+        (setf (symbol-function (car pair)) (cdr pair)))))
+  => "winget install LLVM.LLVM"
+  => t
   => t)
 
 ;;; ------------------------------------------------------------------
