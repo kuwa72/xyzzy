@@ -625,7 +625,11 @@ Windows では `where`、POSIX では `which` を使用する。"
           (let ((rc (call-process actual-cmd :output buf :show :hide :wait t)))
             (if (zerop rc)
                 (progn
-                  (if (lsp-server-installed-p server)
+                  ;; **入れた側で確認する。** WSL プロジェクトでは wsl.exe 越しに
+                  ;; WSL 側へ入れたのに、ここだけ Windows 側 (where) を見ていた
+                  ;; ため、WSL 側にしかコマンドが無いと「入ったのに PATH に無い」
+                  ;; と誤って報告し、*lsp-install* バッファを開いていた。
+                  (if (lsp--installed-p server is-wsl distro)
                       (progn
                         (message "~A installed successfully." server)
                         (delete-buffer buf)
