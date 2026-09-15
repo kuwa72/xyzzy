@@ -219,6 +219,9 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
   int loaded_by_us = 0;
   if (!h)
     {
+      /* 読み込んだモジュールはこのオブジェクトが GC されても外さない
+         (ts.h の `~lts_grammar' を参照)。二度目の呼び出しはここで拾う
+         だけなので、**前に読んだ側が消えても DLL は残る。** */
       h = LoadLibraryW (wpath);
       if (!h)
         FEsimple_win32_error (GetLastError (), lpath);
@@ -231,8 +234,11 @@ Fsi_load_ts_grammar (lisp lpath, lisp lname)
      `si:load-dll-module` と同じ形。
 
      `GetModuleHandleW` に当たるものは無いが、`dlopen` は同じ物を二度開いて
-     も同じハンドルを返して参照数を増やすだけなので、常に `loaded` を立てて
-     デストラクタに `dlclose` させれば釣り合う。 */
+     も同じハンドルを返して参照数を増やすだけなので、ここでは常に
+     `loaded` を立てる。参照数は使う側が消えたあとも増えっぱなしになるが、
+     **`dlclose` はしない** (ts.h の `~lts_grammar' を参照) ので釣り合いを
+     取る必要は無い。`loaded` が効くのは `GetProcAddress` に失敗したときの
+     `FreeLibrary` だけで、そこはこの場で読み込みを巻き戻す話である。 */
   char path[PATH_MAX * 4 + 1];
   i2u8 (xstring_contents (lpath), xstring_length (lpath), path);
 

@@ -107,3 +107,16 @@ xyzzy リリースノート
     (`lsp--installed-p`)。回帰テストは
     `lsp-install-server-wsl-verifies-on-wsl-side` と
     `lsp-install-server-local-verifies-with-local-probe`。
+  * 64bit ビルドで、tree-sitter の文法 DLL が外れて
+    `ts_query_cursor__advance` の中で `0xc0000005` で落ちる不具合を修正
+    (issue #382)。`ts-register-mode` が同じモードを二度登録すると、先に
+    読んだ文法オブジェクトは誰からも指されなくなる。二度目は
+    `GetModuleHandleW` で読み込み済みのモジュールを拾うだけで参照数を
+    増やさないため、一度目が GC されたときのデストラクタが
+    `FreeLibrary` を呼ぶと DLL が外れる。外れると `g_ts_cache` の
+    `TSTree` / `TSQuery` と解析用の裏スレッドが持つ `TSLanguage` が
+    宙に浮く。文法 DLL はプロセスが終わるまで読み込んだままにした
+    (`src/core/ts.h`)。あわせて `ts-register-mode` が同じ DLL を読み直さ
+    ないようにし (`lisp/ts.l` の `*ts-grammar-objects*`)、孤児になる owner
+    を作らないようにした。回帰テストは
+    `ts-register-mode-keeps-one-grammar-object`。
