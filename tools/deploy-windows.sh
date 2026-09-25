@@ -123,9 +123,25 @@ for arch in $archs; do
   # Unpack first, swap second, so a failure part way through leaves the
   # existing install alone.  CPack wraps everything in a version directory;
   # flatten it so xyzzy.exe sits at the top of the deployed folder.
+  # These three steps move ~30MB through /mnt/c (9p) and take minutes
+  # with no output in between; say so, or it looks hung.
+  echo "  unpacking $zip ..."
   rm -rf "$out.tmp"
   mkdir -p "$out.tmp"
+  # unzip exits 1 for mere warnings, and /mnt/c always warns: timestamps
+  # and permissions cannot be set there ("Operation not permitted").
+  # The files themselves extract fine, so 1 is success here; 2 and up
+  # mean real errors (missing/corrupt zip).  Without this, `set -e`
+  # aborts the whole deploy the moment unpacking finishes -- silently,
+  # which is why a run looked "never ending".
+  set +e
   unzip -q "$zip" -d "$out.tmp"
+  unzip_status=$?
+  set -e
+  if [ "$unzip_status" -gt 1 ]; then
+    echo "deploy: unpacking $zip failed (unzip exit $unzip_status)" >&2
+    exit 1
+  fi
   inner=$(find "$out.tmp" -mindepth 1 -maxdepth 1 -type d | head -1)
   inner=${inner:-$out.tmp}
 
@@ -140,13 +156,16 @@ for arch in $archs; do
   # directory this script replaces.  Wiping it made settings reset on every
   # deploy, which looked like xyzzy failing to save them.
   mkdir -p "$out"
+  echo "  clearing $out (keeping usr) ..."
   find "$out" -mindepth 1 -maxdepth 1 ! -name usr -exec rm -rf {} + 2>/dev/null || {
     echo "deploy: could not clear $out (a file in it is in use?)" >&2
     exit 1
   }
+  echo "  copying $inner to $out ..."
   cp -r "$inner"/. "$out"/
   rm -rf "$out.tmp"
 
+  echo "  saving $dest/xyzzy-$version-$sha-llvmmingw-$name.zip ..."
   cp "$zip" "$dest/xyzzy-$version-$sha-llvmmingw-$name.zip"
 
   # A missing binary or an empty .lc set is silent until something breaks

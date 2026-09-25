@@ -120,3 +120,11 @@ xyzzy リリースノート
     ないようにし (`lisp/ts.l` の `*ts-grammar-objects*`)、孤児になる owner
     を作らないようにした。回帰テストは
     `ts-register-mode-keeps-one-grammar-object`。
+  * `tools/deploy-windows.sh` が配置段階で中断する不具合を修正。
+    `/mnt/c` (9p) への展開で `unzip` がタイムスタンプ・属性の設定に必ず
+    警告を出し ("Operation not permitted")、警告時の終了コード 1 を
+    `set -e` が失敗とみなしてデプロイ全体を黙って中断していた。ファイル
+    自体は展開できているので終了コード 1 は成功扱いにし、2 以上だけを
+    エラーにした。あわせて各段階 (unpacking / clearing / copying /
+    saving) の開始を表示し、9p 越しの低速コピー (約 30MB×2 arch) が
+    ハングに見えないようにした。
