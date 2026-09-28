@@ -6,6 +6,7 @@ xyzzy 利用者向けドキュメント
 
   * [インストール](installation.md) — ダウンロード、インストール、アンインストール
   * [機能一覧](features.md) — 何ができるか、どう使うか
+  * [WSL](wsl.md) — Windows の xyzzy から WSL 内のファイル・シェル・ツールを透過的に使う
   * [キーバインド](keybindings.md) — 主要な操作の早見表
   * [設定](configuration.md) — GUI の設定ダイアログと設定ファイルの関係
   * [コマンドラインオプション](command-line.md) — 起動オプションと xyzzycli

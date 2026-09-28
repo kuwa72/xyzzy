@@ -60,6 +60,12 @@ xyzzy リリースノート
     `-ERR`) を受け取れる。トークン未設定時は認証なし、設定時は先頭行
     `AUTH <token>` が必要。`accept` がブロッキングのため serve 中は xyzzy が
     応答専念になる (C-g / 切断で復帰)。ノンブロック化は今後の課題。
+  * WSL 統合の使い方をまとめた `docs/user/wsl.md` を追加 (issue #389)。
+    概要 (できること・できないこと)、入口コマンド (`wsl-open-directory` /
+    `wsl` / `wsl-compile` / `wsl-git`)、パス変換とディストロ名の決まり方、
+    設定変数 (`*wsl-distribution*`・`*wsl-unc-prefix*` 等)、Windows 10 での
+    `\wsl$` 設定を書いた。`docs/user/index.md`・`docs/user/features.md` ・
+    `docs/user/lisp-libraries.md` から辿れる。
 
   * LSP クライアントが Windows で全く動かなかった不具合を修正。
     `make-process` の `:outcode` に BOM 付きの `*encoding-utf8*` を渡していた

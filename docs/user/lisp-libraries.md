@@ -172,6 +172,11 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - `lsp-find-definition` (`M-.`): カーソル位置のシンボルの定義へジャンプ。LSP が有効なバッファでは `M-.` は TAGS の `jump-tag` ではなくこちらに割り当てられる。
   - `lsp-install-server` (`M-x lsp-install-server`): 対応する言語サーバーのインストールコマンドを実行する。
   - 詳しい導入手順と設定は [LSP (Language Server Protocol)](lsp.md) を参照。
+- **WSL 統合 (`lisp/wsl.l`)**:
+  - `wsl`: WSL のシェルをターミナルバッファとして起動。
+  - `wsl-open-directory` / `wsl-find-file` / `wsl-compile` / `wsl-git`: WSL 内の
+    ディレクトリを開き、ビルド・git を WSL 側で実行。
+  - 詳しくは [WSL](wsl.md) を参照。
 - **C プリプロセッサ条件の非表示 (`lisp/hideif.l`)**:
   - `M-x hide-ifdef` / `M-x show-ifdef`: `#ifdef` / `#ifndef` ブロックを判定し、無効なコード領域を折りたたんで非表示化。
 - **ウィンドウ比較 (`lisp/comparew.l`)**:

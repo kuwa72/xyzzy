@@ -72,6 +72,12 @@ xyzzy が扱えるパス名の上限は、ビルド時の `PATH_MAX / 2` コー�
 基づく上限になります。上限以上のパス名を渡すと、バッファをあふれさせずに
 `Epath_name_too_long` エラーになります。
 
+### WSL (Windows Subsystem for Linux)
+
+Windows の xyzzy から WSL 内のディレクトリを開き、シェル・ビルド・git・言語
+サーバーを自動で WSL 側に回します。`M-x wsl-open-directory` が入口です。
+詳しくは [WSL](wsl.md) を参照してください。
+
 ### LSP (Language Server Protocol)
 
 C, C++, Python, Rust, Go, JavaScript, TypeScript, YAML, JSON のモードで、外部の
