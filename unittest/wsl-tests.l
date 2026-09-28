@@ -229,18 +229,23 @@ UNC パス (`\\\\\\\\wsl.localhost\\\\...`) で、Windows 上の xyzzy では実
           (let ((returned (ignore-errors
                             (wsl-open-directory "Ubuntu" (namestring dir)))))
             (list (and returned (string-matchp "wslt-opendir" returned) t)
-                  (if unixp
-                      :skipped-on-unix
-                    (string= (default-directory)
-                             (concat (map-backslash-to-slash
-                                      (namestring dir)) "/")))
+                  ;; **POSIX では既定ディレクトリは移らない。** 既定ディレ
+                  ;; クトリに指定するのは WSL の UNC パス (`\\\\wsl.localhost\\...`)
+                  ;; で、Windows では実在するが POSIX では開けない。UNC が
+                  ;; 実在できるプラットフォームだけ意味がある検査なので、
+                  ;; POSIX では (1) の検査そのものをスキップする (=> 期待値
+                  ;; はリテラル評価なので、期待値側で分岐できない)。
+                  (or (and unixp t)
+                      (string= (default-directory)
+                               (concat (map-backslash-to-slash
+                                        (namestring dir)) "/")))
                   (save-excursion
                     (set-buffer hdr)
                     (and (string-match fname
                                        (buffer-substring (point-min) (point-max)))
                          t)))))
       (wslt-cleanup dir)))
-  => (t :skipped-on-unix t))
+  => (t t t))
 
 (deftest wsl-find-file-defined ()
   "wsl-find-file コマンドが定義されている"
