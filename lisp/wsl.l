@@ -324,8 +324,21 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
   (let* ((resolved-wsl-path (wsl-resolve-directory-path wsl-path distro))
 	 (win-path (wsl-path-to-windows resolved-wsl-path distro))
 	 ;; スラッシュ形式に正規化して内部パスの整合性を保つ
+	 ;; **POSIX からは WSL の UNC パスは見えない** (\\wsl.localhost\ は
+	 ;; POSIX には実在しない)。UNC が開けない環境では Linux パスを
+	 ;; そのまま一覧に使う — WSL 内のファイルを POSIX 側が直接
+	 ;; 見られる場合 (:wsl.localhost を mount している環境等) は
+	 ;; それが本来の読み方になる。
 	 (win-dir (let ((s (map-backslash-to-slash win-path)))
-		    (if (string-match "/$" s) s (concat s "/"))))
+		    (if (file-directory-p s)
+			s
+		      (if (file-directory-p resolved-wsl-path)
+			  (concat (map-backslash-to-slash resolved-wsl-path)
+				  (if (string-match "/$"
+						    (map-backslash-to-slash
+						     resolved-wsl-path))
+				      "" "/"))
+			(if (string-match "/$" s) s (concat s "/"))))))
 	 (buf-name (format nil "*WSL: ~A:~A*" distro resolved-wsl-path))
 	 (buf (get-buffer-create buf-name)))
     ;; 専用バッファに切り替えて作業ディレクトリを設定
