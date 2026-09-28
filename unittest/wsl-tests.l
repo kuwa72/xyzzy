@@ -118,13 +118,17 @@
 ;;; 4. コマンド定義とキーマップ
 
 (deftest wsl-commands-and-mode-exist ()
-  "wsl, wsl-shell コマンドおよび wsl-mode が定義されている"
+  "wsl コマンドおよび wsl-mode が定義されている"
   (list (fboundp 'wsl)
-        (fboundp 'wsl-shell)
         (fboundp 'wsl-mode)
         (boundp '*wsl-distribution*)
         (boundp '*wsl-unc-prefix*))
-  => (t t t t t))
+  => (t t t t))
+
+(deftest wsl-shell-is-removed ()
+  "wsl-shell は削除済み (#390)。M-x wsl に統合された"
+  (fboundp 'wsl-shell)
+  => nil)
 
 ;;; ------------------------------------------------------------------
 ;;; 5. WSL プロジェクト判定・ディストリビューション抽出 (Issue #343)

@@ -11,7 +11,7 @@
 
 (export '(*wsl-distribution* *wsl-unc-prefix* *wsl-path-prefix* *wsl-command*
 	  *wsl-mode-map* *wsl-mode-hook* *wsl-project-distro* *wsl-compile-buffer-name*
-	  wsl-mode wsl wsl-shell
+	  wsl-mode wsl
 	  wsl-path-to-windows windows-path-to-wsl
 	  wsl-parse-distributions wsl-list-distributions wsl-read-distribution
 	  wsl-osc-52-sequence wsl-copy-string wsl-paste-string
@@ -197,7 +197,7 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 
 
 ;;; ------------------------------------------------------------------
-;;; ターミナル連携 (wsl / wsl-shell)
+;;; ターミナル連携 (wsl)
 
 (defun wsl-mode ()
   "WSL ターミナル用のメジャーモード。"
@@ -243,12 +243,6 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 	      (set-minor-mode-map *terminal-map*)))
 	  (switch-to-buffer buf))))
     buf))
-
-(defun wsl-shell (&optional distro dir)
-  "wsl と同等のコマンド。"
-  (interactive "P")
-  (wsl distro dir))
-
 
 ;;; ------------------------------------------------------------------
 ;;; WSL プロジェクト判定・管理 (Issue #343)
