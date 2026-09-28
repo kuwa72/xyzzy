@@ -176,14 +176,76 @@
       "make[1]: Entering directory '\\\\wsl.localhost\\Ubuntu\\home\\user\\proj'"
       "Building target all"))
 
+;;; ------------------------------------------------------------------
+;;; WSL ディレクトリオープン (Issue #391)
+
+(defun wslt-make-temp-dir ()
+  "テスト用に実在する一時ディレクトリを返す ( obligation: 実在する唯一の手段)。"
+  (let* ((root (directory-namestring (make-temp-file-name)))
+         (dir (merge-pathnames "wslt-opendir/" root)))
+    (create-directory dir)
+    dir))
+
+(defun wslt-cleanup (dir)
+  (when (file-directory-p dir)
+    (dolist (f (directory dir :absolute t))
+      (ignore-errors
+       (if (file-directory-p f)
+           (delete-directory f)
+         (delete-file f))))
+    (ignore-errors (delete-directory dir))))
+
 (deftest wsl-open-directory-test ()
-  "wsl-open-directory がディストリビューションとパスから Windows UNC パスを設定し、バッファを開く"
+  "wsl-open-directory がディストリビューションとパスから Windows UNC パスを設定し、開ける画面にする"
   (let ((dir (wsl-open-directory "Ubuntu" "/home/user/project")))
     (list (and (string-matchp "Ubuntu" dir) t)
           (and (string-matchp "home/user/project" dir) t)
           *wsl-project-distro*
           (stringp (buffer-name (selected-buffer)))))
   => (t t "Ubuntu" t))
+
+(deftest wsl-open-directory-opens-an-interactive-view ()
+  "説明テキストの代わりにディレクトリのエントリ一覧を載せたバッファを開く (#391)
+
+次の操作が進められることは (1) 既定ディレクトリが指定パスに写る
+(2) バッファにヘッダ以外に実在するエントリが並ぶ、の 2 点で見る
+(既定ディレクトリが動けば C-x C-f が同じ場所から始まり、並んだ名前は
+そのまま find-file に渡せる)。静的な説明文字列は載せない。
+
+**POSIX では (1) を期待しない。** 既定ディレクトリに指定するのは WSL の
+UNC パス (`\\\\\\\\wsl.localhost\\\\...`) で、Windows 上の xyzzy では実在する
+ディレクトリだが POSIX では開けない (`set-default-directory' が
+\"指定されたパスはディレクトリではありません\" で失敗)。UNC が実在できる
+プラットフォームだけ意味がある検査なので、Windows でのみ見る。"
+  (let* ((dir (wslt-make-temp-dir))
+         (fname "a.txt")
+         (hdr (format nil "*WSL: Ubuntu:~A*" (namestring dir)))
+         (unixp (featurep :unix)))
+    (unwind-protect
+        (progn
+          (with-open-file (s (merge-pathnames fname dir)
+                             :direction :output :if-exists :supersede)
+            (princ "x" s))
+          (let ((returned (ignore-errors
+                            (wsl-open-directory "Ubuntu" (namestring dir)))))
+            (list (and returned (string-matchp "wslt-opendir" returned) t)
+                  ;; **POSIX では既定ディレクトリは移らない。** 既定ディレ
+                  ;; クトリに指定するのは WSL の UNC パス (`\\\\wsl.localhost\\...`)
+                  ;; で、Windows では実在するが POSIX では開けない。UNC が
+                  ;; 実在できるプラットフォームだけ意味がある検査なので、
+                  ;; POSIX では (1) の検査そのものをスキップする (=> 期待値
+                  ;; はリテラル評価なので、期待値側で分岐できない)。
+                  (or (and unixp t)
+                      (string= (default-directory)
+                               (concat (map-backslash-to-slash
+                                        (namestring dir)) "/")))
+                  (save-excursion
+                    (set-buffer hdr)
+                    (and (string-match fname
+                                       (buffer-substring (point-min) (point-max)))
+                         t)))))
+      (wslt-cleanup dir)))
+  => (t t t))
 
 (deftest wsl-find-file-defined ()
   "wsl-find-file コマンドが定義されている"

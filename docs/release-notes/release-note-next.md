@@ -68,6 +68,11 @@ xyzzy リリースノート
     `docs/user/lisp-libraries.md` から辿れる。
   * `M-x wsl-shell` を削除した (issue #390)。本体が `M-x wsl` と同じで、入口が
     2 語ある価値がなかった。WSL シェルを起動するには `M-x wsl` を使う。
+  * `wsl-open-directory` が開くバッファを、説明文を書いた read-only の画面か
+    ら作業ディレクトリのエントリ一覧に変えた (issue #391)。既定ディレクトリ
+    は実在チェック後にそのディレクトリへ移るので、開いた直後の `C-x C-f` が
+    同じ場所から始まり、並んだ項目はそのまま `find-file` に渡せる。
+    「Commands in this directory」の固定テキストは載せない。
 
   * LSP クライアントが Windows で全く動かなかった不具合を修正。
     `make-process` の `:outcode` に BOM 付きの `*encoding-utf8*` を渡していた
