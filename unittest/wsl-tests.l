@@ -210,10 +210,17 @@
 次の操作が進められることは (1) 既定ディレクトリが指定パスに写る
 (2) バッファにヘッダ以外に実在するエントリが並ぶ、の 2 点で見る
 (既定ディレクトリが動けば C-x C-f が同じ場所から始まり、並んだ名前は
-そのまま find-file に渡せる)。静的な説明文字列は載せない。"
+そのまま find-file に渡せる)。静的な説明文字列は載せない。
+
+**POSIX では (1) を期待しない。** 既定ディレクトリに指定するのは WSL の
+UNC パス (`\\\\\\\\wsl.localhost\\\\...`) で、Windows 上の xyzzy では実在する
+ディレクトリだが POSIX では開けない (`set-default-directory' が
+\"指定されたパスはディレクトリではありません\" で失敗)。UNC が実在できる
+プラットフォームだけ意味がある検査なので、Windows でのみ見る。"
   (let* ((dir (wslt-make-temp-dir))
          (fname "a.txt")
-         (hdr (format nil "*WSL: Ubuntu:~A*" (namestring dir))))
+         (hdr (format nil "*WSL: Ubuntu:~A*" (namestring dir)))
+         (unixp (featurep :unix)))
     (unwind-protect
         (progn
           (with-open-file (s (merge-pathnames fname dir)
@@ -222,17 +229,18 @@
           (let ((returned (ignore-errors
                             (wsl-open-directory "Ubuntu" (namestring dir)))))
             (list (and returned (string-matchp "wslt-opendir" returned) t)
-                  (string= (default-directory)
-                           (concat (map-backslash-to-slash
-                                    (namestring dir)) "/"))
+                  (if unixp
+                      :skipped-on-unix
+                    (string= (default-directory)
+                             (concat (map-backslash-to-slash
+                                      (namestring dir)) "/")))
                   (save-excursion
                     (set-buffer hdr)
                     (and (string-match fname
                                        (buffer-substring (point-min) (point-max)))
-                         t))))
-          )
+                         t)))))
       (wslt-cleanup dir)))
-  => (t t t))
+  => (t :skipped-on-unix t))
 
 (deftest wsl-find-file-defined ()
   "wsl-find-file コマンドが定義されている"
