@@ -314,7 +314,9 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
 
 (defun wsl-open-directory (distro wsl-path)
   "ディストリビューション DISTRO の WSL パス WSL-PATH を Windows UNC パスとして開き、プロジェクトルートに設定する。
-専用バッファを開いてカレントディレクトリを切り替えるため、その後の C-x C-f 等で当該ディレクトリが初期位置になります。"
+バッファにはそのディレクトリのエントリ一覧を出し、カレントディレクトリを
+当該ディレクトリへ切り替える (#391)。そのため C-x C-f 等の次の操作が
+同じ場所から始まり、バッファ上のファイル名からも直接開ける。"
   (interactive
    (let* ((d (wsl-read-distribution))
 	  (p (wsl-read-directory "WSL directory: " d "~")))
@@ -334,21 +336,25 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
     (setq *wsl-project-distro* distro)
     (setq need-not-save t)
     (setq auto-save nil)
-    (erase-buffer buf)
-    (insert (format nil "WSL Project: ~A (~A)\n" resolved-wsl-path distro))
-    (insert (format nil "Windows UNC Path: ~A\n\n" win-dir))
-    (insert "Commands in this directory:\n")
-    (insert "  C-x C-f     - Find file (starts at this WSL directory)\n")
-    (insert "  M-x wsl     - Open WSL terminal in this directory\n")
-    (insert "  M-x wsl-compile - Run build command on WSL\n")
-    (insert "  M-x wsl-git - Run git command on WSL\n")
-    (insert "  M-x wsl-find-file - Find file in this project\n")
-    (setq buffer-read-only t)
+    (wsl-open-directory-insert-listing buf win-dir distro resolved-wsl-path)
     (switch-to-buffer buf)
     (when (fboundp 'project-remember-project)
       (project-remember-project win-dir))
     (message "Opened WSL directory: ~A (~A)" win-dir distro)
     win-dir))
+
+(defun wsl-open-directory-insert-listing (buf win-dir distro resolved-wsl-path)
+  "BUF に DIR のエントリ一覧を展開する (#391)。説明テキストは置かない。"
+  (setq buffer-read-only nil)
+  (erase-buffer buf)
+  ;; 1 行目は機械的に読めるヘッダ。以降はディレクトリのエントリ。
+  (insert (format nil "WSL: ~A (~A)\n" resolved-wsl-path distro))
+  (when (file-directory-p win-dir)
+    (let ((entries (sort (directory win-dir :absolute t) #'string<)))
+      (dolist (e entries)
+	(insert (concat (file-namestring e) "\n")))))
+  (setq buffer-read-only t)
+  (set-buffer-modified-p nil))
 
 (defun wsl-find-file (&optional dir)
   "WSL プロジェクト内のファイルを補完選択して開く。"
