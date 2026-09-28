@@ -66,6 +66,8 @@ xyzzy リリースノート
     設定変数 (`*wsl-distribution*`・`*wsl-unc-prefix*` 等)、Windows 10 での
     `\wsl$` 設定を書いた。`docs/user/index.md`・`docs/user/features.md` ・
     `docs/user/lisp-libraries.md` から辿れる。
+  * `M-x wsl-shell` を削除した (issue #390)。本体が `M-x wsl` と同じで、入口が
+    2 語ある価値がなかった。WSL シェルを起動するには `M-x wsl` を使う。
 
   * LSP クライアントが Windows で全く動かなかった不具合を修正。
     `make-process` の `:outcode` に BOM 付きの `*encoding-utf8*` を渡していた
