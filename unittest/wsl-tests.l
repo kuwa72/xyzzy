@@ -257,6 +257,132 @@ UNC パス (`\\\\\\\\wsl.localhost\\\\...`) で、Windows 上の xyzzy では実
   (fboundp 'wsl-read-directory)
   => t)
 
+;;; ------------------------------------------------------------------
+;;; 7. プロジェクトコンテキスト (レジストリ・ディストロ解決)
+
+(deftest wsl-remember-project-test ()
+  "wsl-remember-project がルートとディストロの対応を登録・更新する
+末尾の区切りの違いは正規化されて同じルートになる"
+  (let ((*wsl-project-list* nil))
+    (wsl-remember-project "Ubuntu" "//wsl.localhost/Ubuntu/home/user/proj/")
+    (wsl-remember-project "Debian" "//wsl.localhost/Debian/home/user/proj")
+    ;; 同じルートを再登録すると上書きされ、リストの先頭に来る
+    (wsl-remember-project "Debian" "//wsl.localhost/Ubuntu/home/user/proj")
+    (list (length *wsl-project-list*)
+          (cdr (assoc "//wsl.localhost/Ubuntu/home/user/proj"
+                      *wsl-project-list* :test #'string-equal))
+          (cdr (assoc "//wsl.localhost/Debian/home/user/proj"
+                      *wsl-project-list* :test #'string-equal))
+          (car (car *wsl-project-list*))))
+  => (2 "Debian" "Debian" "//wsl.localhost/Ubuntu/home/user/proj"))
+
+(deftest wsl-project-distro-for-test ()
+  "wsl-project-distro-for がルート以下のパスからディストロを解決する
+ルートの途中まで一致するだけのパス (proj と project2) は別物として扱う"
+  (let ((*wsl-project-list*
+         (list (cons "//wsl.localhost/Ubuntu/home/user/proj" "Ubuntu")
+               (cons "//wsl.localhost/Debian/home/other" "Debian"))))
+    (list (wsl-project-distro-for "//wsl.localhost/Ubuntu/home/user/proj")
+          (wsl-project-distro-for "//wsl.localhost/Ubuntu/home/user/proj/src")
+          (wsl-project-distro-for "//wsl.localhost/Debian/home/other/lib")
+          (wsl-project-distro-for "//wsl.localhost/Ubuntu/home/user/project2")
+          (wsl-project-distro-for "C:/Users/user/proj")))
+  => ("Ubuntu" "Ubuntu" "Debian" nil nil))
+
+(deftest wsl-project-distro-for-longest-match ()
+  "重なり合うルートでは最長のものを採用する"
+  (let ((*wsl-project-list*
+         (list (cons "//wsl.localhost/Ubuntu/home" "Ubuntu")
+               (cons "//wsl.localhost/Ubuntu/home/user/proj" "Debian"))))
+    (list (wsl-project-distro-for "//wsl.localhost/Ubuntu/home/user/proj/src")
+          (wsl-project-distro-for "//wsl.localhost/Ubuntu/home/other")))
+  => ("Debian" "Ubuntu"))
+
+(deftest wsl-project-distro-for-backslash ()
+  "バックスラッシュ区切りの Windows パスでも解決する"
+  (let ((*wsl-project-list*
+         (list (cons "//wsl.localhost/Ubuntu/home/user/proj" "Ubuntu"))))
+    (wsl-project-distro-for "\\\\wsl.localhost\\Ubuntu\\home\\user\\proj\\src"))
+  => "Ubuntu")
+
+(deftest wsl-current-distro-precedence ()
+  "ディストロ解決の優先順位: バッファローカル > レジストリ > UNC パス > *wsl-distribution*"
+  (let* ((*wsl-project-list*
+          (list (cons "//wsl.localhost/Ubuntu/home/user/proj" "Ubuntu")))
+         (*wsl-distribution* "GlobalDistro")
+         (buf (get-buffer-create " *wsl-ctx-precedence*"))
+         (other (get-buffer-create " *wsl-ctx-plain*")))
+    (unwind-protect
+        (progn
+          (save-excursion
+            (set-buffer other)
+            (setq *wsl-project-distro* nil))
+          (save-excursion
+            (set-buffer buf)
+            (list (wsl-current-distro "//wsl.localhost/Ubuntu/home/user/proj/src")
+                  (wsl-current-distro "//wsl.localhost/Debian/var")
+                  (wsl-current-distro "C:/Users/user")
+                  (progn
+                    (setq *wsl-project-distro* "LocalDistro")
+                    (wsl-current-distro "C:/Users/user")))))
+      (ignore-errors (kill-buffer buf))
+      (ignore-errors (kill-buffer other))))
+  => ("Ubuntu" "Debian" "GlobalDistro" "LocalDistro"))
+
+(deftest wsl-current-distro-unknown-is-nil ()
+  "何もディストロを決められないときは nil を返す (Ubuntu を暗黙に仮定しない)"
+  (let ((*wsl-project-list* nil)
+        (*wsl-distribution* nil)
+        (buf (get-buffer-create " *wsl-ctx-nil*")))
+    (unwind-protect
+        (save-excursion
+          (set-buffer buf)
+          (setq *wsl-project-distro* nil)
+          (wsl-current-distro "C:/Users/user/project"))
+      (ignore-errors (kill-buffer buf))))
+  => nil)
+
+(deftest wsl-open-directory-keeps-distro-buffer-local ()
+  "wsl-open-directory のディストロ設定が他バッファに漏れない
+setq-default で既定値を書き換えていた事故 (全バッファ汚染) の回帰試験"
+  (let* ((hdr (format nil "*WSL: Ubuntu:/home/user/project*"))
+         (other (get-buffer-create " *wsl-ctx-keep*")))
+    (unwind-protect
+        (progn
+          (wsl-open-directory "Ubuntu" "/home/user/project")
+          (list (save-excursion
+                  (set-buffer other)
+                  *wsl-project-distro*)
+                (save-excursion
+                  (set-buffer hdr)
+                  *wsl-project-distro*)))
+      (ignore-errors (kill-buffer other))
+      (ignore-errors (kill-buffer hdr))))
+  => (nil "Ubuntu"))
+
+(deftest wsl-git-command-for-test ()
+  "wsl-git-command-for が WSL プロジェクトなら wsl.exe 経由の
+(コマンドライン . ディストロ) を返し、Windows 側なら nil"
+  (let ((*wsl-project-distro* nil))
+    (list (wsl-git-command-for "status --short"
+                               "//wsl.localhost/Ubuntu/home/user/proj")
+          (wsl-git-command-for "status --short" "C:/Users/user/proj")))
+  => (("wsl.exe -d Ubuntu --cd /home/user/proj -- sh -c \"git status --short\""
+       . "Ubuntu")
+      nil))
+
+(deftest build-wsl-p-test ()
+  "build-wsl-p が WSL プロジェクトのディストロを返し、Windows 側では nil"
+  (let ((*wsl-project-distro* nil))
+    (list (build-wsl-p "//wsl.localhost/Ubuntu/home/user/proj")
+          (build-wsl-p "C:/Users/user/proj")))
+  => ("Ubuntu" nil))
+
+(deftest build-defined ()
+  "build コマンドが定義されている"
+  (fboundp 'build)
+  => t)
+
 (deftest wsl-resolve-directory-path-test ()
   "wsl-resolve-directory-path がチルダや UNC パスを正しく Linux パスに解決する"
   (list (wsl-resolve-directory-path "~" "Ubuntu")

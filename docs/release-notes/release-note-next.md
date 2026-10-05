@@ -66,6 +66,37 @@ xyzzy リリースノート
     設定変数 (`*wsl-distribution*`・`*wsl-unc-prefix*` 等)、Windows 10 での
     `\wsl$` 設定を書いた。`docs/user/index.md`・`docs/user/features.md` ・
     `docs/user/lisp-libraries.md` から辿れる。
+  * WSL プロジェクトのコンテキストをプロジェクト単位で覚え、
+    git・ビルドを透過的に WSL 側へディスパッチするようにした。
+      - `wsl-open-directory` が `(ROOT . DISTRO)` を `*wsl-project-list*`
+        (ヒストリファイルに保存される `define-history-variable`) に
+        登録するようになった。再起動後も、開いたプロジェクトの下の
+        ディレクトリでは同じディストロが使われる。
+      - `wsl-open-directory` が `setq-default` で `*wsl-project-distro*`
+        の既定値を書き換えていたのを止めた。以前は WSL プロジェクトを
+        1 つ開くと、そのディストロが**全バッファ**の既定になっていた。
+        バッファローカルに留め、プロジェクトをまたぐ記憶は
+        レジストリが担う。
+      - `wsl-current-distro` の解決順位を
+        バッファローカル → レジストリ → UNC パス → `*wsl-distribution*`
+        に変更し、どれも決まらなければ nil を返すようにした。
+        対話コマンド (`wsl-compile`・`wsl-git`・`wsl-open-directory` 等)
+        は決まらないとき選択を促す (勝手に `Ubuntu` を仮定しない)。
+      - `git-status` / `git-diff` / `git-log` / `git-blame` が
+        WSL プロジェクトでは `wsl.exe` 経由で WSL 側の git を実行し、
+        出力中の Linux パスを Windows パスに変換する
+        (`git-run-command-to-buffer` が `wsl-git-command-for` で判定)。
+      - `M-x build` を追加。プロジェクトの側に応じて WSL 側
+        (`wsl-compile` と同じ経路) / カレント側でビルドコマンドを実行し、
+        結果を compilation バッファに出して `next-error` でジャンプできる。
+        Windows プロジェクトにもビルドの入口ができた。`wsl-compile` は
+        常に WSL 側で実行する明示的な入口として残す。
+      - `compile-run` としてビルド実行・出力・パス変換・エラー解析の
+        共通部分を `wsl-compile` / `build` で共有するように整理した。
+    回帰テストは `unittest/wsl-tests.l` の「7. プロジェクトコンテキスト」
+    (レジストリの登録・最長一致・バックスラッシュ正規化、解決順位、
+    不明時の nil、`setq-default` 事故の回帰、git ディスパッチ判定、
+    `build` の定義)。
   * `M-x wsl-shell` を削除した (issue #390)。本体が `M-x wsl` と同じで、入口が
     2 語ある価値がなかった。WSL シェルを起動するには `M-x wsl` を使う。
   * `wsl-open-directory` が開くバッファを、説明文を書いた read-only の画面か
