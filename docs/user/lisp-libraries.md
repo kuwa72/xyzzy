@@ -174,8 +174,12 @@ xyzzy の Lisp ライブラリは、用途や読み込みタイミングに応�
   - 詳しい導入手順と設定は [LSP (Language Server Protocol)](lsp.md) を参照。
 - **WSL 統合 (`lisp/wsl.l`)**:
   - `wsl`: WSL のシェルをターミナルバッファとして起動。
-  - `wsl-open-directory` / `wsl-find-file` / `wsl-compile` / `wsl-git`: WSL 内の
-    ディレクトリを開き、ビルド・git を WSL 側で実行。
+  - `wsl-open-directory` / `wsl-find-file`: WSL 内のディレクトリを
+    開き、プロジェクトとして記憶する。
+  - `build`: ビルドコマンドを実行。WSL プロジェクトなら WSL 側、
+    Windows プロジェクトならカレント側で走らす。
+  - `wsl-compile` / `wsl-git`: 常に WSL 側でビルド・git を実行する
+    明示的な入口。
   - 詳しくは [WSL](wsl.md) を参照。
 - **C プリプロセッサ条件の非表示 (`lisp/hideif.l`)**:
   - `M-x hide-ifdef` / `M-x show-ifdef`: `#ifdef` / `#ifndef` ブロックを判定し、無効なコード領域を折りたたんで非表示化。

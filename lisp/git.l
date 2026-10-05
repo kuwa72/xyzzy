@@ -36,17 +36,31 @@
   (setq buffer-read-only t))
 
 (defun git-run-command-to-buffer (buffer-name cmd-args &optional dir)
-  "指定ディレクトリで Git コマンドを実行し、出力をバッファに書き込む。"
+  "指定ディレクトリで Git コマンドを実行し、出力をバッファに書き込む。
+DIR (省略時はプロジェクトルート) が WSL プロジェクトなら
+wsl.exe 経由で WSL 側の git を実行し、出力中の Linux パスを
+Windows パスに変換する (`git-status' 等が WSL プロジェクトで
+そのまま使えるようにする)。"
   (let* ((work-dir (or dir (project-current-root)))
+	 (wsl-dispatch (and (fboundp 'wsl-git-command-for)
+			    (wsl-git-command-for cmd-args work-dir)))
 	 (buf (get-buffer-create buffer-name)))
     (save-excursion
       (set-buffer buf)
       (let ((buffer-read-only nil))
 	(erase-buffer buf)
-	(let ((default-dir (default-directory)))
-	  (set-default-directory work-dir)
-	  (call-process (format nil "git ~A" cmd-args) :output buf :show :hide)
-	  (set-default-directory default-dir))))
+	(if wsl-dispatch
+	    (progn
+	      (call-process (car wsl-dispatch) :output buf :show :hide)
+	      (let ((translated (wsl-translate-log-paths
+				 (buffer-substring (point-min) (point-max))
+				 (cdr wsl-dispatch))))
+		(erase-buffer buf)
+		(insert translated)))
+	  (let ((default-dir (default-directory)))
+	    (set-default-directory work-dir)
+	    (call-process (format nil "git ~A" cmd-args) :output buf :show :hide)
+	    (set-default-directory default-dir)))))
     buf))
 
 (defun git-status (&optional dir)

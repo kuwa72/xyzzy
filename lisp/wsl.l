@@ -11,15 +11,20 @@
 
 (export '(*wsl-distribution* *wsl-unc-prefix* *wsl-path-prefix* *wsl-command*
 	  *wsl-mode-map* *wsl-mode-hook* *wsl-project-distro* *wsl-compile-buffer-name*
+	  *wsl-project-list*
 	  wsl-mode wsl
 	  wsl-path-to-windows windows-path-to-wsl
 	  wsl-parse-distributions wsl-list-distributions wsl-read-distribution
 	  wsl-osc-52-sequence wsl-copy-string wsl-paste-string
 	  wsl-copy-region wsl-paste
 	  wsl-path-p wsl-extract-distro wsl-current-distro wsl-project-p
+	  wsl-remember-project wsl-project-distro-for
+	  wsl-read-distro-or-current
 	  wsl-open-directory wsl-read-directory wsl-resolve-directory-path
 	  wsl-find-file wsl-build-command-line wsl-git-command-line
-	  wsl-translate-log-paths wsl-compile wsl-git))
+	  wsl-git-command-for build-wsl-p
+	  wsl-translate-log-paths wsl-compile build
+	  wsl-git))
 
 ;;; 設定変数
 (defvar *wsl-distribution* nil
@@ -250,6 +255,12 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 (defvar-local *wsl-project-distro* nil
   "カレントバッファまたはプロジェクトの WSL ディストリビューション名")
 
+(define-history-variable *wsl-project-list* nil
+  "WSL プロジェクトのルートとディストリビューションの対応一覧。
+要素は (ROOT . DISTRO) の alist で、`wsl-open-directory' が登録する。
+ヒストリファイルに保存されるので、次回の起動時にもディストロが
+覚えられている。")
+
 (defvar *wsl-compile-buffer-name* "*WSL-Compilation*"
   "WSL コンパイルバッファの既定名")
 
@@ -271,18 +282,80 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 	(match-string 2)))))
 
 (defun wsl-current-distro (&optional dir)
-  "現在のコンテキスト（バッファ、ディレクトリ、または既定値）における WSL ディストリビューション名を返す。"
-  (or *wsl-project-distro*
-      (when dir (wsl-extract-distro dir))
-      (wsl-extract-distro (default-directory))
-      *wsl-distribution*
-      "Ubuntu"))
+  "現在のコンテキストにおける WSL ディストリビューション名を返す。
+優先順位は、バッファローカルの `*wsl-project-distro*'、
+プロジェクトレジストリ `*wsl-project-list*'、DIR (省略時は
+`default-directory') の UNC パスから抽出、`*wsl-distribution*'
+の順。どれも決まらなければ nil を返す。対話コマンドは
+`wsl-read-distro-or-current' で選択を促す。"
+  (let ((target (or dir (default-directory))))
+    (or *wsl-project-distro*
+	(wsl-project-distro-for target)
+	(wsl-extract-distro target)
+	*wsl-distribution*)))
+
+(defun wsl-read-distro-or-current (&optional prompt dir)
+  "現在のコンテキストの WSL ディストリビューション名を返す。
+コンテキストから決まらないときはミニバッファから選択させる
+(`wsl-read-distribution' に PROMPT を渡す)。"
+  (or (wsl-current-distro dir)
+      (wsl-read-distribution prompt)))
 
 (defun wsl-project-p (&optional dir)
   "DIR (省略時は default-directory) が WSL プロジェクト内であれば t を返す。"
   (let ((target (or dir (default-directory))))
     (or (and *wsl-project-distro* t)
 	(wsl-path-p target))))
+
+;;; ------------------------------------------------------------------
+;;; プロジェクトレジストリ (*wsl-project-list*)
+
+(defun wsl-normalize-path (path)
+  "経路の比較用に正規化する: スラッシュ区切りに揃え、末尾の
+区切りを落とす。バックスラッシュ区切りの Windows パスと
+スラッシュ区切りの Linux パスを同じルートとして扱えるようにする。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (substitute-string (map-backslash-to-slash path) "/+$" ""))
+
+(defun wsl-remember-project (distro root)
+  "WSL プロジェクト ROOT のディストリビューション DISTRO を
+`*wsl-project-list*' に追加・更新する。同じルートの既存登録は
+上書きして新しいものを先頭に置く (`project-remember-project'
+と同型)。ROOT は正規化されて登録される。"
+  (unless (and (stringp root) (plusp (length root)))
+    (return-from wsl-remember-project nil))
+  (let ((normalized (wsl-normalize-path root)))
+    (setq *wsl-project-list*
+	  (delete (cons normalized distro) *wsl-project-list*
+		  :test #'(lambda (new old)
+			    (string-equal (car new) (car old)))))
+    (push (cons normalized distro) *wsl-project-list*)
+    (when (> (length *wsl-project-list*) 50)
+      (setq *wsl-project-list* (subseq *wsl-project-list* 0 50))))
+  distro)
+
+(defun wsl-project-distro-for (path)
+  "PATH を含む WSL プロジェクトのディストリビューション名を返す。
+`*wsl-project-list*' のルートのうち、PATH を含む最長のものを採用する。
+ルートの途中まで一致するだけのパス (\"/proj\" と \"/project2\") は
+別のプロジェクトとして扱う。どのプロジェクトにも属さなければ nil。"
+  (unless (stringp path)
+    (setq path (namestring path)))
+  (let ((norm (wsl-normalize-path path))
+	(best nil)
+	(best-len 0))
+    (dolist (entry *wsl-project-list*)
+      (let ((root (car entry)))
+	(when (and (plusp (length root))
+		   (<= (length root) (length norm))
+		   (> (length root) best-len)
+		   (string-equal (subseq norm 0 (length root)) root)
+		   (or (= (length root) (length norm))
+		       (char= (char norm (length root)) #\/)))
+	  (setq best (cdr entry)
+		best-len (length root)))))
+    best))
 
 (defun wsl-resolve-directory-path (path &optional distro)
   "WSL ディレクトリパス (チルダ、UNC パス、Linux パス) を正規化された Linux パスに変換・解決する。"
@@ -300,7 +373,7 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
   "ディストリビューション DISTRO 内のディレクトリパスを補完付きで入力させる。
 Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read-directory-name を呼び出し、
 入力された UNC パスまたは Linux パスを Linux 側パスに正規化して返す。"
-  (let* ((d (or distro (wsl-current-distro) "Ubuntu"))
+  (let* ((d (or distro (wsl-read-distro-or-current "WSL distribution: ")))
 	 (initial-wsl (or default-dir "~"))
 	 (resolved-initial (wsl-resolve-directory-path initial-wsl d))
 	 (unc-default (wsl-path-to-windows resolved-initial d))
@@ -345,8 +418,13 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
     (set-buffer buf)
     (when (file-directory-p win-dir)
       (ignore-errors (set-default-directory win-dir buf)))
-    (setq-default *wsl-project-distro* distro)
+    ;; **バッファローカルに留める。** setq-default で
+    ;; *wsl-project-distro* の既定値を書き換えると、開いた
+    ;; プロジェクトのディストロが全バッファに漏れる。
+    ;; プロジェクトをまたいだ記憶は wsl-remember-project が
+    ;; *wsl-project-list* に残す。
     (setq *wsl-project-distro* distro)
+    (wsl-remember-project distro win-dir)
     (setq need-not-save t)
     (setq auto-save nil)
     (wsl-open-directory-insert-listing buf win-dir distro resolved-wsl-path)
@@ -372,11 +450,34 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
 (defun wsl-find-file (&optional dir)
   "WSL プロジェクト内のファイルを補完選択して開く。"
   (interactive)
-  (let* ((target-dir (or dir (default-directory)))
-	 (distro (wsl-current-distro target-dir)))
+  (let ((target-dir (or dir (default-directory))))
     (if (and (fboundp 'project-find-file) (wsl-project-p target-dir))
 	(project-find-file target-dir)
       (call-interactively 'find-file))))
+
+(defun build-wsl-p (&optional dir)
+  "DIR (省略時は `default-directory') が WSL プロジェクトで
+ディストリビューションが決まるならその名前を返す。
+Windows 側なら nil。`build' が Windows/WSL の実行側を
+選ぶのに使う。"
+  (let ((target (or dir (default-directory))))
+    (when (wsl-project-p target)
+      (wsl-current-distro target))))
+
+(defun wsl-git-command-for (git-args &optional dir)
+  "DIR (省略時は `default-directory') が WSL プロジェクトなら、
+WSL 経由で git を実行するコマンドラインとディストロの cons
+\(コマンドライン . ディストロ) を返す。Windows 側なら nil。
+git-status 等の Windows 側コマンドが WSL プロジェクトで
+透過的に WSL 側の git を実行するために使う。実行結果中の
+Linux パスは `wsl-translate-log-paths' で Windows パスに
+戻す。"
+  (let ((target (or dir (default-directory))))
+    (when (wsl-project-p target)
+      (let ((distro (wsl-current-distro target)))
+	(cons (wsl-git-command-line git-args distro
+				    (windows-path-to-wsl target))
+	      distro)))))
 
 
 ;;; ------------------------------------------------------------------
@@ -423,27 +524,32 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
 	(setq start m-end)))
     (concat result (subseq log-string start))))
 
-(defun wsl-compile (command &optional distro dir)
-  "WSL 上で COMMAND を実行し、結果を compilation バッファに出力してエラー解析を行う。"
-  (interactive
-   (list (read-string "WSL compile command: "
-		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
-  (let* ((target-distro (or distro (wsl-current-distro dir)))
-	 (target-dir (or dir (default-directory)))
-	 (wsl-dir (windows-path-to-wsl target-dir))
-	 (cmdline (wsl-build-command-line command target-distro wsl-dir))
-	 (buf (get-buffer-create *wsl-compile-buffer-name*)))
+(defun compile-run (cmdline cwd target-dir distro buf-name header)
+  "CMDLINE を実行し、結果を compilation バッファ BUF-NAME に出力して
+エラー解析の準備をする。CWD が非 nil ならそこで実行する。
+DISTRO が非 nil なら WSL 上とみなし、出力中の Linux パスを
+Windows パスに変換する (`next-error' でジャンプできるようにする)。
+HEADER はコマンドの直後に載せる説明文。"
+  (let ((buf (get-buffer-create buf-name)))
     (save-excursion
       (set-buffer buf)
       (setq buffer-read-only nil)
       (erase-buffer buf)
-      (insert (format nil "-*- mode: compilation; default-directory: ~S -*-\n" target-dir))
-      (insert (format nil "WSL: ~A (~A)\nCommand: ~A\n\n" wsl-dir target-distro cmdline))
-      (call-process cmdline :output buf :show :hide :wait t)
-      ;; ログ内の Linux パスを Windows パスに置換して next-error でジャンプ可能にする
-      (let ((translated (wsl-translate-log-paths (buffer-substring (point-min) (point-max)) target-distro)))
-	(erase-buffer buf)
-	(insert translated))
+      (insert (format nil "-*- mode: compilation; default-directory: ~S -*-\n"
+		      target-dir))
+      (insert header)
+      (if cwd
+	  (let ((default-dir (default-directory)))
+	    (set-default-directory cwd)
+	    (call-process cmdline :output buf :show :hide :wait t)
+	    (set-default-directory default-dir))
+	(call-process cmdline :output buf :show :hide :wait t))
+      (when distro
+	(let ((translated (wsl-translate-log-paths
+			   (buffer-substring (point-min) (point-max))
+			   distro)))
+	  (erase-buffer buf)
+	  (insert translated)))
       (goto-char (point-min)))
     (pop-to-buffer buf)
     (when (fboundp 'set-error-buffer)
@@ -452,10 +558,42 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
       (build-error-list))
     buf))
 
+(defun wsl-compile (command &optional distro dir)
+  "WSL 上で COMMAND を実行し、結果を compilation バッファに出力してエラー解析を行う。
+ディストリビューションが決まらないときは選択を促す。"
+  (interactive
+   (list (read-string "WSL compile command: "
+		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
+  (let* ((target-distro (or distro (wsl-read-distro-or-current nil dir)))
+	 (target-dir (or dir (default-directory)))
+	 (wsl-dir (windows-path-to-wsl target-dir))
+	 (cmdline (wsl-build-command-line command target-distro wsl-dir)))
+    (compile-run cmdline nil target-dir target-distro
+		 *wsl-compile-buffer-name*
+		 (format nil "WSL: ~A (~A)\nCommand: ~A\n\n"
+			 wsl-dir target-distro cmdline))))
+
+(defun build (command &optional dir)
+  "プロジェクトの側に応じて COMMAND を実行するビルドコマンド。
+WSL プロジェクトなら WSL 側で (`wsl-compile' と同じ経路で
+wsl.exe を介し、出力中の Linux パスを Windows パスに変換する)、
+Windows プロジェクトならカレント側で実行する。結果は
+compilation バッファに出力してエラー解析を行う。"
+  (interactive
+   (list (read-string "Build command: "
+		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
+  (let* ((target-dir (or dir (default-directory)))
+	 (distro (build-wsl-p target-dir)))
+    (if distro
+	(wsl-compile command distro target-dir)
+      (compile-run command target-dir target-dir nil "*compilation*"
+		   (format nil "Command: ~A\n\n" command)))))
+
 (defun wsl-git (&optional (git-args "status") dir)
-  "WSL 上で Git コマンドを実行し、出力をバッファに表示する。"
+  "WSL 上で Git コマンドを実行し、出力をバッファに表示する。
+ディストリビューションが決まらないときは選択を促す。"
   (interactive "sWSL git args: ")
-  (let* ((target-distro (wsl-current-distro dir))
+  (let* ((target-distro (wsl-read-distro-or-current nil dir))
 	 (target-dir (or dir (default-directory)))
 	 (wsl-dir (windows-path-to-wsl target-dir))
 	 (cmdline (wsl-git-command-line git-args target-distro wsl-dir))
