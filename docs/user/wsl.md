@@ -113,6 +113,40 @@ Windows 10 では WSL の UNC プレフィックスは `\wsl.localhost` では�
 (setq *wsl-unc-prefix* "\\\\wsl$")
 ```
 
+WSL 側から xyzzy を操作するデバッグサーバ (PoC)
+----------------------------------------------
+
+`lisp/wsl-debug.l` は、WSL 上のシェルやコーディングエージェントから
+Windows 上の xyzzy に Lisp 式を送って評価させる TCP デバッグサーバです。
+**PoC (概念実証) なので制約があります** (下記)。
+
+  1. `~/.xyzzy` に `(require "wsl-debug")` を書くか、`M-: (require "wsl-debug")`
+     で読み込みます。
+  2. xyzzy 側で `M-x wsl-debug-serve` を実行すると `127.0.0.1:11722` で
+     待受を始めます。
+  3. WSL 側から `tools/wsl-debug.py` で 1 行 1 S 式を送ると、評価結果が
+     `+OK <値>` / `-ERR <エラー>` の 1 行で返ります。
+
+```
+$ tools/wsl-debug.py '(+ 1 2)' '(software-version)'
++OK 3
++OK "0.9.0"
+$ echo '(selected-buffer)' | tools/wsl-debug.py
++OK #<buffer *scratch*>
+```
+
+  * 認証: 既定では `*wsl-debug-token*` が `nil` で**認証なし**です。
+    loopback とはいえ同じマシン (WSL からも localhost で届きます) の
+    どのプロセスからも Lisp を評価できるので、共有環境では
+    `M-: (wsl-debug-generate-token)` でトークンを作り、クライアント側に
+    `tools/wsl-debug.py --token <トークン>` と渡してください。
+    トークンは `si:uuid-create` (UUID v4) 由来の値です。
+  * プロトコル: 行単位・UTF-8。先頭行 `AUTH <トークン>` (トークン設定時
+    のみ)、以降 1 行 1 S 式。応答は必ず 1 行 (改行は空白に畳まれます)。
+  * 制約 (PoC なので): `accept` がブロッキングなので、serve 中の xyzzy は
+    応答専念になります (C-g または切断で復帰)。1 接続 1 セッションで、
+    同時接続は捌けません。ノンブロック化は今後の課題です。
+
 詳細
 ----
 

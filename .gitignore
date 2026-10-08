@@ -171,6 +171,10 @@ grammars/**/*.so
 grammars/commonlisp/
 /.serena/
 **/graphify-out/
+/.commandcode/
+
+# Python bytecode caches (tools/*.py)
+__pycache__/
 
 # CMake writes architecture-specific grammar libraries into the source tree for
 # development.  Release installs take the libraries from the build targets.

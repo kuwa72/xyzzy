@@ -58,8 +58,11 @@ xyzzy リリースノート
     `lisp/wsl-debug.l` の `M-x wsl-debug-serve` で `127.0.0.1:11722` に待受け、
     WSL 側 `tools/wsl-debug.py` から 1 行 1 S 式を送って評価結果 (`+OK` /
     `-ERR`) を受け取れる。トークン未設定時は認証なし、設定時は先頭行
-    `AUTH <token>` が必要。`accept` がブロッキングのため serve 中は xyzzy が
-    応答専念になる (C-g / 切断で復帰)。ノンブロック化は今後の課題。
+    `AUTH <token>` が必要。トークンは `wsl-debug-generate-token` が
+    `si:uuid-create` (UUID v4) から作る。`accept` がブロッキングのため
+    serve 中は xyzzy が応答専念になる (C-g / 切断で復帰)。ノンブロック化は
+    今後の課題。使い方と制約は `docs/user/wsl.md` の
+    「WSL 側から xyzzy を操作するデバッグサーバ (PoC)」を参照。
   * WSL 統合の使い方をまとめた `docs/user/wsl.md` を追加 (issue #389)。
     概要 (できること・できないこと)、入口コマンド (`wsl-open-directory` /
     `wsl` / `wsl-compile` / `wsl-git`)、パス変換とディストロ名の決まり方、
