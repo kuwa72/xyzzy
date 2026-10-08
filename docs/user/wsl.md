@@ -45,6 +45,9 @@ WSL 統合の基本は「パスが判断する」です。
   * パス変換の内部 API: `wsl-path-to-windows` (Linux → Windows)、
     `windows-path-to-wsl` (Windows → Linux)。自作拡張からも使えます
   * `M-x wsl-find-file` で WSL プロジェクト内のファイルを補完選択して開く
+  * 逆方向 (WSL のシェルから Windows 側の xyzzy を開く) には
+    `tools/xyzzy-wsl` を使います。後述「WSL 側シェルから xyzzy を開く」
+    を参照
 
 できないこと (既知の限界)
 --------------------------
@@ -55,10 +58,8 @@ WSL 統合の基本は「パスが判断する」です。
   WSL への自動ディスパッチは行われません (明示的にディストロを指定してください)。
 - ディストロ名がパスにもレジストリにもないときは、対話コマンドは
   選択を促します。`*wsl-distribution*` を設定すると既定値になります。
-- `tools/xyzzy-wsl` は WSL 側シェルから Windows の xyzzy を起動する
-  補助スクリプトです (WSL 内のシェルから `xyzzy .` で Windows 側の GUI
-  xyzzy をそのディレクトリ付きで開きます)。エディタ内で WSL に接込む
-  わけではありません。
+- `tools/xyzzy-wsl` (後述) は WSL のシェルから Windows の xyzzy を起動する
+  だけのスクリプトで、エディタ内から WSL に接込むわけではありません。
 
 始め方
 ------
@@ -112,6 +113,33 @@ Windows 10 では WSL の UNC プレフィックスは `\wsl.localhost` では�
 ```lisp
 (setq *wsl-unc-prefix* "\\\\wsl$")
 ```
+
+WSL 側シェルから xyzzy を開く
+------------------------------
+
+これまでの説明は「Windows 上の xyzzy → WSL 内のファイルやツール」という
+方向です。逆向き、つまり **WSL のシェルの中から `xyzzy .` と打って
+Windows 側 GUI の xyzzy をそのディレクトリ付きで開く**ための入口が
+`tools/xyzzy-wsl` です。
+
+```
+$ tools/xyzzy-wsl .          # カレントディレクトリを xyzzy で開く
+$ tools/xyzzy-wsl README.md  # ファイルを xyzzy で開く
+```
+
+`xyzzy` という名前で PATH の通った場所 (`~/bin/` など) に置くか、
+シェルの alias / 関数から呼んでください。
+
+探す順序は `XYZZY_EXE` → `XYZZYHOME/xyzzycli.exe` / `xyzzy.exe` →
+PATH 上の `xyzzycli.exe` / `xyzzy.exe` → `/mnt/c/xyzzy/` や
+`/mnt/c/Program Files/xyzzy/` といった既定のインストール先です。
+実在するパスの引数は `wslpath -w` で Windows パスに変換して渡します
+(`xyzzy .` が WSL 側のカレントディレクトリを指すのはこの変換のため)。
+見つからないときは `XYZZY_EXE` に `xyzzycli.exe` へのフルパス
+(例: `export XYZZY_EXE=/mnt/c/xyzzy/xyzzycli.exe`) を設定してください。
+
+`tools/` の WSL 関係スクリプトは 3 つあり、対象者が違います。
+役割表は [tools/README.md](../../tools/README.md) にまとめてあります。
 
 WSL 側から xyzzy を操作するデバッグサーバ (PoC)
 ----------------------------------------------
