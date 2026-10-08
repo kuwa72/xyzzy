@@ -63,6 +63,11 @@ xyzzy リリースノート
     serve 中は xyzzy が応答専念になる (C-g / 切断で復帰)。ノンブロック化は
     今後の課題。使い方と制約は `docs/user/wsl.md` の
     「WSL 側から xyzzy を操作するデバッグサーバ (PoC)」を参照。
+  * `tools/` 内の WSL 関係スクリプトの役割を整理した (issue #393)。
+    `tools/README.md` に対象者別の役割表 (利用者向け `xyzzy-wsl` /
+    WSL 上のエージェント向け `wsl-debug.py` / 開発者向け `win-xyzzy.sh`) を
+    追加し、`docs/user/wsl.md` に `xyzzy-wsl` の使い方の節、
+    `docs/dev/README.md` に `win-xyzzy.sh` が開発用である旨の案内を追加。
   * WSL 統合の使い方をまとめた `docs/user/wsl.md` を追加 (issue #389)。
     概要 (できること・できないこと)、入口コマンド (`wsl-open-directory` /
     `wsl` / `wsl-compile` / `wsl-git`)、パス変換とディストロ名の決まり方、
