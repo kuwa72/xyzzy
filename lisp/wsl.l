@@ -24,6 +24,8 @@
 	  wsl-find-file wsl-build-command-line wsl-git-command-line
 	  wsl-git-command-for build-wsl-p
 	  wsl-translate-log-paths wsl-compile build
+	  wsl-call-process
+	  wsl-utf16le-string-p wsl-decode-utf16le-string
 	  wsl-git))
 
 ;;; 設定変数
@@ -136,14 +138,112 @@ UTF-16LE 出力に含まれる NUL 文字や改行・空白を整形する。"
 	  (push trimmed result))))
     (nreverse result)))
 
+;;; ------------------------------------------------------------------
+;;; プロセス出力の取り込み (Issue #402)
+;;;
+;;; `call-process' の `:output' はファイル名しか受け付けない。バッファを
+;;; 渡すと無視され、子プロセスは xyzzy の標準出力を継承するので出力は
+;;; バッファには届かない (GUI 起動なら行方不明、コンソール起動なら
+;;; コンソールに出る)。そのため一時ファイル経由で取り込む。
+;;;
+;;; もうひとつの罠は wsl.exe の出力エンコーディング: wsl.exe は stdout が
+;;; パイプのとき UTF-16LE で書く (BOM なし)。`WSL_UTF8=1' を環境変数に
+;;; 足すと UTF-8 出力に切り替わる (WSL 0.64.0+ の公式 opt-in)。古い
+;;; WSL はこの変数を無視して UTF-16LE のままなので、取り込み時に
+;;; UTF-16LE を検出してデコードする。
+
+(defun wsl-utf16le-string-p (s)
+  "バイト列文字列 S (1 文字 = 1 バイト) が UTF-16LE らしければ t を返す。
+BOM (FF FE) または奇数バイトの NUL 密度で判定する。"
+  (when (and (stringp s) (> (length s) 1))
+    (or (and (eql (char s 0) #\xff)
+	     (eql (char s 1) #\xfe))
+	(let ((n (min (length s) 512))
+	      (odd-nul 0)
+	      (odd-total 0))
+	  (do ((i 1 (+ i 2)))
+	      ((>= i n))
+	    (incf odd-total)
+	    (when (zerop (char-code (char s i)))
+	      (incf odd-nul)))
+	  (and (plusp odd-total) (>= odd-nul (ceiling odd-total 2)))))))
+
+(defun wsl-decode-utf16le-string (s)
+  "バイト列文字列 S (1 文字 = 1 バイト) を UTF-16LE としてデコードする。
+先頭の BOM は落とし、サロゲートペアは合成する。"
+  (with-output-to-string (out)
+    (let ((n (length s))
+	  (i 0))
+      (when (and (> n 1) (eql (char s 0) #\xff) (eql (char s 1) #\xfe))
+	(setq i 2))
+      (while (< i n)
+	(let* ((lo (char-code (char s i)))
+	       (hi (if (< (1+ i) n) (char-code (char s (1+ i))) 0))
+	       (u (logior lo (ash hi 8))))
+	  (setq i (+ i 2))
+	  (if (and (>= u #xd800) (< u #xdc00) (< (1+ i) n))
+	      (let* ((lo2 (char-code (char s i)))
+		     (hi2 (char-code (char s (1+ i))))
+		     (u2 (logior lo2 (ash hi2 8))))
+		(setq i (+ i 2))
+		(if (and (>= u2 #xdc00) (< u2 #xe000))
+		    (write-char (code-char (+ #x10000
+					      (ash (- u #xd800) 10)
+					      (- u2 #xdc00)))
+				out)
+		  (progn
+		    (write-char (code-char u) out)
+		    (write-char (code-char u2) out))))
+	    (write-char (code-char u) out)))))))
+
+(defun wsl-read-file-as-binary (file &optional limit)
+  "FILE を :binary で読み、1 文字 = 1 バイトの文字列として返す。
+LIMIT 非 nil なら先頭 LIMIT バイトだけ読む。"
+  (with-open-file (s file :direction :input :encoding :binary)
+    (with-output-to-string (out)
+      (do ((i 0 (1+ i))
+	   (c (read-char s nil nil) (read-char s nil nil)))
+	  ((or (null c) (and limit (>= i limit))))
+	(write-char c out)))))
+
+(defun wsl-insert-command-output (buffer file)
+  "FILE の内容を BUFFER の末尾に挿入する。
+内容が UTF-16LE ならデコードして挿入し、それ以外は
+`insert-file-contents' のエンコーディング自動判定に任せる。"
+  (when (and (file-exist-p file) (plusp (file-length file)))
+    (save-excursion
+      (set-buffer buffer)
+      (goto-char (point-max))
+      (if (wsl-utf16le-string-p (wsl-read-file-as-binary file 512))
+	  (insert (substitute-string
+		   (wsl-decode-utf16le-string
+		    (wsl-read-file-as-binary file))
+		   "\r" ""))
+	(insert-file-contents file)))))
+
+(defun wsl-call-process (command-line buffer)
+  "COMMAND-LINE を実行し、標準出力と標準エラーを BUFFER の末尾に挿入する。
+戻り値は終了コード (`call-process' と同じ)。wsl.exe 向けに
+`WSL_UTF8=1' を環境変数に足して起動する (他のプログラムには無害)。"
+  (let ((outfile (make-temp-file-name)))
+    (unwind-protect
+	(prog1
+	    (call-process command-line
+			  :output outfile
+			  :environ '(("WSL_UTF8" . "1"))
+			  :show :hide
+			  :wait t)
+	  (wsl-insert-command-output buffer outfile))
+      (ignore-errors (delete-file outfile)))))
+
 (defun wsl-list-distributions ()
   "wsl.exe -l -q を実行し、利用可能なディストリビューション名のリストを返す。"
   (interactive)
   (let ((buf (create-new-buffer " *wsl-list*")))
     (unwind-protect
 	(let ((status (ignore-errors
-			(call-process (format nil "~A -l -q" *wsl-command*)
-				      :output buf :show :hide :wait t))))
+			(wsl-call-process (format nil "~A -l -q" *wsl-command*)
+					  buf))))
 	  (if (and status (zerop status))
 	      (save-excursion
 		(set-buffer buf)
@@ -505,6 +605,13 @@ Linux パスは `wsl-translate-log-paths' で Windows パスに
   "WSL 上で git を実行するためのコマンドライン文字列を構築する。"
   (wsl-build-command-line (format nil "git ~A" git-args) distro wsl-dir))
 
+(defun wsl-path-boundary-p (string pos)
+  "POS の文字が絶対パスの開始位置として妥当なトークン境界かを返す。
+`/' が `C:/x' の `:' 直後や `src/foo.c' の途中に来るものをパス先頭と
+誤認すると、ログ中の Windows パスや相対パスまで壊れる (#402)。"
+  (or (zerop pos)
+      (find (char string (1- pos)) " \t\n\r'\"(<>=|;&`")))
+
 (defun wsl-translate-log-paths (log-string &optional distro)
   "コンパイルログ内の Linux パス (/home/... や /mnt/c/... など) を Windows パスに変換する。"
   (unless (stringp log-string)
@@ -513,15 +620,20 @@ Linux パスは `wsl-translate-log-paths' で Windows パスに
 	(result "")
 	(start 0))
     ;; Linux の絶対パスパターン: /mnt/<drive>/... または /<dir>/...
+    ;; トークン境界に来るものだけを対象にする (wsl-path-boundary-p)。
     (while (string-match "\\(/mnt/[a-zA-Z]/[^:() \t'\"<>]+\\|/[^:() \t'\"<>]+\\)" log-string start)
       (let* ((m-start (match-beginning 1))
-	     (m-end (match-end 1))
-	     (linux-path (subseq log-string m-start m-end))
-	     (win-path (wsl-path-to-windows linux-path target-distro)))
-	(setq result (concat result
-			     (subseq log-string start m-start)
-			     win-path))
-	(setq start m-end)))
+	     (m-end (match-end 1)))
+	(if (wsl-path-boundary-p log-string m-start)
+	    (let* ((linux-path (subseq log-string m-start m-end))
+		   (win-path (wsl-path-to-windows linux-path target-distro)))
+	      (setq result (concat result
+				   (subseq log-string start m-start)
+				   win-path))
+	      (setq start m-end))
+	  ;; 境界でなければそのマッチは素通しする
+	  (setq result (concat result (subseq log-string start m-end))
+		start m-end))))
     (concat result (subseq log-string start))))
 
 (defun compile-run (cmdline cwd target-dir distro buf-name header)
@@ -538,18 +650,23 @@ HEADER はコマンドの直後に載せる説明文。"
       (insert (format nil "-*- mode: compilation; default-directory: ~S -*-\n"
 		      target-dir))
       (insert header)
-      (if cwd
-	  (let ((default-dir (default-directory)))
-	    (set-default-directory cwd)
-	    (call-process cmdline :output buf :show :hide :wait t)
-	    (set-default-directory default-dir))
-	(call-process cmdline :output buf :show :hide :wait t))
-      (when distro
-	(let ((translated (wsl-translate-log-paths
-			   (buffer-substring (point-min) (point-max))
-			   distro)))
-	  (erase-buffer buf)
-	  (insert translated)))
+      ;; **ヘッダは翻訳しない。** バッファ全体を `wsl-translate-log-paths'
+      ;; にかけると `default-directory' や `Command:' の表示が実際に
+      ;; 実行したコマンドと乖離する (#402)。
+      (let ((output-start (point)))
+	(if cwd
+	    (let ((default-dir (default-directory)))
+	      (set-default-directory cwd)
+	      (wsl-call-process cmdline buf)
+	      (set-default-directory default-dir))
+	  (wsl-call-process cmdline buf))
+	(when distro
+	  (let ((translated (wsl-translate-log-paths
+			     (buffer-substring output-start (point-max))
+			     distro)))
+	    (delete-region output-start (point-max))
+	    (goto-char output-start)
+	    (insert translated))))
       (goto-char (point-min)))
     (pop-to-buffer buf)
     (when (fboundp 'set-error-buffer)
@@ -602,7 +719,7 @@ compilation バッファに出力してエラー解析を行う。"
       (set-buffer buf)
       (setq buffer-read-only nil)
       (erase-buffer buf)
-      (call-process cmdline :output buf :show :hide :wait t)
+      (wsl-call-process cmdline buf)
       (let ((translated (wsl-translate-log-paths (buffer-substring (point-min) (point-max)) target-distro)))
 	(erase-buffer buf)
 	(insert translated))

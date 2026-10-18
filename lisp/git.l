@@ -51,7 +51,9 @@ Windows パスに変換する (`git-status' 等が WSL プロジェクトで
 	(erase-buffer buf)
 	(if wsl-dispatch
 	    (progn
-	      (call-process (car wsl-dispatch) :output buf :show :hide)
+	      ;; :output はファイル名しか取れないので一時ファイル経由
+	      ;; で取り込むラッパを使う (wsl.l, issue #402)。
+	      (wsl-call-process (car wsl-dispatch) buf)
 	      (let ((translated (wsl-translate-log-paths
 				 (buffer-substring (point-min) (point-max))
 				 (cdr wsl-dispatch))))
