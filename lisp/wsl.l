@@ -21,6 +21,7 @@
 	  wsl-remember-project wsl-project-distro-for
 	  wsl-read-distro-or-current
 	  wsl-open-directory wsl-read-directory wsl-resolve-directory-path
+	  wsl-directory-to-unc
 	  wsl-find-file wsl-build-command-line wsl-git-command-line
 	  wsl-git-command-for build-wsl-p
 	  wsl-translate-log-paths wsl-compile build
@@ -547,12 +548,43 @@ Windows UNC パス (\\\\wsl.localhost\\<distro>\\...) を初期値として read
   (setq buffer-read-only t)
   (set-buffer-modified-p nil))
 
-(defun wsl-find-file (&optional dir)
-  "WSL プロジェクト内のファイルを補完選択して開く。"
-  (interactive)
+(defun wsl-directory-to-unc (wsl-path distro)
+  "WSL ディレクトリパス WSL-PATH を DISTRO の UNC ディレクトリ
+\(スラッシュ区切り・末尾 / 付き) に正規化して返す。
+`wsl-find-file' がプロジェクト外で選んだフォルダを
+`project-find-file' のルートと `*wsl-project-list*' のキーに
+そのまま使える形にするための変換 (issue #406)。"
+  (let* ((resolved (wsl-resolve-directory-path wsl-path distro))
+	 (unc (wsl-path-to-windows resolved distro))
+	 (s (map-backslash-to-slash unc)))
+    (if (string-match "/$" s) s (concat s "/"))))
+
+(defun wsl-find-file (&optional dir distro)
+  "WSL プロジェクト内のファイルを補完選択して開く。
+WSL プロジェクト外で対話的に呼んだときは、`wsl-open-directory' と
+同じくディストロと WSL 内のディレクトリを聞き (補完は
+\\\\wsl.localhost\\<distro>\\ から始まる)、選んだフォルダを WSL
+プロジェクトとして `*wsl-project-list*' に登録してから、
+配下のファイルを補完選択する (issue #406)。
+非対話呼び出しでプロジェクト外の DIR だけを渡した場合は従来どおり
+`find-file' を対話的に呼ぶ。"
+  (interactive
+   (let ((dd (default-directory)))
+     (if (wsl-project-p dd)
+	 (list dd)
+       (let* ((d (wsl-read-distro-or-current "WSL distribution: "))
+	      (w (wsl-read-directory nil d "~")))
+	 (list (wsl-directory-to-unc w d) d)))))
   (let ((target-dir (or dir (default-directory))))
-    (if (and (fboundp 'project-find-file) (wsl-project-p target-dir))
-	(project-find-file target-dir)
+    (if (wsl-project-p target-dir)
+	(progn
+	  (when distro
+	    (wsl-remember-project distro target-dir)
+	    (when (fboundp 'project-remember-project)
+	      (project-remember-project target-dir)))
+	  (if (fboundp 'project-find-file)
+	      (project-find-file target-dir)
+	    (find-file target-dir)))
       (call-interactively 'find-file))))
 
 (defun build-wsl-p (&optional dir)

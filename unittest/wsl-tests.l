@@ -317,6 +317,83 @@ UNC パス (`\\\\\\\\wsl.localhost\\\\...`) で、Windows 上の xyzzy では実
   (fboundp 'wsl-find-file)
   => t)
 
+(deftest wsl-directory-to-unc-test ()
+  "wsl-directory-to-unc が WSL ディレクトリパスを UNC ディレクトリ
+\(スラッシュ区切り・末尾 / 付き) に正規化する (#406)
+Linux パス・チルダ・UNC 入力を受け取り、project-find-file の
+ルートと *wsl-project-list* のキーにそのまま使える形にする。
+/mnt/<drive> は Windows ドライブパスになる"
+  (let ((*wsl-unc-prefix* "\\\\wsl.localhost"))
+    (list (wsl-directory-to-unc "/home/user/proj" "Ubuntu")
+	  (wsl-directory-to-unc "/home/user/proj/" "Ubuntu")
+	  (wsl-directory-to-unc "~" "Ubuntu")
+	  (wsl-directory-to-unc "~/proj" "Debian")
+	  ;; UNC 入力に含まれるディストロ名は Linux パスへの解決で
+	  ;; 落ち、プロンプトの DISTRO が優先される
+	  ;; (wsl-open-directory と同じ扱い)
+	  (wsl-directory-to-unc "\\\\wsl.localhost\\Ubuntu\\home\\user" "Debian")
+	  (wsl-directory-to-unc "/mnt/c/work" "Ubuntu")))
+  => ("//wsl.localhost/Ubuntu/home/user/proj/"
+      "//wsl.localhost/Ubuntu/home/user/proj/"
+      "//wsl.localhost/Ubuntu/home/"
+      "//wsl.localhost/Debian/home/proj/"
+      "//wsl.localhost/Debian/home/user/"
+      "C:/work/"))
+
+(deftest wsl-find-file-inside-project-uses-project-find-file ()
+  "WSL プロジェクト内では project-find-file をそのディレクトリで呼ぶ (従来動作の維持)"
+  (let ((pff-root nil)
+	(orig-pff (symbol-function 'project-find-file)))
+    (unwind-protect
+	(progn
+	  (setf (symbol-function 'project-find-file)
+		(lambda (&optional root) (setq pff-root root) :opened))
+	  (list (wsl-find-file "//wsl.localhost/Ubuntu/home/user/proj/")
+		pff-root))
+      (setf (symbol-function 'project-find-file) orig-pff)))
+  => (:opened "//wsl.localhost/Ubuntu/home/user/proj/"))
+
+(deftest wsl-find-file-outside-project-picks-wsl-dir ()
+  "WSL プロジェクト外で対話呼び出ししたときは、ディストロと WSL
+ディレクトリを聞いて選んだフォルダの UNC ルートで project-find-file
+を呼び、*wsl-project-list* に登録する (#406)
+これまでは無条件に Windows 側 find-file に落ち、GUI ファイラが
+xyzzy の起動ディレクトリを開くだけで WSL フォルダを選べなかった"
+  ;; 前のテスト (wsl-open-directory-*) が残したバッファローカルの
+  ;; *wsl-project-distro* を遮断するため、クリーンな一時バッファで
+  ;; 実行する。残っていると Windows パスでも wsl-project-p が t に
+  ;; なり、ここで見たい分岐に入らない (let ではバッファローカル
+  ;; 値は隠せない)。
+  (save-excursion
+    (set-buffer (get-buffer-create " *wsl-ff-outside*"))
+    (let ((*wsl-project-list* nil)
+	  ;; project-remember-project が触る *project-list* も退避して
+	  ;; テスト側の副作用を残さない
+	  (*project-list* nil)
+	  (read-dir-args nil)
+	  (pff-root nil)
+	  (orig-read-distro (symbol-function 'wsl-read-distro-or-current))
+	  (orig-read-dir (symbol-function 'wsl-read-directory))
+	  (orig-pff (symbol-function 'project-find-file)))
+      (unwind-protect
+	  (progn
+	    (setf (symbol-function 'wsl-read-distro-or-current)
+		  (lambda (&rest args) "Debian"))
+	    (setf (symbol-function 'wsl-read-directory)
+		  (lambda (&rest args) (setq read-dir-args args) "/home/user/proj"))
+	    (setf (symbol-function 'project-find-file)
+		  (lambda (&optional root) (setq pff-root root) :opened))
+	    (list (call-interactively 'wsl-find-file)
+		  pff-root
+		  (cdr (assoc "//wsl.localhost/Debian/home/user/proj"
+			      *wsl-project-list* :test #'string-equal))
+		  (cadr read-dir-args)))
+	(setf (symbol-function 'wsl-read-distro-or-current) orig-read-distro)
+	(setf (symbol-function 'wsl-read-directory) orig-read-dir)
+	(setf (symbol-function 'project-find-file) orig-pff)
+	(ignore-errors (kill-buffer " *wsl-ff-outside*")))))
+  => (:opened "//wsl.localhost/Debian/home/user/proj/" "Debian" "Debian"))
+
 (deftest wsl-read-directory-defined ()
   "wsl-read-directory 関数が定義されている"
   (fboundp 'wsl-read-directory)

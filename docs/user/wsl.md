@@ -44,7 +44,10 @@ WSL 統合の基本は「パスが判断する」です。
   * クリップボードの Windows 連携 (`wsl-copy-region` / `wsl-paste`)
   * パス変換の内部 API: `wsl-path-to-windows` (Linux → Windows)、
     `windows-path-to-wsl` (Windows → Linux)。自作拡張からも使えます
-  * `M-x wsl-find-file` で WSL プロジェクト内のファイルを補完選択して開く
+  * `M-x wsl-find-file` で WSL プロジェクト内のファイルを補完選択して開く。
+    WSL プロジェクト外で実行したときは、まずディストロと WSL 内の
+    ディレクトリを補完入力で選び (`wsl-open-directory` と同じ手順)、
+    選んだフォルダをプロジェクトとして登録してからファイルを選びます
   * 逆方向 (WSL のシェルから Windows 側の xyzzy を開く) には
     `tools/xyzzy-wsl` を使います。後述「WSL 側シェルから xyzzy を開く」
     を参照
