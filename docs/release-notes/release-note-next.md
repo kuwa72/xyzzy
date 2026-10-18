@@ -15,6 +15,13 @@ xyzzy リリースノート
 変更
 ----
 
+  * Rust ソース編集用の `rust-mode` を追加 (issue #404)。`.rs` が
+    `*auto-mode-alist*` に未登録で `fundamental-mode` で開かれて
+    いた。`javascript-mode`/`toml-mode` と同型で、`//`・`/* */`
+    コメントと `"` 文字列をシンタクステーブルで扱い、ライフタイム
+    (`'a`) と文字リテラル (`'x'`) を混同しないよう `'` は文字列
+    扱いせず regexp キーワード側で「閉じクォートがあるものだけ」に
+    色づけする。インデントは cc-mode 系 (4 空白)。
   * WSL 上でのコマンド実行 (`wsl-compile` / `wsl-git` /
     `wsl-list-distributions` / `git-status` 等の WSL ディスパッチ) の
     出力が実機 Windows で正しくバッファに取り込まれず、wsl.exe の
