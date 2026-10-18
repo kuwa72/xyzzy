@@ -22,6 +22,16 @@ xyzzy リリースノート
     (`'a`) と文字リテラル (`'x'`) を混同しないよう `'` は文字列
     扱いせず regexp キーワード側で「閉じクォートがあるものだけ」に
     色づけする。インデントは cc-mode 系 (4 空白)。
+  * `wsl-find-file` を WSL プロジェクト外でも使えるようにした
+    (issue #406)。これまでは `default-directory` が WSL プロジェクト
+    (`\\wsl.localhost\...`) でないと、何も聞かずに Windows 側の
+    `find-file` に落ち、GUI ファイラが xyzzy の起動ディレクトリを
+    開くだけで WSL 内のフォルダを選ぶ経路がなかった。プロジェクト外
+    では `wsl-open-directory` と同じくディストロと WSL 内の
+    ディレクトリを補完入力させ、選んだフォルダを
+    `*wsl-project-list*` に登録してから `project-find-file` で配下の
+    ファイルを補完選択する。あわせて、選んだディレクトリを UNC 形に
+    正規化する `wsl-directory-to-unc` を公開関数にした。
   * WSL 上でのコマンド実行 (`wsl-compile` / `wsl-git` /
     `wsl-list-distributions` / `git-status` 等の WSL ディスパッチ) の
     出力が実機 Windows で正しくバッファに取り込まれず、wsl.exe の
