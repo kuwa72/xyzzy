@@ -177,6 +177,71 @@
       "Building target all"))
 
 ;;; ------------------------------------------------------------------
+;;; 6.5 ログ翻訳の境界条件と wsl.exe 出力の取り込み (Issue #402)
+;;;
+;;; `wsl-translate-log-paths' はコンパイルログ中の Linux パスを
+;;; Windows パスに戻すためにあるが、`/' で始まる並びを無条件にパスと
+;;; みなすと、ログ中の Windows パスや相対パスまで壊れて next-error の
+;;; ジャンプ先が嘘になる。
+
+(deftest wsl-translate-log-paths-keeps-windows-paths ()
+  "ログ中の Windows パス (C:/...)、相対パス (src/foo.c)、URL を壊さない
+`/' が `:' やトークンの途中に来るものはパス先頭ではない (#402)"
+  (let ((*wsl-unc-prefix* "\\\\wsl.localhost"))
+    (list (wsl-translate-log-paths "gcc -o C:/Users/u/a.o -I C:/Users/u/inc" "Ubuntu")
+          (wsl-translate-log-paths "src/foo.c:10:2: error: nope" "Ubuntu")
+          (wsl-translate-log-paths "see http://example.com/a/b" "Ubuntu")
+          (wsl-translate-log-paths "default-directory: \"C:/Users/u/proj/\"" "Ubuntu")))
+  => ("gcc -o C:/Users/u/a.o -I C:/Users/u/inc"
+      "src/foo.c:10:2: error: nope"
+      "see http://example.com/a/b"
+      "default-directory: \"C:/Users/u/proj/\""))
+
+(deftest wsl-translate-log-paths-boundary ()
+  "トークン境界にある Linux パスは従来どおり翻訳する (#402)"
+  (let ((*wsl-unc-prefix* "\\\\wsl.localhost"))
+    (list (wsl-translate-log-paths "/home/user/main.c:10:5: error: x" "Ubuntu")
+          (wsl-translate-log-paths "gcc -I /home/user/inc /home/user/a.c" "Ubuntu")
+          (wsl-translate-log-paths "make[1]: Entering directory '/home/user/proj'" "Ubuntu")
+          (wsl-translate-log-paths "(/home/user/a.o): undefined ref" "Ubuntu")))
+  => ("\\\\wsl.localhost\\Ubuntu\\home\\user\\main.c:10:5: error: x"
+      "gcc -I \\\\wsl.localhost\\Ubuntu\\home\\user\\inc \\\\wsl.localhost\\Ubuntu\\home\\user\\a.c"
+      "make[1]: Entering directory '\\\\wsl.localhost\\Ubuntu\\home\\user\\proj'"
+      "(\\\\wsl.localhost\\Ubuntu\\home\\user\\a.o): undefined ref"))
+
+(deftest wsl-utf16le-string-p-test ()
+  "バイト列文字列が UTF-16LE かどうかの判定 (#402)"
+  (list (wsl-utf16le-string-p "U\0b\0u\0n\0t\0u\0\r\0\n\0")
+        (wsl-utf16le-string-p "\xff\xfeU\0b\0")
+        (wsl-utf16le-string-p "plain ascii output\n")
+        (wsl-utf16le-string-p "")
+        (wsl-utf16le-string-p nil))
+  => (t t nil nil nil))
+
+(deftest wsl-decode-utf16le-string-test ()
+  "UTF-16LE のバイト列文字列をデコードする (#402)"
+  ;; キリル文字 (U+0416 = Ж) や非 ASCII を含む
+  (list (wsl-decode-utf16le-string "U\0b\0u\0n\0t\0u\0")
+        (wsl-decode-utf16le-string "\x16\x04\x38\x04")  ; Ж и
+        (wsl-decode-utf16le-string ""))
+  => ("Ubuntu" "Жи" ""))
+
+(deftest wsl-call-process-captures-output ()
+  "call-process の :output はファイル名しか取れないので、
+wsl-call-process は一時ファイル経由でバッファへ出力を取り込む (#402)"
+  (let* ((buf (create-new-buffer " *wsl-callproc-test*"))
+         (cmd (if (featurep :unix) "echo hello-xyzzy" "cmd /c echo hello-xyzzy"))
+         (rc (wsl-call-process cmd buf)))
+    (prog1 (list (and rc (zerop rc) t)
+                 (and (string-match "hello-xyzzy"
+                                    (save-excursion
+                                      (set-buffer buf)
+                                      (buffer-substring (point-min) (point-max))))
+                      t))
+      (ignore-errors (delete-buffer buf))))
+  => (t t))
+
+;;; ------------------------------------------------------------------
 ;;; WSL ディレクトリオープン (Issue #391)
 
 (defun wslt-make-temp-dir ()

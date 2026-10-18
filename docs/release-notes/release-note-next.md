@@ -15,6 +15,20 @@ xyzzy リリースノート
 変更
 ----
 
+  * WSL 上でのコマンド実行 (`wsl-compile` / `wsl-git` /
+    `wsl-list-distributions` / `git-status` 等の WSL ディスパッチ) の
+    出力が実機 Windows で正しくバッファに取り込まれず、wsl.exe の
+    UTF-16LE 出力が文字化けしていた問題を修正 (issue #402)。
+    `call-process` の `:output` はファイル名しか受け付けず、バッファを
+    渡すと子プロセスが xyzzy の標準出力を継承して出力が失われていた
+    ので、一時ファイル経由で取り込む `wsl-call-process` に置き換えた。
+    あわせて `WSL_UTF8=1` を環境変数に足して wsl.exe の出力を UTF-8 に
+    切り替え、非対応の古い WSL では UTF-16LE を検出してデコードする。
+    また `wsl-translate-log-paths` がヘッダ行を含むバッファ全体を翻訳
+    していたため `default-directory` や `Command:` の表示が実コマンドと
+    乖離していた問題を、翻訳対象をプロセス出力のみに限定することで
+    修正し、`/` のマッチにトークン境界のチェックを加えてログ中の
+    `C:/x` や `src/foo.c` が壊れないようにした。
   * Lisp の未定義関数呼び出しをテスト前に検出する静的検査
     `tools/check-lisp-undefined.py` を追加。バイトコンパイラは未定義関数
     を警告しないため、`lsp-mode` の `prefix-numeric-value` のように実行時
