@@ -70,6 +70,7 @@
 			    ("\\.tsx$" . typescript-mode)
 			    ("\\.py$" . python-mode)
 			    ("\\.pyw$" . python-mode)
+			    ("\\.rs$" . rust-mode)
 			    ("\\.json$" . json-mode)
 			    ("\\.jsonc$" . json-mode)
 			    ("\\.ya?ml$" . yaml-mode)
@@ -323,6 +324,9 @@
 
 (export 'python-mode)
 (autoload 'python-mode "python-mode" t)
+
+(export 'rust-mode)
+(autoload 'rust-mode "rust-mode" t)
 
 (export 'json-mode)
 (autoload 'json-mode "json-mode" t)
