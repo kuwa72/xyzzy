@@ -78,7 +78,7 @@
 	     ;; ('a, 'static) との区別のため先に置く。
 	     ("'\\([^'\n]\\|\\\\.\\)'" nil :string)
 	     ;; 属性 #[...] / #![...]
-	     ("#\\!?\\[[^]\n]*\\]" nil :keyword)
+	     ("#\\!?\\[[^]\n]*\\]" nil 0)
 	     ;; キーワード
 	     ("\\b\\(as\\|async\\|await\\|break\\|const\\|continue\\|crate\\|dyn\\|else\\|enum\\|extern\\|fn\\|for\\|if\\|impl\\|in\\|let\\|loop\\|match\\|mod\\|move\\|mut\\|pub\\|ref\\|return\\|static\\|struct\\|super\\|trait\\|type\\|unsafe\\|use\\|where\\|while\\)\\b" nil 0)
 	     ;; 値キーワードと self/Self
