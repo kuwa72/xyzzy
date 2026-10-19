@@ -211,3 +211,23 @@ xyzzy リリースノート
     エラーにした。あわせて各段階 (unpacking / clearing / copying /
     saving) の開始を表示し、9p 越しの低速コピー (約 30MB×2 arch) が
     ハングに見えないようにした。
+  * CLI エージェント作業フローを統合する `lisp/agent.l` を追加
+    (issue #408)。これまでは `M-x wsl` で端末を開いてからエージェント
+    コマンドを手で打ち、ファイルやエラーの受け渡し・変更後の
+    バッファ反映・差分確認も個別の手作業だった。`M-x agent` で
+    プロジェクトルートに紐づく `*Agent:<root>*` pty 端末を起動する
+    (WSL プロジェクトでは `wsl.exe -d <distro> --cd <dir>` 経由の
+    login shell から、POSIX では `sh -lc` から、Windows ネイティブでは
+    `cmd.exe /c` から)。起動コマンドは `*agent-command*` /
+    `*agent-command-list*` で設定でき、`C-u M-x agent` で一覧から
+    選択する。コードバッファ側からは `agent-send-file` (ルート相対の
+    `@path` 参照をプロンプトへ挿入、WSL 側には WSL パスへ変換)、
+    `agent-send-region` (bracketed-paste で一塊送信)、
+    `agent-send-error` (カーソル行を送信) でコンテキストを渡せる。
+    `agent-diff` がプロジェクトの `git diff` を `*Agent-Diff*` に
+    表示し (C-u で HEAD 差分)、`agent-revert-changed` がディスク上で
+    変更された未編集バッファをまとめて revert する。あわせて
+    `toggle-terminal-drawer` を `toggle-buffer-drawer` に一般化し、
+    `toggle-agent-drawer` で agent バッファを画面下部に出せるように
+    した。leader は `M-m a` に agent カテゴリを追加。
+    回帰テストは `unittest/agent-tests.l`。
