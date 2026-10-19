@@ -15,6 +15,14 @@ xyzzy リリースノート
 変更
 ----
 
+  * エラー行解析 (`next-error` 系) が python traceback
+    (`  File "x.py", line N`)、rustc (`  --> file.rs:line:col`)、
+    tsc (`file.ts(line,col):`) に対応していなかった問題を修正
+    (issue #414)。tsc については従来の `file(line)` 正規表現を
+    `[,)]` までに広げ、python/rustc 用の形式を
+    `*error-regexp-list*` に追加した。gcc/clang と go
+    (`file:line:col:`) は従来どおり。回帰テストを
+    `unittest/errors-tests.l` にツールチェーン別 5 件追加。
   * `next-error` (`C-x \`` / F11) が「最初のエラー」にジャンプしない
     問題を修正 (issue #410)。`goto-error` がエントリを visit する前に
     `*rerror-list*` へ移していたため、構築済みリストでは先頭が常に

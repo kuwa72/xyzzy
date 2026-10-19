@@ -57,10 +57,15 @@
 
 (defvar *error-regexp-list*
   (list
-   (list (compile-regexp "^\\(.+\\)[ \t]*(\\([0-9]+\\))") 1 2)
+   ;; file(line) / file(line,col): MSVC 系と tsc 系
+   (list (compile-regexp "^\\(.+\\)[ \t]*(\\([0-9]+\\)[,)]") 1 2)
    (list (compile-regexp "^\\(.+\\)[:：][ \t]*\\([0-9]+\\)\\([:： \t]\\|$\\)") 1 2)
    (list (compile-regexp "^[^ \n]+ \\(.+\\) \\([0-9]+\\):") 1 2)
-   (list (compile-regexp "^[^ \n]+ [^ \n]+ \\(.+\\) \\([0-9]+\\):") 1 2)))
+   (list (compile-regexp "^[^ \n]+ [^ \n]+ \\(.+\\) \\([0-9]+\\):") 1 2)
+   ;; python traceback:   File "x.py", line N, in ...
+   (list (compile-regexp "^[ \t]*File \"\\(.+\\)\", line \\([0-9]+\\)") 1 2)
+   ;; rustc:   --> src/main.rs:line:col
+   (list (compile-regexp "^[ \t]*-->[ \t]+\\(.+\\)[:：]\\([0-9]+\\)[:：][0-9]+") 1 2)))
 
 (defun find-errors (later)
   (let ((opoint (point))
