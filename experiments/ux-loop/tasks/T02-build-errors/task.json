@@ -1,0 +1,13 @@
+{
+  "id": "T02-build-errors",
+  "title": "Build project and jump to first error",
+  "goal": "Run a build in the project directory, read the failures in the compilation output, and jump to the first error in the source. The fixture fails: hello.c line 6 is missing a semicolon.",
+  "open": "work/hello.c",
+  "expect": [
+    "error:",
+    "hello\\.c"
+  ],
+  "expect_last": [
+    "| hello\\.c |"
+  ]
+}

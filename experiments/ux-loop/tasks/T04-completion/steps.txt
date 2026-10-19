@@ -1,0 +1,4 @@
+# go to end of buffer (M->), start a new form, type a partial symbol
+\e>\n(my-samp
+# expand it with dabbrev (C-x /)
+\Cx/

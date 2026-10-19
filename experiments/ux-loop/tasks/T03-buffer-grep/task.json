@@ -1,0 +1,13 @@
+{
+  "id": "T03-buffer-grep",
+  "title": "Grep buffer for TODO markers",
+  "goal": "List all TODO markers in the open file, read the hit list, and jump to the first hit.",
+  "open": "work/notes.txt",
+  "expect": [
+    "notes\\.txt",
+    "TODO"
+  ],
+  "expect_last": [
+    "| notes\\.txt |"
+  ]
+}

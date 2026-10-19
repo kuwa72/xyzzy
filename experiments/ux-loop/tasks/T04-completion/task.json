@@ -1,0 +1,7 @@
+{
+  "id": "T04-completion",
+  "title": "Complete a symbol",
+  "goal": "While editing lisp code, expand a partial symbol name using the editor's completion.",
+  "open": "work/sample.l",
+  "expect": ["my-sample-function"]
+}

@@ -16,6 +16,13 @@
 
 (defvar *error-list* nil)
 (defvar *rerror-list* nil)
+;;; **car of *error-list* = 現在表示中 (または未表示なら次に行く)
+;;; エントリ、*rerror-list* = すでに通過した履歴。** この不変条件が成り
+;;; 立つのは「先頭を visit してから履歴へ移す」ときだけで、逆順だと
+;;; 1 件だけのエラーが永遠に visit されない (issue #410)。未表示状態は
+;;; *error-shown-p* が nil の間だけで、first-error 直後も nil ではない
+;;; (次の next-error が 2 件目へ進むために t になっている必要がある)。
+(defvar *error-shown-p* nil)
 (defvar *max-error-list* 100)
 (defvar *error-buffer* nil)
 (defvar *last-error* nil)
@@ -157,8 +164,15 @@
 (defun build-error-list ()
   (setq *last-error* nil)
   (setq *nerrors-found* 0)
+  ;; **バッファ全体を走査する。** find-errors はポイントから前方向しか
+  ;; 見ないので、呼ぶ側が末尾に点を残していると先頭のエラーを丸ごと
+  ;; 取りこぼす (*compilation* は再利用されるので起きうる)。
+  (goto-char (point-min))
   (build-error-list-1)
   (setq *rerror-list* nil)
+  ;; 新しいリストはまだ何も表示していない。これがないと最初の
+  ;; next-error が先頭を「表示済み」とみなして捨てる (issue #410)。
+  (setq *error-shown-p* nil)
   (setq *error-buffer* (selected-buffer)))
 
 (defun rebuild-error-list ()
@@ -171,7 +185,10 @@
       (build-error-list-1))))
 
 (defun goto-error (next)
-  (when (and next *error-list*)
+  ;; 「次へ」は**表示済みの先頭だけ**を履歴へ移す。無条件に移すと
+  ;; まだ見せていないエントリが捨てられ、1 件だけのとき rebuild が
+  ;; 空を返して最初の next-error が必ず失敗する (issue #410)。
+  (when (and next *error-list* *error-shown-p*)
     (setq *rerror-list* (cons (car *error-list*) *rerror-list*))
     (setq *error-list* (cdr *error-list*)))
   (when (and *rerror-list*
@@ -201,6 +218,9 @@
 	     (eq *highlight-error* t)
 	     (show-match)))
       (recenter)
+      ;; ここまで来たということは car を表示したということ。
+      ;; 次の goto-error t がそれを履歴へ移せるように立てる。
+      (setq *error-shown-p* t)
       t)))
 
 (defun first-error (&optional arg wrap)
@@ -218,7 +238,13 @@
 		  (and (= (cdr x) l)
 		       (return))
 		  (setq *error-list* (cdr *error-list*))
-		  (setq *rerror-list* (cons x *rerror-list*)))))))
+		  (setq *rerror-list* (cons x *rerror-list*))))))
+	;; `next-error' 経由 (wrap) で来たとき、まだリスト自体が無いことが
+	;; ある —— grep 系は build-error-list を呼ばないので、そのままだと
+	;; 最初の C-x ` が必ず失敗する。空ならこのバッファから構築する
+	;; (issue #410)。
+	(unless *error-list*
+	  (build-error-list)))
     (build-error-list))
   (if (goto-error nil)
       t
@@ -240,8 +266,15 @@
 	(progn
 	  (message "これ以上エラーはありません")
 	  nil))
-    (if (first-error nil t)
-	(message "これ以上エラーはないっつってんだろうがこのバカチンが!"))))
+    ;; リストが空なら first-error wrap 経路で構築 (または巻き戻し) する。
+    ;; バカチンは「末尾を超えて巻き戻した」時だけ: 未構築バッファでの
+    ;; 最初の成功にまで出すと、動いたのに怒られた読みになる (issue #410)。
+    (let ((wrapped *rerror-list*))
+      (and (first-error nil t)
+	   (progn
+	     (when wrapped
+	       (message "これ以上エラーはないっつってんだろうがこのバカチンが!"))
+	     t)))))
 
 #-ncurses
 (global-set-key #\F10 'first-error)

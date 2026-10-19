@@ -1,0 +1,2 @@
+# open imenu and pick beta_compute
+\eximenu\rbeta\r

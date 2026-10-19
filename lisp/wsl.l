@@ -679,6 +679,12 @@ HEADER はコマンドの直後に載せる説明文。"
       (set-buffer buf)
       (setq buffer-read-only nil)
       (erase-buffer buf)
+      ;; **バッファ自身の default-directory を実行先にする。** `-*-' 行は
+      ;; 表示用で、find-file 経由でないこのバッファでは解釈されない。
+      ;; ここがプロセス cwd のままだと find-errors-get-buffer の
+      ;; file-exist-p が相対パスを解決できず next-error が黙って失敗する
+      ;; (issue #410)。
+      (ignore-errors (set-default-directory target-dir buf))
       (insert (format nil "-*- mode: compilation; default-directory: ~S -*-\n"
 		      target-dir))
       (insert header)

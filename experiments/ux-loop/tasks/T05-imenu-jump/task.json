@@ -1,0 +1,12 @@
+{
+  "id": "T05-imenu-jump",
+  "title": "Jump to function via imenu",
+  "goal": "In a C file, list its functions and jump to beta_compute.",
+  "open": "work/code.c",
+  "expect": [
+    "beta_compute"
+  ],
+  "expect_last": [
+    "| code\\.c |"
+  ]
+}
