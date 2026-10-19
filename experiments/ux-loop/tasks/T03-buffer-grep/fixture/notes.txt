@@ -1,0 +1,8 @@
+project notes
+=============
+TODO: fix the allocator before release
+the parser is fine for now
+TODO: write docs for the config format
+current status: builds on linux
+TODO: add a --version flag
+remember to update the changelog

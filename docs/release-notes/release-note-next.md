@@ -15,6 +15,19 @@ xyzzy リリースノート
 変更
 ----
 
+  * `next-error` (`C-x \`` / F11) が「最初のエラー」にジャンプしない
+    問題を修正 (issue #410)。`goto-error` がエントリを visit する前に
+    `*rerror-list*` へ移していたため、構築済みリストでは先頭が常に
+    スキップされ、エラーが 1 件だけなら「これ以上エラーはありません」
+    と言われてどこにも飛べなかった。加えて `grep` のように
+    `build-error-list` を呼ばない経路ではリスト自体が構築されず最初の
+    `C-x \`` が必ず失敗していた。表示済みのエントリだけを履歴へ移す
+    ようにし、リストが空なら `first-error` がその場で構築するようにした。
+    あわせて `compile-run` が `*compilation*` バッファの
+    `default-directory` を設定するようにした (旧来は `-*-` ヘッダ行を
+    書くだけでバッファには反映されず、`file:line:` の相対パス解決が
+    プロセスの cwd 依存だった)。この修正で、末尾超過時に巻き戻って
+    「バカチン」と言われるのは本当に巻き戻したときだけになった。
   * Rust ソース編集用の `rust-mode` を追加 (issue #404)。`.rs` が
     `*auto-mode-alist*` に未登録で `fundamental-mode` で開かれて
     いた。`javascript-mode`/`toml-mode` と同型で、`//`・`/* */`
@@ -231,3 +244,13 @@ xyzzy リリースノート
     `toggle-agent-drawer` で agent バッファを画面下部に出せるように
     した。leader は `M-m a` に agent カテゴリを追加。
     回帰テストは `unittest/agent-tests.l`。
+  * リポジトリ直下に `.xyzzy` (開発者用初期化ファイル) を追加し、ビルドエラーと
+    grep のジャンプ (T02/T03) を修正。gcc/clang の `file:line:col:` 形式に
+    対応する error regexp を `*error-regexp-list*` の先頭に追加 (既定の
+    パターン 2 の贪欲 `(.+)` が `hello.c:7:5:` を filename=`hello.c:7`,
+    line=`5` と誤解析していた)。`*grep-hook*` に `build-error-list` を
+    登録し、grep 後に `C-x \`` でジャンプできるようにした。`next-error`
+    をオーバーライドし、エラーリスト未構築時に `build-error-list` を呼び出し、
+    初回呼び出しでは `goto-error t` (ポップ後に次へ) ではなく
+    `goto-error nil` (先頭エラーを直接訪問) により、単一エラー時の
+    「No more errors」と複数エラー時の先頭スキップを回避する。

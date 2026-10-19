@@ -1,0 +1,7 @@
+# run the IDE build command; accept the default "make"
+\exbuild\r\r
+# let the build output arrive
+\w
+\w
+# jump to the first error location (C-x `)
+\Cx`\w

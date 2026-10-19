@@ -1,0 +1,4 @@
+# isearch for "helper", exit isearch with RET
+\Cshelper\r
+# report the current line number in the status line
+\e\e(current-line-number)\r

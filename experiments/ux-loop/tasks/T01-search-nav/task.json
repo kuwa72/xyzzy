@@ -1,0 +1,7 @@
+{
+  "id": "T01-search-nav",
+  "title": "Open file and search",
+  "goal": "Open a C source file and locate a symbol with incremental search. Check that the match is visible and the cursor lands on it, and that eval-expression can report the position.",
+  "open": "work/main.c",
+  "expect": ["helper"]
+}

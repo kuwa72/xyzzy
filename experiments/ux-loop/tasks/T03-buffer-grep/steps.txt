@@ -1,0 +1,4 @@
+# grep the current buffer for TODO
+\exgrep\rTODO\r
+# jump to the first listed hit
+\Cx`\w
