@@ -1,0 +1,61 @@
+;;; .xyzzy --- xyzzy user initialization file
+;;;
+;;; Fixes for error navigation after builds (T02) and grep (T03).
+;;; Libraries (errors, grep, wsl) are auto-loaded at startup via loadup.l,
+;;; so no (require ...) is needed.
+
+;;; --- Error regexp for gcc/clang file:line:col: format (T02) ---
+;;; The default *error-regexp-list* pattern 2 uses greedy (.+) which
+;;; mis-parses "hello.c:7:5:" as file="hello.c:7", line="5".
+;;; Prepend a pattern that correctly handles the colon-separated
+;;; format by matching filename (no colons) + "line" + ":" (column separator).
+(setq *error-regexp-list*
+      (cons (list (compile-regexp "^\\([^: \t\n]+\\)[:：][ \t]*\\([0-9]+\\)[:：]") 1 2)
+            *error-regexp-list*))
+
+;;; Enable buffer-name fallback when file does not exist on disk
+;;; (e.g. WSL UNC paths that may not resolve).
+(setq *find-errors-find-buffers* t)
+
+;;; --- T03: Build error list after grep ---
+;;; grep1 does not call build-error-list; add a hook to parse the
+;;; grep output so C-x ` can navigate to hits.
+;;; After with-output-to-temp-buffer, the compilation buffer is selected
+;;; but point is at the end; go to point-min first, then build the list.
+(add-hook '*grep-hook*
+          #'(lambda ()
+              (goto-char (point-min))
+              (build-error-list)))
+
+;;; --- next-error: fix first-call navigation (T02 & T03) ---
+;;; Two issues with the default next-error:
+;;; 1. When *error-list* is empty, it calls first-error nil t whose
+;;;    wrap=t branch does NOT call build-error-list.
+;;; 2. When *error-list* is non-empty but *rerror-list* is empty (first
+;;;    call after build/grep), it calls goto-error t which pops the first
+;;;    error before visiting the next — "No more errors" with a single
+;;;    error and skipping the first hit with multiple.
+;;; Fix: ensure build-error-list is called when nothing has been parsed,
+;;; and on the first call visit the first error directly (goto-error nil)
+;;; instead of popping-then-advancing.
+(unless (and (boundp '*original-next-error*) *original-next-error*)
+  (setq *original-next-error* (symbol-function 'next-error)))
+
+(defun next-error (&optional arg)
+  (interactive "p")
+  (unless (or *error-list* *rerror-list*)
+    (build-error-list))
+  (if (and (null arg) (null *rerror-list*) *error-list*)
+      (goto-error nil)
+    (funcall *original-next-error* arg)))
+
+;;; --- CLI agent: default to agy (issue #408) ---
+;;; lisp/agent.l provides M-x agent / agent-send-* / agent-diff.
+;;; agy is the local launcher that knows which agents are available,
+;;; so make it the default command; claude stays selectable via
+;;; C-u M-x agent.
+;;; boundp で囲わない: agent.l 未ロードの環境でも setq が変数を作り、
+;;; 後で defvar されても値は保持される (defvar は未束縛時だけ代入)。
+;;; 囲むと古いビルド/イメージで設定ごと捨てて黙ってデフォルトに戻る。
+(setq *agent-command* "agy")
+(setq *agent-command-list* '("agy" "claude"))
