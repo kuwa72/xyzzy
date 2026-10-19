@@ -254,3 +254,11 @@ xyzzy リリースノート
     初回呼び出しでは `goto-error t` (ポップ後に次へ) ではなく
     `goto-error nil` (先頭エラーを直接訪問) により、単一エラー時の
     「No more errors」と複数エラー時の先頭スキップを回避する。
+  * `M-x agent` が起動中の agent バッファに再接続するだけで、
+    `*agent-command*` を変えても新しいコマンドが起動しない不具合を
+    修正 (issue #412)。起動時コマンドを `*agent-launched-command*` に
+    記録し、実行中プロセスがあるとき要求コマンドと異なれば
+    「~A を実行中です。~A で起動しなおしますか?」と確認して
+    `kill-process` 後に作り直す (No なら従来どおり接続)。同じ
+    コマンドでも `M-x agent-restart` で起動しなおせる (leader は
+    `M-m a A`)。

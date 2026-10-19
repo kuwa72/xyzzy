@@ -24,8 +24,10 @@
 
 (export '(*agent-command* *agent-command-list* *agent-file-reference-prefix*
 	  *agent-mode-map* *agent-mode-hook*
+	  *agent-project-root* *agent-distro* *agent-launched-command*
 	  agent agent-mode agent-command-line agent-buffer-name
 	  agent-file-reference agent-default-command
+	  agent-restart-needed-p agent-restart
 	  agent-find-buffer agent-send-text agent-send-file
 	  agent-send-region agent-send-error agent-diff
 	  agent-revert-changed toggle-agent-drawer))
@@ -57,6 +59,10 @@ claude code 系の @path 参照に合わせた既定値。")
 
 (defvar-local *agent-distro* nil
   "この agent バッファが動いている WSL ディストロ (ネイティブなら nil)")
+
+(defvar-local *agent-launched-command* nil
+  "この agent バッファを起動したコマンド文字列。
+`agent' が再起動が要るか判断するのに使う (issue #412)")
 
 (unless *agent-mode-map*
   (setq *agent-mode-map* (make-sparse-keymap))
@@ -157,11 +163,22 @@ ROOT 配下ならルートからの相対パス、外なら絶対パスに
   (set-buffer-fold-width 80)
   (run-hooks '*agent-mode-hook*))
 
-(defun agent (&optional command)
+(defun agent-restart-needed-p (launched requested)
+  "LAUNCHED (起動中のコマンド) と REQUESTED (要求されたコマンド) が
+異なるときだけ t を返す。どちらかが nil (未起動・コマンド未指定)
+なら nil。"
+  (and launched requested (not (string-equal launched requested))))
+
+(defun agent (&optional command restart)
   "プロジェクトルートで CLI エージェントを pty 端末として起動する。
 WSL プロジェクトでは wsl.exe 経由で WSL 内に、そうでなければ
 カレント側で起動する。プレフィックス引数を与えると
-*agent-command-list* から起動コマンドを選択できる。"
+*agent-command-list* から起動コマンドを選択できる。
+既に agent が動いている場合は、要求コマンドが起動時と同じなら
+そのバッファへ接続し、違うなら再起動するか確認する
+\(issue #412 -- 以前は要求を見ずに再接続するだけで、
+*agent-command* を変えても反映されなかった)。
+RESTART が non-nil なら確認せず再起動する。"
   (interactive "P")
   (when (and (interactive-p) command)
     (setq command (completing-read "Agent command: " *agent-command-list*
@@ -173,26 +190,56 @@ WSL プロジェクトでは wsl.exe 経由で WSL 内に、そうでなけれ�
 	 (buf (get-buffer-create (agent-buffer-name root))))
     (set-buffer buf)
     (let ((proc (buffer-process buf)))
-      (if (and proc (eq (process-status proc) :run))
-	  (switch-to-buffer buf)
-	(let ((cmdline (agent-command-line
-			cmd :distro distro
-			:dir (and distro (fboundp 'windows-path-to-wsl)
-				  (windows-path-to-wsl root))
-			:windows-p (featurep :windows-nt))))
-	  (goto-char (point-max))
-	  (agent-mode)
-	  (setq *agent-project-root* root
-		*agent-distro* distro)
-	  ;; wsl() と同じく :terminal t が要る (issue #250)。
-	  ;; TUI のエージェントは画面を持つ子なので、渡さないと出力が
-	  ;; 素のテキストとしてバッファに入ってしまう。
-	  (make-process cmdline :output (selected-buffer) :terminal t)
-	  (let ((new-proc (buffer-process (selected-buffer))))
-	    (when (and new-proc (si:process-terminal-p new-proc))
-	      (set-minor-mode-map *terminal-map*)))
-	  (switch-to-buffer buf))))
+      (when (and proc (eq (process-status proc) :run))
+	(let ((needed (agent-restart-needed-p *agent-launched-command* cmd)))
+	  (cond
+	   ;; 同じコマンド: 明示 restart でなければ接続するだけ
+	   ((and (not needed) (not restart))
+	    (switch-to-buffer buf)
+	    (return-from agent buf))
+	   ;; 別コマンド: restart 指定か対話確認が無ければ接続に留める
+	   ((and needed (not restart)
+		 (or (not (interactive-p))
+		     (not (yes-or-no-p
+			   (format nil "~A を実行中です。~A で起動しなおしますか? "
+				   *agent-launched-command* cmd)))))
+	    (switch-to-buffer buf)
+	    (return-from agent buf))
+	   ;; ここに来たら再起動が確定なので古いプロセスを止める
+	   (t
+	    (kill-process proc)
+	    (sit-for 0)))))
+      (let ((cmdline (agent-command-line
+		      cmd :distro distro
+		      :dir (and distro (fboundp 'windows-path-to-wsl)
+				(windows-path-to-wsl root))
+		      :windows-p (featurep :windows-nt))))
+	(goto-char (point-max))
+	(agent-mode)
+	(setq *agent-project-root* root
+	      *agent-distro* distro
+	      *agent-launched-command* cmd)
+	;; wsl() と同じく :terminal t が要る (issue #250)。
+	;; TUI のエージェントは画面を持つ子なので、渡さないと出力が
+	;; 素のテキストとしてバッファに入ってしまう。
+	(make-process cmdline :output (selected-buffer) :terminal t)
+	(let ((new-proc (buffer-process (selected-buffer))))
+	  (when (and new-proc (si:process-terminal-p new-proc))
+	    (set-minor-mode-map *terminal-map*)))
+	(switch-to-buffer buf)))
     buf))
+
+(defun agent-restart ()
+  "agent バッファのプロセスを止めて、現在の *agent-command* で
+起動しなおす。起動中のバッファまたはプロジェクトの agent
+バッファに対して行う。"
+  (interactive)
+  (let ((buf (agent-find-buffer)))
+    (if buf
+	(save-excursion
+	  (set-buffer buf)
+	  (agent nil t))
+      (agent))))
 
 ;;; ------------------------------------------------------------------
 ;;; コンテキスト送信 (コードバッファ側から呼ぶ)
@@ -329,6 +376,7 @@ agent のプロンプトへ貼り付ける。"
 (when (boundp '*leader-map*)
   (defvar *leader-agent-map* (make-sparse-keymap))
   (define-key *leader-agent-map* #\a 'agent)
+  (define-key *leader-agent-map* #\A 'agent-restart)
   (define-key *leader-agent-map* #\t 'toggle-agent-drawer)
   (define-key *leader-agent-map* #\f 'agent-send-file)
   (define-key *leader-agent-map* #\r 'agent-send-region)
@@ -340,6 +388,7 @@ agent のプロンプトへ貼り付ける。"
   (when (fboundp 'which-key-add-description)
     (which-key-add-description *leader-agent-map* "Agent")
     (which-key-add-description 'agent "Start")
+    (which-key-add-description 'agent-restart "Restart")
     (which-key-add-description 'toggle-agent-drawer "Drawer")
     (which-key-add-description 'agent-send-file "SendFile")
     (which-key-add-description 'agent-send-region "SendRegion")

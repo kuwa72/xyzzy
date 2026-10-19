@@ -112,6 +112,35 @@
   => (t t t t t t t t t t t t))
 
 ;;; ------------------------------------------------------------------
+;;; 起動コマンドとの不一致判定 (agent-restart-needed-p, issue #412)
+
+(deftest agent-restart-needed-p-test ()
+  "起動中コマンドと要求コマンドが違うときだけ再起動が要る"
+  (list (agent-restart-needed-p "claude" "claude")
+	(agent-restart-needed-p "claude" "agy")
+	(agent-restart-needed-p nil "agy")
+	(agent-restart-needed-p "claude" nil)
+	(agent-restart-needed-p nil nil))
+  => (nil t nil nil nil))
+
+(deftest agent-launched-command-var ()
+  "起動コマンド記録用のバッファローカル変数が定義されている。
+バッファごとに別の値を持ち、他バッファに漏れないことを確認する。"
+  (let ((b1 (create-new-buffer " *agent-lc-1*"))
+	(b2 (create-new-buffer " *agent-lc-2*")))
+    (unwind-protect
+	(progn
+	  (save-excursion
+	    (set-buffer b1)
+	    (setq *agent-launched-command* "claude"))
+	  (list (save-excursion (set-buffer b1) *agent-launched-command*)
+		(save-excursion (set-buffer b2) *agent-launched-command*)
+		(fboundp 'agent-restart)))
+      (delete-buffer b1)
+      (delete-buffer b2)))
+  => ("claude" nil t))
+
+;;; ------------------------------------------------------------------
 ;;; 変更済みバッファの revert (agent-revert-changed)
 
 (deftest agent-revert-changed ()
