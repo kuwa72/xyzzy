@@ -185,3 +185,67 @@ build-error-list はポイントから前方向に走査するので、呼ぶ側
 		      '("err-tail" 3))))
       (errors-test-cleanup target comp)))
   => t)
+
+;;; ------------------------------------------------------------------
+;;; ツールチェーン別のエラー出力形式
+;;;
+;;; next-error は *error-regexp-list* の形でしか行を拾えない。
+;;; gcc/clang の file:line:col は古くからあるが、python の
+;;; `  File "x.py", line 5' や rustc の `  --> src/main.rs:3:5' は
+;;; 別形式なので、実出力そのままの形でジャンプできることを固定する。
+;;;
+;;; ファイル名解決は *find-errors-find-buffers* を立てて開いている
+;;; バッファ名で通す (実ファイルは要らない)。
+
+(defun errors-test-jump (target-name nlines comp-lines)
+  "TARGET-NAME という NLINES 行のバッファを作り、COMP-LINES を
+*compilation* に書いてリスト構築 → next-error で
+(buffer-name . line-number) を返す。"
+  (errors-test-reset)
+  (let ((target (errors-test-target target-name nlines))
+	(comp nil))
+    (unwind-protect
+	(let ((ed::*find-errors-find-buffers* t))
+	  (setq comp (apply #'errors-test-compilation
+			    "*compilation*" comp-lines))
+	  (ed::build-error-list)
+	  (ed::next-error)
+	  (list (buffer-name (selected-buffer)) (current-line-number)))
+      (errors-test-cleanup target comp))))
+
+(deftest error-format-gcc ()
+  "gcc/clang: file:line:col: error: ..."
+  (errors-test-jump "prog.c" 20
+		    '("prog.c:12:8: error: expected ';' before 'x'"))
+  => ("prog.c" 12))
+
+(deftest error-format-python ()
+  "python traceback:   File \"x.py\", line N, in ..."
+  (errors-test-jump "app.py" 20
+		    '("Traceback (most recent call last):"
+		      "  File \"app.py\", line 7, in <module>"
+		      "    run()"
+		      "NameError: name 'run' is not defined"))
+  => ("app.py" 7))
+
+(deftest error-format-typescript ()
+  "tsc: file.ts(line,col): error TSxxxx: ..."
+  (errors-test-jump "main.ts" 20
+		    '("main.ts(9,14): error TS2322: Type 'string' is not assignable to type 'number'."))
+  => ("main.ts" 9))
+
+(deftest error-format-rust ()
+  "rustc:   --> file.rs:line:col"
+  (errors-test-jump "main.rs" 20
+		    '("error[E0308]: mismatched types"
+		      "  --> main.rs:4:18"
+		      "   |"
+		      "4  |     let x: i32 = \"hi\";"
+		      "   |                  ^^^^ expected `i32`, found `&str`"))
+  => ("main.rs" 4))
+
+(deftest error-format-go ()
+  "go build/vet: file.go:line:col: ..."
+  (errors-test-jump "main.go" 20
+		    '("./main.go" "main.go:6:2: undefined: y"))
+  => ("main.go" 6))
