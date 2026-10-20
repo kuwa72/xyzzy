@@ -22,7 +22,14 @@ xyzzy リリースノート
     `[,)]` までに広げ、python/rustc 用の形式を
     `*error-regexp-list*` に追加した。gcc/clang と go
     (`file:line:col:`) は従来どおり。回帰テストを
-    `unittest/errors-tests.l` にツールチェーン別 5 件追加。
+    `unittest/errors-tests.l` にツールチェーン別の回帰テストを追加。
+    Lisp/Scheme 系では emacs lisp バイトコンパイル
+    (`foo.el:l:c:`)、racket (`foo.rkt:l:c:`)、chicken
+    (`prog.scm:N` in Call history) は従来形式に乗ることを確認し、
+    clojure の `(foo.clj:l:c)` 括弧形式と chez の
+    `at line N, char C of file.ss` 語尾形式は正規表現を追加した。
+    SBCL は `; file: x' と `Line: N, Column: C' が別行のため
+    1 行正規表現では拾えず、未対応のまま (要複数行解析)。
   * `next-error` (`C-x \`` / F11) が「最初のエラー」にジャンプしない
     問題を修正 (issue #410)。`goto-error` がエントリを visit する前に
     `*rerror-list*` へ移していたため、構築済みリストでは先頭が常に
