@@ -20,7 +20,13 @@
 	  project-open-terminal
 	  project-switch-project
 	  project-remember-project
-	  project-list-files))
+	  project-list-files
+	  *project-build-config-file*
+	  *project-build-allowed-variables*
+	  project-parse-build-config
+	  project-read-build-config
+	  project-apply-build-config
+	  project-default-build-command))
 
 (defvar *project-root-markers*
   '(".git" ".project" "CMakeLists.txt" "package.json" "Cargo.toml"
@@ -224,3 +230,87 @@ directory 自身の :recursive/:test に丸ごと任せる。:test はディレ�
     (which-key-add-description 'project-open-terminal "Terminal")
     (which-key-add-description 'project-switch-project "Switch")
     (which-key-add-description 'project-remember-project "Remember")))
+
+;;; ------------------------------------------------------------------
+;;; プロジェクトごとのビルド設定 (issue #418)
+;;;
+;;; <project>/.xyzzy.d/build.l に置く設定を `build' / `wsl-compile'
+;;; の既定値として読む。グローバルな .xyzzy に全プロジェクトの
+;;; 対応表を書かなくて済むようにするためのもの。
+
+(defvar *project-build-config-file* ".xyzzy.d/build.l"
+  "プロジェクトルートからの相対パス。ビルド設定ファイル名。")
+
+(defvar *project-build-allowed-variables* '(*compile-command*)
+  "build.l で代入を許す変数のホワイトリスト。
+任意コード実行を避けるため、リストに無いシンボルへの代入は
+全部捨てる。")
+
+(defun project-safe-config-literal-p (v)
+  "build.l で代入を許す「リテラル」か。
+文字列・数値・文字・t/nil だけ。リストやフォーム評価は不可。"
+  (or (stringp v) (numberp v) (characterp v)
+      (or (eq v t) (eq v nil))))
+
+(defun project-parse-build-config (text)
+  "build.l の内容 TEXT を (変数 . 値) の alist で返す。
+
+**eval しない。** clone した他人のプロジェクトを開くだけで任意
+コードが走るのを防ぐため、(setq VAR LITERAL) / (setq-local VAR
+LITERAL) の形で VAR が *project-build-allowed-variables* にあり
+LITERAL が `project-safe-config-literal-p' を満たすトップレベル
+フォームだけを拾う。それ以外は (コメント含め) 全部無視。"
+  (let ((result nil)
+	(s (make-string-input-stream text)))
+    (loop
+      ;; 読めない形 (閉じ忘れ等) で止まっても、そこまで読めた分は返す
+      (let ((form (ignore-errors (read s nil :eof))))
+	(when (or (null form) (eq form :eof))
+	  (return (nreverse result)))
+	;; **シンボル名で比較する。** ユーザーの .xyzzy.d/build.l は
+	;; *package* が user なので read で user 側に intern されるが、
+	;; ホワイトリストは editor 側のシンボルを指す。名前で照合して、
+	;; 値は editor 側のシンボルとして持つ (build が見るのはこちら)。
+	;; symbol-name はこの処理系では小文字を返す。
+	(let* ((car-name (and (symbolp (car form))
+			      (symbol-name (car form))))
+	       (var-name (and (consp (cdr form))
+			      (symbolp (cadr form))
+			      (symbol-name (cadr form))))
+	       (var (and var-name
+			 (find var-name *project-build-allowed-variables*
+			       :key #'symbol-name :test #'string=))))
+	  (when (and (member car-name '("setq" "setq-local") :test #'string=)
+		     var
+		     (project-safe-config-literal-p (caddr form)))
+	    (push (cons var (caddr form)) result)))))))
+
+(defun project-read-build-config (&optional dir)
+  "DIR (省略時はプロジェクトルート) から build.l を探して
+project-parse-build-config する。ファイルが無ければ nil。"
+  (let ((path (merge-pathnames *project-build-config-file*
+			       (or dir (project-current-root)))))
+    (and (file-exist-p path)
+	 (ignore-errors
+	   (let ((buf (get-buffer-create " *project-build-config*")))
+	     (save-excursion
+	       (set-buffer buf)
+	       (erase-buffer buf)
+	       (insert-file-contents path)
+	       (project-parse-build-config
+		(buffer-substring (point-min) (point-max)))))))))
+
+(defun project-apply-build-config (&optional dir)
+  "build.l を読んで、許可変数をカレントバッファの buffer-local に
+立てる。適用した alist を返す (ファイルが無ければ nil)。"
+  (let ((config (project-read-build-config dir)))
+    (dolist (cell config)
+      (make-local-variable (car cell))
+      (set (car cell) (cdr cell)))
+    config))
+
+(defun project-default-build-command (&optional dir)
+  "`build' の既定値。build.l > *compile-command* > \"make\" の順。"
+  (or (cdr (assoc '*compile-command* (project-read-build-config dir)))
+      (and (boundp '*compile-command*) *compile-command*)
+      "make"))

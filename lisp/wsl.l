@@ -718,7 +718,9 @@ HEADER はコマンドの直後に載せる説明文。"
 ディストリビューションが決まらないときは選択を促す。"
   (interactive
    (list (read-string "WSL compile command: "
-		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
+		      :default (if (fboundp 'project-default-build-command)
+				   (project-default-build-command)
+				 (or (and (boundp '*compile-command*) *compile-command*) "make")))))
   (let* ((target-distro (or distro (wsl-read-distro-or-current nil dir)))
 	 (target-dir (or dir (default-directory)))
 	 (wsl-dir (windows-path-to-wsl target-dir))
@@ -736,7 +738,9 @@ Windows プロジェクトならカレント側で実行する。結果は
 compilation バッファに出力してエラー解析を行う。"
   (interactive
    (list (read-string "Build command: "
-		      :default (or (and (boundp '*compile-command*) *compile-command*) "make"))))
+		      :default (if (fboundp 'project-default-build-command)
+				   (project-default-build-command)
+				 (or (and (boundp '*compile-command*) *compile-command*) "make")))))
   (let* ((target-dir (or dir (default-directory)))
 	 (distro (build-wsl-p target-dir)))
     (if distro

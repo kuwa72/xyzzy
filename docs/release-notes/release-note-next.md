@@ -15,6 +15,13 @@ xyzzy リリースノート
 変更
 ----
 
+  * `M-x build` / `wsl-compile` の既定値がプロジェクトルートの
+    `<project>/.xyzzy.d/build.l` を読むようになった (issue #418)。
+    `(setq-local *compile-command* "...")` 等の安全な代入だけを
+    読み、グローバルな `*compile-command*` > "make" の順で解決する。
+    eval はしないため clone したプロジェクトを開くだけで任意
+    コードが走ることはない。読める変数は
+    `*project-build-allowed-variables*` でホワイトリスト制。
   * エラー行解析 (`next-error` 系) が python traceback
     (`  File "x.py", line N`)、rustc (`  --> file.rs:line:col`)、
     tsc (`file.ts(line,col):`) に対応していなかった問題を修正
