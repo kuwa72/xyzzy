@@ -249,3 +249,48 @@ build-error-list はポイントから前方向に走査するので、呼ぶ側
   (errors-test-jump "main.go" 20
 		    '("./main.go" "main.go:6:2: undefined: y"))
   => ("main.go" 6))
+
+;;; ------------------------------------------------------------------
+;;; Lisp/Scheme 系処理系のエラー出力形式
+;;;
+;;; elisp/racket/chicken は file:line[:col] 系に乗る。clojure は
+;;; `(file.clj:line:col)' という括弧つき、chez は `of file' という
+;;; 語尾指定なので、それぞれ固有の形で固定する。
+;;; SBCL は `; file: x' と `Line: N, Column: C' が別行に分かれるので
+;;; 1 行正規表現では拾えない (下のテストはその現状を文書化する)。
+
+(deftest error-format-emacs-lisp ()
+  "elisp batch byte-compile: foo.el:line:col: Error:"
+  (errors-test-jump "foo.el" 20
+		    '("In toplevel form:"
+		      "foo.el:8:4: Error: reference to free variable 'x'"))
+  => ("foo.el" 8))
+
+(deftest error-format-racket ()
+  "racket: foo.rkt:line:col: ..."
+  (errors-test-jump "prog.rkt" 20
+		    '("prog.rkt:6:10: x: unbound identifier"))
+  => ("prog.rkt" 6))
+
+(deftest error-format-chicken ()
+  "chicken csc: foo.scm:line や call-history の file:line"
+  (errors-test-jump "prog.scm" 20
+		    '("Error: unbound variable: y"
+		      ""
+		      "	Call history:"
+		      "	prog.scm:9: g"))
+  => ("prog.scm" 9))
+
+(deftest error-format-clojure-stack ()
+  "clojure stack trace: at user$eval.invoke(foo.clj:line)"
+  (errors-test-jump "foo.clj" 20
+		    '("Execution error at user/eval1 (REPL:1)."
+		      "Syntax error compiling at (foo.clj:11:2)."))
+  => ("foo.clj" 11))
+
+(deftest error-format-chez ()
+  "chez: Exception ... at line N, char C of file.ss"
+  (errors-test-jump "prog.ss" 20
+		    '("Exception in y: unbound variable"
+		      " at line 13, char 5 of prog.ss"))
+  => ("prog.ss" 13))

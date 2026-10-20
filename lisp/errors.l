@@ -65,7 +65,14 @@
    ;; python traceback:   File "x.py", line N, in ...
    (list (compile-regexp "^[ \t]*File \"\\(.+\\)\", line \\([0-9]+\\)") 1 2)
    ;; rustc:   --> src/main.rs:line:col
-   (list (compile-regexp "^[ \t]*-->[ \t]+\\(.+\\)[:：]\\([0-9]+\\)[:：][0-9]+") 1 2)))
+   (list (compile-regexp "^[ \t]*-->[ \t]+\\(.+\\)[:：]\\([0-9]+\\)[:：][0-9]+") 1 2)
+   ;; clojure:   Syntax error compiling at (foo.clj:line:col)
+   ;;          at user$eval.invoke(foo.clj:line)
+   ;; **ファイル名に : を許さない** のは greedy な前置きが最後の `(' に
+   ;; 食いついても `foo.clj:11:2' を `foo.clj' `11' と正しく割るため。
+   (list (compile-regexp "^.*(\\([^(): \t]+\\)[:：]\\([0-9]+\\)") 1 2)
+   ;; chez scheme:   at line N, char C of file.ss
+   (list (compile-regexp "^[ \t]*at line \\([0-9]+\\)[^\n]*of \\([^ \t\n]+\\)") 2 1)))
 
 (defun find-errors (later)
   (let ((opoint (point))
