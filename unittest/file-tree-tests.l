@@ -174,6 +174,24 @@
         (and expected (path-equal ed::file-tree-root expected)))))
   => t)
 
+(deftest file-tree-buffer-fills ()
+  "file-tree-buffer が内容の入った *file-tree* バッファを返すこと。
+with-set-buffer はバッファを切り替えないので、間違えると呼び出し元の
+バッファにツリーが書き込まれる"
+  (with-file-tree-test (root)
+    (let ((buf (ed::file-tree-buffer root))
+          (before (buffer-substring (point-min) (point-max))))
+      (unwind-protect
+          (values
+           (search "adir" (save-excursion
+                            (set-buffer buf)
+                            (buffer-substring (point-min) (point-max))))
+           ;; 呼び出し元のバッファの内容とカレントバッファが戻ること
+           (string= before (buffer-substring (point-min) (point-max))))
+        (delete-buffer buf))))
+  => non-nil
+  => t)
+
 (deftest pane-toggle-show-hide ()
   "ペインを開いて閉じられること"
   (save-window-excursion

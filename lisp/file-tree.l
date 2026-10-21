@@ -281,9 +281,12 @@ ROOT 自身は含まない。展開済みディレクトリの子は一段深く
   (run-hooks '*file-tree-mode-hook*))
 
 (defun file-tree-buffer (&optional root)
-  "*file-tree* バッファを返す。無ければ作って ROOT で初期化する。"
+  "*file-tree* バッファを返す。無ければ作って ROOT で初期化する。
+with-set-buffer はバッファを切り替えない (ミニバッファ回避のためだけの
+マクロ) ことに注意。描き込みは save-excursion + set-buffer で行う。"
   (let ((buf (get-buffer-create *file-tree-buffer-name*)))
-    (with-set-buffer buf
+    (save-excursion
+      (set-buffer buf)
       (unless (eq buffer-mode 'file-tree-mode)
         (file-tree-mode))
       (when root

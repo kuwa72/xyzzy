@@ -48,8 +48,16 @@ x 座標が最小のものを探し、同じ x に複数あれば一番上のも
         (split-window width t)
         (set-buffer buf)
         (let ((pane (selected-window)))
+          ;; ncurses 版の split-window はサイズ指定を無視して常に二等分
+          ;; するので、実際にできた幅を見て目的の幅に合わせる。
+          ;; 環境によっては縮められないこともあるので失敗は無視する。
+          (ignore-errors
+            (let ((delta (- (window-width pane) width)))
+              (when (plusp delta)
+                (shrink-window-horizontally delta))))
           (set-local-window-flags pane *window-flag-line-number* nil)
           (set-local-window-flags pane *window-flag-fold-mark* nil)
+          (set-local-window-flags pane *window-flag-fold-line* nil)
           pane)))))
 
 (defun pane-hide (buffer)
