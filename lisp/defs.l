@@ -418,6 +418,10 @@
 (export 'tail-f)
 (autoload 'tail-f "tail-f" t)
 
+(export '(file-tree file-tree-mode))
+(autoload 'file-tree "file-tree" t)
+(autoload 'file-tree-mode "file-tree" t)
+
 (export 'show-dexplorer)
 (autoload 'show-dexplorer "dexplorer" t)
 

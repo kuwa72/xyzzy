@@ -15,6 +15,18 @@ xyzzy リリースノート
 変更
 ----
 
+  * ファイルツリーのサイドペインを追加した (issue #420)。
+    `M-x file-tree` でフレーム左端にプロジェクトルート
+    (`project-current-root`、無ければ起動元バッファの
+    `default-directory`) を根とするツリーが開く。TAB / RET / 左クリックで
+    ディレクトリを展開・折りたたみ、ファイルは RET で他ウィンドウに開く。
+    `g` で再読み込み、`-` でルートを親へ、`H` でドットファイル表示の
+    切り替え、`q` でペインを閉じる。実装は `lisp/pane.l`
+    (左端の細いウィンドウを確保する共通部品) と `lisp/file-tree.l`
+    (ツリー本体) の 2 つで、XPI/TreeView.dll を使わない純 Lisp 実装なので
+    ncurses / POSIX 版でも動く。xyzzy には Emacs の dedicated window
+    相当がないため、`C-x 1` (`delete-other-windows`) でペインは畳まれる
+    (再度 `M-x file-tree` で開き直せる)。
   * `M-x build` / `wsl-compile` の既定値がプロジェクトルートの
     `<project>/.xyzzy.d/build.l` を読むようになった (issue #418)。
     `(setq-local *compile-command* "...")` 等の安全な代入だけを
