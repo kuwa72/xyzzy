@@ -15,6 +15,21 @@ xyzzy リリースノート
 変更
 ----
 
+  * pseudo-frame をプロジェクトに紐付けられるようにした (issue #424)。
+    `project-switch-project` は従来「選んだプロジェクトのファイルを
+    1 つ開く」だけだったが、プロジェクトに紐付いた pseudo-frame が
+    あればそれを選択し、無ければプロジェクト名で新規作成して紐付ける
+    ようになった。frame 切り替えがそのままプロジェクト切り替えになる。
+    紐付いた frame では `project-current-root` がバッファ由来より
+    frame のルートを優先して返すので、`project-find-file` /
+    `project-grep` 等のコマンドはそのプロジェクトを対象に動く
+    (バッファの隔離はしない。frame は「プロジェクトの既定 root を
+    持つ workspace」)。紐付け API は `project-bind-frame` (leader キー
+    `p b`) / `project-unbind-frame` / `project-frame-root` /
+    `project-switch-to-project`。紐付けは (frame 名 . root) として
+    `*project-frame-history*` に永続化され、
+    `project-restore-project-frames` で frame を再生成できる
+    (自動復元したければ siteinit で呼ぶ)。
   * ファイルツリーのサイドペインを追加した (issue #420)。
     `M-x file-tree` でフレーム左端にプロジェクトルート
     (`project-current-root`、無ければ起動元バッファの
