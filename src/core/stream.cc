@@ -380,7 +380,15 @@ create_file_stream (lisp filename, lisp direction, lisp if_exists,
   else if (lshare == Qnil)
     share = 0;
   else if (!lshare)
-    share = access == GENERIC_READ ? FILE_SHARE_READ : 0;
+    /* **省略時の既定は POSIX と同じ「全部共有」。** POSIX の open(2) に
+       共有モードは無い (vfs-posix.cc の WINFS::CreateFile は share 引数を
+       丸ごと無視する) ので、誰が開いていても後から誰でも開ける。以前は
+       :input でも FILE_SHARE_READ だけを許していたため、**読み手が
+       ハンドルを持っている間、別プロセスの書き込みが共有違反で失敗して
+       いた** (issue #381): ログへ append し続けるプロセスのファイルを
+       xyzzy が読むと、2 行目から書き手が PermissionError で死んだ。
+       排他にしたい呼び出し元は :share nil を明示する。 */
+    share = FILE_SHARE_READ | FILE_SHARE_WRITE;
   else
     FEprogram_error (Einvalid_share_option, lshare);
 

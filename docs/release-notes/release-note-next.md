@@ -15,6 +15,14 @@ xyzzy リリースノート
 変更
 ----
 
+  * Windows で `open` の `:share` 省略時の既定を `:read-write` に変更した
+    (issue #381)。以前は入力なら `:read`、それ以外は共有不可だったため、
+    他プロセスが書いているファイルを xyzzy が読むと、読み手のハンドルが
+    書き手を締め出して相手側の書き込みが PermissionError で失敗していた。
+    POSIX の open(2) に共有モードは無いので、既定を揃えると Windows 側が
+    POSIX に追いつくだけの変更になる。排他にしたい場合は `:share nil` を
+    明示する (こちらは従来通り)。バッファのファイルロック
+    (`*lock-file*` 系) は `open` とは別系なので影響しない。
   * `open-filer` に `&optional path` を追加し、指定したディレクトリを
     最初に表示できるようにした (issue #426)。0 引数だったために
     `project-filer` / `project-open-terminal` のフォールバック /
