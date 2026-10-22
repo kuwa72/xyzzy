@@ -192,6 +192,43 @@ with-set-buffer はバッファを切り替えないので、間違えると呼�
   => non-nil
   => t)
 
+(deftest file-tree-mouse-outside-delegates ()
+  "ツリーの外をクリックしたときはフォーカス移動に回すこと。
+LBtnDown はカレントバッファのキーマップで解決されるので、ペイン外への
+クリックでも file-tree-mouse-visit が走る。クリック先ウィンドウを
+見て委譲しないと、エディタ側をクリックしてもフォーカスが移らない"
+  (with-file-tree-test (root)
+    (save-window-excursion
+      (let ((buf (ed::file-tree-buffer root)))
+        (unwind-protect
+            (let* ((pane (ed::pane-show buf))
+                   (other (next-window pane))
+                   (*last-mouse-window* other)
+                   (*last-mouse-click-count* 1))
+              (ed::file-tree-mouse-visit)
+              (eq (selected-window) other))
+          (ed::pane-hide buf)
+          (delete-buffer buf)))))
+  => t)
+
+(deftest file-tree-mouse-inside-visits ()
+  "ツリー内のクリックはその行を開くこと"
+  (with-file-tree-test (root)
+    (save-window-excursion
+      (let ((buf (ed::file-tree-buffer root)))
+        (unwind-protect
+            (let ((pane (ed::pane-show buf))
+                  (*last-mouse-window* nil))
+              ;; クリック先はペイン自身、2 行目 = adir
+              (setq *last-mouse-window* pane)
+              (let ((*last-mouse-line* 2)
+                    (*last-mouse-column* 1))
+                (ed::file-tree-mouse-visit)
+                (and (buffer-local-value buf 'ed::file-tree-expanded) t)))
+          (ed::pane-hide buf)
+          (delete-buffer buf)))))
+  => t)
+
 (deftest pane-toggle-show-hide ()
   "ペインを開いて閉じられること"
   (save-window-excursion

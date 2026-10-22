@@ -27,6 +27,11 @@ xyzzy リリースノート
     ncurses / POSIX 版でも動く。xyzzy には Emacs の dedicated window
     相当がないため、`C-x 1` (`delete-other-windows`) でペインは畳まれる
     (再度 `M-x file-tree` で開き直せる)。
+  * ファイルツリーペインにフォーカスがあるとき、エディタ側の
+    ウィンドウをクリックしてもフォーカスが移らない問題を修正
+    (issue #422)。`#\\LBtnDown` はクリック先ではなくカレント
+    バッファのキーマップで解決されるため、ツリー外のクリックは
+    `mouse-left-press` に委譲するようにした。
   * `M-x build` / `wsl-compile` の既定値がプロジェクトルートの
     `<project>/.xyzzy.d/build.l` を読むようになった (issue #418)。
     `(setq-local *compile-command* "...")` 等の安全な代入だけを
