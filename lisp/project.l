@@ -21,6 +21,13 @@
 	  project-switch-project
 	  project-remember-project
 	  project-list-files
+	  *project-frame-history*
+	  project-frame-root
+	  project-bind-frame
+	  project-unbind-frame
+	  project-switch-to-project
+	  project-restore-project-frames
+	  project-frame-save-history
 	  *project-build-config-file*
 	  *project-build-allowed-variables*
 	  project-parse-build-config
@@ -92,14 +99,19 @@ CPU 100% で応答が無くなる形で踏んだ。** container の Wine では�
 
 (defun project-current-root (&optional dir)
   "現在のバッファまたは指定ディレクトリのプロジェクトルートを取得する。
-見つからない場合は現在のディレクトリを返す。"
-  (let* ((base (or dir
-		   (get-buffer-file-name)
-		   (default-directory)))
-	 (root (when base (project-find-root-directory base))))
-    (if root
-	(directory-namestring root)
-      (directory-namestring (or base (default-directory))))))
+見つからない場合は現在のディレクトリを返す。
+DIR を省略した場合は、現在の pseudo-frame にプロジェクトが紐付いていれば
+バッファ由来よりそちらを優先する (issue #424)。"
+  (let ((frame-root (and (null dir) (project-frame-root))))
+    (if frame-root
+	frame-root
+      (let* ((base (or dir
+		       (get-buffer-file-name)
+		       (default-directory)))
+	     (root (when base (project-find-root-directory base))))
+	(if root
+	    (directory-namestring root)
+	  (directory-namestring (or base (default-directory))))))))
 
 (defun project-remember-project (&optional (root (project-current-root)))
   "プロジェクトルートを *project-list* に追加・更新する。"
@@ -109,6 +121,130 @@ CPU 100% で応答が無くなる形で踏んだ。** container の Wine では�
     (push root *project-list*)
     (when (> (length *project-list*) 50)
       (setq *project-list* (subseq *project-list* 0 50)))))
+
+;;;
+;;; pseudo-frame との紐付け (issue #424)
+;;;
+;;; frame は「プロジェクトの既定 root を持つ workspace」。バッファは隔離
+;;; しない (persp-mode ではなく eyebrowse に近い)。紐付けは frame オブジェクト
+;;; をキーにした alist で持ち、削除済み frame のエントリはアクセス時に掃除する。
+;;; 1 プロジェクトに複数 frame を紐付けられる。
+
+(defvar *project-frame-root-alist* nil
+  "pseudo-frame オブジェクトをキー、プロジェクトルートを値とする alist。")
+
+(define-history-variable *project-frame-history* nil
+  "永続化する (pseudo-frame 名 . プロジェクトルート) の alist。
+frame オブジェクトは再起動で同一性が保てないので、永続化は名前経由にする。")
+
+(defun project-normalize-root (root)
+  "ROOT を末尾 \"/\" 付きのディレクトリ名に正規化する。
+directory-namestring は末尾 \"/\" の無い入力の最後の要素をファイル名と
+みなして落としてしまう (\"Z:/a\" -> \"Z:/\") ので、ここでは文字列として
+処理する。"
+  (concat (remove-trail-slash (namestring root)) "/"))
+
+(defun project-frame-prune ()
+  "削除済み frame のエントリを *project-frame-root-alist* から取り除く。"
+  (setq *project-frame-root-alist*
+	(remove-if-not #'(lambda (e) (member (car e) *pseudo-frame-list* :test #'eq))
+		       *project-frame-root-alist*)))
+
+(defun project-frame-root (&optional (frame (selected-pseudo-frame)))
+  "FRAME (省略時は現在の pseudo-frame) に紐付いたプロジェクトルート。
+無ければ nil。"
+  (project-frame-prune)
+  (cdr (assoc frame *project-frame-root-alist*)))
+
+(defun project-find-frame-for-root (root)
+  "ROOT に紐付いた pseudo-frame を返す。無ければ nil。"
+  (project-frame-prune)
+  (car (find root *project-frame-root-alist*
+	     :key #'cdr :test #'string-equal)))
+
+(defun project-bind-frame (root &optional frame)
+  "FRAME (省略時は現在の pseudo-frame) をプロジェクト ROOT に紐付ける。"
+  (interactive (list (read-directory-name "Bind frame to project: "
+					  :default (project-current-root))))
+  (let ((frame (or frame (selected-pseudo-frame))))
+    (unless frame
+      (error "pseudo-frame がありません"))
+    (setq root (project-normalize-root root))
+    (project-frame-prune)
+    (let ((e (assoc frame *project-frame-root-alist*)))
+      (if e
+	  (setf (cdr e) root)
+	(push (cons frame root) *project-frame-root-alist*)))
+    (project-remember-project root)
+    (project-frame-save-history)
+    root))
+
+(defun project-unbind-frame (&optional (frame (selected-pseudo-frame)))
+  "FRAME (省略時は現在の pseudo-frame) のプロジェクト紐付けを解除する。"
+  (interactive)
+  (setq *project-frame-root-alist*
+	(delete frame *project-frame-root-alist* :key #'car))
+  (project-frame-save-history)
+  t)
+
+(defun project-frame-name-for-root (root)
+  "ROOT から pseudo-frame 名を作る。既存名と重なれば \" (2)\" 等を付ける。"
+  (let* ((base (or (pathname-name (remove-trail-slash (namestring root)))
+		   "project"))
+	 (name base)
+	 (n 2))
+    (while (find-pseudo-frame name)
+      (setq name (format nil "~A (~D)" base n))
+      (incf n))
+    name))
+
+(defun project-ensure-frame-context ()
+  "pseudo-frame が 1 つも無ければ初期フレームを作る。
+端末フロントエンド等、init-pseudo-frame が走っていない環境用。"
+  (unless *pseudo-frame-list*
+    (init-pseudo-frame)))
+
+(defun project-switch-to-project (root)
+  "ROOT のプロジェクトに紐付いた pseudo-frame を選択する。
+無ければプロジェクト名で frame を新規作成して紐付ける。
+値は (frame 新規作成したか)。"
+  (project-ensure-frame-context)
+  (setq root (project-normalize-root root))
+  (let ((frame (project-find-frame-for-root root)))
+    (if frame
+	(progn
+	  (select-pseudo-frame frame)
+	  (values frame nil))
+      (let ((frame (create-pseudo-frame (project-frame-name-for-root root))))
+	(project-bind-frame root frame)
+	(values frame t)))))
+
+(defun project-frame-save-history ()
+  "現在の紐付けを (frame 名 . root) の形で *project-frame-history* に保存する。
+*save-history-hook* から呼ばれ、frame の現在名でスナップショットを取る。"
+  (project-frame-prune)
+  (setq *project-frame-history*
+	(mapcar #'(lambda (e) (cons (pseudo-frame-name (car e)) (cdr e)))
+		*project-frame-root-alist*)))
+
+(defun project-restore-project-frames ()
+  "*project-frame-history* に保存された紐付けから pseudo-frame を再生成する。
+既に同名の frame があれば新規作成せずそれに紐付ける。起動時に使うには
+siteinit で (project-restore-project-frames) を呼ぶ。"
+  (interactive)
+  (let ((current (selected-pseudo-frame)))
+    (dolist (e *project-frame-history*)
+      (let* ((name (car e))
+	     (root (cdr e))
+	     (frame (or (find-pseudo-frame name)
+			(create-pseudo-frame name))))
+	(project-bind-frame root frame)))
+    ;; create-pseudo-frame は新しい frame を選択するので、最後に作ったものが
+    ;; 残らないよう元の frame に戻す。
+    (when (member current *pseudo-frame-list* :test #'eq)
+      (select-pseudo-frame current))))
+
+(add-hook '*save-history-hook* 'project-frame-save-history)
 
 (defun project-ignored-directory-p (path)
   "PATH が *project-ignored-directories* に載っているディレクトリなら t。
@@ -175,14 +311,21 @@ directory 自身の :recursive/:test に丸ごと任せる。:test はディレ�
 	(open-filer proj-root)))))
 
 (defun project-switch-project ()
-  "過去に訪れたプロジェクト一覧から選択して切り替える。"
+  "過去に訪れたプロジェクト一覧から選択して切り替える。
+プロジェクトに紐付いた pseudo-frame があればそれを選択し、無ければ
+プロジェクト名で新規作成して紐付ける (issue #424)。"
   (interactive)
   (unless *project-list*
     (message "No remembered projects.")
     (return-from project-switch-project nil))
   (let ((chosen (fuzzy-completing-read "Switch to project: " *project-list* :must-match t)))
     (when (and chosen (stringp chosen) (not (string= chosen "")))
-      (project-find-file chosen))))
+      (multiple-value-bind (frame created-p)
+	  (project-switch-to-project chosen)
+	;; 新規 frame は空のウィンドウだけなので、旧来の動作に合わせて
+	;; ファイル選択を開く。既存 frame は保存済みの構成をそのまま見せる。
+	(when created-p
+	  (project-find-file chosen))))))
 
 (defun project-grep (pattern &optional (root (project-current-root)))
   "プロジェクトルート配下のファイルを対象に Grep を実行する。"
@@ -222,6 +365,7 @@ directory 自身の :recursive/:test に丸ごと任せる。:test はディレ�
   (define-key *leader-project-map* #\t 'project-open-terminal)
   (define-key *leader-project-map* #\p 'project-switch-project)
   (define-key *leader-project-map* #\r 'project-remember-project)
+  (define-key *leader-project-map* #\b 'project-bind-frame)
 
   (when (fboundp 'which-key-add-description)
     (which-key-add-description 'project-find-file "FindFile")
@@ -229,7 +373,8 @@ directory 自身の :recursive/:test に丸ごと任せる。:test はディレ�
     (which-key-add-description 'project-filer "Filer")
     (which-key-add-description 'project-open-terminal "Terminal")
     (which-key-add-description 'project-switch-project "Switch")
-    (which-key-add-description 'project-remember-project "Remember")))
+    (which-key-add-description 'project-remember-project "Remember")
+    (which-key-add-description 'project-bind-frame "BindFrame")))
 
 ;;; ------------------------------------------------------------------
 ;;; プロジェクトごとのビルド設定 (issue #418)
