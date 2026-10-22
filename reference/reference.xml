@@ -20126,11 +20126,12 @@ INTEGERが奇数ならばt、そうでなければnilを返します。
 <chapter>
 <title>open-filer</title>
 <type>Function</type>
-<arguments>open-filer</arguments>
+<arguments>open-filer &amp;optional PATH</arguments>
 <package>editor</package>
 <description>
 ファイラを開きます。[C-c C-f]
 filerのinteractive版です。
+PATH を指定するとそのディレクトリを最初に表示します。
 </description>
 <seealso>filer</seealso>
 <link></link>
