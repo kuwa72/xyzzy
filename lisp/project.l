@@ -162,11 +162,20 @@ directory-namestring は末尾 \"/\" の無い入力の最後の要素をファ�
   (car (find root *project-frame-root-alist*
 	     :key #'cdr :test #'string-equal)))
 
+(defun project-ensure-frame-context ()
+  "pseudo-frame が 1 つも無ければ初期フレームを作る。
+端末フロントエンド等、init-pseudo-frame が走っていない環境用。"
+  (unless *pseudo-frame-list*
+    (init-pseudo-frame)))
+
 (defun project-bind-frame (root &optional frame)
   "FRAME (省略時は現在の pseudo-frame) をプロジェクト ROOT に紐付ける。"
   (interactive (list (read-directory-name "Bind frame to project: "
 					  :default (project-current-root))))
-  (let ((frame (or frame (selected-pseudo-frame))))
+  (let ((frame (or frame
+		   (progn
+		     (project-ensure-frame-context)
+		     (selected-pseudo-frame)))))
     (unless frame
       (error "pseudo-frame がありません"))
     (setq root (project-normalize-root root))
@@ -197,12 +206,6 @@ directory-namestring は末尾 \"/\" の無い入力の最後の要素をファ�
       (setq name (format nil "~A (~D)" base n))
       (incf n))
     name))
-
-(defun project-ensure-frame-context ()
-  "pseudo-frame が 1 つも無ければ初期フレームを作る。
-端末フロントエンド等、init-pseudo-frame が走っていない環境用。"
-  (unless *pseudo-frame-list*
-    (init-pseudo-frame)))
 
 (defun project-switch-to-project (root)
   "ROOT のプロジェクトに紐付いた pseudo-frame を選択する。
