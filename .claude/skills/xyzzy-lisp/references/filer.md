@@ -963,11 +963,12 @@ MASK の示す条件を満たすファイルを全てマークします。
 ## `open-filer`
 
 - Function / package: editor / 定義: filer.l
-- 呼び出し: `open-filer`
+- 呼び出し: `open-filer &optional PATH`
 
 ```text
 ファイラを開きます。[C-c C-f]
 filerのinteractive版です。
+PATH を指定するとそのディレクトリを最初に表示します。
 ```
 
 関連: `filer`

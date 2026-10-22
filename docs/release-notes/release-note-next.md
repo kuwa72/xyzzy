@@ -15,6 +15,11 @@ xyzzy リリースノート
 変更
 ----
 
+  * `open-filer` に `&optional path` を追加し、指定したディレクトリを
+    最初に表示できるようにした (issue #426)。0 引数だったために
+    `project-filer` / `project-open-terminal` のフォールバック /
+    `open-memo-directory` が「引数が多すぎます」で失敗していたのを
+    修正した。
   * pseudo-frame をプロジェクトに紐付けられるようにした (issue #424)。
     `project-switch-project` は従来「選んだプロジェクトのファイルを
     1 つ開く」だけだったが、プロジェクトに紐付いた pseudo-frame が

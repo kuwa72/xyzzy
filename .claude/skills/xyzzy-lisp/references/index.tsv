@@ -1132,7 +1132,7 @@ ole-putprop	Function	editor	system	ole-putprop OBJECT PROPERTY VALUE &rest ARGS
 oledatap	Function	lisp	datatypes	oledatap OBJECT
 OLEオートメーションの使用例	Tips	-	misc	-
 open	Function	lisp	io	open FILENAME &key :direction :if-exists :if-does-not-exist :encoding :share
-open-filer	Function	editor	filer	open-filer
+open-filer	Function	editor	filer	open-filer &optional PATH
 open-line	Function	editor	text	open-line &optional (ARG 1)
 open-network-stream	Function	editor	processes	open-network-stream BUFFER HOSTNAME SERVICE &key :incode :outcode :eol-code
 open-rectangle	Function	editor	regions	open-rectangle P1 P2

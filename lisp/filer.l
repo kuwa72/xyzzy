@@ -1537,12 +1537,12 @@ K:mkdir  L:ドライブ  M:移動  N:ファイル名  O:圧縮  P:DIR??"
       (filer-cancel)
     (quit)))
 
-(defun open-filer ()
+(defun open-filer (&optional path)
   (interactive)
   (multiple-value-bind (files result)
       (let ((omode (get-ime-mode)))
 	(unwind-protect
-	    (filer nil t nil t (not *filer-modal*))
+	    (filer path t nil t (not *filer-modal*))
 	  (and *filer-modal* (toggle-ime omode))))
     (when result
       (filer-readin-1 files))))
