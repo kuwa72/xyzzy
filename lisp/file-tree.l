@@ -216,8 +216,14 @@ ROOT 自身は含まない。展開済みディレクトリの子は一段深く
 
 (defun file-tree-mouse-visit ()
   (interactive)
-  (goto-last-mouse-point)
-  (file-tree-visit))
+  ;; LBtnDown はクリック先ではなくカレントバッファのキーマップで解決される。
+  ;; ツリーのウィンドウ以外がクリックされたときは通常のマウス処理
+  ;; (フォーカス移動など) に委譲する。
+  (if (eq (selected-window) *last-mouse-window*)
+      (progn
+        (goto-last-mouse-point)
+        (file-tree-visit))
+    (mouse-left-press)))
 
 (defun file-tree-refresh ()
   "ツリーを再読み込みする。"
