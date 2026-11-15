@@ -42,7 +42,11 @@ concurrency:
 jobs:
   cross:
     name: llvm-mingw ${{ matrix.arch }} (Wine)
-    runs-on: ubuntu-latest
+    # ubuntu-latest は 2026-10-30 に 26.04 へ移り、Docker 29.4.2 が入った。
+    # 29.4.2 は Wine の socket 呼び出しを ENOSYS にする既知の不具合があり
+    # (29.4.3 で修正)、Wine を動かすこのジョブは全滅する。24.04 は Docker
+    # 28.0.4 なので、26.04 のイメージが 29.4.3 以降を積むまで固定する。
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       # One architecture failing must not hide whether the others are healthy.

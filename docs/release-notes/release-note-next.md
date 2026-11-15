@@ -15,6 +15,13 @@ xyzzy リリースノート
 変更
 ----
 
+  * CI の mingw ジョブが 2026-10-30 以降すべてタイムアウトしていたのを
+    修正した。`ubuntu-latest` が 26.04 に切り替わり Docker 29.4.2 が
+    入ったが、この版は Wine の socket 呼び出しを ENOSYS にする既知の
+    不具合がある (29.4.3 で修正)。Wine を動かすジョブは Docker 28.0.4 の
+    `ubuntu-24.04` に固定し、開発用コンテナの entrypoint は wineboot 後の
+    `wineserver -w` ではなく `-k` で prefix を flush するようにした
+    (`-w` は services.exe / explorer.exe が残ると永久に待つ)。
   * Windows で `open` の `:share` 省略時の既定を `:read-write` に変更した
     (issue #381)。以前は入力なら `:read`、それ以外は共有不可だったため、
     他プロセスが書いているファイルを xyzzy が読むと、読み手のハンドルが
