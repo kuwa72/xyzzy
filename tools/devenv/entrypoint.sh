@@ -22,13 +22,15 @@ for prefix in /wine:win64 /wine32:win32; do
   arch=${prefix#*:}
   if [ ! -f "$dir/system.reg" ]; then
     WINEPREFIX=$dir WINEARCH=$arch wineboot --init >/dev/null 2>&1 || true
-    WINEPREFIX=$dir wineserver -w || true
+    # -w waits for the server to exit, but wineboot leaves services/explorer
+    # attached and it never does.  -k flushes the prefix and tears them down.
+    WINEPREFIX=$dir wineserver -k || true
   fi
   # A crashing program must not stop at winedbg's dialog: batch runs would hang.
   if [ ! -f "$dir/.no-crash-dialog" ]; then
     WINEPREFIX=$dir wine reg add 'HKCU\Software\Wine\WineDbg' \
       /v ShowCrashDialog /t REG_DWORD /d 0 /f >/dev/null 2>&1 || true
-    WINEPREFIX=$dir wineserver -w || true
+    WINEPREFIX=$dir wineserver -k || true
     touch "$dir/.no-crash-dialog"
   fi
 done
