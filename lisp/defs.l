@@ -71,6 +71,7 @@
 			    ("\\.py$" . python-mode)
 			    ("\\.pyw$" . python-mode)
 			    ("\\.rs$" . rust-mode)
+			    ("\\.go$" . go-mode)
 			    ("\\.json$" . json-mode)
 			    ("\\.jsonc$" . json-mode)
 			    ("\\.ya?ml$" . yaml-mode)
@@ -327,6 +328,9 @@
 
 (export 'rust-mode)
 (autoload 'rust-mode "rust-mode" t)
+
+(export 'go-mode)
+(autoload 'go-mode "go-mode" t)
 
 (export 'json-mode)
 (autoload 'json-mode "json-mode" t)
