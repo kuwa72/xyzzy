@@ -1381,6 +1381,22 @@ else
   fail=1
 fi
 
+# プレフィックスキー待ちの全角 `）` (U+FF09) が mouse move として
+# 黙って捨てられないこと (issue #429)。CCF_MOUSEMOVE も 0xff09 なので、
+# kind を見ずに Char で比べると prefix が残ったまま何も起きなくなる。
+log=$build/smoke-fullwidth-prefix.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '\Cx' '）' '\w' \
+  >"$log" 2>&1 || true
+if grep -q 'Key not bound' "$log"; then
+  echo 'smoke: プレフィックス後の全角） OK -- Key not bound が出る'
+else
+  echo "smoke: プレフィックス後の全角） FAILED, see $log" >&2
+  tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzycli -wait: open a file through the listen socket, wait for
 # the buffer to be killed, then exit.  This is the flow that
 # EDITOR=xyzzycli uses.

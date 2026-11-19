@@ -169,6 +169,13 @@ g_map_finished_p ()
 int
 char_mouse_move_p (lChar lc)
 {
+  /* **kind で見る。Char に落として比べてはいけない。** CCF_MOUSEMOVE
+     (0xff09) は全角の `）` (U+FF09) と同じ値なので、文字を Char に落とすと
+     mouse move と誤認し、プレフィックスキー待ちの `dispatch` が黙って捨てる
+     (issue #429)。文字は `lchar_default_input_p` 側で self-insert に回る。 */
+  if (LCHAR_KIND (lc) == LCKIND_CHAR)
+    return 0;
+
   /* 旧 Char (CCF_MOUSEMOVE = 0xff09 系)、mouse.cc が LCHAR_MOUSE を素の
      `|` で重ねた中間形態、新 lChar (LCKEY_MOUSEMOVE) の三形式に対応。
      cmdloop 呼び出し側が完全に新 encoding 化するまで後方互換を保持 */
