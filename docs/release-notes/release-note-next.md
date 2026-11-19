@@ -15,6 +15,11 @@ xyzzy リリースノート
 変更
 ----
 
+  * 全角文字 (`？` `（` `＜` など U+FF00..U+FF3E) が旧 function key の
+    キーコードと数値で衝突し、入力できず `Key not bound` になっていたのを
+    修正した (issue #431)。キー判定を `function_char_p (Char)` ではなく
+    lChar の kind で行い、kind が CHAR の非 ASCII 文字は
+    `default-input-function` (self-insert) に回す。
   * Go ソース編集用の `go-mode` を追加 (issue #433)。`.go` が
     `*auto-mode-alist*` に未登録で `fundamental-mode` で開かれていた。
     `rust-mode` と同型で、`//`・`/* */` コメント、`"`・`'`・

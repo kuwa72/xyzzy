@@ -1362,6 +1362,25 @@ else
   fail=1
 fi
 
+# 全角 `？` `（` `＜` (U+FF1F / U+FF08 / U+FF1C) が self-insert されること。
+# これらは旧 function key のコード空間 (U+FF00..U+FF3E) と数値がぶつかるので、
+# lChar の kind ではなく Char の `function_char_p` で判定すると、キーマップに
+# 引きに行って未定義の `Key not bound` になり、何も入力できない。
+log=$build/smoke-fullwidth.txt
+XYZZY_EXE=$build/xyzzy XYZZYHOME=$root \
+  python3 "$root/tools/pty-drive.py" \
+  '\w' '？（＜' \
+  '\e\e(let ((s (buffer-substring (point-min) (point-max)))) (list (char-code (char s 0)) (char-code (char s 1)) (char-code (char s 2))))\r' \
+  '\w' \
+  >"$log" 2>&1 || true
+if grep -q '(65311 65288 65308)' "$log"; then
+  echo 'smoke: 全角 ？（＜ OK -- self-insert される'
+else
+  echo "smoke: 全角 ？（＜ FAILED, see $log" >&2
+  tail -20 "$log" >&2
+  fail=1
+fi
+
 # xyzzycli -wait: open a file through the listen socket, wait for
 # the buffer to be killed, then exit.  This is the flow that
 # EDITOR=xyzzycli uses.

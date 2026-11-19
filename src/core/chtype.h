@@ -225,6 +225,21 @@
    `terminal-key-*` が 8 件まとめて落ちた (`src/core/term.cc` の guard)。
    下の `lchar_event_p` を使う。 */
 
+/* default-input-function (self-insert) へ回す文字か。
+
+   **`function_char_p (Char)` で判定してはいけない。** U+FF00..U+FF3E
+   (全角の ！..＞) は旧 function key の CCF_CHAR_MIN..CCF_CHAR_MAX と
+   数値がぶつかるので、全角の `？` が function key 扱いになり、
+   キーマップに無い -> "Key not bound" になる。lChar の kind が CHAR なら
+   文字として扱う。 */
+static inline int
+lchar_default_input_p (lChar lc)
+{
+  return (LCHAR_KIND (lc) == LCKIND_CHAR
+          && !(LCHAR_MODS (lc) & (LCMOD_CTRL | LCMOD_ALT | LCMOD_META))
+          && LCHAR_PAYLOAD (lc) >= 128);
+}
+
 /* キーや文字ではなく「出来事」の lChar か (mouse / menu / paste)。
    **キーマップにも表示にもマクロにも載らないもの**をまとめて聞くための判定。 */
 static inline int
