@@ -24,6 +24,10 @@ LSP は Windows での BOM / CRLF 問題を直してインストールから診�
 
 ### 入力と編集モード
 
+  * プレフィックスキー待ちに全角 `）` (U+FF09) を打つと、`CCF_MOUSEMOVE`
+    (0xff09) と同じ値のため mouse move と誤認され、prefix が残ったまま
+    黙って捨てられていたのを修正した (issue #429)。`lChar` の kind が
+    `CHAR` なら mouse 判定しない。
   * 全角文字 (`？` `（` `＜` など U+FF00..U+FF3E) が旧 function key の
     キーコードと数値で衝突し、入力できず `Key not bound` になっていたのを
     修正した (issue #431)。キー判定を `function_char_p (Char)` ではなく
