@@ -860,9 +860,84 @@ quote_char (wStream &stream, Char c)
 }
 
 static void
-print_char (wStream &stream, ucs4_t c, int escape)
+print_char (wStream &stream, lChar lc, int escape)
 {
   int meta = 0;
+
+  if (LCHAR_KIND (lc) == LCKIND_CHAR)
+    {
+      /* kind=CHAR は「文字」と確定しているので function_char_p は使わない。
+         全角 U+FF00..U+FF3E が旧 function key の CCF_* と数値で衝突する
+         (issue #431)。 */
+      ucs4_t c = LCHAR_PAYLOAD (lc);
+      meta = (LCHAR_MODS (lc) & LCMOD_META) != 0;
+
+      const char *p = c < 0x10000 ? standard_Char2name (Char (c)) : 0;
+      if (p)
+        {
+          if (meta)
+            stream.add ("M-");
+          stream.add (p);
+          return;
+        }
+
+      int quote = 0;
+      if (c < ' ')
+        {
+          stream.add ("C-");
+          c = _char_downcase (c + '@');
+          quote = 1;
+        }
+      else if (c == CC_DEL)
+        {
+          stream.add ("C-");
+          c = '?';
+        }
+      if (meta)
+        {
+          stream.add ("M-");
+          quote = 1;
+        }
+
+      if (c > 0xFFFF)
+        {
+          /* Outside the BMP there is no SJIS lead/trail structure to
+             look at, and #\xNNNN cannot name it: write the character. */
+          stream.add (c);
+        }
+      else if (DBCP (c))
+        {
+          if (!escape || SJISP (c >> 8))
+            stream.add (c);
+          else
+            {
+              stream.add ('x');
+              stream.add (downcase_digit_char[(c >> 12) & 15]);
+              stream.add (downcase_digit_char[(c >> 8) & 15]);
+              stream.add (downcase_digit_char[(c >> 4) & 15]);
+              stream.add (downcase_digit_char[(c >> 0) & 15]);
+            }
+        }
+      else
+        {
+          if (escape && SJISP (c))
+            {
+              stream.add ('x');
+              stream.add (downcase_digit_char[(c >> 4) & 15]);
+              stream.add (downcase_digit_char[(c >> 0) & 15]);
+            }
+          else
+            {
+              if (escape && quote)
+                quote_char (stream, c);
+              stream.add (c);
+            }
+        }
+      return;
+    }
+
+  /* FNKEY など: 旧 encoding に戻して function key 名を引く */
+  Char c = ccf_from_lc (lc);
 
   if (meta_char_p (c))
     {
@@ -970,15 +1045,17 @@ print_char (wStream &stream, ucs4_t c, int escape)
 }
 
 static void
-print_char (wStream &stream, const print_control &pc, ucs4_t c)
+print_char (wStream &stream, const print_control &pc, lChar lc)
 {
   if (pc.readably || pc.escape)
     {
       stream.add ("#\\");
-      print_char (stream, c, 1);
+      print_char (stream, lc, 1);
     }
+  else if (LCHAR_KIND (lc) == LCKIND_CHAR)
+    stream.add (ucs4_t (LCHAR_PAYLOAD (lc)));
   else
-    stream.add (c);
+    print_char (stream, lc, 0);
 }
 
 static void
@@ -1182,7 +1259,7 @@ print_array (wStream &stream, const print_control &pc,
           switch (type)
             {
             case Tstring_array:
-              print_char (stream, pc, xstring_array_contents (object) [i]);
+              print_char (stream, pc, LCEXPLICIT_CHAR | lChar (xstring_array_contents (object) [i]));
               break;
 
             default:
@@ -1770,7 +1847,7 @@ print_sexp (wStream &stream, const print_control &pc, lisp object, int level)
       if (short_int_p (object))
         print_integer (stream, pc, object);
       else if (charp (object))
-        print_char (stream, pc, xchar_code (object));
+        print_char (stream, pc, xchar_lchar (object));
       else if (messagep (object))
         print_message (stream, pc, xmessage_code (object));
       else
@@ -2499,16 +2576,15 @@ Format::character (wStream &stream)
   max_param (0);
   lisp x = getarg ();
   check_char (x);
-  ucs4_t c = ucs4_t (xchar_code (x));
   if (colon)
-    print_char (stream, c, 0);
+    print_char (stream, xchar_lchar (x), 0);
   else if (atsign)
     {
       stream.add ("#\\");
-      print_char (stream, c, 1);
+      print_char (stream, xchar_lchar (x), 1);
     }
   else
-    stream.add (c);
+    stream.add (xchar_code (x));
 }
 
 static int
@@ -4579,10 +4655,10 @@ format_yes_or_no_p (int m, ...)
 }
 
 char *
-print_key_sequence (char *b, char *be, Char c)
+print_key_sequence (char *b, char *be, lChar lc)
 {
   wStream stream;
-  print_char (stream, c, 0);
+  print_char (stream, lc, 0);
   stream.finish ();
   int l = stream.length ();
   ucs4_t *w = (ucs4_t *)alloca (sizeof (ucs4_t) * l);

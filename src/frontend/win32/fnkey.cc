@@ -434,7 +434,14 @@ Fset_function_bar_label (lisp lcc, lisp label)
   if (label != Qnil)
     check_string (label);
 
-  Char cc = xchar_code (lcc);
+  /* function bar のラベルは function key にだけ付けられる。
+     kind=CHAR の全角文字を function_char_p で判定すると
+     U+FF00..U+FF3E が誤って通る (issue #431)。 */
+  lChar lc = xchar_lchar (lcc);
+  if (LCHAR_KIND (lc) != LCKIND_FNKEY)
+    FEprogram_error (Ewrong_function_bar_char, lcc);
+
+  Char cc = ccf_from_lc (lc);
   int meta = 0;
   if (meta_function_char_p (cc))
     {

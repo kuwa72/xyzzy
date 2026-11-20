@@ -514,59 +514,101 @@ init_menu_popup (lisp lmenu, int enablep)
 }
 
 static char *
-keyname (char *p, Char c)
+keyname (char *p, lChar lc)
 {
-  if (function_char_p (c))
+  /* kind=FNKEY は旧 encoding に戻して関数キー名を引く。
+     kind=CHAR は文字なので function_char_p は使わない (issue #431)。 */
+  if (LCHAR_KIND (lc) == LCKIND_FNKEY)
     {
-      if (pseudo_ctlchar_p (c))
+      Char c = ccf_from_lc (lc);
+      int meta = 0;
+      if (meta_function_char_p (c))
         {
-          p = stpcpy (p, "Ctrl+");
-          *p++ = pseudo_ctl2char_table[c & 0xff];
-          if (p[-1] == '&')
-            *p++ = '&';
-          *p = 0;
+          meta = 1;
+          c = meta_function_to_function (c);
+        }
+      if (function_char_p (c))
+        {
+          if (pseudo_ctlchar_p (c))
+            {
+              p = stpcpy (p, "Ctrl+");
+              *p++ = pseudo_ctl2char_table[c & 0xff];
+              if (p[-1] == '&')
+                *p++ = '&';
+              *p = 0;
+            }
+          else
+            {
+              if (c & CCF_SHIFT_BIT)
+                p = stpcpy (p, "Shift+");
+              if (c & CCF_CTRL_BIT)
+                p = stpcpy (p, "Ctrl+");
+              if (meta)
+                p = stpcpy (p, "M-");
+              const char *x = function_Char2name (c & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
+              if (x)
+                p = stpcpy (p, x);
+              else
+                assert (0);
+            }
         }
       else
         {
-          if (c & CCF_SHIFT_BIT)
-            p = stpcpy (p, "Shift+");
-          if (c & CCF_CTRL_BIT)
-            p = stpcpy (p, "Ctrl+");
-          const char *x = function_Char2name (c & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
+          const char *x = standard_Char2name (c);
           if (x)
             p = stpcpy (p, x);
           else
-            assert (0);
+            {
+              if (c < ' ' || c == CC_DEL)
+                {
+                  p = stpcpy (p, "Ctrl+");
+                  *p++ = c == CC_DEL ? '?' : _char_downcase (c + '@');
+                }
+              else
+                {
+                  if (c == '&')
+                    *p++ = char (c);
+                  *p++ = char (c);
+                }
+              *p = 0;
+            }
         }
+      return p;
     }
-  else
-    {
-      const char *x = standard_Char2name (c);
-      if (x)
+
+  {
+    int meta = (LCHAR_MODS (lc) & LCMOD_META) != 0;
+    ucs4_t c = LCHAR_PAYLOAD (lc);
+    const char *x = c < 0x10000 ? standard_Char2name (Char (c)) : 0;
+    if (x)
+      {
+        if (meta)
+          p = stpcpy (p, "M-");
         p = stpcpy (p, x);
-      else
-        {
-          if (c < ' ' || c == CC_DEL)
-            {
-              p = stpcpy (p, "Ctrl+");
-              *p++ = c == CC_DEL ? '?' : _char_downcase (c + '@');
-            }
-          else
-            {
-              if (c == '&')
-                *p++ = char (c);
-              *p++ = char (c);
-            }
-          *p = 0;
-        }
-    }
+      }
+    else
+      {
+        if (c < ' ' || c == CC_DEL)
+          {
+            p = stpcpy (p, "Ctrl+");
+            *p++ = c == CC_DEL ? '?' : _char_downcase (c + '@');
+          }
+        else
+          {
+            if (meta)
+              p = stpcpy (p, "M-");
+            *p++ = c < 0x100 ? char (c) : '?';
+          }
+        *p = 0;
+      }
+  }
   return p;
 }
 
 #define ACC_SEP '\010'
 
 static void
-modify_menu_string (HMENU hmenu, int id, int pos, const Char *b, const Char *be)
+modify_menu_string (HMENU hmenu, int id, int pos, const lChar *b, const lChar *be)
 {
   wchar_t wolds[1024];
   if (!GetMenuStringW (hmenu, pos, wolds, (sizeof wolds / sizeof wolds[0]) - 1, MF_BYPOSITION))
@@ -636,8 +678,8 @@ modify_menu_string (lisp lmenu)
           && symbolp (xwin32_menu_command (item)))
         for (int i = 0; i < nmaps; i++)
           {
-            Char b[5];
-            Char *be = lookup_command_keyseq (xwin32_menu_command (item),
+            lChar b[5];
+            lChar *be = lookup_command_keyseq (xwin32_menu_command (item),
                                               map[i], map, i,
                                               b, b, b + numberof (b));
             if (be)

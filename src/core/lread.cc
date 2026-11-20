@@ -923,10 +923,12 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
      stay Char; a plain character can be any code point, so the result is
      ucs4_t. Keeping it Char is what made #\<emoji> read back truncated. */
   ucs4_t c;
+  int oldenc = 0;               /* c が旧 Char encoding の値か */
   Char fc = function_char_name2Char (p, l);
   if (fc != Char (-1))
     {
       c = fc;
+      oldenc = 1;
       if (ctl)
         c |= CCF_CTRL_BIT;
       if (shift)
@@ -939,6 +941,7 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
       if (shift)
         reader_error (stream, Ecannot_specify_shift_bit, token.make_string ());
       c = CCF_CHAR_MIN + pseudo_char2ctl_table[*p];
+      oldenc = 1;
       if (meta)
         c = function_to_meta_function (c);
     }
@@ -966,10 +969,16 @@ number_backslash_reader (lisp stream, Char, dispmacro_param &param)
         }
 
       if (meta && ascii_char_p (c))
-        c = char_to_meta_char (c);
+        {
+          c = char_to_meta_char (c);
+          oldenc = 1;
+        }
     }
 
-  return make_char (c);
+  /* 旧 Char encoding の値 (function key、meta char 等) は make_char_key で
+     kind を保つ。code point は make_char。全角 U+FF00..U+FF3E が
+     function key と区別できるようになる (issue #431)。 */
+  return oldenc ? make_char_key (Char (c)) : make_char (c);
 }
 
 static lisp

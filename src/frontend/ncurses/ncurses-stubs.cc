@@ -5495,49 +5495,60 @@ struct menu_entry
   int keybind_width; // display width of keybind string
 };
 
-// Format a single Char as Emacs-style key name. Returns pointer past the written chars.
+// Format a single lChar as Emacs-style key name. Returns pointer past the written chars.
 static char *
-keyname_emacs (char *p, Char c)
+keyname_emacs (char *p, lChar lc)
 {
   int meta = 0;
+  ucs4_t c;
+  int fkey = 0;
 
-  if (meta_char_p (c))
+  if (LCHAR_KIND (lc) == LCKIND_FNKEY)
     {
-      meta = 1;
-      c = meta_char_to_char (c);
-    }
-  else if (meta_function_char_p (c))
-    {
-      meta = 1;
-      c = meta_function_to_function (c);
+      Char cc = ccf_from_lc (lc);
+      fkey = 1;
+      if (meta_function_char_p (cc))
+        {
+          meta = 1;
+          cc = meta_function_to_function (cc);
+        }
+      c = cc;
+      goto fmt;
     }
 
-  if (function_char_p (c))
+  c = LCHAR_PAYLOAD (lc);
+  if (LCHAR_MODS (lc) & LCMOD_META)
+    meta = 1;
+  goto fmt;
+
+fmt:
+  if (fkey && function_char_p (Char (c)))
     {
-      if (pseudo_ctlchar_p (c))
+      Char cc = Char (c);
+      if (pseudo_ctlchar_p (cc))
         {
           p = stpcpy (p, "C-");
           if (meta)
             p = stpcpy (p, "M-");
-          *p++ = pseudo_ctl2char_table[c & 0xff];
+          *p++ = pseudo_ctl2char_table[cc & 0xff];
           *p = 0;
         }
       else
         {
-          if (c & CCF_SHIFT_BIT)
+          if (cc & CCF_SHIFT_BIT)
             p = stpcpy (p, "S-");
-          if (c & CCF_CTRL_BIT)
+          if (cc & CCF_CTRL_BIT)
             p = stpcpy (p, "C-");
           if (meta)
             p = stpcpy (p, "M-");
-          const char *x = function_Char2name (c & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
+          const char *x = function_Char2name (cc & ~(CCF_SHIFT_BIT | CCF_CTRL_BIT));
           if (x)
             p = stpcpy (p, x);
         }
     }
   else
     {
-      const char *x = standard_Char2name (c);
+      const char *x = c < 0x10000 ? standard_Char2name (Char (c)) : 0;
       if (x)
         {
           if (meta)
@@ -5566,7 +5577,10 @@ keyname_emacs (char *p, Char c)
             {
               if (meta)
                 p = stpcpy (p, "M-");
-              *p++ = (char)c;
+              if (c < 0x100)
+                *p++ = (char)c;
+              else
+                p = stpcpy (p, "?");
               *p = 0;
             }
         }
@@ -5618,15 +5632,15 @@ fill_menu_keybinds (menu_entry *entries, int count)
 
           for (int i = 0; i < nmaps; i++)
             {
-              Char b[5];
-              Char *be = lookup_command_keyseq (xwin32_menu_command (e.item),
+              lChar b[5];
+              lChar *be = lookup_command_keyseq (xwin32_menu_command (e.item),
                                                 map[i], map, i,
                                                 b, b, b + numberof (b));
               if (be)
                 {
                   char *p = e.keybind;
                   char *pe = e.keybind + sizeof (e.keybind) - 1;
-                  for (const Char *k = b; k < be && p < pe - 16; k++)
+                  for (const lChar *k = b; k < be && p < pe - 16; k++)
                     {
                       if (k != b)
                         *p++ = ' ';
@@ -7420,7 +7434,7 @@ lisp Fsi_instance_number () { return make_fixnum (0); }
 lisp
 Fquit_char ()
 {
-  return make_char (Char (ncurses_quit_char));
+  return make_char_from_lchar (ncurses_quit_char);
 }
 
 /* **`nil` を黙って受けてはいけない。** ここには
@@ -7434,7 +7448,7 @@ lisp
 Fset_quit_char (lisp c)
 {
   check_char (c);
-  ncurses_quit_char = xchar_code (c);
+  ncurses_quit_char = xchar_lchar (c);
   return c;
 }
 /* マウスカーソルの形、ドラッグ、自動スクロール、バッファバー。

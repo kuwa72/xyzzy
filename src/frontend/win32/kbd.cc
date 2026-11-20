@@ -102,22 +102,30 @@ kbd_queue::putc (lChar c)
        - 空 buffer (= ミニバッファ) では forward_char が chunk 末尾を
          踏み抜いて落ちる
 
-     となる。queue に載せる前に pair を 1 個の code point へ畳む。 */
-  if (pending_high != lChar_EOF)
+     となる。queue に載せる前に pair を 1 個の code point へ畳む。
+     文字 lChar は LCEXPLICIT_CHAR が立つので、surrogate 判定は
+     payload で行う (issue #431)。 */
+  if (LCHAR_KIND (c) == LCKIND_CHAR)
     {
-      lChar hi = pending_high;
-      pending_high = lChar_EOF;
-      if (c >= 0xDC00 && c <= 0xDFFF)
-        return putraw (0x10000 + ((hi - 0xD800) << 10) + (c - 0xDC00));
-      /* low が続かなかった (壊れた入力)。孤立 high をそのまま流して
-         c は通常処理に回す。 */
-      if (!putraw (hi))
-        return 0;
-    }
-  if (c >= 0xD800 && c <= 0xDBFF)
-    {
-      pending_high = c;
-      return 1;
+      lChar ch = LCHAR_PAYLOAD (c);
+      if (pending_high != lChar_EOF)
+        {
+          lChar hi = pending_high;
+          pending_high = lChar_EOF;
+          if (ch >= 0xDC00 && ch <= 0xDFFF)
+            return putraw (LCHAR_CHAR (0x10000
+                                       + ((LCHAR_PAYLOAD (hi) - 0xD800) << 10)
+                                       + (ch - 0xDC00)));
+          /* low が続かなかった (壊れた入力)。孤立 high をそのまま流して
+             c は通常処理に回す。 */
+          if (!putraw (hi))
+            return 0;
+        }
+      if (ch >= 0xD800 && ch <= 0xDBFF)
+        {
+          pending_high = c;
+          return 1;
+        }
     }
   return putraw (c);
 #else
@@ -169,7 +177,9 @@ kbd_queue::puts (const char *string, int l)
   encoding_input_stream_helper is (xsymbol_value (Vkbd_encoding), in);
   int c;
   while ((c = is->get ()) != xstream::eof)
-    if (!putraw (c))
+    /* ストリームが返すのは code point。文字なので LCEXPLICIT_CHAR を
+       立てる (issue #431)。 */
+    if (!putraw (LCHAR_CHAR (lChar (c))))
       return 0;
   return 1;
 }
@@ -680,7 +690,7 @@ pre_decode_vkeys (UINT vkey, int syskey)
   if (!charp (cc))
     return lChar_EOF;
 
-  return xchar_code (cc);
+  return xchar_lchar (cc);
 }
 
 lChar
@@ -694,7 +704,10 @@ lookup_translate_table (lChar cc)
   if (xvector_length (vec) != 128)
     return cc;
   lisp lcc = xvector_contents (vec)[cc];
-  return charp (lcc) ? xchar_code (lcc) : cc;
+  /* char object の kind を保つため xchar_lchar を返す。xchar_code だと
+     全角文字が旧 Char に退化して function key と区別が付かない
+     (issue #431)。呼び出し側は戻り値を lChar として扱うこと。 */
+  return charp (lcc) ? xchar_lchar (lcc) : cc;
 }
 
 static lChar
@@ -729,7 +742,33 @@ decode_ctlchars (UINT vk, UINT sc)
 lChar
 decode_syschars (WPARAM wparam)
 {
-  lChar cc = lookup_translate_table (wparam);
+  /* WM_CHAR/WM_SYSCHAR の wparam>=128 は Unicode の code point。
+     旧 Char に落とすと全角 U+FF00..U+FF3E が function key と数値で
+     衝突するので、文字であることが分かる lChar のまま持ち回る
+     (issue #431)。kdb-translate-table は 128 エントリなので >=128 は
+     引かない。 */
+  lChar cc = (wparam >= 128
+              ? LCKIND_CHAR | LCEXPLICIT_CHAR | lChar (wparam)
+              : lookup_translate_table (wparam));
+
+  /* 非 ASCII の文字は旧 Char では M- を表せないので、Alt を落として
+     文字のまま返す。function_char_p で判定すると全角が function key
+     扱いになる (issue #431)。translate table 経由の値も kind 付きの
+     lChar で来るので、kind=FNKEY と明示的な文字はここで処理して
+     旧 Char domain の処理には渡さない。 */
+  if (LCHAR_KIND (cc) == LCKIND_CHAR && (cc & LCEXPLICIT_CHAR))
+    {
+      if (LCHAR_PAYLOAD (cc) < 128 && GetKeyState (VK_MENU) < 0)
+        cc |= LCMOD_META;
+      return cc;
+    }
+  if (LCHAR_KIND (cc) == LCKIND_FNKEY)
+    {
+      if (GetKeyState (VK_MENU) < 0)
+        cc |= LCMOD_META;
+      return cc;
+    }
+
   if (GetKeyState (VK_MENU) < 0)
     {
       if (ascii_char_p (cc))
@@ -739,9 +778,6 @@ decode_syschars (WPARAM wparam)
         cc |= CC_META_BIT;
 #endif
       else if (cc >= 128 && !pseudo_ctlchar_p (Char (cc)))
-        /* 旧 Char は M- 付きの非 ASCII を表せない。function_char_p で
-           判定すると全角 U+FF00..U+FF3E が function key 扱いになるので、
-           ここでは Alt を落として文字のまま返す (issue #431)。 */
         return cc;
       else if (function_char_p (Char (cc)))
         cc = function_to_meta_function (Char (cc));
@@ -759,7 +795,7 @@ decode_chars (WPARAM wparam)
      ぶつかって kind を失い、filer などで Key not bound になる
      (issue #430)。toplev.cc の WM_CHAR と同じ扱いにする。 */
   if (wparam >= 128 && !(GetKeyState (VK_MENU) < 0))
-    return lChar (wparam);
+    return LCKIND_CHAR | LCEXPLICIT_CHAR | lChar (wparam);
   return decode_syschars (wparam);
 }
 
@@ -769,19 +805,23 @@ decode_syskeys (WPARAM wparam, LPARAM lparam)
   if (wparam == VK_TAB)
     return lChar_EOF;
 
+  /* pre_decode_vkeys は kind 付きの lChar を返すのでそのまま返す。
+     lc_from_ccf (Char (c)) に通すと kind が消える (issue #431)。 */
   lChar c = pre_decode_vkeys (wparam, 1);
   if (c != lChar_EOF)
-    return lc_from_ccf (Char (c));
+    return c;
 
   c = decode_vkeys (wparam);
   if (c != lChar_EOF)
     {
+      Char cc = Char (c);
       if (GetKeyState (VK_SHIFT) < 0)
-        c |= CCF_SHIFT_BIT;
+        cc |= CCF_SHIFT_BIT;
       if (GetKeyState (VK_CONTROL) < 0)
-        c |= CCF_CTRL_BIT;
+        cc |= CCF_CTRL_BIT;
       if (GetKeyState (VK_MENU) < 0)
-        c = function_to_meta_function (Char (c));
+        cc = function_to_meta_function (cc);
+      return lc_from_ccf (cc);
     }
   else
     {
@@ -789,29 +829,40 @@ decode_syskeys (WPARAM wparam, LPARAM lparam)
       if (c != lChar_EOF)
         {
           c = lookup_translate_table (c);
-          if (GetKeyState (VK_MENU) < 0 && function_char_p (Char (c)))
-            c = function_to_meta_function (Char (c));
+          if (LCHAR_KIND (c) == LCKIND_CHAR && !(c & LCEXPLICIT_CHAR))
+            {
+              /* 旧 Char domain の値だけ従来の変換を通す */
+              if (GetKeyState (VK_MENU) < 0 && function_char_p (Char (c)))
+                c = function_to_meta_function (Char (c));
+              c = lc_from_ccf (Char (c));
+            }
+          else if (GetKeyState (VK_MENU) < 0)
+            c |= LCMOD_META;
         }
     }
-  return c == lChar_EOF ? lChar_EOF : lc_from_ccf (Char (c));
+  return c == lChar_EOF ? lChar_EOF : c;
 }
 
 lChar
 decode_keys (WPARAM wparam, LPARAM lparam)
 {
+  /* pre_decode_vkeys は kind 付きの lChar を返すのでそのまま返す
+     (issue #431)。 */
   lChar c = pre_decode_vkeys (wparam, 0);
   if (c != lChar_EOF)
-    return lc_from_ccf (Char (c));
+    return c;
 
   c = decode_vkeys (wparam);
   if (c != lChar_EOF)
     {
+      Char cc = Char (c);
       if (GetKeyState (VK_SHIFT) < 0)
-        c |= CCF_SHIFT_BIT;
+        cc |= CCF_SHIFT_BIT;
       if (GetKeyState (VK_CONTROL) < 0)
-        c |= CCF_CTRL_BIT;
+        cc |= CCF_CTRL_BIT;
       if (GetKeyState (VK_MENU) < 0)  // ???
-        c = function_to_meta_function (Char (c));
+        cc = function_to_meta_function (cc);
+      return lc_from_ccf (cc);
     }
   else
     {
@@ -819,8 +870,15 @@ decode_keys (WPARAM wparam, LPARAM lparam)
       if (c != lChar_EOF)
         {
           c = lookup_translate_table (c);
-          if (GetKeyState (VK_MENU) < 0 && function_char_p (Char (c)))
-            c = function_to_meta_function (Char (c));
+          if (LCHAR_KIND (c) == LCKIND_CHAR && !(c & LCEXPLICIT_CHAR))
+            {
+              /* 旧 Char domain の値だけ従来の変換を通す */
+              if (GetKeyState (VK_MENU) < 0 && function_char_p (Char (c)))
+                c = function_to_meta_function (Char (c));
+              c = lc_from_ccf (Char (c));
+            }
+          else if (GetKeyState (VK_MENU) < 0)
+            c |= LCMOD_META;
         }
       else
         {
@@ -839,20 +897,29 @@ decode_keys (WPARAM wparam, LPARAM lparam)
           else
             return lChar_EOF;
           c = lookup_translate_table (c);
-          if (GetKeyState (VK_MENU) < 0)
+          if (LCHAR_KIND (c) == LCKIND_CHAR && !(c & LCEXPLICIT_CHAR))
             {
-              if (ascii_char_p (c))
+              /* 旧 Char domain の値だけ従来の変換を通す */
+              Char cc = Char (c);
+              if (GetKeyState (VK_MENU) < 0)
+                {
+                  if (ascii_char_p (cc))
 #ifdef UNICODE
-                c |= CC_META;
+                    cc |= CC_META;
 #else
-                c |= CC_META_BIT;
+                    cc |= CC_META_BIT;
 #endif
-              else if (function_char_p (Char (c)))
-                c = function_to_meta_function (Char (c));
+                  else if (function_char_p (cc))
+                    cc = function_to_meta_function (cc);
+                }
+              return lc_from_ccf (cc);
             }
+          if (GetKeyState (VK_MENU) < 0)
+            c |= LCMOD_META;
+          return c;
         }
     }
-  return c == lChar_EOF ? lChar_EOF : lc_from_ccf (Char (c));
+  return c == lChar_EOF ? lChar_EOF : c;
 }
 
 int
@@ -1150,7 +1217,7 @@ key_sequence::key_sequence ()
 }
 
 inline void
-key_sequence::store (Char c)
+key_sequence::store (lChar c)
 {
   if (k_used < MAX_KEYSEQ)
     k_seq[k_used] = c;
@@ -1179,7 +1246,7 @@ key_sequence::notice (int n, int cont)
 }
 
 void
-key_sequence::push (Char c, int f)
+key_sequence::push (lChar c, int f)
 {
   store (c);
   if (f)
@@ -1187,7 +1254,7 @@ key_sequence::push (Char c, int f)
 }
 
 void
-key_sequence::done (Char c, int f)
+key_sequence::done (lChar c, int f)
 {
   store (c);
   k_last_used = k_used;
@@ -1334,7 +1401,7 @@ Fset_next_prefix_args (lisp arg, lisp value, lisp c)
   if (c && c != Qnil)
     {
       check_char (c);
-      app.keyseq.push (xchar_code (c), !app.kbdq.macro_is_running ());
+      app.keyseq.push (xchar_lchar (c), !app.kbdq.macro_is_running ());
       Fcontinue_pre_selection ();
       app.kbdq.close_ime ();
       app.kbdq.keep_next_command_key ();
