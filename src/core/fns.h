@@ -61,7 +61,7 @@ void warn_msgbox (message_code, lisp = 0);
 void warn (message_code, lisp = 0);
 void format_message (int, ...);
 int format_yes_or_no_p (int, ...);
-char *print_key_sequence (char *, char *, Char);
+char *print_key_sequence (char *, char *, lChar);
 void ding (int);
 int get_glyph_width (Char, const struct glyph_width &);
 
@@ -74,7 +74,7 @@ void init_readtable ();
 /* keymap.cc */
 lisp parse_keymap (lChar, lisp);
 lisp lookup_keymap (lChar, lisp *, int);
-Char *lookup_command_keyseq (lisp, lisp, const lisp *, int, Char *, Char *, Char *);
+lChar *lookup_command_keyseq (lisp, lisp, const lisp *, int, lChar *, lChar *, lChar *);
 int find_in_current_keymaps (lChar);
 
 /* data.cc */

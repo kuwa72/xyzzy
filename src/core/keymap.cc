@@ -81,12 +81,10 @@ parse_keymap (lChar lc, lisp map)
     }
   if (consp (map) && xcar (map) == Qkeymap)
     {
-      /* 既存の sparse keymap には旧 Char encoding の char object が
-         格納されているため、lc を一旦旧形式に戻して eq 比較する。
-         Task #12 で Lisp char 自体を lChar 化すれば、この変換は
-         ccf_from_lc を直接 make_char へ渡す形で残り、その後 Lisp char が
-         lChar 値を持つよう改修された時点で不要になる見込み。           */
-      lisp cc = make_char (ccf_from_lc (lc));
+      /* sparse keymap に格納する char は lChar をそのまま持つので、
+         kind (CHAR/FNKEY) が保存され、全角文字と機能キーを区別できる
+         (issue #431)。 */
+      lisp cc = make_char_from_lchar (lc);
       for (map = xcdr (map); consp (map); map = xcdr (map))
         {
           lisp p = xcar (map);
@@ -219,8 +217,9 @@ scan_key_slot (lisp keymap, lChar lc, int igcase)
       return &xvector_contents (keymap) [i];
     }
 
-  /* sparse keymap: 既存エントリは旧 Char 形式で格納。ccf_from_lc で戻して eq 比較 */
-  lisp cc = make_char (ccf_from_lc (lc));
+  /* sparse keymap: 格納されている char は lChar を持つ。make_char_from_lchar
+     で kind を保ったまま eq 比較する (issue #431)。 */
+  lisp cc = make_char_from_lchar (lc);
   for (lisp p = keymap; consp (p); p = xcdr (p))
     {
       lisp x = xcar (p);
@@ -255,7 +254,7 @@ make_key_slot (lisp keymap, lChar lc)
 
   if (consp (keymap))
     {
-      lisp x = xcons (make_char (ccf_from_lc (lc)), Qnil);
+      lisp x = xcons (make_char_from_lchar (lc), Qnil);
       xcdr (keymap) = xcons (x, xcdr (keymap));
       return &xcdr (x);
     }
@@ -272,9 +271,10 @@ search_key_slot (lisp keymap, lisp key, int bindp, int igcase)
 
   if (charp (key))
     {
-      /* xchar_code は当面 Char (16bit, 旧 encoding) を返す。
-         lc_from_ccf で lChar (新 encoding) に昇格してから処理。 */
-      lChar lc = lc_from_ccf (xchar_code (key));
+      /* char object は lChar を保持しているので、そのまま使う。
+         全角文字 (kind=CHAR) と機能キー (kind=FNKEY) が区別できる
+         (issue #431)。 */
+      lChar lc = xchar_lchar (key);
 
       if (!(lc & LCMOD_META))
         {
@@ -381,14 +381,14 @@ Fkeymap_index_char (lisp code)
     c |= CCF_SHIFT_BIT;
   if (n & 2)
     c |= CCF_CTRL_BIT;
-  return make_char (c);
+  return make_char_key (c);
 }
 
 lisp
 Fkeymap_char_index (lisp c)
 {
   check_char (c);
-  u_int i = full_keymap_index (lc_from_ccf (xchar_code (c)));
+  u_int i = full_keymap_index (xchar_lchar (c));
   return i < KEYMAP_LENGTH ? make_fixnum (i) : Qnil;
 }
 
@@ -407,7 +407,7 @@ expand_keymap (lisp keymap, lisp *buf)
         lisp x = xcar (p);
         if (consp (x) && charp (xcar (x)))
           {
-            u_int idx = full_keymap_index (lc_from_ccf (xchar_code (xcar (x))));
+            u_int idx = full_keymap_index (xchar_lchar (xcar (x)));
             if (idx < KEYMAP_LENGTH)
               buf[idx] = xcdr (x);
           }
@@ -464,7 +464,7 @@ command_keys (lisp command, lisp keymap, keyseq_list *prev,
     if (*p == command)
       {
         lisp ch = Fkeymap_index_char (make_fixnum (i));
-        keyseq.c = lc_from_ccf (xchar_code (ch));
+        keyseq.c = xchar_lchar (ch);
         if (!command_shadow_p (&keyseq, shadow, nshadow))
           result = Fcons (ch, result);
       }
@@ -473,7 +473,7 @@ command_keys (lisp command, lisp keymap, keyseq_list *prev,
     if (Fkeymapp (*p) != Qnil)
       {
         lisp ch = Fkeymap_index_char (make_fixnum (i));
-        keyseq.c = lc_from_ccf (xchar_code (ch));
+        keyseq.c = xchar_lchar (ch);
         lisp sub = command_keys (command, *p, &keyseq, shadow, nshadow);
         if (sub != Qnil)
           result = Fcons (Fcons (ch, sub), result);
@@ -511,16 +511,14 @@ Fcommand_keys (lisp command, lisp gmap, lisp lmap, lisp minor_map)
   return result;
 }
 
-/* 外部 (menu.cc 等) からは Char* で keyseq を保持したままの方が
-   呼び出し側の blast radius が小さい。内部で parse_keymap 呼ぶ時だけ
-   lc_from_ccf で lChar に昇格する。Phase 1 後半 (Task #12) で
-   Lisp char が lChar 化すれば Char* → lChar* の移行も検討する。      */
+/* keyseq は lChar で保持する。Char (16bit) では kind が落ちて、全角文字と
+   function key を区別できない (issue #431)。 */
 static int
-command_shadow_p (const Char *b, const Char *be, lisp keymap)
+command_shadow_p (const lChar *b, const lChar *be, lisp keymap)
 {
   for (; b < be; b++)
     {
-      keymap = parse_keymap (lc_from_ccf (*b), Fkeymapp (keymap));
+      keymap = parse_keymap (*b, Fkeymapp (keymap));
       if (keymap == Qnil)
         return 0;
     }
@@ -528,7 +526,7 @@ command_shadow_p (const Char *b, const Char *be, lisp keymap)
 }
 
 static int
-command_shadow_p (const Char *b, const Char *be, const lisp *shadow, int nshadow)
+command_shadow_p (const lChar *b, const lChar *be, const lisp *shadow, int nshadow)
 {
   for (int i = 0; i < nshadow; i++)
     if (command_shadow_p (b, be, shadow[i]))
@@ -536,9 +534,9 @@ command_shadow_p (const Char *b, const Char *be, const lisp *shadow, int nshadow
   return 0;
 }
 
-Char *
+lChar *
 lookup_command_keyseq (lisp command, lisp keymap, const lisp *shadow, int nshadow,
-                       Char *keyb, Char *keyp, Char *keye)
+                       lChar *keyb, lChar *keyp, lChar *keye)
 {
   if (keyp == keye)
     return 0;
@@ -551,7 +549,7 @@ lookup_command_keyseq (lisp command, lisp keymap, const lisp *shadow, int nshado
   for (i = 0, p = map; i < KEYMAP_LENGTH; i++, p++)
     if (*p == command)
       {
-        *keyp++ = xchar_code (Fkeymap_index_char (make_fixnum (i)));
+        *keyp++ = xchar_lchar (Fkeymap_index_char (make_fixnum (i)));
         if (!command_shadow_p (keyb, keyp, shadow, nshadow))
           return keyp;
       }
@@ -559,8 +557,8 @@ lookup_command_keyseq (lisp command, lisp keymap, const lisp *shadow, int nshado
   for (i = 0, p = map; i < KEYMAP_LENGTH; i++, p++)
     if (Fkeymapp (*p) != Qnil)
       {
-        *keyp = xchar_code (Fkeymap_index_char (make_fixnum (i)));
-        Char *e = lookup_command_keyseq (command, *p, shadow, nshadow, keyb, keyp + 1, keye);
+        *keyp = xchar_lchar (Fkeymap_index_char (make_fixnum (i)));
+        lChar *e = lookup_command_keyseq (command, *p, shadow, nshadow, keyb, keyp + 1, keye);
         if (e)
           return e;
       }

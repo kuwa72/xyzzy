@@ -676,8 +676,8 @@ void kbd_queue::restore_ime () {}
 int kbd_queue::lookup_kbd_macro (lisp) const { return 0; }
 int kbd_queue::toggle_ime (int, int) { return 0; }
 
-void key_sequence::push (Char, int) {}
-void key_sequence::done (Char, int) {}
+void key_sequence::push (lChar, int) {}
+void key_sequence::done (lChar, int) {}
 
 // ============================================================
 // Display stubs (called by core/cmdloop.cc)

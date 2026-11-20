@@ -232,7 +232,7 @@ wchar_to_lchar (wchar_t wc)
   // 21-bit payload field holds any code point up to 0x10FFFF).
   // No more w2i() folding into the old cp932 internal encoding.
   if (wc > 0)
-    return (lChar)wc;
+    return LCKIND_CHAR | LCEXPLICIT_CHAR | lChar (wc);
 
   return lChar_EOF;
 }
@@ -369,7 +369,7 @@ struct input_path_guard
 
 /* 止めるキー。既定は C-g。`quit-char` / `set-quit-char` が読み書きする
    (src/frontend/ncurses/ncurses-stubs.cc)。 */
-lChar ncurses_quit_char = 'G' - '@';
+lChar ncurses_quit_char = LCKIND_CHAR | LCEXPLICIT_CHAR | lChar ('G' - '@');
 
 static void
 ncurses_poll_quit_char ()
@@ -675,7 +675,7 @@ kbd_queue::fetch (int wait, int)
     }
 
   // ESC timeout detection: ESC alone (200ms) → CCF_F10 (menu activation)
-  if (result == CC_ESC)
+  if (result == LCHAR_CHAR (CC_ESC))
     {
       // First check ncurses internal buffer (ESC+key may already be consumed)
       wint_t next_wch;
@@ -904,5 +904,5 @@ kbd_queue::sleep_for (DWORD timeout)
 int kbd_queue::lookup_kbd_macro (lisp) const { return 0; }
 int kbd_queue::toggle_ime (int, int) { return 0; }
 
-void key_sequence::push (Char, int) {}
-void key_sequence::done (Char, int) {}
+void key_sequence::push (lChar, int) {}
+void key_sequence::done (lChar, int) {}

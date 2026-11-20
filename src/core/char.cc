@@ -347,14 +347,22 @@ lisp
 Fchar_upcase (lisp cc)
 {
   check_char (cc);
-  return make_char (char_upcase (xchar_code (cc)));
+  lChar lc = xchar_lchar (cc);
+  if (LCHAR_KIND (lc) != LCKIND_CHAR)
+    return cc;
+  ucs4_t c = char_upcase (ucs4_t (LCHAR_PAYLOAD (lc)));
+  return make_char_from_lchar ((lc & ~LCHAR_PAYLOAD_MASK) | lChar (c));
 }
 
 lisp
 Fchar_downcase (lisp cc)
 {
   check_char (cc);
-  return make_char (char_downcase (xchar_code (cc)));
+  lChar lc = xchar_lchar (cc);
+  if (LCHAR_KIND (lc) != LCKIND_CHAR)
+    return cc;
+  ucs4_t c = char_downcase (ucs4_t (LCHAR_PAYLOAD (lc)));
+  return make_char_from_lchar ((lc & ~LCHAR_PAYLOAD_MASK) | lChar (c));
 }
 
 lisp
@@ -370,22 +378,20 @@ lisp
 Fset_meta_bit (lisp cc, lisp f)
 {
   check_char (cc);
-  ucs4_t c = xchar_code (cc);
+  lChar lc = xchar_lchar (cc);
   if (f != Qnil)
     {
-      if (ascii_char_p (c))
-        c = char_to_meta_char (c);
-      else if (function_char_p (c))
-        c = function_to_meta_function (c);
+      /* M- を付けられるのは ASCII の文字と function key だけ。
+         全角などの非 ASCII 文字に付けると meta function key に
+         化けていた (issue #431)。 */
+      if (LCHAR_KIND (lc) == LCKIND_FNKEY
+          || (LCHAR_KIND (lc) == LCKIND_CHAR
+              && ascii_char_p (LCHAR_PAYLOAD (lc))))
+        lc |= LCMOD_META;
     }
   else
-    {
-      if (meta_char_p (c))
-        c = meta_char_to_char (c);
-      else if (meta_function_char_p (c))
-        c = meta_function_to_function (c);
-    }
-  return make_char (c);
+    lc &= ~LCMOD_META;
+  return make_char_from_lchar (lc);
 }
 
 lisp

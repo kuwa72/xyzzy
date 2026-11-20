@@ -802,7 +802,7 @@ setup_minimal_keybindings ()
     Fsi_fset (dc_sym, xcons (Qlambda, xcons (Qnil, body)));
   }
   Fdefine_key (km, make_char (0x04), dc_sym);
-  Fdefine_key (km, make_char (CCF_DELETE), dc_sym);
+  Fdefine_key (km, make_char_key (CCF_DELETE), dc_sym);
 
   // DEL (0x7f): delete-backward-char
   // (lambda () (interactive) (if (> (point) (point-min)) (delete-region (- (point) 1) (point))))
