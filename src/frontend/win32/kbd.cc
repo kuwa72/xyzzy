@@ -738,6 +738,11 @@ decode_syschars (WPARAM wparam)
 #else
         cc |= CC_META_BIT;
 #endif
+      else if (cc >= 128 && !pseudo_ctlchar_p (Char (cc)))
+        /* 旧 Char は M- 付きの非 ASCII を表せない。function_char_p で
+           判定すると全角 U+FF00..U+FF3E が function key 扱いになるので、
+           ここでは Alt を落として文字のまま返す (issue #431)。 */
+        return cc;
       else if (function_char_p (Char (cc)))
         cc = function_to_meta_function (Char (cc));
     }
@@ -749,6 +754,12 @@ decode_syschars (WPARAM wparam)
 lChar
 decode_chars (WPARAM wparam)
 {
+  /* WM_CHAR の非 ASCII は Unicode の code unit そのもの。旧 Char として
+     lc_from_ccf に通すと、全角 U+FF00..U+FF3E が function key と数値で
+     ぶつかって kind を失い、filer などで Key not bound になる
+     (issue #430)。toplev.cc の WM_CHAR と同じ扱いにする。 */
+  if (wparam >= 128 && !(GetKeyState (VK_MENU) < 0))
+    return lChar (wparam);
   return decode_syschars (wparam);
 }
 

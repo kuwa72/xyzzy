@@ -1764,6 +1764,7 @@ Filer::dispatch (lChar cc)
 {
   if (f_fdispatch)
     return 0;
+  int at_root = (f_lkeymap == Qunbound);
   if (f_lkeymap == Qunbound)
     f_lkeymap = xsymbol_value (Vfiler_keymap);
   lisp fn = lookup_keymap (Char (cc), &f_lkeymap, 1);
@@ -1776,8 +1777,17 @@ Filer::dispatch (lChar cc)
   f_lkeymap = Qunbound;
   if (fn == Qnil)
     {
-      app.status_window.puts (Ekey_not_bound, 1);
-      return 0;
+      /* 全角文字は旧 Char の function key 空間 (0xff00..0xff3e) と数値が
+         ぶつかるので filer-keymap に登録できない。印刷可能な ASCII と
+         同じ filer-isearch に回す (issue #430)。prefix 待ちのときは
+         通常どおり Key not bound にする。 */
+      if (at_root && lchar_default_input_p (cc))
+        fn = Sfiler_isearch;
+      else
+        {
+          app.status_window.puts (Ekey_not_bound, 1);
+          return 0;
+        }
     }
 
   try
