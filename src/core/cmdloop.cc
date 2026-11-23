@@ -255,7 +255,12 @@ dispatch (lChar cc)
     }
   else
     {
-      if (g_map.finished_p ())
+      /* 新しいキー列の先頭か、プレフィックスの続きか。default-input
+         (self-insert) へのフォールバックは先頭のときだけ -- プレ
+         フィックス中の未定義キーは "Key not bound" にする
+         (C-x ） が self-insert されないように。 */
+      int fresh_key = g_map.finished_p ();
+      if (fresh_key)
         {
           xsymbol_value (Vprefix_args) = xsymbol_value (Vnext_prefix_args);
           xsymbol_value (Vnext_prefix_args) = Qnil;
@@ -272,7 +277,7 @@ dispatch (lChar cc)
          (issue #431)。未定義 (Qnil) のときだけ default-input-function
          (self-insert) に回す。0 (prefix の続き) では回さない。 */
       command = g_map.lookup (cc);
-      if (command == Qnil && lchar_default_input_p (cc))
+      if (fresh_key && command == Qnil && lchar_default_input_p (cc))
         {
           command = symbol_value (Vdefault_input_function, selected_buffer ());
           if (command == Qnil || command == Qunbound)
