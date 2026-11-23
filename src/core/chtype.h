@@ -183,6 +183,24 @@
 #define LCKIND_MOUSE (2 << LCKIND_SHIFT)
 #define LCKIND_IME   (3 << LCKIND_SHIFT)
 
+/* bit 28: 「この値は旧 Char ではなく文字だ」という印。
+
+   LCKIND_CHAR は kind field が 0 なので、BMP 内の文字は下位 16bit だけの
+   値になり、旧 Char encoding の値と数値で区別がつかない。全角 U+FF00..
+   U+FF3E は旧 function key の CCF_CHAR_MIN..MAX (0xff00..0xff3e) と
+   ぶつかるため、印が無いと normalize_for_keymap が文字を旧 Char と見なして
+   function key に変換してしまう (issue #431)。
+
+   文字由来の LCKIND_CHAR lChar には必ずこの bit を立てる。アクセス系
+   macro (LCHAR_KIND / LCHAR_MODS / LCHAR_PAYLOAD) はこの bit を見ないので、
+   立っていても kind=CHAR・modifier・code point の解釈は変わらない。 */
+#define LCEXPLICIT_CHAR 0x10000000
+
+/* 「コードポイント cp の、修飾なし CHAR lChar」。入力経路が作る文字
+   lChar と同じ形なので、`==` での比較に使える (裸の旧 Char 定数と
+   混ぜると LCEXPLICIT_CHAR の分だけ一致しない)。 */
+#define LCHAR_CHAR(cp) (LCKIND_CHAR | LCEXPLICIT_CHAR | lChar (cp))
+
 /* payload field (bit 0-20) */
 #define LCHAR_PAYLOAD_MASK 0x001FFFFF
 
@@ -591,8 +609,10 @@ lc_from_ccf (Char c)
     }
 
   /* Regular char (ASCII/SJIS/UCS2) または pseudo_ctlchar の一部 (0xff70+ 等)
-     は code point 空間に収まるので LCKIND_CHAR として渡す */
-  return mods | LCKIND_CHAR | lChar (base);
+     は code point 空間に収まるので LCKIND_CHAR として渡す。
+     LCEXPLICIT_CHAR を立てて、旧 Char との数値衝突 (U+FF00..U+FF3E) を
+     normalize_for_keymap が区別できるようにする (issue #431)。 */
+  return mods | LCKIND_CHAR | LCEXPLICIT_CHAR | lChar (base);
 }
 
 inline Char

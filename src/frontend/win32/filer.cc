@@ -1767,13 +1767,13 @@ Filer::dispatch (lChar cc)
   int at_root = (f_lkeymap == Qunbound);
   if (f_lkeymap == Qunbound)
     f_lkeymap = xsymbol_value (Vfiler_keymap);
-  lisp fn = lookup_keymap (Char (cc), &f_lkeymap, 1);
+  lisp fn = lookup_keymap (cc, &f_lkeymap, 1);
   if (!fn)
     {
-      f_keyseq.push (Char (cc), 1);
+      f_keyseq.push (cc, 1);
       return 1;
     }
-  f_keyseq.done (Char (cc), 1);
+  f_keyseq.done (cc, 1);
   f_lkeymap = Qunbound;
   if (fn == Qnil)
     {

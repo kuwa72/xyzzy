@@ -467,13 +467,13 @@ ime_composition (HWND hwnd, LPARAM lparam)
                       if (*sp >= 0xD800 && *sp <= 0xDBFF && sp + 1 < se
                           && sp[1] >= 0xDC00 && sp[1] <= 0xDFFF)
                         {
-                          app.kbdq.putc (0x10000
-                                         + ((lChar (*sp) - 0xD800) << 10)
-                                         + (lChar (sp[1]) - 0xDC00));
+                          app.kbdq.putc (LCHAR_CHAR (0x10000
+                                                    + ((lChar (*sp) - 0xD800) << 10)
+                                                    + (lChar (sp[1]) - 0xDC00)));
                           sp++;
                         }
                       else
-                        app.kbdq.putc (Char (*sp));
+                        app.kbdq.putc (LCHAR_CHAR (*sp));
                     }
                   lparam &= ~GCS_RESULTSTR;
 
@@ -891,8 +891,9 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 #endif
 #ifdef UNICODE
       /* 5c-2: WM_IME_CHAR (Unicode IME 経由の commit) も WM_CHAR と
-         同じく wparam が UTF-16 code unit。w2i / undef pair は撤廃。 */
-      app.kbdq.putc (Char (wparam));
+         同じく wparam が UTF-16 code unit。w2i / undef pair は撤廃。
+         文字なので LCEXPLICIT_CHAR を立てる (issue #431)。 */
+      app.kbdq.putc (LCHAR_CHAR (wparam));
 #else
       app.kbdq.putw (wparam);
 #endif
@@ -906,7 +907,7 @@ toplevel_wndproc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
       {
         HWND active = get_active_window ();
         if (active == hwnd)
-          app.kbdq.putc (xchar_code (app.lquit_char));
+          app.kbdq.putc (xchar_lchar (app.lquit_char));
         else
           PostMessage (active, msg, wparam, lparam);
         return 0;
@@ -1536,8 +1537,24 @@ Fset_quit_char (lisp ch)
 {
   check_char (ch);
 
-  Char cc = xchar_code (ch);
+  /* char object は lChar を持つ。kind=FNKEY だけが旧 encoding の
+     function key で、kind=CHAR の全角文字を function_char_p に
+     掛けると誤判定する (issue #431)。 */
+  lChar lc = xchar_lchar (ch);
   int vk = -1, mod = 0;
+  Char cc;
+  if (LCHAR_KIND (lc) == LCKIND_FNKEY)
+    cc = ccf_from_lc (lc);
+  else
+    {
+      ucs4_t cp = LCHAR_PAYLOAD (lc);
+      if (cp >= 128)
+        return Qnil;
+      if (LCHAR_MODS (lc) & LCMOD_META)
+        mod |= MOD_ALT;
+      cc = Char (cp);
+    }
+
   if (meta_char_p (cc))
     {
       mod |= MOD_ALT;

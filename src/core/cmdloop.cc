@@ -135,7 +135,7 @@ prefix_key_hook_enter (lChar cp)
   lisp maps = g_map.pending_keymaps ();
   protect_gc gcpro (maps);
   g_prefix_hook_shown = 1;
-  run_prefix_key_hook (maps, make_char (ucs4_t (cp)));
+  run_prefix_key_hook (maps, make_char_from_lchar (cp));
 }
 
 static void
@@ -218,11 +218,6 @@ dispatch (lChar cc)
 {
   lisp command;
   Char c = Char (cc);
-  /* BMP 外の文字は Char (16bit) に落とすと function key の空間と
-     ぶつかる (U+1F600 → 0xF600 = CCF_META)。文字としての判定と
-     *last-command-char* には code point をそのまま使う。BMP 内では
-     cp == c なので、旧来の経路は何も変わらない。 */
-  const lChar cp = lchar_astral_char_p (cc) ? LCHAR_PAYLOAD (cc) : lChar (c);
   dlog ("dispatch: cc=0x%lx c=0x%x\n", (unsigned long)cc, (unsigned)c);
 
   app.gc_itimer.reset ();
@@ -260,26 +255,34 @@ dispatch (lChar cc)
     }
   else
     {
-      if (g_map.finished_p ())
+      /* 新しいキー列の先頭か、プレフィックスの続きか。default-input
+         (self-insert) へのフォールバックは先頭のときだけ -- プレ
+         フィックス中の未定義キーは "Key not bound" にする
+         (C-x ） が self-insert されないように。 */
+      int fresh_key = g_map.finished_p ();
+      if (fresh_key)
         {
           xsymbol_value (Vprefix_args) = xsymbol_value (Vnext_prefix_args);
           xsymbol_value (Vnext_prefix_args) = Qnil;
           xsymbol_value (Vprefix_value) = xsymbol_value (Vnext_prefix_value);
           xsymbol_value (Vnext_prefix_value) = Qnil;
 
-          if (lchar_default_input_p (cc))
-            {
-              command = symbol_value (Vdefault_input_function, selected_buffer ());
-              if (command == Qnil || command == Qunbound)
-                return Qt;
-              goto run_command;
-            }
           g_map.init ();
         }
       else if (char_mouse_move_p (cc))
         return Qt;
 
+      /* キーマップを先に見る。全角文字など非 ASCII の CHAR も sparse
+         keymap に登録できるので、束縛があればそちらが優先される
+         (issue #431)。未定義 (Qnil) のときだけ default-input-function
+         (self-insert) に回す。0 (prefix の続き) では回さない。 */
       command = g_map.lookup (cc);
+      if (fresh_key && command == Qnil && lchar_default_input_p (cc))
+        {
+          command = symbol_value (Vdefault_input_function, selected_buffer ());
+          if (command == Qnil || command == Qunbound)
+            return Qt;
+        }
       dlog ("dispatch: lookup → command=%p (Qnil=%p)\n", (void*)command, (void*)Qnil);
       if (command && symbolp (command))
         {
@@ -299,13 +302,13 @@ dispatch (lChar cc)
       if (!command)
         {
           dlog ("dispatch: no binding for 0x%x\n", (unsigned)c);
-          app.keyseq.push (c, !app.kbdq.macro_is_running ());
+          app.keyseq.push (cc, !app.kbdq.macro_is_running ());
           Fcontinue_pre_selection ();
           app.kbdq.close_ime ();
           /* キーボードマクロの再生中は誰も見ていないので出さない
              (出すと 1 打鍵ごとに画面を作り直すことになる)。 */
           if (!app.kbdq.macro_is_running ())
-            prefix_key_hook_enter (cp);
+            prefix_key_hook_enter (cc);
           return Qt;
         }
     }
@@ -316,7 +319,7 @@ run_command:
   prefix_key_hook_leave ();
   xsymbol_value (Vlast_command) = xsymbol_value (Vthis_command);
   xsymbol_value (Vthis_command) = command;
-  xsymbol_value (Vlast_command_char) = make_char (ucs4_t (cp));
+  xsymbol_value (Vlast_command_char) = make_char_from_lchar (cc);
   if (command != Qnil)
     {
       selected_buffer ()->safe_run_hook (Vpre_command_hook, 1);
@@ -327,11 +330,11 @@ run_command:
             {
               xsymbol_value (Vthis_command) = xsymbol_value (Vlast_command);
               g_map.translate (command, new_command);
-              app.keyseq.push (c, !app.kbdq.macro_is_running ());
+              app.keyseq.push (cc, !app.kbdq.macro_is_running ());
               Fcontinue_pre_selection ();
               app.kbdq.close_ime ();
               if (!app.kbdq.macro_is_running ())
-                prefix_key_hook_enter (cp);
+                prefix_key_hook_enter (cc);
               return Qt;
             }
           command = new_command;
@@ -342,7 +345,7 @@ run_command:
 
   if (!app.kbdq.macro_is_running ())
     app.status_window.clear ();
-  app.keyseq.done (c, !app.kbdq.macro_is_running ());
+  app.keyseq.done (cc, !app.kbdq.macro_is_running ());
   app.kbdq.restore_ime ();
   app.kbdq.set_next_command_key ();
 

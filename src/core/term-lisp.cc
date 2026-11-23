@@ -147,10 +147,10 @@ lchar_from_lisp_key (lisp lkey)
 {
   if (!charp (lkey))
     return fixnum_value (lkey);
-  /* BMP 外は Char (16bit) に落とせない (U+1F600 → 0xF600 = CCF_META)。
-     機能キーの空間と重ならないので、そのまま code point として渡す。 */
-  ucs4_t cc = xchar_code (lkey);
-  return cc >= 0x10000 ? (LCKIND_CHAR | lChar (cc)) : lc_from_ccf (Char (cc));
+  /* char object は lChar を保持しているのでそのまま使う。xchar_code 経由だと
+     全角 U+FF00..U+FF3E が旧 Char encoding に戻って function key と
+     区別がつかない (issue #431)。 */
+  return xchar_lchar (lkey);
 }
 
 // (si:terminal-send-key process key)

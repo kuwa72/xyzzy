@@ -303,17 +303,17 @@ kbd_macro_context::running () const
 class key_sequence
 {
   enum {MAX_KEYSEQ = 32};
-  Char k_seq[MAX_KEYSEQ];
+  lChar k_seq[MAX_KEYSEQ];
   int k_used;
   int k_last_used;
 
-  void store (Char);
+  void store (lChar);
   void notice (int, int);
 public:
   key_sequence ();
-  void push (Char, int);
+  void push (lChar, int);
   void again (int);
-  void done (Char, int);
+  void done (lChar, int);
 };
 
 class ime_comp_queue
